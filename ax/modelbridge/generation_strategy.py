@@ -149,6 +149,9 @@ class GenerationStrategy(GenerationStrategyInterface):
                 "so optimization is not resumable if interrupted."
             )
         self._seen_trial_indices_by_status = None
+        # Set name to an explicit value ahead of time to avoid
+        # adding properties during equality checks
+        self._name = self.name
 
     @property
     def is_node_based(self) -> bool:

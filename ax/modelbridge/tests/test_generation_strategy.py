@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
+from copy import deepcopy
 from typing import cast, List
 from unittest import mock
 from unittest.mock import MagicMock, patch
@@ -45,7 +46,10 @@ from ax.modelbridge.transition_criterion import (
     MinTrials,
 )
 from ax.models.random.sobol import SobolGenerator
-from ax.utils.common.equality import same_elements
+from ax.utils.common.equality import (
+    object_attribute_dicts_find_unequal_fields,
+    same_elements,
+)
 from ax.utils.common.mock import mock_patch_method_original
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
@@ -1293,6 +1297,102 @@ class TestGenerationStrategy(TestCase):
             UnsupportedError, "is not supported for GenerationNode based"
         ):
             gs_test.current_step_index
+
+    def test_generation_strategy_eq_print(self) -> None:
+        """
+        Checking equality of generation
+        strategies would cause RuntimeError: dictionary changed size during iteration.
+        The dictionary being the __dict__ representation of the strategy itself,
+        meaning that a field was added during the equality check.
+        (The added field was generation strategy.name)
+        Printing the generation strategy would set this field.
+        """
+        gs1 = GenerationStrategy(
+            steps=[
+                GenerationStep(model=Models.SOBOL, num_trials=5),
+                GenerationStep(model=Models.GPEI, num_trials=-1),
+            ]
+        )
+        gs2 = GenerationStrategy(
+            steps=[
+                GenerationStep(model=Models.SOBOL, num_trials=5),
+                GenerationStep(model=Models.GPEI, num_trials=-1),
+            ]
+        )
+        self.assertEqual(gs1, gs2)
+
+    def test_generation_strategy_eq_no_print(self) -> None:
+        """
+        Checking equality of generation
+        strategies would cause RuntimeError: dictionary changed size during iteration.
+        The dictionary being the __dict__ representation of the strategy itself,
+        meaning that a field was added during the equality check.
+        (The added field was generation strategy.name)
+        Printing the generation strategy would set this field.
+
+        Adding tests to ensure this issue doesn't reappear
+        """
+        gs1 = GenerationStrategy(
+            steps=[
+                GenerationStep(model=Models.SOBOL, num_trials=5),
+                GenerationStep(model=Models.GPEI, num_trials=-1),
+            ]
+        )
+        gs2 = GenerationStrategy(
+            steps=[
+                GenerationStep(model=Models.SOBOL, num_trials=5),
+                GenerationStep(model=Models.GPEI, num_trials=-1),
+            ]
+        )
+        print(gs1)
+        print(gs2)
+        self.assertEqual(gs1, gs2)
+
+    def test_generation_strategy_eq_not_mutible(self) -> None:
+        """
+        Checking equality of generation
+        strategies would cause RuntimeError: dictionary changed size during iteration.
+        The dictionary being the __dict__ representation of the strategy itself,
+        meaning that a field was added during the equality check.
+        (The added field was generation strategy.name)
+        Printing the generation strategy would set this field.
+
+        Adding tests to ensure this issue doesn't reappear
+        """
+        gs1 = GenerationStrategy(
+            steps=[
+                GenerationStep(model=Models.SOBOL, num_trials=5),
+                GenerationStep(model=Models.GPEI, num_trials=-1),
+            ]
+        )
+        gs1_dict = deepcopy(gs1.__dict__)
+        print(gs1)
+        gs2_dict = gs1.__dict__
+        type_dict, value_dict = object_attribute_dicts_find_unequal_fields(
+            gs2_dict, gs1_dict
+        )
+
+    def test_generation_strategy_eq_repr(self) -> None:
+        """
+        Checking equality of generation
+        strategies would cause RuntimeError: dictionary changed size during iteration.
+        The dictionary being the __dict__ representation of the strategy itself,
+        meaning that a field was added during the equality check.
+        (The added field was generation strategy.name)
+        Printing the generation strategy would set this field.
+
+        Adding tests to ensure this issue doesn't reappear
+        """
+        gs1 = GenerationStrategy(
+            steps=[
+                GenerationStep(model=Models.SOBOL, num_trials=5),
+                GenerationStep(model=Models.GPEI, num_trials=-1),
+            ]
+        )
+        keys = gs1.__dict__.keys()
+        print(gs1.__repr__())
+        new_keys = gs1.__dict__.keys()
+        self.assertEqual(keys, new_keys)
 
     # ------------- Testing helpers (put tests above this line) -------------
 
