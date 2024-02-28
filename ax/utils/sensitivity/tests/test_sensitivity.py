@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 
+import math
 from typing import cast
 from unittest.mock import patch, PropertyMock
 
@@ -14,7 +15,11 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.models.torch.botorch import BotorchModel
 from ax.utils.common.testutils import TestCase
 from ax.utils.sensitivity.derivative_gp import posterior_derivative
-from ax.utils.sensitivity.derivative_measures import GpDGSMGpMean, GpDGSMGpSampling
+from ax.utils.sensitivity.derivative_measures import (
+    compute_derivatives_from_model_list,
+    GpDGSMGpMean,
+    GpDGSMGpSampling,
+)
 from ax.utils.sensitivity.sobol_measures import (
     _get_model_per_metric,
     ax_parameter_sens,
@@ -71,6 +76,13 @@ class SensitivityAnanlysisTest(TestCase):
         self.assertEqual(gradients_measure.shape, torch.Size([2, 3]))
         self.assertEqual(gradients_absolute_measure.shape, torch.Size([2, 3]))
         self.assertEqual(gradients_square_measure.shape, torch.Size([2, 3]))
+
+        # Test derivatives from model list
+        res = compute_derivatives_from_model_list(
+            [self.model for _ in range(2)],
+            bounds=bounds,
+        )
+        self.assertEqual(res.shape, (2, 2))
 
     def test_DgsmGpSampling(self) -> None:
         bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()
@@ -235,6 +247,7 @@ class SensitivityAnanlysisTest(TestCase):
                         input_qmc=True,
                         num_mc_samples=num_mc_samples,
                         order=order,
+                        signed=False,
                     )
                     self.assertIsInstance(ind_dict, dict)
 
@@ -250,7 +263,36 @@ class SensitivityAnanlysisTest(TestCase):
                     # can compare values because we sample with deterministic seeds
                     for i, row in enumerate(ind_dict):
                         for j, col in enumerate(ind_dict[row]):
-                            self.assertAlmostEqual(ind_dict[row][col], ind_tnsr[i, j])
+                            self.assertAlmostEqual(
+                                ind_dict[row][col], ind_tnsr[i, j].item()
+                            )
+        # Test with signed
+        model_bridge = get_modelbridge(modular=True)
+        # Unsigned
+        ind_dict = ax_parameter_sens(
+            model_bridge,  # pyre-ignore
+            input_qmc=True,
+            num_mc_samples=10,
+            order="total",
+            signed=False,
+        )
+        ind_deriv = compute_derivatives_from_model_list(
+            model_list=[model_bridge.model.surrogate.model],
+            bounds=torch.tensor(model_bridge.model.search_space_digest.bounds).T,
+        )
+        ind_dict_signed = ax_parameter_sens(
+            model_bridge,  # pyre-ignore
+            input_qmc=True,
+            num_mc_samples=10,
+            order="total",
+            # signed=True
+        )
+        for i, pname in enumerate(["x1", "x2"]):
+            self.assertEqual(
+                torch.sign(ind_deriv[0, i]).item(),
+                math.copysign(1, ind_dict_signed["branin"][pname]),
+            )  # signed
+            self.assertTrue(ind_dict["branin"][pname] >= 0)  # unsigned
 
     def test_SobolGPSampling(self) -> None:
         bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()

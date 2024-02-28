@@ -366,3 +366,29 @@ class GpDGSMGpSampling(GpDGSMGpMean):
                 dim=0,
             )
             return gradients_measure_mean_vargp_segp_varmc_segp
+
+
+def compute_derivatives_from_model_list(
+    model_list: List[Model],
+    bounds: torch.Tensor,
+) -> torch.Tensor:
+    """
+    Computes average derivatives of a list of models on a bounded domain. Estimation
+    is according to the GP posterior mean function.
+
+    Args:
+        model_list: A list of m botorch.models.model.Model types for which to compute
+            the average derivative.
+        bounds: A 2 x d Tensor of lower and upper bounds of the domain of the models.
+
+    Returns:
+        A (m x d) tensor of gradient measures.
+    """
+    indices = []
+    for model in model_list:
+        sens_class = GpDGSMGpMean(
+            model=model,
+            bounds=bounds,
+        )
+        indices.append(sens_class.gradient_measure())
+    return torch.stack(indices)
