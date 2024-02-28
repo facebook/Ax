@@ -8,7 +8,12 @@ from typing import Any, Dict
 
 from ax.core.metric import Metric
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
-from ax.core.parameter import FixedParameter, ParameterType, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    FixedParameter,
+    ParameterType,
+    RangeParameter,
+)
 from ax.core.search_space import HierarchicalSearchSpace
 from ax.service.utils.instantiation import InstantiationBase
 from ax.utils.common.testutils import TestCase
@@ -230,6 +235,35 @@ class TestInstantiationtUtils(TestCase):
             self.assertEqual(output.value, 1.0)
             if use_dependents:
                 self.assertEqual(output.dependents, {1.0: ["foo_or_bar", "bazz"]})
+
+    def test_choice_with_is_sorted(self) -> None:
+        for sort_values in [True, False, None]:
+            representation: Dict[str, Any] = {
+                "name": "foo_or_bar",
+                "type": "choice",
+                "values": ["Foo", "Bar"],
+                "sort_values": sort_values,
+                "is_ordered": True,
+            }
+            output = checked_cast(
+                ChoiceParameter, InstantiationBase.parameter_from_json(representation)
+            )
+            self.assertIsInstance(output, ChoiceParameter)
+            self.assertEqual(output.is_ordered, True)
+            if sort_values is None:
+                self.assertIsNone(sort_values)
+            else:
+                self.assertEqual(output.sort_values, sort_values)
+
+        with self.assertRaisesRegex(ValueError, "Value was not of type <class 'bool'>"):
+            representation: Dict[str, Any] = {
+                "name": "foo_or_bar",
+                "type": "choice",
+                "values": ["Foo", "Bar"],
+                "sort_values": ["Foo"],
+                "is_ordered": True,
+            }
+            _ = InstantiationBase.parameter_from_json(representation)
 
     def test_hss(self) -> None:
         parameter_dicts = [
