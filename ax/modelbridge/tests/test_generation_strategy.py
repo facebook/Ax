@@ -1294,6 +1294,54 @@ class TestGenerationStrategy(TestCase):
         ):
             gs_test.current_step_index
 
+    def test_generation_strategy_eq_print(self) -> None:
+        """
+        Calling a GenerationStrategy's ``__repr__`` method should not alter
+        its ``__dict__`` attribute.
+        In the past, ``__repr__``  was causing ``name`` to change
+        under the hood, resulting in
+        ``RuntimeError: dictionary changed size during iteration.``
+        This test ensures this issue doesn't reappear.
+        """
+        gs1 = GenerationStrategy(
+            steps=[
+                GenerationStep(model=Models.SOBOL, num_trials=5),
+                GenerationStep(model=Models.GPEI, num_trials=-1),
+            ]
+        )
+        gs2 = GenerationStrategy(
+            steps=[
+                GenerationStep(model=Models.SOBOL, num_trials=5),
+                GenerationStep(model=Models.GPEI, num_trials=-1),
+            ]
+        )
+        self.assertEqual(gs1, gs2)
+
+    def test_generation_strategy_eq_no_print(self) -> None:
+        """
+        Calling a GenerationStrategy's ``__repr__`` method should not alter
+        its ``__dict__`` attribute.
+        In the past, ``__repr__``  was causing ``name`` to change
+        under the hood, resulting in
+        ``RuntimeError: dictionary changed size during iteration.``
+        This test ensures this issue doesn't reappear.
+        """
+        gs1 = GenerationStrategy(
+            steps=[
+                GenerationStep(model=Models.SOBOL, num_trials=5),
+                GenerationStep(model=Models.GPEI, num_trials=-1),
+            ]
+        )
+        gs2 = GenerationStrategy(
+            steps=[
+                GenerationStep(model=Models.SOBOL, num_trials=5),
+                GenerationStep(model=Models.GPEI, num_trials=-1),
+            ]
+        )
+        print(gs1)
+        print(gs2)
+        self.assertEqual(gs1, gs2)
+
     # ------------- Testing helpers (put tests above this line) -------------
 
     def _run_GS_for_N_rounds(
