@@ -15,6 +15,7 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
 from ax.utils.common.typeutils import checked_cast
+from ax.utils.sensitivity.derivative_measures import compute_derivatives_from_model_list
 from botorch.models.model import Model, ModelList
 from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.sampling.normal import SobolQMCNormalSampler
@@ -746,10 +747,18 @@ def ax_parameter_sens(
     model_bridge: TorchModelBridge,
     metrics: Optional[List[str]] = None,
     order: str = "first",
+    signed: bool = True,
     **sobol_kwargs: Any,
 ) -> Dict[str, Dict[str, np.ndarray]]:
     """
     Compute sensitivity for all metrics on an TorchModelBridge.
+
+    Sobol measures are always positive regardless of the direction in which the
+    parameter influences f. If `signed` is set to True, then the Sobol measure for each
+    parameter will be given as its sign the sign of the average gradient with respect to
+    that parameter across the search space. Thus, important parameters that, when
+    increased, decrease f will have large and negative values; unimportant parameters
+    will have values close to 0.
 
     Args:
         model_bridge: A ModelBridge object with models that were fit.
@@ -758,6 +767,7 @@ def ax_parameter_sens(
             Defaults to model_bridge.outcomes.
         order: A string specifying the order of the Sobol indices to be computed.
             Supports "first" and "total" and defaults to "first".
+        singed: A bool for whether the measure should be signed.
         sobol_kwargs: keyword arguments passed on to SobolSensitivityGPMean.
 
     Returns:
@@ -770,12 +780,20 @@ def ax_parameter_sens(
     # can safely access _search_space_digest after type check
     torch_model = _get_torch_model(model_bridge)
     digest = torch_model.search_space_digest
+    model_list = _get_model_per_metric(torch_model, metrics)
+    bounds = torch.tensor(digest.bounds).T  # transposing to make it 2 x d
     ind = compute_sobol_indices_from_model_list(
-        model_list=_get_model_per_metric(torch_model, metrics),
-        bounds=torch.tensor(digest.bounds).T,  # transposing to make it 2 x d
+        model_list=model_list,
+        bounds=bounds,
         order=order,
         **sobol_kwargs,
     )
+    if signed:
+        ind_deriv = compute_derivatives_from_model_list(
+            model_list=model_list,
+            bounds=bounds,
+        )
+        ind *= torch.sign(ind_deriv)
     return _array_with_string_indices_to_dict(
         rows=metrics, cols=digest.feature_names, A=ind.numpy()
     )
@@ -831,6 +849,9 @@ def _get_model_per_metric(
                     # property and `subset_outputs` method.
                     if metric_model.num_outputs > 1:  # subset to relevant output
                         metric_model = metric_model.subset_output([i])
+                    if isinstance(metric_model, ModelList):
+                        assert len(metric_model.models) == 1
+                        metric_model = metric_model.models[0]
                     model_list.append(metric_model)
                     continue  # found surrogate for `m`, so we can move on to next `m`.
         return model_list

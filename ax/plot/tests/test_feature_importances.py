@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import json
 from typing import Dict
 
 import torch
@@ -103,3 +104,15 @@ class FeatureImportancesTest(TestCase):
             sensitivity_values=lengthscale_sensitivity_values
         )
         self.assertIsInstance(plot, AxPlotConfig)
+        # Test sign coloring
+        plot_str = json.dumps(plot.data)
+        self.assertNotIn('"showlegend": true', plot_str)  # no legend
+        self.assertNotIn("darkorange", plot_str)  # no negative color
+        # Flip a sign
+        lengthscale_sensitivity_values["branin"]["x1"] *= -1
+        plot = plot_feature_importance_by_feature(
+            sensitivity_values=lengthscale_sensitivity_values
+        )
+        plot_str = json.dumps(plot.data)
+        self.assertIn('"showlegend": true', plot_str)  # legend
+        self.assertIn("darkorange", plot_str)  # negative color
