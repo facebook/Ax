@@ -39,11 +39,6 @@ def prepare_experiment_for_plotting(
     dropped = df.drop(ignored_names, axis=1)
 
     renamed = dropped.rename(
-        # pyre-fixme[6] Expected `typing.Union[
-        # typing.Callable[[Optional[typing.Hashable]], Optional[typing.Hashable]],
-        # None, typing.Mapping[Optional[typing.Hashable], typing.Any]]` for 1st
-        # parameter `columns` to call `pd.core.frame.DataFrame.rename` but got
-        # `typing.Dict[str, str]`.
         columns=_get_shortest_unique_suffix_dict([str(c) for c in dropped.columns])
     )
 

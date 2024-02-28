@@ -288,6 +288,7 @@ class ReportUtilsTest(TestCase):
         with patch.object(Experiment, "lookup_data", lambda self: mock_results):
             df = exp_to_df(exp=exp)
         # all but two rows should have a metric value of NaN
+        # pyre-fixme[16]: `bool` has no attribute `sum`.
         self.assertEqual(pd.isna(df[OBJECTIVE_NAME]).sum(), len(df.index) - 2)
 
         # an experiment with more results than arms raises an error

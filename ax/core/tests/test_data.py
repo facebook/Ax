@@ -101,7 +101,6 @@ class DataTest(TestCase):
     def test_EmptyData(self) -> None:
         df = Data().df
         self.assertTrue(df.empty)
-        # pyre-fixme[6]: For 1st param expected `Iterable[Variable[_T]]` but got `bool`.
         self.assertTrue(set(df.columns == Data.REQUIRED_COLUMNS))
         self.assertTrue(Data.from_multiple_data([]).df.empty)
 
