@@ -70,6 +70,7 @@ EXPECTED_KEYS_IN_PARAM_REPR = {
     "log_scale",
     "target_value",
     "is_fidelity",
+    "sort_values",
     "is_ordered",
     "is_task",
     "digits",
@@ -241,6 +242,9 @@ class InstantiationBase:
             is_fidelity=checked_cast(bool, representation.get("is_fidelity", False)),
             is_task=checked_cast(bool, representation.get("is_task", False)),
             target_value=representation.get("target_value", None),  # pyre-ignore[6]
+            sort_values=checked_cast_optional(
+                bool, representation.get("sort_values", None)
+            ),
             dependents=checked_cast_optional(
                 dict, representation.get("dependents", None)
             ),
