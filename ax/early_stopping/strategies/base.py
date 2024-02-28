@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
+import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from logging import Logger
@@ -110,7 +111,13 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         self.max_progression = max_progression
         self.min_curves = min_curves
         self.trial_indices_to_ignore = trial_indices_to_ignore
-        self.true_objective_metric_name = true_objective_metric_name
+        if true_objective_metric_name is not None:
+            warnings.warn(
+                ("`true_objective_metric_name` is deprecated and will be ignored."),
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         self.normalize_progressions = normalize_progressions
 
     @abstractmethod
