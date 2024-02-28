@@ -952,9 +952,6 @@ def exp_to_df(
     )
     for column_name in reversed(initial_column_order):
         if column_name in exp_df.columns:
-            # pyre-ignore[6]: In call `DataFrame.insert`, for 3rd positional argument,
-            # expected `Union[int, Series, Variable[ArrayLike <: [ExtensionArray,
-            # ndarray]]]` but got `Union[DataFrame, Series]`]
             exp_df.insert(0, column_name, exp_df.pop(column_name))
     return exp_df.reset_index(drop=True)
 
