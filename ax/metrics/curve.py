@@ -476,8 +476,8 @@ def _get_single_curve(
     """
     if metric_name is None:
         metric_name = curve_name
-    cs = curve_series[curve_name].rename("mean")  # pyre-ignore [6]
-    dfi = cs.reset_index().rename(columns={"index": map_key})  # pyre-ignore [16]
+    cs = curve_series[curve_name].rename("mean")
+    dfi = cs.reset_index().rename(columns={"index": map_key})
     dfi["trial_index"] = trial.index
     dfi["arm_name"] = trial.arm.name  # pyre-ignore [16]
     dfi["metric_name"] = metric_name
@@ -488,6 +488,7 @@ def _get_single_curve(
         dfi.iloc[: smoothing_window - 1, dfi.columns.get_loc("mean")] = first_smoothed
     if cumulative_best:
         dfi["mean"] = dfi["mean"].cummin() if lower_is_better else dfi["mean"].cummax()
+    # pyre-fixme[7]: Expected `DataFrame` but got `Optional[DataFrame]`.
     return dfi.drop_duplicates()
 
 
@@ -515,13 +516,12 @@ def _get_scalarized_curve_metric_sub_df(
         columns, respectively.
     """
     sub_df = metric.offset + sum(
-        coeff * dfs_mean[metric]  # pyre-ignore [58]
-        for metric, coeff in metric.coefficients.items()
+        coeff * dfs_mean[metric] for metric, coeff in metric.coefficients.items()
     )
     sub_df = sub_df.rename(columns={trial.index: "mean"})  # pyre-ignore [16]
     if dfs_sem:
         var_df = sum(
-            (coeff * dfs_sem[metric]) ** 2  # pyre-ignore [58]
+            (coeff * dfs_sem[metric]) ** 2
             for metric, coeff in metric.coefficients.items()
         )
         sem_df = var_df.apply(np.sqrt).rename(  # pyre-ignore [16]
