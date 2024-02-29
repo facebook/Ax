@@ -32,7 +32,6 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         max_progression: Optional[float] = None,
         min_curves: Optional[int] = 5,
         trial_indices_to_ignore: Optional[List[int]] = None,
-        true_objective_metric_name: Optional[str] = None,
         normalize_progressions: bool = False,
     ) -> None:
         """Construct a PercentileEarlyStoppingStrategy instance.
@@ -60,9 +59,6 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 `min_curves` trials are completed but their curve data was not
                 successfully retrieved, further trials may not be early-stopped.
             trial_indices_to_ignore: Trial indices that should not be early stopped.
-            true_objective_metric_name: The actual objective to be optimized; used in
-                situations where early stopping uses a proxy objective (such as training
-                loss instead of eval loss) for stopping decisions.
             normalize_progressions: Normalizes the progression column of the MapData df
                 by dividing by the max. If the values were originally in [0, `prog_max`]
                 (as we would expect), the transformed values will be in [0, 1]. Useful
@@ -78,7 +74,6 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             min_progression=min_progression,
             max_progression=max_progression,
             min_curves=min_curves,
-            true_objective_metric_name=true_objective_metric_name,
             normalize_progressions=normalize_progressions,
         )
 
@@ -205,7 +200,12 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             f"{data_at_last_progression}."
         )
 
-        # check for enough number of trials with data
+        # Check that enough trials have data at the last progression. Note that
+        # `is_eligible_any` is called in `should_stop_trials_early`, checks that
+        # at least `min_curves` trials have completed, and uses `align_partial_results`
+        # to fill in results for each metric and progression. Therefore, the following
+        # condition should only be triggered when `align_partial_results` encounters an
+        # exception or `should_stop_trial_early` is called without the aligned data.
         if (
             self.min_curves is not None
             and len(data_at_last_progression) < self.min_curves  # pyre-ignore[58]

@@ -347,6 +347,66 @@ def get_branin_experiment_with_timestamp_map_metric(
     return exp
 
 
+def get_multi_objective_branin_experiment_with_timestamp_map_metric(
+    with_status_quo: bool = False,
+    rate: Optional[float] = None,
+    has_objective_thresholds: bool = True,
+    bounds: Optional[List[float]] = None,
+    map_tracking_metric: bool = False,
+) -> Experiment:
+    """Returns"""
+
+    def get_map_metric(name: str) -> BraninTimestampMapMetric:
+        return BraninTimestampMapMetric(
+            name=name,
+            param_names=["x1", "x2"],
+            rate=rate,
+            lower_is_better=True,
+        )
+
+    num_objectives = 2
+    bounds = bounds or [99.0, 99.0]
+    objective_thresholds = [
+        ObjectiveThreshold(
+            metric=get_branin_metric(name=f"branin_map_{m}"),
+            bound=bound,
+            op=ComparisonOp.LEQ,
+            relative=False,
+        )
+        for m, bound in zip(range(num_objectives), bounds)
+    ]
+    tracking_metrics = (
+        [get_map_metric(f"tracking_branin_map_{m}") for m in range(num_objectives)]
+        if map_tracking_metric
+        else [BraninMetric(name="branin", param_names=["x1", "x2"])]
+    )
+    exp = Experiment(
+        name="multi_objective_branin_with_timestamp_map_metric",
+        search_space=get_branin_search_space(),
+        optimization_config=MultiObjectiveOptimizationConfig(
+            objective=MultiObjective(
+                objectives=[
+                    Objective(
+                        metric=get_map_metric(f"branin_map_{m}"),
+                    )
+                    for m in range(num_objectives)
+                ],
+            ),
+            objective_thresholds=objective_thresholds
+            if has_objective_thresholds
+            else None,
+        ),
+        tracking_metrics=cast(List[Metric], tracking_metrics),
+        runner=SyntheticRunner(),
+        default_data_type=DataType.MAP_DATA,
+    )
+
+    if with_status_quo:
+        exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
+
+    return exp
+
+
 def run_branin_experiment_with_generation_strategy(
     generation_strategy: GenerationStrategy,
     num_trials: int = 6,
@@ -370,9 +430,20 @@ def get_test_map_data_experiment(
     num_fetches: int,
     num_complete: int,
     map_tracking_metric: bool = False,
+    multi_objective: bool = False,
+    bounds: Optional[List[float]] = None,
 ) -> Experiment:
-    experiment = get_branin_experiment_with_timestamp_map_metric(
-        rate=0.5, map_tracking_metric=map_tracking_metric
+    experiment = (
+        get_multi_objective_branin_experiment_with_timestamp_map_metric(
+            rate=0.5,
+            bounds=bounds,
+            map_tracking_metric=map_tracking_metric,
+        )
+        if multi_objective
+        else get_branin_experiment_with_timestamp_map_metric(
+            rate=0.5,
+            map_tracking_metric=map_tracking_metric,
+        )
     )
     for i in range(num_trials):
         trial = experiment.new_trial().add_arm(arm=get_branin_arms(n=1, seed=i)[0])
@@ -383,6 +454,7 @@ def get_test_map_data_experiment(
     for i in range(num_complete):
         experiment.trials[i].mark_as(status=TrialStatus.COMPLETED)
     experiment.attach_data(data=experiment.fetch_data())
+
     return experiment
 
 
@@ -1974,12 +2046,6 @@ def get_percentile_early_stopping_strategy() -> PercentileEarlyStoppingStrategy:
     )
 
 
-def get_percentile_early_stopping_strategy_with_true_objective_metric_name() -> PercentileEarlyStoppingStrategy:  # noqa
-    strategy = get_percentile_early_stopping_strategy()
-    strategy.true_objective_metric_name = "true_objective"
-    return strategy
-
-
 def get_percentile_early_stopping_strategy_with_non_objective_metric_name() -> PercentileEarlyStoppingStrategy:  # noqa
     return PercentileEarlyStoppingStrategy(
         metric_names=["foo"],
@@ -1993,7 +2059,6 @@ def get_percentile_early_stopping_strategy_with_non_objective_metric_name() -> P
 
 def get_threshold_early_stopping_strategy() -> ThresholdEarlyStoppingStrategy:
     return ThresholdEarlyStoppingStrategy(
-        true_objective_metric_name="true_objective",
         metric_threshold=0.1,
         min_progression=0.2,
         trial_indices_to_ignore=[0, 1, 2],

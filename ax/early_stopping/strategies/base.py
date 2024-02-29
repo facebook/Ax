@@ -13,6 +13,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Ty
 import numpy as np
 import pandas as pd
 from ax.core.base_trial import TrialStatus
+from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
@@ -70,7 +71,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         max_progression: Optional[float] = None,
         min_curves: Optional[int] = None,
         trial_indices_to_ignore: Optional[List[int]] = None,
-        true_objective_metric_name: Optional[str] = None,
         normalize_progressions: bool = False,
     ) -> None:
         """A BaseEarlyStoppingStrategy class.
@@ -91,9 +91,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 `min_curves` trials are completed but their curve data was not
                 successfully retrieved, further trials may not be early-stopped.
             trial_indices_to_ignore: Trial indices that should not be early stopped.
-            true_objective_metric_name: The actual objective to be optimized; used in
-                situations where early stopping uses a proxy objective (such as training
-                loss instead of eval loss) for stopping decisions.
             normalize_progressions: Normalizes the progression column of the MapData df
                 by dividing by the max. If the values were originally in [0, `prog_max`]
                 (as we would expect), the transformed values will be in [0, 1]. Useful
@@ -110,7 +107,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         self.max_progression = max_progression
         self.min_curves = min_curves
         self.trial_indices_to_ignore = trial_indices_to_ignore
-        self.true_objective_metric_name = true_objective_metric_name
         self.normalize_progressions = normalize_progressions
 
     @abstractmethod
@@ -288,6 +284,14 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         then we can skip costly steps, such as model fitting, that occur before
         individual trials are considered for stopping.
         """
+        # check for batch trials
+        for idx, trial in experiment.trials.items():
+            if isinstance(trial, BatchTrial):
+                raise ValueError(
+                    f"Trial {idx} is a BatchTrial, which is not yet supported by "
+                    "early stopping strategies."
+                )
+
         # check that there are sufficient completed trials
         num_completed = len(experiment.trial_indices_by_status[TrialStatus.COMPLETED])
         if self.min_curves is not None and num_completed < self.min_curves:
@@ -391,21 +395,42 @@ class BaseEarlyStoppingStrategy(ABC, Base):
     def _default_objective_and_direction(
         self, experiment: Experiment
     ) -> Tuple[str, bool]:
+        metric_names, directions = self._all_objectives_and_directions(
+            experiment=experiment
+        )
+        # if multi-objective optimization, infer as first objective
+        # although it is recommended to specify a metric name(s) explicitly.
+        return metric_names[0], directions[metric_names[0]]
+
+    def _all_objectives_and_directions(
+        self, experiment: Experiment
+    ) -> Tuple[List[str], Dict[str, bool]]:
+        """Returns a dict containing the metric names and corresponding directions for
+        each objective in the experiment or in `self.metric_names`, if specified.
+        """
         if self.metric_names is None:
             optimization_config = not_none(experiment.optimization_config)
             objective = optimization_config.objective
+            objectives = (
+                objective.objectives
+                if isinstance(objective, MultiObjective)
+                else [objective]
+            )
+            metric_names = []
+            directions = {}
+            for objective in objectives:
+                metric_name = objective.metric.name
+                metric_names.append(metric_name)
+                directions[metric_name] = objective.minimize
 
-            # if multi-objective optimization, infer as first objective
-            # although it is recommended to specify a metric name(s) explicitly.
-            if isinstance(objective, MultiObjective):
-                objective = objective.objectives[0]
-
-            metric_name = objective.metric.name
-            minimize = objective.minimize
         else:
-            metric_name = list(self.metric_names)[0]
-            minimize = experiment.metrics[metric_name].lower_is_better or False
-        return metric_name, minimize
+            metric_names = list(self.metric_names)
+            directions = {}
+            for metric_name in metric_names:
+                minimize = experiment.metrics[metric_name].lower_is_better or False
+                directions[metric_name] = minimize
+
+        return metric_names, directions
 
 
 class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
@@ -420,7 +445,6 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         max_progression: Optional[float] = None,
         min_curves: Optional[int] = None,
         trial_indices_to_ignore: Optional[List[int]] = None,
-        true_objective_metric_name: Optional[str] = None,
         normalize_progressions: bool = False,
         min_progression_modeling: Optional[float] = None,
     ) -> None:
@@ -442,9 +466,6 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 `min_curves` trials are completed but their curve data was not
                 successfully retrieved, further trials may not be early-stopped.
             trial_indices_to_ignore: Trial indices that should not be early stopped.
-            true_objective_metric_name: The actual objective to be optimized; used in
-                situations where early stopping uses a proxy objective (such as training
-                loss instead of eval loss) for stopping decisions.
             normalize_progressions: Normalizes the progression column of the MapData df
                 by dividing by the max. If the values were originally in [0, `prog_max`]
                 (as we would expect), the transformed values will be in [0, 1]. Useful
@@ -463,7 +484,6 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             max_progression=max_progression,
             min_curves=min_curves,
             trial_indices_to_ignore=trial_indices_to_ignore,
-            true_objective_metric_name=true_objective_metric_name,
             normalize_progressions=normalize_progressions,
         )
         self.min_progression_modeling = min_progression_modeling
