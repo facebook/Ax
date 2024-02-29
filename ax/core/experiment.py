@@ -14,6 +14,7 @@ from datetime import datetime
 from functools import partial, reduce
 from typing import (
     Any,
+    DefaultDict,
     Dict,
     Hashable,
     Iterable,
@@ -142,6 +143,9 @@ class Experiment(Base):
         self.status_quo = status_quo
         if optimization_config is not None:
             self.optimization_config = optimization_config
+
+        # set of trial indices which have already received data
+        self.not_pending_cache: DefaultDict[int, Set[str]] = defaultdict(set)
 
     @property
     def has_name(self) -> bool:
