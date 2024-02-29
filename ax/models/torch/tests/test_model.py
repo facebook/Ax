@@ -208,7 +208,6 @@ class BoTorchModelTest(TestCase):
     def test_Xs_property(self) -> None:
         self.model.fit(
             datasets=self.block_design_training_data,
-            metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
@@ -225,7 +224,6 @@ class BoTorchModelTest(TestCase):
     def test_dtype(self) -> None:
         self.model.fit(
             datasets=self.block_design_training_data,
-            metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
@@ -234,7 +232,6 @@ class BoTorchModelTest(TestCase):
     def test_device(self) -> None:
         self.model.fit(
             datasets=self.block_design_training_data,
-            metric_names=self.metric_names,
             search_space_digest=self.search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
@@ -266,7 +263,6 @@ class BoTorchModelTest(TestCase):
         ):
             self.model.fit(
                 datasets=datasets,
-                metric_names=self.metric_names_for_list_surrogate,
                 search_space_digest=self.search_space_digest,
             )
 
@@ -286,21 +282,13 @@ class BoTorchModelTest(TestCase):
                 outcome_names=self.metric_names_for_list_surrogate[1:],
             ),
         ]
-        with warnings.catch_warnings(record=True) as ws:
+        with self.assertWarnsRegex(
+            AxWarning, "Forcing converion of data not complying to a block design"
+        ):
             self.model.fit(
                 datasets=datasets,
-                metric_names=self.metric_names_for_list_surrogate,
                 search_space_digest=self.search_space_digest,
             )
-        # pyre-fixme[6]: For 1st param expected `Iterable[object]` but got `bool`.
-        self.assertTrue(any(issubclass(w.category, AxWarning)) for w in ws)
-        self.assertTrue(
-            any(
-                "Forcing converion of data not complying to a block design"
-                in str(w.message)
-                for w in ws
-            )
-        )
 
     def test__construct(self) -> None:
         """Test autoset."""
@@ -310,7 +298,6 @@ class BoTorchModelTest(TestCase):
         ) as mock_choose_model_class:
             self.model.fit(
                 datasets=self.block_design_training_data,
-                metric_names=self.metric_names,
                 search_space_digest=self.mf_search_space_digest,
                 candidate_metadata=self.candidate_metadata,
             )
@@ -332,7 +319,6 @@ class BoTorchModelTest(TestCase):
 
         self.model.fit(
             datasets=self.block_design_training_data,
-            metric_names=self.metric_names,
             search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
@@ -376,7 +362,6 @@ class BoTorchModelTest(TestCase):
         model = BoTorchModel(surrogate_specs=surrogate_specs)
         model.fit(
             datasets=self.moo_training_data,
-            metric_names=self.moo_metric_names,
             search_space_digest=self.search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
@@ -692,7 +677,6 @@ class BoTorchModelTest(TestCase):
         self.model._surrogates = {}
         self.model.fit(
             datasets=self.block_design_training_data,
-            metric_names=self.metric_names,
             search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
@@ -766,7 +750,6 @@ class BoTorchModelTest(TestCase):
         )
         model.fit(
             datasets=self.non_block_design_training_data,
-            metric_names=self.metric_names_for_list_surrogate,
             search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
@@ -797,7 +780,6 @@ class BoTorchModelTest(TestCase):
         )
         model.fit(
             datasets=self.non_block_design_training_data,
-            metric_names=self.metric_names_for_list_surrogate,
             search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
@@ -826,7 +808,6 @@ class BoTorchModelTest(TestCase):
         model = BoTorchModel()
         model.fit(
             datasets=self.non_block_design_training_data,
-            metric_names=self.metric_names_for_list_surrogate,
             search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
@@ -861,7 +842,6 @@ class BoTorchModelTest(TestCase):
         model = BoTorchModel()
         model.fit(
             datasets=self.moo_training_data,
-            metric_names=self.moo_metric_names,
             search_space_digest=self.search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
