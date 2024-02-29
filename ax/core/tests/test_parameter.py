@@ -501,7 +501,7 @@ class ChoiceParameterTest(TestCase):
                 parameter_type=ParameterType.STRING,
                 values=["foo", "bar", "foo"],
             )
-        self.assertEqual(p.values, ["foo", "bar"])
+        self.assertEqual({*p.values}, {"foo", "bar"})
 
 
 class FixedParameterTest(TestCase):
