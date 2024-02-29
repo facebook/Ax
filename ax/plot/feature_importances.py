@@ -75,9 +75,7 @@ def plot_feature_importance_by_metric_plotly(model: ModelBridge) -> go.Figure:
     # plot_feature_importance expects index in first column
     df = df.reindex(columns=(["index"] + [a for a in df.columns if a != "index"]))
 
-    plot_fi = plot_feature_importance_plotly(
-        df, "Absolute Parameter Importances by Metric"
-    )
+    plot_fi = plot_feature_importance_plotly(df, "Parameter Sensitivity by Metric")
     num_subplots = len(df.columns)
     num_features = len(df)
     # Include per-subplot margin for subplot titles (feature names).
@@ -103,6 +101,9 @@ def plot_feature_importance_by_feature_plotly(
     label_dict: Optional[Dict[str, str]] = None,
 ) -> go.Figure:
     """One plot per metric, showing importances by feature.
+
+    If sensitivity values are not all positive, the absolute value will be shown
+    and color will indicate positive or negative sign.
 
     Args:
         model: A model with a ``feature_importances`` method.
@@ -144,6 +145,7 @@ def plot_feature_importance_by_feature_plotly(
         importances = sensitivity_values[metric_name]
         factor_col = "Factor"
         importance_col = "Importance"
+        sign_col = "Sign"
         error_plot = np.asarray(next(iter(importances.values()))).size > 1
         if error_plot:
             importance_col_se = "SE"
@@ -153,38 +155,57 @@ def plot_feature_importance_by_feature_plotly(
                         factor_col: factor,
                         importance_col: np.asarray(importance)[0],
                         importance_col_se: np.asarray(importance)[2],
+                        sign_col: np.sign(np.asarray(importance)[0]).astype(int),
                     }
                     for factor, importance in importances.items()
                 ]
             )
+            df[importance_col] = df[importance_col].abs()
             df = df.sort_values(importance_col)
             error_x = {"type": "data", "array": df[importance_col_se], "visible": True}
 
         else:
             df = pd.DataFrame(
                 [
-                    {factor_col: factor, importance_col: importance}
+                    {
+                        factor_col: factor,
+                        importance_col: importance,
+                        sign_col: np.sign(importance).astype(int),
+                    }
                     for factor, importance in importances.items()
                 ]
             )
+            df[importance_col] = df[importance_col].abs()
             df = df.sort_values(importance_col)
             error_x = None
         if relative:
             df[importance_col] = df[importance_col].div(df[importance_col].sum())
-        traces.append(
-            go.Bar(
-                name=importance_col,
-                orientation="h",
-                visible=i == 0,
-                x=df[importance_col],
-                y=df[factor_col],
-                error_x=error_x,
-                opacity=0.8,
-            )
-        )
 
-        is_visible = [False] * len(sensitivity_values)
-        is_visible[i] = True
+        colors = {-1: "darkorange", 1: "steelblue"}
+        names = {-1: "Decreases metric", 1: "Increases metric"}
+        legend_counter = {-1: 0, 1: 0}
+        all_positive = all(df[sign_col] >= 0)
+        for _, row in df.iterrows():
+            traces.append(
+                go.Bar(
+                    name=names[row[sign_col]],
+                    orientation="h",
+                    visible=i == 0,
+                    x=np.array([row[importance_col]]),
+                    y=np.array([row[factor_col]]),
+                    error_x=error_x,
+                    opacity=0.8,
+                    marker_color=colors[row[sign_col]],
+                    showlegend=(not all_positive)
+                    and (legend_counter[row[sign_col]] == 0),
+                    legendgroup=str(row[sign_col]),
+                )
+            )
+            legend_counter[row[sign_col]] += 1
+
+        is_visible = [False] * (len(sensitivity_values) * len(df))
+        for j in range(i * len(df), (i + 1) * len(df)):
+            is_visible[j] = True
         dropdown.append(
             {"args": ["visible", is_visible], "label": metric_name, "method": "restyle"}
         )
@@ -203,14 +224,10 @@ def plot_feature_importance_by_feature_plotly(
             },  # hack to put dropdown below title regardless of number of features
         }
     ]
-    features = traces[0].y
-    title = (
-        "Relative Parameter Importances"
-        if relative
-        else "Absolute Parameter Importances"
-    )
+    features = list(list(sensitivity_values.values())[0].keys())
+    title = "Normalized parameter sensitivity" if relative else "Parameter sensitivity"
     if importance_measure:
-        title = title + " based on " + importance_measure
+        title = title + " using " + importance_measure
     longest_label = max(len(f) for f in features)
     longest_metric = max(len(m) for m in sensitivity_values.keys())
     layout = go.Layout(
@@ -220,7 +237,6 @@ def plot_feature_importance_by_feature_plotly(
         margin=go.layout.Margin(
             l=8 * min(max(len(idx) for idx in features), 75)
         ),  # noqa E741
-        showlegend=False,
         title=title,
         updatemenus=updatemenus,
         annotations=compose_annotation(caption=caption),

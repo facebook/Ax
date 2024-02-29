@@ -415,7 +415,7 @@ def get_standard_plots(
         try:
             if global_sensitivity_analysis and isinstance(model, TorchModelBridge):
                 logger.debug("Starting global sensitivity analysis.")
-                sens = ax_parameter_sens(model, order="total")
+                sens = ax_parameter_sens(model, order="total", signed=True)
                 importance_measure = (
                     '<a href="https://en.wikipedia.org/wiki/Variance-based_'
                     'sensitivity_analysis">Variance-based sensitivity analysis</a>'

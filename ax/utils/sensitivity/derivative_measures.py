@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from copy import deepcopy
-from typing import Callable, List, Optional, Union
+from typing import Any, Callable, List, Optional, Union
 
 import torch
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -366,3 +366,28 @@ class GpDGSMGpSampling(GpDGSMGpMean):
                 dim=0,
             )
             return gradients_measure_mean_vargp_segp_varmc_segp
+
+
+def compute_derivatives_from_model_list(
+    model_list: List[Model],
+    bounds: torch.Tensor,
+    **kwargs: Any,
+) -> torch.Tensor:
+    """
+    Computes average derivatives of a list of models on a bounded domain. Estimation
+    is according to the GP posterior mean function.
+
+    Args:
+        model_list: A list of m botorch.models.model.Model types for which to compute
+            the average derivative.
+        bounds: A 2 x d Tensor of lower and upper bounds of the domain of the models.
+        kwargs: Passed along to GpDGSMGpMean.
+
+    Returns:
+        A (m x d) tensor of gradient measures.
+    """
+    indices = []
+    for model in model_list:
+        sens_class = GpDGSMGpMean(model=model, bounds=bounds, **kwargs)
+        indices.append(sens_class.gradient_measure())
+    return torch.stack(indices)
