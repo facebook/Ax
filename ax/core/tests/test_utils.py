@@ -286,6 +286,91 @@ class UtilsTest(TestCase):
                 },
             )
 
+    def test_get_pending_observation_features_multi_trial(self) -> None:
+        # Pending observations should be none if there aren't any.
+        self.assertIsNone(get_pending_observation_features(self.experiment))
+        self.trial.mark_running(no_runner_required=True)
+        # Now that the trial is deployed, it should become a pending trial on the
+        # experiment and appear as pending for all metrics.
+
+        # With `fetch_data` on trial returning data for metric "m2", that metric
+        # should no longer have pending observation features.
+        with patch.object(
+            self.trial,
+            "lookup_data",
+            return_value=Data.from_evaluations(
+                {self.trial.arm.name: {"m2": (1, 0)}}, trial_index=self.trial.index
+            ),
+        ):
+            self.assertEqual(
+                get_pending_observation_features(self.experiment),
+                {"tracking": [self.obs_feat], "m2": [], "m1": [self.obs_feat]},
+            )
+
+        # Make sure that trial_index is set correctly
+        other_obs_feat = ObservationFeatures.from_arm(arm=self.trial.arm, trial_index=1)
+        other_trial = self.experiment.new_trial(GeneratorRun([self.arm]))
+        other_trial.mark_running(no_runner_required=True)
+
+        with patch.object(
+            self.trial,
+            "lookup_data",
+            return_value=Data.from_evaluations(
+                {self.trial.arm.name: {"m2": (1, 0)}}, trial_index=self.trial.index
+            ),
+        ):
+            with patch.object(
+                other_trial,
+                "lookup_data",
+                return_value=Data.from_evaluations(
+                    {other_trial.arm.name: {"m2": (1, 0), "tracking": (1, 0)}},
+                    trial_index=other_trial.index,
+                ),
+            ):
+                pending = get_pending_observation_features(self.experiment)
+                print(pending)
+                self.assertEqual(
+                    pending,
+                    {
+                        "tracking": [self.obs_feat],
+                        "m2": [],
+                        "m1": [self.obs_feat, other_obs_feat],
+                    },
+                )
+
+    def test_get_pending_observation_features_out_of_design(self) -> None:
+        # Pending observations should be none if there aren't any.
+        self.assertIsNone(get_pending_observation_features(self.experiment))
+        self.trial.mark_running(no_runner_required=True)
+        # Now that the trial is deployed, it should become a pending trial on the
+        # experiment and appear as pending for all metrics.
+        with patch.object(
+            self.experiment.search_space,
+            "check_membership",
+            return_value=False,
+        ):
+            self.assertIsNone(
+                get_pending_observation_features(
+                    self.experiment, include_out_of_design_points=False
+                ),
+            )
+
+        with patch.object(
+            self.experiment.search_space,
+            "check_membership",
+            return_value=False,
+        ):
+            self.assertEqual(
+                get_pending_observation_features(
+                    self.experiment, include_out_of_design_points=True
+                ),
+                {
+                    "tracking": [self.obs_feat],
+                    "m2": [self.obs_feat],
+                    "m1": [self.obs_feat],
+                },
+            )
+
     def test_get_pending_observation_features_hss(self) -> None:
         # Pending observations should be none if there aren't any.
         self.assertIsNone(get_pending_observation_features(self.hss_exp))
