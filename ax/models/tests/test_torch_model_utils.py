@@ -17,6 +17,8 @@ from ax.models.torch.utils import (
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
 from botorch.models import HeteroskedasticSingleTaskGP, SingleTaskGP
+from botorch.models.deterministic import GenericDeterministicModel
+from botorch.models.model import ModelList
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
 from torch import Tensor
@@ -191,13 +193,17 @@ class SubsetModelTest(TestCase):
         with self.assertRaises(RuntimeError):
             subset_model(model, obj_weights)
 
+
+class SubsetModelTestMultiTask(TestCase):
+    def setUp(self) -> None:
+        self.x1 = torch.tensor([[1.0, 2.0, 1.0], [2.0, 3.0, 0.0]])
+        self.y1 = torch.tensor([[0.0], [1.0]])
+        self.x2 = torch.tensor([[0.0, 3.0, 1.0], [1.0, 4.0, 0.0]])
+        self.y2 = torch.tensor([[2.0], [3.0]])
+
     def test_multitask_modellist(self) -> None:
-        x1 = torch.tensor([[1.0, 2.0, 1.0], [2.0, 3.0, 0.0]])
-        y1 = torch.tensor([[0.0, 1.0]])
-        x2 = torch.tensor([[0.0, 3.0, 1.0], [1.0, 4.0, 0.0]])
-        y2 = torch.tensor([[2.0, 3.0]])
-        m1 = MultiTaskGP(x1, y1, task_feature=2)
-        m2 = MultiTaskGP(x2, y2, task_feature=2)
+        m1 = MultiTaskGP(self.x1, self.y1, task_feature=2, output_tasks=[0])
+        m2 = MultiTaskGP(self.x2, self.y2, task_feature=2, output_tasks=[0])
         model = ModelListGP(m1, m2)
         # test model is not subset when model.num_outputs >
         # len(obj_weights), but all outcomes are relevant.
@@ -208,14 +214,58 @@ class SubsetModelTest(TestCase):
         subset_model_results = subset_model(model, obj_weights)
         self.assertIs(subset_model_results.model, model)
         # test subset
-        subset_model_results = subset_model(model, self.obj_weights)
-        self.assertIsInstance(subset_model_results.model, ModelListGP)
-        self.assertEqual(len(subset_model_results.model.models), 1)
-        self.assertIsInstance(subset_model_results.model.models[0], MultiTaskGP)
+        obj_weights = torch.tensor([1.0, 0.0])
+        subset_model_results = subset_model(model, obj_weights)
         # check that the model is m1
-        self.assertTrue(
-            torch.equal(subset_model_results.model.models[0].train_inputs[0], x1)
+        self.assertIs(subset_model_results.model, m1)
+
+    def test_model_list(self) -> None:
+        # three output model
+        m1 = GenericDeterministicModel(lambda x: x, num_outputs=3)
+        # two output model
+        m2 = SingleTaskGP(
+            train_X=self.x1,
+            train_Y=torch.cat([self.y1, self.y2], dim=-1),
         )
-        self.assertTrue(
-            torch.equal(subset_model_results.model.models[0].train_targets, y1)
+        model = ModelList(m1, m2)
+        obj_weights = torch.zeros(5)
+        obj_weights[:3] = 1
+        subset_model_results = subset_model(model, obj_weights)
+        self.assertIs(subset_model_results.model, m1)
+        # set subset where m2 is subset
+        m1 = GenericDeterministicModel(lambda x: x, num_outputs=1)
+        model = ModelList(m1, m2)
+        obj_weights = torch.ones(3)
+        obj_weights[1] = 0
+        subset_model_results = subset_model(model, obj_weights)
+        models = subset_model_results.model.models
+        self.assertEqual(len(models), 2)
+        self.assertIs(models[0], m1)
+        self.assertIsInstance(models[1], SingleTaskGP)
+        # check that second model is the second output of m2
+        self.assertTrue(torch.equal(models[1].train_targets, m2.train_targets[1]))
+
+    def test_nested_model_list_gp(self) -> None:
+        m1 = MultiTaskGP(
+            train_X=torch.cat([self.x1, self.x2], dim=0),
+            train_Y=torch.cat([self.y1, self.y2], dim=0),
+            task_feature=2,
+            output_tasks=[0],
         )
+        m2a = SingleTaskGP(
+            train_X=self.x1,
+            train_Y=self.y1,
+        )
+        m2b = SingleTaskGP(
+            train_X=self.x2,
+            train_Y=self.y2,
+        )
+        model = ModelListGP(m1, ModelListGP(m2a, m2b))
+        obj_weights = torch.zeros(4)
+        obj_weights[0] = 1
+        obj_weights[2] = 1
+        subset_model_results = subset_model(model, obj_weights)
+        models = subset_model_results.model.models
+        self.assertEqual(len(models), 2)
+        self.assertIs(models[0], m1)
+        self.assertIs(models[1], m2b)

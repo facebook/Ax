@@ -803,6 +803,10 @@ def _get_model(
             rank=kwargs.get("rank"),
             task_covar_prior=task_covar_prior,
             input_transform=warp_tf,
+            # specify output_tasks so that model.num_outputs
+            # is 1, since the model is only modeling
+            # a since metric.
+            output_tasks=all_tasks[:1],
         )
     return gp
 
