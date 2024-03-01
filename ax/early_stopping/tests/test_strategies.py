@@ -284,13 +284,12 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         self.assertEqual(should_stop, {})
 
         # True objective metric name
-        self.assertIsNone(
-            early_stopping_strategy.true_objective_metric_name
-        )  # default none
-        early_stopping_strategy.true_objective_metric_name = "true_obj_metric"
-        self.assertEqual(
-            early_stopping_strategy.true_objective_metric_name, "true_obj_metric"
-        )
+        self.assertFalse(hasattr(early_stopping_strategy, "true_objective_metric_name"))
+        with self.assertWarnsRegex(DeprecationWarning, "ignored"):
+            early_stopping_strategy = PercentileEarlyStoppingStrategy(
+                true_objective_metric_name="true_obj_metric"
+            )
+        self.assertFalse(hasattr(early_stopping_strategy, "true_objective_metric_name"))
 
     def test_percentile_early_stopping_strategy(self) -> None:
         self._test_percentile_early_stopping_strategy(non_objective_metric=False)
