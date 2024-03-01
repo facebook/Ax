@@ -851,12 +851,6 @@ def _get_model_per_metric(
                     # property and `subset_outputs` method.
                     if metric_model.num_outputs > 1:  # subset to relevant output
                         metric_model = metric_model.subset_output([i])
-                    if isinstance(metric_model, ModelList):
-                        # any multi-output metric_model will have been modified to be
-                        # single-output model after the if statement right above, so if
-                        # metric_model is a ModelList, it has to contain only one model.
-                        assert len(metric_model.models) == 1
-                        metric_model = metric_model.models[0]
                     model_list.append(metric_model)
                     continue  # found surrogate for `m`, so we can move on to next `m`.
         return model_list
