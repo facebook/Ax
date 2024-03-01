@@ -22,6 +22,7 @@ from ax.models.torch.botorch_moo_defaults import (
 )
 from ax.models.torch.utils import _get_X_pending_and_observed
 from ax.utils.common.testutils import TestCase
+from botorch.models.gp_regression import SingleTaskGP
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
 from botorch.utils.sampling import manual_seed
@@ -310,25 +311,23 @@ class BotorchMOODefaultsTest(TestCase):
                         wraps=infer_reference_point,
                     )
                 )
-                # after subsetting, the model will only have two outputs
-                model = MockModel(
-                    MockPosterior(
-                        mean=torch.tensor(
-                            [
-                                [11.0, 2.0],
-                                [9.0, 3.0],
-                            ],
-                            **tkwargs,
-                        )
-                    )
-                )
+                model = SingleTaskGP(train_X=Xs[0], train_Y=torch.rand(2, 3, **tkwargs))
                 es.enter_context(
                     mock.patch.object(
                         model,
-                        "subset_output",
-                        return_value=model,
+                        "posterior",
+                        return_value=MockPosterior(
+                            mean=torch.tensor(
+                                [
+                                    [11.0, 2.0],
+                                    [9.0, 3.0],
+                                ],
+                                **tkwargs,
+                            )
+                        ),
                     )
                 )
+
                 # test passing Xs
                 obj_thresholds = infer_objective_thresholds(
                     model,
@@ -382,23 +381,19 @@ class BotorchMOODefaultsTest(TestCase):
                         wraps=infer_reference_point,
                     )
                 )
-                model = MockModel(
-                    MockPosterior(
-                        mean=torch.tensor(
-                            # after subsetting, there should only be two outcomes
-                            [
-                                [11.0, 2.0],
-                                [9.0, 3.0],
-                            ],
-                            **tkwargs,
-                        )
-                    )
-                )
                 es.enter_context(
                     mock.patch.object(
                         model,
-                        "subset_output",
-                        return_value=model,
+                        "posterior",
+                        return_value=MockPosterior(
+                            mean=torch.tensor(
+                                [
+                                    [11.0, 2.0],
+                                    [9.0, 3.0],
+                                ],
+                                **tkwargs,
+                            )
+                        ),
                     )
                 )
 
@@ -429,26 +424,24 @@ class BotorchMOODefaultsTest(TestCase):
                     objective_weights=objective_weights,
                 )
             # test subset_model without subset_idcs
-            subset_model = MockModel(
-                MockPosterior(
-                    mean=torch.tensor(
-                        [
-                            [11.0, 2.0],
-                            [9.0, 3.0],
-                        ],
-                        **tkwargs,
-                    )
-                )
-            )
             es.enter_context(
                 mock.patch.object(
-                    subset_model,
-                    "subset_output",
-                    return_value=subset_model,
+                    model,
+                    "posterior",
+                    return_value=MockPosterior(
+                        mean=torch.tensor(
+                            [
+                                [11.0, 2.0],
+                                [9.0, 3.0],
+                            ],
+                            **tkwargs,
+                        )
+                    ),
                 )
             )
+
             obj_thresholds = infer_objective_thresholds(
-                subset_model,
+                model,
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,
                 X_observed=Xs[0],
@@ -464,7 +457,7 @@ class BotorchMOODefaultsTest(TestCase):
                 device=tkwargs["device"],
             )
             obj_thresholds = infer_objective_thresholds(
-                subset_model,
+                model,
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,
                 X_observed=Xs[0],
@@ -494,15 +487,19 @@ class BotorchMOODefaultsTest(TestCase):
                         wraps=infer_reference_point,
                     )
                 )
-                model = MockModel(
-                    MockPosterior(
-                        mean=torch.tensor(
-                            [
-                                [11.0, 2.0, 6.0],
-                                [9.0, 3.0, 4.0],
-                            ],
-                            **tkwargs,
-                        )
+                es.enter_context(
+                    mock.patch.object(
+                        model,
+                        "posterior",
+                        return_value=MockPosterior(
+                            mean=torch.tensor(
+                                [
+                                    [11.0, 2.0, 6.0],
+                                    [9.0, 3.0, 4.0],
+                                ],
+                                **tkwargs,
+                            )
+                        ),
                     )
                 )
                 # test passing Xs

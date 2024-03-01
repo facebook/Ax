@@ -68,25 +68,20 @@ class LCEMBO(BotorchModel):
             Yvar = Yvars[i].clamp_min_(MIN_OBSERVED_NOISE_LEVEL)
             is_nan = torch.isnan(Yvar)
             all_nan_Yvar = torch.all(is_nan)
-            if all_nan_Yvar:
-                gp_m = LCEMGP(
-                    train_X=X,
-                    train_Y=Ys[i],
-                    task_feature=task_feature,
-                    context_cat_feature=self.context_cat_feature,
-                    context_emb_feature=self.context_emb_feature,
-                    embs_dim_list=self.embs_dim_list,
-                )
-            else:
-                gp_m = LCEMGP(
-                    train_X=X,
-                    train_Y=Ys[i],
-                    train_Yvar=Yvar,
-                    task_feature=task_feature,
-                    context_cat_feature=self.context_cat_feature,
-                    context_emb_feature=self.context_emb_feature,
-                    embs_dim_list=self.embs_dim_list,
-                )
+            all_tasks, _, _ = LCEMGP.get_all_tasks(train_X=X, task_feature=task_feature)
+            gp_m = LCEMGP(
+                train_X=X,
+                train_Y=Ys[i],
+                train_Yvar=None if all_nan_Yvar else Yvar,
+                task_feature=task_feature,
+                context_cat_feature=self.context_cat_feature,
+                context_emb_feature=self.context_emb_feature,
+                embs_dim_list=self.embs_dim_list,
+                # specify output tasks so that model.num_outputs = 1
+                # since the model only models a single outcome.
+                output_tasks=all_tasks[:1],
+            )
+
             models.append(gp_m)
         # Use a ModelListGP
         model = ModelListGP(*models)

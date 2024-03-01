@@ -33,13 +33,14 @@ from botorch.acquisition.multi_objective import (
     monte_carlo as moo_monte_carlo,
 )
 from botorch.models import ModelListGP
+from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.transforms.input import Warp
 from botorch.optim.optimize import optimize_acqf_list
 from botorch.sampling.normal import IIDNormalSampler
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
 from botorch.utils.multi_objective.scalarization import get_chebyshev_scalarization
-from botorch.utils.testing import MockModel, MockPosterior
+from botorch.utils.testing import MockPosterior
 
 
 FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_mll"
@@ -387,26 +388,36 @@ class BotorchMOOModelTest(TestCase):
         Xs2, Ys2, Yvars2, _, _, _, _ = _get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
+        Xs3, Ys3, Yvars3, _, _, _, _ = _get_torch_test_data(
+            dtype=dtype, cuda=cuda, constant_noise=True
+        )
         training_data = [
             SupervisedDataset(
                 X=Xs1[0],
                 Y=Ys1[0],
                 Yvar=Yvars1[0],
                 feature_names=feature_names,
-                outcome_names=metric_names,
+                outcome_names=["m1"],
             ),
             SupervisedDataset(
                 X=Xs2[0],
                 Y=Ys2[0],
                 Yvar=Yvars2[0],
                 feature_names=feature_names,
-                outcome_names=metric_names,
+                outcome_names=["m2"],
+            ),
+            SupervisedDataset(
+                X=Xs3[0],
+                Y=Ys3[0],
+                Yvar=Yvars3[0],
+                feature_names=feature_names,
+                outcome_names=["m3"],
             ),
         ]
 
         n = 3
-        objective_weights = torch.tensor([1.0, 1.0], **tkwargs)
-        obj_t = torch.tensor([1.0, 1.0], **tkwargs)
+        objective_weights = torch.tensor([1.0, 1.0, 0.0], **tkwargs)
+        obj_t = torch.tensor([1.0, 1.0, float("nan")], **tkwargs)
         # pyre-fixme[6]: For 1st param expected `(Model, Tensor, Optional[Tuple[Tenso...
         model = MultiObjectiveBotorchModel(acqf_constructor=acqf_constructor)
 
@@ -463,8 +474,12 @@ class BotorchMOOModelTest(TestCase):
             _mock_partitioning.assert_called_once()
             self.assertTrue(
                 torch.equal(
-                    gen_results.gen_metadata["objective_thresholds"], obj_t.cpu()
+                    gen_results.gen_metadata["objective_thresholds"][:2],
+                    obj_t[:2].cpu(),
                 )
+            )
+            self.assertTrue(
+                torch.isnan(gen_results.gen_metadata["objective_thresholds"][-1])
             )
             _mock_fit_model = es.enter_context(mock.patch(FIT_MODEL_MO_PATH))
             # Optimizer options correctly passed through.
@@ -505,22 +520,31 @@ class BotorchMOOModelTest(TestCase):
             Xs1 = [torch.cat([Xs1[0], Xs1[0] - 0.1], dim=0)]
             Ys1 = [torch.cat([Ys1[0], Ys1[0] - 0.5], dim=0)]
             Ys2 = [torch.cat([Ys2[0], Ys2[0] + 0.5], dim=0)]
+            Ys3 = [torch.cat([Ys3[0], Ys3[0] - 1.0], dim=0)]
             Yvars1 = [torch.cat([Yvars1[0], Yvars1[0] + 0.2], dim=0)]
             Yvars2 = [torch.cat([Yvars2[0], Yvars2[0] + 0.1], dim=0)]
+            Yvars3 = [torch.cat([Yvars3[0], Yvars3[0] + 0.4], dim=0)]
             training_data_multiple = [
                 SupervisedDataset(
                     X=Xs1[0],
                     Y=Ys1[0],
                     Yvar=Yvars1[0],
                     feature_names=feature_names,
-                    outcome_names=metric_names,
+                    outcome_names=["m1"],
                 ),
                 SupervisedDataset(
                     X=Xs1[0],
                     Y=Ys2[0],
                     Yvar=Yvars2[0],
                     feature_names=feature_names,
-                    outcome_names=metric_names,
+                    outcome_names=["m2"],
+                ),
+                SupervisedDataset(
+                    X=Xs1[0],
+                    Y=Ys3[0],
+                    Yvar=Yvars3[0],
+                    feature_names=feature_names,
+                    outcome_names=["m3"],
                 ),
             ]
             model.fit(
@@ -545,14 +569,6 @@ class BotorchMOOModelTest(TestCase):
                     wraps=infer_reference_point,
                 )
             )
-            # after subsetting, the model will only have two outputs
-            _mock_num_outputs = es.enter_context(
-                mock.patch(
-                    "botorch.utils.testing.MockModel.num_outputs",
-                    new_callable=mock.PropertyMock,
-                )
-            )
-            _mock_num_outputs.return_value = 3
             preds = torch.tensor(
                 [
                     [11.0, 2.0],
@@ -560,23 +576,14 @@ class BotorchMOOModelTest(TestCase):
                 ],
                 **tkwargs,
             )
-            model.model = MockModel(
-                MockPosterior(
-                    mean=preds,
-                    samples=preds,
-                ),
-            )
-            subset_mock_model = MockModel(
-                MockPosterior(
-                    mean=preds,
-                    samples=preds,
-                ),
-            )
             es.enter_context(
                 mock.patch.object(
                     model.model,
-                    "subset_output",
-                    return_value=subset_mock_model,
+                    "posterior",
+                    return_value=MockPosterior(
+                        mean=preds,
+                        samples=preds,
+                    ),
                 )
             )
             es.enter_context(
@@ -632,7 +639,9 @@ class BotorchMOOModelTest(TestCase):
             oc = ckwargs["outcome_constraints"]
             self.assertTrue(torch.equal(oc[0], outcome_constraints[0]))
             self.assertTrue(torch.equal(oc[1], outcome_constraints[1]))
-            self.assertIs(ckwargs["model"], subset_mock_model)
+            subset_model = ckwargs["model"]
+            self.assertIsInstance(subset_model, SingleTaskGP)
+            self.assertEqual(subset_model.num_outputs, 2)
             self.assertTrue(
                 torch.equal(
                     ckwargs["subset_idcs"],
