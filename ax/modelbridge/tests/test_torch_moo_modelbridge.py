@@ -171,7 +171,12 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         with patch(
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
         ) as wrapped_frontier_evaluator:
-            (observed_frontier, f, obj_w, obj_t,) = get_pareto_frontier_and_configs(
+            (
+                observed_frontier,
+                f,
+                obj_w,
+                obj_t,
+            ) = get_pareto_frontier_and_configs(
                 modelbridge=modelbridge,
                 objective_thresholds=objective_thresholds,
                 observation_features=observation_features,
@@ -202,7 +207,12 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         with patch(
             PARETO_FRONTIER_EVALUATOR_PATH, wraps=pareto_frontier_evaluator
         ) as wrapped_frontier_evaluator:
-            (observed_frontier, f, obj_w, obj_t,) = get_pareto_frontier_and_configs(
+            (
+                observed_frontier,
+                f,
+                obj_w,
+                obj_t,
+            ) = get_pareto_frontier_and_configs(
                 modelbridge=modelbridge,
                 objective_thresholds=None,
                 observation_features=observation_features,

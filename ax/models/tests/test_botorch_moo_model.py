@@ -602,12 +602,14 @@ class BotorchMOOModelTest(TestCase):
                 model_gen_options={
                     # do not used cached root decomposition since
                     # MockPosterior does not have an mvn attribute
-                    "acquisition_function_kwargs": {
-                        "cache_root": False,
-                        "prune_baseline": False,
-                    }
-                    if use_noisy
-                    else {},
+                    "acquisition_function_kwargs": (
+                        {
+                            "cache_root": False,
+                            "prune_baseline": False,
+                        }
+                        if use_noisy
+                        else {}
+                    ),
                 },
             )
             gen_results = model.gen(

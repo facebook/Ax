@@ -139,17 +139,17 @@ def get_branin_currin_optimization_with_N_sobol_trials(
                 minimize=minimize,
                 # pyre-fixme[6]: For 2nd param expected `Optional[float]` but got
                 #  `Optional[Tensor]`.
-                threshold=branin_currin.ref_point[0]
-                if include_objective_thresholds
-                else None,
+                threshold=(
+                    branin_currin.ref_point[0] if include_objective_thresholds else None
+                ),
             ),
             "currin": ObjectiveProperties(
                 minimize=minimize,
                 # pyre-fixme[6]: For 2nd param expected `Optional[float]` but got
                 #  `Optional[Tensor]`.
-                threshold=branin_currin.ref_point[1]
-                if include_objective_thresholds
-                else None,
+                threshold=(
+                    branin_currin.ref_point[1] if include_objective_thresholds else None
+                ),
             ),
         },
         outcome_constraints=outcome_constraints,

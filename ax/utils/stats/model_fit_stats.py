@@ -18,8 +18,7 @@ class ModelFitMetricProtocol(Protocol):
 
     def __call__(
         self, y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray
-    ) -> float:
-        ...
+    ) -> float: ...
 
 
 def compute_model_fit_metrics(

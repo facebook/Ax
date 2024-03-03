@@ -112,16 +112,16 @@ class CovarModuleArgparseTest(TestCase):
                 outputscale_prior=GammaPrior(2, 0.15),
             )
 
-            covar_module_kwargs[
-                "lengthscale_prior_concentration"
-            ] = covar_module_kwargs["lengthscale_prior"].concentration.item()
+            covar_module_kwargs["lengthscale_prior_concentration"] = (
+                covar_module_kwargs["lengthscale_prior"].concentration.item()
+            )
             covar_module_kwargs["lengthscale_prior_rate"] = covar_module_kwargs[
                 "lengthscale_prior"
             ].rate.item()
 
-            covar_module_kwargs[
-                "outputscale_prior_concentration"
-            ] = covar_module_kwargs["outputscale_prior"].concentration.item()
+            covar_module_kwargs["outputscale_prior_concentration"] = (
+                covar_module_kwargs["outputscale_prior"].concentration.item()
+            )
             covar_module_kwargs["outputscale_prior_rate"] = covar_module_kwargs[
                 "outputscale_prior"
             ].rate.item()

@@ -59,9 +59,9 @@ class KernelsTest(TestCase):
                 fixed_period_length=fixed_period_length,
                 lengthscale_constraint=ls_constraint,
                 outputscale_constraint=os_constraint,
-                period_length_constraint=pl_constraint
-                if fixed_period_length is None
-                else None,
+                period_length_constraint=(
+                    pl_constraint if fixed_period_length is None else None
+                ),
                 temporal_lengthscale_constraint=tls_constraint,
             )
             self.assertTrue(isinstance(covar.base_kernel.kernels[0], MaternKernel))

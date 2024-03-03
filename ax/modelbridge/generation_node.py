@@ -307,9 +307,11 @@ class GenerationNode(SerializationMixin, SortableBase):
             generator_run = model_spec.gen(
                 # If `n` is not specified, ensure that the `None` value does not
                 # override the one set in `model_spec.model_gen_kwargs`.
-                n=model_spec.model_gen_kwargs.get("n")
-                if n is None and model_spec.model_gen_kwargs
-                else n,
+                n=(
+                    model_spec.model_gen_kwargs.get("n")
+                    if n is None and model_spec.model_gen_kwargs
+                    else n
+                ),
                 # For `pending_observations`, prefer the input to this function, as
                 # `pending_observations` are dynamic throughout the experiment and thus
                 # unlikely to be specified in `model_spec.model_gen_kwargs`.

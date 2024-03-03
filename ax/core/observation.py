@@ -476,9 +476,11 @@ def observations_from_map_data(
     else:
         # The groupby and filter is expensive, so do it only if we have to.
         grouped = map_data.map_df.groupby(
-            by=complete_feature_cols
-            if len(complete_feature_cols) > 1
-            else complete_feature_cols[0]
+            by=(
+                complete_feature_cols
+                if len(complete_feature_cols) > 1
+                else complete_feature_cols[0]
+            )
         )
         complete_df = grouped.filter(lambda r: ~r[feature_cols].isnull().any().any())
         incomplete_df = grouped.filter(lambda r: r[feature_cols].isnull().any().any())

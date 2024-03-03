@@ -511,9 +511,11 @@ class BaseFullyBayesianBotorchModelTestCases:
 
                 # Check generation
                 objective_weights = torch.tensor(
-                    [1.0, 0.0]
-                    if self.model_cls is FullyBayesianBotorchModel
-                    else [1.0, 1.0],
+                    (
+                        [1.0, 0.0]
+                        if self.model_cls is FullyBayesianBotorchModel
+                        else [1.0, 1.0]
+                    ),
                     **tkwargs,
                 )
                 outcome_constraints = (
@@ -543,9 +545,11 @@ class BaseFullyBayesianBotorchModelTestCases:
                 )
                 torch_opt_config = TorchOptConfig(
                     objective_weights=objective_weights,
-                    objective_thresholds=torch.zeros(2, **tkwargs)
-                    if self.model_cls is FullyBayesianMOOBotorchModel
-                    else None,
+                    objective_thresholds=(
+                        torch.zeros(2, **tkwargs)
+                        if self.model_cls is FullyBayesianMOOBotorchModel
+                        else None
+                    ),
                     outcome_constraints=outcome_constraints,
                     linear_constraints=linear_constraints,
                     fixed_features=fixed_features,

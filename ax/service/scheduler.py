@@ -1921,9 +1921,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             f"{Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF.value} "
             "to `True` on experiment."
         )
-        self.experiment._properties[
-            Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF.value
-        ] = True
+        self.experiment._properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF.value] = (
+            True
+        )
 
     def _initialize_experiment_status_properties(self) -> None:
         """Initializes status-tracking properties of the experiment, which will
@@ -1943,9 +1943,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         }
         if num_preexisting_trials is not None:
             new_trials = len(self.experiment.trials) - num_preexisting_trials
-            to_append[
-                ExperimentStatusProperties.NUM_TRIALS_RUN_PER_CALL.value
-            ] = new_trials
+            to_append[ExperimentStatusProperties.NUM_TRIALS_RUN_PER_CALL.value] = (
+                new_trials
+            )
         self._append_to_experiment_properties(to_append=to_append)
 
     def _record_optimization_complete_message(self) -> None:
@@ -1954,9 +1954,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         """
         completion_msg = OPTIMIZATION_COMPLETION_MSG.format(
             num_trials=len(self.experiment.trials),
-            experiment_name=self.experiment.name
-            if self.experiment._name is not None
-            else "unnamed",
+            experiment_name=(
+                self.experiment.name if self.experiment._name is not None else "unnamed"
+            ),
         )
         if "Optimization complete" in self.markdown_messages:
             self.markdown_messages["Optimization complete"] += "\n\n" + completion_msg

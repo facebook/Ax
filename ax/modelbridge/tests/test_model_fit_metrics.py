@@ -38,9 +38,9 @@ class TestModelBridgeFitMetrics(TestCase):
             ),
             is_test=True,
         )
-        self.branin_experiment._properties[
-            Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF
-        ] = True
+        self.branin_experiment._properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF] = (
+            True
+        )
         self.generation_strategy = GenerationStrategy(
             steps=[
                 GenerationStep(

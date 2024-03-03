@@ -390,11 +390,13 @@ class OptimizationCreatedRecord:
             ),
             early_stopping_strategy_cls=None,
             global_stopping_strategy_cls=None,
-            transformed_dimensionality=None
-            if generation_strategy is None
-            else _get_max_transformed_dimensionality(
-                search_space=experiment.search_space,
-                generation_strategy=generation_strategy,
+            transformed_dimensionality=(
+                None
+                if generation_strategy is None
+                else _get_max_transformed_dimensionality(
+                    search_space=experiment.search_space,
+                    generation_strategy=generation_strategy,
+                )
             ),
             arms_per_trial=arms_per_trial,
             unique_identifier=unique_identifier,

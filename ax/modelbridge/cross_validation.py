@@ -541,7 +541,11 @@ def compute_model_fit_metrics_from_modelbridge(
 def _predict_on_training_data(
     model_bridge: ModelBridge,
     experiment: Experiment,
-) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray], Dict[str, np.ndarray],]:
+) -> Tuple[
+    Dict[str, np.ndarray],
+    Dict[str, np.ndarray],
+    Dict[str, np.ndarray],
+]:
     """Makes predictions on the training data of a given experiment using a ModelBridge
     and returning the observed values, and the corresponding predictive means and
     predictive standard deviations of the model, in transformed space.
@@ -589,7 +593,11 @@ def _predict_on_training_data(
 def _predict_on_cross_validation_data(
     model_bridge: ModelBridge,
     untransform: bool = False,
-) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray], Dict[str, np.ndarray],]:
+) -> Tuple[
+    Dict[str, np.ndarray],
+    Dict[str, np.ndarray],
+    Dict[str, np.ndarray],
+]:
     """Makes leave-one-out cross-validation predictions on the training data of the
     ModelBridge and returns the observed values, and the corresponding predictive means
     and predictive standard deviations of the model as numpy arrays,

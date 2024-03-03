@@ -55,8 +55,10 @@ def checked_cast(typ: Type[T], val: V, exception: Optional[Exception] = None) ->
     .. _typing.cast: https://docs.python.org/3/library/typing.html#typing.cast
     """
     if not isinstance(val, typ):
-        raise exception if exception is not None else ValueError(
-            f"Value was not of type {typ}:\n{val}"
+        raise (
+            exception
+            if exception is not None
+            else ValueError(f"Value was not of type {typ}:\n{val}")
         )
     return val
 

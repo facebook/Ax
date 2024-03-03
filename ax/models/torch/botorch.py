@@ -426,9 +426,9 @@ class BotorchModel(TorchModel):
 
         gen_metadata = {}
         if expected_acquisition_value.numel() > 0:
-            gen_metadata[
-                "expected_acquisition_value"
-            ] = expected_acquisition_value.tolist()
+            gen_metadata["expected_acquisition_value"] = (
+                expected_acquisition_value.tolist()
+            )
 
         return TorchGenResults(
             points=candidates.detach().cpu(),

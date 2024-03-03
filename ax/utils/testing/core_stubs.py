@@ -162,9 +162,11 @@ def get_experiment_with_custom_runner_and_metric(
         # Omit constraints to prevent Sobol rejection sampling below,
         # which floods logs with "Unable to round" warnings.
         search_space=get_search_space(constrain_search_space=constrain_search_space),
-        optimization_config=get_multi_objective_optimization_config(custom_metric=True)
-        if multi_objective
-        else get_optimization_config(),
+        optimization_config=(
+            get_multi_objective_optimization_config(custom_metric=True)
+            if multi_objective
+            else get_optimization_config()
+        ),
         description="test description",
         tracking_metrics=[
             CustomTestMetric(name="custom_test_metric", test_attribute="test")
@@ -209,9 +211,11 @@ def get_branin_experiment(
     exp = Experiment(
         name="branin_test_experiment" if named else None,
         search_space=search_space,
-        optimization_config=get_branin_optimization_config(minimize=minimize)
-        if has_optimization_config
-        else None,
+        optimization_config=(
+            get_branin_optimization_config(minimize=minimize)
+            if has_optimization_config
+            else None
+        ),
         runner=SyntheticRunner(),
         is_test=True,
     )
@@ -454,11 +458,11 @@ def get_factorial_experiment(
     exp = Experiment(
         name="factorial_test_experiment",
         search_space=get_factorial_search_space(),
-        optimization_config=OptimizationConfig(
-            objective=Objective(metric=get_factorial_metric())
-        )
-        if has_optimization_config
-        else None,
+        optimization_config=(
+            OptimizationConfig(objective=Objective(metric=get_factorial_metric()))
+            if has_optimization_config
+            else None
+        ),
         runner=SyntheticRunner(),
         is_test=True,
         tracking_metrics=[get_factorial_metric("secondary_metric")],
@@ -557,12 +561,14 @@ def get_branin_experiment_with_multi_objective(
         search_space=get_branin_search_space(
             with_fidelity_parameter=with_fidelity_parameter
         ),
-        optimization_config=get_branin_multi_objective_optimization_config(
-            has_objective_thresholds=has_objective_thresholds,
-            num_objectives=num_objectives,
-        )
-        if has_optimization_config
-        else None,
+        optimization_config=(
+            get_branin_multi_objective_optimization_config(
+                has_objective_thresholds=has_objective_thresholds,
+                num_objectives=num_objectives,
+            )
+            if has_optimization_config
+            else None
+        ),
         runner=SyntheticRunner(),
         is_test=True,
     )
@@ -585,11 +591,13 @@ def get_branin_with_multi_task(with_multi_objective: bool = False) -> Experiment
     exp = Experiment(
         name="branin_test_experiment",
         search_space=get_branin_search_space(),
-        optimization_config=get_branin_multi_objective_optimization_config(
-            has_objective_thresholds=True,
-        )
-        if with_multi_objective
-        else get_branin_optimization_config(),
+        optimization_config=(
+            get_branin_multi_objective_optimization_config(
+                has_objective_thresholds=True,
+            )
+            if with_multi_objective
+            else get_branin_optimization_config()
+        ),
         runner=SyntheticRunner(),
         is_test=True,
     )
@@ -686,22 +694,26 @@ def get_experiment_with_observations(
                         metric=metrics[i],
                         bound=0.0,
                         relative=False,
-                        op=ComparisonOp.LEQ
-                        if metrics[i].lower_is_better
-                        else ComparisonOp.GEQ,
+                        op=(
+                            ComparisonOp.LEQ
+                            if metrics[i].lower_is_better
+                            else ComparisonOp.GEQ
+                        ),
                     )
                     for i in [0, 1]
                 ],
-                outcome_constraints=[
-                    OutcomeConstraint(
-                        metric=Metric(name="m3"),
-                        op=ComparisonOp.GEQ,
-                        bound=0.0,
-                        relative=False,
-                    )
-                ]
-                if constrained
-                else None,
+                outcome_constraints=(
+                    [
+                        OutcomeConstraint(
+                            metric=Metric(name="m3"),
+                            op=ComparisonOp.GEQ,
+                            bound=0.0,
+                            relative=False,
+                        )
+                    ]
+                    if constrained
+                    else None
+                ),
             )
     else:
         if scalarized:
@@ -723,11 +735,11 @@ def get_experiment_with_observations(
     exp = Experiment(
         search_space=search_space,
         optimization_config=optimization_config,
-        tracking_metrics=[
-            Metric(name=f"m{len(observations[0])}", lower_is_better=False)
-        ]
-        if with_tracking_metrics
-        else None,
+        tracking_metrics=(
+            [Metric(name=f"m{len(observations[0])}", lower_is_better=False)]
+            if with_tracking_metrics
+            else None
+        ),
         runner=SyntheticRunner(),
         is_test=True,
     )
@@ -830,14 +842,16 @@ def get_branin_search_space(
         RangeParameter(
             name="x1", parameter_type=ParameterType.FLOAT, lower=-5, upper=10
         ),
-        ChoiceParameter(
-            name="x2",
-            parameter_type=ParameterType.FLOAT,
-            values=[float(x) for x in range(0, 16)],
-        )
-        if with_choice_parameter
-        else RangeParameter(
-            name="x2", parameter_type=ParameterType.FLOAT, lower=0, upper=15
+        (
+            ChoiceParameter(
+                name="x2",
+                parameter_type=ParameterType.FLOAT,
+                values=[float(x) for x in range(0, 16)],
+            )
+            if with_choice_parameter
+            else RangeParameter(
+                name="x2", parameter_type=ParameterType.FLOAT, lower=0, upper=15
+            )
         ),
     ]
     if with_str_choice_param:
@@ -2242,9 +2256,11 @@ def get_dataset(
     return SupervisedDataset(
         X=torch.rand(num_samples, d, **tkwargs),
         Y=torch.rand(num_samples, m, **tkwargs),
-        Yvar=torch.rand(num_samples, m, **tkwargs) * 0.01
-        if has_observation_noise
-        else None,
+        Yvar=(
+            torch.rand(num_samples, m, **tkwargs) * 0.01
+            if has_observation_noise
+            else None
+        ),
         feature_names=feature_names,
         outcome_names=outcome_names,
     )

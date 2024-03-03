@@ -787,34 +787,42 @@ class Encoder:
             best_arm_predictions=best_arm_predictions,
             model_predictions=model_predictions,
             model_key=generator_run._model_key,
-            model_kwargs=object_to_json(
-                generator_run._model_kwargs,
-                encoder_registry=self.config.json_encoder_registry,
-                class_encoder_registry=self.config.json_class_encoder_registry,
-            )
-            if not reduced_state
-            else None,
-            bridge_kwargs=object_to_json(
-                generator_run._bridge_kwargs,
-                encoder_registry=self.config.json_encoder_registry,
-                class_encoder_registry=self.config.json_class_encoder_registry,
-            )
-            if not reduced_state
-            else None,
-            gen_metadata=object_to_json(
-                generator_run._gen_metadata,
-                encoder_registry=self.config.json_encoder_registry,
-                class_encoder_registry=self.config.json_class_encoder_registry,
-            )
-            if not reduced_state
-            else None,
-            model_state_after_gen=object_to_json(
-                generator_run._model_state_after_gen,
-                encoder_registry=self.config.json_encoder_registry,
-                class_encoder_registry=self.config.json_class_encoder_registry,
-            )
-            if not reduced_state
-            else None,
+            model_kwargs=(
+                object_to_json(
+                    generator_run._model_kwargs,
+                    encoder_registry=self.config.json_encoder_registry,
+                    class_encoder_registry=self.config.json_class_encoder_registry,
+                )
+                if not reduced_state
+                else None
+            ),
+            bridge_kwargs=(
+                object_to_json(
+                    generator_run._bridge_kwargs,
+                    encoder_registry=self.config.json_encoder_registry,
+                    class_encoder_registry=self.config.json_class_encoder_registry,
+                )
+                if not reduced_state
+                else None
+            ),
+            gen_metadata=(
+                object_to_json(
+                    generator_run._gen_metadata,
+                    encoder_registry=self.config.json_encoder_registry,
+                    class_encoder_registry=self.config.json_class_encoder_registry,
+                )
+                if not reduced_state
+                else None
+            ),
+            model_state_after_gen=(
+                object_to_json(
+                    generator_run._model_state_after_gen,
+                    encoder_registry=self.config.json_encoder_registry,
+                    class_encoder_registry=self.config.json_class_encoder_registry,
+                )
+                if not reduced_state
+                else None
+            ),
             generation_step_index=generator_run._generation_step_index,
             candidate_metadata_by_arm_signature=object_to_json(
                 generator_run._candidate_metadata_by_arm_signature,
@@ -854,25 +862,31 @@ class Encoder:
         gs_sqa = gs_class(
             id=generation_strategy.db_id,
             name=generation_strategy.name,
-            steps=object_to_json(
-                generation_strategy._steps,
-                encoder_registry=self.config.json_encoder_registry,
-                class_encoder_registry=self.config.json_class_encoder_registry,
-            )
-            if not node_based_strategy
-            else [],
-            curr_index=generation_strategy.current_step_index
-            if not node_based_strategy
-            else -1,
+            steps=(
+                object_to_json(
+                    generation_strategy._steps,
+                    encoder_registry=self.config.json_encoder_registry,
+                    class_encoder_registry=self.config.json_class_encoder_registry,
+                )
+                if not node_based_strategy
+                else []
+            ),
+            curr_index=(
+                generation_strategy.current_step_index
+                if not node_based_strategy
+                else -1
+            ),
             generator_runs=generator_runs_sqa,
             experiment_id=experiment_id,
-            nodes=object_to_json(
-                generation_strategy._nodes,
-                encoder_registry=self.config.json_encoder_registry,
-                class_encoder_registry=self.config.json_class_encoder_registry,
-            )
-            if node_based_strategy
-            else [],
+            nodes=(
+                object_to_json(
+                    generation_strategy._nodes,
+                    encoder_registry=self.config.json_encoder_registry,
+                    class_encoder_registry=self.config.json_class_encoder_registry,
+                )
+                if node_based_strategy
+                else []
+            ),
             curr_node_name=generation_strategy.current_node_name,
         )
         return gs_sqa

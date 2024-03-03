@@ -331,9 +331,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 for objective, properties in objectives.items()
             }
             if len(objectives.keys()) > 1:
-                objective_kwargs[
-                    "objective_thresholds"
-                ] = self.build_objective_thresholds(objectives)
+                objective_kwargs["objective_thresholds"] = (
+                    self.build_objective_thresholds(objectives)
+                )
 
         experiment = self.make_experiment(
             name=name,
@@ -1424,14 +1424,16 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         )
         serialized_generation_strategy = serialized.pop("generation_strategy")
         ax_client = cls(
-            generation_strategy=generation_strategy_from_json(
-                generation_strategy_json=serialized_generation_strategy,
-                experiment=experiment,
-                decoder_registry=decoder_registry,
-                class_decoder_registry=class_decoder_registry,
-            )
-            if serialized_generation_strategy is not None
-            else None,
+            generation_strategy=(
+                generation_strategy_from_json(
+                    generation_strategy_json=serialized_generation_strategy,
+                    experiment=experiment,
+                    decoder_registry=decoder_registry,
+                    class_decoder_registry=class_decoder_registry,
+                )
+                if serialized_generation_strategy is not None
+                else None
+            ),
             enforce_sequential_optimization=serialized.pop(
                 "_enforce_sequential_optimization"
             ),

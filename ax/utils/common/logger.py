@@ -86,7 +86,7 @@ def build_stream_handler(level: int = DEFAULT_LOG_LEVEL) -> logging.StreamHandle
 
 def build_file_handler(
     filepath: str,
-    level: int = DEFAULT_LOG_LEVEL
+    level: int = DEFAULT_LOG_LEVEL,
     # pyre-fixme[24]: Generic type `logging.StreamHandler` expects 1 type parameter.
 ) -> logging.StreamHandler:
     """Build a file handle that logs entries to the given file, using the

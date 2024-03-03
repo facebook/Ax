@@ -261,7 +261,7 @@ class ThompsonSampler(DiscreteModel):
         """
         X_to_Ys_and_Yvars = []
         hashableX = [self._hash_TParamValueList(x) for x in X]
-        for (Y, Yvar) in zip(Ys, Yvars):
+        for Y, Yvar in zip(Ys, Yvars):
             X_to_Ys_and_Yvars.append(dict(zip(hashableX, zip(Y, Yvar))))
         return X_to_Ys_and_Yvars
 

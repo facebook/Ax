@@ -603,9 +603,11 @@ def _encode_callables_as_references(kwarg_dict: Dict[str, Any]) -> Dict[str, Any
     the resulting dictionary.
     """
     return {
-        k: {"is_callable_as_path": True, "value": callable_to_reference(v)}
-        if isfunction(v)
-        else v
+        k: (
+            {"is_callable_as_path": True, "value": callable_to_reference(v)}
+            if isfunction(v)
+            else v
+        )
         for k, v in kwarg_dict.items()
     }
 
@@ -615,8 +617,10 @@ def _decode_callables_from_references(kwarg_dict: Dict[str, Any]) -> Dict[str, A
     the resulting dictionary.
     """
     return {
-        k: callable_from_reference(checked_cast(str, v.get("value")))
-        if isinstance(v, dict) and v.get("is_callable_as_path", False)
-        else v
+        k: (
+            callable_from_reference(checked_cast(str, v.get("value")))
+            if isinstance(v, dict) and v.get("is_callable_as_path", False)
+            else v
+        )
         for k, v in kwarg_dict.items()
     }

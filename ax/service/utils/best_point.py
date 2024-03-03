@@ -899,12 +899,14 @@ def fill_missing_thresholds_from_nadir(
         obj_t.metric.name: obj_t for obj_t in optimization_config.objective_thresholds
     }
     objective_thresholds = [
-        provided_thresholds[objective.metric.name]
-        if objective.metric.name in provided_thresholds
-        else _objective_threshold_from_nadir(
-            experiment=experiment,
-            objective=objective,
-            optimization_config=optimization_config,
+        (
+            provided_thresholds[objective.metric.name]
+            if objective.metric.name in provided_thresholds
+            else _objective_threshold_from_nadir(
+                experiment=experiment,
+                objective=objective,
+                optimization_config=optimization_config,
+            )
         )
         for objective in objectives
     ]

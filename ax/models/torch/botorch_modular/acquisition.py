@@ -172,9 +172,9 @@ class Acquisition(Base):
                 )
 
         # Store objective thresholds for all outcomes (including non-objectives).
-        self._objective_thresholds: Optional[
-            Tensor
-        ] = torch_opt_config.objective_thresholds
+        self._objective_thresholds: Optional[Tensor] = (
+            torch_opt_config.objective_thresholds
+        )
         self._full_objective_weights: Tensor = torch_opt_config.objective_weights
         full_outcome_constraints = torch_opt_config.outcome_constraints
 
@@ -187,9 +187,11 @@ class Acquisition(Base):
         )
 
         primary_Xs_pending, primary_Xs_observed = Xs_pending_and_observed[
-            Keys.PRIMARY_SURROGATE
-            if len(self.surrogates) > 1
-            else next(iter(Xs_pending_and_observed.keys()))
+            (
+                Keys.PRIMARY_SURROGATE
+                if len(self.surrogates) > 1
+                else next(iter(Xs_pending_and_observed.keys()))
+            )
         ]
 
         # Subset model only to the outcomes we need for the optimization.
@@ -490,7 +492,7 @@ class Acquisition(Base):
             # acquisition function.
             inequality_constraints = inequality_constraints or []
             is_feasible = torch.ones(all_choices.shape[0], dtype=torch.bool)
-            for (inds, weights, bound) in inequality_constraints:
+            for inds, weights, bound in inequality_constraints:
                 is_feasible &= (all_choices[..., inds] * weights).sum(dim=-1) >= bound
             all_choices = all_choices[is_feasible]
 

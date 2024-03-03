@@ -12,8 +12,9 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 
 
-class SyntheticRunnerWithSingleRunningTrial(SingleRunningTrialMixin, SyntheticRunner):
-    ...
+class SyntheticRunnerWithSingleRunningTrial(
+    SingleRunningTrialMixin, SyntheticRunner
+): ...
 
 
 class SingleRunningTrialMixinTest(TestCase):

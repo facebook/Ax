@@ -100,9 +100,11 @@ class OptimizationLoop:
         experiment = InstantiationBase.make_experiment(
             name=experiment_name,
             parameters=parameters,
-            objectives={objective_name: "minimize" if minimize else "maximize"}
-            if objective_name
-            else None,
+            objectives=(
+                {objective_name: "minimize" if minimize else "maximize"}
+                if objective_name
+                else None
+            ),
             parameter_constraints=parameter_constraints,
             outcome_constraints=outcome_constraints,
         )

@@ -511,9 +511,9 @@ def generation_strategy_to_dict(
         "db_id": generation_strategy._db_id,
         "name": generation_strategy.name,
         "steps": generation_strategy._steps if not node_based_gs else [],
-        "curr_index": generation_strategy.current_step_index
-        if not node_based_gs
-        else -1,
+        "curr_index": (
+            generation_strategy.current_step_index if not node_based_gs else -1
+        ),
         "generator_runs": generation_strategy._generator_runs,
         "had_initialized_model": generation_strategy.model is not None,
         "experiment": generation_strategy._experiment,
@@ -563,12 +563,14 @@ def botorch_model_to_dict(model: BoTorchModel) -> Dict[str, Any]:
         "__type": model.__class__.__name__,
         "acquisition_class": model.acquisition_class,
         "acquisition_options": model.acquisition_options or {},
-        "surrogate": model._surrogates[Keys.ONLY_SURROGATE]
-        if Keys.ONLY_SURROGATE in model._surrogates
-        else None,
-        "surrogate_specs": model.surrogate_specs
-        if len(model.surrogate_specs) > 0
-        else None,
+        "surrogate": (
+            model._surrogates[Keys.ONLY_SURROGATE]
+            if Keys.ONLY_SURROGATE in model._surrogates
+            else None
+        ),
+        "surrogate_specs": (
+            model.surrogate_specs if len(model.surrogate_specs) > 0 else None
+        ),
         "botorch_acqf_class": model._botorch_acqf_class,
         "refit_on_update": model.refit_on_update,
         "refit_on_cv": model.refit_on_cv,

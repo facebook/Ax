@@ -302,9 +302,11 @@ def botorch_component_from_json(botorch_class: Any, json: Dict[str, Any]) -> Typ
         )
     return botorch_class(
         **{
-            k: tensor_or_size_from_json(json=v)
-            if isinstance(v, dict) and "__type" in v
-            else v
+            k: (
+                tensor_or_size_from_json(json=v)
+                if isinstance(v, dict) and "__type" in v
+                else v
+            )
             for k, v in state_dict.items()
         }
     )

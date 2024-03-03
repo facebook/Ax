@@ -86,9 +86,7 @@ def register_runners(
     """
     new_runner_registry = {
         **{
-            runner_cls: val
-            if val
-            else abs(stable_hash(runner_cls.__name__)) % (10**5)
+            runner_cls: val if val else abs(stable_hash(runner_cls.__name__)) % (10**5)
             for runner_cls, val in runner_clss.items()
         },
         **runner_registry,

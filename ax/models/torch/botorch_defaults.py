@@ -244,8 +244,7 @@ class TAcqfConstructor(Protocol):
         X_observed: Optional[Tensor] = None,
         X_pending: Optional[Tensor] = None,
         **kwargs: Any,
-    ) -> AcquisitionFunction:
-        ...  # pragma: no cover
+    ) -> AcquisitionFunction: ...  # pragma: no cover
 
 
 def get_acqf(

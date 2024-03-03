@@ -386,12 +386,12 @@ class Surrogate(Base):
                 )
 
             elif input_name == "outcome_transform":
-                formatted_model_inputs[
-                    input_name
-                ] = self._make_botorch_outcome_transform(
-                    input_classes=input_class,
-                    input_options=input_options,
-                    dataset=dataset,
+                formatted_model_inputs[input_name] = (
+                    self._make_botorch_outcome_transform(
+                        input_classes=input_class,
+                        input_options=input_options,
+                        dataset=dataset,
+                    )
                 )
             else:
                 formatted_model_inputs[input_name] = input_class(**input_options)

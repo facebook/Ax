@@ -703,14 +703,14 @@ class TorchModelBridge(ModelBridge):
                 torch_opt_config.opt_config_metrics
                 or not_none(self._optimization_config).metrics
             )
-            gen_metadata[
-                "objective_thresholds"
-            ] = self._untransform_objective_thresholds(
-                objective_thresholds=gen_metadata["objective_thresholds"],
-                objective_weights=torch_opt_config.objective_weights,
-                bounds=search_space_digest.bounds,
-                opt_config_metrics=opt_config_metrics,
-                fixed_features=torch_opt_config.fixed_features,
+            gen_metadata["objective_thresholds"] = (
+                self._untransform_objective_thresholds(
+                    objective_thresholds=gen_metadata["objective_thresholds"],
+                    objective_weights=torch_opt_config.objective_weights,
+                    bounds=search_space_digest.bounds,
+                    opt_config_metrics=opt_config_metrics,
+                    fixed_features=torch_opt_config.fixed_features,
+                )
             )
 
         # Transform array to observations

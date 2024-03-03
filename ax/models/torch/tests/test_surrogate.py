@@ -825,9 +825,11 @@ class SurrogateWithModelListTest(TestCase):
             mock_fit.reset_mock()
             mock_MTGP_construct_inputs.reset_mock()
             self.surrogate.fit(
-                datasets=self.fixed_noise_training_data
-                if fixed_noise
-                else self.supervised_training_data,
+                datasets=(
+                    self.fixed_noise_training_data
+                    if fixed_noise
+                    else self.supervised_training_data
+                ),
                 search_space_digest=dataclasses.replace(
                     self.multi_task_search_space_digest,
                     task_features=self.task_features,

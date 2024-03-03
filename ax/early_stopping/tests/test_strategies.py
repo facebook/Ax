@@ -428,9 +428,9 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         data = checked_cast(MapData, exp.fetch_data())
 
         unaligned_timestamps = [0, 1, 4, 1, 2, 3, 1, 3, 4, 0, 1, 2, 0, 2, 4]
-        data.map_df.loc[
-            data.map_df["metric_name"] == "branin_map", "timestamp"
-        ] = unaligned_timestamps
+        data.map_df.loc[data.map_df["metric_name"] == "branin_map", "timestamp"] = (
+            unaligned_timestamps
+        )
         exp.attach_data(data=data)
 
         """
@@ -471,9 +471,9 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         data.map_df.reset_index(drop=True, inplace=True)
 
         unaligned_timestamps = [0, 1, 4, 1, 2, 3, 1, 3, 4, 0, 1, 2, 0, 2, 4]
-        data.map_df.loc[
-            data.map_df["metric_name"] == "branin_map", "timestamp"
-        ] = unaligned_timestamps
+        data.map_df.loc[data.map_df["metric_name"] == "branin_map", "timestamp"] = (
+            unaligned_timestamps
+        )
         # manually remove timestamps 1 and 2 for arm 3
         df = data.map_df
         df.drop(

@@ -139,9 +139,11 @@ def _get_objective_trace_plot(
         plot_objective_value_vs_trial_index(
             exp_df=exp_df,
             metric_colname=metric_name,
-            minimize=optimization_config.objective.minimize
-            if optimization_config.objective.metric.name == metric_name
-            else experiment.metrics[metric_name].lower_is_better,
+            minimize=(
+                optimization_config.objective.minimize
+                if optimization_config.objective.metric.name == metric_name
+                else experiment.metrics[metric_name].lower_is_better
+            ),
             title=f"Best {metric_name} found vs. trial index",
             hover_data_colnames=run_metadata_report_keys,
         )
@@ -361,9 +363,9 @@ def get_standard_plots(
             _get_objective_trace_plot(
                 experiment=experiment,
                 data=data,
-                model_transitions=model_transitions
-                if model_transitions is not None
-                else [],
+                model_transitions=(
+                    model_transitions if model_transitions is not None else []
+                ),
                 true_objective_metric_name=true_objective_metric_name,
             )
         )
@@ -850,9 +852,11 @@ def exp_to_df(
         index: (
             f"{trial.failed_reason[:15]}..."
             if trial.status.is_failed and trial.failed_reason is not None
-            else f"{trial.abandoned_reason[:15]}..."
-            if trial.status.is_abandoned and trial.abandoned_reason is not None
-            else None
+            else (
+                f"{trial.abandoned_reason[:15]}..."
+                if trial.status.is_abandoned and trial.abandoned_reason is not None
+                else None
+            )
         )
         for index, trial in trials
     }

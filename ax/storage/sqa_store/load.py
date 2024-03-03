@@ -212,7 +212,6 @@ def _get_trials_sqa(
     trials_query_options: Optional[List[Any]] = None,
     skip_runners_and_metrics: bool = False,
 ) -> List[SQATrial]:
-
     """Obtains SQLAlchemy trial objects for given experiment ID from DB,
     optionally in mini-batches and with specified query options.
     """

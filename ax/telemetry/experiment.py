@@ -106,21 +106,25 @@ class ExperimentCreatedRecord:
             dimensionality=sum(
                 1 for param in experiment.parameters.values() if param.cardinality() > 1
             ),
-            hierarchical_tree_height=experiment.search_space.height
-            if isinstance(experiment.search_space, HierarchicalSearchSpace)
-            else 1,
+            hierarchical_tree_height=(
+                experiment.search_space.height
+                if isinstance(experiment.search_space, HierarchicalSearchSpace)
+                else 1
+            ),
             num_parameter_constraints=len(
                 experiment.search_space.parameter_constraints
             ),
-            num_objectives=len(experiment.optimization_config.objective.metrics)
-            if experiment.optimization_config is not None
-            else 0,
+            num_objectives=(
+                len(experiment.optimization_config.objective.metrics)
+                if experiment.optimization_config is not None
+                else 0
+            ),
             num_tracking_metrics=len(experiment.tracking_metrics),
-            num_outcome_constraints=len(
-                experiment.optimization_config.outcome_constraints
-            )
-            if experiment.optimization_config is not None
-            else 0,
+            num_outcome_constraints=(
+                len(experiment.optimization_config.outcome_constraints)
+                if experiment.optimization_config is not None
+                else 0
+            ),
             num_map_metrics=sum(
                 1
                 for metric in experiment.metrics.values()

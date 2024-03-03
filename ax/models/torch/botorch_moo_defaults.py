@@ -297,9 +297,11 @@ def _get_NEHVI(
             prune_baseline=prune_baseline,
             mc_samples=mc_samples,
             alpha=alpha,
-            seed=seed
-            if seed is not None
-            else cast(int, torch.randint(1, 10000, (1,)).item()),
+            seed=(
+                seed
+                if seed is not None
+                else cast(int, torch.randint(1, 10000, (1,)).item())
+            ),
             ref_point=objective_thresholds.tolist(),
             marginalize_dim=marginalize_dim,
             cache_root=cache_root,
@@ -467,12 +469,16 @@ def _get_EHVI(
             X_pending=X_pending,
             constraints=cons_tfs,
             mc_samples=mc_samples,
-            alpha=get_default_partitioning_alpha(num_objectives=num_objectives)
-            if alpha is None
-            else alpha,
-            seed=seed
-            if seed is not None
-            else cast(int, torch.randint(1, 10000, (1,)).item()),
+            alpha=(
+                get_default_partitioning_alpha(num_objectives=num_objectives)
+                if alpha is None
+                else alpha
+            ),
+            seed=(
+                seed
+                if seed is not None
+                else cast(int, torch.randint(1, 10000, (1,)).item())
+            ),
             ref_point=objective_thresholds.tolist(),
             Y=Y,
         ),

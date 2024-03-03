@@ -126,9 +126,11 @@ class Trial(BaseTrial):
                 # `candidate_metadata_by_arm_signature`
                 # expected `Optional[Dict[str, Optional[Dict[str, typing.Any]]]]`
                 # but got `Optional[Dict[str, Dict[str, typing.Any]]]`
-                candidate_metadata_by_arm_signature=None
-                if candidate_metadata is None
-                else {arm.signature: candidate_metadata.copy()},
+                candidate_metadata_by_arm_signature=(
+                    None
+                    if candidate_metadata is None
+                    else {arm.signature: candidate_metadata.copy()}
+                ),
             )
         )
 

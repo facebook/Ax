@@ -94,8 +94,9 @@ class SyntheticRunnerWithStatusPolling(SyntheticRunner):
         return {}
 
 
-class SyntheticRunnerWithSingleRunningTrial(SingleRunningTrialMixin, SyntheticRunner):
-    ...
+class SyntheticRunnerWithSingleRunningTrial(
+    SingleRunningTrialMixin, SyntheticRunner
+): ...
 
 
 class SyntheticRunnerWithPredictableStatusPolling(SyntheticRunner):
@@ -249,9 +250,9 @@ class AxSchedulerTestCase(TestCase):
     to subclass and change some specific tests that don't apply to
     your specific `GenerationStrategyInterface`."""
 
-    GENERATION_STRATEGY_INTERFACE_CLASS: Type[
-        GenerationStrategyInterface
-    ] = GenerationStrategy
+    GENERATION_STRATEGY_INTERFACE_CLASS: Type[GenerationStrategyInterface] = (
+        GenerationStrategy
+    )
     PENDING_FEATURES_CALL_LOCATION: str = str(GenerationStrategy.__module__)
     ALWAYS_USE_DB = False
     EXPECTED_SCHEDULER_REPR: str = (
@@ -281,9 +282,9 @@ class AxSchedulerTestCase(TestCase):
 
         self.runner = SyntheticRunnerWithStatusPolling()
         self.branin_experiment.runner = self.runner
-        self.branin_experiment._properties[
-            Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF
-        ] = True
+        self.branin_experiment._properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF] = (
+            True
+        )
         self.branin_experiment_no_impl_runner_or_metrics = Experiment(
             search_space=get_branin_search_space(),
             optimization_config=OptimizationConfig(
@@ -1103,11 +1104,11 @@ class AxSchedulerTestCase(TestCase):
         # Hack "resumed from storage timestamp" into `exp` to make sure all other fields
         # are equal, since difference in resumed from storage timestamps is expected.
         # pyre-fixme[16]: `Optional` has no attribute `_properties`.
-        exp._properties[
-            ExperimentStatusProperties.RESUMED_FROM_STORAGE_TIMESTAMPS
-        ] = new_scheduler.experiment._properties[
-            ExperimentStatusProperties.RESUMED_FROM_STORAGE_TIMESTAMPS
-        ]
+        exp._properties[ExperimentStatusProperties.RESUMED_FROM_STORAGE_TIMESTAMPS] = (
+            new_scheduler.experiment._properties[
+                ExperimentStatusProperties.RESUMED_FROM_STORAGE_TIMESTAMPS
+            ]
+        )
         self.assertEqual(new_scheduler.experiment, exp)
         self.assertLessEqual(
             len(gs._generator_runs),
@@ -1227,9 +1228,11 @@ class AxSchedulerTestCase(TestCase):
             # Both trials in first batch of parallelism will be early stopped
             self.assertEqual(
                 len(res_list[0]["trials_early_stopped_so_far"]),
-                self.two_sobol_steps_GS._steps[0].max_parallelism
-                if respect_parellelism
-                else total_trials,
+                (
+                    self.two_sobol_steps_GS._steps[0].max_parallelism
+                    if respect_parellelism
+                    else total_trials
+                ),
             )
             # Third trial in second batch of parallelism will be early stopped
             self.assertEqual(len(res_list[1]["trials_early_stopped_so_far"]), 3)
@@ -1801,9 +1804,9 @@ class AxSchedulerTestCase(TestCase):
         self.assertEqual(message, "Exceeding the total number of trials.")
 
     def test_get_fitted_model_bridge(self) -> None:
-        self.branin_experiment._properties[
-            Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF
-        ] = True
+        self.branin_experiment._properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF] = (
+            True
+        )
         # generation strategy
         NUM_SOBOL = 5
         generation_strategy = GenerationStrategy(

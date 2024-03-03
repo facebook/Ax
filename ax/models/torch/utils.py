@@ -472,9 +472,9 @@ def get_botorch_objective_and_transform(
                 "X_observed is required to construct a constrained BoTorch objective."
             )
         # If there are outcome constraints, we use MC Acquisition functions.
-        obj_tf: Callable[
-            [Tensor, Optional[Tensor]], Tensor
-        ] = get_objective_weights_transform(objective_weights)
+        obj_tf: Callable[[Tensor, Optional[Tensor]], Tensor] = (
+            get_objective_weights_transform(objective_weights)
+        )
 
         def objective(samples: Tensor, X: Optional[Tensor] = None) -> Tensor:
             return obj_tf(samples, X)

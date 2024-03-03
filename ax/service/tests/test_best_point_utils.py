@@ -356,9 +356,11 @@ class TestBestPointUtils(TestCase):
                         "trial_index": trial_idx,
                         "metric_name": metric_name,
                         "arm_name": f"{trial_idx}_0",
-                        "mean": float(trial_idx)
-                        if metric_name == "foo"
-                        else trial_idx + 5.0,
+                        "mean": (
+                            float(trial_idx)
+                            if metric_name == "foo"
+                            else trial_idx + 5.0
+                        ),
                         "sem": 0.0,
                     }
                 )

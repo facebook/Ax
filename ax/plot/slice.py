@@ -426,14 +426,16 @@ def interact_slice_plotly(
             pbutton_data_args["x"] += [trace["x"] for trace in traces]
             pbutton_data_args["y"] += [trace["y"] for trace in traces]
             pbutton_data_args["error_y"] += [
-                {
-                    "type": "data",
-                    "array": trace["error_y"]["array"],
-                    "visible": True,
-                    "color": "black",
-                }
-                if "error_y" in trace and "array" in trace["error_y"]
-                else []
+                (
+                    {
+                        "type": "data",
+                        "array": trace["error_y"]["array"],
+                        "visible": True,
+                        "color": "black",
+                    }
+                    if "error_y" in trace and "array" in trace["error_y"]
+                    else []
+                )
                 for trace in traces
             ]
             if first_param_bool:

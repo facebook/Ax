@@ -291,9 +291,9 @@ class BoTorchModel(TorchModel, Base):
                 datasets=datasets,
                 search_space_digest=search_space_digest,
                 candidate_metadata=candidate_metadata,
-                state_dict=state_dicts.get(Keys.ONLY_SURROGATE)
-                if state_dicts
-                else None,
+                state_dict=(
+                    state_dicts.get(Keys.ONLY_SURROGATE) if state_dicts else None
+                ),
                 refit=refit,
             )
             self._output_order = list(range(len(outcome_names)))

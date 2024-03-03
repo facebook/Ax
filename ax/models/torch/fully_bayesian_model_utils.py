@@ -60,9 +60,11 @@ def _get_single_task_gpytorch_model(
 
     num_mcmc_samples = num_samples // thinning
     covar_modules = [
-        _get_rbf_kernel(num_samples=num_mcmc_samples, dim=Xs[0].shape[-1])
-        if gp_kernel == "rbf"
-        else _get_matern_kernel(num_samples=num_mcmc_samples, dim=Xs[0].shape[-1])
+        (
+            _get_rbf_kernel(num_samples=num_mcmc_samples, dim=Xs[0].shape[-1])
+            if gp_kernel == "rbf"
+            else _get_matern_kernel(num_samples=num_mcmc_samples, dim=Xs[0].shape[-1])
+        )
         for _ in range(len(Xs))
     ]
 

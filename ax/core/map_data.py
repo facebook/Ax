@@ -253,9 +253,11 @@ class MapData(Data):
         default values).
         """
         map_datas = [
-            MapData(df=datum.df, map_key_infos=[])
-            if not isinstance(datum, MapData)
-            else datum
+            (
+                MapData(df=datum.df, map_key_infos=[])
+                if not isinstance(datum, MapData)
+                else datum
+            )
             for datum in data
         ]
 

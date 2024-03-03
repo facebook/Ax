@@ -65,9 +65,9 @@ def _get_problem_from_common_inputs(
         parameters=[
             RangeParameter(
                 name=f"x{i + 1}",
-                parameter_type=ParameterType.INT
-                if i < dim_int
-                else ParameterType.FLOAT,
+                parameter_type=(
+                    ParameterType.INT if i < dim_int else ParameterType.FLOAT
+                ),
                 lower=bounds[i][0],
                 upper=bounds[i][1],
             )

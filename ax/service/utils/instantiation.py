@@ -107,6 +107,7 @@ class ObjectiveProperties:
             also known as an element of the reference point vector that defines the
             hyper-volume of the Pareto front.
     """
+
     minimize: bool
     threshold: Optional[float] = None
 
@@ -265,9 +266,11 @@ class InstantiationBase:
         )
         return FixedParameter(
             name=name,
-            parameter_type=cls._get_parameter_type(type(value))  # pyre-ignore[6]
-            if parameter_type is None
-            else cls._get_parameter_type(PARAM_TYPES[parameter_type]),  # pyre-ignore[6]
+            parameter_type=(
+                cls._get_parameter_type(type(value))  # pyre-ignore[6]
+                if parameter_type is None
+                else cls._get_parameter_type(PARAM_TYPES[parameter_type])
+            ),  # pyre-ignore[6]
             value=value,  # pyre-ignore[6]
             is_fidelity=checked_cast(bool, representation.get("is_fidelity", False)),
             target_value=representation.get("target_value", None),  # pyre-ignore[6]
@@ -853,9 +856,9 @@ class InstantiationBase:
         properties: Dict[str, Any] = {}
 
         if immutable_search_space_and_opt_config:
-            properties[
-                Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF
-            ] = immutable_search_space_and_opt_config
+            properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF] = (
+                immutable_search_space_and_opt_config
+            )
 
         if owners is not None:
             properties["owners"] = owners
@@ -922,7 +925,9 @@ class InstantiationBase:
         """
         return ObservationFeatures(
             parameters=fixed_features.parameters,
-            trial_index=None
-            if fixed_features.trial_index is None
-            else fixed_features.trial_index,
+            trial_index=(
+                None
+                if fixed_features.trial_index is None
+                else fixed_features.trial_index
+            ),
         )

@@ -57,7 +57,7 @@ class GenerationStrategyCreatedRecord:
                 for step in generation_strategy._steps
                 if step.model in OTHER_MODELS
             ),
-            max_parallelism=true_max_parallelism
-            if isinstance(true_max_parallelism, int)
-            else -1,
+            max_parallelism=(
+                true_max_parallelism if isinstance(true_max_parallelism, int) else -1
+            ),
         )

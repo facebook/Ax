@@ -163,9 +163,9 @@ class AcquisitionTest(TestCase):
         self, fixed_features: Optional[Dict[int, float]] = None, one_shot: bool = False
     ) -> Acquisition:
         return Acquisition(
-            botorch_acqf_class=DummyOneShotAcquisitionFunction
-            if one_shot
-            else self.botorch_acqf_class,
+            botorch_acqf_class=(
+                DummyOneShotAcquisitionFunction if one_shot else self.botorch_acqf_class
+            ),
             surrogates={"surrogate": self.surrogate},
             search_space_digest=self.search_space_digest,
             torch_opt_config=dataclasses.replace(

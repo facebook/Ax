@@ -460,12 +460,12 @@ class ModelBridge(ABC):
         """A map of trial index to the status quo observation data of each trial"""
         return _get_status_quo_by_trial(
             observations=self._training_data,
-            status_quo_name=None
-            if self._status_quo is None
-            else self._status_quo.arm_name,
-            status_quo_features=None
-            if self._status_quo is None
-            else self._status_quo.features,
+            status_quo_name=(
+                None if self._status_quo is None else self._status_quo.arm_name
+            ),
+            status_quo_features=(
+                None if self._status_quo is None else self._status_quo.features
+            ),
         )
 
     @property
@@ -846,9 +846,9 @@ class ModelBridge(ABC):
             optimization_config=optimization_config,
             search_space=None if immutable else base_gen_args.search_space,
             model_predictions=model_predictions,
-            best_arm_predictions=None
-            if best_arm is None
-            else (best_arm, best_point_predictions),
+            best_arm_predictions=(
+                None if best_arm is None else (best_arm, best_point_predictions)
+            ),
             fit_time=self.fit_time_since_gen,
             gen_time=time.monotonic() - t_gen_start,
             model_key=self._model_key,

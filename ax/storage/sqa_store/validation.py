@@ -34,7 +34,7 @@ def listens_for_multiple(
     targets: List[InstrumentedAttribute],
     identifier: str,
     *args: Any,
-    **kwargs: Any
+    **kwargs: Any,
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 ) -> Callable:
     """Analogue of SQLAlchemy `listen_for`, but applies the same listening handler

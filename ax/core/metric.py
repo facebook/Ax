@@ -474,9 +474,11 @@ class Metric(SortableBase, SerializationMixin):
 
             # TODO[mpolson64] Raise all errors in a group via PEP 654
             exceptions = [
-                err.err.exception
-                if err.err.exception is not None
-                else Exception(err.err.message)
+                (
+                    err.err.exception
+                    if err.err.exception is not None
+                    else Exception(err.err.message)
+                )
                 for err in errs
             ]
 
@@ -533,9 +535,11 @@ class Metric(SortableBase, SerializationMixin):
             if len(critical_errs) > 0:
                 # TODO[mpolson64] Raise all errors in a group via PEP 654
                 exceptions = [
-                    err.err.exception
-                    if err.err.exception is not None
-                    else Exception(err.err.message)
+                    (
+                        err.err.exception
+                        if err.err.exception is not None
+                        else Exception(err.err.message)
+                    )
                     for err in critical_errs
                 ]
                 raise UnwrapError(critical_errs) from (
@@ -572,9 +576,11 @@ class Metric(SortableBase, SerializationMixin):
 
             # TODO[mpolson64] Raise all errors in a group via PEP 654
             exceptions = [
-                err.err.exception
-                if err.err.exception is not None
-                else Exception(err.err.message)
+                (
+                    err.err.exception
+                    if err.err.exception is not None
+                    else Exception(err.err.message)
+                )
                 for err in errs
             ]
             raise UnwrapError(errs) from (
