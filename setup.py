@@ -35,7 +35,7 @@ REQUIRES = [
 # pytest-cov requires pytest >= 3.6
 DEV_REQUIRES = [
     "beautifulsoup4",
-    "black==22.3.0",
+    "black==24.2.0",
     "flake8",
     "hypothesis",
     "Jinja2",
