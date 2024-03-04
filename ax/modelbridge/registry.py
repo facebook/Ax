@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-strict
+
 """
 Module containing a registry of standard models (and generators, samplers etc.)
 such as Sobol generator, GP+EI, Thompson sampler, etc.

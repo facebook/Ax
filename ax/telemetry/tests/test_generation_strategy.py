@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-strict
+
 from ax.telemetry.generation_strategy import GenerationStrategyCreatedRecord
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.modeling_stubs import get_generation_strategy

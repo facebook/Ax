@@ -3,6 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-strict
+
 """
 Mixed integer extensions of some common synthetic test functions.
 These are adapted from [Daulton2022bopr]_.

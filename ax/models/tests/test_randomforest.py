@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-strict
+
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.randomforest import RandomForest
