@@ -269,8 +269,11 @@ class InstantiationBase:
             parameter_type=(
                 cls._get_parameter_type(type(value))  # pyre-ignore[6]
                 if parameter_type is None
+                # pyre-fixme[6]: For 1st argument expected `Union[Type[bool],
+                #  Type[float], Type[int], Type[str]]` but got `Type[Union[float,
+                #  str]]`.
                 else cls._get_parameter_type(PARAM_TYPES[parameter_type])
-            ),  # pyre-ignore[6]
+            ),
             value=value,  # pyre-ignore[6]
             is_fidelity=checked_cast(bool, representation.get("is_fidelity", False)),
             target_value=representation.get("target_value", None),  # pyre-ignore[6]
