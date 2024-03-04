@@ -49,6 +49,7 @@ from ax.utils.common.typeutils import (
 )
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP
 from botorch.models.transforms.input import (
     ChainedInputTransform,
@@ -840,4 +841,28 @@ def _submodel_input_constructor_base(
         # This is used to check if the arguments are supported.
         botorch_model_class_args=botorch_model_class_args,
     )
+    return formatted_model_inputs
+
+
+@submodel_input_constructor.register(MultiTaskGP)
+def _submodel_input_constructor_mtgp(
+    botorch_model_class: Type[Model],
+    dataset: SupervisedDataset,
+    search_space_digest: SearchSpaceDigest,
+    surrogate: Surrogate,
+) -> Dict[str, Any]:
+    if len(dataset.outcome_names) > 1:
+        raise NotImplementedError("Multi-output Multi-task GPs are not yet supported.")
+    formatted_model_inputs = _submodel_input_constructor_base(
+        botorch_model_class=botorch_model_class,
+        dataset=dataset,
+        search_space_digest=search_space_digest,
+        surrogate=surrogate,
+    )
+    task_feature = formatted_model_inputs.get("task_feature")
+    if task_feature is None:
+        return formatted_model_inputs
+    # specify output tasks so that model.num_outputs = 1
+    # since the model only models a single outcome
+    formatted_model_inputs["output_tasks"] = dataset.X[:1, task_feature].tolist()
     return formatted_model_inputs
