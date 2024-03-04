@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-strict
+
 # necessary to import this file so SQLAlchemy knows about the event listeners
 # see https://fburl.com/8mn7yjt2
 from ax.storage.sqa_store import validation

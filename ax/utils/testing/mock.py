@@ -3,6 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-strict
+
 from contextlib import contextmanager, ExitStack
 from functools import wraps
 from typing import Any, Callable, Dict, Generator, Optional
