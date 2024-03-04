@@ -3,6 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-strict
+
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.storage.botorch_modular_registry import (
     ACQUISITION_FUNCTION_REGISTRY,

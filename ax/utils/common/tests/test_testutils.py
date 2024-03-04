@@ -4,6 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-strict
+
 import io
 import sys
 
@@ -17,7 +19,7 @@ def _f():
     raise e
 
 
-F_FAILURE_LINENO = 17  # Line # for the error in `_f`.
+F_FAILURE_LINENO = 19  # Line # for the error in `_f`.
 
 
 def _g() -> None:

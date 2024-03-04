@@ -3,6 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-strict
+
 
 from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.plot.parallel_coordinates import plot_parallel_coordinates

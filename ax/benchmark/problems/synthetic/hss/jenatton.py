@@ -3,6 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-strict
+
 from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
