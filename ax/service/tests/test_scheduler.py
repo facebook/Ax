@@ -8,4 +8,5 @@
 from ax.service.tests.scheduler_test_utils import AxSchedulerTestCase
 
 
-class TestAxScheduler(AxSchedulerTestCase): ...
+class TestAxScheduler(AxSchedulerTestCase):
+    pass
