@@ -96,9 +96,8 @@ class SyntheticRunnerWithStatusPolling(SyntheticRunner):
         return {}
 
 
-class SyntheticRunnerWithSingleRunningTrial(
-    SingleRunningTrialMixin, SyntheticRunner
-): ...
+class SyntheticRunnerWithSingleRunningTrial(SingleRunningTrialMixin, SyntheticRunner):
+    pass
 
 
 class SyntheticRunnerWithPredictableStatusPolling(SyntheticRunner):

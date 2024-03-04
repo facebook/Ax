@@ -1990,7 +1990,9 @@ def get_percentile_early_stopping_strategy() -> PercentileEarlyStoppingStrategy:
     )
 
 
-def get_percentile_early_stopping_strategy_with_non_objective_metric_name() -> PercentileEarlyStoppingStrategy:  # noqa
+def get_percentile_early_stopping_strategy_with_non_objective_metric_name() -> (
+    PercentileEarlyStoppingStrategy
+):
     return PercentileEarlyStoppingStrategy(
         metric_names=["foo"],
         percentile_threshold=0.25,

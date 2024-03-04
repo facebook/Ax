@@ -271,8 +271,9 @@ class InstantiationBase:
             parameter_type=(
                 cls._get_parameter_type(type(value))  # pyre-ignore[6]
                 if parameter_type is None
+                # pyre-ignore[6]
                 else cls._get_parameter_type(PARAM_TYPES[parameter_type])
-            ),  # pyre-ignore[6]
+            ),
             value=value,  # pyre-ignore[6]
             is_fidelity=checked_cast(bool, representation.get("is_fidelity", False)),
             target_value=representation.get("target_value", None),  # pyre-ignore[6]
