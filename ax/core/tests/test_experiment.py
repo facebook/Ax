@@ -10,7 +10,10 @@ import logging
 from typing import Dict, List, Type
 from unittest.mock import MagicMock, patch
 
+import numpy as np
+
 import pandas as pd
+import torch
 from ax.core import BatchTrial, Trial
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -1388,10 +1391,15 @@ class ExperimentWithMapDataTest(TestCase):
     @fast_botorch_optimize
     def test_batch_with_multiple_generator_runs(self) -> None:
         exp = get_branin_experiment()
-        sobol = Models.SOBOL(experiment=exp, search_space=exp.search_space)
+        # set seed to avoid transient errors caused by duplicate arms,
+        # which leads to fewer arms in the trial than expected.
+        seed = 0
+        sobol = Models.SOBOL(experiment=exp, search_space=exp.search_space, seed=seed)
         exp.new_batch_trial(generator_runs=[sobol.gen(n=7)]).run().complete()
 
         data = exp.fetch_data()
+        torch.manual_seed(seed)
+        np.random.seed(seed)
         gp = Models.BOTORCH_MODULAR(
             experiment=exp, search_space=exp.search_space, data=data
         )
