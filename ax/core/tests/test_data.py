@@ -347,3 +347,10 @@ class DataTest(TestCase):
         for c, t in Data.COLUMN_DATA_TYPES.items():
             if c not in excluded_columns:
                 self.assertEqual(columns[c], t)
+
+    def test_equality(self) -> None:
+        data1 = Data(df=self.df)
+        data2 = Data(df=self.df)
+        self.assertEqual(data1, data2)
+        data2 = Data(df=self.df, description="data2")
+        self.assertNotEqual(data1, data2)

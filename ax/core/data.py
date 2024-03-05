@@ -538,6 +538,11 @@ class Data(BaseData):
 
         return data_out
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Data):
+            return False
+        return self.df.equals(other.df) and self.description == other.description
+
 
 def set_single_trial(data: Data) -> Data:
     """Returns a new Data object where we set all rows to have the same
