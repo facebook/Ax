@@ -35,7 +35,11 @@ from ax.service.utils.best_point import (
     get_best_parameters_from_model_predictions,
     get_best_raw_objective_point,
 )
-from ax.service.utils.instantiation import InstantiationBase, TParameterRepresentation
+from ax.service.utils.instantiation import (
+    DEFAULT_OBJECTIVE_NAME,
+    InstantiationBase,
+    TParameterRepresentation,
+)
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
@@ -99,14 +103,12 @@ class OptimizationLoop:
     ) -> "OptimizationLoop":
         """Constructs a synchronous `OptimizationLoop` using an evaluation
         function."""
+        if objective_name is None:
+            objective_name = DEFAULT_OBJECTIVE_NAME
         experiment = InstantiationBase.make_experiment(
             name=experiment_name,
             parameters=parameters,
-            objectives=(
-                {objective_name: "minimize" if minimize else "maximize"}
-                if objective_name
-                else None
-            ),
+            objectives={objective_name: "minimize" if minimize else "maximize"},
             parameter_constraints=parameter_constraints,
             outcome_constraints=outcome_constraints,
         )
