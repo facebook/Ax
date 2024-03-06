@@ -53,7 +53,10 @@ from ax.exceptions.core import (
     UnsupportedError,
     UserInputError,
 )
-from ax.exceptions.generation_strategy import MaxParallelismReachedException
+from ax.exceptions.generation_strategy import (
+    AxGenerationException,
+    MaxParallelismReachedException,
+)
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.plot.pareto_utils import infer_reference_point_from_experiment
@@ -1713,11 +1716,11 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 )
             self.logger.debug(f"Message from generation strategy: {err}")
             return []
-        except Exception as err:
+        except AxGenerationException as err:
             if self._log_next_no_trials_reason:
                 self.logger.info(
                     "Generated all trials that can be generated currently. "
-                    "`generation_strategy` encountered an unknown error "
+                    "`generation_strategy` encountered an error "
                     f"{err}."
                 )
             self.logger.debug(f"Message from generation strategy: {err}")
