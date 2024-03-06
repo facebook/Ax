@@ -216,8 +216,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         _skip_experiment_save: bool = False,
     ) -> None:
         self.experiment = experiment
-        # Initialize options used in `__repr__` upfront, before any errors
-        # might be enncountered, reporting of which would call `__repr__`.
+        # Set up logger with an optional filepath handler. Note: we set the
+        # logger before setting options since that can trigger errors.
+        self._set_logger(options=options)
         self.options = options
         # NOTE: Parallelism schedule is embedded in the generation
         # strategy, as `GenerationStep.max_parallelism`.
@@ -235,14 +236,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             suppress_all_errors=self.options.suppress_storage_errors_after_retries,
         )
 
-        # Set up logger with an optional filepath handler
-        self._set_logger()
-
         # Validate experiment and GS; ensure that experiment has immutable
         # search space and opt. config to avoid storing their  copies on each
         # generator run.
         self._validate_remaining_trials(experiment=experiment)
-        self._validate_runner_and_implemented_metrics(experiment=experiment)
         if self.options.enforce_immutable_search_space_and_opt_config:
             self._enforce_immutable_search_space_and_opt_config()
         self._initialize_experiment_status_properties()
@@ -361,6 +358,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         """Set scheduler options."""
         self._validate_options(options=options)
         self._options = options
+        # validate runners and metrics since validate_metrics is an option
+        self._validate_runner_and_implemented_metrics(experiment=self.experiment)
 
     @property
     def running_trials(self) -> List[BaseTrial]:
@@ -1839,15 +1838,15 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             if seconds_since_run_trial < self.options.min_seconds_before_poll:
                 sleep(self.options.min_seconds_before_poll - seconds_since_run_trial)
 
-    def _set_logger(self) -> None:
+    def _set_logger(self, options: SchedulerOptions) -> None:
         """Set up the logger with appropriate logging levels."""
         cls_name = self.__class__.__name__
         logger = get_logger(name=f"{__name__}.{cls_name}@{hex(id(self))}")
-        set_stderr_log_level(self.options.logging_level)
-        if self.options.log_filepath is not None:
+        set_stderr_log_level(options.logging_level)
+        if options.log_filepath is not None:
             handler = build_file_handler(
-                filepath=not_none(self.options.log_filepath),
-                level=self.options.logging_level,
+                filepath=not_none(options.log_filepath),
+                level=options.logging_level,
             )
             logger.addHandler(handler)
         self.logger = LoggerAdapter(logger, extra={"output_name": cls_name})

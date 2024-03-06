@@ -2143,3 +2143,21 @@ class AxSchedulerTestCase(TestCase):
         # This is to ensure it generated from all nodes
         self.assertTrue(scheduler.standard_generation_strategy.optimization_complete)
         self.assertEqual(len(self.branin_experiment.trials), 3)
+
+    def test_update_options_with_validate_metrics(self) -> None:
+        experiment = self.branin_experiment_no_impl_runner_or_metrics
+        experiment.runner = self.runner
+        scheduler = Scheduler(
+            experiment=experiment,
+            generation_strategy=self._get_generation_strategy_strategy_for_test(
+                experiment=self.branin_experiment_no_impl_runner_or_metrics,
+                generation_strategy=self.sobol_GPEI_GS,
+            ),
+            options=SchedulerOptions(total_trials=10, validate_metrics=False),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            ".*Metrics {'branin'} do not implement fetching logic.",
+        ):
+            scheduler.options = SchedulerOptions(total_trials=10, validate_metrics=True)
