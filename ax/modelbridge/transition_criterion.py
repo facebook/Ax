@@ -10,7 +10,6 @@ from logging import Logger
 from typing import List, Optional, Set
 
 from ax.core.base_trial import TrialStatus
-
 from ax.core.experiment import Experiment
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.modelbridge.generation_strategy import DataRequiredError
