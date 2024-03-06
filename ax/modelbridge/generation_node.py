@@ -24,7 +24,6 @@ from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
-
 from ax.exceptions.generation_strategy import GenerationStrategyRepeatedPoints
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.cross_validation import BestModelSelector, CVDiagnostics, CVResult
@@ -472,7 +471,11 @@ class GenerationNode(SerializationMixin, SortableBase):
                 raise NotImplementedError(
                     "Cannot currently select between multiple transition nodes."
                 )
-            return True, transition_nodes[0]
+            elif len(transition_nodes) == 1:
+                return True, transition_nodes[0]
+            else:
+                # Will transition to the next node in the list.
+                return True, None
         return False, None
 
     def generator_run_limit(self, supress_generation_errors: bool = True) -> int:
@@ -481,8 +484,8 @@ class GenerationNode(SerializationMixin, SortableBase):
         `transition_criteria` that are TrialBasedCriterion.
 
         Returns:
-              - the number of generator runs that can currently be produced, with -1
-                meaning unlimited generator runs,
+            The number of generator runs that can currently be produced, with -1
+            meaning unlimited generator runs.
         """
         # TODO: @mgarrard Should we consider returning `None` if there is no limit?
         # TODO:@mgarrard Should we instead have `raise_generation_error`? The name

@@ -17,7 +17,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, ParameterType
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.utils import (
     get_pending_observation_features_based_on_trial_status as get_pending,
 )
@@ -50,7 +50,7 @@ from ax.models.random.sobol import SobolGenerator
 from ax.utils.common.equality import same_elements
 from ax.utils.common.mock import mock_patch_method_original
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.core_stubs import (
     get_branin_data,
     get_branin_experiment,
@@ -549,30 +549,20 @@ class TestGenerationStrategy(TestCase):
         self.assertIsNone(sobol_generation_strategy.trials_as_df)
         # Now the trial should appear in the DF.
         trial = exp.new_trial(sobol_generation_strategy.gen(experiment=exp))
-        # pyre-fixme[16]: Optional type has no attribute `empty`.
-        self.assertFalse(sobol_generation_strategy.trials_as_df.empty)
-        self.assertEqual(
-            # pyre-fixme[16]: Optional type has no attribute `head`.
-            sobol_generation_strategy.trials_as_df.head()["Trial Status"][0],
-            "CANDIDATE",
-        )
+        trials_df = not_none(sobol_generation_strategy.trials_as_df)
+        self.assertFalse(trials_df.empty)
+        self.assertEqual(trials_df.head()["Trial Status"][0], "CANDIDATE")
         # Changes in trial status should be reflected in the DF.
         trial._status = TrialStatus.RUNNING
-        self.assertEqual(
-            sobol_generation_strategy.trials_as_df.head()["Trial Status"][0], "RUNNING"
-        )
+        trials_df = not_none(sobol_generation_strategy.trials_as_df)
+        self.assertEqual(trials_df.head()["Trial Status"][0], "RUNNING")
         # Check that rows are present for step 0 and 1 after moving to step 1
         for _i in range(3):
             # attach necessary trials to fill up the Generation Strategy
             trial = exp.new_trial(sobol_generation_strategy.gen(experiment=exp))
-        self.assertEqual(
-            sobol_generation_strategy.trials_as_df.head()["Generation Step"][0],
-            "GenerationStep_0",
-        )
-        self.assertEqual(
-            sobol_generation_strategy.trials_as_df.head()["Generation Step"][2],
-            "GenerationStep_1",
-        )
+        trials_df = not_none(sobol_generation_strategy.trials_as_df)
+        self.assertEqual(trials_df.head()["Generation Step"][0], "GenerationStep_0")
+        self.assertEqual(trials_df.head()["Generation Step"][2], "GenerationStep_1")
 
         # construct the same GS as above but directly with nodes
         sobol_model_spec = ModelSpec(
@@ -615,27 +605,20 @@ class TestGenerationStrategy(TestCase):
         self.assertIsNone(node_gs.trials_as_df)
         # Now the trial should appear in the DF.
         trial = exp.new_trial(node_gs.gen(experiment=exp))
-
-        self.assertFalse(node_gs.trials_as_df.empty)
-        self.assertEqual(
-            node_gs.trials_as_df.head()["Trial Status"][0],
-            "CANDIDATE",
-        )
+        trials_df = not_none(node_gs.trials_as_df)
+        self.assertFalse(trials_df.empty)
+        self.assertEqual(trials_df.head()["Trial Status"][0], "CANDIDATE")
         # Changes in trial status should be reflected in the DF.
         trial._status = TrialStatus.RUNNING
-        self.assertEqual(node_gs.trials_as_df.head()["Trial Status"][0], "RUNNING")
+        trials_df = not_none(node_gs.trials_as_df)
+        self.assertEqual(trials_df.head()["Trial Status"][0], "RUNNING")
         # Check that rows are present for step 0 and 1 after moving to step 1
         for _i in range(3):
             # attach necessary trials to fill up the Generation Strategy
             trial = exp.new_trial(node_gs.gen(experiment=exp))
-        self.assertEqual(
-            node_gs.trials_as_df.head()["Generation Node"][0],
-            "sobol_2_trial",
-        )
-        self.assertEqual(
-            node_gs.trials_as_df.head()["Generation Node"][2],
-            "sobol_3_trial",
-        )
+        trials_df = not_none(node_gs.trials_as_df)
+        self.assertEqual(trials_df.head()["Generation Node"][0], "sobol_2_trial")
+        self.assertEqual(trials_df.head()["Generation Node"][2], "sobol_3_trial")
 
     def test_max_parallelism_reached(self) -> None:
         exp = get_branin_experiment()
@@ -782,11 +765,9 @@ class TestGenerationStrategy(TestCase):
                 self.sobol_GS.gen(experiment=experiment)
                 mock_model_fit.assert_called_once()
                 observations = mock_model_fit.call_args[1].get("observations")
-                all_parameter_names = (
-                    # pyre-fixme[16]: `SearchSpace` has no attribute
-                    #  `_all_parameter_names`.
-                    experiment.search_space._all_parameter_names.copy()
-                )
+                all_parameter_names = checked_cast(
+                    HierarchicalSearchSpace, experiment.search_space
+                )._all_parameter_names.copy()
                 # One of the parameter names is modified by transforms (because it's
                 # one-hot encoded).
                 all_parameter_names.remove("model")
@@ -1077,7 +1058,7 @@ class TestGenerationStrategy(TestCase):
                     ),
                 ],
             )
-        # check error raised if transition to arguemnt is not valid
+        # check error raised if transition to argument is not valid
         with self.assertRaisesRegex(
             GenerationStrategyMisconfiguredException, "`transition_to` argument"
         ):
@@ -1271,6 +1252,55 @@ class TestGenerationStrategy(TestCase):
                 ms = ms.copy()
                 del ms["generated_points"]
                 self.assertEqual(ms, {"init_position": i + 1})
+
+    def test_gs_with_nodes_and_blocking_criteria(self) -> None:
+        sobol_model_spec = ModelSpec(
+            model_enum=Models.SOBOL,
+            model_kwargs=self.step_model_kwargs,
+            model_gen_kwargs={},
+        )
+        sobol_node_with_criteria = GenerationNode(
+            node_name="test",
+            model_specs=[sobol_model_spec],
+            transition_criteria=[
+                MaxTrials(
+                    threshold=3,
+                    block_gen_if_met=True,
+                    block_transition_if_unmet=True,
+                ),
+                MinTrials(
+                    threshold=2,
+                    only_in_statuses=[TrialStatus.COMPLETED],
+                    block_gen_if_met=False,
+                    block_transition_if_unmet=True,
+                ),
+            ],
+            # If we remove this, the test will fail.
+            # This behavior needs to be improved.
+            gen_unlimited_trials=False,
+        )
+        gpei_model_spec = ModelSpec(
+            model_enum=Models.GPEI,
+            model_kwargs=self.step_model_kwargs,
+            model_gen_kwargs={},
+        )
+        gpei_node = GenerationNode(
+            node_name="GPEI_node",
+            model_specs=[gpei_model_spec],
+            gen_unlimited_trials=True,
+        )
+        gs = GenerationStrategy(
+            name="Sobol+GPEI_Nodes",
+            nodes=[sobol_node_with_criteria, gpei_node],
+        )
+        exp = get_branin_experiment()
+        for _ in range(5):
+            trial = exp.new_trial(
+                generator_run=gs.gen(n=1, experiment=exp, data=exp.lookup_data())
+            )
+            trial.mark_running(no_runner_required=True)
+            exp.attach_data(get_branin_data(trials=[trial]))
+            trial.mark_completed()
 
     def test_step_based_gs_only(self) -> None:
         """Test the step_based_gs_only decorator"""

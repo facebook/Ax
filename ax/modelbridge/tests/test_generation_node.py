@@ -11,7 +11,6 @@ from logging import Logger
 from unittest.mock import patch, PropertyMock
 
 from ax.core.base_trial import TrialStatus
-
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.cross_validation import (
