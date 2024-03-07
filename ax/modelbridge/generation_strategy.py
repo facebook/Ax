@@ -101,7 +101,6 @@ class GenerationStrategy(GenerationStrategyInterface):
             strategy's name will be names of its nodes' models joined with '+'.
     """
 
-    _name: Optional[str]
     _nodes: List[GenerationNode]
     _curr: GenerationNode  # Current node in the strategy.
     # Whether all models in this GS are in Models registry enum.
@@ -123,7 +122,6 @@ class GenerationStrategy(GenerationStrategyInterface):
         name: Optional[str] = None,
         nodes: Optional[List[GenerationNode]] = None,
     ) -> None:
-        self._name = name
         self._uses_registered_models = True
         self._generator_runs = []
 
@@ -158,7 +156,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         self._seen_trial_indices_by_status = None
         # Set name to an explicit value ahead of time to avoid
         # adding properties during equality checks
-        self._name = self.name
+        super().__init__(name=name or self._make_default_name())
 
     @property
     def is_node_based(self) -> bool:
@@ -279,6 +277,14 @@ class GenerationStrategy(GenerationStrategyInterface):
                 f" to {experiment._name}. If this is a new optimization, "
                 "a new generation strategy should be created instead."
             )
+
+    @property
+    def last_generator_run(self) -> Optional[GeneratorRun]:
+        """Latest generator run produced by this generation strategy.
+        Returns None if no generator runs have been produced yet.
+        """
+        # Used to restore current model when decoding a serialized GS.
+        return self._generator_runs[-1] if self._generator_runs else None
 
     @property
     def uses_non_registered_models(self) -> bool:
@@ -612,6 +618,21 @@ class GenerationStrategy(GenerationStrategyInterface):
         step_str_rep = step_str_rep[:-2]
         step_str_rep += "])"
         return step_str_rep
+
+    def _make_default_name(self) -> str:
+        """Make a default name for this generation strategy; used when no name is passed
+        to the constructor. Makes the name from model keys on generation nodes, set on
+        this generation strategy, and should only be called once the nodes are set.
+        """
+        if not self._nodes:
+            raise UnsupportedError(
+                "Cannot make a default name for a generation strategy with no nodes "
+                "set yet."
+            )
+        factory_names = (node.model_spec_to_gen_from.model_key for node in self._nodes)
+        # Trim the "get_" beginning of the factory function if it's there.
+        factory_names = (n[4:] if n[:4] == "get_" else n for n in factory_names)
+        return "+".join(factory_names)
 
     def __repr__(self) -> str:
         """String representation of this generation strategy."""
