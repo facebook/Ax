@@ -51,10 +51,10 @@ Scored Benchmark
     :undoc-members:
     :show-inheritance:
 
-Benchmark Methods GPEI and MOO
+Benchmark Methods Sobol
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ax.benchmark.methods.gpei_and_moo
+.. automodule:: ax.benchmark.methods.sobol
     :members:
     :undoc-members:
     :show-inheritance:
@@ -63,22 +63,6 @@ Benchmark Methods Modular BoTorch
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.benchmark.methods.modular_botorch
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Benchmark Methods SAASBO
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.benchmark.methods.saasbo
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Benchmark Methods Choose Generation Strategy
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.benchmark.methods.choose_generation_strategy
     :members:
     :undoc-members:
     :show-inheritance:

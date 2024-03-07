@@ -10,6 +10,7 @@ import numpy as np
 from ax.benchmark.benchmark import benchmark_replication
 from ax.benchmark.benchmark_method import get_sequential_optimization_scheduler_options
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
+from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.benchmark.problems.registry import get_problem
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
@@ -52,5 +53,18 @@ class TestMethods(TestCase):
         n_sobol_trials = method.generation_strategy._steps[0].num_trials
         # Only run one non-Sobol trial
         problem = get_problem(problem_name="ackley4", num_trials=n_sobol_trials + 1)
+        result = benchmark_replication(problem=problem, method=method, seed=0)
+        self.assertTrue(np.isfinite(result.score_trace).all())
+
+    def test_sobol(self) -> None:
+        method = get_sobol_benchmark_method(
+            scheduler_options=get_sequential_optimization_scheduler_options(),
+            distribute_replications=False,
+        )
+        self.assertEqual(method.name, "Sobol")
+        gs = method.generation_strategy
+        self.assertEqual(len(gs._steps), 1)
+        self.assertEqual(gs._steps[0].model, Models.SOBOL)
+        problem = get_problem(problem_name="ackley4", num_trials=3)
         result = benchmark_replication(problem=problem, method=method, seed=0)
         self.assertTrue(np.isfinite(result.score_trace).all())
