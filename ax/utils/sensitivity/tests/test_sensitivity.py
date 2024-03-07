@@ -47,7 +47,7 @@ def get_modelbridge(modular: bool = False) -> ModelBridge:
     )
 
 
-class SensitivityAnanlysisTest(TestCase):
+class SensitivityAnalysisTest(TestCase):
     def setUp(self) -> None:
         self.model = get_modelbridge().model.model
 

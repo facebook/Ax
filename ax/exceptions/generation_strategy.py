@@ -12,7 +12,13 @@ from typing import Optional
 from ax.exceptions.core import AxError, OptimizationComplete
 
 
-class MaxParallelismReachedException(AxError):
+class AxGenerationException(AxError):
+    """Raised when there is an issue with the generation strategy."""
+
+    pass
+
+
+class MaxParallelismReachedException(AxGenerationException):
     """Special exception indicating that maximum number of trials running in
     parallel set on a given step (as `GenerationStep.max_parallelism`) has been
     reached. Upon getting this exception, users should wait until more trials
@@ -59,7 +65,7 @@ class GenerationStrategyRepeatedPoints(GenerationStrategyCompleted):
     pass
 
 
-class GenerationStrategyMisconfiguredException(AxError):
+class GenerationStrategyMisconfiguredException(AxGenerationException):
     """Special exception indicating that the generation strategy is misconfigured."""
 
     def __init__(self, error_info: Optional[str]) -> None:

@@ -31,6 +31,7 @@ from ax.core.runner import Runner
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.exceptions.core import OptimizationComplete, UnsupportedError, UserInputError
+from ax.exceptions.generation_strategy import AxGenerationException
 from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.modelbridge.cross_validation import compute_model_fit_metrics_from_modelbridge
@@ -1152,7 +1153,7 @@ class AxSchedulerTestCase(TestCase):
         with patch.object(
             GenerationStrategy,
             "gen_for_multiple_trials_with_multiple_models",
-            side_effect=RuntimeError("model error"),
+            side_effect=AxGenerationException("model error"),
         ):
             with self.assertRaises(SchedulerInternalError):
                 scheduler.run_n_trials(max_trials=3)
@@ -2121,6 +2122,15 @@ class AxSchedulerTestCase(TestCase):
                             # this will cause and error if the model
                             # doesn't get fixed features
                             "transforms": ST_MTGP_trans,
+                            "transform_configs": {
+                                "TrialAsTask": {
+                                    "trial_level_map": {
+                                        "trial_index": {
+                                            str(i): str(i) for i in range(3)
+                                        }
+                                    }
+                                }
+                            },
                         },
                         num_trials=1,
                     ),
