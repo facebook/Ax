@@ -149,7 +149,17 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(gs._steps[1].node_name, "GenerationStep_1")
 
     def test_name(self) -> None:
-        self.sobol_GS.name = "SomeGSName"
+        self.assertEqual(self.sobol_GS._name, "Sobol")
+        self.assertEqual(
+            GenerationStrategy(
+                steps=[
+                    GenerationStep(model=Models.SOBOL, num_trials=5),
+                    GenerationStep(model=Models.GPEI, num_trials=-1),
+                ],
+            ).name,
+            "Sobol+GPEI",
+        )
+        self.sobol_GS._name = "SomeGSName"
         self.assertEqual(self.sobol_GS.name, "SomeGSName")
 
     def test_validation(self) -> None:

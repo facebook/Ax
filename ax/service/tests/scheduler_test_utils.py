@@ -1084,7 +1084,10 @@ class AxSchedulerTestCase(TestCase):
         )
         self.assertEqual(exp, self.branin_experiment)
         self.assertEqual(
-            len(gs._generator_runs), len(not_none(loaded_gs)._generator_runs)
+            # pyre-fixme[16]: Add `_generator_runs` back to GSI interface or move interface
+            # to node-level from strategy-level (latter is likely the better option)
+            len(gs._generator_runs),
+            len(not_none(loaded_gs)._generator_runs),
         )
         scheduler.run_all_trials()
         # Check that experiment and GS were saved and test reloading with reduced state.

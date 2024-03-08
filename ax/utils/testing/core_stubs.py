@@ -7,6 +7,8 @@
 # pyre-strict
 
 
+from __future__ import annotations
+
 from collections import OrderedDict
 from datetime import datetime, timedelta
 
@@ -2311,3 +2313,8 @@ class SpecialGenerationStrategy(GenerationStrategyInterface):
         n: int = 1,
     ) -> List[List[GeneratorRun]]:
         return []
+
+    def clone_reset(self) -> SpecialGenerationStrategy:
+        clone = SpecialGenerationStrategy()
+        clone._name = self._name
+        return clone
