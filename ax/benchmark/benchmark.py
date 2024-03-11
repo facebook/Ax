@@ -106,12 +106,26 @@ def benchmark_replication(
         scheduler.run_n_trials(max_trials=problem.num_trials)
 
     optimization_trace = np.array(scheduler.get_trace())
-    num_baseline_trials = scheduler.standard_generation_strategy._steps[0].num_trials
-    score_trace = compute_score_trace(
-        optimization_trace=optimization_trace,
-        num_baseline_trials=num_baseline_trials,
-        problem=problem,
-    )
+    try:
+        # Catch any errors that may occur during score computation, such as errors
+        # while accessing "steps" in node based generation strategies. The error
+        # handling here is intentionally broad. The score computations is not
+        # an essential step of the benchmark runs. We do not want to throw away
+        # valuable results after the benchmark run completes just because a
+        # non-essential step failed.
+        num_baseline_trials = scheduler.standard_generation_strategy._steps[
+            0
+        ].num_trials
+        score_trace = compute_score_trace(
+            optimization_trace=optimization_trace,
+            num_baseline_trials=num_baseline_trials,
+            problem=problem,
+        )
+    except Exception as e:
+        logger.warning(
+            f"Failed to compute score trace. Returning NaN. Original error message: {e}"
+        )
+        score_trace = np.full(len(optimization_trace), np.nan)
 
     fit_time, gen_time = get_model_times(experiment=scheduler.experiment)
 
