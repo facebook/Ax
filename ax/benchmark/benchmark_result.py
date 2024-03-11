@@ -5,6 +5,11 @@
 
 # pyre-strict
 
+# NOTE: Do not add `from __future__ import annotatations` to this file. Adding
+# `annotations` postpones evaluation of types and will break FBLearner's usage of
+# `BenchmarkResult` as return type annotation, used for serialization and rendering
+# in the UI.
+
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional
 
@@ -14,11 +19,6 @@ from ax.utils.common.base import Base
 from numpy import nanmean, nanquantile, ndarray
 from pandas import DataFrame
 from scipy.stats import sem
-
-# NOTE: Do not add `from __future__ import annotatations` to this file. Adding
-# `annotations` postpones evaluation of types and will break FBLearner's usage of
-# `BenchmarkResult` as return type annotation, used for serialization and rendering
-# in the UI.
 
 PERCENTILES = [0.25, 0.5, 0.75]
 

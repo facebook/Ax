@@ -46,9 +46,10 @@ def get_sobol_botorch_modular_acquisition(
     distribute_replications: bool,
     scheduler_options: Optional[SchedulerOptions] = None,
     name: Optional[str] = None,
+    num_sobol_trials: int = 5,
 ) -> BenchmarkMethod:
     model_kwargs: Dict[
-        str, Union[Type[AcquisitionFunction], Dict[str, SurrogateSpec]]
+        str, Union[Type[AcquisitionFunction], Dict[str, SurrogateSpec], bool]
     ] = {
         "botorch_acqf_class": acquisition_cls,
         "surrogate_specs": {"BoTorch": SurrogateSpec(botorch_model_class=model_cls)},
@@ -63,7 +64,9 @@ def get_sobol_botorch_modular_acquisition(
     generation_strategy = GenerationStrategy(
         name=name,
         steps=[
-            GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=5),
+            GenerationStep(
+                model=Models.SOBOL, num_trials=num_sobol_trials, min_trials_observed=5
+            ),
             GenerationStep(
                 model=Models.BOTORCH_MODULAR,
                 num_trials=-1,

@@ -141,7 +141,9 @@ def benchmark_problem_to_dict(benchmark_problem: BenchmarkProblem) -> Dict[str, 
         "optimization_config": benchmark_problem.optimization_config,
         "runner": benchmark_problem.runner,
         "num_trials": benchmark_problem.num_trials,
-        "infer_noise": benchmark_problem.infer_noise,
+        "is_noiseless": benchmark_problem.is_noiseless,
+        "observe_noise_sd": benchmark_problem.observe_noise_sd,
+        "has_ground_truth": benchmark_problem.has_ground_truth,
         "tracking_metrics": benchmark_problem.tracking_metrics,
     }
 
@@ -157,7 +159,9 @@ def multi_objective_benchmark_problem_to_dict(
         "optimization_config": moo_benchmark_problem.optimization_config,
         "runner": moo_benchmark_problem.runner,
         "num_trials": moo_benchmark_problem.num_trials,
-        "infer_noise": moo_benchmark_problem.infer_noise,
+        "is_noiseless": moo_benchmark_problem.is_noiseless,
+        "observe_noise_sd": moo_benchmark_problem.observe_noise_sd,
+        "has_ground_truth": moo_benchmark_problem.has_ground_truth,
         "tracking_metrics": moo_benchmark_problem.tracking_metrics,
         "maximum_hypervolume": moo_benchmark_problem.maximum_hypervolume,
         "reference_point": moo_benchmark_problem.reference_point,
@@ -174,7 +178,9 @@ def single_objective_benchmark_problem_to_dict(
         "optimization_config": soo_benchmark_problem.optimization_config,
         "runner": soo_benchmark_problem.runner,
         "num_trials": soo_benchmark_problem.num_trials,
-        "infer_noise": soo_benchmark_problem.infer_noise,
+        "is_noiseless": soo_benchmark_problem.is_noiseless,
+        "observe_noise_sd": soo_benchmark_problem.observe_noise_sd,
+        "has_ground_truth": soo_benchmark_problem.has_ground_truth,
         "tracking_metrics": soo_benchmark_problem.tracking_metrics,
         "optimal_value": soo_benchmark_problem.optimal_value,
     }
@@ -593,6 +599,7 @@ def tensor_to_dict(obj: Tensor) -> Dict[str, Any]:
             f"Attempting to serialize a tensor with {obj.numel()} elements. "
             "This may result in storage issues.",
             AxStorageWarning,
+            stacklevel=3,
         )
     return {
         "__type": "Tensor",
@@ -730,7 +737,7 @@ def pytorch_cnn_torchvision_benchmark_problem_to_dict(
         "__type": problem.__class__.__name__,
         "name": not_none(re.compile("(?<=::).*").search(problem.name)).group(),
         "num_trials": problem.num_trials,
-        "infer_noise": problem.infer_noise,
+        "observe_noise_sd": problem.observe_noise_sd,
     }
 
 

@@ -11,9 +11,9 @@ from ax.benchmark.benchmark_problem import (
     MultiObjectiveBenchmarkProblem,
     SingleObjectiveBenchmarkProblem,
 )
+from ax.benchmark.metrics.benchmark import BenchmarkMetric
+from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
 from ax.core.types import ComparisonOp
-from ax.metrics.botorch_test_problem import BotorchTestProblemMetric
-from ax.runners.botorch_test_problem import BotorchTestProblemRunner
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
 from botorch.test_functions.multi_objective import BraninCurrin
@@ -31,6 +31,7 @@ class TestBenchmarkProblem(TestCase):
             test_problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
                 test_problem_class=botorch_test_problem.__class__,
                 test_problem_kwargs={},
+                lower_is_better=True,
                 num_trials=1,
             )
 
@@ -80,7 +81,9 @@ class TestBenchmarkProblem(TestCase):
                     'metric_name="Ackley", '
                     "minimize=True), outcome_constraints=[]), "
                     "num_trials=1, "
-                    "infer_noise=True, "
+                    "is_noiseless=True, "
+                    "observe_noise_sd=False, "
+                    "has_ground_truth=True, "
                     "tracking_metrics=[])"
                 )
             else:
@@ -96,7 +99,11 @@ class TestBenchmarkProblem(TestCase):
                     "optimization_config=OptimizationConfig(objective=Objective("
                     'metric_name="ConstrainedHartmann", minimize=True), '
                     "outcome_constraints=[OutcomeConstraint(constraint_slack_0"
-                    " >= 0.0)]), num_trials=1, infer_noise=True, "
+                    " >= 0.0)]), "
+                    "num_trials=1, "
+                    "is_noiseless=True, "
+                    "observe_noise_sd=False, "
+                    "has_ground_truth=True, "
                     "tracking_metrics=[])"
                 )
 
@@ -112,7 +119,7 @@ class TestBenchmarkProblem(TestCase):
     )
     def test_constrained_from_botorch(
         self,
-        infer_noise: bool,
+        observe_noise_sd: bool,
         objective_noise_std: Optional[float],
         constraint_noise_std: Optional[Union[float, List[float]]],
     ) -> None:
@@ -122,8 +129,9 @@ class TestBenchmarkProblem(TestCase):
                 "noise_std": objective_noise_std,
                 "constraint_noise_std": constraint_noise_std,
             },
+            lower_is_better=True,
             num_trials=1,
-            infer_noise=infer_noise,
+            observe_noise_sd=observe_noise_sd,
         )
         runner = checked_cast(BotorchTestProblemRunner, ax_problem.runner)
         self.assertTrue(runner._is_constrained)
@@ -136,36 +144,18 @@ class TestBenchmarkProblem(TestCase):
             [constraint.metric.name for constraint in outcome_constraints],
             [f"constraint_slack_{i}" for i in range(botorch_problem.num_constraints)],
         )
-        if infer_noise:
-            expected_opt_noise_sd = None
-        elif objective_noise_std is None:
-            expected_opt_noise_sd = 0.0
-        else:
-            expected_opt_noise_sd = objective_noise_std
 
         self.assertEqual(
-            checked_cast(
-                BotorchTestProblemMetric, opt_config.objective.metric
-            ).noise_sd,
-            expected_opt_noise_sd,
+            checked_cast(BenchmarkMetric, opt_config.objective.metric).observe_noise_sd,
+            observe_noise_sd,
         )
 
-        if infer_noise:
-            expected_constraint_noise_sd = [None for _ in range(2)]
-        elif constraint_noise_std is None:
-            expected_constraint_noise_sd = [0.0 for _ in range(2)]
-        elif isinstance(constraint_noise_std, float):
-            expected_constraint_noise_sd = [constraint_noise_std for _ in range(2)]
-        else:
-            expected_constraint_noise_sd = constraint_noise_std
-
-        self.assertEqual(
-            [
-                checked_cast(BotorchTestProblemMetric, constraint.metric).noise_sd
-                for constraint in outcome_constraints
-            ],
-            expected_constraint_noise_sd,
-        )
+        # TODO: Support observing noise variance only for some outputs
+        for constraint in outcome_constraints:
+            self.assertEqual(
+                checked_cast(BenchmarkMetric, constraint.metric).observe_noise_sd,
+                observe_noise_sd,
+            )
 
     def test_moo_from_botorch(self) -> None:
         test_problem = BraninCurrin()

@@ -183,7 +183,7 @@ def convert_to_block_design(
     if any(is_fixed) and not all(is_fixed):
         raise UnsupportedError(
             "Cannot convert mixed data with and without variance "
-            "observaitons to `block design`."
+            "observations to `block design`."
         )
     is_fixed = all(is_fixed)
     Xs = [dataset.X for dataset in datasets]

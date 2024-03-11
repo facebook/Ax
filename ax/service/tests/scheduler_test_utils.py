@@ -1084,8 +1084,9 @@ class AxSchedulerTestCase(TestCase):
         )
         self.assertEqual(exp, self.branin_experiment)
         self.assertEqual(
-            # pyre-fixme[16]: Add `_generator_runs` back to GSI interface or move interface
-            # to node-level from strategy-level (latter is likely the better option)
+            # pyre-fixme[16]: Add `_generator_runs` back to GSI interface or move
+            # interface to node-level from strategy-level (latter is likely the
+            # better option)
             len(gs._generator_runs),
             len(not_none(loaded_gs)._generator_runs),
         )

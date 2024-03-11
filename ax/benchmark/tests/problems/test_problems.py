@@ -25,8 +25,8 @@ class TestProblems(TestCase):
             ("hartmann3", "Hartmann_3d"),
             ("hartmann6", "Hartmann_6d"),
             ("hartmann30", "Hartmann_30d"),
-            ("branin_currin_fixed_noise", "BraninCurrin_fixed_noise"),
-            ("branin_currin30_fixed_noise", "BraninCurrin_fixed_noise_30d"),
+            ("branin_currin_observed_noise", "BraninCurrin_observed_noise"),
+            ("branin_currin30_observed_noise", "BraninCurrin_observed_noise_30d"),
             ("levy4", "Levy_4d"),
         ]
         for registry_key, problem_name in expected_names:

@@ -9,20 +9,21 @@ from ax.benchmark.benchmark_method import (
     BenchmarkMethod,
     get_sequential_optimization_scheduler_options,
 )
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.generation_strategy import (
+    GenerationNode,
+    GenerationStep,
+    GenerationStrategy,
+)
+from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import not_none
 
 
 class TestBenchmarkMethod(TestCase):
     def test_benchmark_method(self) -> None:
         gs = GenerationStrategy(
-            steps=[
-                GenerationStep(
-                    model=Models.SOBOL,
-                    num_trials=10,
-                )
-            ],
+            steps=[GenerationStep(model=Models.SOBOL, num_trials=10)],
             name="SOBOL",
         )
         options = get_sequential_optimization_scheduler_options()
@@ -30,7 +31,10 @@ class TestBenchmarkMethod(TestCase):
             name="Sobol10", generation_strategy=gs, scheduler_options=options
         )
 
-        self.assertEqual(method.generation_strategy, gs)
+        # test that `fit_tracking_metrics` has been correctly set to False
+        for step in method.generation_strategy._steps:
+            self.assertFalse(not_none(step.model_kwargs).get("fit_tracking_metrics"))
+
         self.assertEqual(method.scheduler_options, options)
         self.assertEqual(options.max_pending_trials, 1)
         self.assertEqual(options.init_seconds_between_polls, 0)
@@ -42,3 +46,21 @@ class TestBenchmarkMethod(TestCase):
             name="Sobol10", generation_strategy=gs, scheduler_options=options
         )
         self.assertEqual(method.scheduler_options.timeout_hours, 10)
+
+    def test_benchmark_method_no_node(self) -> None:
+        sobol_model_spec = ModelSpec(
+            model_enum=Models.SOBOL, model_kwargs={}, model_gen_kwargs={}
+        )
+        node_gs = GenerationStrategy(
+            nodes=[GenerationNode(node_name="sobol", model_specs=[sobol_model_spec])]
+        )
+
+        with self.assertRaisesRegex(
+            NotImplementedError,
+            "Node-based generation strategies are not yet supported in benchmarks",
+        ):
+            BenchmarkMethod(
+                name="Sobol10",
+                generation_strategy=node_gs,
+                scheduler_options=get_sequential_optimization_scheduler_options(),
+            )

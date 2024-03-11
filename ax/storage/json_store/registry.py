@@ -18,12 +18,15 @@ from ax.benchmark.benchmark_problem import (
     SingleObjectiveBenchmarkProblem,
 )
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
+from ax.benchmark.metrics.benchmark import BenchmarkMetric, GroundTruthBenchmarkMetric
+from ax.benchmark.metrics.jenatton import JenattonMetric
 from ax.benchmark.problems.hpo.pytorch_cnn import PyTorchCNNMetric
 from ax.benchmark.problems.hpo.torchvision import (
     PyTorchCNNTorchvisionBenchmarkProblem,
     PyTorchCNNTorchvisionRunner,
 )
-from ax.benchmark.problems.surrogate import SurrogateMetric, SurrogateRunner
+from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
+from ax.benchmark.runners.surrogate import SurrogateRunner
 from ax.core import ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -71,14 +74,12 @@ from ax.early_stopping.strategies.logical import (
     OrEarlyStoppingStrategy,
 )
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
-from ax.metrics.botorch_test_problem import BotorchTestProblemMetric
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric, NegativeBraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.chemistry import ChemistryMetric, ChemistryProblemType
 from ax.metrics.dict_lookup import DictLookupMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
-from ax.metrics.jenatton import JenattonMetric
 from ax.metrics.l2norm import L2NormMetric
 from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.metrics.sklearn import SklearnDataset, SklearnMetric, SklearnModelType
@@ -100,7 +101,6 @@ from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.winsorization_config import WinsorizationConfig
-from ax.runners.botorch_test_problem import BotorchTestProblemRunner
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.storage.json_store.decoders import (
@@ -181,7 +181,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     BatchTrial: batch_to_dict,
     BenchmarkProblem: benchmark_problem_to_dict,
     BoTorchModel: botorch_model_to_dict,
-    BotorchTestProblemMetric: metric_to_dict,
+    BenchmarkMetric: metric_to_dict,
     BotorchTestProblemRunner: runner_to_dict,
     BraninMetric: metric_to_dict,
     BraninTimestampMapMetric: metric_to_dict,
@@ -197,6 +197,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     GenerationNode: generation_node_to_dict,
     GenerationStrategy: generation_strategy_to_dict,
     GeneratorRun: generator_run_to_dict,
+    GroundTruthBenchmarkMetric: metric_to_dict,
     Hartmann6Metric: metric_to_dict,
     ImprovementGlobalStoppingStrategy: improvement_global_stopping_strategy_to_dict,
     Interval: botorch_component_to_dict,
@@ -250,7 +251,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     HierarchicalSearchSpace: search_space_to_dict,
     SumConstraint: sum_parameter_constraint_to_dict,
     Surrogate: surrogate_to_dict,
-    SurrogateMetric: metric_to_dict,
+    BenchmarkMetric: metric_to_dict,
     SurrogateRunner: runner_to_dict,
     SyntheticRunner: runner_to_dict,
     ThresholdEarlyStoppingStrategy: threshold_early_stopping_strategy_to_dict,
@@ -288,10 +289,11 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "BatchTrial": BatchTrial,
     "AggregatedBenchmarkResult": AggregatedBenchmarkResult,
     "BenchmarkMethod": BenchmarkMethod,
+    "BenchmarkMetric": BenchmarkMetric,
     "BenchmarkProblem": BenchmarkProblem,
     "BenchmarkResult": BenchmarkResult,
     "BoTorchModel": BoTorchModel,
-    "BotorchTestProblemMetric": BotorchTestProblemMetric,
+    "BotorchTestProblemMetric": BenchmarkMetric,  # backward-compatibility
     "BotorchTestProblemRunner": BotorchTestProblemRunner,
     "BraninMetric": BraninMetric,
     "BraninTimestampMapMetric": BraninTimestampMapMetric,
@@ -313,6 +315,8 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "GenerationStep": GenerationStep,
     "GeneratorRun": GeneratorRun,
     "GeneratorRunStruct": GeneratorRunStruct,
+    "GroundTruthBenchmarkMetric": GroundTruthBenchmarkMetric,
+    "GroundTruthBotorchTestProblemMetric": GroundTruthBenchmarkMetric,  # for BC
     "Hartmann6Metric": Hartmann6Metric,
     "HierarchicalSearchSpace": HierarchicalSearchSpace,
     "ImprovementGlobalStoppingStrategy": ImprovementGlobalStoppingStrategy,
@@ -372,7 +376,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "SklearnModelType": SklearnModelType,
     "SumConstraint": SumConstraint,
     "Surrogate": Surrogate,
-    "SurrogateMetric": SurrogateMetric,
+    "SurrogateMetric": BenchmarkMetric,  # backward-compatiblity
     # NOTE: SurrogateRunners -> SyntheticRunner on load due to complications
     "SurrogateRunner": SyntheticRunner,
     "SyntheticRunner": SyntheticRunner,
