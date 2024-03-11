@@ -170,7 +170,17 @@ def check_has_multi_objective_and_data(
 def extract_parameter_constraints(
     parameter_constraints: List[ParameterConstraint], param_names: List[str]
 ) -> TBounds:
-    """Extract parameter constraints."""
+    """Convert Ax parameter constraints into a tuple of NumPy arrays representing the
+    system of linear inequality constraints.
+
+    Args:
+        parameter_constraints: A list of parameter constraint objects.
+        param_names: A list of parameter names.
+
+    Returns:
+        An optional tuple of NumPy arrays (A, b) representing the system of linear
+        inequality constraints A x < b.
+    """
     if len(parameter_constraints) == 0:
         return None
     A = np.zeros((len(parameter_constraints), len(param_names)))
