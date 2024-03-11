@@ -21,7 +21,10 @@ from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
 from ax.benchmark.problems.registry import get_problem
+from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
+from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.modelbridge_utils import extract_search_space_digest
+from ax.modelbridge.registry import Models
 from ax.service.utils.scheduler_options import SchedulerOptions
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment
@@ -293,3 +296,24 @@ class TestBenchmark(TestCase):
         min_num_trials = min(len(res.optimization_trace) for res in result.results)
         self.assertEqual(len(result.optimization_trace), min_num_trials)
         self.assertEqual(len(result.score_trace), min_num_trials)
+
+    def test_replication_with_generation_node(self) -> None:
+        method = BenchmarkMethod(
+            name="Sobol Generation Node",
+            generation_strategy=GenerationStrategy(
+                nodes=[
+                    GenerationNode(
+                        node_name="Sobol",
+                        model_specs=[
+                            ModelSpec(Models.SOBOL, model_kwargs={"deduplicate": True})
+                        ],
+                    )
+                ]
+            ),
+            scheduler_options=SchedulerOptions(),
+        )
+        problem = get_single_objective_benchmark_problem()
+        res = benchmark_replication(problem=problem, method=method, seed=0)
+
+        self.assertEqual(problem.num_trials, len(not_none(res.experiment).trials))
+        self.assertTrue(np.isnan(res.score_trace).all())
