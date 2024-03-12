@@ -314,13 +314,6 @@ class Experiment(Base):
         """The experiment's optimization config."""
         return self._optimization_config
 
-    @property
-    def is_moo_problem(self) -> bool:
-        """Whether the experiment's optimization config contains multiple objectives."""
-        if self.optimization_config is None:
-            return False
-        return not_none(self.optimization_config).is_moo_problem
-
     @optimization_config.setter
     def optimization_config(self, optimization_config: OptimizationConfig) -> None:
         if (
@@ -343,6 +336,13 @@ class Experiment(Base):
             for metric in optimization_config.metrics.values()
         ):
             self._default_data_type = DataType.MAP_DATA
+
+    @property
+    def is_moo_problem(self) -> bool:
+        """Whether the experiment's optimization config contains multiple objectives."""
+        if self.optimization_config is None:
+            return False
+        return not_none(self.optimization_config).is_moo_problem
 
     @property
     def data_by_trial(self) -> Dict[int, OrderedDict[int, Data]]:

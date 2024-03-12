@@ -7,7 +7,6 @@
 # pyre-strict
 
 import logging
-import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from logging import Logger
@@ -73,7 +72,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         max_progression: Optional[float] = None,
         min_curves: Optional[int] = None,
         trial_indices_to_ignore: Optional[List[int]] = None,
-        true_objective_metric_name: Optional[str] = None,
         normalize_progressions: bool = False,
     ) -> None:
         """A BaseEarlyStoppingStrategy class.
@@ -94,9 +92,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 `min_curves` trials are completed but their curve data was not
                 successfully retrieved, further trials may not be early-stopped.
             trial_indices_to_ignore: Trial indices that should not be early stopped.
-            true_objective_metric_name: The actual objective to be optimized; used in
-                situations where early stopping uses a proxy objective (such as training
-                loss instead of eval loss) for stopping decisions.
             normalize_progressions: Normalizes the progression column of the MapData df
                 by dividing by the max. If the values were originally in [0, `prog_max`]
                 (as we would expect), the transformed values will be in [0, 1]. Useful
@@ -113,13 +108,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         self.max_progression = max_progression
         self.min_curves = min_curves
         self.trial_indices_to_ignore = trial_indices_to_ignore
-        if true_objective_metric_name is not None:
-            warnings.warn(
-                ("`true_objective_metric_name` is deprecated and will be ignored."),
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
         self.normalize_progressions = normalize_progressions
 
     @abstractmethod
@@ -429,7 +417,6 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         max_progression: Optional[float] = None,
         min_curves: Optional[int] = None,
         trial_indices_to_ignore: Optional[List[int]] = None,
-        true_objective_metric_name: Optional[str] = None,
         normalize_progressions: bool = False,
         min_progression_modeling: Optional[float] = None,
     ) -> None:
@@ -451,9 +438,6 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 `min_curves` trials are completed but their curve data was not
                 successfully retrieved, further trials may not be early-stopped.
             trial_indices_to_ignore: Trial indices that should not be early stopped.
-            true_objective_metric_name: The actual objective to be optimized; used in
-                situations where early stopping uses a proxy objective (such as training
-                loss instead of eval loss) for stopping decisions.
             normalize_progressions: Normalizes the progression column of the MapData df
                 by dividing by the max. If the values were originally in [0, `prog_max`]
                 (as we would expect), the transformed values will be in [0, 1]. Useful
@@ -472,7 +456,6 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             max_progression=max_progression,
             min_curves=min_curves,
             trial_indices_to_ignore=trial_indices_to_ignore,
-            true_objective_metric_name=true_objective_metric_name,
             normalize_progressions=normalize_progressions,
         )
         self.min_progression_modeling = min_progression_modeling
