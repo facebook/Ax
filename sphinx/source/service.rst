@@ -2,14 +2,14 @@
     :class: hidden-section
 
 ax.service
-===================================
+==========
 
 .. automodule:: ax.service
 .. currentmodule:: ax.service
 
 
 Ax Client
-~~~~~~~~~~~~~~~~
+~~~~~~~~~
 
 .. automodule:: ax.service.ax_client
     :members:
@@ -17,7 +17,7 @@ Ax Client
     :show-inheritance:
 
 Managed Loop
-~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~
 
 .. automodule:: ax.service.managed_loop
     :members:
@@ -34,7 +34,7 @@ Interactive Loop
 
 
 Scheduler
-~~~~~~~~~~
+~~~~~~~~~
 
 .. automodule:: ax.service.scheduler
     :members:
@@ -47,7 +47,7 @@ Scheduler
     :show-inheritance:
 
 Utils
-------
+-----
 
 Best Point Identification
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -65,7 +65,7 @@ Best Point Identification
 
 
 Instantiation
-~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 .. automodule:: ax.service.utils.instantiation
     :members:
@@ -74,7 +74,7 @@ Instantiation
 
 
 Reporting
-~~~~~~~~~~~~~~
+~~~~~~~~~
 
 .. automodule:: ax.service.utils.report_utils
     :members:

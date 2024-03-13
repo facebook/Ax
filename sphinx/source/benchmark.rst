@@ -2,16 +2,16 @@
     :class: hidden-section
 
 ax.benchmark
-===================================
+============
 
 .. automodule:: ax.benchmark
 .. currentmodule:: ax.benchmark
 
 Benchmark
-----------------
+---------
 
 Benchmark Method
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.benchmark.benchmark_method
     :members:
@@ -28,7 +28,7 @@ Benchmark Problem
 
 
 Benchmark Result
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.benchmark.benchmark_result
     :members:
@@ -92,7 +92,7 @@ Benchmark Problems Surrogate
     :show-inheritance:
 
 Benchmark Problems Mixed Integer Synthetic
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.benchmark.problems.synthetic.discretized.mixed_integer
     :members:
@@ -108,7 +108,7 @@ Benchmark Problems Jenatton
     :show-inheritance:
 
 Benchmark Problems PyTorchCNN
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.benchmark.problems.hpo.pytorch_cnn
     :members:
@@ -116,7 +116,7 @@ Benchmark Problems PyTorchCNN
     :show-inheritance:
 
 Benchmark Problems PyTorchCNN TorchVision
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.benchmark.problems.hpo.torchvision
     :members:

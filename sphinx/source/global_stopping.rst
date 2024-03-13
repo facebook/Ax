@@ -2,7 +2,7 @@
     :class: hidden-section
 
 ax.global_stopping
-===================================
+==================
 
 .. automodule:: ax.global_stopping
 .. currentmodule:: ax.global_stopping
@@ -19,7 +19,7 @@ Base Strategies
     :show-inheritance:
 
 `ImprovementGlobalStoppingStrategy`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.global_stopping.strategies.improvement
     :members:

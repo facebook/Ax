@@ -2,14 +2,14 @@
     :class: hidden-section
 
 ax.exceptions
-===================================
+=============
 
 .. automodule:: ax.exceptions
 .. currentmodule:: ax.exceptions
 
 
 Constants
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~
 
 .. automodule:: ax.exceptions.constants
     :members:
@@ -18,7 +18,7 @@ Constants
 
 
 Core
-~~~~~~~~~~~~~~~~~~
+~~~~
 
 .. automodule:: ax.exceptions.core
     :members:
@@ -26,7 +26,7 @@ Core
     :show-inheritance:
 
 Data
-~~~~~~~~~~~~~~~~~~
+~~~~
 
 .. automodule:: ax.exceptions.data_provider
     :members:
@@ -34,7 +34,7 @@ Data
     :show-inheritance:
 
 Generation Strategy
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.exceptions.generation_strategy
     :members:
@@ -42,7 +42,7 @@ Generation Strategy
     :show-inheritance:
 
 Model
-~~~~~~~~~~~~~~~~~~
+~~~~~
 
 .. automodule:: ax.exceptions.model
     :members:
@@ -50,7 +50,7 @@ Model
     :show-inheritance:
 
 Storage
-~~~~~~~~~~~~~~~~~~
+~~~~~~~
 
 .. automodule:: ax.exceptions.storage
     :members:

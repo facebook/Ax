@@ -2,14 +2,14 @@
     :class: hidden-section
 
 ax.plot
-===================================
+=======
 
 .. automodule:: ax.plot
 .. currentmodule:: ax.plot
 
 
 Rendering
-------------
+---------
 
 .. automodule:: ax.plot.render
     :members:
@@ -18,10 +18,10 @@ Rendering
 
 
 Plots
-----------
+-----
 
 Base
-~~~~~~~~~~~~~~~~~~~
+~~~~
 
 .. automodule:: ax.plot.base
     :members:
@@ -29,21 +29,14 @@ Base
     :show-inheritance:
 
 Bandit Rollout
-~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~
 .. automodule:: ax.plot.bandit_rollout
     :members:
     :undoc-members:
     :show-inheritance:
 
-Benchmark
-~~~~~~~~~~~~~~~~
-.. automodule:: ax.plot.benchmark
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Contour Plot
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~
 
 .. automodule:: ax.plot.contour
     :members:
@@ -59,7 +52,7 @@ Feature Importances
     :show-inheritance:
 
 Marginal Effects
-~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.plot.marginal_effects
     :members:
@@ -75,7 +68,7 @@ Model Diagnostics
     :show-inheritance:
 
 Pareto Plots
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~
 .. automodule:: ax.plot.pareto_frontier
     :members:
     :undoc-members:
@@ -87,7 +80,7 @@ Pareto Plots
     :show-inheritance:
 
 Scatter Plots
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 .. automodule:: ax.plot.scatter
     :members:
@@ -95,7 +88,7 @@ Scatter Plots
     :show-inheritance:
 
 Slice Plot
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~
 
 .. automodule:: ax.plot.slice
     :members:
@@ -103,7 +96,7 @@ Slice Plot
     :show-inheritance:
 
 Table
-~~~~~~~~~~~~~~~~~~~
+~~~~~
 
 .. automodule:: ax.plot.table_view
     :members:
@@ -111,7 +104,7 @@ Table
     :show-inheritance:
 
 Trace Plots
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~
 
 .. automodule:: ax.plot.trace
     :members:
@@ -126,9 +119,8 @@ Parallel Coordinates
     :undoc-members:
     :show-inheritance:
 
-
 Plotting Utilities
--------------------
+------------------
 
 .. automodule:: ax.plot.color
     :members:

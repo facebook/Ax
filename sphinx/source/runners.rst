@@ -2,13 +2,13 @@
     :class: hidden-section
 
 ax.runners
-===================================
+==========
 
 .. automodule:: ax.runners
 .. currentmodule:: ax.runners
 
 BoTorch Test Problem
-~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.runners.botorch_test_problem
     :members:
@@ -16,7 +16,7 @@ BoTorch Test Problem
     :show-inheritance:
 
 SingleRunningTrialMixin
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.runners.single_running_trial_mixin
     :members:
@@ -32,7 +32,7 @@ Synthetic Runner
     :show-inheritance:
 
 Simulated Backend Runner
-~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.runners.simulated_backend
     :members:
@@ -40,7 +40,7 @@ Simulated Backend Runner
     :show-inheritance:
 
 TorchX Runner
-~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 .. automodule:: ax.runners.torchx
     :members:

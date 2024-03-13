@@ -4,7 +4,7 @@
    contain the root `toctree` directive.
 
 API Reference
-===============================================
+=============
 
 .. toctree::
    :maxdepth: 2
