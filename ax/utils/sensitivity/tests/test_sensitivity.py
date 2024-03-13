@@ -271,23 +271,23 @@ class SensitivityAnalysisTest(TestCase):
         # Test with signed
         model_bridge = get_modelbridge(modular=True)
         # Unsigned
+        sobol_kwargs = {"input_qmc": True, "num_mc_samples": 10}
         ind_dict = ax_parameter_sens(
             model_bridge,  # pyre-ignore
-            input_qmc=True,
-            num_mc_samples=10,
             order="total",
             signed=False,
+            **sobol_kwargs,  # pyre-ignore
         )
         ind_deriv = compute_derivatives_from_model_list(
             model_list=[model_bridge.model.surrogate.model],
             bounds=torch.tensor(model_bridge.model.search_space_digest.bounds).T,
+            **sobol_kwargs,
         )
         ind_dict_signed = ax_parameter_sens(
             model_bridge,  # pyre-ignore
-            input_qmc=True,
-            num_mc_samples=10,
             order="total",
             # signed=True
+            **sobol_kwargs,  # pyre-ignore
         )
         for i, pname in enumerate(["x1", "x2"]):
             self.assertEqual(

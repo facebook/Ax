@@ -73,7 +73,7 @@ class GpDGSMGpMean(object):
         if input_qmc:
             # pyre-fixme[4]: Attribute must be annotated.
             self.input_mc_samples = (
-                draw_sobol_samples(bounds=bounds, n=num_mc_samples, q=1)
+                draw_sobol_samples(bounds=bounds, n=num_mc_samples, q=1, seed=1234)
                 .squeeze(1)
                 .to(dtype)
             )
