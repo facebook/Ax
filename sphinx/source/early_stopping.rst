@@ -2,7 +2,7 @@
     :class: hidden-section
 
 ax.early_stopping
-===================================
+=================
 
 .. automodule:: ax.early_stopping
 .. currentmodule:: ax.early_stopping

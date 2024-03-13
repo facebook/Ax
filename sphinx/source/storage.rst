@@ -2,17 +2,17 @@
     :class: hidden-section
 
 ax.storage
-===================================
+==========
 
 .. automodule:: ax.storage
 .. currentmodule:: ax.storage
 
 
 JSON
------
+----
 
 ax.storage.json\_store.decoder module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.json_store.decoder
     :members:
@@ -20,7 +20,7 @@ ax.storage.json\_store.decoder module
     :show-inheritance:
 
 ax.storage.json\_store.decoders module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.json_store.decoders
     :members:
@@ -28,7 +28,7 @@ ax.storage.json\_store.decoders module
     :show-inheritance:
 
 ax.storage.json\_store.encoder module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.json_store.encoder
     :members:
@@ -36,7 +36,7 @@ ax.storage.json\_store.encoder module
     :show-inheritance:
 
 ax.storage.json\_store.encoders module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.json_store.encoders
     :members:
@@ -44,7 +44,7 @@ ax.storage.json\_store.encoders module
     :show-inheritance:
 
 ax.storage.json\_store.load module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.json_store.load
     :members:
@@ -52,7 +52,7 @@ ax.storage.json\_store.load module
     :show-inheritance:
 
 ax.storage.json\_store.registry module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.json_store.registry
     :members:
@@ -60,7 +60,7 @@ ax.storage.json\_store.registry module
     :show-inheritance:
 
 ax.storage.json\_store.save module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.json_store.save
     :members:
@@ -86,7 +86,7 @@ ax.storage.sqa\_store.base\_encoder module
     :show-inheritance:
 
 ax.storage.sqa\_store.db module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.sqa_store.db
     :members:
@@ -95,7 +95,7 @@ ax.storage.sqa\_store.db module
     :exclude-members: Base
 
 ax.storage.sqa\_store.delete module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.sqa_store.delete
     :members:
@@ -103,7 +103,7 @@ ax.storage.sqa\_store.delete module
     :show-inheritance:
 
 ax.storage.sqa\_store.json module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.sqa_store.json
     :members:
@@ -111,7 +111,7 @@ ax.storage.sqa\_store.json module
     :show-inheritance:
 
 ax.storage.sqa\_store.load module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.sqa_store.load
     :members:
@@ -119,7 +119,7 @@ ax.storage.sqa\_store.load module
     :show-inheritance:
 
 ax.storage.sqa\_store.save module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.sqa_store.save
     :members:
@@ -127,7 +127,7 @@ ax.storage.sqa\_store.save module
     :show-inheritance:
 
 ax.storage.sqa\_store.structs module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.sqa_store.structs
     :members:
@@ -135,7 +135,7 @@ ax.storage.sqa\_store.structs module
     :show-inheritance:
 
 ax.storage.sqa\_store.sqa\_classes module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.sqa_store.sqa_classes
     :members:
@@ -143,7 +143,7 @@ ax.storage.sqa\_store.sqa\_classes module
     :show-inheritance:
 
 ax.storage.sqa\_store.sqa\_config module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.sqa_store.sqa_config
     :members:
@@ -152,7 +152,7 @@ ax.storage.sqa\_store.sqa\_config module
     :noindex:
 
 ax.storage.sqa\_store.sqa\_enum module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.sqa_store.sqa_enum
     :members:
@@ -160,7 +160,7 @@ ax.storage.sqa\_store.sqa\_enum module
     :show-inheritance:
 
 ax.storage.sqa\_store.timestamp module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.sqa_store.timestamp
     :members:
@@ -168,7 +168,7 @@ ax.storage.sqa\_store.timestamp module
     :show-inheritance:
 
 ax.storage.sqa\_store.utils module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.storage.sqa_store.utils
     :members:
@@ -192,7 +192,7 @@ ax.storage.sqa\_store.reduced_state module
     :show-inheritance:
 
 Registries
------------------
+----------
 
 .. automodule:: ax.storage.botorch_modular_registry
     :members:
@@ -220,7 +220,7 @@ Registries
     :show-inheritance:
 
 Utilities
------------------
+---------
 
 .. automodule:: ax.storage.utils
     :members:

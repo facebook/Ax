@@ -2,17 +2,17 @@
     :class: hidden-section
 
 ax.modelbridge
-===================================
+==============
 
 .. automodule:: ax.modelbridge
 .. currentmodule:: ax.modelbridge
 
 
 Generation Strategy, Registry, and Factory
--------------------------------------------
+------------------------------------------
 
 Generation Strategy
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
 .. automodule:: ax.modelbridge.generation_strategy
     :members:
     :undoc-members:
@@ -39,14 +39,14 @@ Transition Criterion
     :show-inheritance:
 
 Registry
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~
 .. automodule:: ax.modelbridge.registry
     :members:
     :undoc-members:
     :show-inheritance:
 
 Factory
-~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~
 .. automodule:: ax.modelbridge.factory
     :members:
     :undoc-members:
@@ -60,10 +60,10 @@ ModelSpec
     :show-inheritance:
 
 Model Bridges
---------------
+-------------
 
 Base Model Bridge
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.base
     :members:
@@ -71,7 +71,7 @@ Base Model Bridge
     :show-inheritance:
 
 Discrete Model Bridge
-~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.discrete
     :members:
@@ -88,7 +88,7 @@ Random Model Bridge
     :noindex:
 
 Torch Model Bridge
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.torch
     :members:
@@ -96,7 +96,7 @@ Torch Model Bridge
     :show-inheritance:
 
 Pairwise Model Bridge
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.pairwise
     :members:
@@ -104,7 +104,7 @@ Pairwise Model Bridge
     :show-inheritance:
 
 Map Torch Model Bridge
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.map_torch
     :members:
@@ -112,31 +112,31 @@ Map Torch Model Bridge
     :show-inheritance:
 
 Utilities
----------------
+---------
 
 General Utilities
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 .. automodule:: ax.modelbridge.modelbridge_utils
     :members:
     :undoc-members:
     :show-inheritance:
 
 Prediction Utilities
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 .. automodule:: ax.modelbridge.prediction_utils
     :members:
     :undoc-members:
     :show-inheritance:
 
 Cross Validation
-~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
 .. automodule:: ax.modelbridge.cross_validation
     :members:
     :undoc-members:
     :show-inheritance:
 
 Dispatch Utilities
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.dispatch_utils
     :members:
@@ -144,10 +144,10 @@ Dispatch Utilities
     :show-inheritance:
 
 Transforms
--------------
+----------
 
 `ax.modelbridge.transforms.base`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.base
     :members:
@@ -155,7 +155,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.cast`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.cast
     :members:
@@ -179,7 +179,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.choice\_encode`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.choice_encode
     :members:
@@ -187,7 +187,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.convert_metric_names`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.convert_metric_names
     :members:
@@ -195,7 +195,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.derelativize`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.derelativize
     :members:
@@ -203,7 +203,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.int\_range\_to\_choice`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.int_range_to_choice
     :members:
@@ -211,7 +211,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.int\_to\_float`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.int_to_float
     :members:
@@ -219,7 +219,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.ivw`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.ivw
     :members:
@@ -227,7 +227,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.inverse_gaussian_cdf_y`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.inverse_gaussian_cdf_y
     :members:
@@ -235,7 +235,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.log`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.log
     :members:
@@ -251,7 +251,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.logit`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.logit
     :members:
@@ -267,7 +267,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.merge_repeated_measurements`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.merge_repeated_measurements
     :members:
@@ -275,7 +275,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.metrics_as_task`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.metrics_as_task
     :members:
@@ -283,7 +283,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.one\_hot`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.one_hot
     :members:
@@ -291,7 +291,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.percentile_y`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.percentile_y
     :members:
@@ -299,7 +299,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.power\_transform\_y`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.power_transform_y
     :members:
@@ -307,7 +307,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.remove\_fixed`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.remove_fixed
     :members:
@@ -315,7 +315,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.rounding`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.rounding
     :members:
@@ -323,7 +323,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.search\_space\_to\_choice`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.search_space_to_choice
     :members:
@@ -331,7 +331,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.search\_space\_to\_float`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.search_space_to_float
     :members:
@@ -347,7 +347,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.stratified\_standardize\_y`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.stratified_standardize_y
     :members:
@@ -355,7 +355,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.task\_encode`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.task_encode
     :members:
@@ -363,7 +363,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.trial\_as\_task`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.trial_as_task
     :members:
@@ -379,7 +379,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.transforms.utils`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.utils
     :members:
@@ -387,7 +387,7 @@ Transforms
     :show-inheritance:
 
 `ax.modelbridge.winsorize`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.winsorize
     :members:
@@ -406,7 +406,7 @@ Strategies
 -------------
 
 `ax.modelbridge.strategies.alebo`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.strategies.alebo
     :members:
