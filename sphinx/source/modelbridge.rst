@@ -25,6 +25,13 @@ Generation Node
     :undoc-members:
     :show-inheritance:
 
+External Generation Node
+~~~~~~~~~~~~~~~
+.. automodule:: ax.modelbridge.external_generation_node
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Transition Criterion
 .. automodule:: ax.modelbridge.transition_criterion
     :members:

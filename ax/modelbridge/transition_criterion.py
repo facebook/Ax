@@ -11,8 +11,8 @@ from typing import List, Optional, Set
 
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
+from ax.exceptions.core import DataRequiredError
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
-from ax.modelbridge.generation_strategy import DataRequiredError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import SerializationMixin, serialize_init_args

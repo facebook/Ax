@@ -275,6 +275,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                 **kwargs,
             )
 
+    # TODO [drfreund]: Move this up to `GenerationNodeInterface` once implemented.
     def gen(
         self,
         n: Optional[int] = None,
@@ -283,11 +284,8 @@ class GenerationNode(SerializationMixin, SortableBase):
         arms_by_signature_for_deduplication: Optional[Dict[str, Arm]] = None,
         **model_gen_kwargs: Any,
     ) -> GeneratorRun:
-        """Picks a fitted model, from which to generate candidates (via
-        ``self._pick_fitted_model_to_gen_from``) and generates candidates
-        from it. Uses the ``model_gen_kwargs`` set on the selected ``ModelSpec``
-        alongside any kwargs passed in to this function (with local kwargs)
-        taking precedent.
+        """This method generates candidates using `self._gen` and handles deduplication
+        of generated candidates if `self.should_deduplicate=True`.
 
         NOTE: Models must have been fit prior to calling ``gen``.
         NOTE: Some underlying models may ignore the ``n`` argument and produce a
@@ -305,34 +303,25 @@ class GenerationNode(SerializationMixin, SortableBase):
                 new candidates without duplicates. If non-duplicate candidates are not
                 generated with these attempts, a ``GenerationStrategyRepeatedPoints``
                 exception will be raised.
+            arms_by_signature_for_deduplication: A dictionary mapping arm signatures to
+                the arms, to be used for deduplicating newly generated arms.
             model_gen_kwargs: Keyword arguments, passed through to ``ModelSpec.gen``;
                 these override any pre-specified in ``ModelSpec.model_gen_kwargs``.
 
         Returns:
             A ``GeneratorRun`` containing the newly generated candidates.
         """
-        model_spec = self.model_spec_to_gen_from
         should_generate_run = True
         generator_run = None
         n_gen_draws = 0
         # Keep generating until each of `generator_run.arms` is not a duplicate
         # of a previous arm, if `should_deduplicate is True`
         while should_generate_run:
-            generator_run = model_spec.gen(
-                # If `n` is not specified, ensure that the `None` value does not
-                # override the one set in `model_spec.model_gen_kwargs`.
-                n=(
-                    model_spec.model_gen_kwargs.get("n")
-                    if n is None and model_spec.model_gen_kwargs
-                    else n
-                ),
-                # For `pending_observations`, prefer the input to this function, as
-                # `pending_observations` are dynamic throughout the experiment and thus
-                # unlikely to be specified in `model_spec.model_gen_kwargs`.
+            generator_run = self._gen(
+                n=n,
                 pending_observations=pending_observations,
                 **model_gen_kwargs,
             )
-
             should_generate_run = (
                 self.should_deduplicate
                 and arms_by_signature_for_deduplication
@@ -359,6 +348,45 @@ class GenerationNode(SerializationMixin, SortableBase):
         )
         generator_run._generation_node_name = self.node_name
         return generator_run
+
+    def _gen(
+        self,
+        n: Optional[int] = None,
+        pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
+        **model_gen_kwargs: Any,
+    ) -> GeneratorRun:
+        """Picks a fitted model, from which to generate candidates (via
+        ``self._pick_fitted_model_to_gen_from``) and generates candidates
+        from it. Uses the ``model_gen_kwargs`` set on the selected ``ModelSpec``
+        alongside any kwargs passed in to this function (with local kwargs)
+        taking precedent.
+
+        Args:
+            n: Optional integer representing how many arms should be in the generator
+                run produced by this method. When this is ``None``, ``n`` will be
+                determined by the ``ModelSpec`` that we are generating from.
+            pending_observations: A map from metric name to pending
+                observations for that metric, used by some models to avoid
+                resuggesting points that are currently being evaluated.
+            model_gen_kwargs: Keyword arguments, passed through to ``ModelSpec.gen``;
+                these override any pre-specified in ``ModelSpec.model_gen_kwargs``.
+
+        Returns:
+            A ``GeneratorRun`` containing the newly generated candidates.
+        """
+        model_spec = self.model_spec_to_gen_from
+        if n is None and model_spec.model_gen_kwargs:
+            # If `n` is not specified, ensure that the `None` value does not
+            # override the one set in `model_spec.model_gen_kwargs`.
+            n = model_spec.model_gen_kwargs.get("n", None)
+        return model_spec.gen(
+            n=n,
+            # For `pending_observations`, prefer the input to this function, as
+            # `pending_observations` are dynamic throughout the experiment and thus
+            # unlikely to be specified in `model_spec.model_gen_kwargs`.
+            pending_observations=pending_observations,
+            **model_gen_kwargs,
+        )
 
     # ------------------------- Model selection logic helpers. -------------------------
 
