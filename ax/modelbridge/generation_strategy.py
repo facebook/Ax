@@ -34,7 +34,6 @@ from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
     GenerationStrategyMisconfiguredException,
 )
-
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_node import GenerationNode, GenerationStep
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec
