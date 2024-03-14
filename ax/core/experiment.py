@@ -737,14 +737,14 @@ class Experiment(Base):
         """
         if combine_with_last_data and overwrite_existing_data:
             raise UnsupportedError(
-                "Cannot set both combine_with_last_data=True and "
-                "overwrite_existing_data=True. Data can either be "
+                "Cannot set both `combine_with_last_data=True` and "
+                "`overwrite_existing_data=True`. Data can either be "
                 "combined, or overwritten, or neither."
             )
         data_type = type(data)
         data_init_args = data.deserialize_init_args(data.serialize_init_args(data))
         if data.df.empty:
-            raise ValueError("Data to attach is empty.")
+            raise UnsupportedError("Data to attach is empty.")
         metrics_not_on_exp = set(data.true_df["metric_name"].values) - set(
             self.metrics.keys()
         )
@@ -877,13 +877,8 @@ class Experiment(Base):
         MUST resolve your results first and use attach_data directly instead.
         """
 
-        flattened = [
-            result for sublist in results.values() for result in sublist.values()
-        ]
-
-        oks: List[Ok[Data, MetricFetchE]] = [
-            result for result in flattened if isinstance(result, Ok)
-        ]
+        flattened = [res for sublist in results.values() for res in sublist.values()]
+        oks = [res for res in flattened if isinstance(res, Ok)]
 
         for result in flattened:
             if isinstance(result, Err):
