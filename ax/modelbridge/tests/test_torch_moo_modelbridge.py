@@ -21,7 +21,6 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
 )
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.modelbridge_utils import (
     get_pareto_frontier_and_configs,
@@ -288,41 +287,6 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
             ObservationFeatures(parameters={"x1": 0.0, "x2": 1.0}),
             ObservationFeatures(parameters={"x1": 1.0, "x2": 0.0}),
         ]
-
-        with self.assertWarns(
-            Warning,
-            msg="FYI: The default behavior of `get_pareto_frontier_and_configs` when "
-            "`transform_outcomes_and_configs` is not specified has changed. Previously,"
-            " the default was `transform_outcomes_and_configs=True`; now this argument "
-            "is deprecated and behavior is as if "
-            "`transform_outcomes_and_configs=False`. You did not specify "
-            "`transform_outcomes_and_configs`, so this warning requires no action.",
-        ):
-            res = get_pareto_frontier_and_configs(
-                modelbridge=modelbridge,
-                observation_features=observation_features,
-            )
-            self.assertEqual(len(res), 4)
-
-        with self.assertRaises(UnsupportedError):
-            get_pareto_frontier_and_configs(
-                modelbridge=modelbridge,
-                observation_features=observation_features,
-                transform_outcomes_and_configs=True,
-            )
-
-        with self.assertWarns(
-            DeprecationWarning,
-            msg="You passed `transform_outcomes_and_configs=False`. Specifying "
-            "`transform_outcomes_and_configs` at all is deprecated because `False` is "
-            "now the only allowed behavior. In the future, this will become an error.",
-        ):
-            res = get_pareto_frontier_and_configs(
-                modelbridge=modelbridge,
-                observation_features=observation_features,
-                transform_outcomes_and_configs=False,
-            )
-            self.assertEqual(len(res), 4)
 
         with self.assertWarns(
             Warning,

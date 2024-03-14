@@ -60,7 +60,7 @@ from ax.core.utils import (  # noqa F402: Temporary import for backward compatib
     get_pending_observation_features,  # noqa F401
     get_pending_observation_features_based_on_trial_status,  # noqa F401
 )
-from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
+from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import (
     derelativize_optimization_config_with_raw_status_quo,
@@ -690,7 +690,6 @@ def get_pareto_frontier_and_configs(
     optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
     arm_names: Optional[List[Optional[str]]] = None,
     use_model_predictions: bool = True,
-    transform_outcomes_and_configs: Optional[bool] = None,
 ) -> Tuple[List[Observation], Tensor, Tensor, Optional[Tensor]]:
     """Helper that applies transforms and calls ``frontier_evaluator``.
 
@@ -712,11 +711,6 @@ def get_pareto_frontier_and_configs(
             ``observation_features`` to compute Pareto front. If ``False``,
             will use ``observation_data`` directly to compute Pareto front, ignoring
             ``observation_features``.
-        transform_outcomes_and_configs: Deprecated and must be ``False`` if provided.
-            Previously, if ``True``, would transform the optimization
-            config, observation features and observation data, before calling
-            ``frontier_evaluator``, then will untransform all of the above before
-            returning the observations.
 
     Returns: Four-item tuple of:
           - frontier_observations: Observations of points on the pareto frontier,
@@ -726,30 +720,6 @@ def get_pareto_frontier_and_configs(
           - obj_t: m tensor of objective thresholds corresponding to Y, or None if no
             objective thresholds used.
     """
-    if transform_outcomes_and_configs is None:
-        warnings.warn(
-            "FYI: The default behavior of `get_pareto_frontier_and_configs` when "
-            "`transform_outcomes_and_configs` is not specified has changed. Previously,"
-            " the default was `transform_outcomes_and_configs=True`; now this argument "
-            "is deprecated and behavior is as if "
-            "`transform_outcomes_and_configs=False`. You did not specify "
-            "`transform_outcomes_and_configs`, so this warning requires no action.",
-            stacklevel=2,
-        )
-    elif transform_outcomes_and_configs:
-        raise UnsupportedError(
-            "`transform_outcomes_and_configs=True` is no longer supported, and the "
-            "`transform_outcomes_and_configs` argument is deprecated. Please do not "
-            "specify this argument."
-        )
-    else:
-        warnings.warn(
-            "You passed `transform_outcomes_and_configs=False`. Specifying "
-            "`transform_outcomes_and_configs` at all is deprecated because `False` is "
-            "now the only allowed behavior. In the future, this will become an error.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
     # Input validation
     if use_model_predictions:
         if observation_data is not None:
