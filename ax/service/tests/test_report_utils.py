@@ -167,7 +167,7 @@ class ReportUtilsTest(TestCase):
                 "timestamp": compute_maximum_map_values_timestamp
             },
         )
-        self.assertEqual(df["timestamp"].tolist(), [5.0, 5.0, 5.0])
+        self.assertEqual(df["timestamp"].tolist(), [4.0, 4.0, 4.0])
 
     def test_exp_to_df_trial_timing(self) -> None:
         # 1. test all have started, none have completed

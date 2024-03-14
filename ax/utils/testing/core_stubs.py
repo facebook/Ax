@@ -390,7 +390,6 @@ def get_test_map_data_experiment(
         experiment.fetch_data()
     for i in range(num_complete):
         experiment.trials[i].mark_as(status=TrialStatus.COMPLETED)
-    experiment.attach_data(data=experiment.fetch_data())
     return experiment
 
 
