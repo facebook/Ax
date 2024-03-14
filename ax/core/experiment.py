@@ -1542,6 +1542,10 @@ class Experiment(Base):
         r"""
         Return a copy of this experiment with some attributes replaced.
 
+        NOTE: This method only retains the latest data attached to the experiment.
+        This is the same data that would be accessed using common APIs such as
+        ``Experiment.lookup_data()``.
+
         Args:
             search_space: New search space. If None, it uses the cloned search space
                 of the original experiment.
@@ -1561,7 +1565,7 @@ class Experiment(Base):
             trial_indices: If specified, only clones the specified trials. If None,
                 clones all trials.
             data: If specified, attach this data to the cloned experiment. If None,
-                clones the data attached to the original experiment if
+                clones the latest data attached to the original experiment if
                 the experiment has any data.
         """
         search_space = (
@@ -1611,39 +1615,36 @@ class Experiment(Base):
             default_data_type=self._default_data_type,
         )
 
-        datas = []
-        # clone only the specified trials
+        # Clone only the specified trials.
         original_trial_indices = self.trials.keys()
-        # pyre-fixme[9]: trial_indices has type `Optional[List[int]]`; used as
-        #  `Set[int]`.
-        trial_indices = (
+        trial_indices_to_keep = (
             set(original_trial_indices) if trial_indices is None else set(trial_indices)
         )
-        if (
-            # pyre-fixme[16]: `Optional` has no attribute `difference`.
-            len(trial_indices_diff := trial_indices.difference(original_trial_indices))
-            > 0
+        if trial_indices_diff := trial_indices_to_keep.difference(
+            original_trial_indices
         ):
             warnings.warn(
                 f"Trials indexed with {trial_indices_diff} are not a part "
                 "of the original experiment. ",
                 stacklevel=2,
             )
-        # pyre-fixme[16]: `Optional` has no attribute `intersection`.
-        for trial_index in trial_indices.intersection(original_trial_indices):
+
+        data_by_trial = {}
+        for trial_index in trial_indices_to_keep.intersection(original_trial_indices):
             trial = self.trials[trial_index]
             if isinstance(trial, BatchTrial) or isinstance(trial, Trial):
                 trial.clone_to(cloned_experiment)
-                trial_data, storage_time = self.lookup_data_for_trial(trial_index)
-                if (trial_data is not None) and (storage_time is not None):
-                    datas.append(trial_data)
+                trial_data, timestamp = self.lookup_data_for_trial(trial_index)
+                if timestamp != -1:
+                    data_by_trial[trial_index] = OrderedDict([(timestamp, trial_data)])
             else:
                 raise NotImplementedError(f"Cloning of {type(trial)} is not supported.")
-
-        if (data is None) and (len(datas) > 0):
-            data = self.default_data_constructor.from_multiple_data(datas)
         if data is not None:
+            # If user passed in data, use it.
             cloned_experiment.attach_data(data)
+        else:
+            # Otherwise, attach the data extracted from the original experiment.
+            cloned_experiment._data_by_trial = data_by_trial
 
         return cloned_experiment
 

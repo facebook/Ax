@@ -7,11 +7,11 @@
 # pyre-strict
 
 import logging
+from collections import OrderedDict
 from typing import Dict, List, Type
 from unittest.mock import MagicMock, patch
 
 import numpy as np
-
 import pandas as pd
 import torch
 from ax.core import BatchTrial, Trial
@@ -1041,6 +1041,7 @@ class ExperimentTest(TestCase):
             search_space=larger_search_space,
             status_quo=new_status_quo,
         )
+        self.assertEqual(cloned_experiment._data_by_trial, experiment._data_by_trial)
         self.assertEqual(len(cloned_experiment.trials), 2)
         x1 = checked_cast(
             RangeParameter, cloned_experiment.search_space.parameters["x1"]
@@ -1105,7 +1106,15 @@ class ExperimentTest(TestCase):
             status_quo=new_status_quo,
         )
         new_data = cloned_experiment.lookup_data()
+        self.assertNotEqual(cloned_experiment._data_by_trial, experiment._data_by_trial)
         self.assertIsInstance(new_data, MapData)
+        expected_data_by_trial = {}
+        for trial_index in experiment.trials:
+            if original_trial_data := experiment._data_by_trial.get(trial_index, None):
+                expected_data_by_trial[trial_index] = OrderedDict(
+                    list(original_trial_data.items())[-1:]
+                )
+        self.assertEqual(cloned_experiment.data_by_trial, expected_data_by_trial)
 
         experiment = get_experiment()
         cloned_experiment = experiment.clone_with()
