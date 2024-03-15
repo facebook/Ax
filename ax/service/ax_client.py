@@ -944,6 +944,12 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             for trial in self.experiment.trials.values()
             if trial.status.is_completed
         ]
+        try:
+            # The transitions are only available with step based GS.
+            # TODO: Clean up once transitions are available for all GS.
+            model_transitions = self.generation_strategy.model_transitions
+        except UnsupportedError:
+            model_transitions = None
         return optimization_trace_single_method(
             y=(
                 np.minimum.accumulate(best_objectives, axis=1)
@@ -954,7 +960,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             title="Model performance vs. # of iterations",
             ylabel=objective_name.capitalize(),
             hover_labels=hover_labels,
-            model_transitions=self.generation_strategy.model_transitions,
+            model_transitions=model_transitions,
         )
 
     def get_contour_plot(

@@ -31,6 +31,7 @@ from ax.core.parameter import (
 )
 from ax.core.parameter_constraint import OrderConstraint
 from ax.core.search_space import HierarchicalSearchSpace
+from ax.core.trial import Trial
 from ax.core.types import (
     ComparisonOp,
     TEvaluationOutcome,
@@ -48,7 +49,12 @@ from ax.exceptions.core import (
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.metrics.branin import branin
 from ax.modelbridge.dispatch_utils import DEFAULT_BAYESIAN_PARALLELISM
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.generation_strategy import (
+    GenerationNode,
+    GenerationStep,
+    GenerationStrategy,
+)
+from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import Models
 
@@ -2905,6 +2911,35 @@ class TestAxClient(TestCase):
                 found_no_log = True
 
         self.assertTrue(found_no_log)
+
+    def test_with_node_based_gs(self) -> None:
+        sobol_gs = GenerationStrategy(
+            name="Sobol",
+            nodes=[
+                GenerationNode(
+                    node_name="Sobol",
+                    model_specs=[ModelSpec(model_enum=Models.SOBOL)],
+                )
+            ],
+        )
+        ax_client = get_branin_optimization(generation_strategy=sobol_gs)
+        params, idx = ax_client.get_next_trial()
+        ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
+
+        self.assertEqual(ax_client.generation_strategy.name, "Sobol")
+        self.assertEqual(
+            checked_cast(
+                Trial, ax_client.experiment.trials[0]
+            )._generator_run._model_key,
+            "Sobol",
+        )
+        with mock.patch(
+            "ax.service.ax_client.optimization_trace_single_method"
+        ) as mock_plot:
+            ax_client.get_optimization_trace()
+        mock_plot.assert_called_once()
+        call_kwargs = mock_plot.call_args.kwargs
+        self.assertIsNone(call_kwargs["model_transitions"])
 
 
 # Utility functions for testing get_model_predictions without calling
