@@ -343,9 +343,7 @@ class GenerationStrategy(GenerationStrategyInterface):
 
     @property
     def optimization_complete(self) -> bool:
-        """Checks whether all nodes are completed in the generation strategy and
-        the current node is not an AEPsych node.
-        """
+        """Checks whether all nodes are completed in the generation strategy."""
         return all(node.is_completed for node in self._nodes)
 
     @step_based_gs_only
