@@ -871,6 +871,7 @@ class TorchModelBridge(ModelBridge):
             opt_config_metrics=opt_config_metrics,
             is_moo=optimization_config.is_moo_problem,
             risk_measure=risk_measure,
+            fit_out_of_design=self._fit_out_of_design,
         )
         return search_space_digest, torch_opt_config
 

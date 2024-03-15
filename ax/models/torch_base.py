@@ -88,6 +88,7 @@ class TorchOptConfig:
     opt_config_metrics: Optional[Dict[str, Metric]] = None
     is_moo: bool = False
     risk_measure: Optional[RiskMeasureMCObjective] = None
+    fit_out_of_design: bool = False
 
 
 @dataclass(frozen=True)
