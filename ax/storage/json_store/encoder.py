@@ -23,7 +23,7 @@ from ax.storage.json_store.registry import (
     CORE_ENCODER_REGISTRY,
 )
 from ax.utils.common.serialization import _is_named_tuple
-from ax.utils.common.typeutils import numpy_type_to_python_type
+from ax.utils.common.typeutils_nonnative import numpy_type_to_python_type
 from ax.utils.common.typeutils_torch import torch_type_to_str
 
 

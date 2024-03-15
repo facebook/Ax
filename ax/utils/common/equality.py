@@ -13,7 +13,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from ax.utils.common.typeutils import numpy_type_to_python_type
+from ax.utils.common.typeutils_nonnative import numpy_type_to_python_type
 
 
 # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.

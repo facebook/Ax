@@ -15,8 +15,8 @@ from ax.utils.common.typeutils import (
     checked_cast_list,
     checked_cast_optional,
     not_none,
-    numpy_type_to_python_type,
 )
+from ax.utils.common.typeutils_nonnative import numpy_type_to_python_type
 
 
 class TestTypeUtils(TestCase):

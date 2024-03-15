@@ -123,6 +123,14 @@ Typeutils
     :undoc-members:
     :show-inheritance:
 
+Typeutils Non-Native
+~~~~~~~~~~~~~~~
+
+.. automodule:: ax.utils.common.typeutils_nonnative
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Typeutils Torch
 ~~~~~~~~~~~~~~~
 
