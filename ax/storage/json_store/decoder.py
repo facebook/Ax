@@ -39,14 +39,6 @@ from ax.modelbridge.generation_strategy import (
 )
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import _decode_callables_from_references
-from ax.modelbridge.transition_criterion import (
-    MaxGenerationParallelism,
-    MaxTrials,
-    MinimumPreferenceOccurances,
-    MinimumTrialsInStatus,
-    MinTrials,
-    TransitionCriterion,
-)
 from ax.models.torch.botorch_modular.model import SurrogateSpec
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.storage.json_store.decoders import (
@@ -350,147 +342,6 @@ def generator_run_from_json(
         class_decoder_registry=class_decoder_registry,
     )
     return generator_run
-
-
-def transition_criteria_from_json(
-    transition_criteria_json: List[Dict[str, Any]],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
-) -> Optional[List[TransitionCriterion]]:
-    """Load Ax TransitionCriteria from JSON.
-
-    This function is necessary due to the loading of TrialStatus in
-    some, but not all, TransitionCriterion.
-    """
-    if transition_criteria_json is None:
-        return None
-
-    # TODO: @mgarrard see if this can use deserialize_init_args
-    # and be moved up to a higher level so we don't construct a list
-    criterion_list = []
-    for criterion_json in transition_criteria_json:
-        criterion_type = criterion_json.pop("__type")
-        if criterion_type == "MinimumTrialsInStatus":
-            criterion_list.append(
-                MinimumTrialsInStatus(
-                    status=object_from_json(criterion_json.pop("status")),
-                    threshold=criterion_json.pop("threshold"),
-                    transition_to=(
-                        criterion_json.pop("transition_to")
-                        if "transition_to" in criterion_json.keys()
-                        else None
-                    ),
-                )
-            )
-        elif criterion_type == "MinimumPreferenceOccurances":
-            criterion_list.append(
-                MinimumPreferenceOccurances(
-                    metric_name=criterion_json.pop("metric_name"),
-                    threshold=criterion_json.pop("threshold"),
-                    transition_to=(
-                        criterion_json.pop("transition_to")
-                        if "transition_to" in criterion_json.keys()
-                        else None
-                    ),
-                    block_transition_if_unmet=criterion_json.pop(
-                        "block_transition_if_unmet", True
-                    ),
-                    block_gen_if_met=criterion_json.pop("block_gen_if_met", False),
-                )
-            )
-        elif criterion_type == "MaxGenerationParallelism":
-            criterion_list.append(
-                MaxGenerationParallelism(
-                    threshold=criterion_json.pop("threshold"),
-                    only_in_statuses=(
-                        object_from_json(
-                            criterion_json.pop("only_in_statuses"),
-                            decoder_registry=decoder_registry,
-                            class_decoder_registry=class_decoder_registry,
-                        )
-                        if "only_in_statuses" in criterion_json.keys()
-                        else None
-                    ),
-                    not_in_statuses=(
-                        object_from_json(
-                            criterion_json.pop("not_in_statuses"),
-                            decoder_registry=decoder_registry,
-                            class_decoder_registry=class_decoder_registry,
-                        )
-                        if "not_in_statuses" in criterion_json.keys()
-                        else None
-                    ),
-                    transition_to=criterion_json.pop("transition_to", None),
-                    block_transition_if_unmet=criterion_json.pop(
-                        "block_transition_if_unmet", False
-                    ),
-                    block_gen_if_met=criterion_json.pop("block_gen_if_met", True),
-                )
-            )
-        elif criterion_type == "MaxTrials":
-            criterion_list.append(
-                MaxTrials(
-                    threshold=criterion_json.pop("threshold"),
-                    only_in_statuses=(
-                        object_from_json(
-                            criterion_json.pop("only_in_statuses"),
-                            decoder_registry=decoder_registry,
-                            class_decoder_registry=class_decoder_registry,
-                        )
-                        if "only_in_statuses" in criterion_json.keys()
-                        else None
-                    ),
-                    not_in_statuses=(
-                        object_from_json(
-                            criterion_json.pop("not_in_statuses"),
-                            decoder_registry=decoder_registry,
-                            class_decoder_registry=class_decoder_registry,
-                        )
-                        if "not_in_statuses" in criterion_json.keys()
-                        else None
-                    ),
-                    transition_to=criterion_json.pop("transition_to", None),
-                    block_transition_if_unmet=criterion_json.pop(
-                        "block_transition_if_unmet", False
-                    ),
-                    block_gen_if_met=criterion_json.pop("block_gen_if_met", True),
-                )
-            )
-        elif criterion_type == "MinTrials":
-            criterion_list.append(
-                MinTrials(
-                    threshold=criterion_json.pop("threshold"),
-                    only_in_statuses=(
-                        object_from_json(
-                            criterion_json.pop("only_in_statuses"),
-                            decoder_registry=decoder_registry,
-                            class_decoder_registry=class_decoder_registry,
-                        )
-                        if "only_in_statuses" in criterion_json.keys()
-                        else None
-                    ),
-                    not_in_statuses=(
-                        object_from_json(
-                            criterion_json.pop("not_in_statuses"),
-                            decoder_registry=decoder_registry,
-                            class_decoder_registry=class_decoder_registry,
-                        )
-                        if "not_in_statuses" in criterion_json.keys()
-                        else None
-                    ),
-                    transition_to=criterion_json.pop("transition_to", None),
-                    block_transition_if_unmet=criterion_json.pop(
-                        "block_transition_if_unmet", False
-                    ),
-                    block_gen_if_met=criterion_json.pop("block_gen_if_met", True),
-                )
-            )
-    return criterion_list
 
 
 def search_space_from_json(
@@ -818,7 +669,7 @@ def generation_node_from_json(
         should_deduplicate=generation_node_json.pop("should_deduplicate", False),
         gen_unlimited_trials=generation_node_json.pop("gen_unlimited_trials", True),
         transition_criteria=(
-            transition_criteria_from_json(
+            object_from_json(
                 generation_node_json.pop("transition_criteria"),
                 decoder_registry=decoder_registry,
                 class_decoder_registry=class_decoder_registry,
@@ -846,7 +697,11 @@ def generation_step_from_json(
     kwargs = generation_step_json.pop("model_kwargs", None)
     gen_kwargs = generation_step_json.pop("model_gen_kwargs", None)
     completion_criteria = (
-        transition_criteria_from_json(generation_step_json.pop("completion_criteria"))
+        object_from_json(
+            generation_step_json.pop("completion_criteria"),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        )
         if "completion_criteria" in generation_step_json.keys()
         else []
     )
