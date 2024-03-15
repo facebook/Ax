@@ -325,6 +325,7 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "MapMetric": MapMetric,
     "MapKeyInfo": MapKeyInfo,
     "MaxTrials": MaxTrials,
+    "MaxGenerationParallelism": MaxGenerationParallelism,
     "Metric": Metric,
     "MinTrials": MinTrials,
     "MinimumTrialsInStatus": MinimumTrialsInStatus,
