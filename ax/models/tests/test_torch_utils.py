@@ -81,6 +81,28 @@ class TorchUtilsTest(TestCase):
         expected = Xs[0]
         self.assertEqual(_to_obs_set(expected), _to_obs_set(not_none(X_observed)))
 
+        # Out of design observations are filtered out
+        Xs = [torch.tensor([[2.0, 3.0], [3.0, 4.0]])]
+        _, X_observed = _get_X_pending_and_observed(
+            Xs=Xs,
+            objective_weights=objective_weights,
+            bounds=bounds,
+            fixed_features=fixed_features,
+            fit_out_of_design=False,
+        )
+        self.assertIsNone(X_observed)
+
+        # Keep out of design observations
+        _, X_observed = _get_X_pending_and_observed(
+            Xs=Xs,
+            objective_weights=objective_weights,
+            bounds=bounds,
+            fixed_features=fixed_features,
+            fit_out_of_design=True,
+        )
+        expected = Xs[0]
+        self.assertEqual(_to_obs_set(expected), _to_obs_set(not_none(X_observed)))
+
     @patch(
         f"{get_botorch_objective_and_transform.__module__}.get_infeasible_cost",
         return_value=1.0,

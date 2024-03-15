@@ -353,6 +353,7 @@ class BotorchModel(TorchModel):
             outcome_constraints=torch_opt_config.outcome_constraints,
             linear_constraints=torch_opt_config.linear_constraints,
             fixed_features=torch_opt_config.fixed_features,
+            fit_out_of_design=torch_opt_config.fit_out_of_design,
         )
         model = self.model
         # subset model only to the outcomes we need for the optimization	357

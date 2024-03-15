@@ -340,6 +340,7 @@ class TorchModelBridgeTest(TestCase):
         ma._model_space = get_branin_search_space()
         ma._optimization_config = None
         ma.outcomes = ["test_metric"]
+        ma._fit_out_of_design = False
 
         with self.assertRaisesRegex(ValueError, "optimization_config"):
             ma.evaluate_acquisition_function(

@@ -99,6 +99,7 @@ def _filter_X_observed(
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     fixed_features: Optional[Dict[int, float]] = None,
+    fit_out_of_design: bool = False,
 ) -> Optional[Tensor]:
     r"""Filter input points to those appearing in objective or constraints.
 
@@ -115,6 +116,8 @@ def _filter_X_observed(
             A x <= b. (Not used by single task models)
         fixed_features: A map {feature_index: value} for features that
             should be fixed to a particular value during generation.
+        fit_out_of_design: If specified, all training data is returned.
+            Otherwise, only in design points are returned.
 
     Returns:
         Tensor: All points that are feasible and appear in the objective or
@@ -126,13 +129,14 @@ def _filter_X_observed(
         objective_weights=objective_weights,
         outcome_constraints=outcome_constraints,
     )
-    # Filter to those that satisfy constraints.
-    X_obs = filter_constraints_and_fixed_features(
-        X=X_obs,
-        bounds=bounds,
-        linear_constraints=linear_constraints,
-        fixed_features=fixed_features,
-    )
+    if not fit_out_of_design:
+        # Filter to those that satisfy constraints.
+        X_obs = filter_constraints_and_fixed_features(
+            X=X_obs,
+            bounds=bounds,
+            linear_constraints=linear_constraints,
+            fixed_features=fixed_features,
+        )
     if len(X_obs) > 0:
         return torch.as_tensor(X_obs)  # please the linter
 
@@ -145,6 +149,7 @@ def _get_X_pending_and_observed(
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     fixed_features: Optional[Dict[int, float]] = None,
+    fit_out_of_design: bool = False,
 ) -> Tuple[Optional[Tensor], Optional[Tensor]]:
     r"""Get pending and observed points.
 
@@ -167,6 +172,8 @@ def _get_X_pending_and_observed(
             A x <= b. (Not used by single task models)
         fixed_features: A map {feature_index: value} for features that
             should be fixed to a particular value during generation.
+        fit_out_of_design: If specified, all training data is returned.
+            Otherwise, only in design points are returned.
 
     Returns:
         Tensor: Pending points that are feasible and appear in the objective or
@@ -192,6 +199,7 @@ def _get_X_pending_and_observed(
         bounds=bounds,
         linear_constraints=linear_constraints,
         fixed_features=fixed_features,
+        fit_out_of_design=fit_out_of_design,
     )
     if filtered_X_observed is not None and len(filtered_X_observed) > 0:
         return X_pending, filtered_X_observed
@@ -201,6 +209,7 @@ def _get_X_pending_and_observed(
             objective_weights=objective_weights,
             bounds=bounds,
             outcome_constraints=outcome_constraints,
+            fit_out_of_design=fit_out_of_design,
         )
         return X_pending, unfiltered_X_observed
 
