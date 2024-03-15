@@ -7,15 +7,22 @@
 
 from abc import abstractmethod
 from logging import Logger
-from typing import List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.exceptions.core import DataRequiredError
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
+
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
-from ax.utils.common.serialization import SerializationMixin, serialize_init_args
+from ax.utils.common.serialization import (
+    SerializationMixin,
+    serialize_init_args,
+    TClassDecoderRegistry,
+    TDecoderRegistry,
+)
+from ax.utils.common.typeutils import not_none
 
 logger: Logger = get_logger(__name__)
 
@@ -115,6 +122,32 @@ class TrialBasedCriterion(TransitionCriterion):
             block_transition_if_unmet=block_transition_if_unmet,
             block_gen_if_met=block_gen_if_met,
         )
+
+    @classmethod
+    def deserialize_init_args(
+        cls,
+        args: Dict[str, Any],
+        decoder_registry: Optional[TDecoderRegistry] = None,
+        class_decoder_registry: Optional[TClassDecoderRegistry] = None,
+    ) -> Dict[str, Any]:
+        """Given a dictionary, extract the properties needed to initialize the object.
+        Used for storage.
+        """
+        # import here to avoid circular import
+        from ax.storage.json_store.decoder import object_from_json
+
+        decoder_registry = not_none(decoder_registry)
+        class_decoder_registry = class_decoder_registry or {}
+        init_args = super().deserialize_init_args(args=args)
+
+        return {
+            key: object_from_json(
+                object_json=value,
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
+            )
+            for key, value in init_args.items()
+        }
 
     def experiment_trials_by_status(
         self, experiment: Experiment, statuses: List[TrialStatus]
