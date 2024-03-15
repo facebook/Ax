@@ -12,7 +12,7 @@ from logging import Logger
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import version_safe_check_type
+from ax.utils.common.typeutils_nonnative import version_safe_check_type
 
 logger: Logger = get_logger(__name__)
 

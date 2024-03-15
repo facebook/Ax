@@ -19,7 +19,7 @@ from ax.core.types import (
     validate_evaluation_outcome,
 )
 from ax.exceptions.core import UserInputError
-from ax.utils.common.typeutils import numpy_type_to_python_type
+from ax.utils.common.typeutils_nonnative import numpy_type_to_python_type
 
 
 # -------------------- Data formatting utils. ---------------------
