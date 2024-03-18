@@ -84,5 +84,11 @@
       "id": "human_in_the_loop",
       "title": "Human-in-the-Loop Optimization"
     }
+  ],
+  "Integrating External Strategies": [
+    {
+      "id": "external_generation_node",
+      "title": "RandomForest with ExternalGenerationNode"
+    }
   ]
 }
