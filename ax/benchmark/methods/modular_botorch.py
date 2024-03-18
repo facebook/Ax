@@ -14,7 +14,6 @@ from ax.benchmark.benchmark_method import (
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.models.torch.botorch_modular.model import SurrogateSpec
-
 from ax.service.scheduler import SchedulerOptions
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import LogExpectedImprovement
@@ -59,13 +58,15 @@ def get_sobol_botorch_modular_acquisition(
     acqf_name = acqf_name_abbreviations.get(
         acquisition_cls.__name__, acquisition_cls.__name__
     )
-    name = f"MBM::{model_name}_{acqf_name}"
+    name = name or f"MBM::{model_name}_{acqf_name}"
 
     generation_strategy = GenerationStrategy(
         name=name,
         steps=[
             GenerationStep(
-                model=Models.SOBOL, num_trials=num_sobol_trials, min_trials_observed=5
+                model=Models.SOBOL,
+                num_trials=num_sobol_trials,
+                min_trials_observed=num_sobol_trials,
             ),
             GenerationStep(
                 model=Models.BOTORCH_MODULAR,
