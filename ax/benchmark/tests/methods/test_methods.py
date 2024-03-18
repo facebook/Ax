@@ -48,9 +48,13 @@ class TestMethods(TestCase):
             model_cls=SingleTaskGP,
             scheduler_options=get_sequential_optimization_scheduler_options(),
             acquisition_cls=LogExpectedImprovement,
+            num_sobol_trials=2,
+            name="test",
             distribute_replications=False,
         )
         n_sobol_trials = method.generation_strategy._steps[0].num_trials
+        self.assertEqual(n_sobol_trials, 2)
+        self.assertEqual(method.name, "test")
         # Only run one non-Sobol trial
         problem = get_problem(problem_name="ackley4", num_trials=n_sobol_trials + 1)
         result = benchmark_replication(problem=problem, method=method, seed=0)
