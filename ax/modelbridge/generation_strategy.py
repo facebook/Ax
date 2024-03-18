@@ -386,7 +386,7 @@ class GenerationStrategy(GenerationStrategyInterface):
 
             # Set transition_to field for all but the last step, which remains
             # null.
-            if idx != len(self._steps):
+            if idx != len(self._steps) - 1:
                 for transition_criteria in step.transition_criteria:
                     if (
                         transition_criteria.criterion_class
