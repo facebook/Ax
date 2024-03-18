@@ -21,7 +21,7 @@ from ax.core.search_space import SearchSpace
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.result import Err, Ok
-from torch import nn, optim, Tensor
+from torch import nn, optim
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Dataset
 
@@ -43,8 +43,9 @@ class PyTorchCNNBenchmarkProblem(SingleObjectiveBenchmarkProblem):
         num_trials: int,
         train_set: Dataset,
         test_set: Dataset,
+        infer_noise: bool = True,
     ) -> "PyTorchCNNBenchmarkProblem":
-        optimal_value = 1.0
+        optimal_value = 1
 
         search_space = SearchSpace(
             parameters=[
@@ -79,7 +80,7 @@ class PyTorchCNNBenchmarkProblem(SingleObjectiveBenchmarkProblem):
         )
         optimization_config = OptimizationConfig(
             objective=Objective(
-                metric=PyTorchCNNMetric(),
+                metric=PyTorchCNNMetric(infer_noise=infer_noise),
                 minimize=False,
             )
         )
@@ -93,15 +94,14 @@ class PyTorchCNNBenchmarkProblem(SingleObjectiveBenchmarkProblem):
             optimization_config=optimization_config,
             runner=runner,
             num_trials=num_trials,
-            is_noiseless=False,
-            observe_noise_sd=False,
-            has_ground_truth=False,
+            infer_noise=infer_noise,
         )
 
 
 class PyTorchCNNMetric(Metric):
-    def __init__(self) -> None:
+    def __init__(self, infer_noise: bool = True) -> None:
         super().__init__(name="accuracy")
+        self.infer_noise = infer_noise
 
     def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> MetricFetchResult:
         try:
@@ -111,10 +111,10 @@ class PyTorchCNNMetric(Metric):
             ]
             df = pd.DataFrame(
                 {
-                    "arm_name": list(trial.arms_by_name.keys()),
+                    "arm_name": [name for name, _ in trial.arms_by_name.items()],
                     "metric_name": self.name,
                     "mean": accuracy,
-                    "sem": None,
+                    "sem": None if self.infer_noise else 0,
                     "trial_index": trial.index,
                 }
             )
@@ -133,20 +133,28 @@ class PyTorchCNNMetric(Metric):
 class PyTorchCNNRunner(Runner):
     def __init__(self, name: str, train_set: Dataset, test_set: Dataset) -> None:
         self.name = name
-        self.train_loader: DataLoader = DataLoader(train_set)
-        self.test_loader: DataLoader = DataLoader(test_set)
+
+        # pyre-fixme[4]: Attribute must be annotated.
+        self.train_loader = DataLoader(train_set)
+        # pyre-fixme[4]: Attribute must be annotated.
+        self.test_loader = DataLoader(test_set)
+
         self.results: Dict[int, float] = {}
         self.statuses: Dict[int, TrialStatus] = {}
+
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     class CNN(nn.Module):
-        def __init__(self) -> None:
+        # pyre-fixme[3]: Return type must be annotated.
+        def __init__(self):
             super().__init__()
             self.conv1 = nn.Conv2d(1, 20, kernel_size=5, stride=1)
             self.fc1 = nn.Linear(8 * 8 * 20, 64)
             self.fc2 = nn.Linear(64, 10)
 
-        def forward(self, x: Tensor) -> Tensor:
+        # pyre-fixme[3]: Return type must be annotated.
+        # pyre-fixme[2]: Parameter must be annotated.
+        def forward(self, x):
             x = F.relu(self.conv1(x))
             x = F.max_pool2d(x, 3, 3)
             x = x.view(-1, 8 * 8 * 20)

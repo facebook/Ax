@@ -520,7 +520,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     @copy_doc(BestPointMixin.get_trace)
     def get_trace(
         self,
-        optimization_config: Optional[OptimizationConfig] = None,
+        optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
     ) -> List[float]:
         return BestPointMixin._get_trace(
             experiment=self.experiment,

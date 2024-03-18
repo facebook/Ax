@@ -25,8 +25,8 @@ class TestSurrogateProblems(TestCase):
             "optimization_config=OptimizationConfig(objective=Objective(metric_name="
             '"branin", '
             "minimize=False), "
-            "outcome_constraints=[]), num_trials=6, is_noiseless=True, "
-            "observe_noise_stds=True, noise_stds=0.0, tracking_metrics=[])"
+            "outcome_constraints=[]), num_trials=6, infer_noise=False, "
+            "tracking_metrics=[])"
         )
         self.assertEqual(repr(sbp), expected_repr)
 

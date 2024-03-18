@@ -221,6 +221,7 @@ def object_from_json(
             return TorchvisionBenchmarkProblem.from_dataset_name(
                 name=object_json["name"],
                 num_trials=object_json["num_trials"],
+                infer_noise=object_json["infer_noise"],
             )
         elif _class in (SurrogateSpec, Surrogate):
             if "input_transform" in object_json:

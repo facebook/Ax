@@ -6,25 +6,22 @@
 # pyre-strict
 
 import importlib
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import torch
-from ax.benchmark.runners.base import BenchmarkRunner
-from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
+from ax.core.runner import Runner
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
 from ax.utils.common.typeutils import checked_cast
 from botorch.test_functions.base import BaseTestProblem, ConstrainedBaseTestProblem
-from botorch.test_functions.multi_objective import MultiObjectiveTestProblem
 from botorch.utils.transforms import normalize, unnormalize
 from torch import Tensor
 
 
-class BotorchTestProblemRunner(BenchmarkRunner):
-    """A Runner for evaluating Botorch BaseTestProblems.
-
+class BotorchTestProblemRunner(Runner):
+    """A Runner for evaluation Botorch BaseTestProblems.
     Given a trial the Runner will evaluate the BaseTestProblem.forward method for each
     arm in the trial, as well as return some metadata about the underlying Botorch
     problem such as the noise_std. We compute the full result on the Runner (as opposed
@@ -42,7 +39,6 @@ class BotorchTestProblemRunner(BenchmarkRunner):
         self,
         test_problem_class: Type[BaseTestProblem],
         test_problem_kwargs: Dict[str, Any],
-        outcome_names: List[str],
         modified_bounds: Optional[List[Tuple[float, float]]] = None,
     ) -> None:
         """Initialize the test problem runner.
@@ -51,7 +47,6 @@ class BotorchTestProblemRunner(BenchmarkRunner):
             test_problem_class: The BoTorch test problem class.
             test_problem_kwargs: The keyword arguments used for initializing the
                 test problem.
-            outcome_names: The names of the outcomes returned by the problem.
             modified_bounds: The bounds that are used by the Ax search space
                 while optimizing the problem. If different from the bounds of the
                 test problem, we project the parameters into the test problem
@@ -70,16 +65,8 @@ class BotorchTestProblemRunner(BenchmarkRunner):
         self.test_problem = test_problem_class(**test_problem_kwargs).to(
             dtype=torch.double
         )
-        self._is_constrained: bool = isinstance(
-            self.test_problem, ConstrainedBaseTestProblem
-        )
-        self._is_moo: bool = isinstance(self.test_problem, MultiObjectiveTestProblem)
-        self._outcome_names = outcome_names
+        self._is_constrained = isinstance(self.test_problem, ConstrainedBaseTestProblem)
         self._modified_bounds = modified_bounds
-
-    @property
-    def outcome_names(self) -> List[str]:
-        return self._outcome_names
 
     @equality_typechecker
     def __eq__(self, other: Base) -> bool:
@@ -91,62 +78,10 @@ class BotorchTestProblemRunner(BenchmarkRunner):
             == other.test_problem.__class__.__name__
         )
 
-    def get_noise_stds(self) -> Union[None, float, Dict[str, float]]:
-        noise_std = self.test_problem.noise_std
-        noise_std_dict: Dict[str, float] = {}
-        num_obj = 1 if not self._is_moo else self.test_problem.num_objectives
-
-        # populate any noise_stds for constraints
-        if self._is_constrained:
-            constraint_noise_std = self.test_problem.constraint_noise_std
-            if isinstance(constraint_noise_std, list):
-                for i, cns in enumerate(constraint_noise_std, start=num_obj):
-                    if cns is not None:
-                        noise_std_dict[self.outcome_names[i]] = cns
-            elif constraint_noise_std is not None:
-                noise_std_dict[self.outcome_names[num_obj]] = constraint_noise_std
-
-        # if none of the constraints are subject to noise, then we may return
-        # a single float or None for the noise level
-
-        if not noise_std_dict and not isinstance(noise_std, list):
-            return noise_std  # either a float or None
-
-        if isinstance(noise_std, list):
-            if not len(noise_std) == num_obj:
-                # this shouldn't be possible due to validation upon construction
-                # of the multi-objective problem, but better safe than sorry
-                raise ValueError(
-                    "Noise std must have length equal to number of objectives."
-                )
-        else:
-            noise_std = [noise_std for _ in range(num_obj)]
-
-        for i, noise_std_ in enumerate(noise_std):
-            if noise_std_ is not None:
-                noise_std_dict[self.outcome_names[i]] = noise_std_
-
-        return noise_std_dict
-
-    def get_Y_true(self, arm: Arm) -> Tensor:
+    def evaluate_with_original_bounds(self, X: Tensor) -> Tensor:
         """Converts X to original bounds -- only if modified bounds were provided --
         and evaluates the test problem. See `__init__` docstring for details.
-
-        Args:
-            X: A `batch_shape x d`-dim tensor of point(s) at which to evaluate the
-                test problem.
-
-        Returns:
-            A `batch_shape x m`-dim tensor of ground truth (noiseless) evaluations.
         """
-        X = torch.tensor(
-            [
-                value
-                for _key, value in [*arm.parameters.items()][: self.test_problem.dim]
-            ],
-            dtype=torch.double,
-        )
-
         if self._modified_bounds is not None:
             # Normalize from modified bounds to unit cube.
             unit_X = normalize(
@@ -154,21 +89,31 @@ class BotorchTestProblemRunner(BenchmarkRunner):
             )
             # Unnormalize from unit cube to original problem bounds.
             X = unnormalize(unit_X, self.test_problem.bounds)
-
-        Y_true = self.test_problem.evaluate_true(X).view(-1)
-        # `BaseTestProblem.evaluate_true()` does not negate the outcome
-        if self.test_problem.negate:
-            Y_true = -Y_true
-
+        objective = self.test_problem(X).view(-1)
         if self._is_constrained:
-            # Convention: Concatenate objective and black box constraints. `view()`
-            # makes the inputs 1d, so the resulting `Y_true` are also 1d.
-            Y_true = torch.cat(
-                [Y_true, self.test_problem.evaluate_slack_true(X).view(-1)],
+            return torch.cat(
+                [objective, self.test_problem.evaluate_slack(X).view(-1)],
                 dim=-1,
             )
+        return objective
 
-        return Y_true
+    def run(self, trial: BaseTrial) -> Dict[str, Any]:
+        return {
+            "Ys": {
+                arm.name: self.evaluate_with_original_bounds(
+                    torch.tensor(
+                        [
+                            value
+                            for _key, value in [*arm.parameters.items()][
+                                : self.test_problem.dim
+                            ]
+                        ],
+                        dtype=torch.double,
+                    )
+                ).tolist()
+                for arm in trial.arms
+            },
+        }
 
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
@@ -187,7 +132,6 @@ class BotorchTestProblemRunner(BenchmarkRunner):
             "test_problem_module": runner._test_problem_class.__module__,
             "test_problem_class_name": runner._test_problem_class.__name__,
             "test_problem_kwargs": runner._test_problem_kwargs,
-            "outcome_names": runner._outcome_names,
             "modified_bounds": runner._modified_bounds,
         }
 
@@ -207,6 +151,5 @@ class BotorchTestProblemRunner(BenchmarkRunner):
         return {
             "test_problem_class": getattr(module, args["test_problem_class_name"]),
             "test_problem_kwargs": args["test_problem_kwargs"],
-            "outcome_names": args["outcome_names"],
             "modified_bounds": args["modified_bounds"],
         }

@@ -14,15 +14,15 @@ from ax.benchmark.problems.synthetic.discretized.mixed_integer import (
     get_discrete_hartmann,
     get_discrete_rosenbrock,
 )
-from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
 from ax.core.arm import Arm
 from ax.core.parameter import ParameterType
 from ax.core.trial import Trial
+from ax.runners.botorch_test_problem import BotorchTestProblemRunner
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
 
 
-class MixedIntegerProblemsTest(TestCase):
+class TestMixedIntegerProblems(TestCase):
     def test_problems(self) -> None:
         for name, constructor, dim, dim_int in (
             ("Hartmann", get_discrete_hartmann, 6, 4),
@@ -61,10 +61,9 @@ class MixedIntegerProblemsTest(TestCase):
         # Hartmann - evaluate at 0 - should correspond to 0.
         runner = checked_cast(BotorchTestProblemRunner, get_discrete_hartmann().runner)
         mock_call = MagicMock(return_value=torch.tensor(0.0))
-        runner.test_problem.evaluate_true = mock_call
+        runner.test_problem.forward = mock_call
         trial = Trial(experiment=MagicMock())
-        arm = Arm(parameters={f"x{i + 1}": 0.0 for i in range(6)}, name="--")
-        trial.add_arm(arm)
+        trial.add_arm(Arm(parameters={f"x{i+1}": 0.0 for i in range(6)}, name="--"))
         runner.run(trial)
         actual = mock_call.call_args[0][0]
         self.assertTrue(torch.allclose(actual, torch.zeros(6, dtype=actual.dtype)))
@@ -83,7 +82,7 @@ class MixedIntegerProblemsTest(TestCase):
         self.assertTrue(torch.allclose(actual, torch.ones(6, dtype=actual.dtype)))
         # Ackley - evaluate at 0 - corresponds to 0.
         runner = checked_cast(BotorchTestProblemRunner, get_discrete_ackley().runner)
-        runner.test_problem.evaluate_true = mock_call
+        runner.test_problem.forward = mock_call
         arm._parameters = {f"x{i+1}": 0.0 for i in range(13)}
         runner.run(trial)
         actual = mock_call.call_args[0][0]
@@ -101,7 +100,7 @@ class MixedIntegerProblemsTest(TestCase):
         runner = checked_cast(
             BotorchTestProblemRunner, get_discrete_rosenbrock().runner
         )
-        runner.test_problem.evaluate_true = mock_call
+        runner.test_problem.forward = mock_call
         arm._parameters = {f"x{i+1}": 0.0 for i in range(10)}
         runner.run(trial)
         actual = mock_call.call_args[0][0]

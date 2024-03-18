@@ -21,12 +21,12 @@ References
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem
-from ax.benchmark.metrics.benchmark import BenchmarkMetric
-from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.metrics.botorch_test_problem import BotorchTestProblemMetric
+from ax.runners.botorch_test_problem import BotorchTestProblemRunner
 from botorch.test_functions.synthetic import (
     Ackley,
     Hartmann,
@@ -39,8 +39,7 @@ def _get_problem_from_common_inputs(
     bounds: List[Tuple[float, float]],
     dim_int: int,
     metric_name: str,
-    lower_is_better: bool,
-    observe_noise_sd: bool,
+    infer_noise: bool,
     test_problem_class: Type[SyntheticTestFunction],
     benchmark_name: str,
     num_trials: int,
@@ -53,9 +52,7 @@ def _get_problem_from_common_inputs(
         dim_int: The number of integer dimensions. First `dim_int` parameters
             are assumed to be integers.
         metric_name: The name of the metric.
-        lower_is_better: If true, the goal is to minimize the metric.
-        observe_noise_sd: Whether to report the standard deviation of the
-            observation noise.
+        infer_noise: Whether to infer noise or assume noise-free objective.
         test_problem_class: The BoTorch test problem class.
         benchmark_name: The name of the benchmark problem.
         num_trials: The number of trials.
@@ -81,10 +78,9 @@ def _get_problem_from_common_inputs(
     )
     optimization_config = OptimizationConfig(
         objective=Objective(
-            metric=BenchmarkMetric(
+            metric=BotorchTestProblemMetric(
                 name=metric_name,
-                lower_is_better=lower_is_better,
-                observe_noise_sd=observe_noise_sd,
+                noise_sd=None if infer_noise else 0.0,
             ),
             minimize=True,
         )
@@ -95,24 +91,21 @@ def _get_problem_from_common_inputs(
     runner = BotorchTestProblemRunner(
         test_problem_class=test_problem_class,
         test_problem_kwargs=test_problem_kwargs,
-        outcome_names=[metric_name],
         modified_bounds=bounds,
     )
     return BenchmarkProblem(
-        name=benchmark_name + ("_observed_noise" if observe_noise_sd else ""),
+        name=benchmark_name,
         search_space=search_space,
         optimization_config=optimization_config,
         runner=runner,
         num_trials=num_trials,
-        is_noiseless=True,
-        observe_noise_sd=observe_noise_sd,
-        has_ground_truth=True,
+        infer_noise=infer_noise,
     )
 
 
 def get_discrete_hartmann(
     num_trials: int = 50,
-    observe_noise_sd: bool = False,
+    infer_noise: bool = True,
     bounds: Optional[List[Tuple[float, float]]] = None,
 ) -> BenchmarkProblem:
     """6D Hartmann problem where first 4 dimensions are discretized."""
@@ -130,8 +123,7 @@ def get_discrete_hartmann(
         bounds=bounds,
         dim_int=dim_int,
         metric_name="Hartmann",
-        lower_is_better=True,
-        observe_noise_sd=observe_noise_sd,
+        infer_noise=infer_noise,
         test_problem_class=Hartmann,
         benchmark_name="Discrete Hartmann",
         num_trials=num_trials,
@@ -140,7 +132,7 @@ def get_discrete_hartmann(
 
 def get_discrete_ackley(
     num_trials: int = 50,
-    observe_noise_sd: bool = False,
+    infer_noise: bool = True,
     bounds: Optional[List[Tuple[float, float]]] = None,
 ) -> BenchmarkProblem:
     """13D Ackley problem where first 10 dimensions are discretized.
@@ -159,8 +151,7 @@ def get_discrete_ackley(
         bounds=bounds,
         dim_int=dim_int,
         metric_name="Ackley",
-        lower_is_better=True,
-        observe_noise_sd=observe_noise_sd,
+        infer_noise=infer_noise,
         test_problem_class=Ackley,
         benchmark_name="Discrete Ackley",
         num_trials=num_trials,
@@ -170,7 +161,7 @@ def get_discrete_ackley(
 
 def get_discrete_rosenbrock(
     num_trials: int = 50,
-    observe_noise_sd: bool = False,
+    infer_noise: bool = True,
     bounds: Optional[List[Tuple[float, float]]] = None,
 ) -> BenchmarkProblem:
     """10D Rosenbrock problem where first 6 dimensions are discretized."""
@@ -184,8 +175,7 @@ def get_discrete_rosenbrock(
         bounds=bounds,
         dim_int=dim_int,
         metric_name="Rosenbrock",
-        lower_is_better=True,
-        observe_noise_sd=observe_noise_sd,
+        infer_noise=infer_noise,
         test_problem_class=Rosenbrock,
         benchmark_name="Discrete Rosenbrock",
         num_trials=num_trials,

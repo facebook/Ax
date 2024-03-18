@@ -5,18 +5,12 @@
 
 # pyre-strict
 
-# NOTE: Do not add `from __future__ import annotations` to this file. Adding
-# `annotations` postpones evaluation of types and will break FBLearner's usage of
-# `BenchmarkProblem` as return type annotation, used for serialization and rendering
-# in the UI.
 
 import abc
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable, Type, Union
+from typing import Any, Dict, List, Optional, Protocol, runtime_checkable, Type
 
-from ax.benchmark.metrics.base import BenchmarkMetricBase
+from ax.core.metric import Metric
 
-from ax.benchmark.metrics.benchmark import BenchmarkMetric
-from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -28,17 +22,22 @@ from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
+from ax.metrics.botorch_test_problem import BotorchTestProblemMetric
+from ax.runners.botorch_test_problem import BotorchTestProblemRunner
 from ax.utils.common.base import Base
 from ax.utils.common.typeutils import checked_cast
 from botorch.test_functions.base import BaseTestProblem, ConstrainedBaseTestProblem
 from botorch.test_functions.multi_objective import MultiObjectiveTestProblem
 from botorch.test_functions.synthetic import SyntheticTestFunction
 
+# NOTE: Do not add `from __future__ import annotatations` to this file. Adding
+# `annotations` postpones evaluation of types and will break FBLearner's usage of
+# `BenchmarkProblem` as return type annotation, used for serialization and rendering
+# in the UI.
+
 
 def _get_name(
-    test_problem: BaseTestProblem,
-    observe_noise_sd: bool,
-    dim: Optional[int] = None,
+    test_problem: BaseTestProblem, infer_noise: bool, dim: Optional[int] = None
 ) -> str:
     """
     Get a string name describing the problem, in a format such as
@@ -46,30 +45,26 @@ def _get_name(
     not have fixed noise and have the default dimensionality).
     """
     base_name = f"{test_problem.__class__.__name__}"
-    observed_noise = "_observed_noise" if observe_noise_sd else ""
+    fixed_noise = "" if infer_noise else "_fixed_noise"
     dim_str = "" if dim is None else f"_{dim}d"
-    return f"{base_name}{observed_noise}{dim_str}"
+    return f"{base_name}{fixed_noise}{dim_str}"
 
 
 @runtime_checkable
-class BenchmarkProblemProtocol(Protocol):
+class BenchmarkProblemBase(Protocol):
     """
     Specifies the interface any benchmark problem must adhere to.
 
-    Classes implementing this interface include BenchmarkProblem,
-    SurrogateBenchmarkProblem, and MOOSurrogateBenchmarkProblem.
+    Subclasses include BenchmarkProblem, SurrogateBenchmarkProblem, and
+    MOOSurrogateBenchmarkProblem.
     """
 
     name: str
     search_space: SearchSpace
     optimization_config: OptimizationConfig
     num_trials: int
-    tracking_metrics: List[BenchmarkMetricBase]
-    is_noiseless: bool  # If True, evaluations are deterministic
-    observe_noise_stds: Union[
-        bool, Dict[str, bool]
-    ]  # Whether we observe the observation noise level
-    has_ground_truth: bool  # if True, evals (w/o synthetic noise) are determinstic
+    infer_noise: bool
+    tracking_metrics: List[Metric]
 
     @abc.abstractproperty
     def runner(self) -> Runner:
@@ -93,39 +88,30 @@ class BenchmarkProblem(Base):
         optimization_config: OptimizationConfig,
         runner: Runner,
         num_trials: int,
-        is_noiseless: bool = False,
-        observe_noise_sd: bool = False,
-        has_ground_truth: bool = False,
-        tracking_metrics: Optional[List[BenchmarkMetricBase]] = None,
+        infer_noise: bool,
+        tracking_metrics: Optional[List[Metric]] = None,
     ) -> None:
         self.name = name
         self.search_space = search_space
         self.optimization_config = optimization_config
         self._runner = runner
         self.num_trials = num_trials
-        self.is_noiseless = is_noiseless
-        self.observe_noise_sd = observe_noise_sd
-        self.has_ground_truth = has_ground_truth
-        self.tracking_metrics: List[BenchmarkMetricBase] = tracking_metrics or []
+        self.infer_noise = infer_noise
+        self.tracking_metrics: List[Metric] = (
+            [] if tracking_metrics is None else tracking_metrics
+        )
 
     @property
     def runner(self) -> Runner:
         return self._runner
-
-    @property
-    def observe_noise_stds(self) -> Union[bool, Dict[str, bool]]:
-        # TODO: Handle cases where some outcomes have noise levels observed
-        # and others do not.
-        return self.observe_noise_sd
 
     @classmethod
     def from_botorch(
         cls,
         test_problem_class: Type[BaseTestProblem],
         test_problem_kwargs: Dict[str, Any],
-        lower_is_better: bool,
         num_trials: int,
-        observe_noise_sd: bool = False,
+        infer_noise: bool = True,
     ) -> "BenchmarkProblem":
         """
         Create a BenchmarkProblem from a BoTorch BaseTestProblem using
@@ -133,15 +119,16 @@ class BenchmarkProblem(Base):
         computed on the Runner and retrieved by the Metric.
 
         Args:
-            test_problem_class: The BoTorch test problem class which will be used
-                to define the `search_space`, `optimization_config`, and `runner`.
+            test_problem_class: The BoTorch test problem class which will be
+                used to define the `search_space`, `optimization_config`, and
+                `runner`.
             test_problem_kwargs: Keyword arguments used to instantiate the
                 `test_problem_class`.
-            num_trials: Simply the `num_trials` of the `BenchmarkProblem` created.
-            observe_noise_sd: Whether the standard deviation of the observation noise is
-                observed or not (in which case it must be inferred by the model).
-                This is separate from whether synthetic noise is added to the
-                problem, which is controlled by the `noise_std` of the test problem.
+            num_trials: Simply the `num_trials` of the `BenchmarkProblem`
+                created.
+            infer_noise: Whether noise will be inferred. This is separate from
+                whether synthetic noise is added to the problem, which is
+                controlled by the `noise_std` of the test problem.
         """
 
         # pyre-fixme [45]: Invalid class instantiation
@@ -153,53 +140,63 @@ class BenchmarkProblem(Base):
                 RangeParameter(
                     name=f"x{i}",
                     parameter_type=ParameterType.FLOAT,
-                    lower=lower,
-                    upper=upper,
+                    lower=test_problem._bounds[i][0],
+                    upper=test_problem._bounds[i][1],
                 )
-                for i, (lower, upper) in enumerate(test_problem._bounds)
+                for i in range(test_problem.dim)
             ]
         )
 
         dim = test_problem_kwargs.get("dim", None)
-        name = _get_name(
-            test_problem=test_problem, observe_noise_sd=observe_noise_sd, dim=dim
-        )
+        name = _get_name(test_problem, infer_noise, dim)
+
+        if infer_noise:
+            noise_sd = None
+        elif isinstance(test_problem.noise_std, list):
+            # Convention is to have the first outcome be the objective,
+            # and the remaining ones the constraints.
+            noise_sd = test_problem.noise_std[0]
+        else:
+            noise_sd = checked_cast(float, test_problem.noise_std or 0.0)
 
         # TODO: Support constrained MOO problems.
 
         objective = Objective(
-            metric=BenchmarkMetric(
+            metric=BotorchTestProblemMetric(
                 name=name,
-                lower_is_better=lower_is_better,
-                observe_noise_sd=observe_noise_sd,
-                outcome_index=0,
+                noise_sd=noise_sd,
+                index=0,
             ),
             minimize=True,
         )
 
-        outcome_names = [name]
-        outcome_constraints = []
-
-        # NOTE: Currently we don't support the case where only some of the
-        # outcomes have noise levels observed.
-
         if is_constrained:
-            for i in range(test_problem.num_constraints):
-                outcome_name = f"constraint_slack_{i}"
-                outcome_constraints.append(
-                    OutcomeConstraint(
-                        metric=BenchmarkMetric(
-                            name=outcome_name,
-                            lower_is_better=False,  # positive slack = feasible
-                            observe_noise_sd=observe_noise_sd,
-                            outcome_index=i,
-                        ),
-                        op=ComparisonOp.GEQ,
-                        bound=0.0,
-                        relative=False,
-                    )
+            n_con = test_problem.num_constraints
+            if infer_noise:
+                constraint_noise_sds = [None] * n_con
+            elif test_problem.constraint_noise_std is None:
+                constraint_noise_sds = [0.0] * n_con
+            elif isinstance(test_problem.constraint_noise_std, list):
+                constraint_noise_sds = test_problem.constraint_noise_std[:n_con]
+            else:
+                constraint_noise_sds = [test_problem.constraint_noise_std] * n_con
+
+            outcome_constraints = [
+                OutcomeConstraint(
+                    metric=BotorchTestProblemMetric(
+                        name=f"constraint_slack_{i}",
+                        noise_sd=constraint_noise_sds[i],
+                        index=i,
+                    ),
+                    op=ComparisonOp.GEQ,
+                    bound=0.0,
+                    relative=False,
                 )
-                outcome_names.append(outcome_name)
+                for i in range(n_con)
+            ]
+
+        else:
+            outcome_constraints = []
 
         optimization_config = OptimizationConfig(
             objective=objective,
@@ -213,12 +210,9 @@ class BenchmarkProblem(Base):
             runner=BotorchTestProblemRunner(
                 test_problem_class=test_problem_class,
                 test_problem_kwargs=test_problem_kwargs,
-                outcome_names=outcome_names,
             ),
             num_trials=num_trials,
-            observe_noise_sd=observe_noise_sd,
-            is_noiseless=test_problem.noise_std in (None, 0.0),
-            has_ground_truth=True,  # all synthetic problems have ground truth
+            infer_noise=infer_noise,
         )
 
     def __repr__(self) -> str:
@@ -231,9 +225,7 @@ class BenchmarkProblem(Base):
             f"name={self.name}, "
             f"optimization_config={self.optimization_config}, "
             f"num_trials={self.num_trials}, "
-            f"is_noiseless={self.is_noiseless}, "
-            f"observe_noise_sd={self.observe_noise_sd}, "
-            f"has_ground_truth={self.has_ground_truth}, "
+            f"infer_noise={self.infer_noise}, "
             f"tracking_metrics={self.tracking_metrics})"
         )
 
@@ -252,10 +244,8 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
         optimization_config: OptimizationConfig,
         runner: Runner,
         num_trials: int,
-        is_noiseless: bool = False,
-        observe_noise_sd: bool = False,
-        has_ground_truth: bool = False,
-        tracking_metrics: Optional[List[BenchmarkMetricBase]] = None,
+        infer_noise: bool,
+        tracking_metrics: Optional[List[Metric]] = None,
     ) -> None:
         super().__init__(
             name=name,
@@ -263,9 +253,7 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
             optimization_config=optimization_config,
             runner=runner,
             num_trials=num_trials,
-            is_noiseless=is_noiseless,
-            observe_noise_sd=observe_noise_sd,
-            has_ground_truth=has_ground_truth,
+            infer_noise=infer_noise,
             tracking_metrics=tracking_metrics,
         )
         self.optimal_value = optimal_value
@@ -275,9 +263,8 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
         cls,
         test_problem_class: Type[SyntheticTestFunction],
         test_problem_kwargs: Dict[str, Any],
-        lower_is_better: bool,
         num_trials: int,
-        observe_noise_sd: bool = False,
+        infer_noise: bool = True,
     ) -> "SingleObjectiveBenchmarkProblem":
         """Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
         Metrics and Runners. The test problem's result will be computed on the Runner
@@ -290,15 +277,12 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
         problem = BenchmarkProblem.from_botorch(
             test_problem_class=test_problem_class,
             test_problem_kwargs=test_problem_kwargs,
-            lower_is_better=lower_is_better,
             num_trials=num_trials,
-            observe_noise_sd=observe_noise_sd,
+            infer_noise=infer_noise,
         )
 
         dim = test_problem_kwargs.get("dim", None)
-        name = _get_name(
-            test_problem=test_problem, observe_noise_sd=observe_noise_sd, dim=dim
-        )
+        name = _get_name(test_problem, infer_noise, dim)
 
         return cls(
             name=name,
@@ -306,9 +290,7 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
             optimization_config=problem.optimization_config,
             runner=problem.runner,
             num_trials=num_trials,
-            is_noiseless=problem.is_noiseless,
-            observe_noise_sd=problem.observe_noise_sd,
-            has_ground_truth=problem.has_ground_truth,
+            infer_noise=infer_noise,
             optimal_value=test_problem.optimal_value,
         )
 
@@ -329,10 +311,8 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
         optimization_config: OptimizationConfig,
         runner: Runner,
         num_trials: int,
-        is_noiseless: bool = False,
-        observe_noise_sd: bool = False,
-        has_ground_truth: bool = False,
-        tracking_metrics: Optional[List[BenchmarkMetricBase]] = None,
+        infer_noise: bool,
+        tracking_metrics: Optional[List[Metric]] = None,
     ) -> None:
         self.maximum_hypervolume = maximum_hypervolume
         self.reference_point = reference_point
@@ -342,9 +322,7 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
             optimization_config=optimization_config,
             runner=runner,
             num_trials=num_trials,
-            is_noiseless=is_noiseless,
-            observe_noise_sd=observe_noise_sd,
-            has_ground_truth=has_ground_truth,
+            infer_noise=infer_noise,
             tracking_metrics=tracking_metrics,
         )
 
@@ -357,9 +335,8 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
         cls,
         test_problem_class: Type[MultiObjectiveTestProblem],
         test_problem_kwargs: Dict[str, Any],
-        # TODO: Figure out whether we should use `lower_is_better` here.
         num_trials: int,
-        observe_noise_sd: bool = False,
+        infer_noise: bool = True,
     ) -> "MultiObjectiveBenchmarkProblem":
         """Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
         Metrics and Runners. The test problem's result will be computed on the Runner
@@ -372,18 +349,15 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
         problem = BenchmarkProblem.from_botorch(
             test_problem_class=test_problem_class,
             test_problem_kwargs=test_problem_kwargs,
-            lower_is_better=True,  # Seems like we always assume minimization for MOO?
             num_trials=num_trials,
-            observe_noise_sd=observe_noise_sd,
+            infer_noise=infer_noise,
         )
 
         dim = test_problem_kwargs.get("dim", None)
-        name = _get_name(
-            test_problem=test_problem, observe_noise_sd=observe_noise_sd, dim=dim
-        )
+        name = _get_name(test_problem, infer_noise, dim)
 
         n_obj = test_problem.num_objectives
-        if not observe_noise_sd:
+        if infer_noise:
             noise_sds = [None] * n_obj
         elif isinstance(test_problem.noise_std, list):
             noise_sds = test_problem.noise_std
@@ -391,28 +365,31 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
             noise_sds = [checked_cast(float, test_problem.noise_std or 0.0)] * n_obj
 
         metrics = [
-            BenchmarkMetric(
+            BotorchTestProblemMetric(
                 name=f"{name}_{i}",
-                lower_is_better=True,
-                observe_noise_sd=observe_noise_sd,
-                outcome_index=i,
+                noise_sd=noise_sd,
+                index=i,
             )
             for i, noise_sd in enumerate(noise_sds)
         ]
         optimization_config = MultiObjectiveOptimizationConfig(
             objective=MultiObjective(
                 objectives=[
-                    Objective(metric=metric, minimize=True) for metric in metrics
+                    Objective(
+                        metric=metric,
+                        minimize=True,
+                    )
+                    for metric in metrics
                 ]
             ),
             objective_thresholds=[
                 ObjectiveThreshold(
-                    metric=metric,
+                    metric=metrics[i],
                     bound=test_problem.ref_point[i].item(),
                     relative=False,
                     op=ComparisonOp.LEQ,
                 )
-                for i, metric in enumerate(metrics)
+                for i in range(test_problem.num_objectives)
             ],
         )
 
@@ -422,9 +399,7 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
             optimization_config=optimization_config,
             runner=problem.runner,
             num_trials=num_trials,
-            is_noiseless=problem.is_noiseless,
-            observe_noise_sd=observe_noise_sd,
-            has_ground_truth=problem.has_ground_truth,
+            infer_noise=infer_noise,
             maximum_hypervolume=test_problem.max_hv,
             reference_point=test_problem._ref_point,
         )

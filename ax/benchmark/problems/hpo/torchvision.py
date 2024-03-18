@@ -47,10 +47,11 @@ class PyTorchCNNTorchvisionBenchmarkProblem(PyTorchCNNBenchmarkProblem):
         cls,
         name: str,
         num_trials: int,
+        infer_noise: bool = True,
     ) -> "PyTorchCNNTorchvisionBenchmarkProblem":
         if name not in _REGISTRY:
             raise UserInputError(
-                f"Unrecognized torchvision dataset {name}. Please ensure it is listed "
+                f"Unrecognized torchvision dataset {name}. Please ensure it is listed"
                 "in PyTorchCNNTorchvisionBenchmarkProblem registry."
             )
         dataset_fn = _REGISTRY[name]
@@ -74,6 +75,7 @@ class PyTorchCNNTorchvisionBenchmarkProblem(PyTorchCNNBenchmarkProblem):
             num_trials=num_trials,
             train_set=train_set,
             test_set=test_set,
+            infer_noise=infer_noise,
         )
         runner = PyTorchCNNTorchvisionRunner(
             name=name, train_set=train_set, test_set=test_set
@@ -85,9 +87,7 @@ class PyTorchCNNTorchvisionBenchmarkProblem(PyTorchCNNBenchmarkProblem):
             optimization_config=problem.optimization_config,
             runner=runner,
             num_trials=num_trials,
-            is_noiseless=False,
-            observe_noise_sd=False,
-            has_ground_truth=False,
+            infer_noise=infer_noise,
             optimal_value=problem.optimal_value,
         )
 
