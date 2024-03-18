@@ -10,6 +10,7 @@ ax.benchmark
 Benchmark
 ---------
 
+
 Benchmark Method
 ~~~~~~~~~~~~~~~~
 
@@ -43,10 +44,10 @@ Benchmark
     :undoc-members:
     :show-inheritance:
 
-Scored Benchmark
-~~~~~~~~~~~~~~~~
+Benchmark Methods Modular BoTorch
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ax.benchmark.scored_benchmark
+.. automodule:: ax.benchmark.methods.modular_botorch
     :members:
     :undoc-members:
     :show-inheritance:
@@ -59,10 +60,34 @@ Benchmark Methods Sobol
     :undoc-members:
     :show-inheritance:
 
-Benchmark Methods Modular BoTorch
+Benchmark Metrics Base
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ax.benchmark.methods.modular_botorch
+.. automodule:: ax.benchmark.metrics.base
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Benchmark Metrics Benchmark
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.metrics.benchmark
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Benchmark Metrics Jenatton
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.metrics.jenatton
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Benchmark Metrics Utils
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.metrics.utils
     :members:
     :undoc-members:
     :show-inheritance:
@@ -119,6 +144,30 @@ Benchmark Problems PyTorchCNN TorchVision
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.benchmark.problems.hpo.torchvision
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Benchmark Runners Base
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.runners.base
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Benchmark Runners BoTorch Test
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.runners.botorch_test
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Benchmark Runners Surrogate
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.runners.surrogate
     :members:
     :undoc-members:
     :show-inheritance:

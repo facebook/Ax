@@ -6,6 +6,8 @@
 
 # pyre-strict
 
+from typing import Any, Dict, Optional
+
 import numpy as np
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
@@ -31,36 +33,52 @@ from ax.utils.testing.core_stubs import (
 )
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.gp_regression import SingleTaskGP
-from botorch.test_functions.multi_objective import BraninCurrin
+from botorch.test_functions.multi_objective import BraninCurrin, ConstrainedBraninCurrin
 from botorch.test_functions.synthetic import Branin
 
 
 def get_benchmark_problem() -> BenchmarkProblem:
     return BenchmarkProblem.from_botorch(
-        test_problem_class=Branin, test_problem_kwargs={}, num_trials=4
+        test_problem_class=Branin,
+        test_problem_kwargs={},
+        lower_is_better=True,
+        num_trials=4,
     )
 
 
 def get_single_objective_benchmark_problem(
-    infer_noise: bool = True,
+    observe_noise_sd: bool = False,
     num_trials: int = 4,
+    test_problem_kwargs: Optional[Dict[str, Any]] = None,
 ) -> SingleObjectiveBenchmarkProblem:
     return SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
         test_problem_class=Branin,
-        test_problem_kwargs={},
+        test_problem_kwargs=test_problem_kwargs or {},
+        lower_is_better=True,
         num_trials=num_trials,
-        infer_noise=infer_noise,
+        observe_noise_sd=observe_noise_sd,
     )
 
 
 def get_multi_objective_benchmark_problem(
-    infer_noise: bool = True, num_trials: int = 4
+    observe_noise_sd: bool = False, num_trials: int = 4
 ) -> MultiObjectiveBenchmarkProblem:
     return MultiObjectiveBenchmarkProblem.from_botorch_multi_objective(
         test_problem_class=BraninCurrin,
         test_problem_kwargs={},
         num_trials=num_trials,
-        infer_noise=infer_noise,
+        observe_noise_sd=observe_noise_sd,
+    )
+
+
+def get_constrained_multi_objective_benchmark_problem(
+    observe_noise_sd: bool = False, num_trials: int = 4
+) -> MultiObjectiveBenchmarkProblem:
+    return MultiObjectiveBenchmarkProblem.from_botorch_multi_objective(
+        test_problem_class=ConstrainedBraninCurrin,
+        test_problem_kwargs={},
+        num_trials=num_trials,
+        observe_noise_sd=observe_noise_sd,
     )
 
 
@@ -78,16 +96,14 @@ def get_sobol_benchmark_method() -> BenchmarkMethod:
 
 
 def get_soo_surrogate() -> SOOSurrogateBenchmarkProblem:
-    surrogate = Surrogate(
-        botorch_model_class=SingleTaskGP,
-    )
+    surrogate = Surrogate(botorch_model_class=SingleTaskGP)
     return SOOSurrogateBenchmarkProblem(
         name="test",
         search_space=get_branin_search_space(),
         optimization_config=get_branin_optimization_config(),
         num_trials=6,
-        infer_noise=False,
-        metric_names=[],
+        outcome_names=["branin"],
+        observe_noise_stds=True,
         get_surrogate_and_datasets=lambda: (surrogate, []),
         optimal_value=0.0,
     )
@@ -100,8 +116,8 @@ def get_moo_surrogate() -> MOOSurrogateBenchmarkProblem:
         search_space=get_branin_search_space(),
         optimization_config=get_branin_multi_objective_optimization_config(),
         num_trials=10,
-        infer_noise=False,
-        metric_names=[],
+        outcome_names=["branin_a", "branin_b"],
+        observe_noise_stds=True,
         get_surrogate_and_datasets=lambda: (surrogate, []),
         maximum_hypervolume=1.0,
         reference_point=[],
@@ -114,7 +130,12 @@ def get_sobol_gpei_benchmark_method() -> BenchmarkMethod:
         generation_strategy=GenerationStrategy(
             name="Modular::Sobol+GPEI",
             steps=[
-                GenerationStep(model=Models.SOBOL, num_trials=3, min_trials_observed=3),
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=3,
+                    model_kwargs={"fit_tracking_metrics": False},
+                    min_trials_observed=3,
+                ),
                 GenerationStep(
                     model=Models.BOTORCH_MODULAR,
                     num_trials=-1,
@@ -123,6 +144,7 @@ def get_sobol_gpei_benchmark_method() -> BenchmarkMethod:
                         # TODO: tests should better reflect defaults and not
                         # re-implement this logic.
                         "botorch_acqf_class": qNoisyExpectedImprovement,
+                        "model_kwargs": {"fit_tracking_metrics": False},
                     },
                     model_gen_kwargs={
                         "model_gen_options": {

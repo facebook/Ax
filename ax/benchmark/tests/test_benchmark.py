@@ -9,9 +9,12 @@ import tempfile
 
 import numpy as np
 from ax.benchmark.benchmark import (
+    _create_benchmark_experiment,
     benchmark_multiple_problems_methods,
     benchmark_one_method_problem,
     benchmark_replication,
+    make_ground_truth_metrics,
+    make_ground_truth_optimization_config,
 )
 from ax.benchmark.benchmark_method import (
     BenchmarkMethod,
@@ -20,6 +23,8 @@ from ax.benchmark.benchmark_method import (
 from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
+from ax.benchmark.metrics.base import GroundTruthMetricMixin
+from ax.benchmark.metrics.benchmark import BenchmarkMetric, GroundTruthBenchmarkMetric
 from ax.benchmark.problems.registry import get_problem
 from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
@@ -29,8 +34,9 @@ from ax.service.utils.scheduler_options import SchedulerOptions
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.benchmark_stubs import (
+    get_constrained_multi_objective_benchmark_problem,
     get_moo_surrogate,
     get_multi_objective_benchmark_problem,
     get_single_objective_benchmark_problem,
@@ -71,6 +77,78 @@ class TestBenchmark(TestCase):
             experiment = load_experiment(f.name)
             self.assertEqual(experiment, experiment)
 
+    def test_make_ground_truth_metrics(self) -> None:
+        problem = get_single_objective_benchmark_problem(observe_noise_sd=False)
+        metric = problem.optimization_config.objective.metric
+
+        # basic setup
+        gt_metrics = make_ground_truth_metrics(problem=problem)
+        self.assertEqual(len(gt_metrics), 1)
+        gt_metric = checked_cast(GroundTruthBenchmarkMetric, gt_metrics[metric.name])
+        self.assertIs(gt_metric.original_metric, metric)
+
+        # add a tracking metric
+        tracking_metric = BenchmarkMetric(name="test_track", lower_is_better=True)
+        problem.tracking_metrics = [tracking_metric]
+        gt_metrics = make_ground_truth_metrics(problem=problem)
+        self.assertEqual(len(gt_metrics), 2)
+        gt_tracking_metric = checked_cast(
+            GroundTruthBenchmarkMetric, gt_metrics["test_track"]
+        )
+        self.assertIs(gt_tracking_metric.original_metric, tracking_metric)
+
+        # set include_tracking_metrics=False
+        gt_metrics = make_ground_truth_metrics(
+            problem=problem, include_tracking_metrics=False
+        )
+        self.assertEqual(len(gt_metrics), 1)
+
+        # error out if the problem does not have ground truth
+        problem.has_ground_truth = False
+        with self.assertRaisesRegex(ValueError, "do not have a ground truth"):
+            make_ground_truth_metrics(problem=problem)
+
+    def test_make_ground_truth_optimization_config(self) -> None:
+        problem = get_single_objective_benchmark_problem(observe_noise_sd=False)
+        metric = problem.optimization_config.objective.metric
+        experiment = _create_benchmark_experiment(
+            problem=problem, method_name="test_method"
+        )
+
+        # A vanilla experiment w/o ground truth metrics attached should error
+        with self.assertRaisesRegex(
+            ValueError, f"Ground truth metric for metric {metric.name} not found!"
+        ):
+            make_ground_truth_optimization_config(experiment)
+
+        # Add the ground truth metric and check basic behavior
+        gt_metric = make_ground_truth_metrics(problem)[metric.name]
+        experiment.add_tracking_metric(gt_metric)
+        gt_opt_cfg = make_ground_truth_optimization_config(experiment)
+        self.assertIs(gt_opt_cfg.objective.metric, gt_metric)
+
+        # Test behavior with MOO problem and outcome constraints
+        problem = get_constrained_multi_objective_benchmark_problem(
+            observe_noise_sd=False
+        )
+        experiment = _create_benchmark_experiment(
+            problem=problem, method_name="test_method"
+        )
+        gt_metrics = make_ground_truth_metrics(problem)
+        for metric in problem.optimization_config.objective.metrics:
+            experiment.add_tracking_metric(gt_metrics[metric.name])
+        gt_opt_cfg = make_ground_truth_optimization_config(experiment)
+
+        for metric in gt_opt_cfg.objective.metrics:
+            gt_name = metric.name
+            metric = checked_cast(GroundTruthMetricMixin, metric)
+            self.assertIs(metric, gt_metrics[metric.get_original_name(gt_name)])
+
+        for metric in gt_opt_cfg.outcome_constraints:
+            gt_name = metric.metric.name
+            metric = checked_cast(GroundTruthMetricMixin, metric.metric)
+            self.assertIs(metric, gt_metrics[metric.get_original_name(gt_name)])
+
     def test_benchmark_result_invalid_inputs(self) -> None:
         """
         Test that a BenchmarkResult cannot be specified with both an `experiment`
@@ -100,6 +178,68 @@ class TestBenchmark(TestCase):
                 gen_time=0.0,
             )
 
+    def test_create_benchmark_experiment(self) -> None:
+
+        with self.subTest("noiseless"):
+            problem = get_single_objective_benchmark_problem(observe_noise_sd=False)
+            experiment = _create_benchmark_experiment(
+                problem=problem, method_name="test_method"
+            )
+            self.assertTrue("|test_method_" in experiment.name)
+            self.assertFalse("_observed_noise" in experiment.name)
+            self.assertEqual(experiment.search_space, problem.search_space)
+            self.assertEqual(
+                experiment.optimization_config, problem.optimization_config
+            )
+            self.assertEqual(len(experiment.tracking_metrics), 0)
+            self.assertEqual(experiment.runner, problem.runner)
+
+        with self.subTest("noisy, unobserved noise std"):
+            problem = get_single_objective_benchmark_problem(
+                observe_noise_sd=False, test_problem_kwargs={"noise_std": 0.1}
+            )
+            experiment = _create_benchmark_experiment(
+                problem=problem, method_name="test_method"
+            )
+            self.assertTrue("|test_method_" in experiment.name)
+            self.assertFalse("_observed_noise" in experiment.name)
+            self.assertEqual(experiment.search_space, problem.search_space)
+            self.assertEqual(
+                experiment.optimization_config, problem.optimization_config
+            )
+            self.assertEqual(len(experiment.tracking_metrics), 1)
+            gt_metric = checked_cast(
+                GroundTruthBenchmarkMetric, experiment.tracking_metrics[0]
+            )
+            self.assertIs(
+                gt_metric.original_metric,
+                problem.optimization_config.objective.metric,
+            )
+            self.assertEqual(experiment.runner, problem.runner)
+
+        with self.subTest("noisy, observed noise std"):
+            problem = get_single_objective_benchmark_problem(
+                observe_noise_sd=True, test_problem_kwargs={"noise_std": 0.1}
+            )
+            experiment = _create_benchmark_experiment(
+                problem=problem, method_name="test_method"
+            )
+            self.assertTrue("|test_method_" in experiment.name)
+            self.assertTrue("_observed_noise" in experiment.name)
+            self.assertEqual(experiment.search_space, problem.search_space)
+            self.assertEqual(
+                experiment.optimization_config, problem.optimization_config
+            )
+            self.assertEqual(len(experiment.tracking_metrics), 1)
+            gt_metric = checked_cast(
+                GroundTruthBenchmarkMetric, experiment.tracking_metrics[0]
+            )
+            self.assertIs(
+                gt_metric.original_metric,
+                problem.optimization_config.objective.metric,
+            )
+            self.assertEqual(experiment.runner, problem.runner)
+
     def test_replication_sobol_synthetic(self) -> None:
         method = get_sobol_benchmark_method()
         problem = get_single_objective_benchmark_problem()
@@ -116,16 +256,18 @@ class TestBenchmark(TestCase):
     def test_replication_sobol_surrogate(self) -> None:
         method = get_sobol_benchmark_method()
 
+        # This is kind of a weird setup - these are "surrogates" that use a Branin
+        # synthetic function. The idea here is to test the machinery around the
+        # surrogate benchmarks without having to actually load a surrogate model
+        # of potentially non-neglible size.
         for name, problem in [
             ("soo", get_soo_surrogate()),
             ("moo", get_moo_surrogate()),
         ]:
-
             with self.subTest(name, problem=problem):
                 surrogate, datasets = not_none(problem.get_surrogate_and_datasets)()
-                datasets = [get_dataset()]
                 surrogate.fit(
-                    datasets,
+                    [get_dataset()],
                     search_space_digest=extract_search_space_digest(
                         problem.search_space,
                         param_names=[*problem.search_space.parameters.keys()],
@@ -153,7 +295,7 @@ class TestBenchmark(TestCase):
                     acquisition_cls=qLogNoisyExpectedImprovement,
                     distribute_replications=True,
                 ),
-                get_problem("constrained_gramacy_fixed_noise", num_trials=6),
+                get_problem("constrained_gramacy_observed_noise", num_trials=6),
                 "MBM::SingleTaskGP_qLogNEI",
             ),
             (
@@ -163,7 +305,9 @@ class TestBenchmark(TestCase):
                     scheduler_options=get_sequential_optimization_scheduler_options(),
                     distribute_replications=False,
                 ),
-                get_single_objective_benchmark_problem(infer_noise=False, num_trials=6),
+                get_single_objective_benchmark_problem(
+                    observe_noise_sd=True, num_trials=6
+                ),
                 "MBM::SingleTaskGP_qLogNEI",
             ),
             (
@@ -172,7 +316,9 @@ class TestBenchmark(TestCase):
                     acquisition_cls=qLogNoisyExpectedImprovement,
                     distribute_replications=False,
                 ),
-                get_single_objective_benchmark_problem(infer_noise=False, num_trials=6),
+                get_single_objective_benchmark_problem(
+                    observe_noise_sd=True, num_trials=6
+                ),
                 "MBM::FixedNoiseGP_qLogNEI",
             ),
             (
@@ -181,7 +327,9 @@ class TestBenchmark(TestCase):
                     acquisition_cls=qNoisyExpectedHypervolumeImprovement,
                     distribute_replications=False,
                 ),
-                get_multi_objective_benchmark_problem(infer_noise=False, num_trials=6),
+                get_multi_objective_benchmark_problem(
+                    observe_noise_sd=True, num_trials=6
+                ),
                 "MBM::FixedNoiseGP_qNEHVI",
             ),
             (
@@ -266,6 +414,7 @@ class TestBenchmark(TestCase):
         problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
             test_problem_class=Branin,
             test_problem_kwargs={},
+            lower_is_better=True,
             num_trials=1000,  # Unachievable num_trials
         )
 
@@ -273,6 +422,7 @@ class TestBenchmark(TestCase):
             model_cls=SingleTaskGP,
             acquisition_cls=qLogNoisyExpectedImprovement,
             distribute_replications=False,
+            num_sobol_trials=1000,  # Ensures we don't use BO
         ).generation_strategy
 
         method = BenchmarkMethod(
@@ -282,13 +432,13 @@ class TestBenchmark(TestCase):
                 max_pending_trials=1,
                 init_seconds_between_polls=0,
                 min_seconds_before_poll=0,
-                timeout_hours=0.001,  # Strict timeout of 3.6 seconds
+                timeout_hours=0.0001,  # Strict timeout of 0.36 seconds
             ),
         )
 
         # Each replication will have a different number of trials
         result = benchmark_one_method_problem(
-            problem=problem, method=method, seeds=(0, 1, 2, 3)
+            problem=problem, method=method, seeds=(0, 1)
         )
 
         # Test the traces get composited correctly. The AggregatedResult's traces

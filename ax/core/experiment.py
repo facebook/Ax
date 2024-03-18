@@ -934,11 +934,13 @@ class Experiment(Base):
     ) -> Tuple[Data, int]:
         """Lookup stored data for a specific trial.
 
-        Returns latest data object, and its storage timestamp, present for this trial.
-        Returns empty data and -1 if no data present.
+        Returns latest data object and its storage timestamp present for this trial.
+        Returns empty data and -1 if no data is present. In particular, this method
+        will not fetch data from metrics - to do that, use `fetch_data()` instead.
 
         Args:
             trial_index: The index of the trial to lookup data for.
+
         Returns:
             The requested data object, and its storage timestamp in milliseconds.
         """
@@ -958,23 +960,24 @@ class Experiment(Base):
         self,
         trial_indices: Optional[Iterable[int]] = None,
     ) -> Data:
-        """Lookup data for all trials on this experiment and for either the
-        specified metrics or all metrics currently on the experiment, if `metrics`
-        argument is not specified.
+        """Lookup stored data for trials on this experiment.
+
+        For each trial, returns latest data object present for this trial.
+        Returns empty data if no data is present. In particular, this method
+        will not fetch data from metrics - to do that, use `fetch_data()` instead.
 
         Args:
-            trial_indices: Indices of trials, for which to fetch data.
+            trial_indices: Indices of trials for which to fetch data. If omitted,
+                lookup data for all trials on the experiment.
+
         Returns:
-            Data for the experiment.
+            Data for the trials on the experiment.
         """
         data_by_trial = []
         trial_indices = trial_indices or list(self.trials.keys())
         for trial_index in trial_indices:
-            data_by_trial.append(
-                self.lookup_data_for_trial(
-                    trial_index=trial_index,
-                )[0]
-            )
+            trial_data, _ = self.lookup_data_for_trial(trial_index=trial_index)
+            data_by_trial.append(trial_data)
         if not data_by_trial:
             return self.default_data_constructor()
         last_data = data_by_trial[-1]

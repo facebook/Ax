@@ -12,11 +12,11 @@ from functools import partial
 
 import numpy as np
 import torch
+from ax.benchmark.metrics.jenatton import JenattonMetric
 from ax.core.metric import Metric
 from ax.core.runner import Runner
 from ax.exceptions.core import AxStorageWarning
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
-from ax.metrics.jenatton import JenattonMetric
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.storage.json_store.decoder import (

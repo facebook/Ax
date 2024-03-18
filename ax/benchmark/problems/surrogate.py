@@ -5,36 +5,25 @@
 
 # pyre-strict
 
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
-import pandas as pd
-import torch
-from ax.benchmark.benchmark_problem import BenchmarkProblemBase
-from ax.core.base_trial import BaseTrial, TrialStatus
-from ax.core.data import Data
-from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
-from ax.core.observation import ObservationFeatures
+from ax.benchmark.metrics.base import BenchmarkMetricBase
+
+from ax.benchmark.runners.surrogate import SurrogateRunner
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.parameter import RangeParameter
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
-from ax.core.types import TParameterization
-from ax.modelbridge.transforms.int_to_float import IntToFloat
-from ax.modelbridge.transforms.log import Log
 from ax.models.torch.botorch_modular.surrogate import Surrogate
-
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
-from ax.utils.common.result import Err, Ok
-from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.utils.datasets import SupervisedDataset
 
 
-class SurrogateBenchmarkProblemBase(Base, BenchmarkProblemBase):
+class SurrogateBenchmarkProblemBase(Base):
     """
     Base class for SOOSurrogateBenchmarkProblem and MOOSurrogateBenchmarkProblem.
 
@@ -49,14 +38,41 @@ class SurrogateBenchmarkProblemBase(Base, BenchmarkProblemBase):
         search_space: SearchSpace,
         optimization_config: OptimizationConfig,
         num_trials: int,
-        infer_noise: bool,
-        metric_names: List[str],
+        outcome_names: List[str],
+        observe_noise_stds: Union[bool, Dict[str, bool]] = False,
+        noise_stds: Union[float, Dict[str, float]] = 0.0,
         get_surrogate_and_datasets: Optional[
             Callable[[], Tuple[Surrogate, List[SupervisedDataset]]]
         ] = None,
-        tracking_metrics: Optional[List[Metric]] = None,
+        tracking_metrics: Optional[List[BenchmarkMetricBase]] = None,
         _runner: Optional[Runner] = None,
     ) -> None:
+        """Construct a `SurrogateBenchmarkProblemBase` instance.
+
+        Args:
+            name: The name of the benchmark problem.
+            search_space: The search space to optimize over.
+            optimization_config: THe optimization config for the problem.
+            num_trials: The number of trials to run.
+            outcome_names: The names of the metrics the benchmark problem
+                produces outcome observations for.
+            observe_noise_stds: Whether or not to observe the observation noise
+                level for each metric. If True/False, observe the the noise standard
+                deviation for all/no metrics. If a dictionary, specify this for
+                individual metrics (metrics not appearing in the dictionary will
+                be assumed to not provide observation noise levels).
+            noise_stds: The standard deviation(s) of the observation noise(s).
+                If a single value is provided, it is used for all metrics. Providing
+                a dictionary allows specifying different noise levels for different
+                metrics (metrics not appearing in the dictionary will be assumed to
+                be noiseless - but not necessarily be known to the problem to be
+                noiseless).
+            get_surrogate_and_datasets: A factory function that retunrs the Surrogate
+                and a list of datasets to be used by the surrogate.
+            tracking_metrics: Additional tracking metrics to compute during the
+                optimization (not used to inform the optimization).
+        """
+
         if get_surrogate_and_datasets is None and _runner is None:
             raise ValueError(
                 "Either `get_surrogate_and_datasets` or `_runner` required."
@@ -65,13 +81,25 @@ class SurrogateBenchmarkProblemBase(Base, BenchmarkProblemBase):
         self.search_space = search_space
         self.optimization_config = optimization_config
         self.num_trials = num_trials
-        self.infer_noise = infer_noise
-        self.metric_names = metric_names
+        self.outcome_names = outcome_names
+        self.observe_noise_stds = observe_noise_stds
+        self.noise_stds = noise_stds
         self.get_surrogate_and_datasets = get_surrogate_and_datasets
-        self.tracking_metrics: List[Metric] = (
-            [] if tracking_metrics is None else tracking_metrics
-        )
+        self.tracking_metrics: List[BenchmarkMetricBase] = tracking_metrics or []
         self._runner = _runner
+
+    @property
+    def is_noiseless(self) -> bool:
+        if self.noise_stds is None:
+            return True
+        if isinstance(self.noise_stds, float):
+            return self.noise_stds == 0.0
+        return all(std == 0.0 for std in checked_cast(dict, self.noise_stds).values())
+
+    @property
+    def has_ground_truth(self) -> bool:
+        # All surrogate-based problems have a ground truth
+        return True
 
     @equality_typechecker
     def __eq__(self, other: Base) -> bool:
@@ -84,12 +112,14 @@ class SurrogateBenchmarkProblemBase(Base, BenchmarkProblemBase):
 
     def set_runner(self) -> None:
         surrogate, datasets = not_none(self.get_surrogate_and_datasets)()
+
         self._runner = SurrogateRunner(
             name=self.name,
             surrogate=surrogate,
             datasets=datasets,
             search_space=self.search_space,
-            metric_names=self.metric_names,
+            outcome_names=self.outcome_names,
+            noise_stds=self.noise_stds,
         )
 
     @property
@@ -108,7 +138,9 @@ class SurrogateBenchmarkProblemBase(Base, BenchmarkProblemBase):
             f"name={self.name}, "
             f"optimization_config={self.optimization_config}, "
             f"num_trials={self.num_trials}, "
-            f"infer_noise={self.infer_noise}, "
+            f"is_noiseless={self.is_noiseless}, "
+            f"observe_noise_stds={self.observe_noise_stds}, "
+            f"noise_stds={self.noise_stds}, "
             f"tracking_metrics={self.tracking_metrics})"
         )
 
@@ -121,18 +153,19 @@ class SOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
 
     def __init__(
         self,
+        optimal_value: float,
         *,
         name: str,
         search_space: SearchSpace,
         optimization_config: OptimizationConfig,
         num_trials: int,
-        infer_noise: bool,
-        optimal_value: float,
-        metric_names: List[str],
+        outcome_names: List[str],
+        observe_noise_stds: Union[bool, Dict[str, bool]] = False,
+        noise_stds: Union[float, Dict[str, float]] = 0.0,
         get_surrogate_and_datasets: Optional[
             Callable[[], Tuple[Surrogate, List[SupervisedDataset]]]
         ] = None,
-        tracking_metrics: Optional[List[Metric]] = None,
+        tracking_metrics: Optional[List[BenchmarkMetricBase]] = None,
         _runner: Optional[Runner] = None,
     ) -> None:
         super().__init__(
@@ -140,13 +173,13 @@ class SOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
             search_space=search_space,
             optimization_config=optimization_config,
             num_trials=num_trials,
-            infer_noise=infer_noise,
-            metric_names=metric_names,
+            outcome_names=outcome_names,
+            observe_noise_stds=observe_noise_stds,
+            noise_stds=noise_stds,
             get_surrogate_and_datasets=get_surrogate_and_datasets,
             tracking_metrics=tracking_metrics,
             _runner=_runner,
         )
-        self.optimization_config = optimization_config
         self.optimal_value = optimal_value
 
 
@@ -166,19 +199,20 @@ class MOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
 
     def __init__(
         self,
+        maximum_hypervolume: float,
+        reference_point: List[float],
         *,
         name: str,
         search_space: SearchSpace,
         optimization_config: MultiObjectiveOptimizationConfig,
         num_trials: int,
-        infer_noise: bool,
-        maximum_hypervolume: float,
-        reference_point: List[float],
-        metric_names: List[str],
+        outcome_names: List[str],
+        observe_noise_stds: Union[bool, Dict[str, bool]] = False,
+        noise_stds: Union[float, Dict[str, float]] = 0.0,
         get_surrogate_and_datasets: Optional[
             Callable[[], Tuple[Surrogate, List[SupervisedDataset]]]
         ] = None,
-        tracking_metrics: Optional[List[Metric]] = None,
+        tracking_metrics: Optional[List[BenchmarkMetricBase]] = None,
         _runner: Optional[Runner] = None,
     ) -> None:
         super().__init__(
@@ -186,8 +220,9 @@ class MOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
             search_space=search_space,
             optimization_config=optimization_config,
             num_trials=num_trials,
-            infer_noise=infer_noise,
-            metric_names=metric_names,
+            outcome_names=outcome_names,
+            observe_noise_stds=observe_noise_stds,
+            noise_stds=noise_stds,
             get_surrogate_and_datasets=get_surrogate_and_datasets,
             tracking_metrics=tracking_metrics,
             _runner=_runner,
@@ -198,126 +233,3 @@ class MOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
     @property
     def optimal_value(self) -> float:
         return self.maximum_hypervolume
-
-
-class SurrogateMetric(Metric):
-    def __init__(
-        self, name: str, lower_is_better: bool, infer_noise: bool = True
-    ) -> None:
-        super().__init__(name=name, lower_is_better=lower_is_better)
-        self.infer_noise = infer_noise
-
-    # pyre-fixme[2]: Parameter must be annotated.
-    def fetch_trial_data(self, trial: BaseTrial, **kwargs) -> MetricFetchResult:
-        try:
-            prediction = [
-                trial.run_metadata[self.name][name]
-                for name, arm in trial.arms_by_name.items()
-            ]
-            df = pd.DataFrame(
-                {
-                    "arm_name": [name for name, _ in trial.arms_by_name.items()],
-                    "metric_name": self.name,
-                    "mean": prediction,
-                    "sem": None if self.infer_noise else 0,
-                    "trial_index": trial.index,
-                }
-            )
-
-            return Ok(value=Data(df=df))
-
-        except Exception as e:
-            return Err(
-                MetricFetchE(
-                    message=f"Failed to predict for trial {trial}", exception=e
-                )
-            )
-
-
-class SurrogateRunner(Runner):
-    def __init__(
-        self,
-        name: str,
-        surrogate: Surrogate,
-        datasets: List[SupervisedDataset],
-        search_space: SearchSpace,
-        metric_names: List[str],
-    ) -> None:
-        self.name = name
-        self.surrogate = surrogate
-        self.metric_names = metric_names
-        self.datasets = datasets
-        self.search_space = search_space
-
-        self.results: Dict[int, float] = {}
-        self.statuses: Dict[int, TrialStatus] = {}
-
-        # If there are log scale parameters, these need to be transformed.
-        if any(
-            isinstance(p, RangeParameter) and p.log_scale
-            for p in search_space.parameters.values()
-        ):
-            int_to_float_tf = IntToFloat(search_space=search_space)
-            log_tf = Log(
-                search_space=int_to_float_tf.transform_search_space(
-                    search_space.clone()
-                )
-            )
-            self.transforms: Optional[Tuple[IntToFloat, Log]] = (
-                int_to_float_tf,
-                log_tf,
-            )
-        else:
-            self.transforms = None
-
-    def _get_transformed_parameters(
-        self, parameters: TParameterization
-    ) -> TParameterization:
-        if self.transforms is None:
-            return parameters
-
-        obs_ft = ObservationFeatures(parameters=parameters)
-        for t in not_none(self.transforms):
-            obs_ft = t.transform_observation_features([obs_ft])[0]
-        return obs_ft.parameters
-
-    def run(self, trial: BaseTrial) -> Dict[str, Any]:
-        self.statuses[trial.index] = TrialStatus.COMPLETED
-        preds = {  # Cache predictions for each arm
-            arm.name: self.surrogate.predict(
-                X=torch.tensor(
-                    [*self._get_transformed_parameters(arm.parameters).values()]
-                ).reshape([1, len(arm.parameters)])
-            )[0].squeeze(0)
-            for arm in trial.arms
-        }
-        return {
-            metric_name: {arm_name: float(pred[i]) for arm_name, pred in preds.items()}
-            for i, metric_name in enumerate(self.metric_names)
-        }
-
-    def poll_trial_status(
-        self, trials: Iterable[BaseTrial]
-    ) -> Dict[TrialStatus, Set[int]]:
-        return {TrialStatus.COMPLETED: {t.index for t in trials}}
-
-    @classmethod
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-    def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
-        """Serialize the properties needed to initialize the runner.
-        Used for storage.
-
-        WARNING: Because of issues with consistently saving and loading BoTorch and
-        GPyTorch modules the SurrogateRunner cannot be serialized at this time. At load
-        time the runner will be replaced with a SyntheticRunner.
-        """
-        return {}
-
-    @classmethod
-    def deserialize_init_args(
-        cls,
-        args: Dict[str, Any],
-        decoder_registry: Optional[TDecoderRegistry] = None,
-        class_decoder_registry: Optional[TClassDecoderRegistry] = None,
-    ) -> Dict[str, Any]:
-        return {}
