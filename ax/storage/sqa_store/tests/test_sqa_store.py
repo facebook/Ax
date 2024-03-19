@@ -1405,7 +1405,6 @@ class SQAStoreTest(TestCase):
         # Reloaded generation strategy will not have attributes associated with fitting
         # the model until after it's used to fit the model or generate candidates, so
         # we unset those attributes here and compare equality of the rest.
-        generation_strategy._seen_trial_indices_by_status = None
         generation_strategy._model = None
         self.assertEqual(new_generation_strategy, generation_strategy)
         # Model should be successfully restored in generation strategy even with
@@ -1520,7 +1519,6 @@ class SQAStoreTest(TestCase):
         # Reloaded generation strategy will not have attributes associated with fitting
         # the model until after it's used to fit the model or generate candidates, so
         # we unset those attributes here and compare equality of the rest.
-        generation_strategy._seen_trial_indices_by_status = None
         generation_strategy._model = None
         self.assertEqual(generation_strategy, loaded_generation_strategy)
         self.assertIsNotNone(loaded_generation_strategy._experiment)
