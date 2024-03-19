@@ -8,8 +8,6 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
-
 from functools import partial
 
 from logging import Logger
@@ -351,9 +349,5 @@ class Trial(BaseTrial):
         )
         if self.generator_run is not None:
             new_trial.add_generator_run(self.generator_run.clone())
-        new_trial._run_metadata = deepcopy(self._run_metadata)
-        new_trial._stop_metadata = deepcopy(self._stop_metadata)
-        new_trial._num_arms_created = self._num_arms_created
-        new_trial.runner = self._runner.clone() if self._runner else None
-
+        self._update_trial_attrs_on_clone(new_trial=new_trial)
         return new_trial

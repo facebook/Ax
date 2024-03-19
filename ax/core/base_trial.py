@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod, abstractproperty
+from copy import deepcopy
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
@@ -865,3 +866,20 @@ class BaseTrial(ABC, SortableBase):
                 f"Trial {self.index} has been marked {self.status.name}, so it "
                 "no longer expects data."
             )
+
+    def _update_trial_attrs_on_clone(
+        self,
+        new_trial: BaseTrial,
+    ) -> None:
+        """Updates attributes of the trial that are not copied over when cloning
+        a trial.
+
+        Args:
+            new_trial: The cloned trial.
+            new_experiment: The experiment that the cloned trial belongs to.
+            new_status: The new status of the cloned trial.
+        """
+        new_trial._run_metadata = deepcopy(self._run_metadata)
+        new_trial._stop_metadata = deepcopy(self._stop_metadata)
+        new_trial._num_arms_created = self._num_arms_created
+        new_trial.runner = self._runner.clone() if self._runner else None

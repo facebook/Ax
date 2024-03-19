@@ -11,7 +11,6 @@ from __future__ import annotations
 import warnings
 
 from collections import defaultdict, OrderedDict
-from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -603,10 +602,7 @@ class BatchTrial(BaseTrial):
                 self._status_quo.clone(),
                 weight=sq_weight,
             )
-        new_trial.runner = self._runner.clone() if self._runner else None
-        new_trial._run_metadata = deepcopy(self._run_metadata)
-        new_trial._stop_metadata = deepcopy(self._stop_metadata)
-        new_trial._num_arms_created = self._num_arms_created
+        self._update_trial_attrs_on_clone(new_trial=new_trial)
         return new_trial
 
     def attach_batch_trial_data(
