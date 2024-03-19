@@ -9,9 +9,10 @@
 import os
 
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, Sequence, Union
+from typing import Any, Callable, cast, Dict, List, Optional, Sequence, Type, Union
 
 from ax.core.base_trial import BaseTrial
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -215,21 +216,19 @@ def _save_or_update_trials(
     will also be added to the experiment, but existing data objects in the
     database will *not* be updated or removed.
     """
-    experiment_id = experiment._db_id
-    if experiment_id is None:
-        raise ValueError("Must save experiment first.")
+    if experiment._db_id is None:
+        raise ValueError("Must save experiment before saving/updating its trials.")
 
-    # pyre-fixme[53]: Captured variable `experiment_id` is not annotated.
-    # pyre-fixme[3]: Return type must be annotated.
-    def add_experiment_id(sqa: Union[SQATrial, SQAData]):
+    experiment_id: int = experiment._db_id
+
+    def add_experiment_id(sqa: Union[SQATrial, SQAData]) -> None:
         sqa.experiment_id = experiment_id
 
     if reduce_state_generator_runs:
         latest_trial = trials[-1]
         trials_to_reduce_state = trials[0:-1]
 
-        # pyre-fixme[3]: Return type must be annotated.
-        def trial_to_reduced_state_sqa_encoder(t: BaseTrial):
+        def trial_to_reduced_state_sqa_encoder(t: BaseTrial) -> SQATrial:
             return encoder.trial_to_sqa(t, generator_run_reduced_state=True)
 
         _bulk_merge_into_session(
@@ -259,16 +258,32 @@ def _save_or_update_trials(
             batch_size=batch_size,
         )
 
-    datas = []
-    data_encode_args = []
+    datas, data_encode_args, datas_to_keep, trial_idcs = [], [], [], []
+    data_sqa_class: Type[SQAData] = cast(
+        Type[SQAData], encoder.config.class_to_sqa_class[Data]
+    )
     for trial in trials:
+        trial_idcs.append(trial.index)
         trial_datas = experiment.data_by_trial.get(trial.index, {})
         for ts, data in trial_datas.items():
             if data.db_id is None:
-                # Only need to worry about new data, since it's not really possible
-                # or supported to modify or remove existing data.
+                # This is data we have not saved before; we should add it to the
+                # database. Previously saved data for this experiment can be removed.
                 datas.append(data)
                 data_encode_args.append({"trial_index": trial.index, "timestamp": ts})
+            else:
+                datas_to_keep.append(data.db_id)
+
+        # For trials, for which we saved new data, we can first remove previously
+        # saved data if it's no longer on the experiment.
+        with session_scope() as session:
+            session.query(data_sqa_class).filter_by(experiment_id=experiment_id).filter(
+                data_sqa_class.trial_index.isnot(None)  # pyre-ignore[16]
+            ).filter(
+                data_sqa_class.trial_index.in_(trial_idcs)  # pyre-ignore[16]
+            ).filter(
+                data_sqa_class.id.not_in(datas_to_keep)  # pyre-ignore[16]
+            ).delete()
 
     _bulk_merge_into_session(
         objs=datas,
