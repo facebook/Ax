@@ -7,7 +7,7 @@
 # pyre-strict
 
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta
 from logging import WARNING
 from math import ceil
 from random import randint
@@ -76,6 +76,7 @@ from ax.utils.testing.core_stubs import (
     SpecialGenerationStrategy,
 )
 from ax.utils.testing.mock import fast_botorch_optimize
+from pyre_extensions import none_throws
 
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -243,6 +244,33 @@ class BrokenRunnerRuntimeError(SyntheticRunnerWithStatusPolling):
         raise RuntimeError("Failing for testing purposes.")
 
 
+class RunnerToAllowMultipleMapMetricFetches(SyntheticRunnerWithStatusPolling):
+    """``Runner`` that gives a trial 3 seconds to run before considering
+    the trial completed, which gives us some time to fetch the ``MapMetric``
+    a few times, if there is one on the experiment. Useful for testing behavior
+    with repeated ``MapMetric`` fetches.
+    """
+
+    def poll_trial_status(
+        self, trials: Iterable[BaseTrial]
+    ) -> Dict[TrialStatus, Set[int]]:
+        running_trials = next(iter(trials)).experiment.trials_by_status[
+            TrialStatus.RUNNING
+        ]
+        completed, still_running = set(), set()
+        for t in running_trials:
+            # pyre-ignore[58]: Operand is actually supported between these
+            if datetime.now() - t.time_run_started > timedelta(seconds=3):
+                completed.add(t.index)
+            else:
+                still_running.add(t.index)
+
+        return {
+            TrialStatus.COMPLETED: completed,
+            TrialStatus.RUNNING: still_running,
+        }
+
+
 class AxSchedulerTestCase(TestCase):
     """Tests base `Scheduler` functionality.  This test case is meant to
     test Scheduler using `GenerationStrategy`, but be extensible so
@@ -280,6 +308,9 @@ class AxSchedulerTestCase(TestCase):
         self.branin_experiment = get_branin_experiment()
         self.branin_timestamp_map_metric_experiment = (
             get_branin_experiment_with_timestamp_map_metric()
+        )
+        self.branin_timestamp_map_metric_experiment.runner = (
+            RunnerToAllowMultipleMapMetricFetches()
         )
 
         self.runner = SyntheticRunnerWithStatusPolling()
@@ -334,6 +365,7 @@ class AxSchedulerTestCase(TestCase):
             BrokenRunnerRuntimeError: 2006,
             SyntheticRunnerWithSingleRunningTrial: 2007,
             SyntheticRunnerWithPredictableStatusPolling: 2008,
+            RunnerToAllowMultipleMapMetricFetches: 2009,
             **CORE_RUNNER_REGISTRY,
         }
 
@@ -1061,6 +1093,67 @@ class AxSchedulerTestCase(TestCase):
                 db_settings=self.db_settings,
             )
 
+    def test_sqa_storage_map_metric_experiment(self) -> None:
+        init_test_engine_and_session_factory(force_init=True)
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_timestamp_map_metric_experiment,
+            generation_strategy=self.two_sobol_steps_GS,
+        )
+        self.assertIsNotNone(self.branin_timestamp_map_metric_experiment)
+        NUM_TRIALS = 5
+        scheduler = Scheduler(
+            experiment=self.branin_timestamp_map_metric_experiment,
+            generation_strategy=gs,
+            options=SchedulerOptions(
+                total_trials=NUM_TRIALS,
+                init_seconds_between_polls=0,  # No wait between polls so test is fast.
+            ),
+            db_settings=self.db_settings,
+        )
+        with patch.object(
+            scheduler.experiment,
+            "attach_data",
+            Mock(wraps=scheduler.experiment.attach_data),
+        ) as mock_experiment_attach_data:
+            # Artificial timestamp logic so we can later check that it's the
+            # last-timestamp data that was preserved after multiple `attach_
+            # data` calls.
+            with patch(
+                f"{Experiment.__module__}.current_timestamp_in_millis",
+                side_effect=lambda: len(
+                    scheduler.experiment.trials_by_status[TrialStatus.COMPLETED]
+                )
+                * 1000
+                + mock_experiment_attach_data.call_count,
+            ):
+                scheduler.run_all_trials()
+        # Check that experiment and GS were saved and test reloading with reduced state.
+        exp, loaded_gs = scheduler._load_experiment_and_generation_strategy(
+            self.branin_timestamp_map_metric_experiment.name, reduced_state=True
+        )
+        exp = none_throws(exp)
+        self.assertEqual(len(exp.trials), NUM_TRIALS)
+
+        # There should only be one data object for each trial, since by default the
+        # `Scheduler` should override previous data objects when it gets new ones in
+        # a subsequent `fetch` call.
+        for _, datas in exp.data_by_trial.items():
+            self.assertEqual(len(datas), 1)
+
+        # We also should have attempted the fetch more times
+        # than there are trials because we have a `MapMetric` (many more since we are
+        # waiting 3 seconds for each trial).
+        self.assertGreater(mock_experiment_attach_data.call_count, NUM_TRIALS * 2)
+
+        # Check that it's the last-attached data that was kept, using
+        # expected value based on logic in mocked "current_timestamp_in_millis"
+        num_attach_calls = mock_experiment_attach_data.call_count
+        expected_ts_last_trial = len(exp.trials) * 1000 + num_attach_calls
+        self.assertEqual(
+            next(iter(exp.data_by_trial[len(exp.trials) - 1])),
+            expected_ts_last_trial,
+        )
+
     def test_sqa_storage_with_experiment_name(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
         gs = self._get_generation_strategy_strategy_for_test(
@@ -1083,10 +1176,11 @@ class AxSchedulerTestCase(TestCase):
             self.branin_experiment.name
         )
         self.assertEqual(exp, self.branin_experiment)
+        exp = none_throws(exp)
         self.assertEqual(
             # pyre-fixme[16]: Add `_generator_runs` back to GSI interface or move
             # interface to node-level from strategy-level (the latter is likely the
-            # better option)
+            # better option) TODO
             len(gs._generator_runs),
             len(not_none(loaded_gs)._generator_runs),
         )
@@ -1095,7 +1189,7 @@ class AxSchedulerTestCase(TestCase):
         exp, loaded_gs = scheduler._load_experiment_and_generation_strategy(
             self.branin_experiment.name, reduced_state=True
         )
-        # pyre-fixme[16]: `Optional` has no attribute `trials`.
+        exp = none_throws(exp)
         self.assertEqual(len(exp.trials), NUM_TRIALS)
         # Because of RGS, gs has queued additional unused candidates
         self.assertGreaterEqual(len(gs._generator_runs), NUM_TRIALS)
@@ -1109,7 +1203,6 @@ class AxSchedulerTestCase(TestCase):
         )
         # Hack "resumed from storage timestamp" into `exp` to make sure all other fields
         # are equal, since difference in resumed from storage timestamps is expected.
-        # pyre-fixme[16]: `Optional` has no attribute `_properties`.
         exp._properties[ExperimentStatusProperties.RESUMED_FROM_STORAGE_TIMESTAMPS] = (
             new_scheduler.experiment._properties[
                 ExperimentStatusProperties.RESUMED_FROM_STORAGE_TIMESTAMPS
