@@ -16,7 +16,10 @@ from ax.plot.contour import (
     plot_contour_plotly,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_branin_experiment
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
+    get_high_dimensional_branin_experiment,
+)
 from ax.utils.testing.mock import fast_botorch_optimize
 
 
@@ -43,7 +46,7 @@ class ContoursTest(TestCase):
         self.assertIsInstance(plot, go.Figure)
         plot = interact_contour(model, list(model.metric_names)[0])
         self.assertIsInstance(plot, AxPlotConfig)
-        plot = plot = plot_contour(
+        plot = plot_contour(
             model, model.parameters[0], model.parameters[1], list(model.metric_names)[0]
         )
         self.assertIsInstance(plot, AxPlotConfig)
@@ -57,3 +60,24 @@ class ContoursTest(TestCase):
             for text in d["text"]:
                 for tt in tooltips:
                     self.assertTrue(tt in text)
+
+        exp = get_high_dimensional_branin_experiment(with_batch=True)
+        exp.trials[0].run()
+        model = Models.BOTORCH_MODULAR(
+            experiment=exp,
+            data=exp.fetch_data(),
+        )
+        with self.assertRaisesRegex(
+            ValueError, "Contour plots require two or more parameters"
+        ):
+            interact_contour_plotly(
+                model, list(model.metric_names)[0], parameters_to_use=["foo"]
+            )
+        for i in [2, 3]:
+            parameters_to_use = model.parameters[:i]
+            plot = interact_contour_plotly(
+                model, list(model.metric_names)[0], parameters_to_use=parameters_to_use
+            )
+            # pyre-ignore[16]: `plotly.graph_objs.graph_objs.Figure`
+            # has no attribute `layout`.
+            self.assertEqual(len(plot.layout.updatemenus[0].buttons), i)
