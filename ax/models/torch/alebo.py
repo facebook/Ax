@@ -398,7 +398,7 @@ class ALEBOGP(SingleTaskGP):
         assert output_indices is None
         assert not observation_noise
         mvn = self(X)
-        posterior = GPyTorchPosterior(mvn=mvn)
+        posterior = GPyTorchPosterior(distribution=mvn)
         if posterior_transform is not None:
             return posterior_transform(posterior)
         return posterior
