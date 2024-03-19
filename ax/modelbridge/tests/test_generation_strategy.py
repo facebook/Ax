@@ -129,6 +129,53 @@ class TestGenerationStrategy(TestCase):
             ]
         )
 
+        # Set up the node-based generation strategy for testing.
+        self.sobol_criterion = [
+            MaxTrials(
+                threshold=5,
+                transition_to="GPEI_node",
+                block_gen_if_met=True,
+                only_in_statuses=None,
+                not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
+            )
+        ]
+        self.gpei_criterion = [
+            MaxTrials(
+                threshold=2,
+                transition_to=None,
+                block_gen_if_met=True,
+                only_in_statuses=None,
+                not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
+            )
+        ]
+        self.sobol_model_spec = ModelSpec(
+            model_enum=Models.SOBOL,
+            model_kwargs=self.step_model_kwargs,
+            model_gen_kwargs={},
+        )
+        self.gpei_model_spec = ModelSpec(
+            model_enum=Models.GPEI,
+            model_kwargs=self.step_model_kwargs,
+            model_gen_kwargs={},
+        )
+        self.sobol_node = GenerationNode(
+            node_name="sobol_node",
+            transition_criteria=self.sobol_criterion,
+            model_specs=[self.sobol_model_spec],
+            gen_unlimited_trials=False,
+        )
+        self.gpei_node = GenerationNode(
+            node_name="GPEI_node",
+            transition_criteria=self.gpei_criterion,
+            model_specs=[self.gpei_model_spec],
+            gen_unlimited_trials=False,
+        )
+
+        self.sobol_GPEI_GS_nodes = GenerationStrategy(
+            name="Sobol+GPEI_Nodes",
+            nodes=[self.sobol_node, self.gpei_node],
+        )
+
     def tearDown(self) -> None:
         self.torch_model_bridge_patcher.stop()
         self.discrete_model_bridge_patcher.stop()
@@ -1088,7 +1135,7 @@ class TestGenerationStrategy(TestCase):
 
         # check error raised if provided both steps and nodes
         with self.assertRaisesRegex(
-            GenerationStrategyMisconfiguredException, "either steps or nodes"
+            GenerationStrategyMisconfiguredException, "contain either steps or nodes"
         ):
             GenerationStrategy(
                 nodes=[
@@ -1118,7 +1165,7 @@ class TestGenerationStrategy(TestCase):
 
         # check error raised if provided both steps and nodes under node list
         with self.assertRaisesRegex(
-            GenerationStrategyMisconfiguredException, "must either be a GenerationStep"
+            GenerationStrategyMisconfiguredException, "`GenerationStrategy` inputs are:"
         ):
             GenerationStrategy(
                 nodes=[
@@ -1163,58 +1210,13 @@ class TestGenerationStrategy(TestCase):
 
     def test_gs_with_generation_nodes(self) -> None:
         "Simple test of a SOBOL + GPEI GenerationStrategy composed of GenerationNodes"
-        sobol_criterion = [
-            MaxTrials(
-                threshold=5,
-                transition_to="GPEI_node",
-                block_gen_if_met=True,
-                only_in_statuses=None,
-                not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
-            )
-        ]
-        gpei_criterion = [
-            MaxTrials(
-                threshold=2,
-                transition_to=None,
-                block_gen_if_met=True,
-                only_in_statuses=None,
-                not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
-            )
-        ]
-        sobol_model_spec = ModelSpec(
-            model_enum=Models.SOBOL,
-            model_kwargs=self.step_model_kwargs,
-            model_gen_kwargs={},
-        )
-        gpei_model_spec = ModelSpec(
-            model_enum=Models.GPEI,
-            model_kwargs=self.step_model_kwargs,
-            model_gen_kwargs={},
-        )
-        sobol_node = GenerationNode(
-            node_name="sobol_node",
-            transition_criteria=sobol_criterion,
-            model_specs=[sobol_model_spec],
-            gen_unlimited_trials=False,
-        )
-        gpei_node = GenerationNode(
-            node_name="GPEI_node",
-            transition_criteria=gpei_criterion,
-            model_specs=[gpei_model_spec],
-            gen_unlimited_trials=False,
-        )
-
-        sobol_GPEI_GS_nodes = GenerationStrategy(
-            name="Sobol+GPEI_Nodes",
-            nodes=[sobol_node, gpei_node],
-        )
         exp = get_branin_experiment()
-        self.assertEqual(sobol_GPEI_GS_nodes.name, "Sobol+GPEI_Nodes")
+        self.assertEqual(self.sobol_GPEI_GS_nodes.name, "Sobol+GPEI_Nodes")
 
         for i in range(7):
-            g = sobol_GPEI_GS_nodes.gen(exp)
+            g = self.sobol_GPEI_GS_nodes.gen(exp)
             exp.new_trial(generator_run=g).run()
-            self.assertEqual(len(sobol_GPEI_GS_nodes._generator_runs), i + 1)
+            self.assertEqual(len(self.sobol_GPEI_GS_nodes._generator_runs), i + 1)
             if i > 4:
                 self.mock_torch_model_bridge.assert_called()
             else:
@@ -1262,6 +1264,19 @@ class TestGenerationStrategy(TestCase):
                 ms = ms.copy()
                 del ms["generated_points"]
                 self.assertEqual(ms, {"init_position": i + 1})
+
+    def test_clone_reset_nodes(self) -> None:
+        """Test that node-based generation strategy is appropriately reset
+        when cloned with `clone_reset`.
+        """
+        exp = get_branin_experiment()
+        for i in range(7):
+            g = self.sobol_GPEI_GS_nodes.gen(exp)
+            exp.new_trial(generator_run=g).run()
+            self.assertEqual(len(self.sobol_GPEI_GS_nodes._generator_runs), i + 1)
+        gs_clone = self.sobol_GPEI_GS_nodes.clone_reset()
+        self.assertEqual(gs_clone.name, self.sobol_GPEI_GS_nodes.name)
+        self.assertEqual(gs_clone._generator_runs, [])
 
     def test_gs_with_nodes_and_blocking_criteria(self) -> None:
         sobol_model_spec = ModelSpec(
@@ -1380,8 +1395,6 @@ class TestGenerationStrategy(TestCase):
                 GenerationStep(model=Models.GPEI, num_trials=-1),
             ]
         )
-        print(gs1)
-        print(gs2)
         self.assertEqual(gs1, gs2)
 
     # ------------- Testing helpers (put tests above this line) -------------
