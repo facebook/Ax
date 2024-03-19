@@ -508,11 +508,6 @@ def generation_strategy_to_dict(
     generation_strategy: GenerationStrategy,
 ) -> Dict[str, Any]:
     """Converts Ax generation strategy to a dictionary."""
-    if generation_strategy.uses_non_registered_models:
-        raise ValueError(
-            "Generation strategies that use custom models provided through "
-            "callables cannot be serialized and stored."
-        )
     node_based_gs = generation_strategy.is_node_based
     return {
         "__type": generation_strategy.__class__.__name__,

@@ -237,10 +237,6 @@ class TestGenerationStrategy(TestCase):
                 GenerationStep(model=Models.THOMPSON, num_trials=2),
             ]
         )
-        self.assertTrue(factorial_thompson_generation_strategy._uses_registered_models)
-        self.assertFalse(
-            factorial_thompson_generation_strategy.uses_non_registered_models
-        )
         with self.assertRaises(ValueError):
             factorial_thompson_generation_strategy.gen(exp)
         self.assertEqual(GenerationStep(model=sum, num_trials=1).model_name, "sum")
@@ -255,14 +251,8 @@ class TestGenerationStrategy(TestCase):
             )
 
     def test_custom_callables_for_models(self) -> None:
-        exp = get_branin_experiment()
-        sobol_factory_generation_strategy = GenerationStrategy(
-            steps=[GenerationStep(model=get_sobol, num_trials=-1)]
-        )
-        self.assertFalse(sobol_factory_generation_strategy._uses_registered_models)
-        self.assertTrue(sobol_factory_generation_strategy.uses_non_registered_models)
-        gr = sobol_factory_generation_strategy.gen(experiment=exp, n=1)
-        self.assertEqual(len(gr.arms), 1)
+        with self.assertRaises(GenerationStrategyMisconfiguredException):
+            GenerationStrategy(steps=[GenerationStep(model=get_sobol, num_trials=-1)])
 
     def test_string_representation(self) -> None:
         gs1 = GenerationStrategy(
@@ -340,7 +330,6 @@ class TestGenerationStrategy(TestCase):
                 GenerationStep(model=Models.GPEI, num_trials=1),
             ]
         )
-        self.assertFalse(gs.uses_non_registered_models)
         for _ in range(5):
             exp.new_trial(gs.gen(exp))
         with self.assertRaises(DataRequiredError):

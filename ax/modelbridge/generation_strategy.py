@@ -102,8 +102,6 @@ class GenerationStrategy(GenerationStrategyInterface):
 
     _nodes: List[GenerationNode]
     _curr: GenerationNode  # Current node in the strategy.
-    # Whether all models in this GS are in Models registry enum.
-    _uses_registered_models: bool
     # All generator runs created through this generation strategy, in chronological
     # order.
     _generator_runs: List[GeneratorRun]
@@ -143,21 +141,21 @@ class GenerationStrategy(GenerationStrategyInterface):
                 "`nodes` (list of `GenerationNode`)."
             )
 
-        # Log warning if the GS uses a non-registered (factory function) model.
-        self._uses_registered_models = not any(
-            isinstance(ms, FactoryFunctionModelSpec)
-            for node in self._nodes
-            for ms in node.model_specs
-        )
-        if not self._uses_registered_models:
-            logger.info(
-                "Using model via callable function, "
-                "so optimization is not resumable if interrupted."
-            )
+        # Log warning if the GS uses a non-registered (factory function) model
+        for node in self._nodes:
+            for model_spec in node.model_specs:
+                if isinstance(model_spec, FactoryFunctionModelSpec):
+                    raise GenerationStrategyMisconfiguredException(
+                        "Use of model factory functions is no longer supported in "
+                        "Ax `GenerationStrategy`. "
+                        f"Encountered: {model_spec.factory_function} in node {node}."
+                    )
+
+        # Initialize required attributes
+        if name is None:
+            name = "+".join(n.model_spec_to_gen_from.model_key for n in self._nodes)
+        super().__init__(name=name)
         self._generator_runs = []
-        # Set name to an explicit value ahead of time to avoid
-        # adding properties during equality checks
-        super().__init__(name=name or self._make_default_name())
 
     @property
     def is_node_based(self) -> bool:
@@ -254,7 +252,7 @@ class GenerationStrategy(GenerationStrategyInterface):
     def experiment(self) -> Experiment:
         """Experiment, currently set on this generation strategy."""
         if self._experiment is None:
-            raise ValueError("No experiment set on generation strategy.")
+            raise AxError("No experiment set on generation strategy.")
         return not_none(self._experiment)
 
     @experiment.setter
@@ -267,7 +265,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         if self._experiment is None or experiment._name == self.experiment._name:
             self._experiment = experiment
         else:
-            raise ValueError(
+            raise AxError(
                 "This generation strategy has been used for experiment "
                 f"{self.experiment._name} so far; cannot reset experiment"
                 f" to {experiment._name}. If this is a new optimization, "
@@ -283,12 +281,6 @@ class GenerationStrategy(GenerationStrategyInterface):
         return self._generator_runs[-1] if self._generator_runs else None
 
     @property
-    def uses_non_registered_models(self) -> bool:
-        """Whether this generation strategy involves models that are not
-        registered and therefore cannot be stored."""
-        return not self._uses_registered_models
-
-    @property
     def trials_as_df(self) -> Optional[pd.DataFrame]:
         """Puts information on individual trials into a data frame for easy
         viewing.
@@ -297,6 +289,8 @@ class GenerationStrategy(GenerationStrategyInterface):
         Gen. Step | Model | Trial Index | Trial Status | Arm Parameterizations
         0         | Sobol | 0           | RUNNING      | {"0_0":{"x":9.17...}}
         """
+
+        # TODO: reap this method or replace it to return `exp_to_df`?
         logger.info(
             "Note that parameter values in dataframe are rounded to 2 decimal "
             "points; the values in the dataframe are thus not the exact ones "
@@ -619,10 +613,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                 "Cannot make a default name for a generation strategy with no nodes "
                 "set yet."
             )
-        factory_names = (node.model_spec_to_gen_from.model_key for node in self._nodes)
-        # Trim the "get_" beginning of the factory function if it's there.
-        factory_names = (n[4:] if n[:4] == "get_" else n for n in factory_names)
-        return "+".join(factory_names)
+        return "+".join(node.model_spec_to_gen_from.model_key for node in self._nodes)
 
     def __repr__(self) -> str:
         """String representation of this generation strategy."""
