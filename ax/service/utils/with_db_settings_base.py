@@ -257,10 +257,10 @@ class WithDBSettingsBase:
         )
         if not isinstance(experiment, Experiment):
             raise ValueError("Service API only supports `Experiment`.")
+        num_trials = len(experiment.trials)
         logger.info(
-            f"Loaded experiment {experiment_name} in "
-            f"{_round_floats_for_logging(time.time() - start_time)} seconds, "
-            f"loading trials in mini-batches of {LOADING_MINI_BATCH_SIZE}."
+            f"Loaded experiment {experiment_name} & {num_trials} trials in "
+            f"{_round_floats_for_logging(time.time() - start_time)} seconds."
         )
 
         try:
