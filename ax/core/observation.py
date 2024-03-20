@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from copy import deepcopy
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
@@ -23,7 +24,7 @@ from ax.core.map_data import MapData
 from ax.core.types import TCandidateMetadata, TParameterization
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
-from ax.utils.common.typeutils import not_none
+from ax.utils.common.typeutils import checked_cast, not_none
 
 
 TIME_COLS = {"start_time", "end_time"}
@@ -315,6 +316,13 @@ def _observations_from_dataframe(
         for f, val in features.items():
             if f in OBS_KWARGS:
                 obs_kwargs[f] = val
+        # add start and end time of trial if the start and end time
+        # is the same for all metrics and arms
+        for col in TIME_COLS:
+            if col in d.columns:
+                times = d[col]
+                if times.nunique() == 1 and not times.isnull().any():
+                    obs_kwargs[col] = times.iloc[0]
         fidelities = features.get("fidelities")
         if fidelities is not None:
             obs_parameters.update(json.loads(fidelities))
@@ -338,12 +346,26 @@ def _observations_from_dataframe(
     return observations
 
 
-def get_feature_cols(data: Data) -> List[str]:
-    return list(OBS_COLS.intersection(data.df.columns))
+def get_feature_cols(data: Data, is_map_data: bool = False) -> List[str]:
+    feature_cols = OBS_COLS.intersection(data.df.columns)
+    # note we use this check, rather than isinstance, since
+    # only some Modelbridges (e.g. MapTorchModelBridge)
+    # use observations_from_map_data, which is required
+    # to properly handle MapData features (e.g. fidelity).
+    if is_map_data:
+        data = checked_cast(MapData, data)
+        feature_cols = feature_cols.union(data.map_keys)
 
+    for column in TIME_COLS:
+        if column in feature_cols and len(data.df[column].unique()) > 1:
+            warnings.warn(
+                f"`{column} is not consistent and being discarded from "
+                "observation data",
+                stacklevel=5,
+            )
+            feature_cols.discard(column)
 
-def get_feature_cols_from_map_data(map_data: MapData) -> List[str]:
-    return list(OBS_COLS.intersection(map_data.df.columns).union(map_data.map_keys))
+    return list(feature_cols)
 
 
 def observations_from_data(
@@ -458,7 +480,7 @@ def observations_from_map_data(
             limit_rows_per_group=limit_rows_per_group,
             include_first_last=True,
         )
-    feature_cols = get_feature_cols_from_map_data(map_data)
+    feature_cols = get_feature_cols(map_data, is_map_data=True)
     observations = []
     arm_name_only = len(feature_cols) == 1  # there will always be an arm name
     # One DataFrame where all rows have all features.
