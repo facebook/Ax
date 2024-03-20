@@ -60,6 +60,7 @@ class TestDispatchUtils(TestCase):
                 "torch_device": None,
                 "transforms": expected_transforms,
                 "transform_configs": expected_transform_configs,
+                "fit_out_of_design": False,
             }
             self.assertEqual(sobol_gpei._steps[1].model_kwargs, expected_model_kwargs)
             device = torch.device("cpu")
@@ -121,7 +122,12 @@ class TestDispatchUtils(TestCase):
             model_kwargs = not_none(sobol_gpei._steps[1].model_kwargs)
             self.assertEqual(
                 set(model_kwargs.keys()),
-                {"torch_device", "transforms", "transform_configs"},
+                {
+                    "torch_device",
+                    "transforms",
+                    "transform_configs",
+                    "fit_out_of_design",
+                },
             )
             self.assertGreater(len(model_kwargs["transforms"]), 0)
         with self.subTest("Sobol (we can try every option)"):
@@ -198,6 +204,7 @@ class TestDispatchUtils(TestCase):
                 "torch_device": None,
                 "transforms": [Winsorize] + Mixed_transforms + Y_trans,
                 "transform_configs": expected_transform_configs,
+                "fit_out_of_design": False,
             }
             self.assertEqual(bo_mixed._steps[1].model_kwargs, expected_model_kwargs)
         with self.subTest("BO_MIXED (mixed search space)"):
@@ -212,6 +219,7 @@ class TestDispatchUtils(TestCase):
                 "torch_device": None,
                 "transforms": [Winsorize] + Mixed_transforms + Y_trans,
                 "transform_configs": expected_transform_configs,
+                "fit_out_of_design": False,
             }
             self.assertEqual(bo_mixed._steps[1].model_kwargs, expected_model_kwargs)
         with self.subTest("BO_MIXED (mixed multi-objective optimization)"):
@@ -229,7 +237,12 @@ class TestDispatchUtils(TestCase):
             model_kwargs = not_none(moo_mixed._steps[1].model_kwargs)
             self.assertEqual(
                 set(model_kwargs.keys()),
-                {"torch_device", "transforms", "transform_configs"},
+                {
+                    "torch_device",
+                    "transforms",
+                    "transform_configs",
+                    "fit_out_of_design",
+                },
             )
             self.assertGreater(len(model_kwargs["transforms"]), 0)
         with self.subTest("SAASBO"):
