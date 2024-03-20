@@ -81,6 +81,7 @@ def _make_botorch_step(
     disable_progbar: Optional[bool] = None,
     jit_compile: Optional[bool] = None,
     derelativize_with_raw_status_quo: bool = False,
+    fit_out_of_design: bool = False,
 ) -> GenerationStep:
     """Shortcut for creating a BayesOpt generation step."""
     model_kwargs = model_kwargs or {}
@@ -98,6 +99,7 @@ def _make_botorch_step(
     model_kwargs["transform_configs"][
         "Derelativize"
     ] = derelativization_transform_config
+    model_kwargs["fit_out_of_design"] = fit_out_of_design
 
     if not no_winsorization:
         _, default_bridge_kwargs = model.view_defaults()
@@ -312,6 +314,7 @@ def choose_generation_strategy(
     jit_compile: Optional[bool] = None,
     experiment: Optional[Experiment] = None,
     suggested_model_override: Optional[ModelRegistryBase] = None,
+    fit_out_of_design: bool = False,
 ) -> GenerationStrategy:
     """Select an appropriate generation strategy based on the properties of
     the search space and expected settings of the experiment, such as number of
@@ -412,6 +415,7 @@ def choose_generation_strategy(
             provided as an arg to this function.
         suggested_model_override: If specified, this model will be used for the GP
             step and automatic selection will be skipped.
+        fit_out_of_design: Whether to include out-of-design points in the model.
     """
     if experiment is not None and optimization_config is None:
         optimization_config = experiment.optimization_config
@@ -507,6 +511,11 @@ def choose_generation_strategy(
             )
             jit_compile = None
 
+        model_kwargs: Dict[str, Any] = {
+            "torch_device": torch_device,
+            "fit_out_of_design": fit_out_of_design,
+        }
+
         # Create `generation_strategy`, adding first Sobol step
         # if `num_remaining_initialization_trials` is > 0.
         if num_remaining_initialization_trials > 0:
@@ -527,7 +536,7 @@ def choose_generation_strategy(
                 derelativize_with_raw_status_quo=derelativize_with_raw_status_quo,
                 no_winsorization=no_winsorization,
                 max_parallelism=bo_parallelism,
-                model_kwargs={"torch_device": torch_device},
+                model_kwargs=model_kwargs,
                 should_deduplicate=should_deduplicate,
                 verbose=verbose,
                 disable_progbar=disable_progbar,
