@@ -1198,7 +1198,7 @@ def _construct_comparison_message(
     if (objective_minimize and (baseline_value <= comparison_value)) or (
         not objective_minimize and (baseline_value >= comparison_value)
     ):
-        logger.info(
+        logger.debug(
             f"compare_to_baseline: comparison arm {comparison_arm_name}"
             + f" did not beat baseline arm {baseline_arm_name}. "
         )
@@ -1466,7 +1466,7 @@ def warn_if_unpredictable_metrics(
         generation_strategy._fit_current_model(data=None)
         model_bridge = cast(ModelBridge, generation_strategy.model)
     if isinstance(model_bridge, RandomModelBridge):
-        logger.info(
+        logger.debug(
             "Current modelbridge on GenerationStrategy is RandomModelBridge. "
             "Not checking metric predictability."
         )
