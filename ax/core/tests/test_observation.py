@@ -27,7 +27,9 @@ from ax.core.observation import (
     separate_observations,
 )
 from ax.core.trial import Trial
+from ax.core.types import TParameterization
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import not_none
 
 
 class ObservationsTest(TestCase):
@@ -661,6 +663,115 @@ class ObservationsTest(TestCase):
                 np.array_equal(obs.data.covariance, obsd_truth["covariance"][i])
             )
             self.assertEqual(obs.arm_name, cname_truth[i])
+
+    def test_ObservationsFromDataWithDifferentTimesSingleTrial(self) -> None:
+        params0: TParameterization = {"x": 0, "y": "a"}
+        params1: TParameterization = {"x": 1, "y": "a"}
+        truth = [
+            {
+                "arm_name": "0_0",
+                "parameters": params0,
+                "mean": 2.0,
+                "sem": 2.0,
+                "trial_index": 0,
+                "metric_name": "a",
+                "start_time": "2024-03-20 08:45:00",
+                "end_time": "2024-03-20 08:47:00",
+            },
+            {
+                "arm_name": "0_0",
+                "parameters": params0,
+                "mean": 3.0,
+                "sem": 3.0,
+                "trial_index": 0,
+                "metric_name": "b",
+                "start_time": "2024-03-20 08:45:00",
+            },
+            {
+                "arm_name": "0_1",
+                "parameters": params1,
+                "mean": 4.0,
+                "sem": 4.0,
+                "trial_index": 0,
+                "metric_name": "a",
+                "start_time": "2024-03-20 08:43:00",
+                "end_time": "2024-03-20 08:46:00",
+            },
+            {
+                "arm_name": "0_1",
+                "parameters": params1,
+                "mean": 5.0,
+                "sem": 5.0,
+                "trial_index": 0,
+                "metric_name": "b",
+                "start_time": "2024-03-20 08:45:00",
+                "end_time": "2024-03-20 08:46:00",
+            },
+        ]
+        arms_by_name = {
+            "0_0": Arm(name="0_0", parameters=params0),
+            "0_1": Arm(name="0_1", parameters=params1),
+        }
+        experiment = Mock()
+        experiment._trial_indices_by_status = {status: set() for status in TrialStatus}
+        trials = {
+            0: BatchTrial(experiment, GeneratorRun(arms=list(arms_by_name.values())))
+        }
+        type(experiment).arms_by_name = PropertyMock(return_value=arms_by_name)
+        type(experiment).trials = PropertyMock(return_value=trials)
+
+        df = pd.DataFrame(truth)[
+            [
+                "arm_name",
+                "trial_index",
+                "mean",
+                "sem",
+                "metric_name",
+                "start_time",
+                "end_time",
+            ]
+        ]
+        data = Data(df=df)
+        observations = observations_from_data(experiment, data)
+
+        self.assertEqual(len(observations), 2)
+        # Get them in the order we want for tests below
+        if observations[0].features.parameters["x"] == 1:
+            observations.reverse()
+
+        obs_truth = {
+            "arm_name": ["0_0", "0_1"],
+            "parameters": [{"x": 0, "y": "a"}, {"x": 1, "y": "a"}],
+            "metric_names": [["a", "b"], ["a", "b"]],
+            "means": [np.array([2.0, 3.0]), np.array([4.0, 5.0])],
+            "covariance": [np.diag([4.0, 9.0]), np.diag([16.0, 25.0])],
+        }
+
+        for i, obs in enumerate(observations):
+            self.assertEqual(obs.features.parameters, obs_truth["parameters"][i])
+            self.assertEqual(
+                obs.features.trial_index,
+                0,
+            )
+            self.assertEqual(obs.data.metric_names, obs_truth["metric_names"][i])
+            self.assertTrue(np.array_equal(obs.data.means, obs_truth["means"][i]))
+            self.assertTrue(
+                np.array_equal(obs.data.covariance, obs_truth["covariance"][i])
+            )
+            self.assertEqual(obs.arm_name, obs_truth["arm_name"][i])
+            self.assertEqual(obs.arm_name, obs_truth["arm_name"][i])
+            if i == 0:
+                self.assertEqual(
+                    not_none(obs.features.start_time).strftime("%Y-%m-%d %X"),
+                    "2024-03-20 08:45:00",
+                )
+                self.assertIsNone(obs.features.end_time)
+            else:
+                self.assertIsNone(obs.features.start_time)
+                self.assertEqual(
+                    not_none(obs.features.end_time).strftime("%Y-%m-%d %X"),
+                    "2024-03-20 08:46:00",
+                )
 
     def test_SeparateObservations(self) -> None:
         obs_arm_name = "0_0"

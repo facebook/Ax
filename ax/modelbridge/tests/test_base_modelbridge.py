@@ -578,14 +578,17 @@ class BaseModelBridgeTest(TestCase):
 
         # create data where metrics vary in start and end times
         data = get_non_monolithic_branin_moo_data()
-        bridge = ModelBridge(
-            experiment=exp,
-            data=data,
-            model=Model(),
-            search_space=exp.search_space,
-        )
+        with warnings.catch_warnings(record=True) as ws:
+            bridge = ModelBridge(
+                experiment=exp,
+                data=data,
+                model=Model(),
+                search_space=exp.search_space,
+            )
         # just testing it doesn't error
         bridge.gen(5)
+        self.assertTrue(any("start_time" in str(w.message) for w in ws))
+        self.assertTrue(any("end_time" in str(w.message) for w in ws))
         # pyre-fixme[16]: Optional type has no attribute `arm_name`.
         self.assertEqual(bridge.status_quo.arm_name, "status_quo")
 
