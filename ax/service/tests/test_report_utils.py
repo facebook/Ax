@@ -423,7 +423,7 @@ class ReportUtilsTest(TestCase):
             plots = get_standard_plots(
                 experiment=exp, model=Models.MOO(experiment=exp, data=exp.fetch_data())
             )
-            self.assertEqual(len(log.output), 2)
+            self.assertEqual(len(log.output), 4)
             self.assertIn(
                 "Pareto plotting not supported for experiments with relative objective "
                 "thresholds.",
@@ -432,6 +432,14 @@ class ReportUtilsTest(TestCase):
             self.assertIn(
                 "Failed to compute global feature sensitivities:",
                 log.output[1],
+            )
+            self.assertIn(
+                "Created contour plots for metric branin_b and parameters ['x2', 'x1']",
+                log.output[2],
+            )
+            self.assertIn(
+                "Created contour plots for metric branin_a and parameters ['x2', 'x1']",
+                log.output[3],
             )
         self.assertEqual(len(plots), 6)
 
@@ -516,16 +524,33 @@ class ReportUtilsTest(TestCase):
             experiment=exp,
             data=exp.fetch_data(),
         )
-        with self.assertLogs(logger="ax", level=WARN) as log:
-            _get_objective_v_param_plots(experiment=exp, model=model)
-            self.assertEqual(len(log.output), 1)
-            self.assertIn("Skipping creation of 2450 contour plots", log.output[0])
+        with self.assertLogs(logger="ax", level=INFO) as log:
             _get_objective_v_param_plots(
-                experiment=exp, model=model, max_num_slice_plots=10
+                experiment=exp, model=model, max_num_contour_plots=2
             )
-            # Adds two more warnings.
-            self.assertEqual(len(log.output), 3)
-            self.assertIn("Skipping creation of 50 slice plots", log.output[1])
+            self.assertEqual(len(log.output), 1)
+            self.assertIn(
+                "Created contour plots for metric objective and parameters",
+                log.output[0],
+            )
+        with self.assertLogs(logger="ax", level=WARN) as log:
+            _get_objective_v_param_plots(
+                experiment=exp, model=model, max_num_contour_plots=1
+            )
+            self.assertEqual(len(log.output), 1)
+            self.assertIn(
+                "Skipping creation of contour plots",
+                log.output[0],
+            )
+        with self.assertLogs(logger="ax", level=WARN) as log:
+            _get_objective_v_param_plots(
+                experiment=exp,
+                model=model,
+                max_num_contour_plots=1,
+                max_num_slice_plots=10,
+            )
+            # Creates two warnings, one for slice plots and one for contour plots.
+            self.assertEqual(len(log.output), 2)
 
     def test_get_metric_name_pairs(self) -> None:
         exp = get_branin_experiment(with_trial=True)
