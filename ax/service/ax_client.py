@@ -957,10 +957,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 else np.maximum.accumulate(best_objectives, axis=1)
             ),
             optimum=objective_optimum,
-            title="Model performance vs. # of iterations",
+            title="Best objective found vs. # of iterations",
             ylabel=objective_name.capitalize(),
             hover_labels=hover_labels,
-            model_transitions=model_transitions,
         )
 
     def get_contour_plot(

@@ -370,7 +370,6 @@ class TestGenerationStrategy(TestCase):
     def test_sobol_GPEI_strategy(self) -> None:
         exp = get_branin_experiment()
         self.assertEqual(self.sobol_GPEI_GS.name, "Sobol+GPEI")
-        self.assertEqual(self.sobol_GPEI_GS.model_transitions, [5])
         for i in range(7):
             g = self.sobol_GPEI_GS.gen(exp)
             exp.new_trial(generator_run=g).run()
@@ -443,7 +442,6 @@ class TestGenerationStrategy(TestCase):
             ]
         )
         self.assertEqual(sobol_GPEI_generation_strategy.name, "Sobol+GPEI")
-        self.assertEqual(sobol_GPEI_generation_strategy.model_transitions, [5])
         exp.new_trial(generator_run=sobol_GPEI_generation_strategy.gen(exp)).run()
         for i in range(1, 15):
             g = sobol_GPEI_generation_strategy.gen(exp)
@@ -491,7 +489,6 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(
             factorial_thompson_generation_strategy.name, "Factorial+Thompson"
         )
-        self.assertEqual(factorial_thompson_generation_strategy.model_transitions, [1])
         mock_model_bridge = self.mock_discrete_model_bridge.return_value
 
         # Initial factorial batch.
@@ -551,7 +548,6 @@ class TestGenerationStrategy(TestCase):
             ],
         )
         self.assertEqual(sobol_GPEI_generation_strategy.name, "Sobol+GPEI")
-        self.assertEqual(sobol_GPEI_generation_strategy.model_transitions, [1])
         gr = sobol_GPEI_generation_strategy.gen(exp, n=2)
         exp.new_batch_trial(generator_run=gr).run()
         for i in range(1, 8):
