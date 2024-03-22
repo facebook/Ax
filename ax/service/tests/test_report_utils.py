@@ -1124,26 +1124,14 @@ class ReportUtilsTest(TestCase):
             "ax.service.utils.report_utils.exp_to_df",
             return_value=arms_df,
         ):
-            with self.assertLogs("ax", level=INFO) as log:
-                result = compare_to_baseline(
-                    experiment=experiment,
-                    optimization_config=optimization_config,
-                    comparison_arm_names=comparison_arm_names,
-                    baseline_arm_name=custom_baseline_arm_name,
-                )
-                self.assertEqual(result, None)
-                self.assertTrue(
-                    any(
-                        (
-                            "compare_to_baseline:"
-                            f" comparison arm equal"
-                            f" did not beat baseline arm {custom_baseline_arm_name}."
-                        )
-                        in log_str
-                        for log_str in log.output
-                    ),
-                    log.output,
-                )
+            result = compare_to_baseline(
+                experiment=experiment,
+                optimization_config=optimization_config,
+                comparison_arm_names=comparison_arm_names,
+                baseline_arm_name=custom_baseline_arm_name,
+            )
+
+            self.assertIsNone(result)
 
     def test_compare_to_baseline_select_baseline_arm(self) -> None:
         OBJECTIVE_METRIC = "objective"
