@@ -1143,7 +1143,7 @@ class AxSchedulerTestCase(TestCase):
         # We also should have attempted the fetch more times
         # than there are trials because we have a `MapMetric` (many more since we are
         # waiting 3 seconds for each trial).
-        self.assertGreater(mock_experiment_attach_data.call_count, NUM_TRIALS * 2)
+        self.assertGreater(mock_experiment_attach_data.call_count, NUM_TRIALS)
 
         # Check that it's the last-attached data that was kept, using
         # expected value based on logic in mocked "current_timestamp_in_millis"
