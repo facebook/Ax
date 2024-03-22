@@ -49,7 +49,17 @@ class SortableBase(Base, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def _unique_id(self) -> str:
         """Returns an identification string that can be used to uniquely
-        identify this instance from others attached to the same experiment.
+        identify this instance from others attached to the same parent
+        object. For example, for ``Trials`` this can be their index,
+
+        since that is unique w.r.t. to parent ``Experiment`` object.
+        For ``GenerationNode``-s attached to a ``GenerationStrategy``,
+        this can be their name since we ensure uniqueness of it upon
+        ``GenerationStrategy`` instantiation.
+
+        This method is needed to correctly update SQLAlchemy objects
+        that appear as children of other objects, in lists or other
+        sortable collections or containers.
         """
         pass
 
