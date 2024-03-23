@@ -633,7 +633,7 @@ class TorchModelBridge(ModelBridge):
         **kwargs: Any,
     ) -> None:
         if self.model is not None and observations == self._last_observations:
-            logger.info(
+            logger.debug(
                 "The observations are identical to the last set of observations "
                 "used to fit the model. Skipping model fitting."
             )
