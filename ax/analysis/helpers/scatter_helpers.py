@@ -72,14 +72,14 @@ def make_label(
         estimate=(
             round(x_val, DECIMALS) if isinstance(x_val, numbers.Number) else x_val
         ),
-        ci=_format_CI(x_val, x_se),
+        ci=_format_CI(estimate=x_val, sd=x_se),
     )
     y_lab = "{name}: {estimate} {ci}<br>".format(
         name=y_name,
         estimate=(
             round(y_val, DECIMALS) if isinstance(y_val, numbers.Number) else y_val
         ),
-        ci=_format_CI(y_val, y_se),
+        ci=_format_CI(estimate=y_val, sd=y_se),
     )
 
     parameterization = _format_dict(param_blob, "Parameterization")
@@ -114,22 +114,24 @@ def error_scatter_trace_from_df(
     x, x_se, y, y_se = extract_mean_and_error_from_df(df)
 
     labels = []
-    param_blobs = df["arm_parameters"]
     arm_names = df["arm_name"]
 
     metric_name = df["metric_name"].iloc[0]
 
-    for i in range(len(param_blobs)):
+    print("Data frame: " + str(df))
+    print("Arm names: " + str(arm_names))
+    print("x" + str(x))
+    for _, row in df.iterrows():
         labels.append(
             make_label(
-                arm_name=arm_names[i],
+                arm_name=row["arm_name"],
                 x_name=metric_name if x_axis_label is None else x_axis_label,
-                x_val=x[i],
-                x_se=x_se[i],
+                x_val=row["x"],
+                x_se=row["x_se"],
                 y_name=(metric_name if y_axis_label is None else y_axis_label),
-                y_val=y[i],
-                y_se=y_se[i],
-                param_blob=param_blobs[i],
+                y_val=row["y"],
+                y_se=row["y_se"],
+                param_blob=row["arm_parameters"],
             )
         )
 

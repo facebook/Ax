@@ -9,6 +9,8 @@ from typing import List, Optional, Tuple
 
 import pandas as pd
 
+from ax.analysis.base_plotly_visualization import BasePlotlyVisualization
+
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 
@@ -17,8 +19,6 @@ from ax.core.experiment import Experiment
 from ax.core.trial import Trial
 
 from plotly import express as px, graph_objs as go
-
-from .base_plotly_visualization import BasePlotlyVisualization
 
 
 class ParallelCoordinatesPlot(BasePlotlyVisualization):
