@@ -23,7 +23,7 @@ def list_functions(source_glob):
         node = ast.parse(open(sp).read())
         #  Extract the names of all functions and classes defined in this file
         defined.extend(
-            (n.name, module_name + "." + n.name)
+            (n.name, f"{module_name}.{n.name}")
             for n in node.body
             if (isinstance(n, ast.FunctionDef) or isinstance(n, ast.ClassDef))
         )
@@ -31,14 +31,14 @@ def list_functions(source_glob):
 
 
 def replace_backticks(source_path, docs_path):
-    markdown_glob = docs_path + "/*.md"
-    source_glob = source_path + "/**/*.py"
+    markdown_glob = f"{docs_path}/*.md"
+    source_glob = f"{source_path}/**/*.py"
     methods = list_functions(source_glob)
     for f in glob.glob(markdown_glob):
         for n, m in methods:
             #  Match backquoted mentions of the function/class name which are
             #  not already links
-            pattern = "(?<![[`])(`" + n + "`)"
+            pattern = f"(?<![[`])(`{n}`)"
             link = f"[`{n}`](/api/{m.split('.')[1]}.html#{m})"
             lines = open(f).readlines()
             for i, l in enumerate(lines):
