@@ -883,3 +883,21 @@ class BaseTrial(ABC, SortableBase):
         new_trial._stop_metadata = deepcopy(self._stop_metadata)
         new_trial._num_arms_created = self._num_arms_created
         new_trial.runner = self._runner.clone() if self._runner else None
+
+        # Set status and reason accordingly.
+        if self.status == TrialStatus.CANDIDATE:
+            return
+        if self.status == TrialStatus.STAGED:
+            new_trial.mark_staged()
+            return
+        # Other statuses require the state first be set to `RUNNING`.
+        new_trial.mark_running(no_runner_required=True)
+        if self.status == TrialStatus.RUNNING:
+            return
+        if self.status == TrialStatus.ABANDONED:
+            new_trial.mark_abandoned(reason=self.abandoned_reason)
+            return
+        if self.status == TrialStatus.FAILED:
+            new_trial.mark_failed(reason=self.failed_reason)
+            return
+        new_trial.mark_as(self.status)

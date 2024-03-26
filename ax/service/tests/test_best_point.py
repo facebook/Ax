@@ -127,7 +127,7 @@ class TestBestPointMixin(TestCase):
         # test that there is performance metric in the trace for each
         # completed/early-stopped trial
         trial1 = checked_cast(BatchTrial, trial).clone_to()
-        trial1.mark_abandoned()
+        trial1.mark_abandoned(unsafe=True)
         arms = get_arms_from_dict(get_arm_weights2())
         trial2 = exp.new_batch_trial(GeneratorRun(arms))
         trial2.mark_running(no_runner_required=True).mark_completed()
