@@ -435,6 +435,7 @@ class BatchTrialTest(TestCase):
             name="status_quo", parameters={"w": 0.0, "x": 1, "y": "foo", "z": True}
         )
         batch.set_status_quo_and_optimize_power(status_quo)
+        batch.mark_running(no_runner_required=True)
         new_batch_trial = batch.clone_to()
         self.assertEqual(new_batch_trial.index, 2)
         # Set index to original trial's value for equality check.

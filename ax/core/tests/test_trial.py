@@ -338,11 +338,12 @@ class TrialTest(TestCase):
 
     def test_clone_to(self) -> None:
         # cloned trial attached to the same experiment
+        self.trial.mark_running(no_runner_required=True)
         new_trial = self.trial.clone_to()
         self.assertIs(new_trial.experiment, self.trial.experiment)
         # Test equality of all attributes except index, time_created, and experiment.
         for k, v in new_trial.__dict__.items():
-            if k in ["_index", "_time_created", "_experiment"]:
+            if k in ["_index", "_time_created", "_experiment", "_time_run_started"]:
                 continue
             self.assertEqual(v, self.trial.__dict__[k])
 
@@ -355,3 +356,25 @@ class TrialTest(TestCase):
         new_trial._status = TrialStatus.COMPLETED
         self.assertTrue(new_trial.status.is_completed)
         self.assertFalse(self.trial.status.is_completed)
+
+    def test_update_trial_status_on_clone(self) -> None:
+        for status in [
+            TrialStatus.CANDIDATE,
+            TrialStatus.STAGED,
+            TrialStatus.RUNNING,
+            TrialStatus.EARLY_STOPPED,
+            TrialStatus.COMPLETED,
+            TrialStatus.FAILED,
+            TrialStatus.ABANDONED,
+        ]:
+            self.trial._failed_reason = self.trial._abandoned_reason = None
+            if status != TrialStatus.CANDIDATE:
+                self.trial.mark_as(
+                    status=status, unsafe=True, no_runner_required=True, reason="test"
+                )
+            test_trial = self.trial.clone_to()
+            # Overwrite unimportant attrs before equality check.
+            test_trial._index = self.trial.index
+            test_trial._time_created = self.trial._time_created
+            test_trial._time_staged = self.trial._time_staged
+            self.assertEqual(self.trial, test_trial)

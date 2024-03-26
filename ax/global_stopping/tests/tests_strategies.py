@@ -11,6 +11,7 @@ from typing import List, Tuple
 import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
+from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -66,9 +67,10 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         )
 
         # Check that we properly count completed trials.
-        for _ in range(4):
-            checked_cast(BatchTrial, exp.trials[0]).clone()
-        exp.trials[3].mark_running(no_runner_required=True).mark_completed()
+        for i in range(4):
+            trial = checked_cast(BatchTrial, exp.trials[0]).clone_to()
+            if i < 3:
+                trial._status = TrialStatus.CANDIDATE
         stop, message = gss.should_stop_optimization(experiment=exp)
         self.assertFalse(stop)
         self.assertEqual(
@@ -78,9 +80,12 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         )
 
         # Should raise ValueError if trying to check an invalid trial
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(
+            ValueError,
+            r"trial_to_check is larger than the total number of trials \(=4\).",
+        ):
             stop, message = gss.should_stop_optimization(
-                experiment=exp, trial_to_check=4
+                experiment=exp, trial_to_check=5
             )
 
     def _get_arm(self) -> Arm:

@@ -1043,6 +1043,10 @@ class ExperimentTest(TestCase):
         )
         self.assertEqual(cloned_experiment._data_by_trial, experiment._data_by_trial)
         self.assertEqual(len(cloned_experiment.trials), 2)
+        for trial_index in cloned_experiment.trials.keys():
+            cloned_trial = cloned_experiment.trials[trial_index]
+            original_trial = experiment.trials[trial_index]
+            self.assertEqual(cloned_trial.status, original_trial.status)
         x1 = checked_cast(
             RangeParameter, cloned_experiment.search_space.parameters["x1"]
         )
