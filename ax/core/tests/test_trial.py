@@ -16,7 +16,7 @@ from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.runner import Runner
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.result import Ok
 from ax.utils.common.testutils import TestCase
@@ -59,6 +59,16 @@ class TrialTest(TestCase):
 
     def tearDown(self) -> None:
         self.mock_supports_trial_type.stop()
+
+    def test__validate_can_attach_data(self) -> None:
+        self.trial.mark_running(no_runner_required=True)
+        self.trial.mark_completed()
+
+        expected_msg = (
+            "Trial 0 has already been completed with data. To add more data to "
+        )
+        with self.assertRaisesRegex(UnsupportedError, expected_msg):
+            self.trial._validate_can_attach_data()
 
     def test_eq(self) -> None:
         new_trial = self.experiment.new_trial()
