@@ -1,0 +1,374 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.9/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.9/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.9/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.9/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.9/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.9/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.9/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.9/css/main.css"/><script src="/versions/0.2.9/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.9/"><img class="logo" src="/versions/0.2.9/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.9/versions.html"><h3>0.2.9</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.9/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.9/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.9/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<section id="module-ax.runners">
+<span id="ax-runners"></span><h1>ax.runners<a class="headerlink" href="#module-ax.runners" title="Permalink to this heading">¶</a></h1>
+<section id="botorch-test-problem">
+<h2>BoTorch Test Problem<a class="headerlink" href="#botorch-test-problem" title="Permalink to this heading">¶</a></h2>
+<span class="target" id="module-ax.runners.botorch_test_problem"></span><dl class="py class">
+<dt class="sig sig-object py" id="ax.runners.botorch_test_problem.BotorchTestProblemRunner">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">ax.runners.botorch_test_problem.</span></span><span class="sig-name descname"><span class="pre">BotorchTestProblemRunner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">test_problem_class</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Type" title="(in Python v3.11)"><span class="pre">Type</span></a><span class="p"><span class="pre">[</span></span><span class="pre">BaseTestProblem</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test_problem_kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.11)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/runners/botorch_test_problem.html#BotorchTestProblemRunner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.runners.botorch_test_problem.BotorchTestProblemRunner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#ax.core.runner.Runner" title="ax.core.runner.Runner"><code class="xref py py-class docutils literal notranslate"><span class="pre">Runner</span></code></a></p>
+<p>A Runner for evaluation Botorch BaseTestProblems.
+Given a trial the Runner will evaluate the BaseTestProblem.forward method for each
+arm in the trial, as well as return some metadata about the underlying Botorch
+problem such as the noise_std. We compute the full result on the Runner (as opposed
+to the Metric as is typical in synthetic test problems) because the BoTorch problem
+computes all metrics in one stacked tensor in the MOO case, and we wish to avoid
+recomputation per metric.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="ax.runners.botorch_test_problem.BotorchTestProblemRunner.deserialize_init_args">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">deserialize_init_args</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.11)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.11)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/ax/runners/botorch_test_problem.html#BotorchTestProblemRunner.deserialize_init_args"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.runners.botorch_test_problem.BotorchTestProblemRunner.deserialize_init_args" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given a dictionary, deserialize the properties needed to initialize the
+runner. Used for storage.</p>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="ax.runners.botorch_test_problem.BotorchTestProblemRunner.poll_trial_status">
+<span class="sig-name descname"><span class="pre">poll_trial_status</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trials</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterable" title="(in Python v3.11)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="core.html#ax.core.base_trial.BaseTrial" title="ax.core.base_trial.BaseTrial"><span class="pre">BaseTrial</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.11)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="core.html#ax.core.base_trial.TrialStatus" title="ax.core.base_trial.TrialStatus"><span class="pre">TrialStatus</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Set" title="(in Python v3.11)"><span class="pre">Set</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/ax/runners/botorch_test_problem.html#BotorchTestProblemRunner.poll_trial_status"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.runners.botorch_test_problem.BotorchTestProblemRunner.poll_trial_status" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks the status of any non-terminal trials and returns their
+indices as a mapping from TrialStatus to a list of indices. Required
+for runners used with Ax <code class="docutils literal notranslate"><span class="pre">Scheduler</span></code>.</p>
+<p>NOTE: Does not need to handle waiting between polling calls while trials
+are running; this function should just perform a single poll.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>trials</strong> – Trials to poll.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A dictionary mapping TrialStatus to a list of trial indices that have
+the respective status at the time of the polling. This does not need to
+include trials that at the time of polling already have a terminal
+(ABANDONED, FAILED, COMPLETED) status (but it may).</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="ax.runners.botorch_test_problem.BotorchTestProblemRunner.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="core.html#ax.core.base_trial.BaseTrial" title="ax.core.base_trial.BaseTrial"><span class="pre">BaseTrial</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.11)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/ax/runners/botorch_test_problem.html#BotorchTestProblemRunner.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.runners.botorch_test_problem.BotorchTestProblemRunner.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deploys a trial based on custom runner subclass implementation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>trial</strong> – The trial to deploy.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dict of run metadata from the deployment process.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="ax.runners.botorch_test_problem.BotorchTestProblemRunner.serialize_init_args">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">serialize_init_args</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.11)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/ax/runners/botorch_test_problem.html#BotorchTestProblemRunner.serialize_init_args"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.runners.botorch_test_problem.BotorchTestProblemRunner.serialize_init_args" title="Permalink to this definition">¶</a></dt>
+<dd><p>Serialize the properties needed to initialize the runner.
+Used for storage.</p>
+</dd></dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="ax.runners.botorch_test_problem.BotorchTestProblemRunner.test_problem">
+<span class="sig-name descname"><span class="pre">test_problem</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">BaseTestProblem</span></em><a class="headerlink" href="#ax.runners.botorch_test_problem.BotorchTestProblemRunner.test_problem" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</dd></dl>
+</section>
+<section id="module-ax.runners.synthetic">
+<span id="synthetic-runner"></span><h2>Synthetic Runner<a class="headerlink" href="#module-ax.runners.synthetic" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="ax.runners.synthetic.SyntheticRunner">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">ax.runners.synthetic.</span></span><span class="sig-name descname"><span class="pre">SyntheticRunner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dummy_metadata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><span class="pre">Optional</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/runners/synthetic.html#SyntheticRunner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.runners.synthetic.SyntheticRunner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#ax.core.runner.Runner" title="ax.core.runner.Runner"><code class="xref py py-class docutils literal notranslate"><span class="pre">Runner</span></code></a></p>
+<p>Class for synthetic or dummy runner.</p>
+<p>Currently acts as a shell runner, only creating a name.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="ax.runners.synthetic.SyntheticRunner.poll_trial_status">
+<span class="sig-name descname"><span class="pre">poll_trial_status</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trials</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterable" title="(in Python v3.11)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="core.html#ax.core.base_trial.BaseTrial" title="ax.core.base_trial.BaseTrial"><span class="pre">BaseTrial</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.11)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="core.html#ax.core.base_trial.TrialStatus" title="ax.core.base_trial.TrialStatus"><span class="pre">TrialStatus</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Set" title="(in Python v3.11)"><span class="pre">Set</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/ax/runners/synthetic.html#SyntheticRunner.poll_trial_status"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.runners.synthetic.SyntheticRunner.poll_trial_status" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks the status of any non-terminal trials and returns their
+indices as a mapping from TrialStatus to a list of indices. Required
+for runners used with Ax <code class="docutils literal notranslate"><span class="pre">Scheduler</span></code>.</p>
+<p>NOTE: Does not need to handle waiting between polling calls while trials
+are running; this function should just perform a single poll.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>trials</strong> – Trials to poll.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A dictionary mapping TrialStatus to a list of trial indices that have
+the respective status at the time of the polling. This does not need to
+include trials that at the time of polling already have a terminal
+(ABANDONED, FAILED, COMPLETED) status (but it may).</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="ax.runners.synthetic.SyntheticRunner.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="core.html#ax.core.base_trial.BaseTrial" title="ax.core.base_trial.BaseTrial"><span class="pre">BaseTrial</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.11)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/ax/runners/synthetic.html#SyntheticRunner.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.runners.synthetic.SyntheticRunner.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deploys a trial based on custom runner subclass implementation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>trial</strong> – The trial to deploy.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dict of run metadata from the deployment process.</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+</section>
+<section id="simulated-backend-runner">
+<h2>Simulated Backend Runner<a class="headerlink" href="#simulated-backend-runner" title="Permalink to this heading">¶</a></h2>
+<span class="target" id="module-ax.runners.simulated_backend"></span><dl class="py class">
+<dt class="sig sig-object py" id="ax.runners.simulated_backend.SimulatedBackendRunner">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">ax.runners.simulated_backend.</span></span><span class="sig-name descname"><span class="pre">SimulatedBackendRunner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">simulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="utils.html#ax.utils.testing.backend_simulator.BackendSimulator" title="ax.utils.testing.backend_simulator.BackendSimulator"><span class="pre">BackendSimulator</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_runtime_func</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><span class="pre">Optional</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="core.html#ax.core.base_trial.BaseTrial" title="ax.core.base_trial.BaseTrial"><span class="pre">BaseTrial</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/runners/simulated_backend.html#SimulatedBackendRunner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.runners.simulated_backend.SimulatedBackendRunner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#ax.core.runner.Runner" title="ax.core.runner.Runner"><code class="xref py py-class docutils literal notranslate"><span class="pre">Runner</span></code></a></p>
+<p>Class for a runner that works with the BackendSimulator.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="ax.runners.simulated_backend.SimulatedBackendRunner.poll_trial_status">
+<span class="sig-name descname"><span class="pre">poll_trial_status</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trials</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterable" title="(in Python v3.11)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="core.html#ax.core.base_trial.BaseTrial" title="ax.core.base_trial.BaseTrial"><span class="pre">BaseTrial</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.11)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="core.html#ax.core.base_trial.TrialStatus" title="ax.core.base_trial.TrialStatus"><span class="pre">TrialStatus</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Set" title="(in Python v3.11)"><span class="pre">Set</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/ax/runners/simulated_backend.html#SimulatedBackendRunner.poll_trial_status"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.runners.simulated_backend.SimulatedBackendRunner.poll_trial_status" title="Permalink to this definition">¶</a></dt>
+<dd><p>Poll trial status from the <code class="docutils literal notranslate"><span class="pre">BackendSimulator</span></code>. NOTE: The <code class="docutils literal notranslate"><span class="pre">Scheduler</span></code>
+currently marks trials as running when they are created, but some of these
+trials may actually be in queued on the <code class="docutils literal notranslate"><span class="pre">BackendSimulator</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A Dict mapping statuses to sets of trial indices.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="ax.runners.simulated_backend.SimulatedBackendRunner.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="core.html#ax.core.base_trial.BaseTrial" title="ax.core.base_trial.BaseTrial"><span class="pre">BaseTrial</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.11)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/ax/runners/simulated_backend.html#SimulatedBackendRunner.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.runners.simulated_backend.SimulatedBackendRunner.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Start a trial on the BackendSimulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>trial</strong> – Trial to deploy via the runner.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dict containing the sampled runtime of the trial.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="ax.runners.simulated_backend.SimulatedBackendRunner.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="core.html#ax.core.base_trial.BaseTrial" title="ax.core.base_trial.BaseTrial"><span class="pre">BaseTrial</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><span class="pre">Optional</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.11)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/ax/runners/simulated_backend.html#SimulatedBackendRunner.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.runners.simulated_backend.SimulatedBackendRunner.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop a trial on the BackendSimulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>trial</strong> – Trial to stop on the simulator.</p></li>
+<li><p><strong>reason</strong> – A message containing information why the trial is to be stopped.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A dictionary containing a single key “reason” that maps to the reason
+passed to the function. If no reason was given, returns an empty dictionary.</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+<dl class="py function">
+<dt class="sig sig-object py" id="ax.runners.simulated_backend.sample_runtime_unif">
+<span class="sig-prename descclassname"><span class="pre">ax.runners.simulated_backend.</span></span><span class="sig-name descname"><span class="pre">sample_runtime_unif</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="core.html#ax.core.base_trial.BaseTrial" title="ax.core.base_trial.BaseTrial"><span class="pre">BaseTrial</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">low</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">high</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><span class="pre">float</span></a></span></span><a class="reference internal" href="_modules/ax/runners/simulated_backend.html#sample_runtime_unif"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.runners.simulated_backend.sample_runtime_unif" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a uniform runtime in [low, high]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>trial</strong> – Trial for which to sample runtime.</p></li>
+<li><p><strong>low</strong> – Lower bound of uniform runtime distribution.</p></li>
+<li><p><strong>high</strong> – Upper bound of uniform runtime distribution.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A float representing the simulated trial runtime.</p>
+</dd>
+</dl>
+</dd></dl>
+</section>
+<section id="module-ax.runners.torchx">
+<span id="torchx-runner"></span><h2>TorchX Runner<a class="headerlink" href="#module-ax.runners.torchx" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="ax.runners.torchx.TorchXRunner">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">ax.runners.torchx.</span></span><span class="sig-name descname"><span class="pre">TorchXRunner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tracker_base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">component</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">AppDef</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">component_const_params</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><span class="pre">Optional</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.11)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scheduler</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'local'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><span class="pre">Optional</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Mapping" title="(in Python v3.11)"><span class="pre">Mapping</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><span class="pre">Optional</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><span class="pre">Union</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.11)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/runners/torchx.html#TorchXRunner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.runners.torchx.TorchXRunner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#ax.core.runner.Runner" title="ax.core.runner.Runner"><code class="xref py py-class docutils literal notranslate"><span class="pre">Runner</span></code></a></p>
+<p>An implementation of <code class="docutils literal notranslate"><span class="pre">ax.core.runner.Runner</span></code> that delegates job submission to
+the TorchX Runner. This runner is coupled with the TorchX component since Ax
+runners run trials of a single component with different parameters.</p>
+<p>It is expected that the experiment parameter names and types match EXACTLY with
+component’s function args. Component function args that are NOT part of the
+search space can be passed as <code class="docutils literal notranslate"><span class="pre">component_const_params</span></code>. The following args
+are passed automatically if declared in the component function’s signature:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">trial_idx</span> <span class="pre">(int)</span></code>: current trial’s index</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tracker_base</span> <span class="pre">(str)</span></code>: torchx tracker’s base (typically a URL
+indicating the base dir of the tracker)</p></li>
+</ul>
+</div></blockquote>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt>def trainer_component(</dt><dd><p>x1: int,
+x2: float,
+trial_idx: int,
+tracker_base: str,
+x3: float,
+x4: str) -&gt; spec.AppDef:
+# … implementation omitted for brevity …
+pass</p>
+</dd>
+</dl>
+<p>The experiment should be set up as:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<p>parameters=[
+{</p>
+<blockquote>
+<div><p>“name”: “x1”,
+“value_type”: “int”,
+# … other options…</p>
+</div></blockquote>
+<p>},
+{</p>
+<blockquote>
+<div><p>“name”: “x2”,
+“value_type”: “float”,
+# … other options…</p>
+</div></blockquote>
+<section id="id1">
+<h3>}<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
+<p>And the rest of the arguments can be set as:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt>TorchXRunner(</dt><dd><p>tracker_base=”s3://foo/bar”,
+component=trainer_component,
+# trial_idx and tracker_base args passed automatically
+# if the function signature declares those args
+component_const_params={“x3”: 1.2, “x4”: “barbaz”})</p>
+</dd>
+</dl>
+<p>Running the experiment as set up above results in each trial running:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt>appdef = trainer_component(</dt><dd><p>x1=trial.params[“x1”],
+x2=trial.params[“x2”],
+trial_idx=trial.index,
+tracker_base=”s3://foo/bar”,
+x3=1.2,
+x4=”barbaz”)</p>
+</dd>
+</dl>
+<p>torchx.runner.get_runner().run(appdef, …)</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="ax.runners.torchx.TorchXRunner.poll_trial_status">
+<span class="sig-name descname"><span class="pre">poll_trial_status</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trials</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterable" title="(in Python v3.11)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="core.html#ax.core.base_trial.BaseTrial" title="ax.core.base_trial.BaseTrial"><span class="pre">BaseTrial</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.11)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="core.html#ax.core.base_trial.TrialStatus" title="ax.core.base_trial.TrialStatus"><span class="pre">TrialStatus</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Set" title="(in Python v3.11)"><span class="pre">Set</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/ax/runners/torchx.html#TorchXRunner.poll_trial_status"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.runners.torchx.TorchXRunner.poll_trial_status" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks the status of any non-terminal trials and returns their
+indices as a mapping from TrialStatus to a list of indices. Required
+for runners used with Ax <code class="docutils literal notranslate"><span class="pre">Scheduler</span></code>.</p>
+<p>NOTE: Does not need to handle waiting between polling calls while trials
+are running; this function should just perform a single poll.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>trials</strong> – Trials to poll.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A dictionary mapping TrialStatus to a list of trial indices that have
+the respective status at the time of the polling. This does not need to
+include trials that at the time of polling already have a terminal
+(ABANDONED, FAILED, COMPLETED) status (but it may).</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="ax.runners.torchx.TorchXRunner.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="core.html#ax.core.base_trial.BaseTrial" title="ax.core.base_trial.BaseTrial"><span class="pre">BaseTrial</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.11)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/ax/runners/torchx.html#TorchXRunner.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.runners.torchx.TorchXRunner.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Submits the trial (which maps to an AppDef) as a job
+onto the scheduler using <code class="docutils literal notranslate"><span class="pre">torchx.runner</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>only supports <cite>Trial</cite> (not <cite>BatchTrial</cite>).</p>
+</div>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="ax.runners.torchx.TorchXRunner.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="core.html#ax.core.base_trial.BaseTrial" title="ax.core.base_trial.BaseTrial"><span class="pre">BaseTrial</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><span class="pre">Optional</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.11)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/ax/runners/torchx.html#TorchXRunner.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ax.runners.torchx.TorchXRunner.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Kill the given trial.</p>
+</dd></dl>
+</section>
+</dd></dl>
+</section>
+</section>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plot.html">ax.plot</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">ax.runners</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#botorch-test-problem">BoTorch Test Problem</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-ax.runners.synthetic">Synthetic Runner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#simulated-backend-runner">Simulated Backend Runner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-ax.runners.torchx">TorchX Runner</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="index.html">Documentation overview</a><ul>
+<li>Previous: <a href="plot.html" title="previous chapter">ax.plot</a></li>
+<li>Next: <a href="service.html" title="next chapter">ax.service</a></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.9/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

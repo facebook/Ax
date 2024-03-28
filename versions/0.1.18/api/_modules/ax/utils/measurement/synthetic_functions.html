@@ -1,0 +1,384 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.18/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.18/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.18/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.18/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.18/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.18/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.18/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.18/css/main.css"/><script src="/versions/0.1.18/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.18/"><img class="logo" src="/versions/0.1.18/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.18/versions.html"><h3>0.1.18</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.18/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.18/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.18/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.utils.measurement.synthetic_functions</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.docutils</span> <span class="kn">import</span> <span class="n">copy_doc</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">checked_cast</span><span class="p">,</span> <span class="n">not_none</span>
+<span class="kn">from</span> <span class="nn">botorch.test_functions</span> <span class="kn">import</span> <span class="n">synthetic</span> <span class="k">as</span> <span class="n">botorch_synthetic</span>
+
+
+<div class="viewcode-block" id="informative_failure_on_none"><a class="viewcode-back" href="../../../../utils.html#ax.utils.measurement.synthetic_functions.informative_failure_on_none">[docs]</a><span class="k">def</span> <span class="nf">informative_failure_on_none</span><span class="p">(</span><span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">function_wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">res</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> does not specify property "</span> <span class="sa">f</span><span class="s1">'"</span><span class="si">{</span><span class="n">func</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">".'</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">not_none</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">function_wrapper</span></div>
+
+
+<div class="viewcode-block" id="SyntheticFunction"><a class="viewcode-back" href="../../../../utils.html#ax.utils.measurement.synthetic_functions.SyntheticFunction">[docs]</a><span class="k">class</span> <span class="nc">SyntheticFunction</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+
+    <span class="n">_required_dimensionality</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_domain</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_minimums</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_maximums</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_fmin</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_fmax</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@informative_failure_on_none</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span>
+
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">"""Simplified way to call the synthetic function and pass the argument</span>
+<span class="sd">        numbers directly, e.g. `branin(2.0, 3.0)`.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">required_dimensionality</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="p">(</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">required_dimensionality</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+                <span class="p">),</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Function </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> expected either "</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">required_dimensionality</span><span class="si">}</span><span class="s2"> arguments "</span>
+                    <span class="s2">"or a single numpy array argument."</span>
+                <span class="p">)</span>
+            <span class="k">assert</span> <span class="ow">not</span> <span class="n">args</span><span class="p">,</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Function </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> expected either all anonymous "</span>
+                <span class="s2">"arguments or all keyword arguments."</span>
+            <span class="p">)</span>
+            <span class="n">args</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>  <span class="c1"># pyre-ignore[9]</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">f</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">x</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span>
+                <span class="n">x</span>
+            <span class="p">),</span> <span class="sa">f</span><span class="s2">"Expected numerical arguments or numpy arrays, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">checked_cast</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">f</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">args</span><span class="p">)))</span>
+
+<div class="viewcode-block" id="SyntheticFunction.f"><a class="viewcode-back" href="../../../../utils.html#ax.utils.measurement.synthetic_functions.SyntheticFunction.f">[docs]</a>    <span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">"""Synthetic function implementation.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            X (numpy.ndarray): an n by d array, where n represents the number</span>
+<span class="sd">                of observations and d is the dimensionality of the inputs.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            numpy.ndarray: an n-dimensional array.</span>
+<span class="sd">        """</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">),</span> <span class="s2">"X must be a numpy (nd)array."</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">required_dimensionality</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">input_dim</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">input_dim</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"Synthetic function call expects input of either 1-d array or "</span>
+                    <span class="s2">"n by d array, where n is number of observations and d is "</span>
+                    <span class="s2">"dimensionality of the input."</span>
+                <span class="p">)</span>
+            <span class="k">assert</span> <span class="n">input_dim</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">required_dimensionality</span><span class="p">,</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Input violates required dimensionality of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">required_dimensionality</span><span class="si">}</span><span class="s2">. Got </span><span class="si">{</span><span class="n">input_dim</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_f</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_f</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">X</span><span class="p">])</span></div>
+
+    <span class="nd">@property</span>
+    <span class="nd">@informative_failure_on_none</span>
+    <span class="k">def</span> <span class="nf">required_dimensionality</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">"""Required dimensionality of input to this function."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_required_dimensionality</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@informative_failure_on_none</span>
+    <span class="k">def</span> <span class="nf">domain</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="o">...</span><span class="p">]]:</span>
+        <span class="sd">"""Domain on which function is evaluated.</span>
+
+<span class="sd">        The list is of the same length as the dimensionality of the inputs,</span>
+<span class="sd">        where each element of the list is a tuple corresponding to the min</span>
+<span class="sd">        and max of the domain for that dimension.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@informative_failure_on_none</span>
+    <span class="k">def</span> <span class="nf">minimums</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="o">...</span><span class="p">]]:</span>
+        <span class="sd">"""List of global minimums.</span>
+
+<span class="sd">        Each element of the list is a d-tuple, where d is the dimensionality</span>
+<span class="sd">        of the inputs. There may be more than one global minimums.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_minimums</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@informative_failure_on_none</span>
+    <span class="k">def</span> <span class="nf">maximums</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="o">...</span><span class="p">]]:</span>
+        <span class="sd">"""List of global minimums.</span>
+
+<span class="sd">        Each element of the list is a d-tuple, where d is the dimensionality</span>
+<span class="sd">        of the inputs. There may be more than one global minimums.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maximums</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@informative_failure_on_none</span>
+    <span class="k">def</span> <span class="nf">fmin</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">"""Value at global minimum(s)."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fmin</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@informative_failure_on_none</span>
+    <span class="k">def</span> <span class="nf">fmax</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">"""Value at global minimum(s)."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fmax</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_f</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">"""Implementation of the synthetic function. Must be implemented in subclass.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            X (numpy.ndarray): an n by d array, where n represents the number</span>
+<span class="sd">                of observations and d is the dimensionality of the inputs.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            numpy.ndarray: an n-dimensional array.</span>
+<span class="sd">        """</span>
+        <span class="o">...</span>  <span class="c1"># pragma: no cover</span></div>
+
+
+<div class="viewcode-block" id="FromBotorch"><a class="viewcode-back" href="../../../../utils.html#ax.utils.measurement.synthetic_functions.FromBotorch">[docs]</a><span class="k">class</span> <span class="nc">FromBotorch</span><span class="p">(</span><span class="n">SyntheticFunction</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">botorch_synthetic_function</span><span class="p">:</span> <span class="n">botorch_synthetic</span><span class="o">.</span><span class="n">SyntheticTestFunction</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_botorch_function</span> <span class="o">=</span> <span class="n">botorch_synthetic_function</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_required_dimensionality</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_botorch_function</span><span class="o">.</span><span class="n">dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_botorch_function</span><span class="o">.</span><span class="n">_bounds</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fmin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_botorch_function</span><span class="o">.</span><span class="n">_optimal_value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_botorch_function</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span>
+
+    <span class="k">def</span> <span class="nf">_f</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="c1"># TODO: support batch evaluation</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_botorch_function</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">X</span><span class="p">))</span><span class="o">.</span><span class="n">item</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="from_botorch"><a class="viewcode-back" href="../../../../utils.html#ax.utils.measurement.synthetic_functions.from_botorch">[docs]</a><span class="k">def</span> <span class="nf">from_botorch</span><span class="p">(</span>
+    <span class="n">botorch_synthetic_function</span><span class="p">:</span> <span class="n">botorch_synthetic</span><span class="o">.</span><span class="n">SyntheticTestFunction</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SyntheticFunction</span><span class="p">:</span>
+    <span class="sd">"""Utility to generate Ax synthetic functions from BoTorch synthetic functions."""</span>
+    <span class="k">return</span> <span class="n">FromBotorch</span><span class="p">(</span><span class="n">botorch_synthetic_function</span><span class="o">=</span><span class="n">botorch_synthetic_function</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Hartmann6"><a class="viewcode-back" href="../../../../utils.html#ax.utils.measurement.synthetic_functions.Hartmann6">[docs]</a><span class="k">class</span> <span class="nc">Hartmann6</span><span class="p">(</span><span class="n">SyntheticFunction</span><span class="p">):</span>
+    <span class="sd">"""Hartmann6 function (6-dimensional with 1 global minimum)."""</span>
+
+    <span class="n">_required_dimensionality</span> <span class="o">=</span> <span class="mi">6</span>
+    <span class="n">_domain</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">)]</span>
+    <span class="n">_minimums</span> <span class="o">=</span> <span class="p">[(</span><span class="mf">0.20169</span><span class="p">,</span> <span class="mf">0.150011</span><span class="p">,</span> <span class="mf">0.476874</span><span class="p">,</span> <span class="mf">0.275332</span><span class="p">,</span> <span class="mf">0.311652</span><span class="p">,</span> <span class="mf">0.6573</span><span class="p">)]</span>
+    <span class="n">_fmin</span> <span class="o">=</span> <span class="o">-</span><span class="mf">3.32237</span>
+    <span class="n">_fmax</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">_alpha</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.2</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">3.2</span><span class="p">])</span>
+    <span class="n">_A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mf">3.5</span><span class="p">,</span> <span class="mf">1.7</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span>
+            <span class="p">[</span><span class="mf">0.05</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">14</span><span class="p">],</span>
+            <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mf">3.5</span><span class="p">,</span> <span class="mf">1.7</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span>
+            <span class="p">[</span><span class="mi">17</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mi">14</span><span class="p">],</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">_P</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">4</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="p">[</span><span class="mi">1312</span><span class="p">,</span> <span class="mi">1696</span><span class="p">,</span> <span class="mi">5569</span><span class="p">,</span> <span class="mi">124</span><span class="p">,</span> <span class="mi">8283</span><span class="p">,</span> <span class="mi">5886</span><span class="p">],</span>
+            <span class="p">[</span><span class="mi">2329</span><span class="p">,</span> <span class="mi">4135</span><span class="p">,</span> <span class="mi">8307</span><span class="p">,</span> <span class="mi">3736</span><span class="p">,</span> <span class="mi">1004</span><span class="p">,</span> <span class="mi">9991</span><span class="p">],</span>
+            <span class="p">[</span><span class="mi">2348</span><span class="p">,</span> <span class="mi">1451</span><span class="p">,</span> <span class="mi">3522</span><span class="p">,</span> <span class="mi">2883</span><span class="p">,</span> <span class="mi">3047</span><span class="p">,</span> <span class="mi">6650</span><span class="p">],</span>
+            <span class="p">[</span><span class="mi">4047</span><span class="p">,</span> <span class="mi">8828</span><span class="p">,</span> <span class="mi">8732</span><span class="p">,</span> <span class="mi">5743</span><span class="p">,</span> <span class="mi">1091</span><span class="p">,</span> <span class="mi">381</span><span class="p">],</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">SyntheticFunction</span><span class="o">.</span><span class="n">_f</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_f</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">alpha_j</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span><span class="p">):</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">):</span>
+                <span class="n">t</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_A</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="p">((</span><span class="n">X</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_P</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">y</span> <span class="o">-=</span> <span class="n">alpha_j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">t</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">y</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Aug_Hartmann6"><a class="viewcode-back" href="../../../../utils.html#ax.utils.measurement.synthetic_functions.Aug_Hartmann6">[docs]</a><span class="k">class</span> <span class="nc">Aug_Hartmann6</span><span class="p">(</span><span class="n">Hartmann6</span><span class="p">):</span>
+    <span class="sd">"""Augmented Hartmann6 function (7-dimensional with 1 global minimum)."""</span>
+
+    <span class="n">_required_dimensionality</span> <span class="o">=</span> <span class="mi">7</span>
+    <span class="n">_domain</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">7</span><span class="p">)]</span>
+    <span class="c1"># pyre-fixme[15]: `_minimums` overrides attribute defined in `Hartmann6`</span>
+    <span class="c1">#  inconsistently.</span>
+    <span class="n">_minimums</span> <span class="o">=</span> <span class="p">[(</span><span class="mf">0.20169</span><span class="p">,</span> <span class="mf">0.150011</span><span class="p">,</span> <span class="mf">0.476874</span><span class="p">,</span> <span class="mf">0.275332</span><span class="p">,</span> <span class="mf">0.311652</span><span class="p">,</span> <span class="mf">0.6573</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)]</span>
+    <span class="n">_fmin</span> <span class="o">=</span> <span class="o">-</span><span class="mf">3.32237</span>
+    <span class="n">_fmax</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">SyntheticFunction</span><span class="o">.</span><span class="n">_f</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_f</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">alpha_0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">X</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">alpha_j</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span><span class="p">):</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">):</span>
+                <span class="n">t</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_A</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="p">((</span><span class="n">X</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_P</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">j</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">y</span> <span class="o">-=</span> <span class="n">alpha_0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">t</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">y</span> <span class="o">-=</span> <span class="n">alpha_j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">t</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">y</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Branin"><a class="viewcode-back" href="../../../../utils.html#ax.utils.measurement.synthetic_functions.Branin">[docs]</a><span class="k">class</span> <span class="nc">Branin</span><span class="p">(</span><span class="n">SyntheticFunction</span><span class="p">):</span>
+    <span class="sd">"""Branin function (2-dimensional with 3 global minima)."""</span>
+
+    <span class="n">_required_dimensionality</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">_domain</span> <span class="o">=</span> <span class="p">[(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">15</span><span class="p">)]</span>
+    <span class="n">_minimums</span> <span class="o">=</span> <span class="p">[(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="mf">12.275</span><span class="p">),</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="mf">2.275</span><span class="p">),</span> <span class="p">(</span><span class="mf">9.42478</span><span class="p">,</span> <span class="mf">2.475</span><span class="p">)]</span>
+    <span class="n">_fmin</span> <span class="o">=</span> <span class="mf">0.397887</span>
+    <span class="n">_fmax</span> <span class="o">=</span> <span class="mf">294.0</span>
+
+    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">SyntheticFunction</span><span class="o">.</span><span class="n">_f</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_f</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="n">x_1</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">x_2</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">x_2</span> <span class="o">-</span> <span class="mf">5.1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">x_1</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="mf">5.0</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x_1</span> <span class="o">-</span> <span class="mf">6.0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+            <span class="o">+</span> <span class="mi">10</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mi">8</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">x_1</span><span class="p">)</span>
+            <span class="o">+</span> <span class="mi">10</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Aug_Branin"><a class="viewcode-back" href="../../../../utils.html#ax.utils.measurement.synthetic_functions.Aug_Branin">[docs]</a><span class="k">class</span> <span class="nc">Aug_Branin</span><span class="p">(</span><span class="n">SyntheticFunction</span><span class="p">):</span>
+    <span class="sd">"""Augmented Branin function (3-dimensional with infinitely many global minima)."""</span>
+
+    <span class="n">_required_dimensionality</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">_domain</span> <span class="o">=</span> <span class="p">[(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span>
+    <span class="n">_minimums</span> <span class="o">=</span> <span class="p">[(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="mf">12.275</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="mf">2.275</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mf">9.42478</span><span class="p">,</span> <span class="mf">2.475</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span>
+    <span class="n">_fmin</span> <span class="o">=</span> <span class="mf">0.397887</span>
+    <span class="n">_fmax</span> <span class="o">=</span> <span class="mf">294.0</span>
+
+    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">SyntheticFunction</span><span class="o">.</span><span class="n">_f</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_f</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="n">x_1</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">x_2</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">x_2</span>
+                <span class="o">-</span> <span class="p">(</span><span class="mf">5.1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">X</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span> <span class="o">*</span> <span class="n">x_1</span> <span class="o">**</span> <span class="mi">2</span>
+                <span class="o">+</span> <span class="mf">5.0</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x_1</span>
+                <span class="o">-</span> <span class="mf">6.0</span>
+            <span class="p">)</span>
+            <span class="o">**</span> <span class="mi">2</span>
+            <span class="o">+</span> <span class="mi">10</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mi">8</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">x_1</span><span class="p">)</span>
+            <span class="o">+</span> <span class="mi">10</span>
+        <span class="p">)</span></div>
+
+
+<span class="n">hartmann6</span> <span class="o">=</span> <span class="n">Hartmann6</span><span class="p">()</span>
+<span class="n">aug_hartmann6</span> <span class="o">=</span> <span class="n">Aug_Hartmann6</span><span class="p">()</span>
+<span class="n">branin</span> <span class="o">=</span> <span class="n">Branin</span><span class="p">()</span>
+<span class="n">aug_branin</span> <span class="o">=</span> <span class="n">Aug_Branin</span><span class="p">()</span>
+
+<span class="c1"># Synthetic functions constructed from BoTorch.</span>
+<span class="n">ackley</span> <span class="o">=</span> <span class="n">from_botorch</span><span class="p">(</span><span class="n">botorch_synthetic_function</span><span class="o">=</span><span class="n">botorch_synthetic</span><span class="o">.</span><span class="n">Ackley</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.18/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2020 Facebook Inc.</section></footer></div></body></html>

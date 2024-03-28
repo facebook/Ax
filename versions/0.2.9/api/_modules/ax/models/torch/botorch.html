@@ -1,0 +1,617 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.9/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.9/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.9/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.9/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.9/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.9/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.9/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.9/css/main.css"/><script src="/versions/0.2.9/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.9/"><img class="logo" src="/versions/0.2.9/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.9/versions.html"><h3>0.2.9</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.9/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.9/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.9/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.models.torch.botorch</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+
+<span class="kn">from</span> <span class="nn">logging</span> <span class="kn">import</span> <span class="n">Logger</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpaceDigest</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">TCandidateMetadata</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.core</span> <span class="kn">import</span> <span class="n">DataRequiredError</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_defaults</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">get_and_fit_model</span><span class="p">,</span>
+    <span class="n">get_NEI</span><span class="p">,</span>
+    <span class="n">recommend_best_observed_point</span><span class="p">,</span>
+    <span class="n">scipy_optimizer</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_datasets_to_legacy_inputs</span><span class="p">,</span>
+    <span class="n">_get_X_pending_and_observed</span><span class="p">,</span>
+    <span class="n">_to_inequality_constraints</span><span class="p">,</span>
+    <span class="n">normalize_indices</span><span class="p">,</span>
+    <span class="n">predict_from_model</span><span class="p">,</span>
+    <span class="n">subset_model</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch_base</span> <span class="kn">import</span> <span class="n">TorchGenResults</span><span class="p">,</span> <span class="n">TorchModel</span><span class="p">,</span> <span class="n">TorchOptConfig</span>
+<span class="kn">from</span> <span class="nn">ax.models.types</span> <span class="kn">import</span> <span class="n">TConfig</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.constants</span> <span class="kn">import</span> <span class="n">Keys</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.docutils</span> <span class="kn">import</span> <span class="n">copy_doc</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">checked_cast</span><span class="p">,</span> <span class="n">not_none</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition.acquisition</span> <span class="kn">import</span> <span class="n">AcquisitionFunction</span>
+<span class="kn">from</span> <span class="nn">botorch.models.model</span> <span class="kn">import</span> <span class="n">Model</span>
+<span class="kn">from</span> <span class="nn">botorch.models.model_list_gp_regression</span> <span class="kn">import</span> <span class="n">ModelListGP</span>
+<span class="kn">from</span> <span class="nn">botorch.utils.datasets</span> <span class="kn">import</span> <span class="n">SupervisedDataset</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
+
+<span class="n">logger</span><span class="p">:</span> <span class="n">Logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="c1"># pyre-fixme[33]: Aliased annotation cannot contain `Any`.</span>
+<span class="n">TModelConstructor</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span>
+    <span class="p">[</span>
+        <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]],</span>
+        <span class="n">Any</span><span class="p">,</span>
+    <span class="p">],</span>
+    <span class="n">Model</span><span class="p">,</span>
+<span class="p">]</span>
+<span class="n">TModelPredictor</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Model</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span>
+<span class="c1"># pyre-fixme[33]: Aliased annotation cannot contain `Any`.</span>
+<span class="n">TAcqfConstructor</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span>
+    <span class="p">[</span>
+        <span class="n">Model</span><span class="p">,</span>
+        <span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]],</span>
+        <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">Any</span><span class="p">,</span>
+    <span class="p">],</span>
+    <span class="n">AcquisitionFunction</span><span class="p">,</span>
+<span class="p">]</span>
+<span class="c1"># pyre-fixme[33]: Aliased annotation cannot contain `Any`.</span>
+<span class="n">TOptimizer</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span>
+    <span class="p">[</span>
+        <span class="n">AcquisitionFunction</span><span class="p">,</span>
+        <span class="n">Tensor</span><span class="p">,</span>
+        <span class="nb">int</span><span class="p">,</span>
+        <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]],</span>
+        <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]],</span>
+        <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+        <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">Tensor</span><span class="p">]],</span>
+        <span class="n">Any</span><span class="p">,</span>
+    <span class="p">],</span>
+    <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">],</span>
+<span class="p">]</span>
+<span class="n">TBestPointRecommender</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span>
+    <span class="p">[</span>
+        <span class="n">TorchModel</span><span class="p">,</span>
+        <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+        <span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]],</span>
+        <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]],</span>
+        <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+        <span class="n">Optional</span><span class="p">[</span><span class="n">TConfig</span><span class="p">],</span>
+        <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+    <span class="p">],</span>
+    <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="BotorchModel"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.botorch.BotorchModel">[docs]</a><span class="k">class</span> <span class="nc">BotorchModel</span><span class="p">(</span><span class="n">TorchModel</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sd">"""</span>
+<span class="sd">    Customizable botorch model.</span>
+
+<span class="sd">    By default, this uses a noisy Expected Improvement acquisition function on</span>
+<span class="sd">    top of a model made up of separate GPs, one for each outcome. This behavior</span>
+<span class="sd">    can be modified by providing custom implementations of the following</span>
+<span class="sd">    components:</span>
+
+<span class="sd">    - a `model_constructor` that instantiates and fits a model on data</span>
+<span class="sd">    - a `model_predictor` that predicts outcomes using the fitted model</span>
+<span class="sd">    - a `acqf_constructor` that creates an acquisition function from a fitted model</span>
+<span class="sd">    - a `acqf_optimizer` that optimizes the acquisition function</span>
+<span class="sd">    - a `best_point_recommender` that recommends a current "best" point (i.e.,</span>
+<span class="sd">        what the model recommends if the learning process ended now)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model_constructor: A callable that instantiates and fits a model on data,</span>
+<span class="sd">            with signature as described below.</span>
+<span class="sd">        model_predictor: A callable that predicts using the fitted model, with</span>
+<span class="sd">            signature as described below.</span>
+<span class="sd">        acqf_constructor: A callable that creates an acquisition function from a</span>
+<span class="sd">            fitted model, with signature as described below.</span>
+<span class="sd">        acqf_optimizer: A callable that optimizes the acquisition function, with</span>
+<span class="sd">            signature as described below.</span>
+<span class="sd">        best_point_recommender: A callable that recommends the best point, with</span>
+<span class="sd">            signature as described below.</span>
+<span class="sd">        refit_on_cv: If True, refit the model for each fold when performing</span>
+<span class="sd">            cross-validation.</span>
+<span class="sd">        refit_on_update: If True, refit the model after updating the training</span>
+<span class="sd">            data using the `update` method.</span>
+<span class="sd">        warm_start_refitting: If True, start model refitting from previous</span>
+<span class="sd">            model parameters in order to speed up the fitting process.</span>
+
+
+<span class="sd">    Call signatures:</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        model_constructor(</span>
+<span class="sd">            Xs,</span>
+<span class="sd">            Ys,</span>
+<span class="sd">            Yvars,</span>
+<span class="sd">            task_features,</span>
+<span class="sd">            fidelity_features,</span>
+<span class="sd">            metric_names,</span>
+<span class="sd">            state_dict,</span>
+<span class="sd">            **kwargs,</span>
+<span class="sd">        ) -&gt; model</span>
+
+<span class="sd">    Here `Xs`, `Ys`, `Yvars` are lists of tensors (one element per outcome),</span>
+<span class="sd">    `task_features` identifies columns of Xs that should be modeled as a task,</span>
+<span class="sd">    `fidelity_features` is a list of ints that specify the positions of fidelity</span>
+<span class="sd">    parameters in 'Xs', `metric_names` provides the names of each `Y` in `Ys`,</span>
+<span class="sd">    `state_dict` is a pytorch module state dict, and `model` is a BoTorch `Model`.</span>
+<span class="sd">    Optional kwargs are being passed through from the `BotorchModel` constructor.</span>
+<span class="sd">    This callable is assumed to return a fitted BoTorch model that has the same</span>
+<span class="sd">    dtype and lives on the same device as the input tensors.</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        model_predictor(model, X) -&gt; [mean, cov]</span>
+
+<span class="sd">    Here `model` is a fitted botorch model, `X` is a tensor of candidate points,</span>
+<span class="sd">    and `mean` and `cov` are the posterior mean and covariance, respectively.</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        acqf_constructor(</span>
+<span class="sd">            model,</span>
+<span class="sd">            objective_weights,</span>
+<span class="sd">            outcome_constraints,</span>
+<span class="sd">            X_observed,</span>
+<span class="sd">            X_pending,</span>
+<span class="sd">            **kwargs,</span>
+<span class="sd">        ) -&gt; acq_function</span>
+
+
+<span class="sd">    Here `model` is a botorch `Model`, `objective_weights` is a tensor of weights</span>
+<span class="sd">    for the model outputs, `outcome_constraints` is a tuple of tensors describing</span>
+<span class="sd">    the (linear) outcome constraints, `X_observed` are previously observed points,</span>
+<span class="sd">    and `X_pending` are points whose evaluation is pending. `acq_function` is a</span>
+<span class="sd">    BoTorch acquisition function crafted from these inputs. For additional</span>
+<span class="sd">    details on the arguments, see `get_NEI`.</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        acqf_optimizer(</span>
+<span class="sd">            acq_function,</span>
+<span class="sd">            bounds,</span>
+<span class="sd">            n,</span>
+<span class="sd">            inequality_constraints,</span>
+<span class="sd">            equality_constraints,</span>
+<span class="sd">            fixed_features,</span>
+<span class="sd">            rounding_func,</span>
+<span class="sd">            **kwargs,</span>
+<span class="sd">        ) -&gt; candidates</span>
+
+<span class="sd">    Here `acq_function` is a BoTorch `AcquisitionFunction`, `bounds` is a tensor</span>
+<span class="sd">    containing bounds on the parameters, `n` is the number of candidates to be</span>
+<span class="sd">    generated, `inequality_constraints` are inequality constraints on parameter</span>
+<span class="sd">    values, `fixed_features` specifies features that should be fixed during</span>
+<span class="sd">    generation, and `rounding_func` is a callback that rounds an optimization</span>
+<span class="sd">    result appropriately. `candidates` is a tensor of generated candidates.</span>
+<span class="sd">    For additional details on the arguments, see `scipy_optimizer`.</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        best_point_recommender(</span>
+<span class="sd">            model,</span>
+<span class="sd">            bounds,</span>
+<span class="sd">            objective_weights,</span>
+<span class="sd">            outcome_constraints,</span>
+<span class="sd">            linear_constraints,</span>
+<span class="sd">            fixed_features,</span>
+<span class="sd">            model_gen_options,</span>
+<span class="sd">            target_fidelities,</span>
+<span class="sd">        ) -&gt; candidates</span>
+
+<span class="sd">    Here `model` is a TorchModel, `bounds` is a list of tuples containing bounds</span>
+<span class="sd">    on the parameters, `objective_weights` is a tensor of weights for the model outputs,</span>
+<span class="sd">    `outcome_constraints` is a tuple of tensors describing the (linear) outcome</span>
+<span class="sd">    constraints, `linear_constraints` is a tuple of tensors describing constraints</span>
+<span class="sd">    on the design, `fixed_features` specifies features that should be fixed during</span>
+<span class="sd">    generation, `model_gen_options` is a config dictionary that can contain</span>
+<span class="sd">    model-specific options, and `target_fidelities` is a map from fidelity feature</span>
+<span class="sd">    column indices to their respective target fidelities, used for multi-fidelity</span>
+<span class="sd">    optimization problems. % TODO: refer to an example.</span>
+<span class="sd">    """</span>
+
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span>
+    <span class="n">Xs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span>
+    <span class="n">Ys</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span>
+    <span class="n">Yvars</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Model</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model_constructor</span><span class="p">:</span> <span class="n">TModelConstructor</span> <span class="o">=</span> <span class="n">get_and_fit_model</span><span class="p">,</span>
+        <span class="n">model_predictor</span><span class="p">:</span> <span class="n">TModelPredictor</span> <span class="o">=</span> <span class="n">predict_from_model</span><span class="p">,</span>
+        <span class="c1"># pyre-fixme[9]: acqf_constructor has type `Callable[[Model, Tensor,</span>
+        <span class="c1">#  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor], Any],</span>
+        <span class="c1">#  AcquisitionFunction]`; used as `Callable[[Model, Tensor,</span>
+        <span class="c1">#  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor],</span>
+        <span class="c1">#  **(Any)], AcquisitionFunction]`.</span>
+        <span class="n">acqf_constructor</span><span class="p">:</span> <span class="n">TAcqfConstructor</span> <span class="o">=</span> <span class="n">get_NEI</span><span class="p">,</span>
+        <span class="c1"># pyre-fixme[9]: acqf_optimizer declared/used type mismatch</span>
+        <span class="n">acqf_optimizer</span><span class="p">:</span> <span class="n">TOptimizer</span> <span class="o">=</span> <span class="n">scipy_optimizer</span><span class="p">,</span>
+        <span class="n">best_point_recommender</span><span class="p">:</span> <span class="n">TBestPointRecommender</span> <span class="o">=</span> <span class="n">recommend_best_observed_point</span><span class="p">,</span>
+        <span class="n">refit_on_cv</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">refit_on_update</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">warm_start_refitting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">use_input_warping</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">use_loocv_pseudo_likelihood</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_constructor</span> <span class="o">=</span> <span class="n">model_constructor</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_predictor</span> <span class="o">=</span> <span class="n">model_predictor</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">acqf_constructor</span> <span class="o">=</span> <span class="n">acqf_constructor</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">acqf_optimizer</span> <span class="o">=</span> <span class="n">acqf_optimizer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">best_point_recommender</span> <span class="o">=</span> <span class="n">best_point_recommender</span>
+        <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_kwargs</span> <span class="o">=</span> <span class="n">kwargs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">refit_on_cv</span> <span class="o">=</span> <span class="n">refit_on_cv</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">refit_on_update</span> <span class="o">=</span> <span class="n">refit_on_update</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">warm_start_refitting</span> <span class="o">=</span> <span class="n">warm_start_refitting</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">use_input_warping</span> <span class="o">=</span> <span class="n">use_input_warping</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">use_loocv_pseudo_likelihood</span> <span class="o">=</span> <span class="n">use_loocv_pseudo_likelihood</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Model</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Xs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Ys</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Yvars</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">task_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fidelity_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metric_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="BotorchModel.fit"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.botorch.BotorchModel.fit">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">TorchModel</span><span class="o">.</span><span class="n">fit</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">datasets</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">SupervisedDataset</span><span class="p">],</span>
+        <span class="n">metric_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">search_space_digest</span><span class="p">:</span> <span class="n">SearchSpaceDigest</span><span class="p">,</span>
+        <span class="n">candidate_metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">TCandidateMetadata</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">datasets</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">DataRequiredError</span><span class="p">(</span><span class="s2">"BotorchModel.fit requires non-empty data sets."</span><span class="p">)</span>
+        <span class="n">Xs</span><span class="p">,</span> <span class="n">Ys</span><span class="p">,</span> <span class="n">Yvars</span> <span class="o">=</span> <span class="n">_datasets_to_legacy_inputs</span><span class="p">(</span><span class="n">datasets</span><span class="o">=</span><span class="n">datasets</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metric_names</span> <span class="o">=</span> <span class="n">metric_names</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Xs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ys</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Yvars</span> <span class="o">=</span> <span class="n">Xs</span><span class="p">,</span> <span class="n">Ys</span><span class="p">,</span> <span class="n">Yvars</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Xs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Xs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">device</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">task_features</span> <span class="o">=</span> <span class="n">normalize_indices</span><span class="p">(</span>
+            <span class="n">search_space_digest</span><span class="o">.</span><span class="n">task_features</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Xs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fidelity_features</span> <span class="o">=</span> <span class="n">normalize_indices</span><span class="p">(</span>
+            <span class="n">search_space_digest</span><span class="o">.</span><span class="n">fidelity_features</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Xs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_constructor</span><span class="p">(</span>  <span class="c1"># pyre-ignore [28]</span>
+            <span class="n">Xs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Xs</span><span class="p">,</span>
+            <span class="n">Ys</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Ys</span><span class="p">,</span>
+            <span class="n">Yvars</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Yvars</span><span class="p">,</span>
+            <span class="n">task_features</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">task_features</span><span class="p">,</span>
+            <span class="n">fidelity_features</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fidelity_features</span><span class="p">,</span>
+            <span class="n">metric_names</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_names</span><span class="p">,</span>
+            <span class="n">use_input_warping</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">use_input_warping</span><span class="p">,</span>
+            <span class="n">use_loocv_pseudo_likelihood</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">use_loocv_pseudo_likelihood</span><span class="p">,</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_kwargs</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="BotorchModel.predict"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.botorch.BotorchModel.predict">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">TorchModel</span><span class="o">.</span><span class="n">predict</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_predictor</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">)</span>  <span class="c1"># pyre-ignore [28]</span></div>
+
+<div class="viewcode-block" id="BotorchModel.gen"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.botorch.BotorchModel.gen">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">TorchModel</span><span class="o">.</span><span class="n">gen</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">gen</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">search_space_digest</span><span class="p">:</span> <span class="n">SearchSpaceDigest</span><span class="p">,</span>
+        <span class="n">torch_opt_config</span><span class="p">:</span> <span class="n">TorchOptConfig</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TorchGenResults</span><span class="p">:</span>
+        <span class="n">options</span> <span class="o">=</span> <span class="n">torch_opt_config</span><span class="o">.</span><span class="n">model_gen_options</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">acf_options</span> <span class="o">=</span> <span class="n">options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">ACQF_KWARGS</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="n">optimizer_options</span> <span class="o">=</span> <span class="n">options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">OPTIMIZER_KWARGS</span><span class="p">,</span> <span class="p">{})</span>
+
+        <span class="k">if</span> <span class="n">search_space_digest</span><span class="o">.</span><span class="n">target_fidelities</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">"target_fidelities not implemented for base BotorchModel"</span>
+            <span class="p">)</span>
+        <span class="n">X_pending</span><span class="p">,</span> <span class="n">X_observed</span> <span class="o">=</span> <span class="n">_get_X_pending_and_observed</span><span class="p">(</span>
+            <span class="n">Xs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Xs</span><span class="p">,</span>
+            <span class="n">objective_weights</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">objective_weights</span><span class="p">,</span>
+            <span class="n">bounds</span><span class="o">=</span><span class="n">search_space_digest</span><span class="o">.</span><span class="n">bounds</span><span class="p">,</span>
+            <span class="n">pending_observations</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">pending_observations</span><span class="p">,</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="n">linear_constraints</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">linear_constraints</span><span class="p">,</span>
+            <span class="n">fixed_features</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">fixed_features</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span>
+        <span class="c1"># subset model only to the outcomes we need for the optimization	357</span>
+        <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">SUBSET_MODEL</span><span class="p">,</span> <span class="kc">True</span><span class="p">):</span>
+            <span class="n">subset_model_results</span> <span class="o">=</span> <span class="n">subset_model</span><span class="p">(</span>
+                <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>  <span class="c1"># pyre-ignore [6]</span>
+                <span class="n">objective_weights</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">objective_weights</span><span class="p">,</span>
+                <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="n">subset_model_results</span><span class="o">.</span><span class="n">model</span>
+            <span class="n">objective_weights</span> <span class="o">=</span> <span class="n">subset_model_results</span><span class="o">.</span><span class="n">objective_weights</span>
+            <span class="n">outcome_constraints</span> <span class="o">=</span> <span class="n">subset_model_results</span><span class="o">.</span><span class="n">outcome_constraints</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">objective_weights</span> <span class="o">=</span> <span class="n">torch_opt_config</span><span class="o">.</span><span class="n">objective_weights</span>
+            <span class="n">outcome_constraints</span> <span class="o">=</span> <span class="n">torch_opt_config</span><span class="o">.</span><span class="n">outcome_constraints</span>
+
+        <span class="n">bounds_</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+            <span class="n">search_space_digest</span><span class="o">.</span><span class="n">bounds</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">)</span>
+        <span class="n">bounds_</span> <span class="o">=</span> <span class="n">bounds_</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">botorch_rounding_func</span> <span class="o">=</span> <span class="n">get_rounding_func</span><span class="p">(</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">rounding_func</span><span class="p">)</span>
+
+        <span class="kn">from</span> <span class="nn">botorch.exceptions.errors</span> <span class="kn">import</span> <span class="n">UnsupportedError</span>
+
+        <span class="c1"># pyre-fixme[53]: Captured variable `X_observed` is not annotated.</span>
+        <span class="c1"># pyre-fixme[53]: Captured variable `X_pending` is not annotated.</span>
+        <span class="c1"># pyre-fixme[53]: Captured variable `acf_options` is not annotated.</span>
+        <span class="c1"># pyre-fixme[53]: Captured variable `botorch_rounding_func` is not annotated.</span>
+        <span class="c1"># pyre-fixme[53]: Captured variable `bounds_` is not annotated.</span>
+        <span class="c1"># pyre-fixme[53]: Captured variable `model` is not annotated.</span>
+        <span class="c1"># pyre-fixme[53]: Captured variable `objective_weights` is not annotated.</span>
+        <span class="c1"># pyre-fixme[53]: Captured variable `optimizer_options` is not annotated.</span>
+        <span class="c1"># pyre-fixme[53]: Captured variable `outcome_constraints` is not annotated.</span>
+        <span class="k">def</span> <span class="nf">make_and_optimize_acqf</span><span class="p">(</span><span class="n">override_qmc</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+            <span class="n">add_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"qmc"</span><span class="p">:</span> <span class="kc">False</span><span class="p">}</span> <span class="k">if</span> <span class="n">override_qmc</span> <span class="k">else</span> <span class="p">{}</span>
+            <span class="n">acquisition_function</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">acqf_constructor</span><span class="p">(</span>  <span class="c1"># pyre-ignore: [28]</span>
+                <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+                <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+                <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+                <span class="n">X_observed</span><span class="o">=</span><span class="n">X_observed</span><span class="p">,</span>
+                <span class="n">X_pending</span><span class="o">=</span><span class="n">X_pending</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">acf_options</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">add_kwargs</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">acquisition_function</span> <span class="o">=</span> <span class="n">checked_cast</span><span class="p">(</span>
+                <span class="n">AcquisitionFunction</span><span class="p">,</span> <span class="n">acquisition_function</span>
+            <span class="p">)</span>
+            <span class="c1"># pyre-ignore: [28]</span>
+            <span class="n">candidates</span><span class="p">,</span> <span class="n">expected_acquisition_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">acqf_optimizer</span><span class="p">(</span>
+                <span class="n">acq_function</span><span class="o">=</span><span class="n">checked_cast</span><span class="p">(</span><span class="n">AcquisitionFunction</span><span class="p">,</span> <span class="n">acquisition_function</span><span class="p">),</span>
+                <span class="n">bounds</span><span class="o">=</span><span class="n">bounds_</span><span class="p">,</span>
+                <span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span>
+                <span class="n">inequality_constraints</span><span class="o">=</span><span class="n">_to_inequality_constraints</span><span class="p">(</span>
+                    <span class="n">linear_constraints</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">linear_constraints</span>
+                <span class="p">),</span>
+                <span class="n">fixed_features</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">fixed_features</span><span class="p">,</span>
+                <span class="n">rounding_func</span><span class="o">=</span><span class="n">botorch_rounding_func</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">optimizer_options</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">candidates</span><span class="p">,</span> <span class="n">expected_acquisition_value</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">candidates</span><span class="p">,</span> <span class="n">expected_acquisition_value</span> <span class="o">=</span> <span class="n">make_and_optimize_acqf</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">UnsupportedError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>  <span class="c1"># untested</span>
+            <span class="k">if</span> <span class="s2">"SobolQMCSampler only supports dimensions"</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+                <span class="c1"># dimension too large for Sobol, let's use IID</span>
+                <span class="n">candidates</span><span class="p">,</span> <span class="n">expected_acquisition_value</span> <span class="o">=</span> <span class="n">make_and_optimize_acqf</span><span class="p">(</span>
+                    <span class="n">override_qmc</span><span class="o">=</span><span class="kc">True</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">e</span>
+
+        <span class="n">gen_metadata</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">expected_acquisition_value</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">gen_metadata</span><span class="p">[</span>
+                <span class="s2">"expected_acquisition_value"</span>
+            <span class="p">]</span> <span class="o">=</span> <span class="n">expected_acquisition_value</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">TorchGenResults</span><span class="p">(</span>
+            <span class="n">points</span><span class="o">=</span><span class="n">candidates</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span>
+            <span class="n">weights</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
+            <span class="n">gen_metadata</span><span class="o">=</span><span class="n">gen_metadata</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="BotorchModel.best_point"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.botorch.BotorchModel.best_point">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">TorchModel</span><span class="o">.</span><span class="n">best_point</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">best_point</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">search_space_digest</span><span class="p">:</span> <span class="n">SearchSpaceDigest</span><span class="p">,</span>
+        <span class="n">torch_opt_config</span><span class="p">:</span> <span class="n">TorchOptConfig</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">torch_opt_config</span><span class="o">.</span><span class="n">is_moo</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">"Best observed point is incompatible with MOO problems."</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_point_recommender</span><span class="p">(</span>  <span class="c1"># pyre-ignore [28]</span>
+            <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span>
+            <span class="n">bounds</span><span class="o">=</span><span class="n">search_space_digest</span><span class="o">.</span><span class="n">bounds</span><span class="p">,</span>
+            <span class="n">objective_weights</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">objective_weights</span><span class="p">,</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="n">linear_constraints</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">linear_constraints</span><span class="p">,</span>
+            <span class="n">fixed_features</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">fixed_features</span><span class="p">,</span>
+            <span class="n">model_gen_options</span><span class="o">=</span><span class="n">torch_opt_config</span><span class="o">.</span><span class="n">model_gen_options</span><span class="p">,</span>
+            <span class="n">target_fidelities</span><span class="o">=</span><span class="n">search_space_digest</span><span class="o">.</span><span class="n">target_fidelities</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="BotorchModel.cross_validate"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.botorch.BotorchModel.cross_validate">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">TorchModel</span><span class="o">.</span><span class="n">cross_validate</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">cross_validate</span><span class="p">(</span>  <span class="c1"># pyre-ignore [14]: `search_space_digest` arg not needed here</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">datasets</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">SupervisedDataset</span><span class="p">],</span>
+        <span class="n">X_test</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Cannot cross-validate model that has not been fitted"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">refit_on_cv</span><span class="p">:</span>
+            <span class="n">state_dict</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">state_dict</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
+        <span class="n">Xs</span><span class="p">,</span> <span class="n">Ys</span><span class="p">,</span> <span class="n">Yvars</span> <span class="o">=</span> <span class="n">_datasets_to_legacy_inputs</span><span class="p">(</span><span class="n">datasets</span><span class="o">=</span><span class="n">datasets</span><span class="p">)</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_constructor</span><span class="p">(</span>  <span class="c1"># pyre-ignore: [28]</span>
+            <span class="n">Xs</span><span class="o">=</span><span class="n">Xs</span><span class="p">,</span>
+            <span class="n">Ys</span><span class="o">=</span><span class="n">Ys</span><span class="p">,</span>
+            <span class="n">Yvars</span><span class="o">=</span><span class="n">Yvars</span><span class="p">,</span>
+            <span class="n">task_features</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">task_features</span><span class="p">,</span>
+            <span class="n">state_dict</span><span class="o">=</span><span class="n">state_dict</span><span class="p">,</span>
+            <span class="n">fidelity_features</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fidelity_features</span><span class="p">,</span>
+            <span class="n">metric_names</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_names</span><span class="p">,</span>
+            <span class="n">refit_model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">refit_on_cv</span><span class="p">,</span>
+            <span class="n">use_input_warping</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">use_input_warping</span><span class="p">,</span>
+            <span class="n">use_loocv_pseudo_likelihood</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">use_loocv_pseudo_likelihood</span><span class="p">,</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_predictor</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="n">X_test</span><span class="p">)</span>  <span class="c1"># pyre-ignore: [28]</span></div>
+
+<div class="viewcode-block" id="BotorchModel.update"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.botorch.BotorchModel.update">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">TorchModel</span><span class="o">.</span><span class="n">update</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span>  <span class="c1"># pyre-ignore [14]: `search_space_digest` arg not needed here</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">datasets</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">SupervisedDataset</span><span class="p">],</span>
+        <span class="n">candidate_metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">TCandidateMetadata</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Cannot update model that has not been fitted"</span><span class="p">)</span>
+        <span class="n">Xs</span><span class="p">,</span> <span class="n">Ys</span><span class="p">,</span> <span class="n">Yvars</span> <span class="o">=</span> <span class="n">_datasets_to_legacy_inputs</span><span class="p">(</span><span class="n">datasets</span><span class="o">=</span><span class="n">datasets</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Xs</span> <span class="o">=</span> <span class="n">Xs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Ys</span> <span class="o">=</span> <span class="n">Ys</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Yvars</span> <span class="o">=</span> <span class="n">Yvars</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">refit_on_update</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start_refitting</span><span class="p">:</span>
+            <span class="n">state_dict</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">state_dict</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_constructor</span><span class="p">(</span>  <span class="c1"># pyre-ignore: [28]</span>
+            <span class="n">Xs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Xs</span><span class="p">,</span>
+            <span class="n">Ys</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Ys</span><span class="p">,</span>
+            <span class="n">Yvars</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Yvars</span><span class="p">,</span>
+            <span class="n">task_features</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">task_features</span><span class="p">,</span>
+            <span class="n">state_dict</span><span class="o">=</span><span class="n">state_dict</span><span class="p">,</span>
+            <span class="n">fidelity_features</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fidelity_features</span><span class="p">,</span>
+            <span class="n">metric_names</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_names</span><span class="p">,</span>
+            <span class="n">refit_model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">refit_on_update</span><span class="p">,</span>
+            <span class="n">use_input_warping</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">use_input_warping</span><span class="p">,</span>
+            <span class="n">use_loocv_pseudo_likelihood</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">use_loocv_pseudo_likelihood</span><span class="p">,</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_kwargs</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="BotorchModel.feature_importances"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.botorch.BotorchModel.feature_importances">[docs]</a>    <span class="k">def</span> <span class="nf">feature_importances</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">"Cannot calculate feature_importances without a fitted model"</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">ModelListGP</span><span class="p">):</span>
+            <span class="n">models</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">models</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">models</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">]</span>
+        <span class="n">lengthscales</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">models</span><span class="p">:</span>
+            <span class="n">ls</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">covar_module</span><span class="o">.</span><span class="n">base_kernel</span><span class="o">.</span><span class="n">lengthscale</span>
+            <span class="k">if</span> <span class="n">ls</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">ls</span> <span class="o">=</span> <span class="n">ls</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">lengthscales</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ls</span><span class="p">)</span>
+        <span class="n">lengthscales</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">lengthscales</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="c1"># pyre-fixme[16]: `float` has no attribute `detach`.</span>
+        <span class="c1"># pyre-fixme[58]: `/` is not supported for operand types `int` and `Tensor`.</span>
+        <span class="k">return</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">lengthscales</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="get_rounding_func"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.botorch.get_rounding_func">[docs]</a><span class="k">def</span> <span class="nf">get_rounding_func</span><span class="p">(</span>
+    <span class="n">rounding_func</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">Tensor</span><span class="p">]]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">Tensor</span><span class="p">]]:</span>
+    <span class="k">if</span> <span class="n">rounding_func</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">botorch_rounding_func</span> <span class="o">=</span> <span class="n">rounding_func</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># make sure rounding_func is properly applied to q- and t-batches</span>
+        <span class="k">def</span> <span class="nf">botorch_rounding_func</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+            <span class="n">batch_shape</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">X_round</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">rounding_func</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">X</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">d</span><span class="p">)]</span>  <span class="c1"># pyre-ignore: [16]</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">X_round</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">*</span><span class="n">batch_shape</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">botorch_rounding_func</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.9/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>
