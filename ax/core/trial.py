@@ -19,9 +19,11 @@ from ax.core.base_trial import BaseTrial, immutable_once_run
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.types import TCandidateMetadata, TEvaluationOutcome
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import not_none
+from pyre_extensions import override
 
 logger: Logger = get_logger(__name__)
 
@@ -351,3 +353,16 @@ class Trial(BaseTrial):
             new_trial.add_generator_run(self.generator_run.clone())
         self._update_trial_attrs_on_clone(new_trial=new_trial)
         return new_trial
+
+    @override
+    def _raise_cant_attach_if_completed(self) -> None:
+        """
+        Helper method used by `validate_can_attach_data` to raise an error if
+        the user tries to attach data to a completed trial. Subclasses such as
+        `Trial` override this by suggesting a remediation.
+        """
+        raise UnsupportedError(
+            f"Trial {self.index} has already been completed with data. "
+            "To add more data to it (for example, for a different metric), "
+            f"use `{self.__class__.__name__}.update_trial_data()`."
+        )
