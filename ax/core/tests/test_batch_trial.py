@@ -19,6 +19,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun, GeneratorRunType
 from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UnsupportedError
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
@@ -46,6 +47,16 @@ class BatchTrialTest(TestCase):
         self.arms = arms[1:]
         self.weights = weights[1:]
         self.batch.add_arms_and_weights(arms=self.arms, weights=self.weights)
+
+    def test__validate_can_attach_data(self) -> None:
+        self.batch.mark_running(no_runner_required=True)
+        self.batch.mark_completed()
+
+        expected_msg = (
+            "Trial 0 already has status 'COMPLETED', so data cannot be attached."
+        )
+        with self.assertRaisesRegex(UnsupportedError, expected_msg):
+            self.batch._validate_can_attach_data()
 
     def test_Eq(self) -> None:
         new_batch_trial = self.experiment.new_batch_trial()
