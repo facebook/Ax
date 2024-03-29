@@ -56,7 +56,7 @@ def _get_fake_multiplexer(
 
 class TensorboardMetricTest(TestCase):
     def test_fetch_trial_data(self) -> None:
-        fake_data = [8.0, 4.0, 2.0, 1.0]
+        fake_data = [8.0, 9.0, 2.0, 1.0]
         fake_multiplexer = _get_fake_multiplexer(fake_data=fake_data)
 
         with mock.patch.object(

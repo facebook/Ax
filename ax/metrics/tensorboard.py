@@ -153,10 +153,11 @@ try:
 
                 # Apply per-metric post-processing
                 # Apply cumulative "best" (min if lower_is_better)
-                if metric.lower_is_better:
-                    df["mean"] = df["mean"].cummin()
-                else:
-                    df["mean"] = df["mean"].cummax()
+                if metric.cumulative_best:
+                    if metric.lower_is_better:
+                        df["mean"] = df["mean"].cummin()
+                    else:
+                        df["mean"] = df["mean"].cummax()
 
                 # Apply smoothing
                 if metric.smoothing > 0:
