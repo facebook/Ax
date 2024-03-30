@@ -852,15 +852,21 @@ class BaseTrial(ABC, SortableBase):
         )
         return evaluations, data
 
+    def _raise_cant_attach_if_completed(self) -> None:
+        """
+        Helper method used by `validate_can_attach_data` to raise an error if
+        the user tries to attach data to a completed trial. Subclasses such as
+        `Trial` override this by suggesting a remediation.
+        """
+        raise UnsupportedError(
+            f"Trial {self.index} already has status 'COMPLETED', so data cannot "
+            "be attached."
+        )
+
     def _validate_can_attach_data(self) -> None:
         """Determines whether a trial is in a state that can be attached data."""
         if self.status.is_completed:
-            raise UnsupportedError(
-                f"Trial {self.index} has already been completed with data."
-                "To add more data to it (for example, for a different metric), "
-                "use `Trial.update_trial_data()` or "
-                "BatchTrial.update_batch_trial_data()."
-            )
+            self._raise_cant_attach_if_completed()
         if self.status.is_abandoned or self.status.is_failed:
             raise UnsupportedError(
                 f"Trial {self.index} has been marked {self.status.name}, so it "
