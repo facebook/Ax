@@ -8,7 +8,7 @@
 
 import re
 from copy import deepcopy
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import plotly.graph_objs as go
@@ -343,6 +343,7 @@ def interact_contour_plotly(
     lower_is_better: bool = False,
     fixed_features: Optional[ObservationFeatures] = None,
     trial_index: Optional[int] = None,
+    parameters_to_use: Optional[List[str]] = None,
 ) -> go.Figure:
     """Create interactive plot with predictions for a 2-d slice of the parameter
     space.
@@ -362,6 +363,8 @@ def interact_contour_plotly(
         fixed_features: An ObservationFeatures object containing the values of
             features (including non-parameter features like context) to be set
             in the slice.
+        parameters_to_use: List of parameters to use in the plot, in the order they
+            should appear. If None or empty list, use all parameters.
 
     Returns:
         go.Figure: interactive plot of objective vs. parameters
@@ -378,6 +381,15 @@ def interact_contour_plotly(
         slice_values["TRIAL_PARAM"] = str(trial_index)
 
     range_parameters = get_range_parameters(model, min_num_values=5)
+    if parameters_to_use is not None:
+        if len(parameters_to_use) <= 1:
+            raise ValueError(
+                "Contour plots require two or more parameters. "
+                f"Got {parameters_to_use=}."
+            )
+        # Subset range parameters and put them in the same order as parameters_to_use.
+        range_param_name_dict = {p.name: p for p in range_parameters}
+        range_parameters = [range_param_name_dict[pname] for pname in parameters_to_use]
     plot_data, _, _ = get_plot_data(
         model, generator_runs_dict or {}, {metric_name}, fixed_features=fixed_features
     )
@@ -886,6 +898,7 @@ def interact_contour(
     lower_is_better: bool = False,
     fixed_features: Optional[ObservationFeatures] = None,
     trial_index: Optional[int] = None,
+    parameters_to_use: Optional[List[str]] = None,
 ) -> AxPlotConfig:
     """Create interactive plot with predictions for a 2-d slice of the parameter
     space.
@@ -905,6 +918,8 @@ def interact_contour(
         fixed_features: An ObservationFeatures object containing the values of
             features (including non-parameter features like context) to be set
             in the slice.
+        parameters_to_use: List of parameters to use in the plot, in the order they
+            should appear. If None or empty list, use all parameters.
 
     Returns:
         AxPlotConfig: interactive plot of objective vs. parameters
@@ -920,6 +935,7 @@ def interact_contour(
             lower_is_better=lower_is_better,
             fixed_features=fixed_features,
             trial_index=trial_index,
+            parameters_to_use=parameters_to_use,
         ),
         plot_type=AxPlotTypes.GENERIC,
     )

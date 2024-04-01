@@ -158,7 +158,12 @@ def _get_objective_trace_plot(
 def _get_objective_v_param_plots(
     experiment: Experiment,
     model: ModelBridge,
-    max_num_slice_plots: int = 50,
+    importance: Optional[
+        Union[Dict[str, Dict[str, np.ndarray]], Dict[str, Dict[str, float]]]
+    ] = None,
+    # Chosen to take ~1min on local benchmarks.
+    max_num_slice_plots: int = 200,
+    # Chosen to take ~2min on local benchmarks.
     max_num_contour_plots: int = 20,
 ) -> List[go.Figure]:
     search_space = experiment.search_space
@@ -175,8 +180,9 @@ def _get_objective_v_param_plots(
             "`RangeParameter`. Returning an empty list."
         )
         return []
+    range_param_names = [param.name for param in range_params]
     num_range_params = len(range_params)
-    num_metrics = len(experiment.metrics)
+    num_metrics = len(model.metric_names)
     num_slice_plots = num_range_params * num_metrics
     output_plots = []
     if num_slice_plots <= max_num_slice_plots:
@@ -197,32 +203,56 @@ def _get_objective_v_param_plots(
         warning_plot = _warn_and_create_warning_plot(warning_msg=warning_msg)
         output_plots.append(warning_plot)
 
-    num_contour_plots = num_range_params * (num_range_params - 1) * num_metrics
-    if num_range_params > 1 and num_contour_plots <= max_num_contour_plots:
-        # contour plots
-        try:
-            with gpytorch.settings.max_eager_kernel_size(float("inf")):
-                output_plots += [
-                    interact_contour_plotly(
-                        model=not_none(model),
-                        metric_name=metric_name,
-                    )
-                    for metric_name in model.metric_names
-                ]
-        # `mean shape torch.Size` RunTimeErrors, pending resolution of
-        # https://github.com/cornellius-gp/gpytorch/issues/1853
-        except RuntimeError as e:
-            logger.warning(f"Contour plotting failed with error: {e}.")
-    elif num_contour_plots > max_num_contour_plots:
+    # contour plots
+    num_contour_per_metric = max_num_contour_plots // num_metrics
+    if num_contour_per_metric < 2:
         warning_msg = (
-            f"Skipping creation of {num_contour_plots} contour plots since that "
-            f"exceeds <br>`max_num_contour_plots = {max_num_contour_plots}`."
+            "Skipping creation of contour plots since that requires <br>"
+            "`max_num_contour_plots >= 2 * num_metrics`. Got "
+            f"{max_num_contour_plots=} and {num_metrics=}."
             "<br>Users can plot individual contour plots with the <br>python "
             "function ax.plot.contour.plot_contour_plotly."
         )
         # TODO: return a warning here then convert to a plot/message/etc. downstream.
         warning_plot = _warn_and_create_warning_plot(warning_msg=warning_msg)
         output_plots.append(warning_plot)
+    elif num_range_params > 1:
+        # Using n params yields n * (n - 1) contour plots, so we use the number of
+        # params that yields the desired number of plots (solved using quadratic eqn)
+        num_params_per_metric = int(0.5 + (0.25 + num_contour_per_metric) ** 0.5)
+        try:
+            for metric_name in model.metric_names:
+                if importance is not None:
+                    range_params_sens_for_metric = {
+                        k: v
+                        for k, v in importance[metric_name].items()
+                        if k in range_param_names
+                    }
+                    # sort the params by their sensitivity
+                    params_to_use = sorted(
+                        range_params_sens_for_metric,
+                        key=lambda x: range_params_sens_for_metric[x],
+                        reverse=True,
+                    )[:num_params_per_metric]
+                # if sens is not available, just use the first num_features_per_metric.
+                else:
+                    params_to_use = range_param_names[:num_params_per_metric]
+                with gpytorch.settings.max_eager_kernel_size(float("inf")):
+                    output_plots.append(
+                        interact_contour_plotly(
+                            model=not_none(model),
+                            metric_name=metric_name,
+                            parameters_to_use=params_to_use,
+                        )
+                    )
+                logger.info(
+                    f"Created contour plots for metric {metric_name} and parameters "
+                    f"{params_to_use}."
+                )
+        # `mean shape torch.Size` RunTimeErrors, pending resolution of
+        # https://github.com/cornellius-gp/gpytorch/issues/1853
+        except RuntimeError as e:
+            logger.warning(f"Contour plotting failed with error: {e}.")
     return output_plots
 
 
@@ -394,12 +424,44 @@ def get_standard_plots(
         except Exception as e:
             logger.exception(f"Scatter plot failed with error: {e}")
 
+        # Compute feature importance ("sensitivity") to select most important
+        # features to plot.
+        sens = None
+        importance_measure = ""
+        if global_sensitivity_analysis and isinstance(model, TorchModelBridge):
+            try:
+                logger.debug("Starting global sensitivity analysis.")
+                sens = ax_parameter_sens(model, order="total")
+                importance_measure = (
+                    '<a href="https://en.wikipedia.org/wiki/Variance-based_'
+                    'sensitivity_analysis">Variance-based sensitivity analysis</a>'
+                )
+                logger.debug("Finished global sensitivity analysis.")
+            except Exception as e:
+                logger.info(f"Failed to compute global feature sensitivities: {e}")
+        if sens is None:
+            try:
+                sens = {
+                    metric_name: model.feature_importances(metric_name)
+                    for i, metric_name in enumerate(sorted(model.metric_names))
+                }
+            except Exception as e:
+                logger.info(f"Failed to compute feature importances: {e}")
+
         try:
             logger.debug("Starting objective vs. param plots.")
+            # importance is the absolute value of sensitivity.
+            importance = None
+            if sens is not None:
+                importance = {
+                    k: {j: np.absolute(sens[k][j]) for j in sens[k].keys()}
+                    for k in sens.keys()
+                }
             output_plot_list.extend(
                 _get_objective_v_param_plots(
                     experiment=experiment,
                     model=model,
+                    importance=importance,
                 )
             )
             logger.debug("Finished objective vs. param plots.")
@@ -414,19 +476,6 @@ def get_standard_plots(
             logger.exception(f"Cross-validation plot failed with error: {e}")
 
         # sensitivity plot
-        sens = None
-        importance_measure = ""
-        try:
-            if global_sensitivity_analysis and isinstance(model, TorchModelBridge):
-                logger.debug("Starting global sensitivity analysis.")
-                sens = ax_parameter_sens(model, order="total", signed=True)
-                importance_measure = (
-                    '<a href="https://en.wikipedia.org/wiki/Variance-based_'
-                    'sensitivity_analysis">Variance-based sensitivity analysis</a>'
-                )
-                logger.debug("Finished global sensitivity analysis.")
-        except Exception as e:
-            logger.info(f"Failed to compute global feature sensitivities: {e}")
         try:
             logger.debug("Starting feature importance plot.")
             feature_importance_plot = plot_feature_importance_by_feature_plotly(
