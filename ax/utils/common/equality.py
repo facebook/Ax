@@ -197,7 +197,8 @@ def object_attribute_dicts_find_unequal_fields(
                     and hasattr(other_val, "model")
                     and isinstance(one_val.model, type(other_val.model))
                 )
-
+        elif field == "_time_created":
+            equal = True
         elif isinstance(one_val, list):
             equal = isinstance(other_val, list) and same_elements(one_val, other_val)
         elif isinstance(one_val, dict):
