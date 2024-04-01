@@ -1126,6 +1126,10 @@ class ExperimentTest(TestCase):
         cloned_experiment = experiment.clone_with()
         self.assertEqual(cloned_experiment.name, "cloned_experiment_" + experiment.name)
         cloned_experiment._name = experiment.name
+
+        # the clone_experiment._time_created field is set as datetime.now().
+        # for it to be equal we need to update it to match experiment.
+        cloned_experiment._time_created = experiment._time_created
         self.assertEqual(cloned_experiment, experiment)
 
     def test_metric_summary_df(self) -> None:
