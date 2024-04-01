@@ -75,6 +75,8 @@ DUMMY_ARM_NAME = "test_arm_name"
 class TestMetric(Metric):
     """Shell metric class for testing."""
 
+    __test__ = False
+
     pass
 
 
