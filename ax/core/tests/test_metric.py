@@ -18,6 +18,8 @@ from ax.utils.testing.core_stubs import (
 
 
 class TestMetric(Metric):
+    __test__ = False
+
     pass
 
 
