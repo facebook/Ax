@@ -17,7 +17,6 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import FixedParameter, ParameterType
 from ax.core.search_space import SearchSpace
@@ -205,9 +204,7 @@ class CrossValidationTest(TestCase):
 
         # Test selector
 
-        # pyre-fixme[3]: Return type must be annotated.
-        # pyre-fixme[2]: Parameter must be annotated.
-        def test_selector(obs):
+        def test_selector(obs: Observation) -> bool:
             return obs.features.parameters["x"] != 4.0
 
         result = cross_validate(model=ma, folds=-1, test_selector=test_selector)
@@ -269,10 +266,9 @@ class CrossValidationTest(TestCase):
         with self.assertRaisesRegex(ValueError, "no training data"):
             cross_validate(model=sobol)
 
-    # pyre-fixme[3]: Return type must be annotated.
     def test_cross_validate_raises_not_implemented_error_for_non_cv_model_with_data(
         self,
-    ):
+    ) -> None:
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run().complete()
         sobol = Models.SOBOL(

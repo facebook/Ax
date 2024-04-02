@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from copy import deepcopy
@@ -39,6 +40,7 @@ from ax.utils.stats.model_fit_stats import (
     ModelFitMetricProtocol,
     std_of_the_standardized_error,
 )
+from botorch.exceptions.warnings import InputDataWarning
 
 logger: Logger = get_logger(__name__)
 
@@ -170,11 +172,20 @@ def cross_validate(
             ) = model._transform_inputs_for_cv(
                 cv_training_data=cv_training_data, cv_test_points=cv_test_points
             )
-            cv_test_predictions = model._cross_validate(
-                search_space=search_space,
-                cv_training_data=cv_training_data,
-                cv_test_points=cv_test_points,
-            )
+            with warnings.catch_warnings():
+                # Since each CV fold removes points from the training data, the
+                # remaining observations will not pass the standardization test.
+                # To avoid confusing users with this warning, we filter it out.
+                warnings.filterwarnings(
+                    "ignore",
+                    message="Input data is not standardized.",
+                    category=InputDataWarning,
+                )
+                cv_test_predictions = model._cross_validate(
+                    search_space=search_space,
+                    cv_training_data=cv_training_data,
+                    cv_test_points=cv_test_points,
+                )
             # Get test observations in transformed space
             cv_test_data = deepcopy(cv_test_data)
             for t in model.transforms.values():

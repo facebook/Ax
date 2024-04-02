@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+import warnings
 from typing import cast, Dict
 
 from ax.core.experiment import Experiment
@@ -90,3 +91,15 @@ class TestModelBridgeFitMetrics(TestCase):
         )
         self.assertIsInstance(empty_metrics, dict)
         self.assertTrue(len(empty_metrics) == 0)
+
+        # testing log filtering
+        with warnings.catch_warnings(record=True) as ws:
+            fit_metrics = compute_model_fit_metrics_from_modelbridge(
+                model_bridge=model_bridge,
+                experiment=self.branin_experiment,
+                untransform=False,
+                generalization=True,
+            )
+        self.assertFalse(
+            any("Input data is not standardized" in str(w.message) for w in ws)
+        )
