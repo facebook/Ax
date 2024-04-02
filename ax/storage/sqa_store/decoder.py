@@ -635,7 +635,6 @@ class Decoder:
         for arm_sqa in generator_run_sqa.arms:
             arms.append(self.arm_from_sqa(arm_sqa=arm_sqa))
             weights.append(arm_sqa.weight)
-
         if not reduced_state and not immutable_search_space_and_opt_config:
             (
                 opt_config,

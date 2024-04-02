@@ -181,11 +181,16 @@ def get_experiment_with_custom_runner_and_metric(
 
     # Create a trial, set its runner and complete it.
     sobol_generator = get_sobol(search_space=experiment.search_space)
-    sobol_run = sobol_generator.gen(n=1)
+    sobol_run = sobol_generator.gen(
+        n=1,
+        optimization_config=experiment.optimization_config if not immutable else None,
+    )
     trial = experiment.new_trial(generator_run=sobol_run)
     trial.runner = experiment.runner
     trial.mark_running()
     experiment.attach_data(get_data(metric_name="custom_test_metric"))
+    experiment.attach_data(get_data(metric_name="m1"))
+    experiment.attach_data(get_data(metric_name="m3"))
     trial.mark_completed()
 
     if immutable:

@@ -25,6 +25,7 @@ from ax.storage.sqa_store.sqa_classes import (
     SQAExperiment,
     SQAGenerationStrategy,
     SQAGeneratorRun,
+    SQAMetric,
     SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
@@ -139,13 +140,9 @@ def _load_experiment(
     if skip_runners_and_metrics:
         base_metric_type_int = decoder.config.metric_registry[Metric]
         for sqa_metric in experiment_sqa.metrics:
-            sqa_metric.metric_type = base_metric_type_int
-            # Handle multi-objective metrics that are not directly attached to
-            # the experiment
-            if sqa_metric.intent == MetricIntent.MULTI_OBJECTIVE:
-                if sqa_metric.properties is None:
-                    sqa_metric.properties = {}
-                sqa_metric.properties["skip_runners_and_metrics"] = True
+            _set_sqa_metric_to_base_type(
+                sqa_metric, base_metric_type_int=base_metric_type_int
+            )
 
         assign_metric_on_gr = not reduced_state and not imm_OC_and_SS
         if assign_metric_on_gr:
@@ -153,7 +150,9 @@ def _load_experiment(
                 for sqa_trial in experiment_sqa.trials:
                     for sqa_generator_run in sqa_trial.generator_runs:
                         for sqa_metric in sqa_generator_run.metrics:
-                            sqa_metric.metric_type = base_metric_type_int
+                            _set_sqa_metric_to_base_type(
+                                sqa_metric, base_metric_type_int=base_metric_type_int
+                            )
             except DetachedInstanceError as e:
                 raise DetachedInstanceError(
                     "Unable to retrieve metric from SQA generator run, possibly due "
@@ -248,6 +247,21 @@ def _get_trials_sqa(
             sqa_trials.extend(query.all())
 
     return sqa_trials
+
+
+def _set_sqa_metric_to_base_type(
+    sqa_metric: SQAMetric, base_metric_type_int: int
+) -> None:
+    """Sets metric type to base type, since we don't want to load
+    the metric class from the DB.
+    """
+    sqa_metric.metric_type = base_metric_type_int
+    # Handle multi-objective metrics that are not directly attached to
+    # the experiment
+    if sqa_metric.intent == MetricIntent.MULTI_OBJECTIVE:
+        if sqa_metric.properties is None:
+            sqa_metric.properties = {}
+        sqa_metric.properties["skip_runners_and_metrics"] = True
 
 
 def _get_experiment_sqa_reduced_state(
