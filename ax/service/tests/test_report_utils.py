@@ -433,13 +433,18 @@ class ReportUtilsTest(TestCase):
                 "Failed to compute global feature sensitivities:",
                 log.output[1],
             )
-            self.assertIn(
-                "Created contour plots for metric branin_b and parameters ['x2', 'x1']",
-                log.output[2],
+            expected_log = "Created contour plots for metric {} and parameters {}"
+            self.assertTrue(
+                any(
+                    expected_log.format("branin_a", "['x2', 'x1']") in log_info
+                    for log_info in log.output[2:4]
+                )
             )
-            self.assertIn(
-                "Created contour plots for metric branin_a and parameters ['x2', 'x1']",
-                log.output[3],
+            self.assertTrue(
+                any(
+                    expected_log.format("branin_b", "['x2', 'x1']") in log_info
+                    for log_info in log.output[2:4]
+                )
             )
         self.assertEqual(len(plots), 6)
 
