@@ -11,7 +11,6 @@ from ax.modelbridge import transforms
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.factory import (
     get_factorial,
-    get_GPEI,
     get_sobol,
     get_thompson,
     get_uniform,
@@ -26,8 +25,6 @@ __all__ = [
     "Models",
     "TorchModelBridge",
     "get_factorial",
-    "get_GPEI",
-    "get_GPKG",
     "get_sobol",
     "get_thompson",
     "get_uniform",

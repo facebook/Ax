@@ -294,39 +294,6 @@ def get_GPEI(
     )
 
 
-def get_GPKG(
-    experiment: Experiment,
-    data: Data,
-    search_space: Optional[SearchSpace] = None,
-    cost_intercept: float = 0.01,
-    dtype: torch.dtype = torch.double,
-    device: torch.device = DEFAULT_TORCH_DEVICE,
-    transforms: List[Type[Transform]] = Cont_X_trans + Y_trans,
-    transform_configs: Optional[Dict[str, TConfig]] = None,
-    **kwargs: Any,
-) -> TorchModelBridge:
-    """Instantiates a GP model that generates points with KG."""
-    if search_space is None:
-        search_space = experiment.search_space
-    if data.df.empty:
-        raise ValueError("GP+KG BotorchModel requires non-empty data.")
-
-    inputs = {
-        "search_space": search_space,
-        "experiment": experiment,
-        "data": data,
-        "cost_intercept": cost_intercept,
-        "torch_dtype": dtype,
-        "torch_device": device,
-        "transforms": transforms,
-        "transform_configs": transform_configs,
-    }
-
-    if any(p.is_fidelity for k, p in experiment.parameters.items()):
-        inputs["linear_truncated"] = kwargs.get("linear_truncated", True)
-    return checked_cast(TorchModelBridge, Models.GPKG(**inputs))  # pyre-ignore: [16]
-
-
 # TODO[Lena]: how to instantiate MTGP through the enum? The Multi-type MTGP requires
 # a MultiTypeExperiment, so we would need validation for that, but more importantly,
 # we need to create `trial_index_to_type` as in the factory function below.
