@@ -23,7 +23,6 @@ from ax.modelbridge.factory import (
     get_empirical_bayes_thompson,
     get_factorial,
     get_GPEI,
-    get_GPKG,
     get_GPMES,
     get_MOO_EHVI,
     get_MOO_NEHVI,
@@ -136,53 +135,6 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
 
         with self.assertRaises(ValueError):
             get_MTGP_LEGACY(experiment=exp, data=exp.fetch_data(), trial_index=0)
-
-    @fast_botorch_optimize
-    def test_GPKG(self) -> None:
-        """Tests GPKG instantiation."""
-        exp = get_branin_experiment(with_batch=True)
-        with self.assertRaises(ValueError):
-            get_GPKG(experiment=exp, data=exp.fetch_data())
-        exp.trials[0].run().mark_completed()
-        gpkg = get_GPKG(experiment=exp, data=exp.fetch_data())
-        self.assertIsInstance(gpkg, TorchModelBridge)
-
-        # Check that .gen returns without failure
-        gr = gpkg.gen(n=1)
-        self.assertEqual(len(gr.arms), 1)
-
-        # test transform_configs with winsorization
-        configs = {
-            "Winsorize": {
-                "winsorization_config": WinsorizationConfig(
-                    lower_quantile_margin=0.1,
-                    upper_quantile_margin=0.1,
-                )
-            }
-        }
-        gpkg_win = get_GPKG(
-            experiment=exp,
-            data=exp.fetch_data(),
-            # pyre-fixme[6]: For 3rd param expected `Optional[Dict[str, Dict[str,
-            #  Union[None, Dict[str, typing.Any], OptimizationConfig,
-            #  AcquisitionFunction, float, int, str]]]]` but got `Dict[str, Dict[str,
-            #  WinsorizationConfig]]`.
-            transform_configs=configs,
-        )
-        self.assertIsInstance(gpkg_win, TorchModelBridge)
-        self.assertEqual(gpkg_win._transform_configs, configs)
-
-        # test multi-fidelity optimization
-        exp.parameters["x2"] = RangeParameter(
-            name="x2",
-            parameter_type=exp.parameters["x2"].parameter_type,
-            lower=-5.0,
-            upper=10.0,
-            is_fidelity=True,
-            target_value=10.0,
-        )
-        gpkg_mf = get_GPKG(experiment=exp, data=exp.fetch_data())
-        self.assertIsInstance(gpkg_mf, TorchModelBridge)
 
     @fast_botorch_optimize
     def test_GPMES(self) -> None:
