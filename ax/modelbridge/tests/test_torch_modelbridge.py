@@ -149,7 +149,7 @@ class TorchModelBridgeTest(TestCase):
         self.assertIsNone(model_fit_args["candidate_metadata"])
         self.assertEqual(ma._last_observations, observations)
 
-        with mock.patch(f"{TorchModelBridge.__module__}.logger.info") as mock_logger:
+        with mock.patch(f"{TorchModelBridge.__module__}.logger.debug") as mock_logger:
             ma._fit(
                 model=model,
                 search_space=search_space,
