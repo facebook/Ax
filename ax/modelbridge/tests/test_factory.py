@@ -16,14 +16,12 @@ from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
-from ax.core.parameter import RangeParameter
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.factory import (
     get_botorch,
     get_empirical_bayes_thompson,
     get_factorial,
     get_GPEI,
-    get_GPMES,
     get_MOO_EHVI,
     get_MOO_NEHVI,
     get_MOO_PAREGO,
@@ -39,7 +37,6 @@ from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
-from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -135,53 +132,6 @@ class ModelBridgeFactoryTestSingleObjective(TestCase):
 
         with self.assertRaises(ValueError):
             get_MTGP_LEGACY(experiment=exp, data=exp.fetch_data(), trial_index=0)
-
-    @fast_botorch_optimize
-    def test_GPMES(self) -> None:
-        """Tests GPMES instantiation."""
-        exp = get_branin_experiment(with_batch=True)
-        with self.assertRaises(ValueError):
-            get_GPMES(experiment=exp, data=exp.fetch_data())
-        exp.trials[0].run()
-        gpmes = get_GPMES(experiment=exp, data=exp.fetch_data())
-        self.assertIsInstance(gpmes, TorchModelBridge)
-
-        # Check that .gen returns without failure
-        gr = gpmes.gen(n=1)
-        self.assertEqual(len(gr.arms), 1)
-
-        # test transform_configs with winsorization
-        configs = {
-            "Winsorize": {
-                "winsorization_config": WinsorizationConfig(
-                    lower_quantile_margin=0.1,
-                    upper_quantile_margin=0.1,
-                )
-            }
-        }
-        gpmes_win = get_GPMES(
-            experiment=exp,
-            data=exp.fetch_data(),
-            # pyre-fixme[6]: For 3rd param expected `Optional[Dict[str, Dict[str,
-            #  Union[None, Dict[str, typing.Any], OptimizationConfig,
-            #  AcquisitionFunction, float, int, str]]]]` but got `Dict[str, Dict[str,
-            #  WinsorizationConfig]]`.
-            transform_configs=configs,
-        )
-        self.assertIsInstance(gpmes_win, TorchModelBridge)
-        self.assertEqual(gpmes_win._transform_configs, configs)
-
-        # test multi-fidelity optimization
-        exp.parameters["x2"] = RangeParameter(
-            name="x2",
-            parameter_type=exp.parameters["x2"].parameter_type,
-            lower=-5.0,
-            upper=10.0,
-            is_fidelity=True,
-            target_value=10.0,
-        )
-        gpmes_mf = get_GPMES(experiment=exp, data=exp.fetch_data())
-        self.assertIsInstance(gpmes_mf, TorchModelBridge)
 
     def test_model_kwargs(self) -> None:
         """Tests that model kwargs are passed correctly."""
