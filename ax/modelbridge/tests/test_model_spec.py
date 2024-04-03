@@ -58,7 +58,7 @@ class ModelSpecTest(BaseModelSpecTest):
         # This should skip the model fit.
         with mock.patch("ax.modelbridge.torch.logger") as mock_logger:
             ms.fit(experiment=self.experiment, data=self.data)
-        mock_logger.info.assert_called_with(
+        mock_logger.debug.assert_called_with(
             "The observations are identical to the last set of observations "
             "used to fit the model. Skipping model fitting."
         )
