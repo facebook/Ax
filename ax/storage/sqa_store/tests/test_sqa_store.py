@@ -16,7 +16,7 @@ from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial, LifecycleStage
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.objective import Objective
+from ax.core.objective import MultiObjective, Objective
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.runner import Runner
@@ -248,11 +248,18 @@ class SQAStoreTest(TestCase):
 
         for immutable in [True, False]:
             for multi_objective in [True, False]:
+                custom_metric_names = ["custom_test_metric"]
                 experiment = get_experiment_with_custom_runner_and_metric(
                     constrain_search_space=False,
                     immutable=immutable,
                     multi_objective=multi_objective,
                 )
+                if multi_objective:
+                    custom_metric_names.extend(["m1", "m3"])
+                    for metric_name in custom_metric_names:
+                        self.assertEqual(
+                            experiment.metrics[metric_name].__class__, CustomTestMetric
+                        )
 
                 # Save the experiment to db using the updated registries.
                 save_experiment(experiment, config=sqa_config)
@@ -272,13 +279,27 @@ class SQAStoreTest(TestCase):
                 #   - the runner is not loaded
                 #   - the metric is loaded as a base Metric class, not CustomTestMetric
                 self.assertIs(loaded_experiment.runner, None)
-                self.assertTrue("custom_test_metric" in loaded_experiment.metrics)
-                self.assertEqual(
-                    loaded_experiment.metrics["custom_test_metric"].__class__, Metric
-                )
+
+                for metric_name in custom_metric_names:
+                    self.assertTrue(metric_name in loaded_experiment.metrics)
+                    self.assertEqual(
+                        loaded_experiment.metrics["custom_test_metric"].__class__,
+                        Metric,
+                    )
                 self.assertEqual(len(loaded_experiment.trials), 1)
-                self.assertIs(loaded_experiment.trials[0].runner, None)
+                trial = loaded_experiment.trials[0]
+                self.assertIs(trial.runner, None)
                 delete_experiment(exp_name=experiment.name)
+                # check generator runs
+                gr = trial.generator_runs[0]
+                if multi_objective and not immutable:
+                    objectives = checked_cast(
+                        MultiObjective, not_none(gr.optimization_config).objective
+                    ).objectives
+                    for i, objective in enumerate(objectives):
+                        metric = objective.metric
+                        self.assertEqual(metric.name, f"m{1 + 2 * i}")
+                        self.assertEqual(metric.__class__, Metric)
 
     @patch(
         f"{Decoder.__module__}.Decoder.generator_run_from_sqa",
