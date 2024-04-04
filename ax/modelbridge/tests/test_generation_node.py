@@ -313,7 +313,7 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
         ms_gpei = ModelSpec(model_enum=Models.GPEI)
         ms_gpei.fit(experiment=self.branin_experiment, data=data)
 
-        ms_botorch = ModelSpec(model_enum=Models.BOTORCH)
+        ms_botorch = ModelSpec(model_enum=Models.BOTORCH_MODULAR)
         ms_botorch.fit(experiment=self.branin_experiment, data=data)
 
         self.fitted_model_specs = [ms_gpei, ms_botorch]
