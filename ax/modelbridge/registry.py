@@ -61,7 +61,6 @@ from ax.models.random.sobol import SobolGenerator
 from ax.models.random.uniform import UniformGenerator
 from ax.models.torch.alebo import ALEBO
 from ax.models.torch.botorch import BotorchModel
-from ax.models.torch.botorch_mes import MaxValueEntropySearch
 from ax.models.torch.botorch_modular.model import (
     BoTorchModel as ModularBoTorchModel,
     SurrogateSpec,
@@ -174,12 +173,6 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
     "GPEI": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=BotorchModel,
-        transforms=Cont_X_trans + Y_trans,
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
-    ),
-    "GPMES": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=MaxValueEntropySearch,
         transforms=Cont_X_trans + Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
@@ -465,7 +458,6 @@ class Models(ModelRegistryBase):
 
     SOBOL = "Sobol"
     GPEI = "GPEI"
-    GPMES = "GPMES"
     FACTORIAL = "Factorial"
     SAASBO = "SAASBO"
     FULLYBAYESIAN = "FullyBayesian"
