@@ -244,7 +244,7 @@ class TestSebo(TestCase):
             feature_names=["a"],
             bounds=[(-10.0, 5.0)],
         )
-        candidate, acqf_val = acquisition._optimize_with_homotopy(
+        candidate, acqf_val, weights = acquisition._optimize_with_homotopy(
             n=1,
             search_space_digest=search_space_digest,
             optimizer_options={
@@ -255,6 +255,7 @@ class TestSebo(TestCase):
         )
         self.assertEqual(candidate, torch.zeros(1, **tkwargs))
         self.assertEqual(acqf_val, 5 * torch.ones(1, **tkwargs))
+        self.assertEqual(weights, torch.ones(1, **tkwargs))
 
     @mock.patch(f"{SEBOACQUISITION_PATH}.optimize_acqf_homotopy")
     def test_optimize_l0(self, mock_optimize_acqf_homotopy: Mock) -> None:

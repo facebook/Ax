@@ -574,7 +574,11 @@ class SurrogateTest(TestCase):
     @patch(f"{ACQUISITION_PATH}.Acquisition.__init__", return_value=None)
     @patch(
         f"{ACQUISITION_PATH}.Acquisition.optimize",
-        return_value=([torch.tensor([0.0])], [torch.tensor([1.0])]),
+        return_value=(
+            torch.tensor([[0.0]]),
+            torch.tensor([1.0]),
+            torch.tensor([1.0]),
+        ),
     )
     @patch(
         f"{SURROGATE_PATH}.pick_best_out_of_sample_point_acqf_class",
@@ -615,7 +619,7 @@ class SurrogateTest(TestCase):
                 options={Keys.SAMPLER: SobolQMCNormalSampler},
             )
             self.assertTrue(torch.equal(candidate, torch.tensor([0.0])))
-            self.assertTrue(torch.equal(acqf_value, torch.tensor([1.0])))
+            self.assertTrue(torch.equal(acqf_value, torch.tensor(1.0)))
 
     def test_serialize_attributes_as_kwargs(self) -> None:
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
