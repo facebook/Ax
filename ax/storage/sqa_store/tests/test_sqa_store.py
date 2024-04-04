@@ -253,6 +253,7 @@ class SQAStoreTest(TestCase):
                     constrain_search_space=False,
                     immutable=immutable,
                     multi_objective=multi_objective,
+                    num_trials=1,
                 )
                 if multi_objective:
                     custom_metric_names.extend(["m1", "m3"])

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from datetime import datetime, timedelta
-
 from logging import Logger
 from pathlib import Path
 from typing import (
@@ -158,18 +157,23 @@ def get_experiment_with_custom_runner_and_metric(
     constrain_search_space: bool = True,
     immutable: bool = False,
     multi_objective: bool = False,
+    num_trials: int = 3,
+    has_outcome_constraint: bool = False,
 ) -> Experiment:
-
     # Create experiment with custom runner and metric
     experiment = Experiment(
         name="test",
-        # Omit constraints to prevent Sobol rejection sampling below,
-        # which floods logs with "Unable to round" warnings.
         search_space=get_search_space(constrain_search_space=constrain_search_space),
         optimization_config=(
-            get_multi_objective_optimization_config(custom_metric=True)
+            get_multi_objective_optimization_config(
+                custom_metric=True,
+                outcome_constraint=has_outcome_constraint,
+                relative=False,
+            )
             if multi_objective
-            else get_optimization_config()
+            else get_optimization_config(
+                outcome_constraint=has_outcome_constraint, relative=False
+            )
         ),
         description="test description",
         tracking_metrics=[
@@ -180,18 +184,30 @@ def get_experiment_with_custom_runner_and_metric(
     )
 
     # Create a trial, set its runner and complete it.
-    sobol_generator = get_sobol(search_space=experiment.search_space)
-    sobol_run = sobol_generator.gen(
-        n=1,
-        optimization_config=experiment.optimization_config if not immutable else None,
-    )
-    trial = experiment.new_trial(generator_run=sobol_run)
-    trial.runner = experiment.runner
-    trial.mark_running()
-    experiment.attach_data(get_data(metric_name="custom_test_metric"))
-    experiment.attach_data(get_data(metric_name="m1"))
-    experiment.attach_data(get_data(metric_name="m3"))
-    trial.mark_completed()
+    for _ in range(num_trials):
+        sobol_generator = get_sobol(
+            search_space=experiment.search_space,
+        )
+        sobol_run = sobol_generator.gen(
+            n=1,
+            optimization_config=(
+                experiment.optimization_config if not immutable else None
+            ),
+        )
+        trial = experiment.new_trial(generator_run=sobol_run)
+        trial.runner = experiment.runner
+        trial.mark_running()
+        data = Data.from_multiple_data(
+            get_data(
+                metric_name=metric_name,
+                trial_index=trial.index,
+                num_non_sq_arms=len(trial.arms),
+                include_sq=False,
+            )
+            for metric_name in experiment.metrics
+        )
+        experiment.attach_data(data)
+        trial.mark_completed()
 
     if immutable:
         experiment._properties = {Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True}
@@ -1494,8 +1510,10 @@ def get_objective_threshold(
     )
 
 
-def get_outcome_constraint() -> OutcomeConstraint:
-    return OutcomeConstraint(metric=Metric(name="m2"), op=ComparisonOp.GEQ, bound=-0.25)
+def get_outcome_constraint(relative: bool = True) -> OutcomeConstraint:
+    return OutcomeConstraint(
+        metric=Metric(name="m2"), op=ComparisonOp.GEQ, bound=-0.25, relative=relative
+    )
 
 
 def get_scalarized_outcome_constraint() -> ScalarizedOutcomeConstraint:
@@ -1599,9 +1617,13 @@ def get_augmented_hartmann_objective() -> Objective:
 ##############################
 
 
-def get_optimization_config() -> OptimizationConfig:
+def get_optimization_config(
+    outcome_constraint: bool = True, relative: bool = True
+) -> OptimizationConfig:
     objective = get_objective()
-    outcome_constraints = [get_outcome_constraint()]
+    outcome_constraints = (
+        [get_outcome_constraint(relative=relative)] if outcome_constraint else []
+    )
     return OptimizationConfig(
         objective=objective, outcome_constraints=outcome_constraints
     )
@@ -1614,10 +1636,14 @@ def get_map_optimization_config() -> OptimizationConfig:
 
 def get_multi_objective_optimization_config(
     custom_metric: bool = False,
+    relative: bool = True,
+    outcome_constraint: bool = True,
 ) -> MultiObjectiveOptimizationConfig:
 
     objective = get_custom_multi_objective() if custom_metric else get_multi_objective()
-    outcome_constraints = [get_outcome_constraint()]
+    outcome_constraints = (
+        [get_outcome_constraint(relative=relative)] if outcome_constraint else []
+    )
     objective_thresholds = [
         get_objective_threshold(metric_name="m1"),
         get_objective_threshold(metric_name="m3", comparison_op=ComparisonOp.LEQ),

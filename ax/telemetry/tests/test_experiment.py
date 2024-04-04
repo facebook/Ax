@@ -14,7 +14,9 @@ from ax.utils.testing.core_stubs import get_experiment_with_custom_runner_and_me
 
 class TestExperiment(TestCase):
     def test_experiment_created_record_from_experiment(self) -> None:
-        experiment = get_experiment_with_custom_runner_and_metric()
+        experiment = get_experiment_with_custom_runner_and_metric(
+            has_outcome_constraint=True
+        )
 
         record = ExperimentCreatedRecord.from_experiment(experiment=experiment)
         expected = ExperimentCreatedRecord(
@@ -42,8 +44,9 @@ class TestExperiment(TestCase):
         self.assertEqual(record, expected)
 
     def test_experiment_completed_record_from_experiment(self) -> None:
-        experiment = get_experiment_with_custom_runner_and_metric()
-
+        experiment = get_experiment_with_custom_runner_and_metric(
+            has_outcome_constraint=True, num_trials=1
+        )
         record = ExperimentCompletedRecord.from_experiment(experiment=experiment)
 
         # Calculate these here, may change from run to run
