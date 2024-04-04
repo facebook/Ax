@@ -20,8 +20,10 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError
+from ax.modelbridge.transforms.deprecated_transform_mixin import (
+    DeprecatedTransformMixin,
+)
 from ax.models.types import TConfig
-
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -76,6 +78,33 @@ class Transform:
             config = {}
         self.config = config
         self.modelbridge = modelbridge
+
+    def __eq__(self, other: Transform) -> bool:
+        """Check if two transforms are equal by their attributes.
+        Add a special case where if one of the transforms are deprecated,
+        we compare the attribute dicts of the two transforms instead of the
+
+        Args:
+            other: The other transform to compare to.
+
+        Returns: True if the transforms are equal, False otherwise.
+        """
+        if isinstance(self, type(DeprecatedTransformMixin)) and not isinstance(
+            self, type(other)
+        ):
+            return False
+        if isinstance(other, type(DeprecatedTransformMixin)) and not isinstance(
+            other, type(self)
+        ):
+            return False
+        if (
+            isinstance(self, DeprecatedTransformMixin)
+            and isinstance(other, DeprecatedTransformMixin)
+            and (not isinstance(self, type(other)) or not isinstance(other, type(self)))
+        ):
+            return False
+
+        return self.__dict__ == other.__dict__
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         """Transform search space.
