@@ -214,7 +214,7 @@ class SEBOAcquisition(Acquisition):
         fixed_features: Optional[Dict[int, float]] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         optimizer_options: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> Tuple[Tensor, Tensor, Tensor]:
         """Generate a set of candidates via multi-start optimization. Obtains
         candidates and their associated acquisition function values.
 
@@ -232,6 +232,11 @@ class SEBOAcquisition(Acquisition):
                 transformations).
             optimizer_options: Options for the optimizer function, e.g. ``sequential``
                 or ``raw_samples``.
+
+        Returns:
+            A three-element tuple containing an `n x d`-dim tensor of generated
+            candidates, a tensor with the associated acquisition values, and a tensor
+            with the weight for each candidate.
         """
         if self.penalty_name == "L0_norm":
             if inequality_constraints is not None:
@@ -239,16 +244,18 @@ class SEBOAcquisition(Acquisition):
                     "Homotopy does not support optimization with inequality "
                     + "constraints. Use L1 penalty norm instead."
                 )
-            candidates, expected_acquisition_value = self._optimize_with_homotopy(
-                n=n,
-                search_space_digest=search_space_digest,
-                fixed_features=fixed_features,
-                rounding_func=rounding_func,
-                optimizer_options=optimizer_options,
+            candidates, expected_acquisition_value, weights = (
+                self._optimize_with_homotopy(
+                    n=n,
+                    search_space_digest=search_space_digest,
+                    fixed_features=fixed_features,
+                    rounding_func=rounding_func,
+                    optimizer_options=optimizer_options,
+                )
             )
         else:
             # if L1 norm use standard moo-opt
-            candidates, expected_acquisition_value = super().optimize(
+            candidates, expected_acquisition_value, weights = super().optimize(
                 n=n,
                 search_space_digest=search_space_digest,
                 inequality_constraints=inequality_constraints,
@@ -265,7 +272,7 @@ class SEBOAcquisition(Acquisition):
             device=self.device,
             dtype=self.dtype,
         )
-        return candidates, expected_acquisition_value
+        return candidates, expected_acquisition_value, weights
 
     def _optimize_with_homotopy(
         self,
@@ -274,7 +281,7 @@ class SEBOAcquisition(Acquisition):
         fixed_features: Optional[Dict[int, float]] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         optimizer_options: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> Tuple[Tensor, Tensor, Tensor]:
         """Optimize SEBO ACQF with L0 norm using homotopy."""
         # extend to fixed a no homotopy_schedule schedule
         _tensorize = partial(torch.tensor, dtype=self.dtype, device=self.device)
@@ -346,7 +353,11 @@ class SEBOAcquisition(Acquisition):
             batch_initial_conditions=batch_initial_conditions,
         )
 
-        return candidates, expected_acquisition_value
+        return (
+            candidates,
+            expected_acquisition_value,
+            torch.ones(n, dtype=candidates.dtype),
+        )
 
 
 def L1_norm_func(X: Tensor, init_point: Tensor) -> Tensor:

@@ -299,7 +299,7 @@ class AcquisitionTest(TestCase):
                 outcome_constraints=self.outcome_constraints
             )
 
-    @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf")
+    @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf", return_value=(Mock(), Mock()))
     def test_optimize(self, mock_optimize_acqf: Mock) -> None:
         acquisition = self.get_acquisition_function(fixed_features=self.fixed_features)
         acquisition.optimize(
@@ -421,7 +421,7 @@ class AcquisitionTest(TestCase):
         # 2 candidates have acqf value 8, but [1, 3, 4] is pending and thus should
         # not be selected. [2, 3, 4] is the best point, but has already been picked
         acquisition = self.get_acquisition_function()
-        X_selected, _ = acquisition.optimize(
+        X_selected, _, weights = acquisition.optimize(
             n=2,
             search_space_digest=ssd1,
             rounding_func=self.rounding_func,
@@ -431,6 +431,7 @@ class AcquisitionTest(TestCase):
         self.assertTrue(
             all((x.unsqueeze(0) == expected).all(dim=-1).any() for x in X_selected)
         )
+        self.assertTrue(torch.equal(weights, torch.ones(2)))
         # check with fixed feature
         # Since parameter 1 is fixed to 2, the best 3 candidates are
         # [4, 2, 4], [3, 2, 4], [4, 2, 3]
@@ -444,7 +445,7 @@ class AcquisitionTest(TestCase):
             #  int]]]` but got `Dict[int, List[int]]`.
             discrete_choices={k: [0, 1, 2, 3, 4] for k in range(3)},
         )
-        X_selected, _ = acquisition.optimize(
+        X_selected, _, weights = acquisition.optimize(
             n=3,
             search_space_digest=ssd2,
             fixed_features=self.fixed_features,
@@ -455,9 +456,10 @@ class AcquisitionTest(TestCase):
         self.assertTrue(
             all((x.unsqueeze(0) == expected).all(dim=-1).any() for x in X_selected)
         )
+        self.assertTrue(torch.equal(weights, torch.ones(3)))
         # check with a constraint that -1 * x[0]  -1 * x[1] >= 0 which should make
         # [0, 0, 4] the best candidate.
-        X_selected, _ = acquisition.optimize(
+        X_selected, _, weights = acquisition.optimize(
             n=1,
             search_space_digest=ssd2,
             rounding_func=self.rounding_func,
@@ -467,8 +469,9 @@ class AcquisitionTest(TestCase):
         )
         expected = torch.tensor([[0, 0, 4]]).to(self.X)
         self.assertTrue(torch.equal(expected, X_selected))
+        self.assertTrue(torch.equal(weights, torch.tensor([1.0], dtype=self.X.dtype)))
         # Same thing but use two constraints instead
-        X_selected, _ = acquisition.optimize(
+        X_selected, _, weights = acquisition.optimize(
             n=1,
             search_space_digest=ssd2,
             rounding_func=self.rounding_func,
@@ -479,8 +482,12 @@ class AcquisitionTest(TestCase):
         )
         expected = torch.tensor([[0, 0, 4]]).to(self.X)
         self.assertTrue(torch.equal(expected, X_selected))
+        self.assertTrue(torch.equal(weights, torch.tensor([1.0])))
 
-    @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search")
+    @mock.patch(
+        f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search",
+        return_value=(Mock(), Mock()),
+    )
     def test_optimize_acqf_discrete_local_search(
         self,
         mock_optimize_acqf_discrete_local_search: Mock,
@@ -524,7 +531,9 @@ class AcquisitionTest(TestCase):
             all((X_avoid_true == x).all(dim=-1).any().item() for x in kwargs["X_avoid"])
         )
 
-    @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf_mixed")
+    @mock.patch(
+        f"{ACQUISITION_PATH}.optimize_acqf_mixed", return_value=(Mock(), Mock())
+    )
     def test_optimize_mixed(self, mock_optimize_acqf_mixed: Mock) -> None:
         tkwargs = {"dtype": self.X.dtype, "device": self.X.device}
         ssd = SearchSpaceDigest(
@@ -564,7 +573,9 @@ class AcquisitionTest(TestCase):
         mock_optimize_acqf_mixed.reset_mock()
         optimizer_options = self.optimizer_options.copy()
         optimizer_options["force_use_optimize_acqf"] = True
-        with mock.patch(f"{ACQUISITION_PATH}.optimize_acqf") as mock_optimize_acqf:
+        with mock.patch(
+            f"{ACQUISITION_PATH}.optimize_acqf", return_value=(Mock(), Mock())
+        ) as mock_optimize_acqf:
             acquisition.optimize(
                 n=3,
                 search_space_digest=ssd,

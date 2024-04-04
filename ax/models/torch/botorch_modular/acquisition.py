@@ -382,7 +382,7 @@ class Acquisition(Base):
         fixed_features: Optional[Dict[int, float]] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
         optimizer_options: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> Tuple[Tensor, Tensor, Tensor]:
         """Generate a set of candidates via multi-start optimization. Obtains
         candidates and their associated acquisition function values.
 
@@ -409,8 +409,9 @@ class Acquisition(Base):
                 down these options while constructing a generation strategy.
 
         Returns:
-            A two-element tuple containing an `n x d`-dim tensor of generated candidates
-            and a tensor with the associated acquisition value.
+            A three-element tuple containing an `n x d`-dim tensor of generated
+            candidates, a tensor with the associated acquisition values, and a tensor
+            with the weight for each candidate.
         """
         # NOTE: Could make use of `optimizer_class` when it's added to BoTorch
         # instead of calling `optimizer_acqf` or `optimize_acqf_discrete` etc.
@@ -434,13 +435,15 @@ class Acquisition(Base):
             for i in fixed_features:
                 if not 0 <= i < len(ssd.feature_names):
                     raise ValueError(f"Invalid fixed_feature index: {i}")
-
+        # Return a weight of 1 for each arm by default. This can be
+        # customized in subclasses if necessary.
+        arm_weights = torch.ones(n, dtype=self.dtype)
         # 1. Handle the fully continuous search space.
         if (
             optimizer_options_with_defaults.pop("force_use_optimize_acqf", False)
             or not discrete_features
         ):
-            return optimize_acqf(
+            candidates, acqf_values = optimize_acqf(
                 acq_function=self.acqf,
                 bounds=bounds,
                 q=n,
@@ -449,6 +452,7 @@ class Acquisition(Base):
                 post_processing_func=post_processing_func,
                 **optimizer_options_with_defaults,
             )
+            return candidates, acqf_values, arm_weights
 
         # 2. Handle search spaces with discrete features.
         discrete_choices = mk_discrete_choices(ssd=ssd, fixed_features=fixed_features)
@@ -468,7 +472,7 @@ class Acquisition(Base):
                     torch.tensor(c, device=self.device, dtype=self.dtype)
                     for c in discrete_choices.values()
                 ]
-                return optimize_acqf_discrete_local_search(
+                candidates, acqf_values = optimize_acqf_discrete_local_search(
                     acq_function=self.acqf,
                     q=n,
                     discrete_choices=discrete_choices,
@@ -476,6 +480,7 @@ class Acquisition(Base):
                     X_avoid=X_observed,
                     **optimizer_options_with_defaults,
                 )
+                return candidates, acqf_values, arm_weights
 
             # Enumerate all possible choices
             all_choices = (discrete_choices[i] for i in range(len(discrete_choices)))
@@ -520,12 +525,13 @@ class Acquisition(Base):
                 optimizer_options=optimizer_options,
                 optimizer_is_discrete=True,
             )
-            return optimize_acqf_discrete(
+            candidates, acqf_values = optimize_acqf_discrete(
                 acq_function=self.acqf, q=n, choices=all_choices, **discrete_opt_options
             )
+            return candidates, acqf_values, arm_weights
 
         # 2b. Handle mixed search spaces that have discrete and continuous features.
-        return optimize_acqf_mixed(
+        candidates, acqf_values = optimize_acqf_mixed(
             acq_function=self.acqf,
             bounds=bounds,
             q=n,
@@ -539,6 +545,7 @@ class Acquisition(Base):
             post_processing_func=post_processing_func,
             **optimizer_options_with_defaults,
         )
+        return candidates, acqf_values, arm_weights
 
     def evaluate(self, X: Tensor) -> Tensor:
         """Evaluate the acquisition function on the candidate set `X`.

@@ -670,7 +670,7 @@ class Surrogate(Base):
             torch_opt_config=torch_opt_config,
             options=acqf_options,
         )
-        candidates, acqf_values = acqf.optimize(
+        candidates, acqf_values, _ = acqf.optimize(
             n=1,
             search_space_digest=search_space_digest,
             inequality_constraints=_to_inequality_constraints(

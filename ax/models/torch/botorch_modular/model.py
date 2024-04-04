@@ -427,7 +427,7 @@ class BoTorchModel(TorchModel, Base):
             acq_options=acq_options,
         )
         botorch_rounding_func = get_rounding_func(torch_opt_config.rounding_func)
-        candidates, expected_acquisition_value = acqf.optimize(
+        candidates, expected_acquisition_value, weights = acqf.optimize(
             n=n,
             search_space_digest=search_space_digest,
             inequality_constraints=_to_inequality_constraints(
@@ -444,7 +444,7 @@ class BoTorchModel(TorchModel, Base):
         )
         return TorchGenResults(
             points=candidates.detach().cpu(),
-            weights=torch.ones(n, dtype=self.dtype),
+            weights=weights,
             gen_metadata=gen_metadata,
         )
 

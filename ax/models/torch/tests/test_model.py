@@ -482,8 +482,9 @@ class BoTorchModelTest(TestCase):
             input_constructor=mock_input_constructor,
         )
         mock_optimize.return_value = (
-            torch.tensor([1.0]),
+            torch.tensor([[1.0]]),
             torch.tensor([2.0]),
+            torch.tensor([1.0]),
         )
         surrogate = Surrogate(botorch_model_class=botorch_model_class)
         model = BoTorchModel(
@@ -824,8 +825,8 @@ class BoTorchModelTest(TestCase):
 
     @mock.patch(
         f"{ACQUISITION_PATH}.Acquisition.optimize",
-        # Dummy candidates and acquisition function value.
-        return_value=(torch.tensor([[2.0]]), torch.tensor([1.0])),
+        # Dummy candidates, acquisition value, and weights
+        return_value=(torch.tensor([[2.0]]), torch.tensor([1.0]), torch.tensor([1.0])),
     )
     def test_MOO(self, _) -> None:
         # Add mock for qLogNEHVI input constructor to catch arguments passed to it.
