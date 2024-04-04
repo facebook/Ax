@@ -290,6 +290,10 @@ class DataTest(TestCase):
             )
             Data.from_multiple_data([data_elt_A, data_elt_B])
 
+    def test_from_multiple_with_generator(self) -> None:
+        data = Data.from_multiple_data(Data(df=self.df) for _ in range(2))
+        self.assertEqual(len(data.df), 2 * len(self.df))
+
     def test_GetFilteredResults(self) -> None:
         data = Data(df=self.df)
         # pyre-fixme[6]: For 1st param expected `Dict[str, typing.Any]` but got `str`.

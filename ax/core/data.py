@@ -270,15 +270,14 @@ class BaseData(Base, SerializationMixin):
         Args:
             data: Iterable of Ax objects of this class to combine.
         """
-        incompatible_types = {
-            type(datum) for datum in data if not isinstance(datum, cls)
-        }
-        if incompatible_types:
-            raise TypeError(
-                f"All data objects must be instances of class {cls}. Got "
-                f"{incompatible_types}."
-            )
-        dfs = [datum.df for datum in data]
+        dfs = []
+        for datum in data:
+            if not isinstance(datum, cls):
+                raise TypeError(
+                    f"All data objects must be instances of class {cls}. Got "
+                    f"{type(datum)}."
+                )
+            dfs.append(datum.df)
 
         if len(dfs) == 0:
             return cls()
