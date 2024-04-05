@@ -12,7 +12,7 @@ from ax.core.observation import Observation
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
-from ax.modelbridge.transforms.choice_encode import OrderedChoiceEncode
+from ax.modelbridge.transforms.choice_encode import OrderedChoiceToIntegerRange
 from ax.modelbridge.transforms.utils import construct_new_search_space
 from ax.models.types import TConfig
 
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from ax import modelbridge as modelbridge_module  # noqa F401
 
 
-class TaskEncode(OrderedChoiceEncode):
+class TaskEncode(OrderedChoiceToIntegerRange):
     """Convert task ChoiceParameters to integer-valued ChoiceParameters.
 
     Parameters will be transformed to an integer ChoiceParameter with

@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import Observation, ObservationFeatures
@@ -14,6 +14,9 @@ from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangePa
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.deprecated_transform_mixin import (
+    DeprecatedTransformMixin,
+)
 from ax.modelbridge.transforms.utils import (
     ClosestLookupDict,
     construct_new_search_space,
@@ -39,7 +42,7 @@ class ChoiceEncode(Transform):
 
     This transform does not transform task parameters (use TaskEncode for this).
 
-    Note that this behavior is different from that of OrderedChoiceEncode, which
+    Note that this behavior is different from that of OrderedChoiceToIntegerRange, which
     transforms (ordered) ChoiceParameters to integer RangeParameters (rather than
     ChoiceParameters).
 
@@ -120,7 +123,7 @@ class ChoiceEncode(Transform):
         return observation_features
 
 
-class OrderedChoiceEncode(ChoiceEncode):
+class OrderedChoiceToIntegerRange(ChoiceEncode):
     """Convert ordered ChoiceParameters to integer RangeParameters.
 
     Parameters will be transformed to an integer RangeParameters, mapped from the
@@ -185,6 +188,13 @@ class OrderedChoiceEncode(ChoiceEncode):
                 for pc in search_space.parameter_constraints
             ],
         )
+
+
+class OrderedChoiceEncode(DeprecatedTransformMixin, OrderedChoiceToIntegerRange):
+    """Deprecated alias for OrderedChoiceToIntegerRange."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
 
 
 def transform_choice_values(p: ChoiceParameter) -> Tuple[np.ndarray, ParameterType]:

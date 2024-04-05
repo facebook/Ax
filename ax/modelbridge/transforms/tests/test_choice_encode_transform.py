@@ -14,7 +14,11 @@ from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import RobustSearchSpace, SearchSpace
-from ax.modelbridge.transforms.choice_encode import ChoiceEncode, OrderedChoiceEncode
+from ax.modelbridge.transforms.choice_encode import (
+    ChoiceEncode,
+    OrderedChoiceEncode,
+    OrderedChoiceToIntegerRange,
+)
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import get_robust_search_space
@@ -166,7 +170,7 @@ class ChoiceEncodeTransformTest(TestCase):
                 )
             ]
         )
-        t = OrderedChoiceEncode(search_space=ss3, observations=[])
+        t = OrderedChoiceToIntegerRange(search_space=ss3, observations=[])
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
 
@@ -208,8 +212,8 @@ class ChoiceEncodeTransformTest(TestCase):
         self.assertEqual(rss_new.parameters.get("c").parameter_type, ParameterType.INT)
 
 
-class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
-    t_class = OrderedChoiceEncode
+class OrderedChoiceToIntegerRangeTransformTest(ChoiceEncodeTransformTest):
+    t_class = OrderedChoiceToIntegerRange
 
     def setUp(self) -> None:
         super().setUp()
@@ -258,9 +262,27 @@ class OrderedChoiceEncodeTransformTest(ChoiceEncodeTransformTest):
                 )
             ]
         )
-        t = OrderedChoiceEncode(search_space=ss3, observations=[])
+        t = OrderedChoiceToIntegerRange(search_space=ss3, observations=[])
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
+
+    def test_deprecated_OrderedChoiceEncode(self) -> None:
+        # Ensure we error if we try to transform a fidelity parameter
+        ss3 = SearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    "b",
+                    parameter_type=ParameterType.FLOAT,
+                    values=[1.0, 10.0, 100.0],
+                    is_ordered=True,
+                    is_fidelity=True,
+                    target_value=100.0,
+                )
+            ]
+        )
+        t = OrderedChoiceToIntegerRange(search_space=ss3, observations=[])
+        t_deprecated = OrderedChoiceEncode(search_space=ss3, observations=[])
+        self.assertEqual(t.__dict__, t_deprecated.__dict__)
 
 
 def normalize_values(values: Sized) -> List[float]:

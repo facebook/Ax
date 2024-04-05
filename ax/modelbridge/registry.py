@@ -35,7 +35,10 @@ from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.centered_unit_x import CenteredUnitX
-from ax.modelbridge.transforms.choice_encode import ChoiceEncode, OrderedChoiceEncode
+from ax.modelbridge.transforms.choice_encode import (
+    ChoiceEncode,
+    OrderedChoiceToIntegerRange,
+)
 from ax.modelbridge.transforms.convert_metric_names import ConvertMetricNames
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
@@ -87,7 +90,7 @@ logger: Logger = get_logger(__name__)
 
 Cont_X_trans: List[Type[Transform]] = [
     RemoveFixed,
-    OrderedChoiceEncode,
+    OrderedChoiceToIntegerRange,
     OneHot,
     IntToFloat,
     Log,
