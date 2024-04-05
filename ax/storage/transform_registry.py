@@ -6,11 +6,15 @@
 
 # pyre-strict
 
-from typing import Dict, Type
+from typing import Dict, List, Type
 
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cap_parameter import CapParameter
-from ax.modelbridge.transforms.choice_encode import ChoiceEncode, OrderedChoiceEncode
+from ax.modelbridge.transforms.choice_encode import (
+    ChoiceEncode,
+    OrderedChoiceEncode,
+    OrderedChoiceToIntegerRange,
+)
 from ax.modelbridge.transforms.convert_metric_names import ConvertMetricNames
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
@@ -56,7 +60,8 @@ TRANSFORM_REGISTRY: Dict[Type[Transform], int] = {
     IVW: 4,
     Log: 5,
     OneHot: 6,
-    OrderedChoiceEncode: 7,
+    OrderedChoiceEncode: 7,  # TO BE DEPRECATED
+    OrderedChoiceToIntegerRange: 7,
     # This transform was upstreamed into the base modelbridge.
     # Old transforms serialized with this will have the OutOfDesign transform
     # replaced with a no-op, the base transform.
@@ -81,7 +86,15 @@ TRANSFORM_REGISTRY: Dict[Type[Transform], int] = {
     RelativizeWithConstantControl: 25,
 }
 
+"""
+List of new classes of transforms which will be deprecated.
+The reverse transform registry will refer to the old transforms at first,
+and will be later migrated to point to the new transforms.
+"""
+TRANSFORMS_TO_UPDATE: List[Type[Transform]] = [
+    OrderedChoiceToIntegerRange  # will replace OrderedChoiceEncode
+]
 
 REVERSE_TRANSFORM_REGISTRY: Dict[int, Type[Transform]] = {
-    v: k for k, v in TRANSFORM_REGISTRY.items()
+    v: k for k, v in TRANSFORM_REGISTRY.items() if k not in TRANSFORMS_TO_UPDATE
 }
