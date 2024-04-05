@@ -20,6 +20,9 @@ from ax.modelbridge.transforms.log import Log
 from ax.modelbridge.transforms.log_y import LogY
 from ax.modelbridge.transforms.logit import Logit
 from ax.modelbridge.transforms.map_unit_x import MapUnitX
+from ax.modelbridge.transforms.merge_repeated_measurements import (
+    MergeRepeatedMeasurements,
+)
 from ax.modelbridge.transforms.metrics_as_task import MetricsAsTask
 from ax.modelbridge.transforms.one_hot import OneHot
 from ax.modelbridge.transforms.power_transform_y import PowerTransformY
@@ -79,6 +82,7 @@ TRANSFORM_REGISTRY: Dict[Type[Transform], int] = {
     LogY: 23,
     Relativize: 24,
     RelativizeWithConstantControl: 25,
+    MergeRepeatedMeasurements: 26,
 }
 
 
