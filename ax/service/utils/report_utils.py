@@ -110,7 +110,6 @@ def _get_cross_validation_plots(model: ModelBridge) -> List[go.Figure]:
 def _get_objective_trace_plot(
     experiment: Experiment,
     data: Data,
-    model_transitions: List[int],
     true_objective_metric_name: Optional[str] = None,
 ) -> Iterable[go.Figure]:
     if experiment.is_moo_problem:
@@ -325,7 +324,6 @@ def get_standard_plots(
     experiment: Experiment,
     model: Optional[ModelBridge],
     data: Optional[Data] = None,
-    model_transitions: Optional[List[int]] = None,
     true_objective_metric_name: Optional[str] = None,
     early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None,
     limit_points_per_plot: Optional[int] = None,
@@ -341,9 +339,6 @@ def get_standard_plots(
     Args:
         - experiment: The ``Experiment`` from which to obtain standard plots.
         - model: The ``ModelBridge`` used to suggest trial parameters.
-        - data: If specified, data, to which to fit the model before generating plots.
-        - model_transitions: The arm numbers at which shifts in generation_strategy
-            occur.
         - true_objective_metric_name: Name of the metric to use as the true objective.
         - early_stopping_strategy: Early stopping strategy used throughout the
             experiment; used for visualizing when curves are stopped.
@@ -395,9 +390,6 @@ def get_standard_plots(
             _get_objective_trace_plot(
                 experiment=experiment,
                 data=data,
-                model_transitions=(
-                    model_transitions if model_transitions is not None else []
-                ),
                 true_objective_metric_name=true_objective_metric_name,
             )
         )

@@ -185,24 +185,13 @@ class GenerationStrategy(GenerationStrategyInterface):
     @property
     @step_based_gs_only
     def model_transitions(self) -> List[int]:
-        """List of trial indices where a transition happened from one model to
-        another."""
-        # TODO @mgarrard to support GenerationNodes here, which is non-trival
-        # since nodes are dynamic and may only support past model_transitions
-        gen_changes = []
-        for node in self._nodes:
-            for criterion in node.transition_criteria:
-                if (
-                    isinstance(criterion, TrialBasedCriterion)
-                    and criterion.criterion_class == "MaxTrials"
-                ):
-                    gen_changes.append(criterion.threshold)
-
-        # if the last node has unlimited generation, do not remeove the last
-        # transition point in the list
-        if self._nodes[-1].gen_unlimited_trials:
-            return [sum(gen_changes[: i + 1]) for i in range(len(gen_changes))]
-        return [sum(gen_changes[: i + 1]) for i in range(len(gen_changes))][:-1]
+        """[DEPRECATED]List of trial indices where a transition happened from one model
+        to another.
+        """
+        raise DeprecationWarning(
+            "`model_transitions` is no longer supported. Please refer to `model_key` "
+            "field on generator runs for similar information if needed."
+        )
 
     @property
     def current_step(self) -> GenerationStep:

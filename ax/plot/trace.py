@@ -345,40 +345,6 @@ def optimum_objective_scatter(
     )
 
 
-def model_transitions_scatter(
-    model_transitions: List[int],
-    y_range: List[float],
-    generator_change_color: Tuple[int] = COLORS.TEAL.value,
-) -> List[go.Scatter]:
-    """Creates a graph object for the line(s) representing generator changes.
-
-    Args:
-        model_transitions: iterations, before which generators
-            changed
-        y_range: upper and lower values of the y-range of the plot
-        generator_change_color: tuple of 3 int values representing
-            an RGB color. Defaults to orange.
-
-    Returns:
-        go.Scatter: plotly graph objects for the lines representing generator
-            changes
-    """
-    if len(y_range) != 2:
-        raise ValueError("y_range should have two values, lower and upper.")
-    data: List[go.Scatter] = []
-    for change in model_transitions:
-        data.append(
-            go.Scatter(
-                x=[change] * 2,
-                y=y_range,
-                mode="lines",
-                line={"dash": "dash", "color": rgba(generator_change_color)},
-                name="model change",
-            )
-        )
-    return data
-
-
 def optimization_trace_single_method_plotly(
     y: np.ndarray,
     optimum: Optional[float] = None,
@@ -465,27 +431,6 @@ def optimization_trace_single_method_plotly(
         data.append(
             optimum_objective_scatter(
                 optimum=optimum, num_iterations=y.shape[1], optimum_color=optimum_color
-            )
-        )
-
-    if model_transitions is not None:
-        if plot_trial_points:
-            y_lower = np.percentile(y, 25, axis=0).min()
-            y_upper = np.percentile(y, 75, axis=0).max()
-        else:
-            # pyre-fixme[61]: `y_running_optimum` is undefined, or not always defined.
-            y_lower = np.percentile(y_running_optimum, 25, axis=0).min()
-            # pyre-fixme[61]: `y_running_optimum` is undefined, or not always defined.
-            y_upper = np.percentile(y_running_optimum, 75, axis=0).max()
-        if optimum is not None and optimum < y_lower:
-            y_lower = optimum
-        if optimum is not None and optimum > y_upper:
-            y_upper = optimum
-        data.extend(
-            model_transitions_scatter(
-                model_transitions=model_transitions,
-                y_range=[y_lower, y_upper],
-                generator_change_color=generator_change_color,
             )
         )
 

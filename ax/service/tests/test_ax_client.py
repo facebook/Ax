@@ -2938,8 +2938,6 @@ class TestAxClient(TestCase):
         ) as mock_plot:
             ax_client.get_optimization_trace()
         mock_plot.assert_called_once()
-        call_kwargs = mock_plot.call_args.kwargs
-        self.assertIsNone(call_kwargs["model_transitions"])
 
 
 # Utility functions for testing get_model_predictions without calling
