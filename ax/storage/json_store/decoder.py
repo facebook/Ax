@@ -39,6 +39,7 @@ from ax.modelbridge.generation_strategy import (
 )
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import _decode_callables_from_references
+from ax.modelbridge.transition_criterion import TransitionCriterion, TrialBasedCriterion
 from ax.models.torch.botorch_modular.model import SurrogateSpec
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.storage.json_store.decoders import (
@@ -249,6 +250,15 @@ def object_from_json(
                 object_json["outcome_transform_options"] = (
                     outcome_transform_options_json
                 )
+        elif isclass(_class) and issubclass(_class, TrialBasedCriterion):
+            # TrialBasedCriterion contain a list of `TrialStatus` for args.
+            # This list needs to be unpacked by hand to properly retain the types.
+            return trial_transition_criteria_from_json(
+                class_=_class,
+                transition_criteria_json=object_json,
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
+            )
         elif isclass(_class) and issubclass(_class, SerializationMixin):
             return _class(
                 **_class.deserialize_init_args(
@@ -341,6 +351,39 @@ def generator_run_from_json(
         class_decoder_registry=class_decoder_registry,
     )
     return generator_run
+
+
+def trial_transition_criteria_from_json(
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
+    #  avoid runtime subscripting errors.
+    class_: Type,
+    transition_criteria_json: Dict[str, Any],
+    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
+    #  `typing.Type` to avoid runtime subscripting errors.
+    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
+    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+    class_decoder_registry: Dict[
+        str, Callable[[Dict[str, Any]], Any]
+    ] = CORE_CLASS_DECODER_REGISTRY,
+) -> Optional[TransitionCriterion]:
+    """Load Ax transition criteria that depend on Trials from JSON.
+
+    Since ```TrialBasedCriterion``` contain lists of ```TrialStatus``,
+    the json for these criterion needs to be carefully unpacked and
+    re-processed via ```object_from_json``` in order to maintain correct
+    typing. We pass in ```class_``` in order to correctly handle all classes
+    which inherit from ```TrialBasedCriterion``` (ex: ```MaxTrials```).
+    """
+    new_dict = {}
+    for key, value in transition_criteria_json.items():
+        new_val = object_from_json(
+            object_json=value,
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        )
+        new_dict[key] = new_val
+
+    return class_(**new_dict)
 
 
 def search_space_from_json(

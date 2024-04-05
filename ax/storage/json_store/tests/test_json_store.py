@@ -114,6 +114,7 @@ from ax.utils.testing.core_stubs import (
     get_synthetic_runner,
     get_threshold_early_stopping_strategy,
     get_trial,
+    get_trial_based_criterion,
     get_winsorization_config,
 )
 from ax.utils.testing.modeling_stubs import (
@@ -218,6 +219,7 @@ TEST_CASES = [
     ("Type[Transform]", get_transform_type),
     ("Type[InputTransform]", get_input_transform_type),
     ("Type[OutcomeTransform]", get_outcome_transfrom_type),
+    ("TransitionCriterionList", get_trial_based_criterion),
     ("ThresholdEarlyStoppingStrategy", get_threshold_early_stopping_strategy),
     ("Trial", get_trial),
     ("WinsorizationConfig", get_winsorization_config),

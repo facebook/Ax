@@ -95,6 +95,11 @@ from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol
 from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.transition_criterion import (
+    MaxGenerationParallelism,
+    MaxTrials,
+    TrialBasedCriterion,
+)
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
 from ax.models.torch.botorch_modular.sebo import SEBOAcquisition
@@ -151,6 +156,23 @@ def get_experiment_with_map_data_type() -> Experiment:
         is_test=True,
         default_data_type=DataType.MAP_DATA,
     )
+
+
+def get_trial_based_criterion() -> List[TrialBasedCriterion]:
+    return [
+        MaxTrials(
+            threshold=3,
+            only_in_statuses=[TrialStatus.RUNNING, TrialStatus.COMPLETED],
+            not_in_statuses=None,
+        ),
+        MaxGenerationParallelism(
+            threshold=5,
+            only_in_statuses=None,
+            not_in_statuses=[
+                TrialStatus.RUNNING,
+            ],
+        ),
+    ]
 
 
 def get_experiment_with_custom_runner_and_metric(
