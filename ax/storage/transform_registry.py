@@ -29,6 +29,9 @@ from ax.modelbridge.transforms.relativize import (
 )
 from ax.modelbridge.transforms.remove_fixed import RemoveFixed
 from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
+from ax.modelbridge.transforms.simplify_parameter_constraints import (
+    SimplifyParameterConstraints,
+)
 from ax.modelbridge.transforms.standardize_y import StandardizeY
 from ax.modelbridge.transforms.stratified_standardize_y import StratifiedStandardizeY
 from ax.modelbridge.transforms.task_encode import TaskEncode
@@ -79,6 +82,7 @@ TRANSFORM_REGISTRY: Dict[Type[Transform], int] = {
     LogY: 23,
     Relativize: 24,
     RelativizeWithConstantControl: 25,
+    SimplifyParameterConstraints: 26,
 }
 
 
