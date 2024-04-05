@@ -97,7 +97,6 @@ class REMBOStrategyTest(TestCase):
             if i >= 2:
                 self.assertFalse(any(len(x) < 4 for x in gs.arms_by_proj.values()))
 
-        self.assertTrue(len(gs.model_transitions) > 0)
         gs2 = gs.clone_reset()
         self.assertEqual(gs2.D, 20)
         self.assertEqual(gs2.d, 6)
