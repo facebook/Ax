@@ -338,6 +338,14 @@ Transforms
     :undoc-members:
     :show-inheritance:
 
+`ax.modelbridge.transforms.simplify_parameter_constraints`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.simplify_parameter_constraints
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
  `ax.modelbridge.transforms.standardize\_y`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
