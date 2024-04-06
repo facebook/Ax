@@ -45,7 +45,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
-from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.acquisition.acquisition import AcquisitionFunction, XPendingMixin
 from botorch.models.model import Model
 from torch import Tensor
 
@@ -330,7 +330,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
                 for objective_weights in objective_weights_list
             ]
             acquisition_function_list = [
-                checked_cast(AcquisitionFunction, acq_function)
+                checked_cast(XPendingMixin, acq_function)
                 for acq_function in acquisition_function_list
             ]
             # Multiple acquisition functions require a sequential optimizer

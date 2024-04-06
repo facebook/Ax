@@ -40,7 +40,7 @@ from ax.models.torch.utils import (
 from ax.models.torch_base import TorchModel
 from ax.utils.common.typeutils import checked_cast, not_none
 from botorch.acquisition import get_acquisition_function
-from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.acquisition.acquisition import XPendingMixin
 from botorch.acquisition.multi_objective.logei import (
     qLogExpectedHypervolumeImprovement,
     qLogNoisyExpectedHypervolumeImprovement,
@@ -489,7 +489,7 @@ def _get_EHVI(
 
 # TODO (jej): rewrite optimize_acqf wrappers to avoid duplicate code.
 def scipy_optimizer_list(
-    acq_function_list: List[AcquisitionFunction],
+    acq_function_list: List[XPendingMixin],
     bounds: Tensor,
     inequality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]] = None,
     fixed_features: Optional[Dict[int, float]] = None,
@@ -504,7 +504,8 @@ def scipy_optimizer_list(
 
     Args:
         acq_function_list: A list of botorch AcquisitionFunctions,
-            optimized sequentially.
+            optimized sequentially. Each must subclass `XPendingMixin` so as to
+            support pending points.
         bounds: A `2 x d`-dim tensor, where `bounds[0]` (`bounds[1]`) are the
             lower (upper) bounds of the feasible hyperrectangle.
         n: The number of candidates to generate.

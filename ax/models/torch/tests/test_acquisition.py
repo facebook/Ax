@@ -32,7 +32,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.utils import generic_equals
-from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.acquisition.acquisition import AcquisitionFunction, XPendingMixin
 from botorch.acquisition.input_constructors import (
     _register_acqf_input_constructor,
     ACQF_INPUT_CONSTRUCTOR_REGISTRY,
@@ -58,7 +58,7 @@ SURROGATE_PATH: str = Surrogate.__module__
 
 # Used to avoid going through BoTorch `Acquisition.__init__` which
 # requires valid kwargs (correct sizes and lengths of tensors, etc).
-class DummyAcquisitionFunction(AcquisitionFunction):
+class DummyAcquisitionFunction(AcquisitionFunction, XPendingMixin):
     # pyre-fixme[4]: Attribute must be annotated.
     X_pending = None
 
@@ -68,11 +68,6 @@ class DummyAcquisitionFunction(AcquisitionFunction):
 
     def __call__(self, X: Tensor, **kwargs: Any) -> Tensor:
         return X.sum(dim=-1)
-
-    # pyre-fixme[14]: `set_X_pending` overrides method defined in
-    #  `AcquisitionFunction` inconsistently.
-    def set_X_pending(self, X: Tensor, **kwargs: Any) -> None:
-        self.X_pending = X
 
     # pyre-fixme[15]: `forward` overrides method defined in `AcquisitionFunction`
     #  inconsistently.

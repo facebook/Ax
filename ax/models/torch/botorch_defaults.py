@@ -19,6 +19,7 @@ from ax.models.types import TConfig
 from botorch.acquisition import get_acquisition_function
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
+from botorch.acquisition.monte_carlo import MCAcquisitionFunction
 from botorch.acquisition.objective import ConstrainedMCObjective, GenericMCObjective
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.exceptions.errors import UnsupportedError
@@ -357,7 +358,7 @@ def _get_acquisition_func(
     prune_baseline: bool = True,
     mc_samples: int = 512,
     marginalize_dim: Optional[int] = None,
-) -> AcquisitionFunction:
+) -> MCAcquisitionFunction:
     r"""Instantiates a acquisition function.
 
     Args:
