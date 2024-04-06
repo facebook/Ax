@@ -25,6 +25,8 @@ class DeprecatedTransformMixin:
 
     class DeprecatedTransform(DeprecatedTransformMixin, NewTransform):
         ...
+
+    :meta private:
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

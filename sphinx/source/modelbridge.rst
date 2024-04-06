@@ -145,6 +145,13 @@ Dispatch Utilities
 
 Transforms
 ----------
+`ax.modelbridge.transforms.deprecated_transform_mixin`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.deprecated_transform_mixin
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 `ax.modelbridge.transforms.base`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
