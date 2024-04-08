@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.service.utils.scheduler_options import SchedulerOptions
+from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
@@ -75,6 +75,36 @@ class BenchmarkMethod(Base):
         _assign_frozen_attr(self, name="generation_strategy", value=gs_cloned)
 
 
+def get_benchmark_scheduler_options(
+    timeout_hours: int = 4,
+    batch_size: int = 1,
+) -> SchedulerOptions:
+    """The typical SchedulerOptions used in benchmarking.
+
+    Currently, regardless of batch size, all pending trials must complete before
+    new ones are generated. That is, when batch_size > 1, the design is "batch
+    sequential", and when batch_size = 1, the design is "fully sequential."
+
+    Args:
+        timeout_hours: The maximum amount of time (in hours) to run each
+            benchmark replication. Defaults to 4 hours.
+        batch_size: Number of trials to generate at once.
+    """
+
+    return SchedulerOptions(
+        # No new candidates can be generated while any are pending.
+        # If batched, an entire batch must finish before the next can be
+        # generated.
+        max_pending_trials=1,
+        # Do not throttle, as is often necessary when polling real endpoints
+        init_seconds_between_polls=0,
+        min_seconds_before_poll=0,
+        timeout_hours=timeout_hours,
+        trial_type=TrialType.TRIAL if batch_size == 1 else TrialType.BATCH_TRIAL,
+        batch_size=batch_size,
+    )
+
+
 def get_sequential_optimization_scheduler_options(
     timeout_hours: int = 4,
 ) -> SchedulerOptions:
@@ -84,14 +114,7 @@ def get_sequential_optimization_scheduler_options(
         timeout_hours: The maximum amount of time (in hours) to run each
             benchmark replication. Defaults to 4 hours.
     """
-    return SchedulerOptions(
-        # Enforce sequential trials by default
-        max_pending_trials=1,
-        # Do not throttle, as is often necessary when polling real endpoints
-        init_seconds_between_polls=0,
-        min_seconds_before_poll=0,
-        timeout_hours=timeout_hours,
-    )
+    return get_benchmark_scheduler_options(timeout_hours=timeout_hours)
 
 
 def _assign_frozen_attr(obj: Any, name: str, value: Any) -> None:  # pyre-ignore [2]

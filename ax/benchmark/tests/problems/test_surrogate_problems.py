@@ -8,12 +8,20 @@
 
 import numpy as np
 from ax.benchmark.benchmark import compute_score_trace
+from ax.benchmark.benchmark_problem import BenchmarkProblemProtocol
 from ax.core.runner import Runner
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import get_moo_surrogate, get_soo_surrogate
 
 
 class TestSurrogateProblems(TestCase):
+    def test_conforms_to_protocol(self) -> None:
+        sbp = get_soo_surrogate()
+        self.assertIsInstance(sbp, BenchmarkProblemProtocol)
+
+        mbp = get_moo_surrogate()
+        self.assertIsInstance(mbp, BenchmarkProblemProtocol)
+
     def test_lazy_instantiation(self) -> None:
 
         # test instantiation from init
