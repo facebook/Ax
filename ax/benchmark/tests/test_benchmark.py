@@ -6,6 +6,7 @@
 # pyre-strict
 
 import tempfile
+from unittest.mock import patch
 
 import numpy as np
 from ax.benchmark.benchmark import (
@@ -51,10 +52,45 @@ from botorch.acquisition.multi_objective.monte_carlo import (
 )
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
+from botorch.optim.optimize import optimize_acqf
 from botorch.test_functions.synthetic import Branin
 
 
 class TestBenchmark(TestCase):
+    @fast_botorch_optimize
+    def test_batch(self) -> None:
+        batch_size = 5
+
+        problem = get_problem("ackley4", num_trials=2)
+        batch_options = get_benchmark_scheduler_options(batch_size=batch_size)
+        for sequential in [False, True]:
+            with self.subTest(sequential=sequential):
+                batch_method_joint = get_sobol_botorch_modular_acquisition(
+                    model_cls=SingleTaskGP,
+                    acquisition_cls=qLogNoisyExpectedImprovement,
+                    scheduler_options=batch_options,
+                    distribute_replications=False,
+                    model_gen_kwargs={
+                        "model_gen_options": {
+                            "optimizer_kwargs": {"sequential": sequential}
+                        }
+                    },
+                    num_sobol_trials=1,
+                )
+                # this is generating more calls to optimize_acqf than expected
+                with patch(
+                    "ax.models.torch.botorch_modular.acquisition.optimize_acqf",
+                    wraps=optimize_acqf,
+                ) as mock_optimize_acqf:
+                    benchmark_one_method_problem(
+                        problem=problem, method=batch_method_joint, seeds=[0]
+                    )
+                mock_optimize_acqf.assert_called_once()
+                self.assertEqual(
+                    mock_optimize_acqf.call_args.kwargs["sequential"], sequential
+                )
+                self.assertEqual(mock_optimize_acqf.call_args.kwargs["q"], batch_size)
+
     def test_storage(self) -> None:
         problem = get_single_objective_benchmark_problem()
         res = benchmark_replication(
