@@ -9,7 +9,7 @@ from typing import Optional
 
 from ax.benchmark.benchmark_method import (
     BenchmarkMethod,
-    get_sequential_optimization_scheduler_options,
+    get_benchmark_scheduler_options,
 )
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
@@ -28,7 +28,6 @@ def get_sobol_benchmark_method(
     return BenchmarkMethod(
         name=generation_strategy.name,
         generation_strategy=generation_strategy,
-        scheduler_options=scheduler_options
-        or get_sequential_optimization_scheduler_options(),
+        scheduler_options=scheduler_options or get_benchmark_scheduler_options(),
         distribute_replications=distribute_replications,
     )

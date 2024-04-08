@@ -18,7 +18,7 @@ from ax.benchmark.benchmark import (
 )
 from ax.benchmark.benchmark_method import (
     BenchmarkMethod,
-    get_sequential_optimization_scheduler_options,
+    get_benchmark_scheduler_options,
 )
 from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
 from ax.benchmark.benchmark_result import BenchmarkResult
@@ -302,7 +302,7 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
-                    scheduler_options=get_sequential_optimization_scheduler_options(),
+                    scheduler_options=get_benchmark_scheduler_options(),
                     distribute_replications=False,
                 ),
                 get_single_objective_benchmark_problem(
