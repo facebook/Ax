@@ -5,13 +5,14 @@
 
 # pyre-strict
 
-from typing import Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Type, Union
 
 from ax.benchmark.benchmark_method import (
     BenchmarkMethod,
     get_benchmark_scheduler_options,
 )
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.generation_node import GenerationStep
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.models.torch.botorch_modular.model import SurrogateSpec
 from ax.service.scheduler import SchedulerOptions
@@ -46,7 +47,47 @@ def get_sobol_botorch_modular_acquisition(
     scheduler_options: Optional[SchedulerOptions] = None,
     name: Optional[str] = None,
     num_sobol_trials: int = 5,
+    model_gen_kwargs: Optional[Dict[str, Any]] = None,
 ) -> BenchmarkMethod:
+    """Get a `BenchmarkMethod` that uses Sobol followed by MBM.
+
+    Args:
+        model_cls: BoTorch model class, e.g. SingleTaskGP
+        acquisition_cls: Acquisition function class, e.g.
+            `qLogNoisyExpectedImprovement`.
+        distribute_replications: Whether to use multiple machines
+        scheduler_options: Passed as-is to scheduler. Default:
+            `get_benchmark_scheduler_options()`.
+        name: Name that will be attached to the `GenerationStrategy`.
+        num_sobol_trials: Number of Sobol trials; if the scheduler_options
+            specify to use `BatchTrial`s, then this refers to the number of
+            `BatchTrial`s.
+        model_gen_kwargs: Passed to the BoTorch `GenerationStep` and ultimately
+            to the BoTorch `Model`.
+
+    Example:
+        >>> # A simple example
+        >>> from ax.benchmark.methods.sobol_botorch_modular import (
+        ...     get_sobol_botorch_modular_acquisition
+        ... )
+        >>> from ax.benchmark.benchmark_method import get_benchmark_scheduler_options
+        >>>
+        >>> method = get_sobol_botorch_modular_acquisition(
+        ...     model_cls=SingleTaskGP,
+        ...     acquisition_cls=qLogNoisyExpectedImprovement,
+        ...     distribute_replications=False,
+        ... )
+        >>> # Run trials in batches of 5
+        >>> batch_method = get_sobol_botorch_modular_acquisition(
+        ...     model_cls=SingleTaskGP,
+        ...     acquisition_cls=qLogNoisyExpectedImprovement,
+        ...     distribute_replications=False,
+        ...     scheduler_options=get_benchmark_scheduler_options(
+        ...         sequential=False, batch_size=5,
+        ...     ),
+        ...     num_sobol_trials=1,
+        ... )
+    """
     model_kwargs: Dict[
         str, Union[Type[AcquisitionFunction], Dict[str, SurrogateSpec], bool]
     ] = {
@@ -82,6 +123,7 @@ def get_sobol_botorch_modular_acquisition(
                 model=Models.BOTORCH_MODULAR,
                 num_trials=-1,
                 model_kwargs=model_kwargs,
+                model_gen_kwargs=model_gen_kwargs,
             ),
         ],
     )
