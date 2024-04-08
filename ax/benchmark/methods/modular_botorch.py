@@ -58,7 +58,17 @@ def get_sobol_botorch_modular_acquisition(
     acqf_name = acqf_name_abbreviations.get(
         acquisition_cls.__name__, acquisition_cls.__name__
     )
-    name = name or f"MBM::{model_name}_{acqf_name}"
+    # Historically all benchmarks were sequential, so sequential benchmarks
+    # don't get anything added to their name, for continuity
+    batch_suffix = ""
+    if (
+        scheduler_options is not None
+        and (batch_size := scheduler_options.batch_size) is not None
+    ):
+        if batch_size > 1:
+            batch_suffix = f"_q{batch_size}"
+
+    name = name or f"MBM::{model_name}_{acqf_name}{batch_suffix}"
 
     generation_strategy = GenerationStrategy(
         name=name,
