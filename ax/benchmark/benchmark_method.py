@@ -105,18 +105,6 @@ def get_benchmark_scheduler_options(
     )
 
 
-def get_sequential_optimization_scheduler_options(
-    timeout_hours: int = 4,
-) -> SchedulerOptions:
-    """The typical SchedulerOptions used in benchmarking.
-
-    Args:
-        timeout_hours: The maximum amount of time (in hours) to run each
-            benchmark replication. Defaults to 4 hours.
-    """
-    return get_benchmark_scheduler_options(timeout_hours=timeout_hours)
-
-
 def _assign_frozen_attr(obj: Any, name: str, value: Any) -> None:  # pyre-ignore [2]
     """Assign a new value to an attribute of a frozen dataclass.
     This is an ugly hack and shouldn't be used broadly.
