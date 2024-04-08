@@ -164,6 +164,21 @@ class TrialTest(TestCase):
         self.assertTrue(self.trial.did_not_complete)
         self.assertEqual(self.trial.failed_reason, fail_reason)
 
+    def test_trial_run_does_not_overwrite_existing_metadata(self) -> None:
+        self.trial.runner = SyntheticRunner(dummy_metadata="y")
+        self.trial.update_run_metadata({"orig_metadata": "x"})
+        self.trial.run()
+        self.assertDictEqual(
+            self.trial.run_metadata,
+            {
+                "name": "test_0",
+                "orig_metadata": "x",
+                "dummy_metadata": "y",
+                # this is set in setUp
+                "foo": "bar",
+            },
+        )
+
     def test_mark_as(self) -> None:
         for terminal_status in (
             TrialStatus.ABANDONED,

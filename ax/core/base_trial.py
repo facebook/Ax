@@ -408,7 +408,7 @@ class BaseTrial(ABC, SortableBase):
         if self._runner is None:
             raise ValueError("No runner set on trial or experiment.")
 
-        self._run_metadata = not_none(self._runner).run(self)
+        self.update_run_metadata(not_none(self._runner).run(self))
 
         if not_none(self._runner).staging_required:
             self.mark_staged()
