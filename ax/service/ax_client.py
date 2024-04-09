@@ -546,8 +546,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         )
         trial.mark_running(no_runner_required=True)
         self._save_or_update_trial_in_db_if_possible(
-            experiment=self.experiment,
-            trial=trial,
+            experiment=self.experiment, trial=trial
         )
         # TODO[T79183560]: Ensure correct handling of generator run when using
         # foreign keys.
@@ -1294,6 +1293,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         trial = self.get_trial(trial_index)
         trial.mark_early_stopped()
         logger.info(f"Early stopped trial {trial_index}.")
+        self._save_or_update_trial_in_db_if_possible(
+            experiment=self.experiment, trial=trial
+        )
 
     def estimate_early_stopping_savings(self, map_key: Optional[str] = None) -> float:
         """Estimate early stopping savings using progressions of the MapMetric present
@@ -1625,8 +1627,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 trial.mark_completed()
 
         self._save_or_update_trial_in_db_if_possible(
-            experiment=self.experiment,
-            trial=trial,
+            experiment=self.experiment, trial=trial
         )
 
         return update_info

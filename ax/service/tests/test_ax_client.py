@@ -1963,6 +1963,18 @@ class TestAxClient(TestCase):
         # Original experiment should still be in DB and not have been overwritten.
         self.assertEqual(len(ax_client.experiment.trials), 5)
 
+        # Attach an early stopped trial.
+        parameters, trial_index = ax_client.get_next_trial()
+        ax_client.stop_trial_early(trial_index=trial_index)
+
+        # Reload experiment and check that trial status is accurate.
+        ax_client_new = AxClient(db_settings=db_settings)
+        ax_client_new.load_experiment_from_database("test_experiment")
+        self.assertEqual(
+            ax_client.experiment.trials_by_status,
+            ax_client_new.experiment.trials_by_status,
+        )
+
     def test_overwrite(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
         ax_client = AxClient()
