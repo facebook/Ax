@@ -121,54 +121,64 @@ try:
 
             res = {}
             for metric in tb_metrics:
-                records = [
-                    {
-                        "trial_index": trial.index,
-                        "arm_name": arm_name,
-                        "metric_name": metric.name,
-                        self.map_key_info.key: t.step,
-                        "mean": (
-                            t.tensor_proto.double_val[0]
-                            if t.tensor_proto.double_val
-                            else t.tensor_proto.float_val[0]
-                        ),
-                        "sem": float("nan"),
-                    }
-                    for run_name, tb_metrics in mul.PluginRunToTagToContent(
-                        "scalars"
-                    ).items()
-                    for tag in tb_metrics
-                    if tag == metric.tag
-                    for t in mul.Tensors(run_name, tag)
-                ]
+                try:
+                    records = [
+                        {
+                            "trial_index": trial.index,
+                            "arm_name": arm_name,
+                            "metric_name": metric.name,
+                            self.map_key_info.key: t.step,
+                            "mean": (
+                                t.tensor_proto.double_val[0]
+                                if t.tensor_proto.double_val
+                                else t.tensor_proto.float_val[0]
+                            ),
+                            "sem": float("nan"),
+                        }
+                        for run_name, tb_metrics in mul.PluginRunToTagToContent(
+                            "scalars"
+                        ).items()
+                        for tag in tb_metrics
+                        if tag == metric.tag
+                        for t in mul.Tensors(run_name, tag)
+                    ]
 
-                df = (
-                    pd.DataFrame(records)
-                    # If a metric has multiple records for the same arm, metric, and
-                    # step (sometimes caused by restarts, etc) take the mean
-                    .groupby(["arm_name", "metric_name", self.map_key_info.key])
-                    .mean()
-                    .reset_index()
-                )
-
-                # Apply per-metric post-processing
-                # Apply cumulative "best" (min if lower_is_better)
-                if metric.cumulative_best:
-                    if metric.lower_is_better:
-                        df["mean"] = df["mean"].cummin()
-                    else:
-                        df["mean"] = df["mean"].cummax()
-
-                # Apply smoothing
-                if metric.smoothing > 0:
-                    df["mean"] = df["mean"].ewm(alpha=metric.smoothing).mean()
-
-                res[metric.name] = Ok(
-                    MapData(
-                        df=df,
-                        map_key_infos=[self.map_key_info],
+                    df = (
+                        pd.DataFrame(records)
+                        # If a metric has multiple records for the same arm, metric, and
+                        # step (sometimes caused by restarts, etc) take the mean
+                        .groupby(["arm_name", "metric_name", self.map_key_info.key])
+                        .mean()
+                        .reset_index()
                     )
-                )
+
+                    # Apply per-metric post-processing
+                    # Apply cumulative "best" (min if lower_is_better)
+                    if metric.cumulative_best:
+                        if metric.lower_is_better:
+                            df["mean"] = df["mean"].cummin()
+                        else:
+                            df["mean"] = df["mean"].cummax()
+
+                    # Apply smoothing
+                    if metric.smoothing > 0:
+                        df["mean"] = df["mean"].ewm(alpha=metric.smoothing).mean()
+
+                    # Accumulate successfully extracted timeseries
+                    res[metric.name] = Ok(
+                        MapData(
+                            df=df,
+                            map_key_infos=[self.map_key_info],
+                        )
+                    )
+
+                except Exception as e:
+                    res[metric.name] = Err(
+                        MetricFetchE(
+                            message=f"Failed to fetch data for {metric.name}",
+                            exception=e,
+                        )
+                    )
 
             return res
 
