@@ -248,7 +248,10 @@ class TestInfereReferencePointFromExperiment(TestCase):
             scalarized=False,
             constrained=False,
         )
-        inferred_reference_point = infer_reference_point_from_experiment(experiment)
+        data = experiment.fetch_data()
+        inferred_reference_point = infer_reference_point_from_experiment(
+            experiment, data=data
+        )
         # The nadir point for this experiment is [-0.5, 0.5]. The function actually
         # deducts 0.1*Y_range from each of the objectives. Since the range for each
         # of the objectives is +/-1.5, the inferred reference point would
@@ -265,7 +268,7 @@ class TestInfereReferencePointFromExperiment(TestCase):
             return_value=([], [], [], []),
         ):
             with self.assertRaisesRegex(RuntimeError, "No frontier observations found"):
-                infer_reference_point_from_experiment(experiment)
+                infer_reference_point_from_experiment(experiment, data=data)
 
     def test_constrained_infer_reference_point_from_experiment(self) -> None:
         experiments = []
@@ -290,14 +293,15 @@ class TestInfereReferencePointFromExperiment(TestCase):
 
         for experiment in experiments:
             # special case logs a warning message.
+            data = experiment.fetch_data()
             if experiment.optimization_config.outcome_constraints[0].bound == 1000.0:
                 with self.assertLogs(logger, "WARNING"):
                     inferred_reference_point = infer_reference_point_from_experiment(
-                        experiment
+                        experiment, data=data
                     )
             else:
                 inferred_reference_point = infer_reference_point_from_experiment(
-                    experiment
+                    experiment, data=data
                 )
             # The nadir point for this experiment is [-0.5, 0.5]. The function actually
             # deducts 0.1*Y_range from each of the objectives. Since the range for each
@@ -377,7 +381,9 @@ class TestInfereReferencePointFromExperiment(TestCase):
                 obj_t_shuffled,
             ),
         ):
-            inferred_reference_point = infer_reference_point_from_experiment(experiment)
+            inferred_reference_point = infer_reference_point_from_experiment(
+                experiment, data=experiment.fetch_data()
+            )
 
             self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
             self.assertEqual(inferred_reference_point[0].bound, -0.35)
