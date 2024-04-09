@@ -579,7 +579,7 @@ def _build_new_optimization_config(
 
 
 def infer_reference_point_from_experiment(
-    experiment: Experiment,
+    experiment: Experiment, data: Data
 ) -> List[ObjectiveThreshold]:
     """This functions is a wrapper around ``infer_reference_point`` to find the nadir
     point from the pareto front of an experiment. Aside from converting experiment
@@ -600,7 +600,8 @@ def infer_reference_point_from_experiment(
 
     # Reading experiment data.
     mb_reference = get_tensor_converter_model(
-        experiment=experiment, data=experiment.fetch_data()
+        experiment=experiment,
+        data=data,
     )
     obs_feats, obs_data, _ = _get_modelbridge_training_data(modelbridge=mb_reference)
 

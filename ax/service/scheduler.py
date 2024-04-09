@@ -450,10 +450,16 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 and len(self.experiment.trials_by_status[TrialStatus.COMPLETED])
                 >= gss.min_trials
             ):
-                # We infer the nadir reference point to be used by the GSS.
-                self.__inferred_reference_point = infer_reference_point_from_experiment(
-                    self.experiment
-                )
+                # only infer reference point if there is data on the experiment.
+                data = self.experiment.fetch_data()
+                if not data.df.empty:
+                    # We infer the nadir reference point to be used by the GSS.
+                    self.__inferred_reference_point = (
+                        infer_reference_point_from_experiment(
+                            self.experiment,
+                            data=data,
+                        )
+                    )
 
             stop_optimization, global_stopping_msg = gss.should_stop_optimization(
                 experiment=self.experiment,

@@ -820,6 +820,40 @@ class AxSchedulerTestCase(TestCase):
             scheduler.run_n_trials(max_trials=10)
             mock_infer_rp.assert_called_once()
 
+    def test_inferring_reference_point_no_data(self) -> None:
+        init_test_engine_and_session_factory(force_init=True)
+        experiment = get_branin_experiment_with_multi_objective()
+        experiment.runner = self.runner
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=experiment,
+            generation_strategy=self.sobol_GS_no_parallelism,
+        )
+
+        scheduler = Scheduler(
+            experiment=experiment,
+            generation_strategy=gs,
+            options=SchedulerOptions(
+                # Stops the optimization after 5 trials.
+                global_stopping_strategy=DummyGlobalStoppingStrategy(
+                    min_trials=0,
+                    trial_to_stop=5,
+                ),
+            ),
+            db_settings=self.db_settings,
+        )
+        empty_data = Data(
+            df=pd.DataFrame(
+                columns=["metric_name", "arm_name", "trial_index", "mean", "sem"]
+            )
+        )
+        with patch(
+            "ax.service.scheduler.infer_reference_point_from_experiment"
+        ) as mock_infer_rp, patch.object(
+            scheduler.experiment, "fetch_data", return_value=empty_data
+        ):
+            scheduler.run_n_trials(max_trials=1)
+            mock_infer_rp.assert_not_called()
+
     def test_global_stopping(self) -> None:
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
