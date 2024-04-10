@@ -23,7 +23,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: "3.9"
+        python-version: "3.10"
     - name: Install dependencies
       # Pin ufmt deps so they match intermal pyfmt.
       run: |
@@ -50,7 +50,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: "3.9"
+        python-version: "3.10"
     - name: Install dependencies
       env:
         ALLOW_BOTORCH_LATEST: true
