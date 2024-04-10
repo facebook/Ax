@@ -10,6 +10,7 @@ import datetime
 from collections import OrderedDict
 from enum import Enum
 from inspect import isclass
+from io import StringIO
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
@@ -132,7 +133,7 @@ def object_from_json(
         elif _type == "DataFrame":
             # Need dtype=False, otherwise infers arm_names like "4_1"
             # should be int 41
-            return pd.read_json(object_json["value"], dtype=False)
+            return pd.read_json(StringIO(object_json["value"]), dtype=False)
         elif _type == "ndarray":
             return np.array(object_json["value"])
         elif _type == "Tensor":

@@ -12,6 +12,7 @@ import json
 from abc import abstractmethod
 from functools import reduce
 from hashlib import md5
+from io import StringIO
 from typing import Any, Dict, Iterable, List, Optional, Set, Type, TypeVar, Union
 
 import numpy as np
@@ -202,7 +203,7 @@ class BaseData(Base, SerializationMixin):
         if "df" in args and not isinstance(args["df"], pd.DataFrame):
             # NOTE: Need dtype=False, otherwise infers arm_names like
             # "4_1" should be int 41.
-            args["df"] = pd.read_json(args["df"]["value"], dtype=False)
+            args["df"] = pd.read_json(StringIO(args["df"]["value"]), dtype=False)
         return extract_init_args(args=args, class_=cls)
 
     @property
