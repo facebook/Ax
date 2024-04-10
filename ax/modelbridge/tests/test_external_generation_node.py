@@ -46,10 +46,8 @@ class TestExternalGenerationNode(TestCase):
         node = DummyNode()
         self.assertEqual(node.node_name, "dummy")
         self.assertGreater(node.fit_time_since_gen, 0.0)
-        self.assertIsNone(node.model_enum)
         self.assertIsNone(node._fitted_model)
-        with self.assertRaisesRegex(NotImplementedError, "does not utilize"):
-            node.model_spec_to_gen_from
+        self.assertIsNone(node.model_spec_to_gen_from)
         with self.assertRaisesRegex(UnsupportedError, "Unexpected arguments"):
             node.fit(experiment=MagicMock(), data=MagicMock(), search_space=MagicMock())
 

@@ -76,7 +76,9 @@ class TestAEPsychCriterion(TestCase):
                 )
             )
 
-            self.assertEqual(generation_strategy._curr.model_enum, Models.GPEI)
+            self.assertEqual(
+                generation_strategy._curr.model_spec_to_gen_from.model_enum, Models.GPEI
+            )
 
     def test_many_criteria(self) -> None:
         criteria = [
@@ -150,4 +152,6 @@ class TestAEPsychCriterion(TestCase):
                 )
             )
 
-            self.assertEqual(generation_strategy._curr.model_enum, Models.GPEI)
+            self.assertEqual(
+                generation_strategy._curr.model_spec_to_gen_from.model_enum, Models.GPEI
+            )

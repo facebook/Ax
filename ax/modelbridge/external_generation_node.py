@@ -121,19 +121,12 @@ class ExternalGenerationNode(GenerationNode, ABC):
         """
 
     @property
-    def model_enum(self) -> Optional[str]:
-        return None
-
-    @property
     def _fitted_model(self) -> None:
         return None
 
     @property
-    def model_spec_to_gen_from(self) -> ModelSpec:
-        raise NotImplementedError(
-            "`ExternalGenerationNode` does not utilize `ModelSpec`s "
-            "and does not define methods related to `ModelSpec`."
-        )
+    def model_spec_to_gen_from(self) -> None:
+        return None
 
     def fit(
         self,

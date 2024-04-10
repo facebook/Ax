@@ -118,13 +118,30 @@ class TestGenerationNode(TestCase):
             experiment=self.branin_experiment,
             data=dat,
         )
-        self.assertEqual(node.model_enum, node.model_specs[0].model_enum)
-        self.assertEqual(node.model_kwargs, node.model_specs[0].model_kwargs)
-        self.assertEqual(node.model_gen_kwargs, node.model_specs[0].model_gen_kwargs)
-        self.assertEqual(node.model_cv_kwargs, node.model_specs[0].model_cv_kwargs)
-        self.assertEqual(node.fixed_features, node.model_specs[0].fixed_features)
-        self.assertEqual(node.cv_results, node.model_specs[0].cv_results)
-        self.assertEqual(node.diagnostics, node.model_specs[0].diagnostics)
+        self.assertEqual(
+            node.model_spec_to_gen_from.model_enum, node.model_specs[0].model_enum
+        )
+        self.assertEqual(
+            node.model_spec_to_gen_from.model_kwargs, node.model_specs[0].model_kwargs
+        )
+        self.assertEqual(
+            node.model_spec_to_gen_from.model_gen_kwargs,
+            node.model_specs[0].model_gen_kwargs,
+        )
+        self.assertEqual(
+            node.model_spec_to_gen_from.model_cv_kwargs,
+            node.model_specs[0].model_cv_kwargs,
+        )
+        self.assertEqual(
+            node.model_spec_to_gen_from.fixed_features,
+            node.model_specs[0].fixed_features,
+        )
+        self.assertEqual(
+            node.model_spec_to_gen_from.cv_results, node.model_specs[0].cv_results
+        )
+        self.assertEqual(
+            node.model_spec_to_gen_from.diagnostics, node.model_specs[0].diagnostics
+        )
         self.assertEqual(node.node_name, "test")
         self.assertEqual(node.gen_unlimited_trials, True)
         self.assertEqual(node._unique_id, "test")
@@ -173,31 +190,10 @@ class TestGenerationNode(TestCase):
                 ),
             ],
         )
-        self.assertEqual(node.fixed_features, ObservationFeatures(parameters={"x": 0}))
-
-    def test_multiple_same_fixed_features(self) -> None:
-        node = GenerationNode(
-            node_name="test",
-            model_specs=[
-                ModelSpec(
-                    model_enum=Models.GPEI,
-                    model_kwargs={},
-                    model_gen_kwargs={
-                        "n": 2,
-                        "fixed_features": ObservationFeatures(parameters={"x": 0}),
-                    },
-                ),
-                ModelSpec(
-                    model_enum=Models.GPEI,
-                    model_kwargs={},
-                    model_gen_kwargs={
-                        "n": 3,
-                        "fixed_features": ObservationFeatures(parameters={"x": 0}),
-                    },
-                ),
-            ],
+        self.assertEqual(
+            node.model_spec_to_gen_from.fixed_features,
+            ObservationFeatures(parameters={"x": 0}),
         )
-        self.assertEqual(node.fixed_features, ObservationFeatures(parameters={"x": 0}))
 
     def test_generator_run_limit_unlimited_without_flag(self) -> None:
         """This tests checks that when the `gen_unlimited_trials` flag is false
@@ -347,15 +343,3 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
 
         # test model_to_gen_from_name property
         self.assertEqual(self.model_selection_node.model_to_gen_from_name, "GPEI")
-
-    def test_fixed_features_is_from_model_to_gen_from(self) -> None:
-        self.model_selection_node.model_specs[0].fixed_features = ObservationFeatures(
-            parameters={"x": 0}
-        )
-        self.model_selection_node.model_specs[1].fixed_features = ObservationFeatures(
-            parameters={"x": 1}
-        )
-        self.assertEqual(
-            self.model_selection_node.fixed_features,
-            self.model_selection_node.model_spec_to_gen_from.fixed_features,
-        )

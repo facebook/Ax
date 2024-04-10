@@ -268,7 +268,7 @@ class BestPointMixin(metaclass=ABCMeta):
         # TODO[drfreund]: Find a way to include data for last trial in the
         # calculation of best parameters.
         if use_model_predictions:
-            current_model = generation_strategy._curr.model_enum
+            current_model = generation_strategy._curr.model_spec_to_gen_from.model_enum
             # Cover for the case where source of `self._curr.model` was not a `Models`
             # enum but a factory function, in which case we cannot do
             # `get_model_from_generator_run` (since we don't have model type and inputs
@@ -383,7 +383,7 @@ class BestPointMixin(metaclass=ABCMeta):
         )
 
         if use_model_predictions:
-            current_model = generation_strategy._curr.model_enum
+            current_model = generation_strategy._curr.model_spec_to_gen_from.model_enum
             # Cover for the case where source of `self._curr.model` was not a `Models`
             # enum but a factory function, in which case we cannot do
             # `get_model_from_generator_run` (since we don't have model type and inputs
