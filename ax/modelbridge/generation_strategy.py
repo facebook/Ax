@@ -783,7 +783,13 @@ class GenerationStrategy(GenerationStrategyInterface):
         # Potential solution: store generator runs on `GenerationNode`-s and
         # split them per-model there.
         model_state_on_lgr = {}
-        model_on_curr = self._curr.model_enum
+        # Need to check if model_spec_to_gen_from is none to account for
+        # ExternalGenerationNodes which leverage models from outside Ax.
+        model_on_curr = (
+            self._curr.model_spec_to_gen_from.model_enum
+            if self._curr.model_spec_to_gen_from
+            else None
+        )
         if lgr is None:
             return model_state_on_lgr
 
