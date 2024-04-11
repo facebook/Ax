@@ -19,7 +19,6 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.generation_node import GenerationNode
-from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.transition_criterion import TransitionCriterion
 from ax.utils.common.logger import get_logger
 
