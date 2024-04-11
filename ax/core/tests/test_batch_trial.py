@@ -449,8 +449,9 @@ class BatchTrialTest(TestCase):
         batch.mark_running(no_runner_required=True)
         new_batch_trial = batch.clone_to()
         self.assertEqual(new_batch_trial.index, 2)
-        # Set index to original trial's value for equality check.
+        # Set index & time_created to original trial's value for equality check.
         new_batch_trial._index = batch.index
+        new_batch_trial._time_created = batch._time_created
         self.assertEqual(new_batch_trial, batch)
 
     def test_Runner(self) -> None:
