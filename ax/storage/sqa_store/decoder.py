@@ -9,6 +9,7 @@
 import json
 from collections import defaultdict, OrderedDict
 from enum import Enum
+from io import StringIO
 from logging import Logger
 from typing import Any, cast, Dict, List, Optional, Tuple, Type, Union
 
@@ -982,7 +983,7 @@ class Decoder:
         # Override df from deserialize_init_args with `data_json`.
         # NOTE: Need dtype=False, otherwise infers arm_names like
         # "4_1" should be int 41.
-        kwargs["df"] = pd.read_json(data_sqa.data_json, dtype=False)
+        kwargs["df"] = pd.read_json(StringIO(data_sqa.data_json), dtype=False)
 
         dat = data_constructor(**kwargs)
 
