@@ -431,6 +431,8 @@ class BatchTrialTest(TestCase):
         self.assertEqual(new_batch_trial_0.index, 1)
         # Set index to original trial's value for equality check.
         new_batch_trial_0._index = batch.index
+        new_batch_trial_0._time_created = batch._time_created
+        new_batch_trial_1._time_created = batch._time_created
         self.assertEqual(new_batch_trial_0, batch)
         self.assertEqual(new_batch_trial_1, batch)
 
