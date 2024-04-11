@@ -80,8 +80,6 @@ class GenerationNode(SerializationMixin, SortableBase):
             condition that must be met before completing a GenerationNode. All `is_met`
             must evaluateTrue for the GenerationStrategy to move on to the next
             GenerationNode.
-        gen_unlimited_trials: If True the number of trials that can be generated from
-            this GenerationNode is unlimited.
 
     Note for developers: by "model" here we really mean an Ax ModelBridge object, which
     contains an Ax Model under the hood. We call it "model" here to simplify and focus
@@ -93,7 +91,6 @@ class GenerationNode(SerializationMixin, SortableBase):
     # TODO: Move `should_deduplicate` to `ModelSpec` if possible, and make optional
     should_deduplicate: bool
     _node_name: str
-    _gen_unlimited_trials: bool = True
 
     # Optional specifications
     _model_spec_to_gen_from: Optional[ModelSpec] = None
@@ -113,7 +110,6 @@ class GenerationNode(SerializationMixin, SortableBase):
         best_model_selector: Optional[BestModelSelector] = None,
         should_deduplicate: bool = False,
         transition_criteria: Optional[Sequence[TransitionCriterion]] = None,
-        gen_unlimited_trials: bool = True,
     ) -> None:
         self._node_name = node_name
         # While `GenerationNode` only handles a single `ModelSpec` in the `gen`
@@ -125,7 +121,6 @@ class GenerationNode(SerializationMixin, SortableBase):
         self.best_model_selector = best_model_selector
         self.should_deduplicate = should_deduplicate
         self._transition_criteria = transition_criteria
-        self._gen_unlimited_trials = gen_unlimited_trials
 
     @property
     def node_name(self) -> str:
@@ -173,11 +168,6 @@ class GenerationNode(SerializationMixin, SortableBase):
     def experiment(self) -> Experiment:
         """Returns the experiment associated with this GenerationStrategy"""
         return self.generation_strategy.experiment
-
-    @property
-    def gen_unlimited_trials(self) -> bool:
-        """If True, this GenerationNode can generate unlimited trials."""
-        return self._gen_unlimited_trials
 
     @property
     def is_completed(self) -> bool:
@@ -405,7 +395,8 @@ class GenerationNode(SerializationMixin, SortableBase):
         Returns:
             bool: Whether we should transition to the next node.
         """
-        if self.gen_unlimited_trials and len(self.transition_criteria) == 0:
+        # if no transition criteria are defined, this node can generate unlimited trials
+        if len(self.transition_criteria) == 0:
             return False, None
 
         transition_blocking = [
@@ -501,12 +492,6 @@ class GenerationNode(SerializationMixin, SortableBase):
                         trials_from_node=self.trials_from_node,
                     )
         if len(gen_blocking_criterion_delta_from_threshold) == 0:
-            if not self.gen_unlimited_trials:
-                logger.warning(
-                    "Even though this node is not flagged for generation of unlimited "
-                    "trials, there are no generation blocking criterion, therefore, "
-                    "unlimited trials will be generated."
-                )
             return -1
         return min(gen_blocking_criterion_delta_from_threshold)
 
@@ -517,9 +502,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         model_spec_str = str(self.model_specs).replace("\n", " ").replace("\t", "")
         str_rep += model_spec_str
 
-        # add node name, gen_unlimited_trials, and transition_criteria
         str_rep += f", node_name={self.node_name}"
-        str_rep += f", gen_unlimited_trials={str(self.gen_unlimited_trials)}"
         str_rep += f", transition_criteria={str(self.transition_criteria)}"
 
         return f"{str_rep})"
@@ -667,7 +650,6 @@ class GenerationStep(GenerationNode, SortableBase):
         # because only then is the order of the generation steps actually known.
         transition_criteria = []
         if self.num_trials != -1:
-            gen_unlimited_trials = False
             transition_criteria.append(
                 MaxTrials(
                     threshold=self.num_trials,
@@ -676,8 +658,7 @@ class GenerationStep(GenerationNode, SortableBase):
                     block_transition_if_unmet=True,
                 )
             )
-        else:
-            gen_unlimited_trials = True
+
         if self.min_trials_observed > 0:
             transition_criteria.append(
                 MinTrials(
@@ -701,16 +682,12 @@ class GenerationStep(GenerationNode, SortableBase):
                 )
             )
 
-        if len(self.completion_criteria) > 0:
-            gen_unlimited_trials = False
-
         transition_criteria += self.completion_criteria
         super().__init__(
             node_name=f"GenerationStep_{str(self.index)}",
             model_specs=[model_spec],
             should_deduplicate=self.should_deduplicate,
             transition_criteria=transition_criteria,
-            gen_unlimited_trials=gen_unlimited_trials,
         )
 
     @property

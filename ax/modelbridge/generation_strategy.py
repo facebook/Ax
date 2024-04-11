@@ -24,12 +24,7 @@ from ax.core.utils import (
     extend_pending_observations,
     get_pending_observation_features_based_on_trial_status,
 )
-from ax.exceptions.core import (
-    AxError,
-    DataRequiredError,
-    UnsupportedError,
-    UserInputError,
-)
+from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
     GenerationStrategyMisconfiguredException,
@@ -750,12 +745,6 @@ class GenerationStrategy(GenerationStrategyInterface):
             raise_data_required_error=raise_data_required_error
         )
         if move_to_next_node:
-            if self._curr.gen_unlimited_trials:
-                raise AxError(
-                    "The generation strategy is attempting to transition to next node "
-                    "despite the current node being configured to generate unlimited "
-                    "trials. This should not happen."
-                )
             if self.optimization_complete:
                 raise GenerationStrategyCompleted(
                     f"Generation strategy {self} generated all the trials as "

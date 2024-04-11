@@ -162,13 +162,11 @@ class TestGenerationStrategy(TestCase):
             node_name="sobol_node",
             transition_criteria=self.sobol_criterion,
             model_specs=[self.sobol_model_spec],
-            gen_unlimited_trials=False,
         )
         self.gpei_node = GenerationNode(
             node_name="GPEI_node",
             transition_criteria=self.gpei_criterion,
             model_specs=[self.gpei_model_spec],
-            gen_unlimited_trials=False,
         )
 
         self.sobol_GPEI_GS_nodes = GenerationStrategy(
@@ -304,7 +302,7 @@ class TestGenerationStrategy(TestCase):
             "GenerationStrategy(name='Sobol', nodes=[GenerationNode("
             "model_specs=[ModelSpec(model_enum=Sobol, "
             "model_kwargs={}, model_gen_kwargs={}, model_cv_kwargs={},"
-            " )], node_name=test, gen_unlimited_trials=True, "
+            " )], node_name=test, "
             "transition_criteria=[])])",
         )
 
@@ -637,7 +635,6 @@ class TestGenerationStrategy(TestCase):
                             transition_to="sobol_3_trial",
                         )
                     ],
-                    gen_unlimited_trials=False,
                 ),
                 GenerationNode(
                     node_name="sobol_3_trial",
@@ -651,7 +648,6 @@ class TestGenerationStrategy(TestCase):
                             transition_to=None,
                         )
                     ],
-                    gen_unlimited_trials=False,
                 ),
             ]
         )
@@ -1296,9 +1292,6 @@ class TestGenerationStrategy(TestCase):
                     block_transition_if_unmet=True,
                 ),
             ],
-            # If we remove this, the test will fail.
-            # This behavior needs to be improved.
-            gen_unlimited_trials=False,
         )
         gpei_model_spec = ModelSpec(
             model_enum=Models.GPEI,
@@ -1308,7 +1301,6 @@ class TestGenerationStrategy(TestCase):
         gpei_node = GenerationNode(
             node_name="GPEI_node",
             model_specs=[gpei_model_spec],
-            gen_unlimited_trials=True,
         )
         gs = GenerationStrategy(
             name="Sobol+GPEI_Nodes",

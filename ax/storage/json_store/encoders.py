@@ -498,7 +498,6 @@ def generation_node_to_dict(generation_node: GenerationNode) -> Dict[str, Any]:
         "model_specs": generation_node.model_specs,
         "should_deduplicate": generation_node.should_deduplicate,
         "node_name": generation_node.node_name,
-        "gen_unlimited_trials": generation_node.gen_unlimited_trials,
         "model_spec_to_gen_from": generation_node._model_spec_to_gen_from,
         "transition_criteria": generation_node.transition_criteria,
     }

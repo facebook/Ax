@@ -710,7 +710,6 @@ def generation_node_from_json(
         # isn't implemented
         best_model_selector=generation_node_json.pop("best_model_selector", None),
         should_deduplicate=generation_node_json.pop("should_deduplicate", False),
-        gen_unlimited_trials=generation_node_json.pop("gen_unlimited_trials", True),
         transition_criteria=(
             object_from_json(
                 generation_node_json.pop("transition_criteria"),
