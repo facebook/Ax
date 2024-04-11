@@ -15,6 +15,8 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.types import TParameterization
 from ax.utils.common.logger import get_logger
 
+from plotly import graph_objs as go
+
 
 logger: Logger = get_logger(__name__)
 
@@ -59,6 +61,17 @@ def _format_CI(estimate: float, sd: float, zval: float = Z) -> str:
         ub=estimate + zval * sd,
         digits=DECIMALS,
     )
+
+
+def resize_subtitles(figure: go.Figure, size: int) -> go.Figure:
+    """Resize subtitles in a plotly figure
+    args:
+        figure: plotly figure to resize subtitles of
+        size: font size to resize subtitles to
+    """
+    for ant in figure["layout"]["annotations"]:
+        ant["font"].update(size=size)
+    return figure
 
 
 def arm_name_to_sort_key(arm_name: str) -> Tuple[str, int, int]:
