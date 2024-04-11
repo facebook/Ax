@@ -34,14 +34,14 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.models.random.alebo_initializer import ALEBOInitializer
 from ax.models.torch.botorch import BotorchModel
-from ax.models.torch.botorch_defaults import get_qLogNEI
+from ax.models.torch.botorch_defaults import ei_or_nei
 from ax.models.torch.utils import _datasets_to_legacy_inputs
+
 from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
-from botorch.acquisition.analytic import ExpectedImprovement
 from botorch.acquisition.objective import PosteriorTransform
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gpytorch import GPyTorchModel
@@ -664,62 +664,6 @@ def extract_map_statedict(
             v = torch.select(v, 0, 0)
         map_sds[model_idx][param_name] = v
     return map_sds
-
-
-def ei_or_nei(
-    model: Union[ALEBOGP, ModelListGP],
-    objective_weights: Tensor,
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]],
-    X_observed: Tensor,
-    X_pending: Optional[Tensor],
-    q: int,
-    noiseless: bool,
-) -> AcquisitionFunction:
-    """Use analytic EI if appropriate, otherwise Monte Carlo NEI.
-
-    Analytic EI can be used if: Single outcome, no constraints, no pending
-    points, not batch, and no noise.
-
-    Args:
-        model: GP.
-        objective_weights: Weights on each outcome for the objective.
-        outcome_constraints: Outcome constraints.
-        X_observed: Observed points for NEI.
-        X_pending: Pending points.
-        q: Batch size.
-        noiseless: True if evaluations are noiseless.
-
-    Returns: An AcquisitionFunction, either analytic EI or MC NEI.
-    """
-    warn(
-        "`ei_or_nei` from ax.models.torch.alebo.py is deprecated and should be "
-        "removed in Ax 0.5.0.",
-        DeprecationWarning,
-    )
-    if (
-        len(objective_weights) == 1
-        and outcome_constraints is None
-        and X_pending is None
-        and q == 1
-        and noiseless
-    ):
-        maximize = objective_weights[0] > 0
-        if maximize:
-            best_f = model.train_targets.max()
-        else:
-            best_f = model.train_targets.min()
-        # pyre-fixme[6]: For 3rd param expected `bool` but got `Tensor`.
-        return ExpectedImprovement(model=model, best_f=best_f, maximize=maximize)
-    else:
-        with gpytorch.settings.max_cholesky_size(2000):
-            acq = get_qLogNEI(
-                model=model,
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
-                X_observed=X_observed,
-                X_pending=X_pending,
-            )
-        return acq
 
 
 def alebo_acqf_optimizer(

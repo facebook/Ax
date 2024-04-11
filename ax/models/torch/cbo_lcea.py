@@ -11,8 +11,8 @@ from typing import Any, cast, Dict, List, Optional, Tuple, Union
 
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
-from ax.models.torch.alebo import ei_or_nei
 from ax.models.torch.botorch import BotorchModel
+from ax.models.torch.botorch_defaults import ei_or_nei
 from ax.models.torch.cbo_sac import generate_model_space_decomposition
 from ax.models.torch_base import TorchModel, TorchOptConfig
 from ax.utils.common.docutils import copy_doc

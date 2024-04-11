@@ -10,6 +10,9 @@ import functools
 from copy import deepcopy
 from random import randint
 from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple, Type, Union
+from warnings import warn
+
+import gpytorch
 
 import torch
 from ax.models.model_utils import best_observed_point, get_observed
@@ -18,6 +21,7 @@ from ax.models.torch_base import TorchModel
 from ax.models.types import TConfig
 from botorch.acquisition import get_acquisition_function
 from botorch.acquisition.acquisition import AcquisitionFunction
+from botorch.acquisition.analytic import ExpectedImprovement
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
 from botorch.acquisition.objective import ConstrainedMCObjective, GenericMCObjective
 from botorch.acquisition.utils import get_infeasible_cost
@@ -892,3 +896,59 @@ def get_warping_transform(
         batch_shape=batch_shape,
     )
     return tf
+
+
+def ei_or_nei(
+    model: ModelListGP,
+    objective_weights: Tensor,
+    outcome_constraints: Optional[Tuple[Tensor, Tensor]],
+    X_observed: Tensor,
+    X_pending: Optional[Tensor],
+    q: int,
+    noiseless: bool,
+) -> AcquisitionFunction:
+    """Use analytic EI if appropriate, otherwise Monte Carlo NEI.
+
+    Analytic EI can be used if: Single outcome, no constraints, no pending
+    points, not batch, and no noise.
+
+    Args:
+        model: GP.
+        objective_weights: Weights on each outcome for the objective.
+        outcome_constraints: Outcome constraints.
+        X_observed: Observed points for NEI.
+        X_pending: Pending points.
+        q: Batch size.
+        noiseless: True if evaluations are noiseless.
+
+    Returns: An AcquisitionFunction, either analytic EI or MC NEI.
+    """
+    warn(
+        "`ei_or_nei` from ax.models.torch.alebo.py is deprecated and should be "
+        "removed in Ax 0.3.9.",
+        DeprecationWarning,
+    )
+    if (
+        len(objective_weights) == 1
+        and outcome_constraints is None
+        and X_pending is None
+        and q == 1
+        and noiseless
+    ):
+        # TODO: Check if this is correct @no-commit
+        maximize = bool(objective_weights[0] > 0)
+        if maximize:
+            best_f = model.train_targets.max()
+        else:
+            best_f = model.train_targets.min()
+        return ExpectedImprovement(model=model, best_f=best_f, maximize=maximize)
+    else:
+        with gpytorch.settings.max_cholesky_size(2000):
+            acq = get_qLogNEI(
+                model=model,
+                objective_weights=objective_weights,
+                outcome_constraints=outcome_constraints,
+                X_observed=X_observed,
+                X_pending=X_pending,
+            )
+        return acq
