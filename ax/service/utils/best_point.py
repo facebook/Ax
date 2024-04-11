@@ -52,7 +52,7 @@ from ax.modelbridge.transforms.utils import (
 from ax.plot.pareto_utils import get_tensor_converter_model
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
-from numpy import NaN
+from numpy import nan
 from torch import Tensor
 
 logger: Logger = get_logger(__name__)
@@ -735,7 +735,7 @@ def _is_all_noiseless(df: pd.DataFrame, metric_name: str) -> bool:
     name_mask = df["metric_name"] == metric_name
     df_metric_arms_sems = df[name_mask]["sem"]
 
-    return ((df_metric_arms_sems == 0) | df_metric_arms_sems == NaN).all()
+    return ((df_metric_arms_sems == 0) | df_metric_arms_sems == nan).all()
 
 
 def _derel_opt_config_wrapper(
