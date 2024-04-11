@@ -49,7 +49,7 @@ class REMBO(BotorchModel):
     ) -> None:
         warn(
             "REMBO is deprecated and does not guarantee correctness. "
-            "It will be removed in Ax 0.5.0.",
+            "It will be removed in Ax 0.3.9.",
             DeprecationWarning,
         )
         self.A = A
