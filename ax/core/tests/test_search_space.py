@@ -36,6 +36,7 @@ from ax.core.search_space import (
     SearchSpace,
     SearchSpaceDigest,
 )
+from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
@@ -621,13 +622,12 @@ class HierarchicalSearchSpaceTest(TestCase):
                 "num_boost_rounds": 12,
             }
         )
-        self.hss_1_arm_missing_param = Arm(
-            parameters={
-                "model": "Linear",
-                "l2_reg_weight": 0.0001,
-                "num_boost_rounds": 12,
-            }
-        )
+        self.hss_1_missing_params: TParameterization = {
+            "model": "Linear",
+            "l2_reg_weight": 0.0001,
+            "num_boost_rounds": 12,
+        }
+        self.hss_1_arm_missing_param = Arm(parameters=self.hss_1_missing_params)
         self.hss_1_arm_1_cast = Arm(
             parameters={
                 "model": "Linear",
@@ -759,6 +759,7 @@ class HierarchicalSearchSpaceTest(TestCase):
         self.assertTrue(str(flattened_hss_with_constraints).startswith("SearchSpace"))
 
     def test_cast_arm(self) -> None:
+        # This uses _cast_parameterization with check_all_parameters_present=True.
         self.assertEqual(  # Check one subtree.
             self.hss_1._cast_arm(arm=self.hss_1_arm_1_flat),
             self.hss_1_arm_1_cast,
@@ -775,6 +776,7 @@ class HierarchicalSearchSpaceTest(TestCase):
             self.hss_1._cast_arm(arm=self.hss_1_arm_missing_param)
 
     def test_cast_observation_features(self) -> None:
+        # This uses _cast_parameterization with check_all_parameters_present=False.
         # Ensure that during casting, full parameterization is saved
         # in metadata and actual parameterization is cast to HSS.
         hss_1_obs_feats_1 = ObservationFeatures.from_arm(arm=self.hss_1_arm_1_flat)
@@ -796,6 +798,35 @@ class HierarchicalSearchSpaceTest(TestCase):
         self.assertEqual(
             hss_1_obs_feats_1_cast,
             ObservationFeatures.from_arm(arm=self.hss_1_arm_1_cast),
+        )
+
+    def test_cast_parameterization(self) -> None:
+        # NOTE: This is also tested in test_cast_arm & test_cast_observation_features.
+        with self.assertRaisesRegex(RuntimeError, "not in parameterization to cast"):
+            self.hss_1._cast_parameterization(
+                parameters=self.hss_1_missing_params,
+                check_all_parameters_present=True,
+            )
+        # An active leaf param is missing, it'll get ignored. There's an inactive
+        # leaf param, that'll just get filtered out.
+        self.assertEqual(
+            self.hss_1._cast_parameterization(
+                parameters=self.hss_1_missing_params,
+                check_all_parameters_present=False,
+            ),
+            {"l2_reg_weight": 0.0001, "model": "Linear"},
+        )
+        # A hierarchical param is missing, all its dependents will be ignored.
+        # In this case, it is the root param, so we'll have empty parameterization.
+        self.assertEqual(
+            self.hss_1._cast_parameterization(
+                parameters={
+                    "l2_reg_weight": 0.0001,
+                    "num_boost_rounds": 12,
+                },
+                check_all_parameters_present=False,
+            ),
+            {},
         )
 
     def test_flatten_observation_features(self) -> None:
