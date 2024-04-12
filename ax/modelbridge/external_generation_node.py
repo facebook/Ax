@@ -54,7 +54,6 @@ class ExternalGenerationNode(GenerationNode, ABC):
         node_name: str,
         should_deduplicate: bool = True,
         transition_criteria: Optional[Sequence[TransitionCriterion]] = None,
-        gen_unlimited_trials: bool = True,
     ) -> None:
         """Initialize an external generation node.
 
@@ -73,9 +72,6 @@ class ExternalGenerationNode(GenerationNode, ABC):
             transition_criteria: Criteria for determining whether to move to the next
                 node in the generation strategy. This is an advanced option that is
                 only relevant if the generation strategy consists of multiple nodes.
-            gen_unlimited_trials: Whether to generate unlimited trials from this node.
-                This should only be False if the generation strategy will transition to
-                another node after generating a limited number of trials from this node.
         """
         t_init_start = time.monotonic()
         super().__init__(
@@ -84,7 +80,6 @@ class ExternalGenerationNode(GenerationNode, ABC):
             best_model_selector=None,
             should_deduplicate=should_deduplicate,
             transition_criteria=transition_criteria,
-            gen_unlimited_trials=gen_unlimited_trials,
         )
         self.fit_time_since_gen: float = time.monotonic() - t_init_start
 

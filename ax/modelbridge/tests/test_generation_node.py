@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-import logging
 from logging import Logger
 from unittest.mock import patch, PropertyMock
 
@@ -143,7 +142,6 @@ class TestGenerationNode(TestCase):
             node.model_spec_to_gen_from.diagnostics, node.model_specs[0].diagnostics
         )
         self.assertEqual(node.node_name, "test")
-        self.assertEqual(node.gen_unlimited_trials, True)
         self.assertEqual(node._unique_id, "test")
 
     def test_node_string_representation(self) -> None:
@@ -156,7 +154,6 @@ class TestGenerationNode(TestCase):
                     model_gen_kwargs={},
                 ),
             ],
-            gen_unlimited_trials=False,
             transition_criteria=[
                 MaxTrials(threshold=5, only_in_statuses=[TrialStatus.RUNNING])
             ],
@@ -167,7 +164,7 @@ class TestGenerationNode(TestCase):
             (
                 "GenerationNode(model_specs=[ModelSpec(model_enum=GPEI,"
                 " model_kwargs={}, model_gen_kwargs={}, model_cv_kwargs={},"
-                " )], node_name=test, gen_unlimited_trials=False, "
+                " )], node_name=test, "
                 "transition_criteria=[MaxTrials({'threshold': 5, "
                 "'only_in_statuses': [<enum 'TrialStatus'>.RUNNING], "
                 "'not_in_statuses': None, 'transition_to': None, "
@@ -194,37 +191,6 @@ class TestGenerationNode(TestCase):
             node.model_spec_to_gen_from.fixed_features,
             ObservationFeatures(parameters={"x": 0}),
         )
-
-    def test_generator_run_limit_unlimited_without_flag(self) -> None:
-        """This tests checks that when the `gen_unlimited_trials` flag is false
-        but there are no generation blocking criteria, then the generator run limit
-        is set to -1 and a warning is logged.
-        """
-        node = GenerationNode(
-            node_name="test",
-            model_specs=[
-                ModelSpec(
-                    model_enum=Models.GPEI,
-                    model_kwargs={},
-                    model_gen_kwargs={
-                        "n": -1,
-                        "fixed_features": ObservationFeatures(parameters={"x": 0}),
-                    },
-                ),
-            ],
-            gen_unlimited_trials=False,
-        )
-        warning_msg = (
-            "Even though this node is not flagged for generation of unlimited "
-            "trials, there are no generation blocking criterion, therefore, "
-            "unlimited trials will be generated."
-        )
-        with self.assertLogs(GenerationNode.__module__, logging.WARNING) as logger:
-            self.assertEqual(node.generator_run_limit(), -1)
-            self.assertTrue(
-                any(warning_msg in output for output in logger.output),
-                logger.output,
-            )
 
 
 class TestGenerationStep(TestCase):

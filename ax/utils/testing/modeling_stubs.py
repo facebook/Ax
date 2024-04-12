@@ -256,13 +256,11 @@ def sobol_gpei_generation_node_gs() -> GenerationStrategy:
         node_name="sobol_node",
         transition_criteria=sobol_criterion,
         model_specs=[sobol_model_spec],
-        gen_unlimited_trials=False,
     )
     gpei_node = GenerationNode(
         node_name="GPEI_node",
         transition_criteria=gpei_criterion,
         model_specs=[gpei_model_spec],
-        gen_unlimited_trials=False,
     )
 
     sobol_GPEI_GS_nodes = GenerationStrategy(
