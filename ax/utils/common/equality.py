@@ -68,13 +68,16 @@ def same_elements(list1: List[Any], list2: List[Any]) -> bool:
     return True
 
 
-def datetime_equals(dt1: Optional[datetime], dt2: Optional[datetime]) -> bool:
-    """Compare equality of two datetimes, ignoring microseconds."""
+def datetime_equals(
+    dt1: Optional[datetime], dt2: Optional[datetime], tol: float = 1e-2
+) -> bool:
+    """Compare equality of two datetimes, up to a tolerance (in seconds)."""
     if not dt1 and not dt2:
         return True
     if not (dt1 and dt2):
         return False
-    return dt1.replace(microsecond=0) == dt2.replace(microsecond=0)
+    abs_diff = abs(dt1 - dt2)
+    return abs_diff.total_seconds() < tol
 
 
 def dataframe_equals(df1: pd.DataFrame, df2: pd.DataFrame) -> bool:

@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
@@ -41,6 +41,8 @@ class EqualityTest(TestCase):
         self.assertTrue(datetime_equals(None, None))
         self.assertFalse(datetime_equals(None, now))
         self.assertTrue(datetime_equals(now, now))
+        self.assertFalse(datetime_equals(now, now + timedelta(seconds=2e-2)))
+        self.assertTrue(datetime_equals(now, now + timedelta(seconds=5e-2), tol=1))
 
     def test_DataframeEquals(self) -> None:
         pd1 = pd.DataFrame.from_records([{"x": 100, "y": 200}])
