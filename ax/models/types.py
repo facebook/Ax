@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Union
 
 from ax.core.optimization_config import OptimizationConfig
 from ax.models.winsorization_config import WinsorizationConfig
@@ -20,6 +20,7 @@ TConfig = Dict[
         float,
         str,
         AcquisitionFunction,
+        List[str],
         Dict[int, Any],
         Dict[str, Any],
         OptimizationConfig,

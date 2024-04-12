@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 
 class Logit(Transform):
-    """Apply logit transfor to a float RangeParameter domain.
+    """Apply logit transform to a float RangeParameter domain.
 
     Transform is done in-place.
     """

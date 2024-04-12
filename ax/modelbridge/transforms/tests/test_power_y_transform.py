@@ -79,17 +79,6 @@ class PowerTransformYTest(TestCase):
             PowerTransformY(**shared_init_args, config={})
         # Test default init
         for m in ["m1", "m2"]:
-            # pyre-fixme[6]: For 1st param expected `List[ObservationData]` but got
-            #  `Optional[List[ObservationData]]`.
-            # pyre-fixme[6]: For 1st param expected `List[ObservationFeatures]` but
-            #  got `Optional[List[ObservationData]]`.
-            # pyre-fixme[6]: For 1st param expected `Optional[ModelBridge]` but got
-            #  `Optional[List[ObservationData]]`.
-            # pyre-fixme[6]: For 1st param expected `SearchSpace` but got
-            #  `Optional[List[ObservationData]]`.
-            # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str, Union[None,
-            #  Dict[str, typing.Any], OptimizationConfig, AcquisitionFunction, float,
-            #  int, str]]]` but got `Dict[str, List[str]]`.
             tf = PowerTransformY(**shared_init_args, config={"metrics": [m]})
             # tf.power_transforms should only exist for m and be a PowerTransformer
             self.assertIsInstance(tf.power_transforms, dict)
@@ -187,7 +176,7 @@ class PowerTransformYTest(TestCase):
         pt = PowerTransformY(
             search_space=None,
             observations=deepcopy(self.observations[:2]),
-            config={"metrics": ["m1"]},  # pyre-ignore
+            config={"metrics": ["m1"]},
         )
 
         # Transform the data and make sure we don't touch m1
@@ -217,7 +206,7 @@ class PowerTransformYTest(TestCase):
         pt = PowerTransformY(
             search_space=None,
             observations=deepcopy(self.observations[:2]),
-            config={"metrics": ["m1", "m2"]},  # pyre-ignore
+            config={"metrics": ["m1", "m2"]},
         )
 
         observation_data_tf = pt._transform_observation_data(
@@ -253,7 +242,7 @@ class PowerTransformYTest(TestCase):
         pt = PowerTransformY(
             search_space=None,
             observations=deepcopy(self.observations[:3]),
-            config={"metrics": ["m1"]},  # pyre-ignore
+            config={"metrics": ["m1"]},
         )
         observation_data_tf = pt._transform_observation_data(observation_data)
         y2 = [data.means[0] for data in observation_data_tf]
@@ -268,7 +257,7 @@ class PowerTransformYTest(TestCase):
         tf = PowerTransformY(
             search_space=None,
             observations=self.observations[:2],
-            config={"metrics": ["m1"]},  # pyre-ignore
+            config={"metrics": ["m1"]},
         )
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
         self.assertEqual(oc_tf, oc)
