@@ -189,7 +189,7 @@ def _suggest_gp_model(
             if parameter.parameter_type == ParameterType.FLOAT:
                 all_range_parameters_are_discrete = False
             else:
-                num_param_discrete_values = int(parameter.upper - parameter.lower) + 1
+                num_param_discrete_values = parameter.cardinality()
                 num_possible_points *= num_param_discrete_values
 
         if should_enumerate_param:

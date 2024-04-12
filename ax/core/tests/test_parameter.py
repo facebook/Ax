@@ -6,6 +6,8 @@
 
 # pyre-strict
 
+from typing import cast, List
+
 from ax.core.parameter import (
     _get_parameter_type,
     ChoiceParameter,
@@ -299,7 +301,7 @@ class ChoiceParameterTest(TestCase):
         )
         self.assertTrue(int_param.is_ordered)
         self.assertListEqual(
-            int_param.values, sorted(int_param.values)  # pyre-fixme[6]
+            int_param.values, sorted(cast(List[int], int_param.values))
         )
         float_param = ChoiceParameter(
             name="x", parameter_type=ParameterType.FLOAT, values=[1.5, 2.5, 3.5]

@@ -506,7 +506,8 @@ class transform_1(Transform):
         new_ss = search_space.clone()
         for param in new_ss.parameters.values():
             if isinstance(param, FixedParameter):
-                param._value += 1.0
+                if param._value is not None and not isinstance(param._value, str):
+                    param._value += 1.0
             elif isinstance(param, RangeParameter):
                 param._lower += 1.0
                 param._upper += 1.0
@@ -564,7 +565,8 @@ class transform_2(Transform):
         new_ss = search_space.clone()
         for param in new_ss.parameters.values():
             if isinstance(param, FixedParameter):
-                param._value *= 2.0
+                if param._value is not None and not isinstance(param._value, str):
+                    param._value *= 2.0
             elif isinstance(param, RangeParameter):
                 param._lower *= 2.0
                 param._upper *= 2.0

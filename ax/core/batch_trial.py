@@ -482,10 +482,7 @@ class BatchTrial(BaseTrial):
         param_levels: DefaultDict[str, Dict[Union[str, float], int]] = defaultdict(dict)
         for arm in self.arms:
             for param_name, param_value in arm.parameters.items():
-                # Expected `Union[float, str]` for 2nd anonymous parameter to call
-                # `dict.__setitem__` but got `Optional[Union[bool, float, str]]`.
-                # pyre-fixme[6]: Expected `Union[float, str]` for 1st param but got `...
-                param_levels[param_name][param_value] = 1
+                param_levels[param_name][not_none(param_value)] = 1
         param_cardinality = 1
         for param_values in param_levels.values():
             param_cardinality *= len(param_values)

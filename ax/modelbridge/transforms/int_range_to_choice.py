@@ -6,7 +6,8 @@
 
 # pyre-strict
 
-from typing import Dict, List, Optional, Set, TYPE_CHECKING
+from numbers import Real
+from typing import cast, Dict, List, Optional, Set, TYPE_CHECKING
 
 from ax.core.observation import Observation
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
@@ -35,14 +36,16 @@ class IntRangeToChoice(Transform):
     ) -> None:
         assert search_space is not None, "IntRangeToChoice requires search space"
         config = config or {}
-        self.max_choices: float = config.get("max_choices", float("inf"))  # pyre-ignore
+        self.max_choices: float = float(
+            cast(Real, (config.get("max_choices", float("inf"))))
+        )
         # Identify parameters that should be transformed
         self.transform_parameters: Set[str] = {
             p_name
             for p_name, p in search_space.parameters.items()
             if isinstance(p, RangeParameter)
             and p.parameter_type == ParameterType.INT
-            and p.upper - p.lower + 1 <= self.max_choices
+            and p.cardinality() <= self.max_choices
         }
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
@@ -52,9 +55,9 @@ class IntRangeToChoice(Transform):
                 p_name in self.transform_parameters
                 and isinstance(p, RangeParameter)
                 and p.parameter_type == ParameterType.INT
-                and p.upper - p.lower + 1 <= self.max_choices
+                and p.cardinality() <= self.max_choices
             ):
-                values = list(range(p.lower, p.upper + 1))  # pyre-ignore
+                values = list(range(int(p.lower), int(p.upper) + 1))
                 target_value = (
                     None
                     if p.target_value is None

@@ -1978,8 +1978,8 @@ def get_branin_data(
                 "metric_name": "branin",
                 "arm_name": not_none(checked_cast(Trial, trial).arm).name,
                 "mean": branin(
-                    float(not_none(trial.arm).parameters["x1"]),  # pyre-ignore[6]
-                    float(not_none(trial.arm).parameters["x2"]),  # pyre-ignore[6]
+                    float(not_none(not_none(trial.arm).parameters["x1"])),
+                    float(not_none(not_none(trial.arm).parameters["x2"])),
                 ),
                 "sem": 0.0,
             }
@@ -2007,9 +2007,10 @@ def get_branin_data_batch(batch: BatchTrial) -> Data:
                 "arm_name": [arm.name for arm in batch.arms],
                 "metric_name": "branin",
                 "mean": [
-                    # pyre-ignore[6]: This function can fail if a parameter value
-                    # does not support conversion to float.
-                    branin(float(arm.parameters["x1"]), float(arm.parameters["x2"]))
+                    branin(
+                        float(not_none(arm.parameters["x1"])),
+                        float(not_none(arm.parameters["x2"])),
+                    )
                     for arm in batch.arms
                 ],
                 "sem": 0.1,

@@ -12,13 +12,14 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 from copy import deepcopy
 from enum import Enum
 from math import inf
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import cast, Dict, List, Optional, Tuple, Type, Union
 from warnings import warn
 
-from ax.core.types import TParamValue, TParamValueList
+from ax.core.types import TNumeric, TParamValue, TParamValueList
 from ax.exceptions.core import AxWarning, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.typeutils import not_none
+from pyre_extensions import assert_is_instance
 
 # Tolerance for floating point comparisons. This is relatively permissive,
 # and allows for serializing at rather low numerical precision.
@@ -81,7 +82,7 @@ def _get_parameter_type(python_type: Type) -> ParameterType:
 class Parameter(SortableBase, metaclass=ABCMeta):
     _is_fidelity: bool = False
     _name: str
-    _target_value: Optional[TParamValue] = None
+    _target_value: TParamValue = None
     _parameter_type: ParameterType
 
     def cast(self, value: TParamValue) -> TParamValue:
@@ -125,7 +126,7 @@ class Parameter(SortableBase, metaclass=ABCMeta):
         )
 
     @property
-    def target_value(self) -> Optional[TParamValue]:
+    def target_value(self) -> TParamValue:
         return self._target_value
 
     @property
@@ -234,7 +235,7 @@ class RangeParameter(Parameter):
         logit_scale: bool = False,
         digits: Optional[int] = None,
         is_fidelity: bool = False,
-        target_value: Optional[TParamValue] = None,
+        target_value: TParamValue = None,
     ) -> None:
         """Initialize RangeParameter
 
@@ -259,17 +260,16 @@ class RangeParameter(Parameter):
             )
 
         self._name = name
+        if parameter_type not in (ParameterType.INT, ParameterType.FLOAT):
+            raise UserInputError("RangeParameter type must be int or float.")
         self._parameter_type = parameter_type
         self._digits = digits
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._lower = self.cast(lower)
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._upper = self.cast(upper)
+        self._lower: TNumeric = not_none(self.cast(lower))
+        self._upper: TNumeric = not_none(self.cast(upper))
         self._log_scale = log_scale
         self._logit_scale = logit_scale
         self._is_fidelity = is_fidelity
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._target_value = self.cast(target_value)
+        self._target_value: Optional[TNumeric] = self.cast(target_value)
 
         self._validate_range_param(
             parameter_type=parameter_type,
@@ -279,16 +279,16 @@ class RangeParameter(Parameter):
             logit_scale=logit_scale,
         )
 
-    def cardinality(self) -> float:
+    def cardinality(self) -> TNumeric:
         if self.parameter_type == ParameterType.FLOAT:
             return inf
 
-        return self.upper - self.lower + 1
+        return int(self.upper) - int(self.lower) + 1
 
     def _validate_range_param(
         self,
-        lower: TParamValue,
-        upper: TParamValue,
+        lower: TNumeric,
+        upper: TNumeric,
         log_scale: bool,
         logit_scale: bool,
         parameter_type: Optional[ParameterType] = None,
@@ -298,15 +298,13 @@ class RangeParameter(Parameter):
             ParameterType.FLOAT,
         ):
             raise UserInputError("RangeParameter type must be int or float.")
-        # pyre-fixme[58]: `>=` is not supported for operand types `Union[None, bool,
-        #  float, int, str]` and `Union[None, bool, float, int, str]`.
+
+        upper = float(upper)
         if lower >= upper:
             raise UserInputError(
                 f"Upper bound of {self.name} must be strictly larger than lower."
                 f"Got: ({lower}, {upper})."
             )
-        # pyre-fixme[58]: `-` is not supported for operand types `Union[None, bool,
-        #  float, int, str]` and `Union[None, bool, float, int, str]`.
         width: float = upper - lower
         if width < 100 * EPS:
             raise UserInputError(
@@ -316,12 +314,8 @@ class RangeParameter(Parameter):
             )
         if log_scale and logit_scale:
             raise UserInputError("Can't use both log and logit.")
-        # pyre-fixme[58]: `<=` is not supported for operand types `Union[None, bool,
-        #  float, int, str]` and `int`.
         if log_scale and lower <= 0:
             raise UserInputError("Cannot take log when min <= 0.")
-        # pyre-fixme[58]: `<=` is not supported for operand types `Union[None, bool,
-        #  float, int, str]` and `int`.
         if logit_scale and (lower <= 0 or upper >= 1):
             raise UserInputError("Logit requires lower > 0 and upper < 1")
         if not (self.is_valid_type(lower)) or not (self.is_valid_type(upper)):
@@ -330,7 +324,7 @@ class RangeParameter(Parameter):
             )
 
     @property
-    def upper(self) -> float:
+    def upper(self) -> TNumeric:
         """Upper bound of the parameter range.
 
         Value is cast to parameter type upon set and also validated
@@ -338,14 +332,34 @@ class RangeParameter(Parameter):
         """
         return self._upper
 
+    @upper.setter
+    def upper(self, value: TNumeric) -> None:
+        self._validate_range_param(
+            lower=self.lower,
+            upper=value,
+            log_scale=self.log_scale,
+            logit_scale=self.logit_scale,
+        )
+        self._upper = not_none(self.cast(value))
+
     @property
-    def lower(self) -> float:
+    def lower(self) -> TNumeric:
         """Lower bound of the parameter range.
 
         Value is cast to parameter type upon set and also validated
         to ensure the bound is strictly less than upper bound.
         """
         return self._lower
+
+    @lower.setter
+    def lower(self, value: TNumeric) -> None:
+        self._validate_range_param(
+            lower=value,
+            upper=self.upper,
+            log_scale=self.log_scale,
+            logit_scale=self.logit_scale,
+        )
+        self._lower = not_none(self.cast(value))
 
     @property
     def digits(self) -> Optional[int]:
@@ -381,8 +395,8 @@ class RangeParameter(Parameter):
         if upper is None:
             upper = self._upper
 
-        cast_lower = self.cast(lower)
-        cast_upper = self.cast(upper)
+        cast_lower = not_none(self.cast(lower))
+        cast_upper = not_none(self.cast(upper))
         self._validate_range_param(
             lower=cast_lower,
             upper=cast_upper,
@@ -397,10 +411,8 @@ class RangeParameter(Parameter):
         self._digits = digits
 
         # Re-scale min and max to new digits definition
-        cast_lower = self.cast(self._lower)
-        cast_upper = self.cast(self._upper)
-        # pyre-fixme[58]: `>=` is not supported for operand types `Union[None, bool,
-        #  float, int, str]` and `Union[None, bool, float, int, str]`.
+        cast_lower = not_none(self.cast(self._lower))
+        cast_upper = not_none(self.cast(self._upper))
         if cast_lower >= cast_upper:
             raise UserInputError(
                 f"Lower bound {cast_lower} is >= upper bound {cast_upper}."
@@ -451,9 +463,7 @@ class RangeParameter(Parameter):
 
         # This might have issues with ints > 2^24
         if self.parameter_type is ParameterType.INT:
-            # pyre-fixme[6]: Expected `Union[_SupportsIndex, bytearray, bytes, str,
-            #  typing.SupportsFloat]` for 1st param but got `Union[None, float, str]`.
-            return isinstance(value, int) or float(value).is_integer()
+            return isinstance(value, int) or float(not_none(value)).is_integer()
         return True
 
     def clone(self) -> RangeParameter:
@@ -469,13 +479,12 @@ class RangeParameter(Parameter):
             target_value=self._target_value,
         )
 
-    def cast(self, value: TParamValue) -> TParamValue:
+    def cast(self, value: TParamValue) -> Optional[TNumeric]:
         if value is None:
             return None
         if self.parameter_type is ParameterType.FLOAT and self._digits is not None:
-            # pyre-fixme[6]: Expected `None` for 2nd param but got `Optional[int]`.
-            return round(float(value), self._digits)
-        return self.python_type(value)
+            return round(float(value), not_none(self._digits))
+        return assert_is_instance(self.python_type(value), TNumeric)
 
     def __repr__(self) -> str:
         ret_val = self._base_repr()
@@ -526,7 +535,7 @@ class ChoiceParameter(Parameter):
         is_ordered: Optional[bool] = None,
         is_task: bool = False,
         is_fidelity: bool = False,
-        target_value: Optional[TParamValue] = None,
+        target_value: TParamValue = None,
         sort_values: Optional[bool] = None,
         dependents: Optional[Dict[TParamValue, List[str]]] = None,
     ) -> None:
@@ -561,9 +570,8 @@ class ChoiceParameter(Parameter):
                 stacklevel=2,
             )
             values = list(dict_values)
-        self._values: List[TParamValue] = self._cast_values(values)
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._is_ordered = (
+
+        self._is_ordered: bool = (
             is_ordered
             if is_ordered is not None
             else self._get_default_bool_and_warn(param_string="is_ordered")
@@ -575,11 +583,9 @@ class ChoiceParameter(Parameter):
             else self._get_default_bool_and_warn(param_string="sort_values")
         )
         if self.sort_values:
-            # pyre-ignore[6]: values/self._values expects List[Union[None, bool, float,
-            # int, str]] but sorted() takes/returns
-            # List[Variable[_typeshed.SupportsLessThanT (bound to
-            # _typeshed.SupportsLessThan)]]
-            self._values = self._cast_values(sorted(values))
+            values = cast(List[TParamValue], sorted([not_none(v) for v in values]))
+        self._values: List[TParamValue] = self._cast_values(values)
+
         if dependents:
             for value in dependents:
                 if value not in self.values:
@@ -714,7 +720,7 @@ class FixedParameter(Parameter):
         parameter_type: ParameterType,
         value: TParamValue,
         is_fidelity: bool = False,
-        target_value: Optional[TParamValue] = None,
+        target_value: TParamValue = None,
         dependents: Optional[Dict[TParamValue, List[str]]] = None,
     ) -> None:
         """Initialize FixedParameter
@@ -737,11 +743,9 @@ class FixedParameter(Parameter):
 
         self._name = name
         self._parameter_type = parameter_type
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._value = self.cast(value)
+        self._value: TParamValue = self.cast(value)
         self._is_fidelity = is_fidelity
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._target_value = self.cast(target_value)
+        self._target_value: TParamValue = self.cast(target_value)
         # NOTE: We don't need to check that dependent parameters actually exist as
         # that is done in `HierarchicalSearchSpace` constructor.
         if dependents:

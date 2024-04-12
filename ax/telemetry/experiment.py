@@ -181,7 +181,7 @@ class ExperimentCreatedRecord:
                 isinstance(param, RangeParameter)
                 or (isinstance(param, ChoiceParameter) and param.is_ordered)
             )
-            and (1 < param.cardinality() <= 3)
+            and (1.0 < param.cardinality() <= 3.0)
         )
         num_int_range_parameters_medium = sum(
             1
@@ -190,7 +190,7 @@ class ExperimentCreatedRecord:
                 isinstance(param, RangeParameter)
                 or (isinstance(param, ChoiceParameter) and param.is_ordered)
             )
-            and (3 < param.cardinality() <= 7)
+            and (3.0 < param.cardinality() <= 7.0)
         )
         num_int_range_parameters_large = sum(
             1
@@ -199,7 +199,7 @@ class ExperimentCreatedRecord:
                 isinstance(param, RangeParameter)
                 or (isinstance(param, ChoiceParameter) and param.is_ordered)
             )
-            and (7 < param.cardinality() < inf)
+            and (7.0 < param.cardinality() < inf)
         )
         num_log_scale_range_parameters = sum(
             1
