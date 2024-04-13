@@ -11,6 +11,7 @@ from typing import Dict, List, Sequence, Union
 import numpy as np
 
 from ax.core.types import TParamValue
+from ax.exceptions.core import UnsupportedError
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.telemetry.ax_client import AxClientCompletedRecord, AxClientCreatedRecord
 from ax.telemetry.experiment import ExperimentCompletedRecord, ExperimentCreatedRecord
@@ -129,6 +130,25 @@ class TestAxClient(TestCase):
             model_std_generalization=float("nan"),
         )
         self._compare_axclient_completed_records(record, expected)
+
+    def test_batch_trial_warning(self) -> None:
+        ax_client = AxClient()
+        error_msg = (
+            "AxClient API does not support batch trials yet."
+            " We plan to add this support in coming versions."
+        )
+        with self.assertRaisesRegex(UnsupportedError, error_msg):
+            ax_client.create_experiment(
+                name="test_experiment",
+                parameters=[
+                    {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                ],
+                objectives={"branin": ObjectiveProperties(minimize=True)},
+                is_test=True,
+                choose_generation_strategy_kwargs={
+                    "use_batch_trials": True,
+                },
+            )
 
     def _compare_axclient_completed_records(
         self, record: AxClientCompletedRecord, expected: AxClientCompletedRecord
