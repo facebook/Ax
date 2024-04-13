@@ -21,11 +21,10 @@ class ParameterConstraint(SortableBase):
     Constraints are expressed using a map from parameter name to weight
     followed by a bound.
 
-    The constraint is satisfied if w * v <= b where:
+    The constraint is satisfied if sum_i(w_i * v_i) <= b where:
         w is the vector of parameter weights.
         v is a vector of parameter values.
         b is the specified bound.
-        * is the dot product operator.
     """
 
     def __init__(self, constraint_dict: Dict[str, float], bound: float) -> None:

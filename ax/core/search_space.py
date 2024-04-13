@@ -238,8 +238,7 @@ class SearchSpace(Base):
 
         # parameter constraints only accept numeric parameters
         numerical_param_dict = {
-            # pyre-fixme[6]: Expected `typing.Union[...oat]` but got `unknown`.
-            name: float(value)
+            name: float(not_none(value))
             for name, value in parameterization.items()
             if self.parameters[name].is_numeric
         }
@@ -544,7 +543,8 @@ class HierarchicalSearchSpace(SearchSpace):
         # that behavior was requested via the opt-in flag.
         warnings.warn(
             f"Cannot flatten observation features {obs_feats} as full "
-            "parameterization is not recorded in metadata."
+            "parameterization is not recorded in metadata.",
+            stacklevel=2,
         )
         return obs_feats
 

@@ -15,13 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 import numpy as np
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import Observation, ObservationFeatures
-from ax.core.parameter import (
-    ChoiceParameter,
-    FixedParameter,
-    Parameter,
-    ParameterType,
-    RangeParameter,
-)
+from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
 from ax.core.types import TParameterization
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.prediction_utils import (
@@ -444,10 +438,7 @@ def get_range_parameters_from_list(
         parameter
         for parameter in parameters
         if isinstance(parameter, RangeParameter)
-        and (
-            parameter.parameter_type == ParameterType.FLOAT
-            or parameter.upper - parameter.lower + 1 >= min_num_values
-        )
+        and parameter.cardinality() >= min_num_values  # float has inf cardinality
     ]
 
 

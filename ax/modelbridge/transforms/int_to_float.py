@@ -69,7 +69,7 @@ class IntToFloat(Transform):
             for p_name, p in self.search_space.parameters.items()
             if isinstance(p, RangeParameter)
             and p.parameter_type == ParameterType.INT
-            and (p.upper - p.lower + 1 >= self.min_choices or p.log_scale)
+            and ((p.cardinality() >= self.min_choices) or p.log_scale)
         }
         if contains_constrained_integer(self.search_space, self.transform_parameters):
             self.rounding = "randomized"
