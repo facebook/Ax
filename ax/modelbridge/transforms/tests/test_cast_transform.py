@@ -17,6 +17,7 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.transforms.cast import Cast
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
@@ -67,6 +68,10 @@ class CastTransformTest(TestCase):
             trial_index=10,
             metadata=None,
         )
+
+    def test_invalid_config(self) -> None:
+        with self.assertRaisesRegex(UserInputError, "Unexpected config"):
+            Cast(search_space=self.search_space, config={"flatten_hs": "foo"})
 
     def test_transform_observation_features(self) -> None:
         # Verify running the transform on already-casted features does nothing
@@ -157,6 +162,26 @@ class CastTransformTest(TestCase):
                 obsf.metadata.get(Keys.FULL_PARAMETERIZATION),
                 self.obs_feats_hss.parameters,
             )
+
+    def test_transform_observation_features_HSS_dummy_values_setting(self) -> None:
+        t = Cast(
+            search_space=self.hss,
+            config={"inject_dummy_values_to_complete_flat_parameterization": True},
+            observations=[],
+        )
+        self.assertTrue(t.inject_dummy_values_to_complete_flat_parameterization)
+        with patch.object(
+            t.search_space,
+            "flatten_observation_features",
+            wraps=t.search_space.flatten_observation_features,  # pyre-ignore
+        ) as mock_flatten_obsf:
+            t.transform_observation_features(observation_features=[self.obs_feats_hss])
+        mock_flatten_obsf.assert_called_once()
+        self.assertTrue(
+            mock_flatten_obsf.call_args.kwargs[
+                "inject_dummy_values_to_complete_flat_parameterization"
+            ]
+        )
 
     def test_untransform_observation_features_HSS(self) -> None:
         # Test transformation in one subtree of HSS.
