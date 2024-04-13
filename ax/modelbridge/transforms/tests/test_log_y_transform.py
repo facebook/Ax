@@ -100,7 +100,7 @@ class LogYTransformTest(TestCase):
         tf = LogY(
             search_space=None,
             observations=[],
-            config={"metrics": ["m3"]},  # pyre-ignore
+            config={"metrics": ["m3"]},
         )
         obsd1 = deepcopy(self.obsd1)
         obsd1_ = tf._transform_observation_data([obsd1])
@@ -140,7 +140,7 @@ class LogYTransformTest(TestCase):
         tf = LogY(
             search_space=None,
             observations=self.observations,
-            config={"metrics": ["m1"]},  # pyre-ignore
+            config={"metrics": ["m1"]},
         )
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
         self.assertEqual(oc_tf, oc)
@@ -229,7 +229,7 @@ class LogYTransformTest(TestCase):
         tf = LogY(
             search_space=None,
             observations=self.observations,
-            config={"metrics": ["m1"]},  # pyre-ignore
+            config={"metrics": ["m1"]},
         )
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
         oc.objective_thresholds[0].bound = math.log(1.234)
