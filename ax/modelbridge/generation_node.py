@@ -439,11 +439,9 @@ class GenerationNode(SerializationMixin, SortableBase):
                 raise NotImplementedError(
                     "Cannot currently select between multiple nodes to transition to."
                 )
-            elif len(next_nodes) == 1:
-                return True, next_nodes[0]
             else:
-                # Will transition to the next node in the list.
-                return True, None
+                return True, next_nodes[0]
+
         return False, None
 
     def generator_run_limit(self, supress_generation_errors: bool = True) -> int:

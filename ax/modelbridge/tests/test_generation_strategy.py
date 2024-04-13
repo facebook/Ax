@@ -1284,12 +1284,14 @@ class TestGenerationStrategy(TestCase):
                     threshold=3,
                     block_gen_if_met=True,
                     block_transition_if_unmet=True,
+                    transition_to="GPEI_node",
                 ),
                 MinTrials(
                     threshold=2,
                     only_in_statuses=[TrialStatus.COMPLETED],
                     block_gen_if_met=False,
                     block_transition_if_unmet=True,
+                    transition_to="GPEI_node",
                 ),
             ],
         )
