@@ -664,10 +664,11 @@ class HierarchicalSearchSpace(SearchSpace):
 
         Args:
             parameters: Parameterization to cast to hierarchical structure.
-            check_all_parameters_present: Whether to raise an error if a paramete
-                 that is expected to be present (according to values of other
-                 parameters and the hierarchical structure of the search space)
-                 is not specified.
+            check_all_parameters_present: Whether to raise an error if a parameter
+                that is expected to be present (according to values of other
+                parameters and the hierarchical structure of the search space)
+                is not specified. When this is False, if a parameter is missing,
+                its dependents will not be included in the returned parameterization.
         """
         error_msg_prefix: str = (
             f"Parameterization {parameters} violates the hierarchical structure "
@@ -682,11 +683,15 @@ class HierarchicalSearchSpace(SearchSpace):
                     + f"Parameter '{root.name}' not in parameterization to cast."
                 )
 
-            if not root.is_hierarchical:
+            # Return if the root parameter is not hierarchical or if it is not
+            # in the parameterization to cast.
+            if not root.is_hierarchical or root.name not in parameters:
                 return applicable
 
+            # Find the dependents of the current root parameter.
+            root_val = parameters[root.name]
             for val, deps in root.dependents.items():
-                if parameters[root.name] == val:
+                if root_val == val:
                     for dep in deps:
                         applicable.update(_find_applicable_parameters(root=self[dep]))
 
