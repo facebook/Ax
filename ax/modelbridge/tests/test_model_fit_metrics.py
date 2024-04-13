@@ -9,17 +9,23 @@
 import warnings
 from typing import cast, Dict
 
+import numpy as np
+
 from ax.core.experiment import Experiment
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.metrics.branin import BraninMetric
-from ax.modelbridge.cross_validation import compute_model_fit_metrics_from_modelbridge
+from ax.modelbridge.cross_validation import (
+    _predict_on_cross_validation_data,
+    compute_model_fit_metrics_from_modelbridge,
+)
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.scheduler import get_fitted_model_bridge, Scheduler, SchedulerOptions
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from ax.utils.stats.model_fit_stats import _entropy_via_kde, entropy_of_observations
 from ax.utils.testing.core_stubs import get_branin_search_space
 
 NUM_SOBOL = 5
@@ -82,6 +88,29 @@ class TestModelBridgeFitMetrics(TestCase):
         self.assertTrue("branin" in std)
         std_branin = std["branin"]
         self.assertIsInstance(std_branin, float)
+
+        # checking non-default model-fit-metric
+        untransform = False
+        fit_metrics = compute_model_fit_metrics_from_modelbridge(
+            model_bridge=model_bridge,
+            experiment=scheduler.experiment,
+            generalization=True,
+            untransform=untransform,
+            fit_metrics_dict={"Entropy": entropy_of_observations},
+        )
+        entropy = fit_metrics.get("Entropy")
+        self.assertIsInstance(entropy, dict)
+        entropy = cast(Dict[str, float], entropy)
+        self.assertTrue("branin" in entropy)
+        entropy_branin = entropy["branin"]
+        self.assertIsInstance(entropy_branin, float)
+
+        y_obs, _, _ = _predict_on_cross_validation_data(
+            model_bridge=model_bridge, untransform=untransform
+        )
+        y_obs_branin = np.array(y_obs["branin"])[:, np.newaxis]
+        entropy_truth = _entropy_via_kde(y_obs_branin)
+        self.assertAlmostEqual(entropy_branin, entropy_truth)
 
         # testing with empty metrics
         empty_metrics = compute_model_fit_metrics_from_modelbridge(
