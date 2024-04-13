@@ -3,6 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-strict
+
 """
 Module containing the metric base classes for benchmarks. The key property of
 a benchmark metric is whether it has a ground truth or not, which is indicated
