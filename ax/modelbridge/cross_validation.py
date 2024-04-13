@@ -535,7 +535,6 @@ def compute_model_fit_metrics_from_modelbridge(
         if generalization
         else _predict_on_training_data(model_bridge=model_bridge, experiment=experiment)
     )
-
     if fit_metrics_dict is None:
         fit_metrics_dict = {
             "coefficient_of_determination": coefficient_of_determination,

@@ -9,6 +9,7 @@ from typing import Dict, Mapping, Optional, Protocol
 
 import numpy as np
 from scipy.stats import fisher_exact, norm, pearsonr, spearmanr
+from sklearn.neighbors import KernelDensity
 
 """
 ################################ Model Fit Metrics ###############################
@@ -125,6 +126,50 @@ def std_of_the_standardized_error(
         The scalar standard deviation of the standardized error.
     """
     return ((y_obs - y_pred) / se_pred).std()
+
+
+def entropy_of_observations(
+    y_obs: np.ndarray,
+    y_pred: np.ndarray,
+    se_pred: np.ndarray,
+    bandwidth: float = 0.1,
+) -> float:
+    """Computes the entropy of the observations y_obs using a kernel density estimator.
+    This can be used to quantify how "clustered" the outcomes are. NOTE: y_pred and
+    se_pred are not used, but are required for the API.
+
+    Args:
+        y_obs: An array of observations for a single metric.
+        y_pred: An array of the predicted values corresponding to y_obs.
+        se_pred: An array of the standard errors of the predicted values.
+        bandwidth: The kernel bandwidth. Defaults to 0.1, which is a reasonable value
+            for standardized outcomes y_obs. The rank ordering of the results on a set
+            of y_obs data sets is not generally sensitive to the bandwidth, if it is
+            held fixed across the data sets. The absolute value of the results however
+            changes significantly with the bandwidth.
+
+    Returns:
+        The scalar entropy of the observations.
+    """
+    if y_obs.ndim == 1:
+        y_obs = y_obs[:, np.newaxis]
+    return _entropy_via_kde(y_obs, bandwidth=bandwidth)
+
+
+def _entropy_via_kde(y: np.ndarray, bandwidth: float = 0.1) -> float:
+    """Computes the entropy of the kernel density estimate of the input data.
+
+    Args:
+        y: An (n x m) array of observations.
+        bandwidth: The kernel bandwidth.
+
+    Returns:
+        The scalar entropy of the kernel density estimate.
+    """
+    kde = KernelDensity(kernel="gaussian", bandwidth=bandwidth)
+    kde.fit(y)
+    log_p = kde.score_samples(y)  # computes the log probability of each data point
+    return -np.sum(np.exp(log_p) * log_p)  # compute entropy, the negated sum of p log p
 
 
 def _mean_prediction_ci(
