@@ -5,11 +5,20 @@
 
 # pyre-strict
 
+from logging import Logger
 from typing import Dict, Mapping, Optional, Protocol
 
 import numpy as np
+
+from ax.utils.common.logger import get_logger
 from scipy.stats import fisher_exact, norm, pearsonr, spearmanr
 from sklearn.neighbors import KernelDensity
+
+
+logger: Logger = get_logger(__name__)
+
+
+DEFAULT_KDE_BANDWIDTH = 0.1  # default bandwidth for kernel density estimators
 
 """
 ################################ Model Fit Metrics ###############################
@@ -132,7 +141,7 @@ def entropy_of_observations(
     y_obs: np.ndarray,
     y_pred: np.ndarray,
     se_pred: np.ndarray,
-    bandwidth: float = 0.1,
+    bandwidth: float = DEFAULT_KDE_BANDWIDTH,
 ) -> float:
     """Computes the entropy of the observations y_obs using a kernel density estimator.
     This can be used to quantify how "clustered" the outcomes are. NOTE: y_pred and
@@ -140,8 +149,8 @@ def entropy_of_observations(
 
     Args:
         y_obs: An array of observations for a single metric.
-        y_pred: An array of the predicted values corresponding to y_obs.
-        se_pred: An array of the standard errors of the predicted values.
+        y_pred: Unused.
+        se_pred: Unused.
         bandwidth: The kernel bandwidth. Defaults to 0.1, which is a reasonable value
             for standardized outcomes y_obs. The rank ordering of the results on a set
             of y_obs data sets is not generally sensitive to the bandwidth, if it is
@@ -153,10 +162,20 @@ def entropy_of_observations(
     """
     if y_obs.ndim == 1:
         y_obs = y_obs[:, np.newaxis]
+
+    # Check if standardization was applied to the observations.
+    if bandwidth == DEFAULT_KDE_BANDWIDTH:
+        y_std = np.std(y_obs, axis=0, ddof=1)
+        if np.any(y_std < 0.5) or np.any(2.0 < y_std):  # allowing a fudge factor of 2.
+            logger.warning(
+                "Standardization of observations was not applied. "
+                f"The default bandwidth of {DEFAULT_KDE_BANDWIDTH} is a reasonable "
+                "choice if observations are standardize, but may not be otherwise."
+            )
     return _entropy_via_kde(y_obs, bandwidth=bandwidth)
 
 
-def _entropy_via_kde(y: np.ndarray, bandwidth: float = 0.1) -> float:
+def _entropy_via_kde(y: np.ndarray, bandwidth: float = DEFAULT_KDE_BANDWIDTH) -> float:
     """Computes the entropy of the kernel density estimate of the input data.
 
     Args:
