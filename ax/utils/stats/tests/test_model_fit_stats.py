@@ -46,6 +46,23 @@ class TestModelFitStats(TestCase):
         # ordering of entropies stays the same, though the difference is smaller
         self.assertTrue(er2 - ec2 > 3)
 
+        # test warning if y is not standardized
+        module_name = "ax.utils.stats.model_fit_stats"
+        expected_warning = (
+            "WARNING:ax.utils.stats.model_fit_stats:Standardization of observations "
+            "was not applied. The default bandwidth of 0.1 is a reasonable "
+            "choice if observations are standardize, but may not be otherwise."
+        )
+        with self.assertLogs(module_name, level="WARNING") as logger:
+            ec = entropy_of_observations(y_obs=10 * yc, y_pred=ones, se_pred=ones)
+            self.assertEqual(len(logger.output), 1)
+            self.assertEqual(logger.output[0], expected_warning)
+
+        with self.assertLogs(module_name, level="WARNING") as logger:
+            ec = entropy_of_observations(y_obs=yc / 10, y_pred=ones, se_pred=ones)
+            self.assertEqual(len(logger.output), 1)
+            self.assertEqual(logger.output[0], expected_warning)
+
     def test_contingency_table_construction(self) -> None:
         # Create a dummy set of observations and predictions
         y_obs = np.array([1, 3, 2, 5, 7, 3])
