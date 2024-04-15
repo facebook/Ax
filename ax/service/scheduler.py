@@ -2112,19 +2112,22 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         )
 
 
-def get_fitted_model_bridge(scheduler: Scheduler) -> ModelBridge:
+def get_fitted_model_bridge(
+    scheduler: Scheduler, force_refit: bool = False
+) -> ModelBridge:
     """Returns a fitted ModelBridge object. If the model is fit already, directly
     returns the already fitted model. Otherwise, fits and returns a new one.
 
     Args:
         scheduler: The scheduler object from which to get the fitted model.
+        force_refit: If True, will force a data lookup and a refit of the model.
 
     Returns:
         A ModelBridge object fitted to the observations of the scheduler's experiment.
     """
     gs = scheduler.standard_generation_strategy
     model_bridge = gs.model  # Optional[ModelBridge]
-    if model_bridge is None:  # Need to re-fit the model.
-        gs._fit_current_model(data=None)  # Will lookup_data if it none is provided.
+    if model_bridge is None or force_refit:  # Need to re-fit the model.
+        gs._fit_current_model(data=None)  # Will lookup_data if none is provided.
         model_bridge = cast(ModelBridge, gs.model)
     return model_bridge

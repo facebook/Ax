@@ -19,7 +19,7 @@ from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Se
 
 import numpy as np
 from ax.core.experiment import Experiment
-from ax.core.observation import Observation, ObservationData, observations_from_data
+from ax.core.observation import Observation, ObservationData, recombine_observations
 from ax.core.optimization_config import OptimizationConfig
 from ax.modelbridge.base import ModelBridge, unwrap_observation_data
 from ax.utils.common.logger import get_logger
@@ -515,6 +515,7 @@ def compute_model_fit_metrics_from_modelbridge(
             before calcualting the model fit metrics. False by default as models
             are trained in transformed space and model fit should be
             evaluated in transformed space.
+
     Returns:
         A nested dictionary mapping from the *model fit* metric names and the
         *experimental metric* names to the values of the model fit metrics.
@@ -528,12 +529,13 @@ def compute_model_fit_metrics_from_modelbridge(
             `coefficient of determination of the test error predictions`
         ```
     """
-    y_obs, y_pred, se_pred = (
-        _predict_on_cross_validation_data(
-            model_bridge=model_bridge, untransform=untransform
-        )
+    predict_func = (
+        _predict_on_cross_validation_data
         if generalization
-        else _predict_on_training_data(model_bridge=model_bridge, experiment=experiment)
+        else _predict_on_training_data
+    )
+    y_obs, y_pred, se_pred = predict_func(
+        model_bridge=model_bridge, untransform=untransform
     )
     if fit_metrics_dict is None:
         fit_metrics_dict = {
@@ -552,7 +554,7 @@ def compute_model_fit_metrics_from_modelbridge(
 
 def _predict_on_training_data(
     model_bridge: ModelBridge,
-    experiment: Experiment,
+    untransform: bool = False,
 ) -> Tuple[
     Dict[str, np.ndarray],
     Dict[str, np.ndarray],
@@ -566,16 +568,17 @@ def _predict_on_training_data(
 
     Args:
         model_bridge: A ModelBridge object with which to make predictions.
-        experiment: The experiment with whose data to compute the model fit metrics.
+        untransform: Boolean indicating whether to untransform model predictions.
 
     Returns:
         A tuple containing three dictionaries for 1) observed metric values, and the
         model's associated 2) predictive means and 3) predictive standard deviations.
     """
-    data = experiment.lookup_data()
-    observations = observations_from_data(
-        experiment=experiment, data=data
-    )  # List[Observation]
+    observations = model_bridge.get_training_data()  # List[Observation]
+
+    # NOTE: the following up to the end of the untransform block could be replaced
+    # with model_bridge's public predict / private _batch_predict method, if the
+    # latter had a boolean untransform flag.
 
     # Transform observations -- this will transform both obs data and features
     for t in model_bridge.transforms.values():
@@ -586,12 +589,23 @@ def _predict_on_training_data(
     # Make predictions in transformed space
     observation_data_pred = model_bridge._predict(observation_features)
 
+    if untransform:
+        # Apply reverse transforms, in reverse order
+        pred_observations = recombine_observations(
+            observation_features=observation_features,
+            observation_data=observation_data_pred,
+        )
+        for t in reversed(list(model_bridge.transforms.values())):
+            pred_observations = t.untransform_observations(pred_observations)
+
+        observation_data_pred = [obs.data for obs in pred_observations]
+
     mean_predicted, cov_predicted = unwrap_observation_data(observation_data_pred)
     mean_observed = [
         obs.data.means_dict for obs in observations
     ]  # List[Dict[str, float]]
 
-    metric_names = list(data.metric_names)
+    metric_names = observations[0].data.metric_names
     mean_observed = _list_of_dicts_to_dict_of_lists(
         list_of_dicts=mean_observed, keys=metric_names
     )

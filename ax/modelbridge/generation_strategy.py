@@ -717,7 +717,6 @@ class GenerationStrategy(GenerationStrategyInterface):
         # model state from last generator run and pass it to the model
         # being instantiated in this function.
         model_state_on_lgr = self._get_model_state_from_last_generator_run()
-
         if not data.df.empty:
             trial_indices_in_data = sorted(data.df["trial_index"].unique())
             logger.debug(f"Fitting model with data for trials: {trial_indices_in_data}")
