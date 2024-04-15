@@ -19,6 +19,7 @@ from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorch
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.sensitivity.derivative_measures import compute_derivatives_from_model_list
 from botorch.models.model import Model, ModelList
+from botorch.posteriors.fully_bayesian import GaussianMixturePosterior
 from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.sampling import draw_sobol_samples
@@ -427,8 +428,12 @@ class SobolSensitivityGPMean(object):
                 # use mini-batches.
                 for x_split in x.split(split_size=mini_batch_size):
                     p = checked_cast(GPyTorchPosterior, self.model.posterior(x_split))
-                    means.append(p.mean)
-                    variances.append(p.variance)
+                    if isinstance(p, GaussianMixturePosterior):
+                        means.append(torch.mean(p.mean, dim=0))
+                        variances.append(torch.mean(p.variance, dim=0))
+                    else:
+                        means.append(p.mean)
+                        variances.append(p.variance)
             return link_function(torch.cat(means), torch.cat(variances))
 
         self.sensitivity = SobolSensitivity(
