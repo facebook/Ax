@@ -7,6 +7,7 @@
 # pyre-strict
 
 import warnings
+from itertools import product
 from typing import cast, Dict
 
 import numpy as np
@@ -17,6 +18,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.cross_validation import (
     _predict_on_cross_validation_data,
+    _predict_on_training_data,
     compute_model_fit_metrics_from_modelbridge,
 )
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
@@ -67,7 +69,12 @@ class TestModelBridgeFitMetrics(TestCase):
         )
         # need to run some trials to initialize the ModelBridge
         scheduler.run_n_trials(max_trials=NUM_SOBOL + 1)
+
         model_bridge = get_fitted_model_bridge(scheduler)
+        self.assertEqual(len(model_bridge.get_training_data()), NUM_SOBOL)
+
+        model_bridge = get_fitted_model_bridge(scheduler, force_refit=True)
+        self.assertEqual(len(model_bridge.get_training_data()), NUM_SOBOL + 1)
 
         # testing compute_model_fit_metrics_from_modelbridge with default metrics
         fit_metrics = compute_model_fit_metrics_from_modelbridge(
@@ -90,45 +97,51 @@ class TestModelBridgeFitMetrics(TestCase):
         self.assertIsInstance(std_branin, float)
 
         # checking non-default model-fit-metric
-        untransform = False
-        fit_metrics = compute_model_fit_metrics_from_modelbridge(
-            model_bridge=model_bridge,
-            experiment=scheduler.experiment,
-            generalization=True,
-            untransform=untransform,
-            fit_metrics_dict={"Entropy": entropy_of_observations},
-        )
-        entropy = fit_metrics.get("Entropy")
-        self.assertIsInstance(entropy, dict)
-        entropy = cast(Dict[str, float], entropy)
-        self.assertTrue("branin" in entropy)
-        entropy_branin = entropy["branin"]
-        self.assertIsInstance(entropy_branin, float)
+        for untransform, generalization in product([True, False], [True, False]):
+            with self.subTest(untransform=untransform):
+                fit_metrics = compute_model_fit_metrics_from_modelbridge(
+                    model_bridge=model_bridge,
+                    experiment=scheduler.experiment,
+                    generalization=generalization,
+                    untransform=untransform,
+                    fit_metrics_dict={"Entropy": entropy_of_observations},
+                )
+                entropy = fit_metrics.get("Entropy")
+                self.assertIsInstance(entropy, dict)
+                entropy = cast(Dict[str, float], entropy)
+                self.assertTrue("branin" in entropy)
+                entropy_branin = entropy["branin"]
+                self.assertIsInstance(entropy_branin, float)
 
-        y_obs, _, _ = _predict_on_cross_validation_data(
-            model_bridge=model_bridge, untransform=untransform
-        )
-        y_obs_branin = np.array(y_obs["branin"])[:, np.newaxis]
-        entropy_truth = _entropy_via_kde(y_obs_branin)
-        self.assertAlmostEqual(entropy_branin, entropy_truth)
+                predict = (
+                    _predict_on_cross_validation_data
+                    if generalization
+                    else _predict_on_training_data
+                )
+                y_obs, _, _ = predict(
+                    model_bridge=model_bridge, untransform=untransform
+                )
+                y_obs_branin = np.array(y_obs["branin"])[:, np.newaxis]
+                entropy_truth = _entropy_via_kde(y_obs_branin)
+                self.assertAlmostEqual(entropy_branin, entropy_truth)
 
-        # testing with empty metrics
-        empty_metrics = compute_model_fit_metrics_from_modelbridge(
-            model_bridge=model_bridge,
-            experiment=self.branin_experiment,
-            fit_metrics_dict={},
-        )
-        self.assertIsInstance(empty_metrics, dict)
-        self.assertTrue(len(empty_metrics) == 0)
+                # testing with empty metrics
+                empty_metrics = compute_model_fit_metrics_from_modelbridge(
+                    model_bridge=model_bridge,
+                    experiment=self.branin_experiment,
+                    fit_metrics_dict={},
+                )
+                self.assertIsInstance(empty_metrics, dict)
+                self.assertTrue(len(empty_metrics) == 0)
 
-        # testing log filtering
-        with warnings.catch_warnings(record=True) as ws:
-            fit_metrics = compute_model_fit_metrics_from_modelbridge(
-                model_bridge=model_bridge,
-                experiment=self.branin_experiment,
-                untransform=False,
-                generalization=True,
-            )
-        self.assertFalse(
-            any("Input data is not standardized" in str(w.message) for w in ws)
-        )
+                # testing log filtering
+                with warnings.catch_warnings(record=True) as ws:
+                    fit_metrics = compute_model_fit_metrics_from_modelbridge(
+                        model_bridge=model_bridge,
+                        experiment=self.branin_experiment,
+                        untransform=untransform,
+                        generalization=generalization,
+                    )
+                self.assertFalse(
+                    any("Input data is not standardized" in str(w.message) for w in ws)
+                )
