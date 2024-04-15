@@ -11,8 +11,8 @@ from typing import Any, cast, Dict, List, Optional, Tuple, Union
 
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
-from ax.models.torch.alebo import ei_or_nei
 from ax.models.torch.botorch import BotorchModel
+from ax.models.torch.botorch_defaults import get_qLogNEI
 from ax.models.torch.cbo_sac import generate_model_space_decomposition
 from ax.models.torch_base import TorchModel, TorchOptConfig
 from ax.utils.common.docutils import copy_doc
@@ -111,8 +111,7 @@ class LCEABO(BotorchModel):
         # pyre-fixme[4]: Attribute must be annotated.
         self.train_embedding = self.gp_model_args.get("train_embedding", True)
         super().__init__(
-            model_constructor=self.get_and_fit_model,
-            acqf_constructor=ei_or_nei,  # pyre-ignore
+            model_constructor=self.get_and_fit_model, acqf_constructor=get_qLogNEI
         )
 
     @copy_doc(TorchModel.fit)
