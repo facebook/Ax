@@ -1707,6 +1707,14 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         if any.
         """
         choose_generation_strategy_kwargs = choose_generation_strategy_kwargs or {}
+        if (
+            "use_batch_trials" in choose_generation_strategy_kwargs
+            and type(self) is AxClient
+        ):
+            raise UnsupportedError(
+                "AxClient API does not support batch trials yet."
+                " We plan to add this support in coming versions."
+            )
         random_seed = choose_generation_strategy_kwargs.pop(
             "random_seed", self._random_seed
         )
