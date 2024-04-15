@@ -6,6 +6,7 @@
 # pyre-strict
 
 
+import copy
 import math
 from typing import cast
 from unittest.mock import patch, PropertyMock
@@ -270,35 +271,52 @@ class SensitivityAnalysisTest(TestCase):
                             )
         # Test with signed
         model_bridge = get_modelbridge(modular=True)
-        # Unsigned
+
+        # adding a categorical feature
+        cat_model_bridge = copy.deepcopy(model_bridge)
+        digest = cat_model_bridge.model.search_space_digest
+        digest.categorical_features = [0]
+
         sobol_kwargs = {"input_qmc": True, "num_mc_samples": 10}
-        ind_dict = ax_parameter_sens(
-            model_bridge,  # pyre-ignore
-            order="total",
-            signed=False,
-            **sobol_kwargs,  # pyre-ignore
-        )
-        ind_deriv = compute_derivatives_from_model_list(
-            model_list=[model_bridge.model.surrogate.model],
-            bounds=torch.tensor(model_bridge.model.search_space_digest.bounds).T,
-            **sobol_kwargs,
-        )
-        ind_dict_signed = ax_parameter_sens(
-            model_bridge,  # pyre-ignore
-            order="total",
-            # signed=True
-            **sobol_kwargs,  # pyre-ignore
-        )
-        for i, pname in enumerate(["x1", "x2"]):
-            self.assertEqual(
-                torch.sign(ind_deriv[0, i]).item(),
-                math.copysign(1, ind_dict_signed["branin"][pname]),
-            )
-            self.assertAlmostEqual(
-                (torch.sign(ind_deriv[0, i]) * ind_dict["branin"][pname]).item(),
-                ind_dict_signed["branin"][pname],
-            )  # signed
-            self.assertTrue(ind_dict["branin"][pname] >= 0)  # unsigned
+        seed = 1234
+        for bridge in [model_bridge, cat_model_bridge]:
+            with self.subTest(model_bridge=bridge):
+                torch.manual_seed(seed)
+                # Unsigned
+                ind_dict = ax_parameter_sens(
+                    bridge,  # pyre-ignore
+                    order="total",
+                    signed=False,
+                    **sobol_kwargs,  # pyre-ignore
+                )
+                ind_deriv = compute_derivatives_from_model_list(
+                    model_list=[bridge.model.surrogate.model],
+                    bounds=torch.tensor(bridge.model.search_space_digest.bounds).T,
+                    **sobol_kwargs,
+                )
+                torch.manual_seed(seed)  # reset seed to keep discrete features the same
+                cat_indices = bridge.model.search_space_digest.categorical_features
+                ind_dict_signed = ax_parameter_sens(
+                    bridge,  # pyre-ignore
+                    order="total",
+                    # signed=True
+                    **sobol_kwargs,  # pyre-ignore
+                )
+                for i, pname in enumerate(["x1", "x2"]):
+                    if i in cat_indices:  # special case for categorical features
+                        expected_sign = 1
+                    else:
+                        expected_sign = torch.sign(ind_deriv[0, i]).item()
+
+                    self.assertEqual(
+                        expected_sign,
+                        math.copysign(1, ind_dict_signed["branin"][pname]),
+                    )
+                    self.assertAlmostEqual(
+                        (expected_sign * ind_dict["branin"][pname]).item(),
+                        ind_dict_signed["branin"][pname],
+                    )  # signed
+                    self.assertTrue(ind_dict["branin"][pname] >= 0)  # unsigned
 
     def test_SobolGPSampling(self) -> None:
         bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()
@@ -348,6 +366,32 @@ class SensitivityAnalysisTest(TestCase):
             first_order = sensitivity_sampling.first_order_indices()
             total_order = sensitivity_sampling.total_order_indices()
             second_order = sensitivity_sampling.second_order_indices()
+
+        discrete_feature = 0
+        sensitivity_sampling_discrete = SobolSensitivityGPSampling(
+            self.model,
+            num_mc_samples=10,
+            num_gp_samples=10,
+            bounds=bounds,
+            second_order=True,
+            discrete_features=[discrete_feature],
+        )
+        sens = sensitivity_sampling_discrete.sensitivity
+        A = sens.A
+        B = sens.B
+        Arnd = A.round()
+        Brnd = B.round()
+        # testing that the discrete feature is integer valued
+        self.assertTrue(
+            torch.allclose(Arnd[:, discrete_feature], A[:, discrete_feature])
+        )
+        self.assertTrue(
+            torch.allclose(Brnd[:, discrete_feature], B[:, discrete_feature])
+        )
+
+        # testing that the other features are not integer valued
+        self.assertFalse(torch.allclose(Arnd, A))
+        self.assertFalse(torch.allclose(Brnd, B))
 
     def test_DerivativeGp(self) -> None:
         test_x = torch.rand(2, 2)

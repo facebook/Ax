@@ -6,6 +6,7 @@
 # pyre-strict
 
 from copy import deepcopy
+from functools import partial
 
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -36,6 +37,7 @@ class SobolSensitivity(object):
         second_order: bool = False,
         num_bootstrap_samples: int = 1,
         bootstrap_array: bool = False,
+        discrete_features: Optional[List[int]] = None,
     ) -> None:
         r"""Computes three types of Sobol indices:
         first order indices, total indices and second order indices (if specified ).
@@ -51,6 +53,9 @@ class SobolSensitivity(object):
                 to be specified.
             bootstrap_array: If true, all the num_bootstrap_samples extimated indices
                 are returned instead of their mean and Var.
+            discrete_features: If specified, the inputs associated with the indices in
+                this list are generated using an integer-valued uniform distribution,
+                rather than the default (pseudo-)random continuous uniform distribution.
         """
         self.input_function = input_function
         self.dim: int = bounds.shape[-1]
@@ -71,6 +76,16 @@ class SobolSensitivity(object):
         else:
             self.A = unnormalize(torch.rand(num_mc_samples, self.dim), bounds=bounds)
             self.B = unnormalize(torch.rand(num_mc_samples, self.dim), bounds=bounds)
+
+        # uniform integral distribution for discrete features
+        if discrete_features is not None:
+            all_low = bounds[0, discrete_features].to(dtype=torch.int).tolist()
+            all_high = (bounds[1, discrete_features]).to(dtype=torch.int).tolist()
+            for i, low, high in zip(discrete_features, all_low, all_high):
+                randint = partial(torch.randint, low=low, high=high + 1)
+                self.A[:, i] = randint(size=self.A.shape[:-1])
+                self.B[:, i] = randint(size=self.B.shape[:-1])
+
         # pyre-fixme[4]: Attribute must be annotated.
         self.A_B_ABi = self.generate_all_input_matrix().to(torch.double)
 
@@ -395,6 +410,7 @@ class SobolSensitivityGPMean(object):
             [torch.Tensor, torch.Tensor], torch.Tensor
         ] = GaussianLinkMean,
         mini_batch_size: int = 128,
+        discrete_features: Optional[List[int]] = None,
     ) -> None:
         r"""Computes three types of Sobol indices:
         first order indices, total indices and second order indices (if specified ).
@@ -411,6 +427,9 @@ class SobolSensitivityGPMean(object):
                 to be specified.
             mini_batch_size: The size of the mini-batches used while evaluating the
                 model posterior. Increasing this will increase the memory usage.
+            discrete_features: If specified, the inputs associated with the indices in
+                this list are generated using an integer-valued uniform distribution,
+                rather than the default (pseudo-)random continuous uniform distribution.
         """
         self.model = model
         self.second_order = second_order
@@ -438,6 +457,7 @@ class SobolSensitivityGPMean(object):
             second_order=self.second_order,
             input_qmc=self.input_qmc,
             num_bootstrap_samples=self.num_bootstrap_samples,
+            discrete_features=discrete_features,
         )
         self.sensitivity.evalute_function()
 
@@ -486,6 +506,7 @@ class SobolSensitivityGPSampling(object):
         input_qmc: bool = False,
         gp_sample_qmc: bool = False,
         num_bootstrap_samples: int = 1,
+        discrete_features: Optional[List[int]] = None,
     ) -> None:
         r"""Computes three types of Sobol indices:
         first order indices, total indices and second order indices (if specified ).
@@ -502,6 +523,9 @@ class SobolSensitivityGPSampling(object):
                 SobolQMCNormalSampler.
             num_bootstrap_samples: If bootstrap is true, the number of bootstraps has
                 to be specified.
+            discrete_features: If specified, the inputs associated with the indices in
+                this list are generated using an integer-valued uniform distribution,
+                rather than the default (pseudo-)random continuous uniform distribution.
         """
         self.model = model
         self.second_order = second_order
@@ -519,6 +543,7 @@ class SobolSensitivityGPSampling(object):
             input_qmc=self.input_qmc,
             num_bootstrap_samples=self.num_bootstrap_samples,
             bootstrap_array=True,
+            discrete_features=discrete_features,
         )
         # TODO: Ideally, we would reduce the memory consumption here as well
         # but this is a tricky since it uses joint posterior sampling.
@@ -717,6 +742,7 @@ def compute_sobol_indices_from_model_list(
     model_list: List[Model],
     bounds: Tensor,
     order: str = "first",
+    discrete_features: Optional[List[int]] = None,
     **sobol_kwargs: Any,
 ) -> Tensor:
     """
@@ -728,6 +754,9 @@ def compute_sobol_indices_from_model_list(
         bounds: A 2 x d Tensor of lower and upper bounds of the domain of the models.
         order: A string specifying the order of the Sobol indices to be computed.
             Supports "first" and "total" and defaults to "first".
+        discrete_features: If specified, the inputs associated with the indices in
+            this list are generated using an integer-valued uniform distribution,
+            rather than the default (pseudo-)random continuous uniform distribution.
         sobol_kwargs: keyword arguments passed on to SobolSensitivityGPMean.
 
     Returns:
@@ -739,6 +768,7 @@ def compute_sobol_indices_from_model_list(
         sens_class = SobolSensitivityGPMean(
             model=model,
             bounds=bounds,
+            discrete_features=discrete_features,
             **sobol_kwargs,
         )
         indices.append(method(sens_class))
@@ -789,6 +819,7 @@ def ax_parameter_sens(
         model_list=model_list,
         bounds=bounds,
         order=order,
+        discrete_features=digest.categorical_features + digest.ordinal_features,
         **sobol_kwargs,
     )
     if signed:
@@ -797,6 +828,14 @@ def ax_parameter_sens(
             bounds=bounds,
             **sobol_kwargs,
         )
+        # categorical features don't have a direction, so we set the derivative to 1.0
+        # in order not to zero our their sensitivity. We treat categorical features
+        # separately in the sensitivity analysis plot as well, to make clear that they
+        # are affecting the metric, but neither increasing nor decreasing. Note that the
+        # orginal variables have a well defined direction, so we do not need to treat
+        # them differently here.
+        for i in digest.categorical_features:
+            ind_deriv[:, i] = 1.0
         ind *= torch.sign(ind_deriv)
     return _array_with_string_indices_to_dict(
         rows=metrics, cols=digest.feature_names, A=ind.numpy()
