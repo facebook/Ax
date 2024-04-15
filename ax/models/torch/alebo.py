@@ -264,7 +264,7 @@ class ALEBOKernel(Kernel):
             has_lengthscale=False, ard_num_dims=None, eps=0.0, batch_shape=batch_shape
         )
         warn(
-            "ALEBOKernel is deprecated and should be removed in Ax 0.5.0.",
+            "ALEBOKernel is deprecated and should be removed in Ax 0.3.9.",
             DeprecationWarning,
         )
         # pyre-fixme[4]: Attribute must be annotated.
@@ -337,7 +337,7 @@ class ALEBOGP(SingleTaskGP):
         self, B: Tensor, train_X: Tensor, train_Y: Tensor, train_Yvar: Tensor
     ) -> None:
         warn(
-            "ALEBOGP is deprecated and should be removed in Ax 0.5.0. SAASBO "
+            "ALEBOGP is deprecated and should be removed in Ax 0.3.9. SAASBO "
             "(Models.SAASBO from ax.modelbridge.registry) likely provides better "
             "performance.",
             DeprecationWarning,
@@ -433,7 +433,7 @@ def get_fitted_model(
     """
     warn(
         "`get_fitted_model` from ax.models.torch.alebo.py is deprecated and "
-        "should be removed in Ax 0.5.0.",
+        "should be removed in Ax 0.3.9.",
         DeprecationWarning,
     )
     # Get MAP estimate.
@@ -484,7 +484,7 @@ def get_map_model(
     """
     warn(
         "`get_map_model` from ax.models.torch.alebo.py is deprecated and should "
-        "be removed in Ax 0.5.0.",
+        "be removed in Ax 0.3.9.",
         DeprecationWarning,
     )
     f_best = 1e8
@@ -530,7 +530,7 @@ def laplace_sample_U(
         and output scale.
     """
     warn(
-        "laplace_sample_U is deprecated and should be removed in Ax 0.5.0.",
+        "laplace_sample_U is deprecated and should be removed in Ax 0.3.9.",
         DeprecationWarning,
     )
     # Estimate diagonal of the Hessian
@@ -600,7 +600,7 @@ def get_batch_model(
     """
     warn(
         "`get_batch_model` from ax.models.torch.alebo.py is deprecated and "
-        "should be removed in Ax 0.5.0.",
+        "should be removed in Ax 0.3.9.",
         DeprecationWarning,
     )
     b = Uvec_batch.size(0)
@@ -641,7 +641,7 @@ def extract_map_statedict(
     """
     warn(
         "`extract_map_statedict` from ax.models.torch.alebo.py is deprecated and "
-        "should be removed in Ax 0.5.0.",
+        "should be removed in Ax 0.3.9.",
         DeprecationWarning,
     )
     is_modellist = num_outputs > 1
@@ -741,7 +741,7 @@ def alebo_acqf_optimizer(
     lie within that polytope.
     """
     warn(
-        "`alebo_acqf_optimizer` is deprecated and should be removed in Ax 0.5.0.",
+        "`alebo_acqf_optimizer` is deprecated and should be removed in Ax 0.3.9.",
         DeprecationWarning,
     )
     candidate_list, acq_value_list = [], []
@@ -819,7 +819,7 @@ class ALEBO(BotorchModel):
         self, B: Tensor, laplace_nsamp: int = 25, fit_restarts: int = 10
     ) -> None:
         warn(
-            "ALEBO is deprecated and should be removed in Ax 0.5.0.",
+            "ALEBO is deprecated and should be removed in Ax 0.3.9.",
             DeprecationWarning,
         )
         self.B = B
