@@ -45,7 +45,7 @@ class BenchmarkMethod(Base):
         # the benchmark - in fact, things will error out deep inside the modeling
         # stack since the model gets both noisy (benchmark) and noiseless (ground
         # truth) observations. While support for this is something we shold add
-        # or models, in the context of benchmarking we actually want to avoid
+        # for models, in the context of benchmarking we actually want to avoid
         # fitting the ground truth metrics at all.
 
         # Clone the GS so as to not modify the original one in-place below.
@@ -57,7 +57,7 @@ class BenchmarkMethod(Base):
                 if node.model_kwargs is None:
                     node.model_kwargs = {}
                 if node.model_kwargs.get("fit_tracking_metrics", True):
-                    logger.warning(
+                    logger.info(
                         "Setting `fit_tracking_metrics` in a GenerationStep to False.",
                     )
                     not_none(node.model_kwargs)["fit_tracking_metrics"] = False
@@ -65,7 +65,7 @@ class BenchmarkMethod(Base):
                 if model_spec.model_kwargs is None:
                     model_spec.model_kwargs = {}
                 elif model_spec.model_kwargs.get("fit_tracking_metrics", True):
-                    logger.warning(
+                    logger.info(
                         "Setting `fit_tracking_metrics` in a GenerationNode's "
                         "model_spec to False."
                     )
