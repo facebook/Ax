@@ -13,7 +13,6 @@ from typing import cast, List
 from unittest import mock
 
 import pandas as pd
-
 from ax.core.arm import Arm
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import (
@@ -838,24 +837,39 @@ class HierarchicalSearchSpaceTest(TestCase):
         hss_1_obs_feats_1_cast = self.hss_1.cast_observation_features(
             observation_features=hss_1_obs_feats_1
         )
-        hss_1_obs_feats_1_flattened = self.hss_1.flatten_observation_features(
-            observation_features=hss_1_obs_feats_1_cast
-        )
-        self.assertEqual(  # Cast-flatten roundtrip.
-            hss_1_obs_feats_1.parameters,
-            hss_1_obs_feats_1_flattened.parameters,
-        )
-        self.assertEqual(  # Check that both cast and flattened have full params.
-            hss_1_obs_feats_1_cast.metadata.get(Keys.FULL_PARAMETERIZATION),
-            hss_1_obs_feats_1_flattened.metadata.get(Keys.FULL_PARAMETERIZATION),
-        )
+        for inject_dummy in (True, False):
+            hss_1_obs_feats_1_flattened = self.hss_1.flatten_observation_features(
+                observation_features=hss_1_obs_feats_1_cast,
+                inject_dummy_values_to_complete_flat_parameterization=inject_dummy,
+            )
+            self.assertEqual(  # Cast-flatten roundtrip.
+                hss_1_obs_feats_1.parameters,
+                hss_1_obs_feats_1_flattened.parameters,
+            )
+            self.assertEqual(  # Check that both cast and flattened have full params.
+                hss_1_obs_feats_1_cast.metadata.get(Keys.FULL_PARAMETERIZATION),
+                hss_1_obs_feats_1_flattened.metadata.get(Keys.FULL_PARAMETERIZATION),
+            )
         # Check that flattening observation features without metadata does nothing.
+        # Does not warn here since it already has all parameters.
         with warnings.catch_warnings(record=True) as ws:
             self.assertEqual(
                 self.hss_1.flatten_observation_features(
                     observation_features=hss_1_obs_feats_1
                 ),
                 hss_1_obs_feats_1,
+            )
+        self.assertFalse(
+            any("Cannot flatten observation features" in str(w.message) for w in ws)
+        )
+        # This one warns since it is missing some parameters.
+        obs_ft_missing = ObservationFeatures.from_arm(arm=self.hss_1_arm_missing_param)
+        with warnings.catch_warnings(record=True) as ws:
+            self.assertEqual(
+                self.hss_1.flatten_observation_features(
+                    observation_features=obs_ft_missing
+                ),
+                obs_ft_missing,
             )
         self.assertTrue(
             any("Cannot flatten observation features" in str(w.message) for w in ws)
@@ -952,6 +966,36 @@ class HierarchicalSearchSpaceTest(TestCase):
             set(flattened_only_dummies.keys()),
             set(self.hss_with_fixed.parameters.keys()),
         )
+
+    def test_flatten_observation_features_full_and_dummy(self) -> None:
+        # Test flattening when both full features & inject dummy values
+        # are specified. This is relevant if the full parameterization
+        # is from some subset of the search space.
+        # Get an obs feat with hss_1 parameterization in the metadata.
+        hss_1_obs_feats_1 = ObservationFeatures.from_arm(arm=self.hss_1_arm_1_flat)
+        hss_1_obs_feats_1_cast = self.hss_1.cast_observation_features(
+            observation_features=hss_1_obs_feats_1
+        )
+        hss_1_flat_params = hss_1_obs_feats_1.parameters
+        # Flatten it using hss_2, which requires an additional parameter.
+        # This will work but miss a parameter.
+        self.assertEqual(
+            self.hss_2.flatten_observation_features(
+                observation_features=hss_1_obs_feats_1_cast,
+                inject_dummy_values_to_complete_flat_parameterization=False,
+            ).parameters,
+            hss_1_flat_params,
+        )
+        # Now try with inject dummy. This will add the mising param.
+        hss_2_flat = self.hss_2.flatten_observation_features(
+            observation_features=hss_1_obs_feats_1_cast,
+            inject_dummy_values_to_complete_flat_parameterization=True,
+        ).parameters
+        self.assertNotEqual(hss_2_flat, hss_1_flat_params)
+        self.assertEqual(
+            {k: hss_2_flat[k] for k in hss_1_flat_params}, hss_1_flat_params
+        )
+        self.assertEqual(set(hss_2_flat.keys()), set(self.hss_2.parameters.keys()))
 
 
 class TestRobustSearchSpace(TestCase):

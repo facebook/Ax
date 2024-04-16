@@ -10,6 +10,7 @@ from typing import List, Optional, TYPE_CHECKING
 
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -47,9 +48,21 @@ class Cast(Transform):
         config: Optional[TConfig] = None,
     ) -> None:
         self.search_space: SearchSpace = not_none(search_space).clone()
-        self.flatten_hss: bool = (
-            config is None or checked_cast(bool, config.get("flatten_hss", True))
-        ) and isinstance(search_space, HierarchicalSearchSpace)
+        config = (config or {}).copy()
+        self.flatten_hss: bool = checked_cast(
+            bool,
+            config.pop(
+                "flatten_hss", isinstance(search_space, HierarchicalSearchSpace)
+            ),
+        )
+        self.inject_dummy_values_to_complete_flat_parameterization: bool = checked_cast(
+            bool,
+            config.pop("inject_dummy_values_to_complete_flat_parameterization", True),
+        )
+        if config:
+            raise UserInputError(
+                f"Unexpected config parameters for `Cast` transform: {config}."
+            )
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         """Flattens the hierarchical search space and returns the flat
@@ -90,7 +103,12 @@ class Cast(Transform):
         return [
             checked_cast(
                 HierarchicalSearchSpace, self.search_space
-            ).flatten_observation_features(observation_features=obs_feats)
+            ).flatten_observation_features(
+                observation_features=obs_feats,
+                inject_dummy_values_to_complete_flat_parameterization=(
+                    self.inject_dummy_values_to_complete_flat_parameterization
+                ),
+            )
             for obs_feats in observation_features
         ]
 

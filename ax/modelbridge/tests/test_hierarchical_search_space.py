@@ -202,7 +202,9 @@ class TestHierarchicalSearchSpace(TestCase):
             )[Keys.FULL_PARAMETERIZATION]
             # Predict with full parameterization -- this should always work.
             mbm.predict([ObservationFeatures(parameters=full_parameterization)])
-            # Predict with final parameterization -- this may error out :(.
+            # Predict with final parameterization -- this may error out when
+            # ``inject_dummy_values_to_complete_flat_parameterization``  is False.
+            # The new default is True, so it should not happen in these tests.
             with ExitStack() as es:
                 if expect_errors_with_final_parameterization:
                     es.enter_context(self.assertRaises(KeyError))
@@ -230,14 +232,10 @@ class TestHierarchicalSearchSpace(TestCase):
         experiment = self._test_gen_base(
             hss=self.simple_hss, expected_num_candidate_params=[2]
         )
-        self._base_test_predict_and_cv(
-            experiment=experiment, expect_errors_with_final_parameterization=True
-        )
+        self._base_test_predict_and_cv(experiment=experiment)
 
     def test_with_complex_hss(self) -> None:
         experiment = self._test_gen_base(
             hss=self.complex_hss, expected_num_candidate_params=[2, 4, 5]
         )
-        self._base_test_predict_and_cv(
-            experiment=experiment, expect_errors_with_final_parameterization=True
-        )
+        self._base_test_predict_and_cv(experiment=experiment)
