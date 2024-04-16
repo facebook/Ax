@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional, Union
 import numpy as np
 import pandas as pd
 import plotly.graph_objs as go
+from ax.core.parameter import ChoiceParameter
 from ax.exceptions.core import NoDataError
 from ax.modelbridge import ModelBridge
 from ax.plot.base import AxPlotConfig, AxPlotTypes
@@ -143,6 +144,14 @@ def plot_feature_importance_by_feature_plotly(
         }
     traces = []
     dropdown = []
+    categorical_features = []
+    if model is not None:
+        categorical_features = [
+            name
+            for name, par in model.model_space.parameters.items()
+            if isinstance(par, ChoiceParameter)
+        ]
+
     for i, metric_name in enumerate(sorted(sensitivity_values.keys())):
         importances = sensitivity_values[metric_name]
         factor_col = "Factor"
@@ -157,7 +166,11 @@ def plot_feature_importance_by_feature_plotly(
                         factor_col: factor,
                         importance_col: np.asarray(importance)[0],
                         importance_col_se: np.asarray(importance)[2],
-                        sign_col: np.sign(np.asarray(importance)[0]).astype(int),
+                        sign_col: (
+                            0
+                            if factor in categorical_features
+                            else 2 * (np.asarray(importance)[0] >= 0).astype(int) - 1
+                        ),
                     }
                     for factor, importance in importances.items()
                 ]
@@ -172,7 +185,11 @@ def plot_feature_importance_by_feature_plotly(
                     {
                         factor_col: factor,
                         importance_col: importance,
-                        sign_col: np.sign(importance).astype(int),
+                        sign_col: (
+                            0
+                            if factor in categorical_features
+                            else 2 * (importance >= 0).astype(int) - 1
+                        ),
                     }
                     for factor, importance in importances.items()
                 ]
@@ -183,9 +200,13 @@ def plot_feature_importance_by_feature_plotly(
         if relative:
             df[importance_col] = df[importance_col].div(df[importance_col].sum())
 
-        colors = {-1: "darkorange", 1: "steelblue"}
-        names = {-1: "Decreases metric", 1: "Increases metric"}
-        legend_counter = {-1: 0, 1: 0}
+        colors = {-1: "darkorange", 0: "gray", 1: "steelblue"}
+        names = {
+            -1: "Decreases metric",
+            0: "Affects metric (categorical choice)",
+            1: "Increases metric",
+        }
+        legend_counter = {-1: 0, 0: 0, 1: 0}
         all_positive = all(df[sign_col] >= 0)
         for _, row in df.iterrows():
             traces.append(
