@@ -60,7 +60,7 @@ class GenResults:
     gen_metadata: Dict[str, Any] = field(default_factory=dict)
 
 
-class ModelBridge(ABC):
+class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract methods.
     """The main object for using models in Ax.
 
     ModelBridge specifies 3 methods for using models:

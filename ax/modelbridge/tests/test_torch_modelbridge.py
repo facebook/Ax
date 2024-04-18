@@ -24,7 +24,10 @@ from ax.core.observation import (
     ObservationFeatures,
     recombine_observations,
 )
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
@@ -32,7 +35,9 @@ from ax.core.types import ComparisonOp
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
+from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch_base import TorchGenResults, TorchModel
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.core_stubs import (
@@ -42,6 +47,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_observations,
     get_search_space_for_range_value,
 )
+from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_observation1, transform_1, transform_2
 from botorch.utils.datasets import (
     ContextualDataset,
@@ -894,3 +900,41 @@ class TorchModelBridgeTest(TestCase):
             update_outcomes_and_parameters=False,
         )
         self.assertEqual(mb.outcomes, expected_outcomes)
+
+    @fast_botorch_optimize
+    def test_gen_metadata_untransform(self) -> None:
+        experiment = get_experiment_with_observations(
+            observations=[[0.0, 1.0], [2.0, 3.0]]
+        )
+        model = BoTorchModel()
+        mb = TorchModelBridge(
+            experiment=experiment,
+            search_space=experiment.search_space,
+            data=experiment.lookup_data(),
+            model=model,
+            transforms=[],
+        )
+        for additional_metadata in (
+            {},
+            {"objective_thresholds": None},
+            {
+                "objective_thresholds": checked_cast(
+                    MultiObjectiveOptimizationConfig, experiment.optimization_config
+                ).objective_thresholds,
+            },
+        ):
+            gen_return_value = TorchGenResults(
+                points=torch.tensor([[1.0, 2.0, 3.0]]),
+                weights=torch.tensor([1.0]),
+                gen_metadata={Keys.EXPECTED_ACQF_VAL: [1.0], **additional_metadata},
+            )
+            with mock.patch.object(
+                mb, "_untransform_objective_thresholds"
+            ) as mock_untransform, mock.patch.object(
+                model, "gen", return_value=gen_return_value
+            ):
+                mb.gen(n=1)
+            if additional_metadata.get("objective_thresholds", None) is None:
+                mock_untransform.assert_not_called()
+            else:
+                mock_untransform.assert_called_once()
