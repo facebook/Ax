@@ -29,10 +29,12 @@ from typing import (
 )
 
 from ax.core.data import Data
+from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, Ok, Result, UnwrapError
 from ax.utils.common.serialization import SerializationMixin
+from ax.utils.common.validation import is_valid_name
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -107,8 +109,12 @@ class Metric(SortableBase, SerializationMixin):
             lower_is_better: Flag for metrics which should be minimized.
             properties: Dictionary of this metric's properties
         """
-        if name is None:
-            raise ValueError("Metric name cannot be `None`.")
+        if not is_valid_name(name=name):
+            raise UserInputError(
+                f"{name=} is not a valid name for an Ax metric. Please use only "
+                "alphanumeric characters, underscores, and colons and only start with "
+                "a letter or underscore."
+            )
 
         self._name = name
         self.lower_is_better = lower_is_better

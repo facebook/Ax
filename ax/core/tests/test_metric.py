@@ -7,6 +7,7 @@
 # pyre-strict
 
 from ax.core.metric import Metric, MetricFetchE
+from ax.exceptions.core import UserInputError
 from ax.utils.common.result import Err
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -33,6 +34,12 @@ class MetricTest(TestCase):
     def test_init(self) -> None:
         metric = Metric(name="m1", lower_is_better=False)
         self.assertEqual(str(metric), METRIC_STRING)
+
+        with self.assertRaisesRegex(
+            UserInputError,
+            "is not a valid name",
+        ):
+            Metric(name="m 1", lower_is_better=False)
 
     def test_eq(self) -> None:
         metric1 = Metric(name="m1", lower_is_better=False)

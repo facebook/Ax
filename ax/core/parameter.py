@@ -19,6 +19,7 @@ from ax.core.types import TNumeric, TParamValue, TParamValueList
 from ax.exceptions.core import AxWarning, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.typeutils import not_none
+from ax.utils.common.validation import is_valid_name
 from pyre_extensions import assert_is_instance
 
 # Tolerance for floating point comparisons. This is relatively permissive,
@@ -80,10 +81,34 @@ def _get_parameter_type(python_type: Type) -> ParameterType:
 
 
 class Parameter(SortableBase, metaclass=ABCMeta):
-    _is_fidelity: bool = False
-    _name: str
-    _target_value: TParamValue = None
-    _parameter_type: ParameterType
+    def __init__(
+        self,
+        name: str,
+        parameter_type: ParameterType,
+        is_fidelity: bool = False,
+        target_value: TParamValue = None,
+    ) -> None:
+        """Initialize Parameter. Not intended to be called directly.
+
+        Args:
+            name: Name of the parameter.
+            parameter_type: Enum indicating the type of parameter
+                value (e.g. string, int).
+            is_fidelity: Whether this parameter is a fidelity parameter.
+            target_value: Target value of this parameter if it is a fidelity.
+        """
+
+        if not is_valid_name(name=name):
+            raise UserInputError(
+                f"{name=} is not a valid name for a Parameter. Please use only "
+                "alphanumeric characters, underscores, and colons and only start with "
+                "a letter or underscore."
+            )
+
+        self._name = name
+        self._parameter_type = parameter_type
+        self._is_fidelity = is_fidelity
+        self._target_value = target_value
 
     def cast(self, value: TParamValue) -> TParamValue:
         if value is None:
@@ -253,23 +278,27 @@ class RangeParameter(Parameter):
             is_fidelity: Whether this parameter is a fidelity parameter.
             target_value: Target value of this parameter if it is a fidelity.
         """
+        super().__init__(
+            name=name,
+            parameter_type=parameter_type,
+            is_fidelity=is_fidelity,
+            target_value=target_value,
+        )
+
+        if parameter_type not in (ParameterType.INT, ParameterType.FLOAT):
+            raise UserInputError("RangeParameter type must be int or float.")
+
         if is_fidelity and (target_value is None):
             raise UserInputError(
                 "`target_value` should not be None for the fidelity parameter: "
                 "{}".format(name)
             )
 
-        self._name = name
-        if parameter_type not in (ParameterType.INT, ParameterType.FLOAT):
-            raise UserInputError("RangeParameter type must be int or float.")
-        self._parameter_type = parameter_type
         self._digits = digits
         self._lower: TNumeric = not_none(self.cast(lower))
         self._upper: TNumeric = not_none(self.cast(upper))
         self._log_scale = log_scale
         self._logit_scale = logit_scale
-        self._is_fidelity = is_fidelity
-        self._target_value: Optional[TNumeric] = self.cast(target_value)
 
         self._validate_range_param(
             parameter_type=parameter_type,
@@ -539,6 +568,13 @@ class ChoiceParameter(Parameter):
         sort_values: Optional[bool] = None,
         dependents: Optional[Dict[TParamValue, List[str]]] = None,
     ) -> None:
+        super().__init__(
+            name=name,
+            parameter_type=parameter_type,
+            is_fidelity=is_fidelity,
+            target_value=target_value,
+        )
+
         if (is_fidelity or is_task) and (target_value is None):
             ptype = "fidelity" if is_fidelity else "task"
             raise UserInputError(
@@ -546,11 +582,7 @@ class ChoiceParameter(Parameter):
                 "{}".format(name)
             )
 
-        self._name = name
-        self._parameter_type = parameter_type
         self._is_task = is_task
-        self._is_fidelity = is_fidelity
-        self._target_value: TParamValue = self.cast(target_value)
         # A choice parameter with only one value is a FixedParameter.
         if not len(values) > 1:
             raise UserInputError(f"{self._name}({values}): {FIXED_CHOICE_PARAM_ERROR}")
@@ -735,17 +767,21 @@ class FixedParameter(Parameter):
             dependents: Optional mapping for parameters in hierarchical search
                 spaces; format is { value -> list of dependent parameter names }.
         """
+        super().__init__(
+            name=name,
+            parameter_type=parameter_type,
+            is_fidelity=is_fidelity,
+            target_value=target_value,
+        )
+
         if is_fidelity and (target_value is None):
             raise UserInputError(
                 "`target_value` should not be None for the fidelity parameter: "
                 "{}".format(name)
             )
 
-        self._name = name
-        self._parameter_type = parameter_type
         self._value: TParamValue = self.cast(value)
-        self._is_fidelity = is_fidelity
-        self._target_value: TParamValue = self.cast(target_value)
+
         # NOTE: We don't need to check that dependent parameters actually exist as
         # that is done in `HierarchicalSearchSpace` constructor.
         if dependents:

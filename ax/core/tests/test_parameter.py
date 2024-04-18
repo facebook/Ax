@@ -109,6 +109,12 @@ class RangeParameterTest(TestCase):
         ):
             RangeParameter("x", ParameterType.FLOAT, EPS, 2 * EPS)
 
+        with self.assertRaisesRegex(
+            UserInputError,
+            "is not a valid name",
+        ):
+            RangeParameter("x 1", ParameterType.FLOAT, 0, 1)
+
     def test_BadSetter(self) -> None:
         with self.assertRaises(ValueError):
             # pyre-fixme[6]: For 1st param expected `Optional[float]` but got `str`.
@@ -268,6 +274,11 @@ class ChoiceParameterTest(TestCase):
                 values=["foo", "foo2"],
                 is_task=True,
             )
+        with self.assertRaisesRegex(
+            UserInputError,
+            "is not a valid name",
+        ):
+            ChoiceParameter("x 1", ParameterType.FLOAT, [0, 1])
 
     def test_Eq(self) -> None:
         param4 = ChoiceParameter(
@@ -529,6 +540,11 @@ class FixedParameterTest(TestCase):
                 value=True,
                 is_fidelity=True,
             )
+        with self.assertRaisesRegex(
+            UserInputError,
+            "is not a valid name",
+        ):
+            FixedParameter("x 1", ParameterType.FLOAT, 0)
 
     def test_Eq(self) -> None:
         param2 = FixedParameter(name="x", parameter_type=ParameterType.BOOL, value=True)
