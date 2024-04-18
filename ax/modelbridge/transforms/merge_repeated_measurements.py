@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from copy import deepcopy
 from typing import DefaultDict, Dict, List, Optional
 
 import numpy as np
@@ -100,11 +101,12 @@ class MergeRepeatedMeasurements(Transform):
         # Transform observations
         new_observations = []
         observation_features, observation_data = separate_observations(observations)
+        arm_to_merged = deepcopy(self.arm_to_merged)
         for j, obsd in enumerate(observation_data):
             key = Arm.md5hash(observation_features[j].parameters)
             # pop to ensure that the resulting observations list has one
             # observation per unique arm
-            metric_dict = self.arm_to_merged.pop(key, None)
+            metric_dict = arm_to_merged.pop(key, None)
             if metric_dict is None:
                 continue
             merged_means = np.zeros(len(obsd.metric_names))
@@ -120,6 +122,10 @@ class MergeRepeatedMeasurements(Transform):
                 means=merged_means,
                 covariance=merged_covariance,
             )
-            new_obs = Observation(features=observation_features[j], data=new_obsd)
+            new_obs = Observation(
+                features=observation_features[j],
+                data=new_obsd,
+                arm_name=observations[j].arm_name,
+            )
             new_observations.append(new_obs)
         return new_observations
