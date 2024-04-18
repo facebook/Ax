@@ -131,9 +131,8 @@ def _obs_vs_pred_dropdown_plot(
         min_, max_ = _get_min_max_with_errors(y_raw, y_hat, se_raw, se_hat)
         if autoset_axis_limits:
             y_raw_np = np.array(y_raw)
-            # TODO: replace interpolation->method once it becomes standard.
-            q1 = np.nanpercentile(y_raw_np, q=25, interpolation="lower").min()
-            q3 = np.nanpercentile(y_raw_np, q=75, interpolation="higher").max()
+            q1 = np.nanpercentile(y_raw_np, q=25, method="lower").min()
+            q3 = np.nanpercentile(y_raw_np, q=75, method="higher").max()
             y_lower = q1 - 1.5 * (q3 - q1)
             y_upper = q3 + 1.5 * (q3 - q1)
             y_raw_np = y_raw_np.clip(y_lower, y_upper).tolist()
