@@ -65,6 +65,7 @@ from ax.service.utils.best_point import (
     observed_pareto,
     predicted_pareto,
 )
+from ax.service.utils.instantiation import FixedFeatures
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
@@ -2847,11 +2848,20 @@ class TestAxClient(TestCase):
         with mock.patch.object(
             GenerationStrategy, "gen", wraps=ax_client.generation_strategy.gen
         ) as mock_gen:
-            params, idx = ax_client.get_next_trial()
-            call_kwargs = mock_gen.call_args_list[0][1]
-            ff = call_kwargs["fixed_features"]
-            self.assertEqual(ff.parameters, {})
-            self.assertEqual(ff.trial_index, 0)
+            with self.subTest("fixed_features is None"):
+                params, idx = ax_client.get_next_trial()
+                call_kwargs = mock_gen.call_args_list[0][1]
+                ff = call_kwargs["fixed_features"]
+                self.assertIsNone(ff)
+            with self.subTest("fixed_features is set"):
+                fixed_features = FixedFeatures(
+                    parameters={"x": 0.0, "y": 5.0}, trial_index=0
+                )
+                params, idx = ax_client.get_next_trial(fixed_features=fixed_features)
+                call_kwargs = mock_gen.call_args_list[1][1]
+                ff = call_kwargs["fixed_features"]
+                self.assertEqual(ff.parameters, fixed_features.parameters)
+                self.assertEqual(ff.trial_index, 0)
 
     def test_get_optimization_trace_discard_infeasible_trials(self) -> None:
         ax_client = AxClient()
