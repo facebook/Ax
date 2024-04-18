@@ -168,7 +168,7 @@ class GpDGSMGpMean(object):
             else
                 Tensor: (values) x dim
         """
-        return self.aggregation(torch.tensor)
+        return self.aggregation(torch.as_tensor)
 
     def gradient_absolute_measure(self) -> torch.Tensor:
         r"""Computes the gradient absolute measure:
