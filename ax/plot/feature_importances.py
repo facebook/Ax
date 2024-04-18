@@ -149,7 +149,7 @@ def plot_feature_importance_by_feature_plotly(
         categorical_features = [
             name
             for name, par in model.model_space.parameters.items()
-            if isinstance(par, ChoiceParameter)
+            if isinstance(par, ChoiceParameter) and not par.is_ordered
         ]
 
     for i, metric_name in enumerate(sorted(sensitivity_values.keys())):
