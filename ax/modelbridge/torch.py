@@ -683,12 +683,6 @@ class TorchModelBridge(ModelBridge):
         )
 
         # Generate the candidates
-        # TODO(ehotaj): For some reason, we're getting models which do not support MOO
-        # even when optimization_config has multiple objectives, so we can't use
-        # self.is_moo_problem here.
-        is_moo_problem = self.is_moo_problem and isinstance(
-            self.model, (BoTorchModel, MultiObjectiveBotorchModel)
-        )
         gen_results = not_none(self.model).gen(
             n=n,
             search_space_digest=search_space_digest,
@@ -696,7 +690,10 @@ class TorchModelBridge(ModelBridge):
         )
 
         gen_metadata = gen_results.gen_metadata
-        if is_moo_problem and "objective_thresholds" in gen_metadata:
+        if (
+            isinstance(optimization_config, MultiObjectiveOptimizationConfig)
+            and gen_metadata.get("objective_thresholds", None) is not None
+        ):
             # If objective_thresholds are supplied by the user, then the transformed
             # user-specified objective thresholds are in gen_metadata. Otherwise,
             # if using a hypervolume based acquisition function, then
