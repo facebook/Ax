@@ -18,6 +18,7 @@ import signal
 import sys
 import types
 import unittest
+import warnings
 from functools import wraps
 from logging import Logger
 from types import FrameType
@@ -37,12 +38,11 @@ from typing import (
 from unittest.mock import MagicMock
 
 import numpy as np
-
 import yappi
-
 from ax.utils.common.base import Base
 from ax.utils.common.equality import object_attribute_dicts_find_unequal_fields
 from ax.utils.common.logger import get_logger
+from botorch.exceptions.warnings import InputDataWarning
 from pyfakefs import fake_filesystem_unittest
 
 
@@ -100,10 +100,6 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
 
     # pyre-fixme[14]: `__exit__` overrides method defined in `_AssertRaisesContext`
     #  inconsistently.
-    # pyre-fixme[14]: `__exit__` overrides method defined in `_AssertRaisesContext`
-    #  inconsistently.
-    # pyre-fixme[14]: `__exit__` overrides method defined in `_AssertRaisesContext`
-    #  inconsistently.
     def __exit__(
         self,
         exc_type: Optional[Type[Exception]],
@@ -133,8 +129,6 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
 
 # Instead of showing a warning (like in the standard library) we throw an error when
 # deprecated functions are called.
-# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
-# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def _deprecate(original_func: Callable) -> Callable:
     def _deprecated_func(*args: List[Any], **kwargs: Dict[str, Any]) -> None:
@@ -327,12 +321,33 @@ class TestCase(fake_filesystem_unittest.TestCase):
         Only show log messages of WARNING or higher while testing.
 
         Ax prints a lot of INFO logs that are not relevant for unit tests.
+
+        Also silences a number of common warnings originating from Ax & BoTorch.
         """
         logger = get_logger(__name__, level=logging.WARNING)
         # Parent handlers are shared, so setting the level this
         # way applies it to all Ax loggers.
         if logger.parent is not None and hasattr(logger.parent, "handlers"):
             logger.parent.handlers[0].setLevel(logging.WARNING)
+
+        # Choice parameter default parameter type / is_ordered warnings.
+        warnings.filterwarnings(
+            "ignore",
+            message="is not specified for `ChoiceParameter`",
+            category=UserWarning,
+        )
+        # BoTorch float32 warning.
+        warnings.filterwarnings(
+            "ignore",
+            message="The model inputs are of type",
+            category=UserWarning,
+        )
+        # BoTorch input standardization warnings.
+        warnings.filterwarnings(
+            "ignore",
+            message="Input data is not standardized.",
+            category=InputDataWarning,
+        )
 
     def run(
         self, result: Optional[unittest.result.TestResult] = ...
@@ -472,22 +487,17 @@ class TestCase(fake_filesystem_unittest.TestCase):
 
     # This list is taken from the python standard library
     # pyre-fixme[4]: Attribute must be annotated.
-    # pyre-fixme[4]: Attribute must be annotated.
     failUnlessEqual = assertEquals = _deprecate(unittest.TestCase.assertEqual)
     # pyre-fixme[4]: Attribute must be annotated.
-    # pyre-fixme[4]: Attribute must be annotated.
     failIfEqual = assertNotEquals = _deprecate(unittest.TestCase.assertNotEqual)
-    # pyre-fixme[4]: Attribute must be annotated.
     # pyre-fixme[4]: Attribute must be annotated.
     failUnlessAlmostEqual = assertAlmostEquals = _deprecate(
         unittest.TestCase.assertAlmostEqual
     )
     # pyre-fixme[4]: Attribute must be annotated.
-    # pyre-fixme[4]: Attribute must be annotated.
     failIfAlmostEqual = assertNotAlmostEquals = _deprecate(
         unittest.TestCase.assertNotAlmostEqual
     )
-    # pyre-fixme[4]: Attribute must be annotated.
     # pyre-fixme[4]: Attribute must be annotated.
     failUnless = assert_ = _deprecate(unittest.TestCase.assertTrue)
     # pyre-fixme[4]: Attribute must be annotated.
