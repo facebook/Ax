@@ -6,6 +6,8 @@
 
 # pyre-strict
 
+from copy import deepcopy
+
 import numpy as np
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.modelbridge.transforms.merge_repeated_measurements import (
@@ -137,6 +139,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
                 ),
             ),
             features=obs_feat1,
+            arm_name="0_0",
         )
         obs2 = Observation(
             data=ObservationData(
@@ -150,6 +153,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
                 ),
             ),
             features=obs_feat1,
+            arm_name="0_0",
         )
         # different arm
         obs3 = Observation(
@@ -164,6 +168,7 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
                 ),
             ),
             features=ObservationFeatures(parameters={"a": 1.0, "b": 0.0}),
+            arm_name="0_1",
         )
         expected_obs = Observation(
             data=ObservationData(
@@ -172,11 +177,31 @@ class MergeRepeatedMeasurementsTransformTest(TestCase):
                 covariance=np.array([[0.5, 0.0], [0.0, 1.2]]),
             ),
             features=obs_feat1,
+            arm_name="0_0",
         )
         observations = [obs1, obs2, obs3]
+        observations_copy = deepcopy(observations)
         t = MergeRepeatedMeasurements(observations=observations)
         observations2 = t.transform_observations(observations)
         compare_obs(
             test=self, obs1=expected_obs, obs2=observations2[0], discrepancy_tol=1e-8
         )
         compare_obs(test=self, obs1=obs3, obs2=observations2[1], discrepancy_tol=0.0)
+        # test repeating the transform
+        observations2_copy = t.transform_observations(observations_copy)
+        compare_obs(
+            test=self,
+            obs1=observations2[0],
+            obs2=observations2_copy[0],
+            discrepancy_tol=0,
+        )
+        compare_obs(
+            test=self,
+            obs1=observations2[1],
+            obs2=observations2_copy[1],
+            discrepancy_tol=0,
+        )
+        # check arm names
+        arm_names = {obs.arm_name for obs in observations}
+        arm_names2 = {obs.arm_name for obs in observations2}
+        self.assertEqual(arm_names, arm_names2)
