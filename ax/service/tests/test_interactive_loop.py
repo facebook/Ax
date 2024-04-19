@@ -25,9 +25,6 @@ from ax.utils.testing.mock import fast_botorch_optimize
 
 
 class TestInteractiveLoop(TestCase):
-    def setUp(self) -> None:
-        super().setUp()
-
     @fast_botorch_optimize
     def test_interactive_loop(self) -> None:
         def _elicit(

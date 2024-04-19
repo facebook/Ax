@@ -25,6 +25,7 @@ GENERATOR_RUN_STR_PLUS_1 = "GeneratorRun(3 arms, total weight 4.0)"
 
 class GeneratorRunTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.model_predictions = get_model_predictions()
         self.optimization_config = get_optimization_config()
         self.search_space = get_search_space()

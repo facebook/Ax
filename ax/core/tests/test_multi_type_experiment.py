@@ -14,6 +14,7 @@ from ax.utils.testing.core_stubs import get_branin_arms, get_multi_type_experime
 
 class MultiTypeExperimentTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.experiment = get_multi_type_experiment()
 
     def test_MTExperimentFlow(self) -> None:

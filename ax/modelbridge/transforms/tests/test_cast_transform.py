@@ -26,6 +26,7 @@ from ax.utils.testing.core_stubs import get_hierarchical_search_space
 
 class CastTransformTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(

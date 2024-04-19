@@ -47,6 +47,7 @@ SURROGATE_PATH: str = Surrogate.__module__
 class TestSebo(TestCase):
     @fast_botorch_optimize
     def setUp(self) -> None:
+        super().setUp()
         tkwargs: Dict[str, Any] = {"dtype": torch.double}
         self.botorch_model_class = SingleTaskGP
         self.surrogates = Surrogate(botorch_model_class=self.botorch_model_class)

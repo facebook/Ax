@@ -11,9 +11,6 @@ from ax.utils.common.testutils import TestCase
 
 
 class ArmTest(TestCase):
-    def setUp(self) -> None:
-        pass
-
     def test_Init(self) -> None:
         arm = Arm(parameters={"y": 0.25, "x": 0.75, "z": 75})
         self.assertEqual(str(arm), "Arm(parameters={'y': 0.25, 'x': 0.75, 'z': 75})")

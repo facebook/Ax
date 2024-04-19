@@ -39,6 +39,7 @@ from ax.utils.testing.modeling_stubs import get_observation1trans, get_observati
 
 class CrossValidationTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.training_data = [
             Observation(
                 features=ObservationFeatures(parameters={"x": 2.0}, trial_index=0),

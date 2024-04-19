@@ -43,6 +43,7 @@ MOOC_STR = (
 
 class OptimizationConfigTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.metrics = {
             "m1": Metric(name="m1"),
             "m2": Metric(name="m2"),
@@ -267,6 +268,7 @@ class OptimizationConfigTest(TestCase):
 
 class MultiObjectiveOptimizationConfigTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.metrics = {
             "m1": Metric(name="m1", lower_is_better=True),
             "m2": Metric(name="m2", lower_is_better=False),

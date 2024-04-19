@@ -27,6 +27,7 @@ class UnitXTransformTest(TestCase):
     expected_c_bounds = [0.0, 1.0]
 
     def setUp(self) -> None:
+        super().setUp()
         self.target_lb = self.transform_class.target_lb
         self.target_range = self.transform_class.target_range
         self.target_ub = self.target_lb + self.target_range

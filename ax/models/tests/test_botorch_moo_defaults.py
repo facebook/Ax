@@ -51,6 +51,7 @@ def dummy_predict(model, X) -> Tuple[Tensor, Tensor]:
 
 class FrontierEvaluatorTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.X = torch.tensor(
             [[1.0, 0.0], [1.0, 1.0], [1.0, 3.0], [2.0, 2.0], [3.0, 1.0]]
         )

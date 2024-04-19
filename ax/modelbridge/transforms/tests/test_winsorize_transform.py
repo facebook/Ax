@@ -59,6 +59,7 @@ OBSERVATION_DATA = [
 
 class WinsorizeTransformTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.obsd1 = ObservationData(
             metric_names=["m1", "m2", "m2"],
             means=np.array([0.0, 0.0, 1.0]),

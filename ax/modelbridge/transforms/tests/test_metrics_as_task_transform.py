@@ -9,7 +9,6 @@
 from copy import deepcopy
 
 import numpy as np
-
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.parameter import ChoiceParameter
 from ax.modelbridge.transforms.metrics_as_task import MetricsAsTask
@@ -19,6 +18,7 @@ from ax.utils.testing.core_stubs import get_search_space_for_range_values
 
 class MetricsAsTaskTransformTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.metric_task_map = {
             "metric1": ["metric2", "metric3"],
             "metric2": ["metric3"],

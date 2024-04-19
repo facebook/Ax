@@ -29,6 +29,7 @@ class DummyClassWithBaseline(Base):
 
 class SQAStoreUtilsTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         init_test_engine_and_session_factory(force_init=True)
 
     def test_CopyDBIDsBatchTrialExp(self) -> None:

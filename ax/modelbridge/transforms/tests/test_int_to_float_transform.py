@@ -7,10 +7,11 @@
 # pyre-strict
 
 from copy import deepcopy
+from typing import List
 from unittest import mock
 
 from ax.core.observation import ObservationFeatures
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import OrderConstraint, SumConstraint
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError
@@ -22,7 +23,8 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 class IntToFloatTransformTest(TestCase):
     def setUp(self) -> None:
-        parameters = [
+        super().setUp()
+        parameters: List[Parameter] = [
             RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.FLOAT),
             RangeParameter("a", lower=1, upper=2, parameter_type=ParameterType.INT),
             RangeParameter("d", lower=1, upper=3, parameter_type=ParameterType.INT),
@@ -31,8 +33,6 @@ class IntToFloatTransformTest(TestCase):
             ),
         ]
         self.search_space = SearchSpace(
-            # pyre-fixme[6]: For 1st param expected `List[Parameter]` but got
-            #  `List[Union[ChoiceParameter, RangeParameter]]`.
             parameters=parameters,
             parameter_constraints=[
                 OrderConstraint(

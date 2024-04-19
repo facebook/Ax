@@ -12,9 +12,6 @@ from ax.utils.common.testutils import TestCase
 
 
 class DiscreteModelTest(TestCase):
-    def setUp(self) -> None:
-        pass
-
     def test_discrete_model_get_state(self) -> None:
         discrete_model = DiscreteModel()
         self.assertEqual(discrete_model._get_state(), {})

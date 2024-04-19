@@ -15,6 +15,7 @@ from ax.utils.common.testutils import TestCase
 
 class ObjectiveTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.metrics = {
             "m1": Metric(name="m1"),
             "m2": Metric(name="m2", lower_is_better=True),

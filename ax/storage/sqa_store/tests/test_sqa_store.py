@@ -120,6 +120,7 @@ GET_GS_SQA_IMM_FUNC = _get_generation_strategy_sqa_immutable_opt_config_and_sear
 
 class SQAStoreTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         init_test_engine_and_session_factory(force_init=True)
         self.config = SQAConfig()
         self.encoder = Encoder(config=self.config)

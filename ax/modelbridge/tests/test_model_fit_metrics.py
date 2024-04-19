@@ -11,7 +11,6 @@ from itertools import product
 from typing import cast, Dict
 
 import numpy as np
-
 from ax.core.experiment import Experiment
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
@@ -35,6 +34,7 @@ NUM_SOBOL = 5
 
 class TestModelBridgeFitMetrics(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         # setting up experiment and generation strategy
         self.runner = SyntheticRunner()
         self.branin_experiment = Experiment(

@@ -18,6 +18,7 @@ from botorch.utils.sampling import sample_polytope
 
 class SobolGeneratorTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.tunable_param_bounds = (0.0, 1.0)
         self.fixed_param_bounds = (1.0, 100.0)
 

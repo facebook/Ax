@@ -9,17 +9,15 @@
 import unittest
 
 import plotly.graph_objects as go
-
 from ax.analysis.predicted_outcomes_dot_plot import PredictedOutcomesDotPlot
-
 from ax.exceptions.core import UnsupportedPlotError
-
 from ax.modelbridge.registry import Models
 from ax.utils.testing.core_stubs import get_branin_experiment
 
 
 class TestPredictedOutcomesDotPlot(unittest.TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.exp = get_branin_experiment(with_batch=True, with_status_quo=True)
         self.exp.trials[0].run()
         self.model = Models.BOTORCH_MODULAR(
@@ -27,8 +25,6 @@ class TestPredictedOutcomesDotPlot(unittest.TestCase):
             experiment=self.exp,
             data=self.exp.fetch_data(),
         )
-
-        super().setUp()
 
     def test_predicted_outcomes_dot_plot_no_status_quo(self) -> None:
         exp = get_branin_experiment(with_batch=True, with_status_quo=False)

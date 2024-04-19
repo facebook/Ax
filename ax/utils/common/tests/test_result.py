@@ -11,6 +11,8 @@ from ax.utils.common.testutils import TestCase
 
 class ResultTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
+
         def safeDivide(a: float, b: float) -> Result[float, str]:
             if b == 0:
                 return Err("yikes")

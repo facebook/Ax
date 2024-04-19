@@ -7,12 +7,17 @@
 # pyre-strict
 
 from collections import OrderedDict
+from typing import List
 from unittest import mock
 
 import numpy as np
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
-from ax.core.parameter_constraint import OrderConstraint, SumConstraint
+from ax.core.parameter_constraint import (
+    OrderConstraint,
+    ParameterConstraint,
+    SumConstraint,
+)
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import SearchSpaceExhausted
 from ax.modelbridge.random import RandomModelBridge
@@ -25,20 +30,16 @@ from ax.utils.testing.core_stubs import get_small_discrete_search_space
 
 class RandomModelBridgeTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         x = RangeParameter("x", ParameterType.FLOAT, lower=0, upper=1)
         y = RangeParameter("y", ParameterType.FLOAT, lower=1, upper=2)
         z = RangeParameter("z", ParameterType.FLOAT, lower=0, upper=5)
         self.parameters = [x, y, z]
-        parameter_constraints = [
+        parameter_constraints: List[ParameterConstraint] = [
             OrderConstraint(x, y),
             SumConstraint([x, z], False, 3.5),
         ]
-
-        # pyre-fixme[6]: For 2nd param expected
-        #  `Optional[List[ParameterConstraint]]` but got `List[Union[OrderConstraint,
-        #  SumConstraint]]`.
         self.search_space = SearchSpace(self.parameters, parameter_constraints)
-
         self.model_gen_options = {"option": "yes"}
 
     @mock.patch("ax.modelbridge.random.RandomModelBridge.__init__", return_value=None)

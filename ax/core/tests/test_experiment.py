@@ -88,6 +88,7 @@ class SyntheticRunnerWithMetadataKeys(SyntheticRunner):
 
 class ExperimentTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.experiment = get_experiment()
 
     def _setupBraninExperiment(self, n: int) -> Experiment:
@@ -1221,6 +1222,7 @@ class ExperimentTest(TestCase):
 
 class ExperimentWithMapDataTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.experiment = get_experiment_with_map_data_type()
 
     def _setupBraninExperiment(self, n: int, incremental: bool = False) -> Experiment:

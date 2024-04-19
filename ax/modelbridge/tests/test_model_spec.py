@@ -23,6 +23,7 @@ from ax.utils.testing.mock import fast_botorch_optimize
 
 class BaseModelSpecTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.experiment = get_branin_experiment()
         sobol = Models.SOBOL(search_space=self.experiment.search_space)
         sobol_run = sobol.gen(n=20)

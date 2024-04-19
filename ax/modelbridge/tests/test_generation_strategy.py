@@ -64,6 +64,7 @@ from ax.utils.testing.mock import fast_botorch_optimize
 
 class TestGenerationStrategy(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.gr = GeneratorRun(arms=[Arm(parameters={"x1": 1, "x2": 2})])
 
         # Mock out slow GPEI.

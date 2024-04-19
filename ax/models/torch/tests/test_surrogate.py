@@ -131,6 +131,7 @@ class ExtractModelKwargsTest(TestCase):
 
 class SurrogateTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.device = torch.device("cpu")
         self.dtype = torch.float
         self.tkwargs = {"device": self.device, "dtype": self.dtype}
@@ -732,6 +733,7 @@ class SurrogateTest(TestCase):
 
 class SurrogateWithModelListTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.outcomes = ["outcome_1", "outcome_2"]
         self.mll_class = ExactMarginalLogLikelihood
         self.dtype = torch.double

@@ -69,6 +69,7 @@ ACQ_OPTIONS: Dict[str, SobolQMCNormalSampler] = {
 
 class BoTorchModelTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
         self.acquisition_class = Acquisition

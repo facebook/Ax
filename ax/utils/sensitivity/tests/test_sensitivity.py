@@ -57,6 +57,7 @@ def get_modelbridge(modular: bool = False, saasbo: bool = False) -> ModelBridge:
 
 class SensitivityAnalysisTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.model = get_modelbridge().model.model
         self.saas_model = (
             get_modelbridge(saasbo=True).model.surrogates["SAASBO_Surrogate"].model

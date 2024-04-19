@@ -17,6 +17,7 @@ from ax.utils.common.testutils import TestCase
 
 class SearchSpaceToFloatTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(

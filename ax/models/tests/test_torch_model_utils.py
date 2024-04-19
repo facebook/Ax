@@ -85,6 +85,7 @@ class TorchUtilsTest(TestCase):
 
 class SubsetModelTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.x = torch.zeros(1, 1)
         self.y = torch.rand(1, 2)
         self.obj_t = torch.rand(2)
@@ -198,6 +199,7 @@ class SubsetModelTest(TestCase):
 
 class SubsetModelTestMultiTask(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.x1 = torch.tensor([[1.0, 2.0, 1.0], [2.0, 3.0, 0.0]])
         self.y1 = torch.tensor([[0.0], [1.0]])
         self.x2 = torch.tensor([[0.0, 3.0, 1.0], [1.0, 4.0, 0.0]])

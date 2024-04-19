@@ -17,6 +17,7 @@ from ax.utils.common.testutils import TestCase
 
 class PercentileYTransformTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.obsd1 = ObservationData(
             metric_names=["m1", "m2"],
             means=np.array([0.0, 0.0]),

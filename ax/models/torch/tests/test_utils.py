@@ -45,6 +45,7 @@ from botorch.utils.datasets import SupervisedDataset
 
 class BoTorchModelUtilsTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.dtype = torch.float
         (
             self.Xs,

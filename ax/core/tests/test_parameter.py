@@ -23,6 +23,7 @@ from ax.utils.common.typeutils import not_none
 
 class RangeParameterTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.param1 = RangeParameter(
             name="x",
             parameter_type=ParameterType.FLOAT,
@@ -211,6 +212,7 @@ class RangeParameterTest(TestCase):
 
 class ChoiceParameterTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.param1 = ChoiceParameter(
             name="x", parameter_type=ParameterType.STRING, values=["foo", "bar", "baz"]
         )
@@ -510,6 +512,7 @@ class ChoiceParameterTest(TestCase):
 
 class FixedParameterTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.param1 = FixedParameter(
             name="x", parameter_type=ParameterType.BOOL, value=True
         )
@@ -633,6 +636,7 @@ class FixedParameterTest(TestCase):
 
 class ParameterEqualityTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.fixed_parameter = FixedParameter(
             name="x", parameter_type=ParameterType.BOOL, value=True
         )

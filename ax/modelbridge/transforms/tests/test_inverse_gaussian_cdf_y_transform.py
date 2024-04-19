@@ -16,6 +16,7 @@ from ax.utils.common.testutils import TestCase
 
 class InverseGaussianCdfYTransformTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.obsd_mid = ObservationData(
             metric_names=["m1", "m2"],
             means=np.array([0.5, 0.9]),

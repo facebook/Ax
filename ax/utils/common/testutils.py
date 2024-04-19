@@ -324,6 +324,7 @@ class TestCase(fake_filesystem_unittest.TestCase):
 
         Also silences a number of common warnings originating from Ax & BoTorch.
         """
+        super().setUp()
         logger = get_logger(__name__, level=logging.WARNING)
         # Parent handlers are shared, so setting the level this
         # way applies it to all Ax loggers.
