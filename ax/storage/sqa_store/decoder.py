@@ -1028,7 +1028,16 @@ class Decoder:
                 f"The metric {metric.name} corresponding to regular objective does not "
                 "have weight attribute"
             )
-        return Objective(metric=metric, minimize=metric_sqa.minimize)
+        # Resolve any conflicts between ``lower_is_better`` and ``minimize``.
+        minimize = metric_sqa.minimize
+        if metric.lower_is_better is not None and metric.lower_is_better != minimize:
+            logger.warning(
+                f"Metric {metric.name} has {metric.lower_is_better=} but objective "
+                f"specifies {minimize=}. Overwriting ``lower_is_better`` to match "
+                f"the optimization direction {minimize=}."
+            )
+            metric.lower_is_better = minimize
+        return Objective(metric=metric, minimize=minimize)
 
     def _multi_objective_from_sqa(self, parent_metric_sqa: SQAMetric) -> Objective:
         try:
@@ -1054,9 +1063,9 @@ class Decoder:
 
         # Extracting metric and weight for each child
         objectives = [
-            Objective(
+            self._objective_from_sqa(
                 metric=self._metric_from_sqa_util(parent_metric_sqa),
-                minimize=parent_metric_sqa.minimize,
+                metric_sqa=parent_metric_sqa,
             )
             for parent_metric_sqa in metrics_sqa_children
         ]

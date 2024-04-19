@@ -156,7 +156,7 @@ class BaseModelBridgeTest(TestCase):
                 observation_features=[get_observation1trans().features], weights=[2]
             ),
         )
-        oc = OptimizationConfig(objective=Objective(metric=Metric(name="test_metric")))
+        oc = get_optimization_config_no_constraints()
         modelbridge._set_kwargs_to_save(
             model_key="TestModel", model_kwargs={}, bridge_kwargs={}
         )
@@ -322,7 +322,7 @@ class BaseModelBridgeTest(TestCase):
             fit_tracking_metrics=False,
         )
         new_oc = OptimizationConfig(
-            objective=Objective(metric=Metric(name="test_metric2"))
+            objective=Objective(metric=Metric(name="test_metric2"), minimize=False),
         )
         with self.assertRaisesRegex(UnsupportedError, "fit_tracking_metrics"):
             modelbridge.gen(n=1, optimization_config=new_oc)

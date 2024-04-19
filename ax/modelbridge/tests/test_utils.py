@@ -117,7 +117,9 @@ class TestModelbridgeUtils(TestCase):
     def test_extract_objective_thresholds(self) -> None:
         outcomes = ["m1", "m2", "m3", "m4"]
         objective = MultiObjective(
-            objectives=[Objective(metric=Metric(name)) for name in outcomes[:3]]
+            objectives=[
+                Objective(metric=Metric(name), minimize=False) for name in outcomes[:3]
+            ]
         )
         objective_thresholds = [
             ObjectiveThreshold(
@@ -159,7 +161,7 @@ class TestModelbridgeUtils(TestCase):
         self.assertTrue(np.isnan(obj_t[-2:]).all())
 
         # Fails if a threshold does not have a corresponding metric.
-        objective2 = Objective(Metric("m1"))
+        objective2 = Objective(Metric("m1"), minimize=False)
         with self.assertRaisesRegex(ValueError, "corresponding metrics"):
             extract_objective_thresholds(
                 objective_thresholds=objective_thresholds,

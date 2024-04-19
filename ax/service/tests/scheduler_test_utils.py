@@ -321,7 +321,7 @@ class AxSchedulerTestCase(TestCase):
         self.branin_experiment_no_impl_runner_or_metrics = Experiment(
             search_space=get_branin_search_space(),
             optimization_config=OptimizationConfig(
-                objective=Objective(metric=Metric(name="branin"))
+                objective=Objective(metric=Metric(name="branin"), minimize=False)
             ),
             name="branin_experiment_no_impl_runner_or_metrics",
         )

@@ -45,6 +45,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_search_space,
     get_experiment_with_observations,
+    get_optimization_config_no_constraints,
     get_search_space_for_range_value,
 )
 from ax.utils.testing.mock import fast_botorch_optimize
@@ -363,9 +364,7 @@ class TorchModelBridgeTest(TestCase):
                 observation_features=[
                     ObservationFeatures(parameters={"x": 1.0, "y": 2.0})
                 ],
-                optimization_config=OptimizationConfig(
-                    objective=Objective(metric=Metric(name="test_metric"))
-                ),
+                optimization_config=get_optimization_config_no_constraints(),
             )
 
         self.assertEqual(acqf_vals, [5.0])
@@ -392,9 +391,7 @@ class TorchModelBridgeTest(TestCase):
                     ObservationFeatures(parameters={"x": 1.0, "y": 2.0}),
                     ObservationFeatures(parameters={"x": 1.0, "y": 2.0}),
                 ],
-                optimization_config=OptimizationConfig(
-                    objective=Objective(metric=Metric(name="test_metric"))
-                ),
+                optimization_config=get_optimization_config_no_constraints(),
             )
         t.transform_observation_features.assert_any_call(
             [ObservationFeatures(parameters={"x": 1.0, "y": 2.0})],
@@ -418,9 +415,7 @@ class TorchModelBridgeTest(TestCase):
                         ObservationFeatures(parameters={"x": 1.0, "y": 2.0}),
                     ]
                 ],
-                optimization_config=OptimizationConfig(
-                    objective=Objective(metric=Metric(name="test_metric"))
-                ),
+                optimization_config=get_optimization_config_no_constraints(),
             )
         t.transform_observation_features.assert_any_call(
             [

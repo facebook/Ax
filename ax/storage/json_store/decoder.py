@@ -12,7 +12,7 @@ from enum import Enum
 from inspect import isclass
 from io import StringIO
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import pandas as pd
@@ -25,6 +25,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.multi_type_experiment import MultiTypeExperiment
+from ax.core.objective import Objective
 from ax.core.parameter import Parameter
 from ax.core.parameter_constraint import (
     OrderConstraint,
@@ -49,15 +50,19 @@ from ax.storage.json_store.decoders import (
     tensor_from_json,
     trial_from_json,
 )
-
 from ax.storage.json_store.registry import (
     CORE_CLASS_DECODER_REGISTRY,
     CORE_DECODER_REGISTRY,
 )
 from ax.utils.common.logger import get_logger
-from ax.utils.common.serialization import SerializationMixin
+from ax.utils.common.serialization import (
+    SerializationMixin,
+    TClassDecoderRegistry,
+    TDecoderRegistry,
+)
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.common.typeutils_torch import torch_type_from_str
+
 
 logger: Logger = get_logger(__name__)
 
@@ -66,13 +71,8 @@ logger: Logger = get_logger(__name__)
 def object_from_json(
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     object_json: Any,
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> Any:
     """Recursively load objects from a JSON-serializable dictionary."""
     if type(object_json) in (str, int, float, bool, type(None)) or isinstance(
@@ -219,6 +219,12 @@ def object_from_json(
                 decoder_registry=decoder_registry,
                 class_decoder_registry=class_decoder_registry,
             )
+        elif _class == Objective:
+            return objective_from_json(
+                object_json=object_json,
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
+            )
         elif _class == TorchvisionBenchmarkProblem:
             return TorchvisionBenchmarkProblem.from_dataset_name(
                 name=object_json["name"],
@@ -289,13 +295,8 @@ def ax_class_from_json_dict(
     #  `typing.Type` to avoid runtime subscripting errors.
     _class: Type,
     object_json: Dict[str, Any],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> Any:
     """Reinstantiates an Ax class registered in `DECODER_REGISTRY` from a JSON
     dict.
@@ -314,13 +315,8 @@ def ax_class_from_json_dict(
 
 def generator_run_from_json(
     object_json: Dict[str, Any],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> GeneratorRun:
     """Load Ax GeneratorRun from JSON."""
     time_created_json = object_json.pop("time_created")
@@ -359,13 +355,8 @@ def trial_transition_criteria_from_json(
     #  avoid runtime subscripting errors.
     class_: Type,
     transition_criteria_json: Dict[str, Any],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> Optional[TransitionCriterion]:
     """Load Ax transition criteria that depend on Trials from JSON.
 
@@ -389,13 +380,8 @@ def trial_transition_criteria_from_json(
 
 def search_space_from_json(
     search_space_json: Dict[str, Any],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> SearchSpace:
     """Load a SearchSpace from JSON.
 
@@ -422,13 +408,8 @@ def search_space_from_json(
 def parameter_constraints_from_json(
     parameter_constraint_json: List[Dict[str, Any]],
     parameters: List[Parameter],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> List[ParameterConstraint]:
     """Load ParameterConstraints from JSON.
 
@@ -476,13 +457,8 @@ def parameter_constraints_from_json(
 def trials_from_json(
     experiment: Experiment,
     trials_json: Dict[str, Any],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> Dict[int, BaseTrial]:
     """Load Ax Trials from JSON."""
     loaded_trials = {}
@@ -507,13 +483,8 @@ def trials_from_json(
 
 def data_from_json(
     data_by_trial_json: Dict[str, Any],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> Dict[int, "OrderedDict[int, Data]"]:
     """Load Ax Data from JSON."""
     data_by_trial = object_from_json(
@@ -531,13 +502,8 @@ def data_from_json(
 
 def multi_type_experiment_from_json(
     object_json: Dict[str, Any],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> MultiTypeExperiment:
     """Load AE MultiTypeExperiment from JSON."""
     experiment_info = _get_experiment_info(object_json)
@@ -585,13 +551,8 @@ def multi_type_experiment_from_json(
 
 def experiment_from_json(
     object_json: Dict[str, Any],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> Experiment:
     """Load Ax Experiment from JSON."""
     experiment_info = _get_experiment_info(object_json)
@@ -630,13 +591,8 @@ def _get_experiment_info(object_json: Dict[str, Any]) -> Dict[str, Any]:
 def _load_experiment_info(
     exp: Experiment,
     exp_info: Dict[str, Any],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> None:
     """Loads `Experiment` object with basic information."""
     exp._time_created = object_from_json(
@@ -690,13 +646,8 @@ def _convert_generation_step_keys_for_backwards_compatibility(
 
 def generation_node_from_json(
     generation_node_json: Dict[str, Any],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> GenerationNode:
     """Load GenerationNode object from JSON."""
     return GenerationNode(
@@ -724,13 +675,8 @@ def generation_node_from_json(
 
 def generation_step_from_json(
     generation_step_json: Dict[str, Any],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> GenerationStep:
     """Load generation step from JSON."""
     generation_step_json = _convert_generation_step_keys_for_backwards_compatibility(
@@ -790,13 +736,8 @@ def generation_step_from_json(
 
 def model_spec_from_json(
     model_spec_json: Dict[str, Any],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> ModelSpec:
     """Load ModelSpec from JSON."""
     kwargs = model_spec_json.pop("model_kwargs", None)
@@ -834,14 +775,9 @@ def model_spec_from_json(
 
 def generation_strategy_from_json(
     generation_strategy_json: Dict[str, Any],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
     experiment: Optional[Experiment] = None,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> GenerationStrategy:
     """Load generation strategy from JSON."""
     nodes = (
@@ -890,13 +826,8 @@ def generation_strategy_from_json(
 
 def surrogate_from_list_surrogate_json(
     list_surrogate_json: Dict[str, Any],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> Surrogate:
     logger.warning(
         "`ListSurrogate` has been deprecated. Reconstructing a `Surrogate` "
@@ -970,13 +901,8 @@ def surrogate_from_list_surrogate_json(
 
 def get_input_transform_json_components(
     input_transforms_json: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> Tuple[Optional[List[Dict[str, Any]]], Optional[Dict[str, Any]]]:
     if input_transforms_json is None:
         return None, None
@@ -1003,13 +929,8 @@ def get_input_transform_json_components(
 
 def get_outcome_transform_json_components(
     outcome_transforms_json: Optional[List[Dict[str, Any]]],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
-    ] = CORE_CLASS_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> Tuple[Optional[List[Dict[str, Any]]], Optional[Dict[str, Any]]]:
     if outcome_transforms_json is None:
         return None, None
@@ -1030,3 +951,39 @@ def get_outcome_transform_json_components(
         for outcome_transform_json in outcome_transforms_json
     }
     return outcome_transform_classes_json, outcome_transform_options_json
+
+
+def objective_from_json(
+    object_json: Dict[str, Any],
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
+) -> Objective:
+    """Load an ``Objective`` from JSON in a backwards compatible way.
+
+    If both ``minimize`` and ``lower_is_better`` are specified but have conflicting
+    values, this will overwrite ``lower_is_better=minimize`` to resolve the conflict.
+
+    # TODO: Do we need to do this for scalarized objective as well?
+    """
+    input_args = {
+        k: object_from_json(
+            v,
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        )
+        for k, v in object_json.items()
+    }
+    metric = input_args.pop("metric")
+    minimize = input_args.pop("minimize")
+    if metric.lower_is_better is not None and metric.lower_is_better != minimize:
+        logger.warning(
+            f"Metric {metric.name} has {metric.lower_is_better=} but objective "
+            f"specifies {minimize=}. Overwriting ``lower_is_better`` to match "
+            f"the optimization direction {minimize=}."
+        )
+        metric.lower_is_better = minimize
+    return Objective(
+        metric=metric,
+        minimize=minimize,
+        **input_args,  # For future compatibility.
+    )

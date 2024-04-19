@@ -102,7 +102,7 @@ class DerelativizeTransformTest(TestCase):
         )
 
         # Test with no relative constraints
-        objective = Objective(Metric("c"))
+        objective = Objective(Metric("c"), minimize=True)
         oc = OptimizationConfig(
             objective=objective,
             outcome_constraints=[
@@ -300,7 +300,7 @@ class DerelativizeTransformTest(TestCase):
             observations=[],
         )
         oc = OptimizationConfig(
-            objective=Objective(Metric("c")),
+            objective=Objective(Metric("c"), minimize=False),
             outcome_constraints=[
                 OutcomeConstraint(Metric("a"), ComparisonOp.LEQ, bound=2, relative=True)
             ],

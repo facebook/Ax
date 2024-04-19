@@ -75,6 +75,7 @@ from ax.core.types import (
     TModelPredict,
     TModelPredictArm,
     TParameterization,
+    TParamValue,
 )
 from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
@@ -379,7 +380,7 @@ def get_branin_experiment_with_timestamp_map_metric(
     tracking_metric = (
         get_map_metric("tracking_branin_map")
         if map_tracking_metric
-        else BraninMetric(name="branin", param_names=["x1", "x2"])
+        else BraninMetric(name="branin", param_names=["x1", "x2"], lower_is_better=True)
     )
     exp = Experiment(
         name="branin_with_timestamp_map_metric",
@@ -439,7 +440,7 @@ def get_test_map_data_experiment(
 def get_multi_type_experiment(
     add_trial_type: bool = True, add_trials: bool = False, num_arms: int = 10
 ) -> MultiTypeExperiment:
-    oc = OptimizationConfig(Objective(BraninMetric("m1", ["x1", "x2"])))
+    oc = OptimizationConfig(Objective(BraninMetric("m1", ["x1", "x2"]), minimize=True))
     experiment = MultiTypeExperiment(
         name="test_exp",
         search_space=get_branin_search_space(),
@@ -505,7 +506,9 @@ def get_factorial_experiment(
         name="factorial_test_experiment",
         search_space=get_factorial_search_space(),
         optimization_config=(
-            OptimizationConfig(objective=Objective(metric=get_factorial_metric()))
+            OptimizationConfig(
+                objective=Objective(metric=get_factorial_metric(), minimize=False)
+            )
             if has_optimization_config
             else None
         ),
@@ -1489,21 +1492,12 @@ def get_augmented_hartmann_metric(
 
 
 def get_factorial_metric(name: str = "success_metric") -> FactorialMetric:
-    coefficients = {
+    coefficients: Dict[str, Dict[TParamValue, float]] = {
         "factor1": {"level11": 0.1, "level12": 0.2, "level13": 0.3},
         "factor2": {"level21": 0.1, "level22": 0.2},
         "factor3": {"level31": 0.1, "level32": 0.2, "level33": 0.3, "level34": 0.4},
     }
-    return FactorialMetric(
-        name=name,
-        # Expected `Dict[str, Dict[typing.Optional[typing.Union[bool, float, str]],
-        # float]]` for 3rd parameter `coefficients` to call
-        # `ax.metrics.factorial.FactorialMetric.__init__` but got `Dict[str,
-        # Dict[str, float]]`.
-        # pyre-fixme[6]:
-        coefficients=coefficients,
-        batch_size=int(1e4),
-    )
+    return FactorialMetric(name=name, coefficients=coefficients, batch_size=int(1e4))
 
 
 def get_dict_lookup_metric() -> DictLookupMetric:
@@ -1556,18 +1550,18 @@ def get_branin_outcome_constraint() -> OutcomeConstraint:
 ##############################
 
 
-def get_objective() -> Objective:
-    return Objective(metric=Metric(name="m1"), minimize=False)
+def get_objective(minimize: bool = False) -> Objective:
+    return Objective(metric=Metric(name="m1"), minimize=minimize)
 
 
-def get_map_objective() -> Objective:
-    return Objective(metric=MapMetric(name="m1"), minimize=False)
+def get_map_objective(minimize: bool = False) -> Objective:
+    return Objective(metric=MapMetric(name="m1"), minimize=minimize)
 
 
 def get_multi_objective() -> Objective:
     return MultiObjective(
         objectives=[
-            Objective(metric=Metric(name="m1")),
+            Objective(metric=Metric(name="m1"), minimize=False),
             Objective(metric=Metric(name="m3", lower_is_better=True), minimize=True),
         ],
     )
@@ -1576,7 +1570,10 @@ def get_multi_objective() -> Objective:
 def get_custom_multi_objective() -> Objective:
     return MultiObjective(
         objectives=[
-            Objective(metric=CustomTestMetric(name="m1", test_attribute="test")),
+            Objective(
+                metric=CustomTestMetric(name="m1", test_attribute="test"),
+                minimize=False,
+            ),
             Objective(
                 metric=CustomTestMetric(
                     name="m3", lower_is_better=True, test_attribute="test"
@@ -1606,7 +1603,9 @@ def get_scalarized_objective() -> Objective:
 
 
 def get_branin_objective(name: str = "branin", minimize: bool = False) -> Objective:
-    return Objective(metric=get_branin_metric(name=name), minimize=minimize)
+    return Objective(
+        metric=get_branin_metric(name=name, lower_is_better=minimize), minimize=minimize
+    )
 
 
 def get_branin_multi_objective(num_objectives: int = 2) -> Objective:
@@ -1677,8 +1676,12 @@ def get_multi_objective_optimization_config(
     )
 
 
-def get_optimization_config_no_constraints() -> OptimizationConfig:
-    return OptimizationConfig(objective=Objective(metric=Metric("test_metric")))
+def get_optimization_config_no_constraints(
+    minimize: bool = False,
+) -> OptimizationConfig:
+    return OptimizationConfig(
+        objective=Objective(metric=Metric("test_metric"), minimize=minimize)
+    )
 
 
 def get_branin_optimization_config(minimize: bool = False) -> OptimizationConfig:

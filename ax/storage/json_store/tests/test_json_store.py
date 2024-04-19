@@ -14,6 +14,7 @@ import numpy as np
 import torch
 from ax.benchmark.metrics.jenatton import JenattonMetric
 from ax.core.metric import Metric
+from ax.core.objective import Objective
 from ax.core.runner import Runner
 from ax.exceptions.core import AxStorageWarning
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
@@ -652,3 +653,17 @@ class JSONStoreTest(TestCase):
             expected_json = botorch_component_to_dict(interval)
             del expected_json["state_dict"]["lower_bound"]
             botorch_component_from_json(interval.__class__, expected_json)
+
+    def test_objective_backwards_compatibility(self) -> None:
+        # Test that we can load an objective that has conflicting
+        # ``lower_is_better`` and ``minimize`` fields.
+        objective = get_objective(minimize=True)
+        objective.metric.lower_is_better = False  # for conflict!
+        objective_json = object_to_json(objective)
+        self.assertTrue(objective_json["minimize"])
+        self.assertFalse(objective_json["metric"]["lower_is_better"])
+        objective_loaded = object_from_json(objective_json)
+        self.assertIsInstance(objective_loaded, Objective)
+        self.assertNotEqual(objective, objective_loaded)
+        self.assertTrue(objective_loaded.minimize)
+        self.assertTrue(objective_loaded.metric.lower_is_better)
