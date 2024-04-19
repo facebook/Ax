@@ -6,11 +6,10 @@
 
 # pyre-strict
 
-import copy
 from copy import deepcopy
 from itertools import combinations
 from logging import Logger
-from typing import cast, Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import Dict, List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -18,12 +17,9 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
-from ax.core.objective import ScalarizedObjective
+from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import (
-    MultiObjectiveOptimizationConfig,
-    OptimizationConfig,
-)
+from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import (
     ComparisonOp,
     ObjectiveThreshold,
@@ -43,6 +39,7 @@ from ax.modelbridge.transforms.search_space_to_float import SearchSpaceToFloat
 from ax.models.torch.posterior_mean import get_PosteriorMean
 from ax.models.torch_base import TorchModel
 from ax.utils.common.logger import get_logger
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.stats.statstools import relativize
 from botorch.utils.multi_objective import is_non_dominated
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
@@ -615,11 +612,24 @@ def infer_reference_point_from_experiment(
     # when calculating the Pareto front. Also, defining a multiplier to turn all
     # the objectives to be maximized. Note that the multiplier at this point
     # contains 0 for outcome_constraint metrics, but this will be dropped later.
-    dummy_rp = copy.deepcopy(
-        experiment.optimization_config.objective_thresholds  # pyre-ignore
+    opt_config = checked_cast(
+        MultiObjectiveOptimizationConfig, experiment.optimization_config
     )
+    inferred_rp = _get_objective_thresholds(optimization_config=opt_config)
     multiplier = [0] * len(objective_orders)
-    for ot in dummy_rp:
+    if len(opt_config.objective_thresholds) > 0:
+        inferred_rp = deepcopy(opt_config.objective_thresholds)
+    else:
+        inferred_rp = []
+        for objective in checked_cast(MultiObjective, opt_config.objective).objectives:
+            ot = ObjectiveThreshold(
+                metric=objective.metric,
+                bound=0.0,  # dummy value
+                op=ComparisonOp.LEQ if objective.minimize else ComparisonOp.GEQ,
+                relative=False,
+            )
+            inferred_rp.append(ot)
+    for ot in inferred_rp:
         # In the following, we find the index of the objective in
         # `objective_orders`. If there is an objective that does not exist
         # in `obs_data`, a ValueError is raised.
@@ -640,12 +650,10 @@ def infer_reference_point_from_experiment(
         modelbridge=mb_reference,
         observation_features=obs_feats,
         observation_data=obs_data,
-        objective_thresholds=dummy_rp,
+        objective_thresholds=inferred_rp,
         use_model_predictions=False,
     )
-
     if len(frontier_observations) == 0:
-        opt_config = cast(OptimizationConfig, mb_reference._optimization_config)
         outcome_constraints = opt_config._outcome_constraints
         if len(outcome_constraints) == 0:
             raise RuntimeError(
@@ -665,10 +673,11 @@ def infer_reference_point_from_experiment(
             modelbridge=mb_reference,
             observation_features=obs_feats,
             observation_data=obs_data,
-            objective_thresholds=dummy_rp,
+            objective_thresholds=inferred_rp,
             use_model_predictions=False,
         )
-        opt_config._outcome_constraints = outcome_constraints  # restoring constraints
+        # restoring constraints
+        opt_config._outcome_constraints = outcome_constraints
 
     # Need to reshuffle columns of `f` and `obj_w` to be consistent
     # with objective_orders.
@@ -698,15 +707,38 @@ def infer_reference_point_from_experiment(
         x for (i, x) in enumerate(objective_orders) if multiplier[i] != 0
     ]
 
-    # Constructing the objective thresholds.
-    # NOTE: This assumes that objective_thresholds is already initialized.
-    nadir_objective_thresholds = copy.deepcopy(
-        experiment.optimization_config.objective_thresholds
-    )
-
-    for obj_threshold in nadir_objective_thresholds:
+    for obj_threshold in inferred_rp:
         obj_threshold.bound = rp[
             objective_orders_reduced.index(obj_threshold.metric.name)
         ].item()
+    return inferred_rp
 
-    return nadir_objective_thresholds
+
+def _get_objective_thresholds(
+    optimization_config: MultiObjectiveOptimizationConfig,
+) -> List[ObjectiveThreshold]:
+    """Get objective thresholds for an optimization config.
+
+    This will return objective thresholds with dummy values if there are
+    no objective thresholds on the optimization config.
+
+    Args:
+        optimization_config: Optimization config.
+
+    Returns:
+        List of objective thresholds.
+    """
+    if optimization_config.objective_thresholds is not None:
+        return deepcopy(optimization_config.objective_thresholds)
+    objective_thresholds = []
+    for objective in checked_cast(
+        MultiObjective, optimization_config.objective
+    ).objectives:
+        ot = ObjectiveThreshold(
+            metric=objective.metric,
+            bound=0.0,  # dummy value
+            op=ComparisonOp.LEQ if objective.minimize else ComparisonOp.GEQ,
+            relative=False,
+        )
+        objective_thresholds.append(ot)
+    return objective_thresholds

@@ -269,7 +269,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         ]
         exp = self._create_multi_objective_experiment(metric_values=metric_values)
         gss = ImprovementGlobalStoppingStrategy(
-            min_trials=3, window_size=3, improvement_bar=0.1
+            min_trials=3, window_size=3, improvement_bar=0.3
         )
         stop, message = gss.should_stop_optimization(experiment=exp, trial_to_check=4)
         self.assertFalse(stop)
@@ -280,9 +280,9 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
 
         self.assertEqual(
             message,
-            "The improvement in hypervolume in the past 3 trials (=0.000) is "
-            "less than improvement_bar (=0.1) times the hypervolume at the "
-            "start of the window (=0.055).",
+            "The improvement in hypervolume in the past 3 trials (=0.289) is "
+            "less than improvement_bar (=0.3) times the hypervolume at the "
+            "start of the window (=0.104).",
         )
 
         # Now we select a very far custom reference point against which the pareto front
