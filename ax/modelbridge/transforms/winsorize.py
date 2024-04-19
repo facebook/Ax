@@ -349,9 +349,8 @@ def _get_tukey_cutoffs(Y: np.ndarray, lower: bool) -> float:
 
     See https://mathworld.wolfram.com/Box-and-WhiskerPlot.html for more details.
     """
-    # TODO: replace interpolation->method once it becomes standard.
-    q1 = np.percentile(Y, q=25, interpolation="lower")
-    q3 = np.percentile(Y, q=75, interpolation="higher")
+    q1 = np.percentile(Y, q=25, method="lower")
+    q3 = np.percentile(Y, q=75, method="higher")
     iqr = q3 - q1
     return q1 - 1.5 * iqr if lower else q3 + 1.5 * iqr
 
