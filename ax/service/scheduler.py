@@ -41,7 +41,6 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.runner import Runner
 from ax.core.types import TModelPredictArm, TParameterization
 
@@ -59,7 +58,6 @@ from ax.exceptions.generation_strategy import (
 )
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.plot.pareto_utils import infer_reference_point_from_experiment
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
@@ -202,9 +200,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     # applications where the user wants to run the optimization loop to exhaust
     # the declared number of trials.
     __ignore_global_stopping_strategy: bool = False
-    # In MOO cases, the following will be populated by an inferred reference point
-    # for pareto front after a certain number of completed trials.
-    __inferred_reference_point: Optional[List[ObjectiveThreshold]] = None
     # Default kwargs passed when fetching data if not overridden on `SchedulerOptions`
     DEFAULT_FETCH_KWARGS = {
         "overwrite_existing_data": True,
@@ -444,26 +439,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             and self.options.global_stopping_strategy is not None
         ):
             gss = not_none(self.options.global_stopping_strategy)
-            if (
-                self.experiment.is_moo_problem
-                and self.__inferred_reference_point is None
-                and len(self.experiment.trials_by_status[TrialStatus.COMPLETED])
-                >= gss.min_trials
-            ):
-                # only infer reference point if there is data on the experiment.
-                data = self.experiment.fetch_data()
-                if not data.df.empty:
-                    # We infer the nadir reference point to be used by the GSS.
-                    self.__inferred_reference_point = (
-                        infer_reference_point_from_experiment(
-                            self.experiment,
-                            data=data,
-                        )
-                    )
-
             stop_optimization, global_stopping_msg = gss.should_stop_optimization(
-                experiment=self.experiment,
-                objective_thresholds=self.__inferred_reference_point,
+                experiment=self.experiment
             )
             if stop_optimization:
                 return True, global_stopping_msg

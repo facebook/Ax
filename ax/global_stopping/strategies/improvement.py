@@ -22,8 +22,10 @@ from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.modelbridge.modelbridge_utils import observed_hypervolume
-from ax.plot.pareto_utils import get_tensor_converter_model
-from ax.service.utils.best_point import fill_missing_thresholds_from_nadir
+from ax.plot.pareto_utils import (
+    get_tensor_converter_model,
+    infer_reference_point_from_experiment,
+)
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
@@ -78,6 +80,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         self.window_size = window_size
         self.improvement_bar = improvement_bar
         self.hv_by_trial: Dict[int, float] = {}
+        self._inferred_objective_thresholds: Optional[List[ObjectiveThreshold]] = None
 
     def _should_stop_optimization(
         self,
@@ -104,6 +107,9 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
                 when computing hv of the pareto front against. This is used only in the
                 MOO setting. If not specified, the objective thresholds on the
                 experiment's optimization config will be used for the purpose.
+                If no thresholds are provided, they are automatically inferred. They are
+                only inferred once for each instance of the strategy (i.e. inferred
+                thresholds don't update with additional data).
             kwargs: Unused.
 
         Returns:
@@ -138,10 +144,25 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             return stop, message
 
         if isinstance(experiment.optimization_config, MultiObjectiveOptimizationConfig):
+            if objective_thresholds is None:
+                # self._inferred_objective_thresholds is cached and only computed once.
+                if self._inferred_objective_thresholds is None:
+                    # only infer reference point if there is data on the experiment.
+                    data = experiment.fetch_data()
+                    if not data.df.empty:
+                        # We infer the nadir reference point to be used by the GSS.
+                        self._inferred_objective_thresholds = (
+                            infer_reference_point_from_experiment(
+                                experiment=experiment, data=data
+                            )
+                        )
+                # TODO: move this out into a separate infer_objective_thresholds
+                # instance method or property that handles the caching.
+                objective_thresholds = self._inferred_objective_thresholds
             return self._should_stop_moo(
                 experiment=experiment,
                 trial_to_check=trial_to_check,
-                objective_thresholds=objective_thresholds,
+                objective_thresholds=not_none(objective_thresholds),
             )
         else:
             return self._should_stop_single_objective(
@@ -152,7 +173,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         self,
         experiment: Experiment,
         trial_to_check: int,
-        objective_thresholds: Optional[List[ObjectiveThreshold]] = None,
+        objective_thresholds: List[ObjectiveThreshold],
     ) -> Tuple[bool, str]:
         """
         This is the "should_stop_optimization" method of this class, specialized
@@ -185,13 +206,6 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         data_df = experiment.fetch_data().df
         data_df_reference = data_df[data_df["trial_index"] <= reference_trial_index]
         data_df = data_df[data_df["trial_index"] <= trial_to_check]
-
-        optimization_config = checked_cast(
-            MultiObjectiveOptimizationConfig, experiment.optimization_config
-        ).clone_with_args(objective_thresholds=objective_thresholds)
-        objective_thresholds = fill_missing_thresholds_from_nadir(
-            experiment=experiment, optimization_config=optimization_config
-        )
 
         # Computing or retrieving HV at "window_size" iteration before
         if reference_trial_index in self.hv_by_trial:
