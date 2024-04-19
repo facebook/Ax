@@ -38,19 +38,29 @@ from gpytorch.distributions import MultivariateNormal
 from torch import Tensor
 
 
-def get_modelbridge(modular: bool = False) -> ModelBridge:
+def get_modelbridge(modular: bool = False, saasbo: bool = False) -> ModelBridge:
     exp = get_branin_experiment(with_batch=True)
     exp.trials[0].run()
-    return (Models.BOTORCH_MODULAR if modular else Models.LEGACY_BOTORCH)(
-        # Model bridge kwargs
-        experiment=exp,
-        data=exp.fetch_data(),
-    )
+    if modular:
+        return Models.BOTORCH_MODULAR(
+            experiment=exp,
+            data=exp.fetch_data(),
+        )
+    if saasbo:
+        return Models.SAASBO(
+            experiment=exp,
+            data=exp.fetch_data(),
+        )
+    else:
+        return Models.LEGACY_BOTORCH(experiment=exp, data=exp.fetch_data())
 
 
 class SensitivityAnalysisTest(TestCase):
     def setUp(self) -> None:
         self.model = get_modelbridge().model.model
+        self.saas_model = (
+            get_modelbridge(saasbo=True).model.surrogates["SAASBO_Surrogate"].model
+        )
 
     def test_DgsmGpMean(self) -> None:
         bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()
@@ -131,6 +141,19 @@ class SensitivityAnalysisTest(TestCase):
         first_order = sensitivity_mean.first_order_indices()
         total_order = sensitivity_mean.total_order_indices()
         second_order = sensitivity_mean.second_order_indices()
+        self.assertIsInstance(first_order, Tensor)
+        self.assertIsInstance(total_order, Tensor)
+        self.assertIsInstance(second_order, Tensor)
+        self.assertEqual(first_order.shape, torch.Size([2]))
+        self.assertEqual(total_order.shape, torch.Size([2]))
+        self.assertEqual(second_order.shape, torch.Size([1]))
+
+        sensitivity_mean_saas = SobolSensitivityGPMean(
+            self.saas_model, num_mc_samples=10, bounds=bounds, second_order=True
+        )
+        first_order = sensitivity_mean_saas.first_order_indices()
+        total_order = sensitivity_mean_saas.total_order_indices()
+        second_order = sensitivity_mean_saas.second_order_indices()
         self.assertIsInstance(first_order, Tensor)
         self.assertIsInstance(total_order, Tensor)
         self.assertIsInstance(second_order, Tensor)

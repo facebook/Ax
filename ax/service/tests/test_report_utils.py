@@ -423,15 +423,19 @@ class ReportUtilsTest(TestCase):
             plots = get_standard_plots(
                 experiment=exp, model=Models.MOO(experiment=exp, data=exp.fetch_data())
             )
-            self.assertEqual(len(log.output), 4)
+            self.assertEqual(len(log.output), 5)
             self.assertIn(
                 "Pareto plotting not supported for experiments with relative objective "
                 "thresholds.",
                 log.output[0],
             )
             self.assertIn(
-                "Failed to compute global feature sensitivities:",
+                "Failed to compute signed global feature sensitivities",
                 log.output[1],
+            )
+            self.assertIn(
+                "Failed to compute unsigned feature sensitivities:",
+                log.output[2],
             )
             created_plots_logs = set(log.output[2:])
             for metric_suffix in ("a", "b"):

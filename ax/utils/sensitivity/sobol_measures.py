@@ -23,7 +23,7 @@ from botorch.models.model import Model, ModelList
 from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.sampling import draw_sobol_samples
-from botorch.utils.transforms import unnormalize
+from botorch.utils.transforms import is_ensemble, unnormalize
 from torch import Tensor
 
 
@@ -448,7 +448,11 @@ class SobolSensitivityGPMean(object):
                     p = checked_cast(GPyTorchPosterior, self.model.posterior(x_split))
                     means.append(p.mean)
                     variances.append(p.variance)
-            return link_function(torch.cat(means), torch.cat(variances))
+
+            cat_dim = 1 if is_ensemble(self.model) else 0
+            return link_function(
+                torch.cat(means, dim=cat_dim), torch.cat(variances, dim=cat_dim)
+            )
 
         self.sensitivity = SobolSensitivity(
             bounds=bounds,

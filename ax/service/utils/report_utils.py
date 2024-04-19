@@ -430,7 +430,16 @@ def get_standard_plots(
                 )
                 logger.debug("Finished global sensitivity analysis.")
             except Exception as e:
-                logger.info(f"Failed to compute global feature sensitivities: {e}")
+                logger.info(
+                    f"Failed to compute signed global feature sensitivities: {e}"
+                    "Trying to get unsigned feature sensitivities."
+                )
+                try:
+                    sens = ax_parameter_sens(model, order="total", signed=False)
+                except Exception as e:
+                    logger.exception(
+                        f"Failed to compute unsigned feature sensitivities: {e}"
+                    )
         if sens is None:
             try:
                 sens = {
