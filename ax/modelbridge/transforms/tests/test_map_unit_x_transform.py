@@ -18,6 +18,7 @@ from ax.utils.common.testutils import TestCase
 
 class MapUnitXTransformTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.target_lb = MapUnitX.target_lb
         self.target_range = MapUnitX.target_range
         self.target_ub = self.target_lb + self.target_range

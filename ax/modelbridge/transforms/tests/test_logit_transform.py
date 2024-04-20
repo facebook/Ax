@@ -20,6 +20,7 @@ from scipy.special import expit, logit
 
 class LogitTransformTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(

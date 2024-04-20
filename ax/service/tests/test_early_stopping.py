@@ -20,6 +20,7 @@ class TestEarlyStoppingUtils(TestCase):
     main `AxClient` testing suite (`TestServiceAPI`)."""
 
     def setUp(self) -> None:
+        super().setUp()
         self.branin_experiment = get_branin_experiment()
 
     def test_should_stop_trials_early(self) -> None:

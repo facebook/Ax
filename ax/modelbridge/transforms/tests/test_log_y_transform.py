@@ -30,6 +30,7 @@ from ax.utils.common.testutils import TestCase
 
 class LogYTransformTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.obsd1 = ObservationData(
             metric_names=["m1", "m2", "m3"],
             means=np.array([0.5, 1.0, 1.0]),

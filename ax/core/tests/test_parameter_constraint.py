@@ -23,6 +23,7 @@ from ax.utils.common.testutils import TestCase
 
 class ParameterConstraintTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.constraint = ParameterConstraint(
             constraint_dict={"x": 2.0, "y": -3.0}, bound=6.0
         )
@@ -98,6 +99,7 @@ class ParameterConstraintTest(TestCase):
 
 class OrderConstraintTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.x = RangeParameter("x", ParameterType.INT, lower=0, upper=1)
         self.y = RangeParameter("y", ParameterType.INT, lower=0, upper=1)
         self.constraint = OrderConstraint(
@@ -153,6 +155,7 @@ class OrderConstraintTest(TestCase):
 
 class SumConstraintTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.x = RangeParameter("x", ParameterType.INT, lower=-5, upper=5)
         self.y = RangeParameter("y", ParameterType.INT, lower=-5, upper=5)
         self.constraint1 = SumConstraint(

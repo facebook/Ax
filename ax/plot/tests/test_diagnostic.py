@@ -22,6 +22,7 @@ from ax.utils.testing.mock import fast_botorch_optimize
 class DiagnosticTest(TestCase):
     @fast_botorch_optimize
     def setUp(self) -> None:
+        super().setUp()
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run()
         self.model = Models.BOTORCH_MODULAR(

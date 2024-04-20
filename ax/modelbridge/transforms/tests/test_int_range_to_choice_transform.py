@@ -19,6 +19,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 class IntRangeToChoiceTransformTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter("a", lower=1, upper=5, parameter_type=ParameterType.INT),

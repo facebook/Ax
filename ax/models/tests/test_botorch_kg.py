@@ -36,6 +36,7 @@ def dummy_func(X: torch.Tensor) -> torch.Tensor:
 
 class KnowledgeGradientTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.tkwargs: Dict[str, Any] = {
             "device": torch.device("cpu"),
             "dtype": torch.double,

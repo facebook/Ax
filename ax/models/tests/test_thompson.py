@@ -15,6 +15,7 @@ from ax.utils.common.testutils import TestCase
 
 class ThompsonSamplerTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.Xs = [[[1, 1], [2, 2], [3, 3], [4, 4]]]  # 4 arms, each of dimensionality 2
         self.Ys = [[1, 2, 3, 4]]
         self.Yvars = [[1, 1, 1, 1]]

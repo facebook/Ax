@@ -19,6 +19,7 @@ BASE_LOGGER_NAME = f"ax.{__name__}"
 
 class LoggerTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.warning_string = "Test warning"
 
     def test_Logger(self) -> None:

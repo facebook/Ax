@@ -15,6 +15,7 @@ from botorch.utils.datasets import SupervisedDataset
 
 class TorchModelTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.dataset = SupervisedDataset(
             X=torch.zeros(1, 1),
             Y=torch.zeros(1, 1),

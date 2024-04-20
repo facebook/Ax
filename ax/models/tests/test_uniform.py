@@ -15,6 +15,7 @@ from ax.utils.common.testutils import TestCase
 
 class UniformGeneratorTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.tunable_param_bounds = (0, 1)
         self.fixed_param_bounds = (1, 100)
 

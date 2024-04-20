@@ -32,6 +32,7 @@ logger: Logger = get_logger(__name__)
 
 class TestGenerationNode(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.sobol_model_spec = ModelSpec(
             model_enum=Models.SOBOL,
             model_kwargs={"init_position": 3},
@@ -195,6 +196,7 @@ class TestGenerationNode(TestCase):
 
 class TestGenerationStep(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.model_kwargs = {"init_position": 5}
         self.sobol_generation_step = GenerationStep(
             model=Models.SOBOL,
@@ -264,6 +266,7 @@ class TestGenerationStep(TestCase):
 class TestGenerationNodeWithBestModelSelector(TestCase):
     @fast_botorch_optimize
     def setUp(self) -> None:
+        super().setUp()
         self.branin_experiment = get_branin_experiment()
         sobol = Models.SOBOL(search_space=self.branin_experiment.search_space)
         sobol_run = sobol.gen(n=20)

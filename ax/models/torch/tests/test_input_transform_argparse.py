@@ -34,6 +34,7 @@ class DummyInputTransform(InputTransform):  # pyre-ignore [13]
 
 class InputTransformArgparseTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         X = torch.randn((10, 4))
         Y = torch.randn((10, 2))
         self.dataset = SupervisedDataset(

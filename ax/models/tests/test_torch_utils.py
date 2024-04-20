@@ -39,6 +39,7 @@ from botorch.models.model import Model
 
 class TorchUtilsTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.device = torch.device("cpu")
         self.dtype = torch.double
         self.mock_botorch_model = MagicMock(Model)

@@ -20,6 +20,7 @@ class DummyOutcomeTransform(OutcomeTransform):
 
 class OutcomeTransformArgparseTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         X = torch.randn((10, 4))
         Y = torch.randn((10, 1))
         self.dataset = SupervisedDataset(

@@ -28,6 +28,7 @@ class ChoiceEncodeTransformTest(TestCase):
     t_class = ChoiceEncode
 
     def setUp(self) -> None:
+        super().setUp()
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(

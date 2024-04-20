@@ -18,6 +18,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 class TaskEncodeTransformTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.search_space = SearchSpace(
             parameters=[
                 RangeParameter(

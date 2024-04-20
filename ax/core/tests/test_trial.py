@@ -45,6 +45,7 @@ TEST_DATA = Data(
 
 class TrialTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.mock_supports_trial_type = mock.patch(
             f"{get_experiment.__module__}.Experiment.supports_trial_type",
             return_value=True,

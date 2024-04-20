@@ -18,6 +18,7 @@ from ax.utils.testing.core_stubs import get_trial
 
 class TestDictLookupMetric(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.lookup_dict = {
             (1.0, 2.0): 3.0,
             (2.0, 3.0): 4.0,

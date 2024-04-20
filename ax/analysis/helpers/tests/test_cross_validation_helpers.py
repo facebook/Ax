@@ -9,27 +9,22 @@
 import tempfile
 
 import plotly.graph_objects as go
-
 import plotly.io as pio
-
 from ax.analysis.cross_validation_plot import CrossValidationPlot
-
 from ax.analysis.helpers.constants import Z
-
 from ax.analysis.helpers.cross_validation_helpers import get_min_max_with_errors
-
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import fast_botorch_optimize
 from pandas import read_json
-
 from pandas.testing import assert_frame_equal
 
 
 class TestCrossValidationHelpers(TestCase):
     @fast_botorch_optimize
     def setUp(self) -> None:
+        super().setUp()
         self.exp = get_branin_experiment(with_batch=True)
         self.exp.trials[0].run()
         self.model = Models.BOTORCH_MODULAR(

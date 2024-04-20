@@ -32,6 +32,7 @@ class DeprecatedTransformTest(TestCase):
             super().__init__(*args)
 
     def setUp(self) -> None:
+        super().setUp()
         self.deprecated_t = self.DeprecatedTransform(MagicMock(), MagicMock())
         self.t = Transform(MagicMock(), MagicMock())
 

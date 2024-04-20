@@ -33,8 +33,8 @@ class MyGSI(GenerationStrategyInterface):
 
 
 class TestGenerationStrategyInterface(TestCase):
-
     def setUp(self) -> None:
+        super().setUp()
         self.exp = get_experiment()
         self.gsi = MyGSI(name="my_GSI")
         self.special_gsi = SpecialGenerationStrategy()

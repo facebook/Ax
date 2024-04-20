@@ -13,7 +13,6 @@ import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
-
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -46,6 +45,7 @@ from pyre_extensions import none_throws
 
 class UtilsTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.experiment = get_experiment()
         self.arm = Arm({"x": 5, "y": "foo", "z": True, "w": 5})
         self.trial = self.experiment.new_trial(GeneratorRun([self.arm]))

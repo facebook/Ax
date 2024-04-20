@@ -15,6 +15,7 @@ from ax.utils.common.typeutils import not_none
 
 class RandomModelTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.random_model = RandomModel()
 
     def test_seed(self) -> None:

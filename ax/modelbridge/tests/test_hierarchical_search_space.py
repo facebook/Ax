@@ -39,6 +39,7 @@ class TestHierarchicalSearchSpace(TestCase):
     """
 
     def setUp(self) -> None:
+        super().setUp()
         int_range = RangeParameter(
             name="int_range",
             parameter_type=ParameterType.INT,

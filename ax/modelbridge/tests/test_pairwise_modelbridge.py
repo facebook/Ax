@@ -14,7 +14,6 @@ from ax.core import Arm, GeneratorRun
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import RangeParameter
 from ax.core.types import TEvaluationOutcome, TParameterization
-
 from ax.modelbridge.pairwise import (
     _binary_pref_to_comp_pair,
     _consolidate_comparisons,
@@ -35,6 +34,8 @@ from botorch.utils.datasets import RankingDataset
 
 class PairwiseModelBridgeTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
+
         def evaluate(
             parameters: Dict[str, TParameterization]
         ) -> Dict[str, TEvaluationOutcome]:

@@ -28,6 +28,7 @@ from botorch.utils.datasets import SupervisedDataset
 
 class MaxValueEntropySearchTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.tkwargs: Dict[str, Any] = {
             "device": torch.device("cpu"),
             "dtype": torch.double,

@@ -9,25 +9,18 @@
 import copy
 
 import plotly.graph_objects as go
-
 from ax.analysis.cross_validation_plot import CrossValidationPlot
-
 from ax.analysis.helpers.cross_validation_helpers import (
     error_scatter_data_from_cv_results,
 )
-
 from ax.analysis.helpers.scatter_helpers import error_scatter_trace_from_df
-
 from ax.modelbridge.cross_validation import cross_validate
 from ax.modelbridge.registry import Models
-
 from ax.plot.base import PlotMetric
-
 from ax.plot.diagnostic import (
     _get_cv_plot_data as PLOT_get_cv_plot_data,
     interact_cross_validation_plotly as PLOT_interact_cross_validation_plotly,
 )
-
 from ax.plot.scatter import (
     _error_scatter_data as PLOT_error_scatter_data,
     _error_scatter_trace as PLOT_error_scatter_trace,
@@ -40,6 +33,7 @@ from ax.utils.testing.mock import fast_botorch_optimize
 class TestCVConsistencyCheck(TestCase):
     @fast_botorch_optimize
     def setUp(self) -> None:
+        super().setUp()
         self.exp = get_branin_experiment(with_batch=True)
         self.exp.trials[0].run()
         self.model = Models.BOTORCH_MODULAR(

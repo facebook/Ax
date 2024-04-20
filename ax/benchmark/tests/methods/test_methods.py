@@ -8,7 +8,6 @@
 from typing import Dict, Type
 
 import numpy as np
-
 from ax.benchmark.benchmark import benchmark_replication
 from ax.benchmark.benchmark_method import get_benchmark_scheduler_options
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
