@@ -16,7 +16,7 @@ from typing import cast, Dict, List, Optional, Tuple, Type, Union
 from warnings import warn
 
 from ax.core.types import TNumeric, TParamValue, TParamValueList
-from ax.exceptions.core import UserInputError, AxParameterWarning
+from ax.exceptions.core import AxParameterWarning, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.typeutils import not_none
 from pyre_extensions import assert_is_instance
@@ -600,8 +600,8 @@ class ChoiceParameter(Parameter):
     def _get_default_bool_and_warn(self, param_string: str) -> bool:
         default_bool = self._parameter_type != ParameterType.STRING
         warn(
-            f"`{param_string}` is not specified for `ChoiceParameter` \"{self._name}\"."
-            f" Defaulting to `{default_bool}` for parameters of `ParameterType` "
+            f'`{param_string}` is not specified for `ChoiceParameter` "{self._name}". '
+            f"Defaulting to `{default_bool}` for parameters of `ParameterType` "
             f"{self.parameter_type.name}. To override this behavior (or avoid this "
             f"warning), specify `{param_string}` during `ChoiceParameter` "
             "construction.",

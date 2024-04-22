@@ -103,9 +103,7 @@ class BaseFullyBayesianBotorchModelTestCases:
             # test deprecation warning
             with warnings.catch_warnings(record=True) as ws:
                 self.model_cls(use_saas=True)
-            self.assertTrue(
-                any(issubclass(w.category, DeprecationWarning) for w in ws)
-            )
+            self.assertTrue(any(issubclass(w.category, DeprecationWarning) for w in ws))
             msg = "Passing `use_saas` is no longer supported"
             self.assertTrue(any(msg in str(w.message) for w in ws))
             Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
