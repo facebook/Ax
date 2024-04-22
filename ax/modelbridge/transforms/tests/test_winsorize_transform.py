@@ -157,19 +157,18 @@ class WinsorizeTransformTest(TestCase):
         )
 
     def test_PrintDeprecationWarning(self) -> None:
-        warnings.simplefilter("always", DeprecationWarning)
         with warnings.catch_warnings(record=True) as ws:
             Winsorize(
                 search_space=None,
                 observations=deepcopy(self.observations),
                 config={"optimization_config": "dummy_val"},
             )
-            self.assertTrue(
-                "Winsorization received an out-of-date `transform_config`, containing "
-                'the key `"optimization_config"`. Please update the config according '
-                "to the docs of `ax.modelbridge.transforms.winsorize.Winsorize`."
-                in [str(w.message) for w in ws]
-            )
+        self.assertTrue(
+            "Winsorization received an out-of-date `transform_config`, containing "
+            'the key `"optimization_config"`. Please update the config according '
+            "to the docs of `ax.modelbridge.transforms.winsorize.Winsorize`."
+            in [str(w.message) for w in ws]
+        )
 
     def test_Init(self) -> None:
         self.assertEqual(self.t.cutoffs["m1"], (-INF, 2.0))
@@ -491,37 +490,35 @@ class WinsorizeTransformTest(TestCase):
                 metrics=[m1, m3], op=ComparisonOp.GEQ, bound=3, relative=False
             )
         ]
-        warnings.simplefilter("always", append=True)
         with warnings.catch_warnings(record=True) as ws:
             transform = get_transform(
                 observation_data=deepcopy(all_obsd),
                 optimization_config=optimization_config,
             )
-            for i in range(2):
-                self.assertTrue(
-                    "Automatic winsorization isn't supported for a "
-                    "`ScalarizedOutcomeConstraint`. Specify the winsorization settings "
-                    f"manually if you want to winsorize metric m{['1', '3'][i]}."
-                    in [str(w.message) for w in ws]
-                )
+        for i in range(2):
+            self.assertTrue(
+                "Automatic winsorization isn't supported for a "
+                "`ScalarizedOutcomeConstraint`. Specify the winsorization settings "
+                f"manually if you want to winsorize metric m{['1', '3'][i]}."
+                in [str(w.message) for w in ws]
+            )
         # Multi-objective without objective thresholds should warn and winsorize
         moo_objective = MultiObjective(
             [Objective(m1, minimize=False), Objective(m2, minimize=True)]
         )
         optimization_config = MultiObjectiveOptimizationConfig(objective=moo_objective)
-        warnings.simplefilter("always", append=True)
         with warnings.catch_warnings(record=True) as ws:
             transform = get_transform(
                 observation_data=deepcopy(all_obsd),
                 optimization_config=optimization_config,
             )
-            for _ in range(2):
-                self.assertTrue(
-                    "Encountered a `MultiObjective` without objective thresholds. We "
-                    "will winsorize each objective separately. We strongly recommend "
-                    "specifying the objective thresholds when using multi-objective "
-                    "optimization." in [str(w.message) for w in ws]
-                )
+        for _ in range(2):
+            self.assertTrue(
+                "Encountered a `MultiObjective` without objective thresholds. We "
+                "will winsorize each objective separately. We strongly recommend "
+                "specifying the objective thresholds when using multi-objective "
+                "optimization." in [str(w.message) for w in ws]
+            )
         self.assertEqual(transform.cutoffs["m1"], (-6.5, INF))
         self.assertEqual(transform.cutoffs["m2"], (-INF, 10.0))
         self.assertEqual(transform.cutoffs["m3"], (-INF, INF))

@@ -101,15 +101,13 @@ class BaseFullyBayesianBotorchModelTestCases:
             self, dtype: torch.dtype = torch.float, cuda: bool = False
         ) -> None:
             # test deprecation warning
-            warnings.resetwarnings()  # this is necessary for building in mode/opt
-            warnings.simplefilter("always", append=True)
             with warnings.catch_warnings(record=True) as ws:
                 self.model_cls(use_saas=True)
-                self.assertTrue(
-                    any(issubclass(w.category, DeprecationWarning) for w in ws)
-                )
-                msg = "Passing `use_saas` is no longer supported"
-                self.assertTrue(any(msg in str(w.message) for w in ws))
+            self.assertTrue(
+                any(issubclass(w.category, DeprecationWarning) for w in ws)
+            )
+            msg = "Passing `use_saas` is no longer supported"
+            self.assertTrue(any(msg in str(w.message) for w in ws))
             Xs1, Ys1, Yvars1, bounds, tfs, fns, mns = get_torch_test_data(
                 dtype=dtype, cuda=cuda, constant_noise=True
             )

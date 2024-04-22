@@ -108,20 +108,19 @@ class WinsorizeTransformTestLegacy(TestCase):
         )
 
     def test_PrintDeprecationWarning(self) -> None:
-        warnings.simplefilter("always", DeprecationWarning)
         with warnings.catch_warnings(record=True) as ws:
             Winsorize(
                 search_space=None,
                 observations=deepcopy(self.observations),
                 config={"winsorization_upper": 0.2},
             )
-            self.assertTrue(
-                "Winsorization received an out-of-date `transform_config`, containing "
-                "the following deprecated keys: {'winsorization_upper'}. Please "
-                "update the config according to the docs of "
-                "`ax.modelbridge.transforms.winsorize.Winsorize`."
-                in [str(w.message) for w in ws]
-            )
+        self.assertTrue(
+            "Winsorization received an out-of-date `transform_config`, containing "
+            "the following deprecated keys: {'winsorization_upper'}. Please "
+            "update the config according to the docs of "
+            "`ax.modelbridge.transforms.winsorize.Winsorize`."
+            in [str(w.message) for w in ws]
+        )
 
     def test_Init(self) -> None:
         self.assertEqual(self.t.cutoffs["m1"], (-float("inf"), 2.0))

@@ -53,14 +53,12 @@ class ObjectiveTest(TestCase):
                 metrics=[self.metrics["m1"], self.metrics["m2"]],
                 minimize=False,
             )
-        warnings.resetwarnings()
-        warnings.simplefilter("always", append=True)
         with warnings.catch_warnings(record=True) as ws:
             Objective(metric=self.metrics["m1"])
-            self.assertTrue(any(issubclass(w.category, DeprecationWarning) for w in ws))
-            self.assertTrue(
-                any("Defaulting to `minimize=False`" in str(w.message) for w in ws)
-            )
+        self.assertTrue(any(issubclass(w.category, DeprecationWarning) for w in ws))
+        self.assertTrue(
+            any("Defaulting to `minimize=False`" in str(w.message) for w in ws)
+        )
         with warnings.catch_warnings(record=True) as ws:
             Objective(Metric(name="m4", lower_is_better=True), minimize=False)
             self.assertTrue(any("Attempting to maximize" in str(w.message) for w in ws))
