@@ -484,6 +484,20 @@ class AcquisitionTest(TestCase):
         expected = torch.tensor([[0, 0, 4]]).to(self.X)
         self.assertTrue(torch.equal(expected, X_selected))
         self.assertTrue(torch.equal(weights, torch.tensor([1.0])))
+        # With no X_observed or X_pending.
+        acquisition = self.get_acquisition_function()
+        acquisition.X_observed, acquisition.X_pending = None, None
+        X_selected, _, weights = acquisition.optimize(
+            n=2,
+            search_space_digest=ssd1,
+            rounding_func=self.rounding_func,
+        )
+        self.assertTrue(torch.equal(weights, torch.ones(2)))
+        expected = torch.tensor([[1, 3, 4], [2, 3, 4]]).to(self.X)
+        self.assertTrue(X_selected.shape == (2, 3))
+        self.assertTrue(
+            all((x.unsqueeze(0) == expected).all(dim=-1).any() for x in X_selected)
+        )
 
     @mock.patch(
         f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search",
@@ -628,7 +642,14 @@ class AcquisitionTest(TestCase):
         self,
         mock_get_X: Mock,
         _,
+        with_no_X_observed: bool = False,
+        with_outcome_constraints: bool = True,
     ) -> None:
+        acqf_class = (
+            DummyAcquisitionFunction
+            if with_no_X_observed
+            else qNoisyExpectedHypervolumeImprovement
+        )
         moo_training_data = [
             SupervisedDataset(
                 X=self.X,
@@ -645,10 +666,17 @@ class AcquisitionTest(TestCase):
             datasets=moo_training_data,
             search_space_digest=self.search_space_digest,
         )
-        mock_get_X.return_value = (self.pending_observations[0], self.X[:1])
+        if with_no_X_observed:
+            mock_get_X.return_value = (self.pending_observations[0], None)
+        else:
+            mock_get_X.return_value = (self.pending_observations[0], self.X[:1])
         outcome_constraints = (
-            torch.tensor([[1.0, 0.0, 0.0]], **self.tkwargs),
-            torch.tensor([[10.0]], **self.tkwargs),
+            (
+                torch.tensor([[1.0, 0.0, 0.0]], **self.tkwargs),
+                torch.tensor([[10.0]], **self.tkwargs),
+            )
+            if with_outcome_constraints
+            else None
         )
 
         torch_opt_config = dataclasses.replace(
@@ -659,7 +687,7 @@ class AcquisitionTest(TestCase):
         )
         acquisition = Acquisition(
             surrogates={"surrogate": self.surrogate},
-            botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
+            botorch_acqf_class=acqf_class,
             search_space_digest=self.search_space_digest,
             torch_opt_config=torch_opt_config,
             options=self.options,
@@ -694,25 +722,28 @@ class AcquisitionTest(TestCase):
             acquisition = Acquisition(
                 surrogates={"surrogate": self.surrogate},
                 search_space_digest=self.search_space_digest,
-                botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
+                botorch_acqf_class=acqf_class,
                 torch_opt_config=dataclasses.replace(
                     torch_opt_config,
                     objective_thresholds=None,
                 ),
                 options=self.options,
             )
-            self.assertTrue(
-                torch.equal(
-                    acquisition.objective_thresholds[:2],
-                    torch.tensor([9.9, 3.3], **self.tkwargs),
+            if with_no_X_observed:
+                self.assertIsNone(acquisition.objective_thresholds)
+            else:
+                self.assertTrue(
+                    torch.equal(
+                        acquisition.objective_thresholds[:2],
+                        torch.tensor([9.9, 3.3], **self.tkwargs),
+                    )
                 )
-            )
-            self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))
+                self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))
             # With partial thresholds.
             acquisition = Acquisition(
                 surrogates={"surrogate": self.surrogate},
                 search_space_digest=self.search_space_digest,
-                botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
+                botorch_acqf_class=acqf_class,
                 torch_opt_config=dataclasses.replace(
                     torch_opt_config,
                     objective_thresholds=torch.tensor(
@@ -721,10 +752,19 @@ class AcquisitionTest(TestCase):
                 ),
                 options=self.options,
             )
-            self.assertTrue(
-                torch.equal(
-                    acquisition.objective_thresholds[:2],
-                    torch.tensor([9.9, 5.5], **self.tkwargs),
+            if with_no_X_observed:
+                # Thresholds are not updated.
+                self.assertEqual(acquisition.objective_thresholds[1].item(), 5.5)
+                self.assertTrue(np.isnan(acquisition.objective_thresholds[0].item()))
+                self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))
+            else:
+                self.assertTrue(
+                    torch.equal(
+                        acquisition.objective_thresholds[:2],
+                        torch.tensor([9.9, 5.5], **self.tkwargs),
+                    )
                 )
-            )
-            self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))
+                self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))
+
+    def test_init_no_X_observed(self) -> None:
+        self.test_init_moo(with_no_X_observed=True, with_outcome_constraints=False)

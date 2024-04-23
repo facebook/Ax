@@ -156,10 +156,10 @@ class Acquisition(Base):
         # removing pending points.
         # TODO[sdaulton] Is this a sound approach? Should we be doing something more
         # sophisticated here?
-        if unique_Xs_pending is None and unique_Xs_observed_maybe_pending is None:
-            unique_Xs_observed = None
-        elif unique_Xs_pending is None:
+        if unique_Xs_pending is None:
             unique_Xs_observed = unique_Xs_observed_maybe_pending
+        elif unique_Xs_observed_maybe_pending is None:
+            unique_Xs_observed = None
         else:
             unique_Xs_observed = _tensor_difference(
                 A=unique_Xs_pending, B=unique_Xs_observed_maybe_pending
@@ -219,11 +219,15 @@ class Acquisition(Base):
         # thresholds are not specified, infer them using the model that
         # has already been subset to avoid re-subsetting it within
         # `inter_objective_thresholds`.
-        if objective_weights.nonzero().numel() > 1 and (
-            self._objective_thresholds is None
-            or self._objective_thresholds[torch_opt_config.objective_weights != 0]
-            .isnan()
-            .any()
+        if (
+            objective_weights.nonzero().numel() > 1
+            and (
+                self._objective_thresholds is None
+                or self._objective_thresholds[torch_opt_config.objective_weights != 0]
+                .isnan()
+                .any()
+            )
+            and primary_Xs_observed is not None
         ):
             if torch_opt_config.risk_measure is not None:
                 # TODO[T131759263]: modify the heuristic to support risk measures.
@@ -319,7 +323,7 @@ class Acquisition(Base):
         )
         self.acqf = botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
         self.X_pending: Optional[Tensor] = unique_Xs_pending
-        self.X_observed: Tensor = not_none(unique_Xs_observed)
+        self.X_observed: Optional[Tensor] = unique_Xs_observed
 
     @property
     def botorch_acqf_class(self) -> Type[AcquisitionFunction]:
@@ -461,7 +465,10 @@ class Acquisition(Base):
         if len(discrete_choices) == len(ssd.feature_names):
             X_observed = self.X_observed
             if self.X_pending is not None:
-                X_observed = torch.cat([X_observed, self.X_pending], dim=0)
+                if X_observed is None:
+                    X_observed = self.X_pending
+                else:
+                    X_observed = torch.cat([X_observed, self.X_pending], dim=0)
 
             # Special handling for search spaces with a large number of choices
             total_choices = reduce(
@@ -487,10 +494,11 @@ class Acquisition(Base):
             all_choices = _tensorize(tuple(product(*all_choices)))
 
             # This can be vectorized, but using a for-loop to avoid memory issues
-            for x in X_observed:
-                all_choices = all_choices[
-                    (all_choices - x).abs().max(dim=-1).values > DUPLICATE_TOL
-                ]
+            if X_observed is not None:
+                for x in X_observed:
+                    all_choices = all_choices[
+                        (all_choices - x).abs().max(dim=-1).values > DUPLICATE_TOL
+                    ]
 
             # Filter out candidates that violate the constraints
             # TODO: It will be more memory-efficient to do this filtering before
@@ -515,6 +523,7 @@ class Acquisition(Base):
                         f"space, but only {num_choices} possible choices remain."
                     ),
                     AxWarning,
+                    stacklevel=2,
                 )
                 n = num_choices
 
