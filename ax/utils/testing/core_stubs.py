@@ -720,7 +720,10 @@ def get_experiment_with_observations(
     with_tracking_metrics: bool = False,
     search_space: Optional[SearchSpace] = None,
 ) -> Experiment:
-    multi_objective = (len(observations[0]) - constrained) > 1
+    if observations:
+        multi_objective = (len(observations[0]) - constrained) > 1
+    else:
+        multi_objective = False
     if multi_objective:
         metrics = [
             Metric(name="m1", lower_is_better=minimize),
