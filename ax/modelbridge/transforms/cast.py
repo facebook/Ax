@@ -59,6 +59,9 @@ class Cast(Transform):
             bool,
             config.pop("inject_dummy_values_to_complete_flat_parameterization", True),
         )
+        self.use_random_dummy_values: bool = checked_cast(
+            bool, config.pop("use_random_dummy_values", False)
+        )
         if config:
             raise UserInputError(
                 f"Unexpected config parameters for `Cast` transform: {config}."
@@ -108,6 +111,7 @@ class Cast(Transform):
                 inject_dummy_values_to_complete_flat_parameterization=(
                     self.inject_dummy_values_to_complete_flat_parameterization
                 ),
+                use_random_dummy_values=self.use_random_dummy_values,
             )
             for obs_feats in observation_features
         ]
