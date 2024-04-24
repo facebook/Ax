@@ -7,6 +7,7 @@
 # pyre-strict
 
 import warnings
+from collections.abc import Sequence
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, OrderedDict, Tuple, Type
 
@@ -41,7 +42,7 @@ logger: Logger = get_logger(__name__)
 
 
 def use_model_list(
-    datasets: List[SupervisedDataset],
+    datasets: Sequence[SupervisedDataset],
     botorch_model_class: Type[Model],
     allow_batched_models: bool = True,
 ) -> bool:
@@ -67,7 +68,7 @@ def use_model_list(
 
 
 def choose_model_class(
-    datasets: List[SupervisedDataset],
+    datasets: Sequence[SupervisedDataset],
     search_space_digest: SearchSpaceDigest,
 ) -> Type[Model]:
     """Chooses a BoTorch `Model` using the given data (currently just Yvars)
@@ -173,7 +174,7 @@ def construct_acquisition_and_optimizer_options(
 
 
 def convert_to_block_design(
-    datasets: List[SupervisedDataset],
+    datasets: Sequence[SupervisedDataset],
     force: bool = False,
 ) -> List[SupervisedDataset]:
     # Convert data to "block design". TODO: Figure out a better
@@ -211,6 +212,7 @@ def convert_to_block_design(
             "to block design by dropping observations that are not shared "
             "between outcomes.",
             AxWarning,
+            stacklevel=3,
         )
         X_shared, idcs_shared = _get_shared_rows(Xs=Xs)
         Y = torch.cat([ds.Y[i] for ds, i in zip(datasets, idcs_shared)], dim=-1)
@@ -347,8 +349,8 @@ def get_post_processing_func(
 
 
 def check_outcome_dataset_match(
-    outcome_names: List[str],
-    datasets: List[SupervisedDataset],
+    outcome_names: Sequence[str],
+    datasets: Sequence[SupervisedDataset],
     exact_match: bool,
 ) -> None:
     """Check that the given outcome names match those of datasets.
@@ -390,8 +392,8 @@ def check_outcome_dataset_match(
 
 
 def get_subset_datasets(
-    datasets: List[SupervisedDataset],
-    subset_outcome_names: List[str],
+    datasets: Sequence[SupervisedDataset],
+    subset_outcome_names: Sequence[str],
 ) -> List[SupervisedDataset]:
     """Get the list of datasets corresponding to the given subset of
     outcome names. This is used to separate out datasets that are

@@ -7,6 +7,7 @@
 # pyre-strict
 
 import dataclasses
+from collections.abc import Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from functools import wraps
@@ -252,7 +253,7 @@ class BoTorchModel(TorchModel, Base):
 
     def fit(
         self,
-        datasets: List[SupervisedDataset],
+        datasets: Sequence[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         # state dict by surrogate label
@@ -503,7 +504,7 @@ class BoTorchModel(TorchModel, Base):
     @copy_doc(TorchModel.cross_validate)
     def cross_validate(
         self,
-        datasets: List[SupervisedDataset],
+        datasets: Sequence[SupervisedDataset],
         X_test: Tensor,
         search_space_digest: SearchSpaceDigest,
         **additional_model_inputs: Any,

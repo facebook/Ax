@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import inspect
+from collections.abc import Sequence
 from copy import deepcopy
 from logging import Logger
 from typing import Any, Dict, List, Optional, OrderedDict, Tuple, Type, Union
@@ -492,7 +493,7 @@ class Surrogate(Base):
 
     def fit(
         self,
-        datasets: List[SupervisedDataset],
+        datasets: Sequence[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         state_dict: Optional[OrderedDict[str, Tensor]] = None,
@@ -544,7 +545,7 @@ class Surrogate(Base):
 
         if not should_use_model_list and len(datasets) > 1:
             datasets = convert_to_block_design(datasets=datasets, force=True)
-        self._training_data = datasets
+        self._training_data = list(datasets)  # So that it can be modified if needed.
 
         models = []
         outcome_names = []
