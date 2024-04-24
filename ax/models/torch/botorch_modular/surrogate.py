@@ -11,7 +11,7 @@ from __future__ import annotations
 import inspect
 from copy import deepcopy
 from logging import Logger
-from typing import Any, Dict, List, Optional, OrderedDict, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, OrderedDict, Sequence, Tuple, Type, Union
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -238,7 +238,7 @@ class Surrogate(Base):
         return self._model
 
     @property
-    def training_data(self) -> List[SupervisedDataset]:
+    def training_data(self) -> Sequence[SupervisedDataset]:
         if self._training_data is None:
             raise ValueError(NOT_YET_FIT_MSG)
         return self._training_data
@@ -492,7 +492,7 @@ class Surrogate(Base):
 
     def fit(
         self,
-        datasets: List[SupervisedDataset],
+        datasets: Sequence[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         state_dict: Optional[OrderedDict[str, Tensor]] = None,
@@ -544,7 +544,7 @@ class Surrogate(Base):
 
         if not should_use_model_list and len(datasets) > 1:
             datasets = convert_to_block_design(datasets=datasets, force=True)
-        self._training_data = datasets
+        self._training_data = list(datasets)
 
         models = []
         outcome_names = []

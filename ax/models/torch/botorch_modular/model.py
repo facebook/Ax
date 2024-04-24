@@ -19,6 +19,7 @@ from typing import (
     Mapping,
     Optional,
     OrderedDict,
+    Sequence,
     Tuple,
     Type,
     TypeVar,
@@ -252,7 +253,7 @@ class BoTorchModel(TorchModel, Base):
 
     def fit(
         self,
-        datasets: List[SupervisedDataset],
+        datasets: Sequence[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
         # state dict by surrogate label
@@ -503,7 +504,7 @@ class BoTorchModel(TorchModel, Base):
     @copy_doc(TorchModel.cross_validate)
     def cross_validate(
         self,
-        datasets: List[SupervisedDataset],
+        datasets: Sequence[SupervisedDataset],
         X_test: Tensor,
         search_space_digest: SearchSpaceDigest,
         **additional_model_inputs: Any,
