@@ -164,10 +164,13 @@ class CastTransformTest(TestCase):
                 self.obs_feats_hss.parameters,
             )
 
-    def test_transform_observation_features_HSS_dummy_values_setting(self) -> None:
+    def test_transform_observation_features_HSS_dummy_values_settings(self) -> None:
         t = Cast(
             search_space=self.hss,
-            config={"inject_dummy_values_to_complete_flat_parameterization": True},
+            config={
+                "inject_dummy_values_to_complete_flat_parameterization": True,
+                "use_random_dummy_values": True,
+            },
             observations=[],
         )
         self.assertTrue(t.inject_dummy_values_to_complete_flat_parameterization)
@@ -183,6 +186,7 @@ class CastTransformTest(TestCase):
                 "inject_dummy_values_to_complete_flat_parameterization"
             ]
         )
+        self.assertTrue(mock_flatten_obsf.call_args.kwargs["use_random_dummy_values"])
 
     def test_untransform_observation_features_HSS(self) -> None:
         # Test transformation in one subtree of HSS.
