@@ -22,6 +22,7 @@ from ax.utils.sensitivity.derivative_measures import (
     compute_derivatives_from_model_list,
     GpDGSMGpMean,
     GpDGSMGpSampling,
+    sample_discrete_parameters,
 )
 from ax.utils.sensitivity.sobol_measures import (
     _get_model_per_metric,
@@ -34,6 +35,7 @@ from ax.utils.sensitivity.sobol_measures import (
 from ax.utils.testing.core_stubs import get_branin_experiment
 from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel, GPyTorchModel
 from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.utils.transforms import unnormalize
 from gpytorch.distributions import MultivariateNormal
 from torch import Tensor
 
@@ -316,7 +318,7 @@ class SensitivityAnalysisTest(TestCase):
                 ind_deriv = compute_derivatives_from_model_list(
                     model_list=[bridge.model.surrogate.model],
                     bounds=torch.tensor(bridge.model.search_space_digest.bounds).T,
-                    **sobol_kwargs,
+                    **sobol_kwargs,  # pyre-ignore
                 )
                 torch.manual_seed(seed)  # reset seed to keep discrete features the same
                 cat_indices = bridge.model.search_space_digest.categorical_features
@@ -424,3 +426,31 @@ class SensitivityAnalysisTest(TestCase):
 
         with self.assertRaises(ValueError):
             posterior = posterior_derivative(self.model, test_x, kernel_type="xyz")
+
+    def test_sample_discrete_parameters(self) -> None:
+        dim = 5
+        bounds = torch.stack((torch.zeros(dim), torch.arange(1, dim + 1)))
+        num_mc_samples = 8
+        A = unnormalize(torch.rand(num_mc_samples, dim), bounds=bounds)
+        discrete_features, continuous_features = [1, 3], [0, 2, 4]
+        B = sample_discrete_parameters(
+            input_mc_samples=A.clone(),
+            discrete_features=discrete_features,
+            bounds=bounds,
+            num_mc_samples=num_mc_samples,
+        )
+        self.assertTrue(  # Non-discrete parameters should be untouched
+            torch.equal(A[:, continuous_features], B[:, continuous_features])
+        )
+        for i in discrete_features:  # Make sure we sampled integers in the right range
+            self.assertTrue(B[:, i].min() >= bounds[0, i])
+            self.assertTrue(B[:, i].max() <= bounds[1, i])
+            self.assertTrue(torch.allclose(B[:, i], B[:, i].round()))
+        # discrete_features=None should be a no-op
+        B = sample_discrete_parameters(
+            input_mc_samples=A.clone(),
+            discrete_features=None,
+            bounds=bounds,
+            num_mc_samples=num_mc_samples,
+        )
+        self.assertTrue(torch.equal(A, B))
