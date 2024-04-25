@@ -153,6 +153,12 @@ class InstantiationBase:
         for_opt_config: bool = False,
         metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> Metric:
+        if " " in name:
+            raise ValueError(
+                "Metric names cannot contain spaces when used with AxClient. Got "
+                f"{name!r}."
+            )
+
         return metric_class(
             name=name,
             lower_is_better=lower_is_better,
@@ -312,6 +318,12 @@ class InstantiationBase:
             assert isinstance(parameter_type, str) and parameter_type in PARAM_TYPES, (
                 "Value type in parameter JSON representation must be 'int', 'float', "
                 "'bool' or 'str'."
+            )
+
+        if " " in name:
+            raise ValueError(
+                "Parameter names cannot contain spaces when used with AxClient. Got "
+                f"{name!r}."
             )
 
         if parameter_class == "range":
