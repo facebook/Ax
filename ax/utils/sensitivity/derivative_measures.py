@@ -6,6 +6,7 @@
 # pyre-strict
 
 from copy import deepcopy
+from functools import partial
 from typing import Any, Callable, List, Optional, Union
 
 import torch
@@ -18,6 +19,34 @@ from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.utils.transforms import unnormalize
 from gpytorch.distributions import MultivariateNormal
+
+
+def sample_discrete_parameters(
+    input_mc_samples: torch.Tensor,
+    discrete_features: Union[None, List[int]],
+    bounds: torch.Tensor,
+    num_mc_samples: int,
+) -> torch.Tensor:
+    r"""Samples the input parameters uniformly at random for the discrete features.
+
+    Args:
+        input_mc_samples: The input mc samples tensor to be modified.
+        discrete_features: A list of integers (or None) of indices corresponding
+            to discrete features.
+        bounds: The parameter bounds.
+        num_mc_samples: The number of Monte Carlo grid samples.
+
+    Returns:
+        A modified input mc samples tensor.
+    """
+    if discrete_features is None:
+        return input_mc_samples
+    all_low = bounds[0, discrete_features].to(dtype=torch.int).tolist()
+    all_high = (bounds[1, discrete_features]).to(dtype=torch.int).tolist()
+    for i, low, high in zip(discrete_features, all_low, all_high):
+        randint = partial(torch.randint, low=low, high=high + 1)
+        input_mc_samples[:, i] = randint(size=torch.Size([num_mc_samples]))
+    return input_mc_samples
 
 
 class GpDGSMGpMean(object):
@@ -37,6 +66,7 @@ class GpDGSMGpMean(object):
         input_qmc: bool = False,
         dtype: torch.dtype = torch.double,
         num_bootstrap_samples: int = 1,
+        discrete_features: Optional[List[int]] = None,
     ) -> None:
         r"""Computes three types of derivative based measures:
         the gradient, the gradient square and the gradient absolute measures.
@@ -56,6 +86,9 @@ class GpDGSMGpMean(object):
                 dgsm measure `num_bootstrap_samples` times by selecting subsamples
                 from the `input_mc_samples` and return the variance and standard error
                 across all computed measures.
+            discrete_features: If specified, the inputs associated with the indices in
+                this list are generated using an integer-valued uniform distribution,
+                rather than the default (pseudo-)random continuous uniform distribution.
         """
         # pyre-fixme[4]: Attribute must be annotated.
         self.dim = checked_cast(tuple, model.train_inputs)[0].shape[-1]
@@ -82,6 +115,15 @@ class GpDGSMGpMean(object):
                 torch.rand(num_mc_samples, self.dim, dtype=dtype),
                 bounds=bounds,
             )
+
+        # uniform integral distribution for discrete features
+        self.input_mc_samples = sample_discrete_parameters(
+            input_mc_samples=self.input_mc_samples,
+            discrete_features=discrete_features,
+            bounds=bounds,
+            num_mc_samples=num_mc_samples,
+        )
+
         if self.derivative_gp:
             posterior = posterior_derivative(
                 model, self.input_mc_samples, not_none(self.kernel_type)
@@ -373,6 +415,7 @@ class GpDGSMGpSampling(GpDGSMGpMean):
 def compute_derivatives_from_model_list(
     model_list: List[Model],
     bounds: torch.Tensor,
+    discrete_features: Optional[List[int]] = None,
     **kwargs: Any,
 ) -> torch.Tensor:
     """
@@ -383,6 +426,9 @@ def compute_derivatives_from_model_list(
         model_list: A list of m botorch.models.model.Model types for which to compute
             the average derivative.
         bounds: A 2 x d Tensor of lower and upper bounds of the domain of the models.
+        discrete_features: If specified, the inputs associated with the indices in
+            this list are generated using an integer-valued uniform distribution,
+            rather than the default (pseudo-)random continuous uniform distribution.
         kwargs: Passed along to GpDGSMGpMean.
 
     Returns:
@@ -390,6 +436,8 @@ def compute_derivatives_from_model_list(
     """
     indices = []
     for model in model_list:
-        sens_class = GpDGSMGpMean(model=model, bounds=bounds, **kwargs)
+        sens_class = GpDGSMGpMean(
+            model=model, bounds=bounds, discrete_features=discrete_features, **kwargs
+        )
         indices.append(sens_class.gradient_measure())
     return torch.stack(indices)

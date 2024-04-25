@@ -6,7 +6,6 @@
 # pyre-strict
 
 from copy import deepcopy
-from functools import partial
 
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -18,7 +17,10 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
 from ax.utils.common.typeutils import checked_cast
-from ax.utils.sensitivity.derivative_measures import compute_derivatives_from_model_list
+from ax.utils.sensitivity.derivative_measures import (
+    compute_derivatives_from_model_list,
+    sample_discrete_parameters,
+)
 from botorch.models.model import Model, ModelList
 from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.sampling.normal import SobolQMCNormalSampler
@@ -78,13 +80,18 @@ class SobolSensitivity(object):
             self.B = unnormalize(torch.rand(num_mc_samples, self.dim), bounds=bounds)
 
         # uniform integral distribution for discrete features
-        if discrete_features is not None:
-            all_low = bounds[0, discrete_features].to(dtype=torch.int).tolist()
-            all_high = (bounds[1, discrete_features]).to(dtype=torch.int).tolist()
-            for i, low, high in zip(discrete_features, all_low, all_high):
-                randint = partial(torch.randint, low=low, high=high + 1)
-                self.A[:, i] = randint(size=self.A.shape[:-1])
-                self.B[:, i] = randint(size=self.B.shape[:-1])
+        self.A = sample_discrete_parameters(
+            input_mc_samples=self.A,
+            discrete_features=discrete_features,
+            bounds=bounds,
+            num_mc_samples=num_mc_samples,
+        )
+        self.B = sample_discrete_parameters(
+            input_mc_samples=self.B,
+            discrete_features=discrete_features,
+            bounds=bounds,
+            num_mc_samples=num_mc_samples,
+        )
 
         # pyre-fixme[4]: Attribute must be annotated.
         self.A_B_ABi = self.generate_all_input_matrix().to(torch.double)
@@ -830,6 +837,7 @@ def ax_parameter_sens(
         ind_deriv = compute_derivatives_from_model_list(
             model_list=model_list,
             bounds=bounds,
+            discrete_features=digest.categorical_features + digest.ordinal_features,
             **sobol_kwargs,
         )
         # categorical features don't have a direction, so we set the derivative to 1.0
