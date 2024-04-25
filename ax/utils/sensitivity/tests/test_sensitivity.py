@@ -318,6 +318,7 @@ class SensitivityAnalysisTest(TestCase):
                 ind_deriv = compute_derivatives_from_model_list(
                     model_list=[bridge.model.surrogate.model],
                     bounds=torch.tensor(bridge.model.search_space_digest.bounds).T,
+                    discrete_features=digest.categorical_features,
                     **sobol_kwargs,  # pyre-ignore
                 )
                 torch.manual_seed(seed)  # reset seed to keep discrete features the same
