@@ -306,28 +306,31 @@ class SensitivityAnalysisTest(TestCase):
         sobol_kwargs = {"input_qmc": True, "num_mc_samples": 10}
         seed = 1234
         for bridge in [model_bridge, cat_model_bridge]:
+            discrete_features = bridge.model.search_space_digest.categorical_features
             with self.subTest(model_bridge=bridge):
                 torch.manual_seed(seed)
                 # Unsigned
                 ind_dict = ax_parameter_sens(
-                    bridge,  # pyre-ignore
+                    model_bridge=bridge,  # pyre-ignore
+                    metrics=None,
                     order="total",
                     signed=False,
-                    **sobol_kwargs,  # pyre-ignore
+                    **sobol_kwargs,
                 )
                 ind_deriv = compute_derivatives_from_model_list(
                     model_list=[bridge.model.surrogate.model],
                     bounds=torch.tensor(bridge.model.search_space_digest.bounds).T,
-                    discrete_features=digest.categorical_features,
-                    **sobol_kwargs,  # pyre-ignore
+                    discrete_features=discrete_features,
+                    **sobol_kwargs,
                 )
                 torch.manual_seed(seed)  # reset seed to keep discrete features the same
                 cat_indices = bridge.model.search_space_digest.categorical_features
                 ind_dict_signed = ax_parameter_sens(
-                    bridge,  # pyre-ignore
+                    model_bridge=bridge,  # pyre-ignore
+                    metrics=None,
                     order="total",
-                    # signed=True
-                    **sobol_kwargs,  # pyre-ignore
+                    signed=True,
+                    **sobol_kwargs,
                 )
                 for i, pname in enumerate(["x1", "x2"]):
                     if i in cat_indices:  # special case for categorical features
