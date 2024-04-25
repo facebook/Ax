@@ -32,6 +32,19 @@ class TestInstantiationtUtils(TestCase):
             #  Type[int], Type[str]]` but got `Type[list]`.
             InstantiationBase._get_parameter_type(list)
 
+    def test_make_search_space(self) -> None:
+        with self.assertRaisesRegex(ValueError, "cannot contain spaces"):
+            InstantiationBase.make_search_space(
+                parameters=[
+                    {
+                        "name": "x space 1",
+                        "type": "range",
+                        "bounds": [0.0, 1.0],
+                    }
+                ],
+                parameter_constraints=None,
+            )
+
     def test_constraint_from_str(self) -> None:
         with self.assertRaisesRegex(ValueError, "Bound for the constraint"):
             InstantiationBase.constraint_from_str(
@@ -156,6 +169,10 @@ class TestInstantiationtUtils(TestCase):
     def test_make_objectives(self) -> None:
         with self.assertRaisesRegex(ValueError, "specify 'minimize' or 'maximize'"):
             InstantiationBase.make_objectives({"branin": "unknown"})
+
+        with self.assertRaisesRegex(ValueError, "cannot contain spaces"):
+            InstantiationBase.make_objectives({"branin space": "maximize"})
+
         objectives = InstantiationBase.make_objectives(
             {"branin": "minimize", "currin": "maximize"}
         )
