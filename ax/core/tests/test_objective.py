@@ -6,8 +6,6 @@
 
 # pyre-strict
 
-import warnings
-
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.utils.common.testutils import TestCase
@@ -53,20 +51,14 @@ class ObjectiveTest(TestCase):
                 metrics=[self.metrics["m1"], self.metrics["m2"]],
                 minimize=False,
             )
-        warnings.resetwarnings()
-        warnings.simplefilter("always", append=True)
-        with warnings.catch_warnings(record=True) as ws:
+        with self.assertWarnsRegex(
+            DeprecationWarning, "Defaulting to `minimize=False`"
+        ):
             Objective(metric=self.metrics["m1"])
-            self.assertTrue(any(issubclass(w.category, DeprecationWarning) for w in ws))
-            self.assertTrue(
-                any("Defaulting to `minimize=False`" in str(w.message) for w in ws)
-            )
-        with warnings.catch_warnings(record=True) as ws:
+        with self.assertWarnsRegex(UserWarning, "Attempting to maximize"):
             Objective(Metric(name="m4", lower_is_better=True), minimize=False)
-            self.assertTrue(any("Attempting to maximize" in str(w.message) for w in ws))
-        with warnings.catch_warnings(record=True) as ws:
+        with self.assertWarnsRegex(UserWarning, "Attempting to minimize"):
             Objective(Metric(name="m4", lower_is_better=False), minimize=True)
-            self.assertTrue(any("Attempting to minimize" in str(w.message) for w in ws))
         self.assertEqual(
             self.objective.get_unconstrainable_metrics(), [self.metrics["m1"]]
         )

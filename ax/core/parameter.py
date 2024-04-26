@@ -16,7 +16,7 @@ from typing import cast, Dict, List, Optional, Tuple, Type, Union
 from warnings import warn
 
 from ax.core.types import TNumeric, TParamValue, TParamValueList
-from ax.exceptions.core import AxWarning, UserInputError
+from ax.exceptions.core import AxParameterWarning, UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.typeutils import not_none
 from pyre_extensions import assert_is_instance
@@ -566,7 +566,7 @@ class ChoiceParameter(Parameter):
             warn(
                 f"Duplicate values found for ChoiceParameter {name}. "
                 "Initializing the parameter with duplicate values removed. ",
-                AxWarning,
+                AxParameterWarning,
                 stacklevel=2,
             )
             values = list(dict_values)
@@ -604,7 +604,9 @@ class ChoiceParameter(Parameter):
             f"Defaulting to `{default_bool}` for parameters of `ParameterType` "
             f"{self.parameter_type.name}. To override this behavior (or avoid this "
             f"warning), specify `{param_string}` during `ChoiceParameter` "
-            "construction."
+            "construction.",
+            AxParameterWarning,
+            stacklevel=3,
         )
         return default_bool
 

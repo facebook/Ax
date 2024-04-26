@@ -39,6 +39,7 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import yappi
+from ax.exceptions.core import AxParameterWarning
 from ax.utils.common.base import Base
 from ax.utils.common.equality import object_attribute_dicts_find_unequal_fields
 from ax.utils.common.logger import get_logger
@@ -334,19 +335,19 @@ class TestCase(fake_filesystem_unittest.TestCase):
         # Choice parameter default parameter type / is_ordered warnings.
         warnings.filterwarnings(
             "ignore",
-            message="is not specified for `ChoiceParameter`",
-            category=UserWarning,
+            message=".*is not specified for .ChoiceParameter.*",
+            category=AxParameterWarning,
         )
         # BoTorch float32 warning.
         warnings.filterwarnings(
             "ignore",
             message="The model inputs are of type",
-            category=UserWarning,
+            category=InputDataWarning,
         )
         # BoTorch input standardization warnings.
         warnings.filterwarnings(
             "ignore",
-            message="Input data is not standardized.",
+            message="Input data is not",
             category=InputDataWarning,
         )
 
