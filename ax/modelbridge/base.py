@@ -690,6 +690,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         # TODO(T34225037): replace deepcopy with native clone() in Ax
         pending_observations = deepcopy(pending_observations)
         fixed_features = deepcopy(fixed_features)
+        search_space = search_space.clone()
 
         # Transform
         for t in self.transforms.values():
