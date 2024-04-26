@@ -5,8 +5,14 @@ title: APIs
 
 The modular design of Ax enables three different usage modes, with different
 balances of structure to flexibility and reproducibility. Navigate to the
-["Tutorials" page](/tutorials) for the in-depth walk-throughs of each API and
-usage mode. From most lightweight to fullest functionality, they are:
+["Tutorials" page](/tutorials) for an in-depth walk-through of each API and
+usage mode.
+
+**NOTE: We recommend the Service API for the vast majority of use cases.** This
+API provides an ideal balance of flexibility and simplicity for most users, and
+we are in the process of consolidating Ax usage around it more formally.
+
+From most lightweight to fullest functionality, our APIs are:
 
 - **Loop API** ([tutorial](/tutorials/gpei_hartmann_loop.html)) is intended for
   synchronous optimization loops, where [trials](glossary.md#trial) can be

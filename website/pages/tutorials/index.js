@@ -11,7 +11,9 @@ const React = require('react');
 
 const CWD = process.cwd();
 
-const CompLibrary = require(`${CWD}/node_modules/docusaurus/lib/core/CompLibrary.js`);
+const CompLibrary = require(
+  `${CWD}/node_modules/docusaurus/lib/core/CompLibrary.js`,
+);
 const Container = CompLibrary.Container;
 
 const TutorialSidebar = require(`${CWD}/core/TutorialSidebar.js`);
@@ -38,6 +40,16 @@ class TutorialHome extends React.Component {
               good place to start. Each tutorial showcases optimization on a
               constrained Hartmann6 problem, with the Loop API being the
               simplest to use and the Developer API being the most customizable.
+            </p>
+            <p>
+              <b>
+                NOTE: We recommend the
+                <a href="gpei_hartmann_service.html">Service API</a> for the
+                vast majority of use cases.
+              </b>
+              This API provides an ideal balance of flexibility and simplicity
+              for most users, and we are in the process of consolidating Ax
+              usage around it more formally.
             </p>
             <p>
               <b>
@@ -80,9 +92,9 @@ class TutorialHome extends React.Component {
                   Modular <code>BoTorchModel</code>
                 </a>
                 &nbsp; walks though a new beta-feature &mdash; an improved
-                interface between Ax and <a href="https://botorch.org/">BoTorch</a>{' '}
-                &mdash; which allows for combining arbitrary BoTorch components
-                like
+                interface between Ax and{' '}
+                <a href="https://botorch.org/">BoTorch</a> &mdash; which allows
+                for combining arbitrary BoTorch components like
                 <code>AcquisitionFunction</code>, <code>Model</code>,
                 <code>AcquisitionObjective</code> etc. into a single{' '}
                 <code>Model</code> in Ax.
@@ -103,9 +115,9 @@ class TutorialHome extends React.Component {
             <ul>
               <li>
                 <a href="submitit.html">
-                 Hyperparameter Optimization on SLURM via SubmitIt
+                  Hyperparameter Optimization on SLURM via SubmitIt
                 </a>
-                &nbsp; shows how to use the AxClient to schedule jobs and tune 
+                &nbsp; shows how to use the AxClient to schedule jobs and tune
                 hyperparameters on a Slurm cluster.
               </li>
             </ul>
