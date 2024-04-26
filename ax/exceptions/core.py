@@ -71,6 +71,14 @@ class ExperimentNotReadyError(AxError):
         self.exposures_unavailable = exposures_unavailable
 
 
+class MetricDataNotReadyError(AxError):
+    """Raised when trying to pull metric data from a trial that has
+    not finished running.
+    """
+
+    pass
+
+
 class NoDataError(AxError):
     """Raised when no data is found for experiment in underlying data store.
 
