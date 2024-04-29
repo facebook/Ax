@@ -25,7 +25,6 @@ from typing import (
 )
 
 import gpytorch
-
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -140,7 +139,7 @@ def _get_objective_trace_plot(
         plot_objective_value_vs_trial_index(
             exp_df=exp_df,
             metric_colname=metric_name,
-            minimize=(
+            minimize=not_none(
                 optimization_config.objective.minimize
                 if optimization_config.objective.metric.name == metric_name
                 else experiment.metrics[metric_name].lower_is_better

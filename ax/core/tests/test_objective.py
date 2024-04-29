@@ -8,6 +8,7 @@
 
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 
 
@@ -20,7 +21,7 @@ class ObjectiveTest(TestCase):
             "m3": Metric(name="m3", lower_is_better=False),
         }
         self.objectives = {
-            "o1": Objective(metric=self.metrics["m1"]),
+            "o1": Objective(metric=self.metrics["m1"], minimize=True),
             "o2": Objective(metric=self.metrics["m2"], minimize=True),
             "o3": Objective(metric=self.metrics["m3"], minimize=False),
         }
@@ -37,6 +38,12 @@ class ObjectiveTest(TestCase):
         )
 
     def test_Init(self) -> None:
+        with self.assertRaisesRegex(UserInputError, "does not specify"):
+            Objective(metric=self.metrics["m1"]),
+        with self.assertRaisesRegex(
+            UserInputError, "doesn't match the specified optimization direction"
+        ):
+            Objective(metric=self.metrics["m2"], minimize=False)
         with self.assertRaises(ValueError):
             ScalarizedObjective(
                 metrics=[self.metrics["m1"], self.metrics["m2"]], weights=[1.0]
@@ -51,14 +58,6 @@ class ObjectiveTest(TestCase):
                 metrics=[self.metrics["m1"], self.metrics["m2"]],
                 minimize=False,
             )
-        with self.assertWarnsRegex(
-            DeprecationWarning, "Defaulting to `minimize=False`"
-        ):
-            Objective(metric=self.metrics["m1"])
-        with self.assertWarnsRegex(UserWarning, "Attempting to maximize"):
-            Objective(Metric(name="m4", lower_is_better=True), minimize=False)
-        with self.assertWarnsRegex(UserWarning, "Attempting to minimize"):
-            Objective(Metric(name="m4", lower_is_better=False), minimize=True)
         self.assertEqual(
             self.objective.get_unconstrainable_metrics(), [self.metrics["m1"]]
         )
@@ -70,7 +69,7 @@ class ObjectiveTest(TestCase):
 
         self.assertEqual(self.multi_objective.metrics, list(self.metrics.values()))
         minimizes = [obj.minimize for obj in self.multi_objective.objectives]
-        self.assertEqual(minimizes, [False, True, False])
+        self.assertEqual(minimizes, [True, True, False])
         weights = [mw[1] for mw in self.multi_objective.objective_weights]
         self.assertEqual(weights, [1.0, 1.0, 1.0])
         self.assertEqual(self.multi_objective.clone(), self.multi_objective)
@@ -78,7 +77,7 @@ class ObjectiveTest(TestCase):
             str(self.multi_objective),
             (
                 "MultiObjective(objectives="
-                '[Objective(metric_name="m1", minimize=False), '
+                '[Objective(metric_name="m1", minimize=True), '
                 'Objective(metric_name="m2", minimize=True), '
                 'Objective(metric_name="m3", minimize=False)])'
             ),
@@ -89,19 +88,26 @@ class ObjectiveTest(TestCase):
         )
 
     def test_MultiObjectiveBackwardsCompatibility(self) -> None:
-        multi_objective = MultiObjective(
-            metrics=[self.metrics["m1"], self.metrics["m2"], self.metrics["m3"]]
-        )
+        metrics = [
+            Metric(name="m1", lower_is_better=False),
+            self.metrics["m2"],
+            self.metrics["m3"],
+        ]
+        multi_objective = MultiObjective(metrics=metrics)
         minimizes = [obj.minimize for obj in multi_objective.objectives]
-        self.assertEqual(multi_objective.metrics, list(self.metrics.values()))
+        self.assertEqual(multi_objective.metrics, metrics)
         self.assertEqual(minimizes, [False, True, False])
 
         multi_objective_min = MultiObjective(
-            metrics=[self.metrics["m1"], self.metrics["m2"], self.metrics["m3"]],
+            metrics=[
+                Metric(name="m1"),
+                Metric(name="m2"),
+                Metric(name="m3", lower_is_better=True),
+            ],
             minimize=True,
         )
         minimizes = [obj.minimize for obj in multi_objective_min.objectives]
-        self.assertEqual(minimizes, [True, False, True])
+        self.assertEqual(minimizes, [True, True, True])
 
     def test_ScalarizedObjective(self) -> None:
         with self.assertRaises(NotImplementedError):

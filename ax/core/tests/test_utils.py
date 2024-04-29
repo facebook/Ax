@@ -158,7 +158,7 @@ class UtilsTest(TestCase):
         self.data = Data(df=self.df)
 
         self.optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric(name="a")),
+            objective=Objective(metric=Metric(name="a"), minimize=False),
             outcome_constraints=[
                 OutcomeConstraint(
                     metric=Metric(name="b"),

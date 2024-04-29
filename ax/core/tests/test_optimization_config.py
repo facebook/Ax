@@ -279,7 +279,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             "o2": Objective(metric=self.metrics["m2"], minimize=False),
             "o3": Objective(metric=self.metrics["m3"], minimize=False),
         }
-        self.objective = Objective(metric=self.metrics["m1"], minimize=False)
+        self.objective = Objective(metric=self.metrics["m1"], minimize=True)
         self.multi_objective = MultiObjective(
             objectives=[self.objectives["o1"], self.objectives["o2"]]
         )

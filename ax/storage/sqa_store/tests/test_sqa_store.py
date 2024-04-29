@@ -752,7 +752,9 @@ class SQAStoreTest(TestCase):
 
         # replace objective
         # (old one should become tracking metric)
-        optimization_config.objective = Objective(metric=Metric(name="objective"))
+        optimization_config.objective = Objective(
+            metric=Metric(name="objective"), minimize=False
+        )
         experiment.optimization_config = optimization_config
         save_experiment(experiment)
         self.assertEqual(

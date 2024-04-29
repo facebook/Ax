@@ -560,11 +560,11 @@ class ReportUtilsTest(TestCase):
         exp._optimization_config = MultiObjectiveOptimizationConfig(
             objective=MultiObjective(
                 objectives=[
-                    Objective(metric=Metric("m0")),
-                    Objective(metric=Metric("m1")),
-                    Objective(metric=Metric("m2")),
-                    Objective(metric=Metric("m3")),
-                    Objective(metric=Metric("m4")),
+                    Objective(metric=Metric("m0"), minimize=False),
+                    Objective(metric=Metric("m1"), minimize=False),
+                    Objective(metric=Metric("m2"), minimize=False),
+                    Objective(metric=Metric("m3"), minimize=False),
+                    Objective(metric=Metric("m4"), minimize=False),
                 ]
             )
         )
@@ -1052,9 +1052,9 @@ class ReportUtilsTest(TestCase):
             optimization_config = MultiObjectiveOptimizationConfig(
                 objective=MultiObjective(
                     objectives=[
-                        Objective(metric=Metric("m0")),
+                        Objective(metric=Metric("m0"), minimize=False),
                         Objective(metric=Metric("m1"), minimize=True),
-                        Objective(metric=Metric("m3")),
+                        Objective(metric=Metric("m3"), minimize=False),
                     ]
                 )
             )

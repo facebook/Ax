@@ -13,6 +13,7 @@ from logging import Logger
 from typing import Any, Iterable, List, Optional, Tuple
 
 from ax.core.metric import Metric
+from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
@@ -34,36 +35,27 @@ class Objective(SortableBase):
             metric: The metric to be optimized.
             minimize: If True, minimize metric. If None, will be set based on the
                 `lower_is_better` property of the metric (if that is not specified,
-                will raise a DeprecationWarning).
+                will raise a `UserInputError`).
 
         """
         lower_is_better = metric.lower_is_better
         if minimize is None:
             if lower_is_better is None:
-                warnings.warn(
-                    f"Defaulting to `minimize=False` for metric {metric.name} not "
-                    + "specifying `lower_is_better` property. This is a wild guess. "
-                    + "Specify either `lower_is_better` on the metric, or specify "
-                    + "`minimize` explicitly. This will become an error in the future.",
-                    DeprecationWarning,
+                raise UserInputError(
+                    f"Metric {metric.name} does not specify `lower_is_better` "
+                    "and `minimize` is not specified. At least one of these "
+                    "must be specified."
                 )
-                minimize = False
             else:
                 minimize = lower_is_better
-        if lower_is_better is not None:
-            if lower_is_better and not minimize:
-                warnings.warn(
-                    f"Attempting to maximize metric {metric.name} with property "
-                    "`lower_is_better=True`."
-                )
-            elif not lower_is_better and minimize:
-                warnings.warn(
-                    f"Attempting to minimize metric {metric.name} with property "
-                    "`lower_is_better=False`."
-                )
-        self._metric = metric
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.minimize = not_none(minimize)
+        elif lower_is_better is not None and lower_is_better != minimize:
+            raise UserInputError(
+                f"Metric {metric.name} specifies {lower_is_better=}, "
+                "which doesn't match the specified optimization direction "
+                f"{minimize=}."
+            )
+        self._metric: Metric = metric
+        self.minimize: bool = not_none(minimize)
 
     @property
     def metric(self) -> Metric:
@@ -130,18 +122,17 @@ class MultiObjective(Objective):
                     "as input to `MultiObjective` constructor."
                 )
             metrics = extra_kwargs["metrics"]
-            minimize = extra_kwargs.get("minimize", False)
+            minimize = extra_kwargs.get("minimize", None)
             warnings.warn(
                 "Passing `metrics` and `minimize` as input to the `MultiObjective` "
                 "constructor will soon be deprecated. Instead, pass a list of "
                 "`objectives`. This will become an error in the future.",
                 DeprecationWarning,
+                stacklevel=2,
             )
             objectives = []
             for metric in metrics:
-                lower_is_better = metric.lower_is_better or False
-                _minimize = not lower_is_better if minimize else lower_is_better
-                objectives.append(Objective(metric=metric, minimize=_minimize))
+                objectives.append(Objective(metric=metric, minimize=minimize))
 
         # pyre-fixme[4]: Attribute must be annotated.
         self._objectives = not_none(objectives)

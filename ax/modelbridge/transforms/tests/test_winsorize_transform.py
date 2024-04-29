@@ -578,7 +578,7 @@ class WinsorizeTransformTest(TestCase):
                 RangeParameter("y", ParameterType.FLOAT, 0, 20),
             ]
         )
-        objective = Objective(Metric("c"))
+        objective = Objective(Metric("c"), minimize=False)
 
         # Test with relative constraint, in-design status quo
         oc = OptimizationConfig(
