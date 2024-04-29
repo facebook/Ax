@@ -64,5 +64,7 @@ jobs:
     - if: ${{ !inputs.minimal_dependencies }}
       # Using same condition as above since we need the coverage report for upload.
       name: Upload coverage
-      run: |
-        bash <(curl -s https://codecov.io/bash)
+      uses: codecov/codecov-action@v4
+      with:
+        fail_ci_if_error: true
+        token: ${{ secrets.CODECOV_TOKEN }}
