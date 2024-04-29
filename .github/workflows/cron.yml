@@ -19,6 +19,7 @@ jobs:
     with:
       pinned_botorch: false
       minimal_dependencies: true
+    secrets: inherit
 
   tests-and-coverage-full:
     name: Tests with latest BoTorch & full dependencies
@@ -26,6 +27,7 @@ jobs:
     with:
       pinned_botorch: false
       minimal_dependencies: false
+    secrets: inherit
 
   build-tutorials:
     name: Build tutorials with latest BoTorch

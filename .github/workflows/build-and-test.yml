@@ -13,6 +13,7 @@ jobs:
     uses: ./.github/workflows/reusable_test.yml
     with:
       pinned_botorch: false
+    secrets: inherit
 
   lint:
 
