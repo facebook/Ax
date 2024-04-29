@@ -26,6 +26,7 @@ jobs:
     with:
       pinned_botorch: false
       minimal_dependencies: false
+    secrets: inherit
 
   build-tutorials:
     name: Build tutorials with latest BoTorch
