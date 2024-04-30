@@ -29,6 +29,7 @@ from ax.models.torch.fully_bayesian import (
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
+from ax.utils.common.random import set_rng_seed, with_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.utils import get_infeasible_cost
@@ -688,8 +689,7 @@ class BaseFullyBayesianBotorchModelTestCases:
             for use_input_warping, gp_kernel in product(
                 [False, True], ["rbf", "matern"]
             ):
-                with torch.random.fork_rng():
-                    torch.manual_seed(0)
+                with with_rng_seed(0):
                     X = torch.randn(3, 2)
                     Y = torch.randn(3, 1)
                     Yvar = torch.randn(3, 1)
@@ -714,7 +714,7 @@ class BaseFullyBayesianBotorchModelTestCases:
                         self.assertNotIn("c1", samples)
 
         def test_gp_kernels(self) -> None:
-            torch.manual_seed(0)
+            set_rng_seed(0)
             X = torch.randn(3, 2)
             Y = torch.randn(3, 1)
             Yvar = torch.randn(3, 1)

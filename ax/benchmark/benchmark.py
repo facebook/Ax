@@ -44,8 +44,8 @@ from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
 from ax.utils.common.logger import get_logger
+from ax.utils.common.random import with_rng_seed
 from ax.utils.common.typeutils import checked_cast, not_none
-from botorch.utils.sampling import manual_seed
 
 logger: Logger = get_logger(__name__)
 
@@ -126,8 +126,7 @@ def benchmark_replication(
     Args:
         problem: The BenchmarkProblem to test against (can be synthetic or real)
         method: The BenchmarkMethod to test
-        seed: The seed to use for this replication, set using `manual_seed`
-            from `botorch.utils.sampling`.
+        seed: The seed to use for this replication.
     """
 
     experiment = _create_benchmark_experiment(problem=problem, method_name=method.name)
@@ -138,7 +137,7 @@ def benchmark_replication(
         options=method.scheduler_options,
     )
 
-    with manual_seed(seed=seed):
+    with with_rng_seed(seed=seed):
         scheduler.run_n_trials(max_trials=problem.num_trials)
 
     if not problem.is_noiseless and problem.has_ground_truth:

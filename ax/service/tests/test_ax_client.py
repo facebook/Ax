@@ -71,6 +71,7 @@ from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.structs import DBSettings
+from ax.utils.common.random import with_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.measurement.synthetic_functions import Branin
@@ -78,7 +79,6 @@ from ax.utils.testing.core_stubs import DummyEarlyStoppingStrategy
 from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_observation1, get_observation1trans
 from botorch.test_functions.multi_objective import BraninCurrin
-from botorch.utils.sampling import manual_seed
 
 if TYPE_CHECKING:
     from ax.core.types import TTrialEvaluation
@@ -2386,7 +2386,7 @@ class TestAxClient(TestCase):
         assert isinstance(cfg, MultiObjectiveOptimizationConfig)
         thresholds = np.array([t.bound for t in cfg.objective_thresholds])
 
-        with manual_seed(seed=RANDOM_SEED):
+        with with_rng_seed(seed=RANDOM_SEED):
             predicted_pareto = ax_client.get_pareto_optimal_parameters()
 
         # For the predicted frontier, we don't know the solution a priori, so let's
@@ -2494,7 +2494,7 @@ class TestAxClient(TestCase):
             data=ax_client.experiment.lookup_data()
         )
 
-        with manual_seed(seed=RANDOM_SEED):
+        with with_rng_seed(seed=RANDOM_SEED):
             predicted_pareto = ax_client.get_pareto_optimal_parameters()
 
         # Check that we specified objective threshold overrides (because we
@@ -2506,7 +2506,7 @@ class TestAxClient(TestCase):
         mock_observed_pareto.assert_not_called()
         self.assertGreater(len(predicted_pareto), 0)
 
-        with manual_seed(seed=RANDOM_SEED):
+        with with_rng_seed(seed=RANDOM_SEED):
             observed_pareto = ax_client.get_pareto_optimal_parameters(
                 use_model_predictions=False
             )
