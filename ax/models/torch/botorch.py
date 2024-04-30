@@ -125,8 +125,6 @@ class BotorchModel(TorchModel):
             signature as described below.
         refit_on_cv: If True, refit the model for each fold when performing
             cross-validation.
-        refit_on_update: If True, refit the model after updating the training
-            data using the `update` method.
         warm_start_refitting: If True, start model refitting from previous
             model parameters in order to speed up the fitting process.
         prior: An optional dictionary that contains the specification of GP model prior.
@@ -251,7 +249,6 @@ class BotorchModel(TorchModel):
         acqf_optimizer: TOptimizer = scipy_optimizer,
         best_point_recommender: TBestPointRecommender = recommend_best_observed_point,
         refit_on_cv: bool = False,
-        refit_on_update: bool = True,
         warm_start_refitting: bool = True,
         use_input_warping: bool = False,
         use_loocv_pseudo_likelihood: bool = False,
@@ -276,7 +273,6 @@ class BotorchModel(TorchModel):
         # pyre-fixme[4]: Attribute must be annotated.
         self._kwargs = kwargs
         self.refit_on_cv = refit_on_cv
-        self.refit_on_update = refit_on_update
         self.warm_start_refitting = warm_start_refitting
         self.use_input_warping = use_input_warping
         self.use_loocv_pseudo_likelihood = use_loocv_pseudo_likelihood

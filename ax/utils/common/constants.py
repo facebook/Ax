@@ -73,7 +73,6 @@ class Keys(str, Enum):
     QMC = "qmc"
     RAW_INNER_SAMPLES = "raw_inner_samples"
     RAW_SAMPLES = "raw_samples"
-    REFIT_ON_UPDATE = "refit_on_update"
     SAMPLER = "sampler"
     SEED_INNER = "seed_inner"
     SEQUENTIAL = "sequential"

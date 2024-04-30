@@ -187,7 +187,6 @@ class BoTorchModelTest(TestCase):
         self.assertEqual(model.botorch_acqf_class, qExpectedImprovement)
 
         # Check defaults for refitting settings.
-        self.assertTrue(model.refit_on_update)
         self.assertFalse(model.refit_on_cv)
         self.assertTrue(model.warm_start_refit)
 
@@ -196,11 +195,9 @@ class BoTorchModelTest(TestCase):
             surrogate=self.surrogate,
             acquisition_class=self.acquisition_class,
             acquisition_options=self.acquisition_options,
-            refit_on_update=False,
             refit_on_cv=True,
             warm_start_refit=False,
         )
-        self.assertFalse(mdl2.refit_on_update)
         self.assertTrue(mdl2.refit_on_cv)
         self.assertFalse(mdl2.warm_start_refit)
 

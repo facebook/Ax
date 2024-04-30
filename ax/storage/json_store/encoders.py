@@ -579,7 +579,6 @@ def botorch_model_to_dict(model: BoTorchModel) -> Dict[str, Any]:
             model.surrogate_specs if len(model.surrogate_specs) > 0 else None
         ),
         "botorch_acqf_class": model._botorch_acqf_class,
-        "refit_on_update": model.refit_on_update,
         "refit_on_cv": model.refit_on_cv,
         "warm_start_refit": model.warm_start_refit,
     }

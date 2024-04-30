@@ -18,6 +18,7 @@ from ax.core.objective import Objective
 from ax.core.runner import Runner
 from ax.exceptions.core import AxStorageWarning
 from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
+from ax.modelbridge.generation_node import GenerationStep
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.storage.json_store.decoder import (
@@ -668,3 +669,23 @@ class JSONStoreTest(TestCase):
         self.assertNotEqual(objective, objective_loaded)
         self.assertTrue(objective_loaded.minimize)
         self.assertTrue(objective_loaded.metric.lower_is_better)
+
+    def test_generation_step_backwards_compatibility(self) -> None:
+        # Test that we can load a generation step with fit_on_update.
+        json = {
+            "__type": "GenerationStep",
+            "model": {"__type": "Models", "name": "BOTORCH_MODULAR"},
+            "num_trials": 5,
+            "min_trials_observed": 0,
+            "completion_criteria": [],
+            "max_parallelism": None,
+            "use_update": False,
+            "enforce_num_trials": True,
+            "model_kwargs": {"fit_on_update": False, "other_kwarg": 5},
+            "model_gen_kwargs": {},
+            "index": -1,
+            "should_deduplicate": False,
+        }
+        generation_step = object_from_json(json)
+        self.assertIsInstance(generation_step, GenerationStep)
+        self.assertEqual(generation_step.model_kwargs, {"other_kwarg": 5})

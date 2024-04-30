@@ -683,6 +683,7 @@ def generation_step_from_json(
         generation_step_json
     )
     kwargs = generation_step_json.pop("model_kwargs", None)
+    kwargs.pop("fit_on_update", None)  # Remove deprecated fit_on_update.
     gen_kwargs = generation_step_json.pop("model_gen_kwargs", None)
     completion_criteria = (
         object_from_json(
@@ -741,6 +742,7 @@ def model_spec_from_json(
 ) -> ModelSpec:
     """Load ModelSpec from JSON."""
     kwargs = model_spec_json.pop("model_kwargs", None)
+    kwargs.pop("fit_on_update", None)  # Remove deprecated fit_on_update.
     gen_kwargs = model_spec_json.pop("model_gen_kwargs", None)
     return ModelSpec(
         model_enum=object_from_json(

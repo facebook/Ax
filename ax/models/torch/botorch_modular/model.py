@@ -140,7 +140,6 @@ class BoTorchModel(TorchModel, Base):
             based on the data provided.
         surrogate: In liu of SurrogateSpecs, an instance of `Surrogate` may be
             provided to be used as the sole Surrogate for all outcomes
-        refit_on_update: Unused.
         refit_on_cv: Whether to reoptimize model parameters during call to
             `BoTorchmodel.cross_validate`.
         warm_start_refit: Whether to load parameters from either the provided
@@ -169,7 +168,6 @@ class BoTorchModel(TorchModel, Base):
         acquisition_options: Optional[Dict[str, Any]] = None,
         botorch_acqf_class: Optional[Type[AcquisitionFunction]] = None,
         # TODO: [T168715924] Revisit these "refit" arguments.
-        refit_on_update: bool = True,
         refit_on_cv: bool = False,
         warm_start_refit: bool = True,
     ) -> None:
@@ -216,7 +214,6 @@ class BoTorchModel(TorchModel, Base):
         self.acquisition_options = acquisition_options or {}
         self._botorch_acqf_class = botorch_acqf_class
 
-        self.refit_on_update = refit_on_update
         self.refit_on_cv = refit_on_cv
         self.warm_start_refit = warm_start_refit
 
