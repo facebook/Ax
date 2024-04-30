@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from copy import deepcopy
 from functools import wraps
-
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
 
@@ -595,18 +594,24 @@ class GenerationStrategy(GenerationStrategyInterface):
 
     def _make_default_name(self) -> str:
         """Make a default name for this generation strategy; used when no name is passed
-        to the constructor. Makes the name from model keys on generation nodes, set on
-        this generation strategy, and should only be called once the nodes are set.
+        to the constructor. For node-based generation strategies, the name is
+        constructed by joining together the names of the nodes set on this
+        generation strategy. For step-based generation strategies, the model keys
+        of the underlying model specs are used.
+        Note: This should only be called once the nodes are set.
         """
         if not self._nodes:
             raise UnsupportedError(
                 "Cannot make a default name for a generation strategy with no nodes "
                 "set yet."
             )
-        factory_names = (node.model_spec_to_gen_from.model_key for node in self._nodes)
-        # Trim the "get_" beginning of the factory function if it's there.
-        factory_names = (n[4:] if n[:4] == "get_" else n for n in factory_names)
-        return "+".join(factory_names)
+        if self.is_node_based:
+            node_names = (node.node_name for node in self._nodes)
+        else:
+            node_names = (node.model_spec_to_gen_from.model_key for node in self._nodes)
+            # Trim the "get_" beginning of the factory function if it's there.
+            node_names = (n[4:] if n[:4] == "get_" else n for n in node_names)
+        return "+".join(node_names)
 
     def __repr__(self) -> str:
         """String representation of this generation strategy."""
