@@ -9,10 +9,11 @@
 from __future__ import annotations
 
 import inspect
+from collections import OrderedDict
 from collections.abc import Sequence
 from copy import deepcopy
 from logging import Logger
-from typing import Any, Dict, List, Optional, OrderedDict, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
