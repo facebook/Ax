@@ -51,7 +51,7 @@ from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
-from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
+from botorch.models.gp_regression import SingleTaskGP
 from botorch.optim.optimize import optimize_acqf
 from botorch.test_functions.synthetic import Branin
 
@@ -348,25 +348,25 @@ class TestBenchmark(TestCase):
             ),
             (
                 get_sobol_botorch_modular_acquisition(
-                    model_cls=FixedNoiseGP,
+                    model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
                     distribute_replications=False,
                 ),
                 get_single_objective_benchmark_problem(
                     observe_noise_sd=True, num_trials=6
                 ),
-                "MBM::FixedNoiseGP_qLogNEI",
+                "MBM::SingleTaskGP_qLogNEI",
             ),
             (
                 get_sobol_botorch_modular_acquisition(
-                    model_cls=FixedNoiseGP,
+                    model_cls=SingleTaskGP,
                     acquisition_cls=qNoisyExpectedHypervolumeImprovement,
                     distribute_replications=False,
                 ),
                 get_multi_objective_benchmark_problem(
                     observe_noise_sd=True, num_trials=6
                 ),
-                "MBM::FixedNoiseGP_qNEHVI",
+                "MBM::SingleTaskGP_qNEHVI",
             ),
             (
                 get_sobol_botorch_modular_acquisition(
