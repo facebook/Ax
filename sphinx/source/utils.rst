@@ -83,6 +83,14 @@ Mock Torch
     :undoc-members:
     :show-inheritance:
 
+Random
+~~~~~~
+
+.. automodule:: ax.utils.common.random
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Result
 ~~~~~~
 
