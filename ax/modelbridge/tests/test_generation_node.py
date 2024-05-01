@@ -113,6 +113,7 @@ class TestGenerationNode(TestCase):
                 ),
             ],
         )
+        self.assertIsNone(node.model_to_gen_from_name)
         dat = self.branin_experiment.lookup_data()
         node.fit(
             experiment=self.branin_experiment,
@@ -124,6 +125,7 @@ class TestGenerationNode(TestCase):
         self.assertEqual(
             node.model_spec_to_gen_from.model_kwargs, node.model_specs[0].model_kwargs
         )
+        self.assertEqual(node.model_to_gen_from_name, "GPEI")
         self.assertEqual(
             node.model_spec_to_gen_from.model_gen_kwargs,
             node.model_specs[0].model_gen_kwargs,
