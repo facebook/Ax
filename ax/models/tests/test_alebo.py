@@ -286,7 +286,6 @@ class ALEBOTest(TestCase):
         self.assertTrue(torch.equal(B, m.B))
         self.assertEqual(m.laplace_nsamp, 5)
         self.assertEqual(m.fit_restarts, 1)
-        self.assertEqual(m.refit_on_update, True)
         self.assertEqual(m.refit_on_cv, False)
         self.assertEqual(m.warm_start_refitting, False)
 

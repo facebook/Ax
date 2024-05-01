@@ -792,7 +792,7 @@ def alebo_acqf_optimizer(
                     if base_X_pending is not None
                     else candidates
                 )
-        logger.info(f"Generated sequential candidate {i+1} of {n}")
+        logger.info(f"Generated sequential candidate {i + 1} of {n}")
     if acq_has_X_pend:
         acq_function.set_X_pending(base_X_pending)
     return candidates, torch.stack(acq_value_list)
@@ -828,7 +828,6 @@ class ALEBO(BotorchModel):
         self.laplace_nsamp = laplace_nsamp
         self.fit_restarts = fit_restarts
         super().__init__(
-            refit_on_update=True,  # Important to not get stuck in local opt.
             refit_on_cv=False,
             warm_start_refitting=False,
             acqf_constructor=ei_or_nei,  # pyre-ignore

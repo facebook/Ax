@@ -206,7 +206,6 @@ class MultiObjectiveBotorchModel(BotorchModel):
         best_point_recommender: TBestPointRecommender = recommend_best_observed_point,
         frontier_evaluator: TFrontierEvaluator = pareto_frontier_evaluator,
         refit_on_cv: bool = False,
-        refit_on_update: bool = True,
         warm_start_refitting: bool = False,
         use_input_warping: bool = False,
         use_loocv_pseudo_likelihood: bool = False,
@@ -222,7 +221,6 @@ class MultiObjectiveBotorchModel(BotorchModel):
         # pyre-fixme[4]: Attribute must be annotated.
         self._kwargs = kwargs
         self.refit_on_cv = refit_on_cv
-        self.refit_on_update = refit_on_update
         self.warm_start_refitting = warm_start_refitting
         self.use_input_warping = use_input_warping
         self.use_loocv_pseudo_likelihood = use_loocv_pseudo_likelihood

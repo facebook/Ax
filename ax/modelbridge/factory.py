@@ -245,7 +245,6 @@ def get_botorch(
     acqf_constructor: TAcqfConstructor = get_qLogNEI,
     acqf_optimizer: TOptimizer = scipy_optimizer,  # pyre-ignore[9]
     refit_on_cv: bool = False,
-    refit_on_update: bool = True,
     optimization_config: Optional[OptimizationConfig] = None,
 ) -> TorchModelBridge:
     """Instantiates a BotorchModel."""
@@ -266,7 +265,6 @@ def get_botorch(
             acqf_constructor=acqf_constructor,
             acqf_optimizer=acqf_optimizer,
             refit_on_cv=refit_on_cv,
-            refit_on_update=refit_on_update,
             optimization_config=optimization_config,
         ),
     )

@@ -523,7 +523,6 @@ class FullyBayesianBotorchModel(FullyBayesianBotorchModelMixin, BotorchModel):
         acqf_optimizer: TOptimizer = scipy_optimizer,
         best_point_recommender: TBestPointRecommender = recommend_best_observed_point,
         refit_on_cv: bool = False,
-        refit_on_update: bool = True,
         warm_start_refitting: bool = True,
         use_input_warping: bool = False,
         # use_saas is deprecated. TODO: remove
@@ -553,8 +552,6 @@ class FullyBayesianBotorchModel(FullyBayesianBotorchModelMixin, BotorchModel):
                 signature as described below.
             refit_on_cv: If True, refit the model for each fold when performing
                 cross-validation.
-            refit_on_update: If True, refit the model after updating the training
-                data using the `update` method.
             warm_start_refitting: If True, start model refitting from previous
                 model parameters in order to speed up the fitting process.
             use_input_warping: A boolean indicating whether to use input warping
@@ -581,7 +578,6 @@ class FullyBayesianBotorchModel(FullyBayesianBotorchModelMixin, BotorchModel):
             acqf_optimizer=acqf_optimizer,
             best_point_recommender=best_point_recommender,
             refit_on_cv=refit_on_cv,
-            refit_on_update=refit_on_update,
             warm_start_refitting=warm_start_refitting,
             use_input_warping=use_input_warping,
             num_samples=num_samples,
@@ -619,7 +615,6 @@ class FullyBayesianMOOBotorchModel(
         best_point_recommender: TBestPointRecommender = recommend_best_observed_point,
         frontier_evaluator: TFrontierEvaluator = pareto_frontier_evaluator,
         refit_on_cv: bool = False,
-        refit_on_update: bool = True,
         warm_start_refitting: bool = False,
         use_input_warping: bool = False,
         num_samples: int = 256,
@@ -646,7 +641,6 @@ class FullyBayesianMOOBotorchModel(
             best_point_recommender=best_point_recommender,
             frontier_evaluator=frontier_evaluator,
             refit_on_cv=refit_on_cv,
-            refit_on_update=refit_on_update,
             warm_start_refitting=warm_start_refitting,
             use_input_warping=use_input_warping,
             num_samples=num_samples,
