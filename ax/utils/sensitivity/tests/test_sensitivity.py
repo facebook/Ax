@@ -16,6 +16,7 @@ from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.registry import Models
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.torch.botorch import BotorchModel
+from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.sensitivity.derivative_gp import posterior_derivative
 from ax.utils.sensitivity.derivative_measures import (
@@ -308,7 +309,7 @@ class SensitivityAnalysisTest(TestCase):
         for bridge in [model_bridge, cat_model_bridge]:
             discrete_features = bridge.model.search_space_digest.categorical_features
             with self.subTest(model_bridge=bridge):
-                torch.manual_seed(seed)
+                set_rng_seed(seed)
                 # Unsigned
                 ind_dict = ax_parameter_sens(
                     model_bridge=bridge,  # pyre-ignore
@@ -323,7 +324,7 @@ class SensitivityAnalysisTest(TestCase):
                     discrete_features=discrete_features,
                     **sobol_kwargs,
                 )
-                torch.manual_seed(seed)  # reset seed to keep discrete features the same
+                set_rng_seed(seed)  # reset seed to keep discrete features the same
                 cat_indices = bridge.model.search_space_digest.categorical_features
                 ind_dict_signed = ax_parameter_sens(
                     model_bridge=bridge,  # pyre-ignore

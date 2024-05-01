@@ -95,8 +95,8 @@ from ax.storage.json_store.registry import (
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
+from ax.utils.common.random import with_rng_seed
 from ax.utils.common.typeutils import checked_cast, not_none
-from botorch.utils.sampling import manual_seed
 from pyre_extensions import assert_is_instance
 
 logger: Logger = get_logger(__name__)
@@ -1786,7 +1786,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             if fixed_features
             else None
         )
-        with manual_seed(seed=self._random_seed):
+        with with_rng_seed(seed=self._random_seed):
             return not_none(self.generation_strategy).gen(
                 experiment=self.experiment,
                 n=n,

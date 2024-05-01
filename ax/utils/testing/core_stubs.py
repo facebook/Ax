@@ -110,6 +110,7 @@ from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
+from ax.utils.common.random import set_rng_seed
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.measurement.synthetic_functions import branin
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -999,7 +1000,7 @@ def get_large_ordinal_search_space(
 def get_hartmann_search_space(with_fidelity_parameter: bool = False) -> SearchSpace:
     parameters = [
         RangeParameter(
-            name=f"x{idx+1}", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
+            name=f"x{idx + 1}", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
         )
         for idx in range(6)
     ]
@@ -1807,7 +1808,6 @@ def get_weights() -> List[float]:
 
 
 def get_branin_arms(n: int, seed: int) -> List[Arm]:
-    # TODO replace with sobol
     np.random.seed(seed)
     x1_raw = np.random.rand(n)
     x2_raw = np.random.rand(n)
@@ -2319,7 +2319,7 @@ def get_dataset(
         seed: An optional seed used to generate the data.
     """
     if seed is not None:
-        torch.manual_seed(seed)
+        set_rng_seed(seed)
     feature_names = feature_names or [f"x{i}" for i in range(d)]
     outcome_names = outcome_names or [f"y{i}" for i in range(m)]
     tkwargs = tkwargs or {}

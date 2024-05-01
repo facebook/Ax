@@ -11,9 +11,7 @@ from collections import OrderedDict
 from typing import Dict, List, Type
 from unittest.mock import MagicMock, patch
 
-import numpy as np
 import pandas as pd
-import torch
 from ax.core import BatchTrial, Trial
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -43,6 +41,7 @@ from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
 from ax.service.utils.instantiation import ObjectiveProperties
 from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
+from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
@@ -1419,8 +1418,7 @@ class ExperimentWithMapDataTest(TestCase):
         exp.new_batch_trial(generator_runs=[sobol.gen(n=7)]).run().complete()
 
         data = exp.fetch_data()
-        torch.manual_seed(seed)
-        np.random.seed(seed)
+        set_rng_seed(seed)
         gp = Models.BOTORCH_MODULAR(
             experiment=exp, search_space=exp.search_space, data=data
         )

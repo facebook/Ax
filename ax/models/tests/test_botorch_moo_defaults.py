@@ -23,11 +23,11 @@ from ax.models.torch.botorch_moo_defaults import (
     pareto_frontier_evaluator,
 )
 from ax.models.torch.utils import _get_X_pending_and_observed
+from ax.utils.common.random import with_rng_seed
 from ax.utils.common.testutils import TestCase
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
-from botorch.utils.sampling import manual_seed
 from botorch.utils.testing import MockModel, MockPosterior
 from torch._tensor import Tensor
 
@@ -245,7 +245,7 @@ class BotorchMOODefaultsTest(TestCase):
         )
         (weighted_obj, new_obj_thresholds) = obj_and_obj_t
         cons_tfs = get_outcome_constraint_transforms(constraints)
-        with manual_seed(0):
+        with with_rng_seed(0):
             seed = torch.randint(1, 10000, (1,)).item()
         with ExitStack() as es:
             mock_get_acqf = es.enter_context(mock.patch(GET_ACQF_PATH))
@@ -254,7 +254,7 @@ class BotorchMOODefaultsTest(TestCase):
             )
             es.enter_context(mock.patch(GET_CONSTRAINT_PATH, return_value=cons_tfs))
             es.enter_context(mock.patch(GET_OBJ_PATH, return_value=obj_and_obj_t))
-            es.enter_context(manual_seed(0))
+            es.enter_context(with_rng_seed(0))
             get_qLogEHVI(
                 model=mm,
                 objective_weights=weights,

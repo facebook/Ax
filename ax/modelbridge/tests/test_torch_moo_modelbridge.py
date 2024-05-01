@@ -39,6 +39,7 @@ from ax.models.torch.botorch_moo_defaults import (
     pareto_frontier_evaluator,
 )
 from ax.service.utils.report_utils import exp_to_df
+from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.core_stubs import (
@@ -572,7 +573,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
         trial.add_generator_run(sobol_run)
         trial.mark_running(no_runner_required=True).mark_completed()
         data = exp.fetch_data()
-        torch.manual_seed(0)  # make model fitting deterministic
+        set_rng_seed(0)  # make model fitting deterministic
         modelbridge = TorchModelBridge(
             search_space=exp.search_space,
             model=MultiObjectiveBotorchModel(),
