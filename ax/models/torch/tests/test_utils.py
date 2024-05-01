@@ -7,7 +7,7 @@
 # pyre-strict
 
 import warnings
-from typing import OrderedDict
+from collections import OrderedDict
 
 import numpy as np
 import torch
@@ -615,7 +615,6 @@ class BoTorchModelUtilsTest(TestCase):
         m0 = SingleTaskGP(train_X=torch.rand(5, 2), train_Y=torch.rand(5, 1))
         m1 = SingleTaskGP(train_X=torch.rand(5, 2), train_Y=torch.rand(5, 1))
         model_list = ModelListGP(m0, m1)
-        # pyre-ignore [6]: T168826187
         model_list_state_dict = checked_cast(OrderedDict, model_list.state_dict())
         # Subset the model dict from model list and check that it is correct.
         m0_state_dict = model_list.models[0].state_dict()

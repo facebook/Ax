@@ -7,9 +7,10 @@
 # pyre-strict
 
 import warnings
+from collections import OrderedDict
 from collections.abc import Sequence
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, OrderedDict, Tuple, Type
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -463,4 +464,4 @@ def subset_state_dict(
         for k, v in state_dict.items()
         if k.startswith(expected_substring)
     ]
-    return OrderedDict(new_items)  # pyre-ignore [29]: T168826187
+    return OrderedDict(new_items)

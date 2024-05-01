@@ -7,9 +7,10 @@
 # pyre-strict
 
 import dataclasses
+from collections import OrderedDict
 from contextlib import ExitStack
 from copy import deepcopy
-from typing import Dict, OrderedDict, Type
+from typing import Dict, Type
 from unittest import mock
 from unittest.mock import Mock
 
@@ -397,7 +398,6 @@ class BoTorchModelTest(TestCase):
 
         old_surrogate = self.model.surrogates[Keys.ONLY_SURROGATE]
         old_surrogate._model = mock.MagicMock()
-        # pyre-ignore [29]: T168826187
         old_surrogate._model.state_dict.return_value = OrderedDict({"key": "val"})
 
         for refit_on_cv, warm_start_refit in [

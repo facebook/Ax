@@ -8,7 +8,8 @@
 
 import dataclasses
 import math
-from typing import Any, Dict, OrderedDict, Tuple, Type
+from collections import OrderedDict
+from typing import Any, Dict, Tuple, Type
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
@@ -954,7 +955,6 @@ class SurrogateWithModelListTest(TestCase):
 
             # Should `load_state_dict` when `state_dict` is not `None`
             # and `refit` is `False`.
-            # pyre-ignore [29]: T168826187
             state_dict = OrderedDict({"state_attribute": torch.ones(2)})
             surrogate._submodels = {}  # Prevent re-use of fitted model.
             surrogate.fit(
