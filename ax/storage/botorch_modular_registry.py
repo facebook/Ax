@@ -61,7 +61,7 @@ from botorch.models.gp_regression_fidelity import (
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
-from botorch.models.multitask import FixedNoiseMultiTaskGP, MultiTaskGP
+from botorch.models.multitask import MultiTaskGP
 from botorch.models.transforms.input import (
     ChainedInputTransform,
     InputPerturbation,
@@ -108,7 +108,6 @@ MODEL_REGISTRY: Dict[Type[Model], str] = {
     # concern for backwards compatibility when the time comes.
     FixedNoiseGP: "SingleTaskGP",
     FixedNoiseMultiFidelityGP: "SingleTaskMultiFidelityGP",
-    FixedNoiseMultiTaskGP: "MultiTaskGP",
     MixedSingleTaskGP: "MixedSingleTaskGP",
     ModelListGP: "ModelListGP",
     MultiTaskGP: "MultiTaskGP",
@@ -208,6 +207,7 @@ REVERSE_ACQUISITION_REGISTRY: Dict[str, Type[Acquisition]] = {
 
 
 REVERSE_MODEL_REGISTRY: Dict[str, Type[Model]] = {
+    # NOTE: These ensure backwards compatibility. Keep them around.
     "FixedNoiseGP": SingleTaskGP,
     "FixedNoiseMultiFidelityGP": SingleTaskMultiFidelityGP,
     "FixedNoiseMultiTaskGP": MultiTaskGP,
