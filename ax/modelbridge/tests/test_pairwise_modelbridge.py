@@ -6,11 +6,11 @@
 
 # pyre-strict
 
-from typing import Dict
+from typing import Any, Dict
 
 import numpy as np
 import torch
-from ax.core import Arm, GeneratorRun
+from ax.core import Arm, GeneratorRun, Metric, Objective, OptimizationConfig
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.parameter import RangeParameter
 from ax.core.types import TEvaluationOutcome, TParameterization
@@ -36,7 +36,7 @@ class PairwiseModelBridgeTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
 
-        def evaluate(
+        def pairwise_arm_eval(
             parameters: Dict[str, TParameterization]
         ) -> Dict[str, TEvaluationOutcome]:
             # A pair at a time
@@ -52,8 +52,15 @@ class PairwiseModelBridgeTest(TestCase):
             arm2_sum = float(sum(arm2_outcome_values))
             is_arm1_preferred = int(arm1_sum - arm2_sum > 0)
             return {
-                arm1: {Keys.PAIRWISE_PREFERENCE_QUERY: is_arm1_preferred},
-                arm2: {Keys.PAIRWISE_PREFERENCE_QUERY: 1 - is_arm1_preferred},
+                arm1: {Keys.PAIRWISE_PREFERENCE_QUERY.value: is_arm1_preferred},
+                arm2: {Keys.PAIRWISE_PREFERENCE_QUERY.value: 1 - is_arm1_preferred},
+            }
+
+        def single_arm_eval(parameters: Dict[str, Any]) -> Dict[str, Any]:
+            assert len(parameters.keys()) == 1
+            arm1 = list(parameters.keys())[0]
+            return {
+                arm1: {"dummy_outcome": 0.0},
             }
 
         experiment = InstantiationBase.make_experiment(
@@ -70,10 +77,26 @@ class PairwiseModelBridgeTest(TestCase):
                     "bounds": [0.0, 0.7],
                 },
             ],
-            objectives={Keys.PAIRWISE_PREFERENCE_QUERY: "minimize"},
+            objectives={Keys.PAIRWISE_PREFERENCE_QUERY.value: "minimize"},
             is_test=True,
         )
 
+        # evaluation of randomly generated arms
+        for _ in range(5):
+            arm = {}
+            for param_name, param in experiment.search_space.parameters.items():
+                lb = checked_cast(RangeParameter, param).lower
+                ub = checked_cast(RangeParameter, param).upper
+                arm[param_name] = np.random.uniform(low=lb, high=ub)
+            gr = GeneratorRun([Arm(arm)])
+            trial = experiment.new_batch_trial(generator_run=gr)
+            trial.attach_batch_trial_data(
+                raw_data=single_arm_eval({a.name: a.parameters for a in trial.arms})
+            )
+            trial.mark_running(no_runner_required=True)
+            trial.mark_completed()
+
+        # pairwise evaluation of randomly generated pairs of arms
         for _ in range(3):
             gr = GeneratorRun(
                 [
@@ -91,7 +114,7 @@ class PairwiseModelBridgeTest(TestCase):
             )
             trial = experiment.new_batch_trial(generator_run=gr)
             trial.attach_batch_trial_data(
-                raw_data=evaluate({a.name: a.parameters for a in trial.arms})
+                raw_data=pairwise_arm_eval({a.name: a.parameters for a in trial.arms})
             )
             trial.mark_running(no_runner_required=True)
             trial.mark_completed()
@@ -101,7 +124,7 @@ class PairwiseModelBridgeTest(TestCase):
         trial.add_arm(experiment.trials[1].arms[0])
         trial.add_arm(experiment.trials[2].arms[0])
         trial.attach_batch_trial_data(
-            raw_data=evaluate({a.name: a.parameters for a in trial.arms})
+            raw_data=pairwise_arm_eval({a.name: a.parameters for a in trial.arms})
         )
         trial.mark_running(no_runner_required=True)
         trial.mark_completed()
@@ -137,6 +160,12 @@ class PairwiseModelBridgeTest(TestCase):
                     surrogate=surrogate,
                 ),
                 transforms=[],
+                optimization_config=OptimizationConfig(
+                    Objective(
+                        Metric(Keys.PAIRWISE_PREFERENCE_QUERY.value), minimize=False
+                    )
+                ),
+                fit_tracking_metrics=False,
             )
             # Can generate candidates correctly
             # pyre-ignore: Incompatible parameter type [6]
@@ -145,12 +174,12 @@ class PairwiseModelBridgeTest(TestCase):
 
         observation_data = [
             ObservationData(
-                metric_names=[Keys.PAIRWISE_PREFERENCE_QUERY],
+                metric_names=[Keys.PAIRWISE_PREFERENCE_QUERY.value],
                 means=np.array([0]),
                 covariance=np.array([[np.nan]]),
             ),
             ObservationData(
-                metric_names=[Keys.PAIRWISE_PREFERENCE_QUERY],
+                metric_names=[Keys.PAIRWISE_PREFERENCE_QUERY.value],
                 means=np.array([1]),
                 covariance=np.array([[np.nan]]),
             ),
@@ -168,7 +197,7 @@ class PairwiseModelBridgeTest(TestCase):
             ),
         ]
         parameters = ["X1", "X2"]
-        outcomes = [checked_cast(str, Keys.PAIRWISE_PREFERENCE_QUERY)]
+        outcomes = [checked_cast(str, Keys.PAIRWISE_PREFERENCE_QUERY.value)]
 
         datasets, _, candidate_metadata = pmb._convert_observations(
             observation_data=observation_data,

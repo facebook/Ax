@@ -16,13 +16,15 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
 from ax.modelbridge.torch import TorchModelBridge
+from ax.utils.common.constants import Keys
 from botorch.models.utils.assorted import consolidate_duplicates
-from botorch.utils.containers import SliceContainer
+from botorch.utils.containers import DenseContainer, SliceContainer
 from botorch.utils.datasets import RankingDataset, SupervisedDataset
 from torch import Tensor
 
 
 class PairwiseModelBridge(TorchModelBridge):
+
     def _convert_observations(
         self,
         observation_data: List[ObservationData],
@@ -57,22 +59,19 @@ class PairwiseModelBridge(TorchModelBridge):
         for outcome in outcomes:
             X = torch.stack(Xs[outcome], dim=0)
             Y = torch.tensor(Ys[outcome], dtype=torch.long).unsqueeze(-1)
-
-            # Update Xs and Ys shapes for PairwiseGP
-            Y = _binary_pref_to_comp_pair(Y=Y)
-            X, Y = _consolidate_comparisons(X=X, Y=Y)
-
-            datapoints, comparisons = X, Y.long()
-            event_shape = torch.Size([2 * datapoints.shape[-1]])
-            # pyre-fixme[6]: For 2nd param expected `LongTensor` but got `Tensor`.
-            dataset_X = SliceContainer(datapoints, comparisons, event_shape=event_shape)
-            dataset_Y = torch.tensor([[0, 1]]).expand(comparisons.shape)
-            dataset = RankingDataset(
-                X=dataset_X,
-                Y=dataset_Y,
-                feature_names=parameters,
-                outcome_names=[outcome],
-            )
+            if outcome == Keys.PAIRWISE_PREFERENCE_QUERY:
+                dataset = _prep_pairwise_data(
+                    X=X, Y=Y, outcome=outcome, parameters=parameters
+                )
+            else:
+                event_shape = torch.Size([X.shape[-1]])
+                dataset_X = DenseContainer(X, event_shape=event_shape)
+                dataset = SupervisedDataset(
+                    X=dataset_X,
+                    Y=Y,
+                    feature_names=parameters,
+                    outcome_names=[outcome],
+                )
 
             datasets.append(dataset)
             candidate_metadata.append(candidate_metadata_dict[outcome])
@@ -81,6 +80,36 @@ class PairwiseModelBridge(TorchModelBridge):
             return datasets, outcomes, None
 
         return datasets, outcomes, candidate_metadata
+
+    def _predict(
+        self, observation_features: List[ObservationFeatures]
+    ) -> List[ObservationData]:
+        raise NotImplementedError
+
+
+def _prep_pairwise_data(
+    X: Tensor,
+    Y: Tensor,
+    outcome: str,
+    parameters: List[str],
+) -> SupervisedDataset:
+    """Prep data for pairwise modeling."""
+    # Update Xs and Ys shapes for PairwiseGP
+    Y = _binary_pref_to_comp_pair(Y=Y)
+    X, Y = _consolidate_comparisons(X=X, Y=Y)
+
+    datapoints, comparisons = X, Y.long()
+    event_shape = torch.Size([2 * datapoints.shape[-1]])
+    # pyre-fixme[6]: For 2nd param expected `LongTensor` but
+    dataset_X = SliceContainer(datapoints, comparisons, event_shape=event_shape)
+    dataset_Y = torch.tensor([[0, 1]]).expand(comparisons.shape)
+    dataset = RankingDataset(
+        X=dataset_X,
+        Y=dataset_Y,
+        feature_names=parameters,
+        outcome_names=[outcome],
+    )
+    return dataset
 
 
 def _binary_pref_to_comp_pair(Y: Tensor) -> Tensor:
