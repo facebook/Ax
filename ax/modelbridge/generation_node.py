@@ -143,7 +143,10 @@ class GenerationNode(SerializationMixin, SortableBase):
         """Returns the name of the model that will be used for gen, if there is one.
         Otherwise, returns None.
         """
-        return self.model_spec_to_gen_from.model_key
+        if self._model_spec_to_gen_from is not None:
+            return self._model_spec_to_gen_from.model_key
+        else:
+            return None
 
     @property
     def generation_strategy(self) -> modelbridge.generation_strategy.GenerationStrategy:
