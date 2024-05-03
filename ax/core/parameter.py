@@ -25,7 +25,8 @@ from pyre_extensions import assert_is_instance
 # and allows for serializing at rather low numerical precision.
 # TODO: Do a more comprehensive audit of how floating point precision issues
 # may creep up and implement a more principled fix
-EPS = 1.5e-7
+EPS = 1e-4
+MIN_WIDTH = 1.5e-5
 MAX_VALUES_CHOICE_PARAM = 1000
 FIXED_CHOICE_PARAM_ERROR = (
     "ChoiceParameters require multiple feasible values. "
@@ -306,7 +307,7 @@ class RangeParameter(Parameter):
                 f"Got: ({lower}, {upper})."
             )
         width: float = upper - lower
-        if width < 100 * EPS:
+        if width < MIN_WIDTH:
             raise UserInputError(
                 f"Parameter range ({width}) is very small and likely "
                 "to cause numerical errors. Consider reparameterizing your "
