@@ -53,7 +53,7 @@ from ax import ParameterConstraint
 param_a = RangeParameter(name="a", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0)
 param_b = RangeParameter(name="b", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0)
 
-# 1.0 * a + 0.5 * b <= 1.0
+# 1.0*a + 0.5*b <= 1.0
 con_1 = ParameterConstraint(constraint_dict={"a": 1.0, "b": 0.5}, bound=1.0)
 ```
 
