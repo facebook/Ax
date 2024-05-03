@@ -161,10 +161,8 @@ def _suggest_gp_model(
     parameter and the number of parameters needed to encode all unordered parameters
     is less than ``MAX_ONE_HOT_ENCODINGS_CONTINUOUS_OPTIMIZATION``, we use BO with
     continuous relaxation.
-    * If ``optimization_config`` has multiple objectives, we use ``MOO`` if
-    ``use_saasbo is False`` and ``FULLYBAYESIANMOO`` otherwise.
-    * Otherwise, we use ``GPEI`` if ``use_saasbo is False`` and ``FULLYBAYESIAN``
-    otherwise.
+    * For BO, we use Modular BoTorch Model with ``SingleTaskGP`` if ``use_saasbo is
+    False`` and with ``SaasFullyBayesianSingleTaskGP`` (aka SAASBO) otherwise.
     """
     # Count tunable parameter types.
     num_ordered_parameters = 0
@@ -490,7 +488,7 @@ def choose_generation_strategy(
         )
         steps = []
         # `verbose` and `disable_progbar` defaults and overrides
-        model_is_saasbo = is_saasbo(suggested_model)
+        model_is_saasbo = suggested_model is Models.SAASBO
         if verbose is None and model_is_saasbo:
             verbose = True
         elif verbose is not None and not model_is_saasbo:
@@ -589,7 +587,3 @@ def _get_winsorization_transform_config(
     if winsorization_config:
         return {"winsorization_config": winsorization_config}
     return {"derelativize_with_raw_status_quo": derelativize_with_raw_status_quo}
-
-
-def is_saasbo(model: ModelRegistryBase) -> bool:
-    return model.name in ["SAASBO", "FULLYBAYESIAN", "FULLYBAYESIANMOO"]
