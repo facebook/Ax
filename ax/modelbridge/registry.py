@@ -70,10 +70,6 @@ from ax.models.torch.botorch_modular.model import (
 )
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.cbo_sac import SACBO
-from ax.models.torch.fully_bayesian import (
-    FullyBayesianBotorchModel,
-    FullyBayesianMOOBotorchModel,
-)
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
     get_function_argument_names,
@@ -252,18 +248,6 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
         },
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
-    "FullyBayesian": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=FullyBayesianBotorchModel,
-        transforms=Cont_X_trans + Y_trans,
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
-    ),
-    "FullyBayesianMOO": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=FullyBayesianMOOBotorchModel,
-        transforms=Cont_X_trans + Y_trans,
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
-    ),
     "SAAS_MTGP": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=ModularBoTorchModel,
@@ -275,18 +259,6 @@ MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
                 )
             },
         },
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
-    ),
-    "FullyBayesian_MTGP": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=FullyBayesianBotorchModel,
-        transforms=ST_MTGP_trans,
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
-    ),
-    "FullyBayesianMOO_MTGP": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=FullyBayesianMOOBotorchModel,
-        transforms=ST_MTGP_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
     "ST_MTGP_NEHVI": ModelSetup(
@@ -463,11 +435,7 @@ class Models(ModelRegistryBase):
     GPEI = "GPEI"
     FACTORIAL = "Factorial"
     SAASBO = "SAASBO"
-    FULLYBAYESIAN = "FullyBayesian"
-    FULLYBAYESIANMOO = "FullyBayesianMOO"
     SAAS_MTGP = "SAAS_MTGP"
-    FULLYBAYESIAN_MTGP = "FullyBayesian_MTGP"
-    FULLYBAYESIANMOO_MTGP = "FullyBayesianMOO_MTGP"
     THOMPSON = "Thompson"
     LEGACY_BOTORCH = "GPEI"
     BOTORCH_MODULAR = "BoTorch"
@@ -493,6 +461,44 @@ class Models(ModelRegistryBase):
             stacklevel=2,
         )
         return cls.LEGACY_BOTORCH
+
+    @classmethod
+    @property
+    def FULLYBAYESIAN(cls) -> Models:
+        return _deprecated_model_with_warning(
+            old_model_str="FULLYBAYESIAN", new_model=cls.SAASBO
+        )
+
+    @classmethod
+    @property
+    def FULLYBAYESIANMOO(cls) -> Models:
+        return _deprecated_model_with_warning(
+            old_model_str="FULLYBAYESIANMOO", new_model=cls.SAASBO
+        )
+
+    @classmethod
+    @property
+    def FULLYBAYESIAN_MTGP(cls) -> Models:
+        return _deprecated_model_with_warning(
+            old_model_str="FULLYBAYESIAN_MTGP", new_model=cls.SAAS_MTGP
+        )
+
+    @classmethod
+    @property
+    def FULLYBAYESIANMOO_MTGP(cls) -> Models:
+        return _deprecated_model_with_warning(
+            old_model_str="FULLYBAYESIANMOO_MTGP", new_model=cls.SAAS_MTGP
+        )
+
+
+def _deprecated_model_with_warning(old_model_str: str, new_model: Models) -> Models:
+    warnings.warn(
+        f"{old_model_str} is deprecated and replaced by {new_model}. "
+        f"Please use {new_model}. This will become an error in a future release.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    return new_model
 
 
 def get_model_from_generator_run(
