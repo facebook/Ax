@@ -13,6 +13,7 @@ from ax.core.parameter import (
     ChoiceParameter,
     EPS,
     FixedParameter,
+    MIN_WIDTH,
     ParameterType,
     RangeParameter,
 )
@@ -108,7 +109,7 @@ class RangeParameterTest(TestCase):
             UserInputError,
             "likely to cause numerical errors. Consider reparameterizing",
         ):
-            RangeParameter("x", ParameterType.FLOAT, EPS, 2 * EPS)
+            RangeParameter("x", ParameterType.FLOAT, EPS, EPS + MIN_WIDTH / 2)
 
     def test_BadSetter(self) -> None:
         with self.assertRaises(ValueError):
