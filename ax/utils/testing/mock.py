@@ -10,7 +10,6 @@ from functools import wraps
 from typing import Any, Callable, Dict, Generator, Optional
 from unittest import mock
 
-from ax.models.torch.fully_bayesian import run_inference
 from botorch.fit import fit_fully_bayesian_model_nuts
 from botorch.generation.gen import minimize_with_timeout
 from botorch.optim.initializers import (
@@ -54,9 +53,6 @@ def fast_botorch_optimize_context_manager(
 
         return gen_one_shot_kg_initial_conditions(*args, **kwargs)
 
-    def minimal_run_inference(*args: Any, **kwargs: Any) -> Dict[str, Tensor]:
-        return run_inference(*args, **_get_minimal_mcmc_kwargs(**kwargs))
-
     def minimal_fit_fully_bayesian(*args: Any, **kwargs: Any) -> None:
         fit_fully_bayesian_model_nuts(*args, **_get_minimal_mcmc_kwargs(**kwargs))
 
@@ -89,13 +85,6 @@ def fast_botorch_optimize_context_manager(
             )
         )
 
-        mock_mcmc_legacy = es.enter_context(
-            mock.patch(
-                "ax.models.torch.fully_bayesian.run_inference",
-                wraps=minimal_run_inference,
-            )
-        )
-
         mock_mcmc_mbm = es.enter_context(
             mock.patch(
                 "ax.models.torch.botorch_modular.utils.fit_fully_bayesian_model_nuts",
@@ -112,7 +101,6 @@ def fast_botorch_optimize_context_manager(
             mock_fit,
             mock_gen_ics,
             mock_gen_os_ics,
-            mock_mcmc_legacy,
             mock_mcmc_mbm,
         ]
     ):
