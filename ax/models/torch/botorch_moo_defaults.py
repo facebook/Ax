@@ -80,10 +80,6 @@ TFrontierEvaluator = Callable[
 ]
 
 
-def get_default_frontier_evaluator() -> TFrontierEvaluator:
-    return pareto_frontier_evaluator
-
-
 def get_weighted_mc_objective_and_objective_thresholds(
     objective_weights: Tensor, objective_thresholds: Tensor
 ) -> Tuple[WeightedMCMultiOutputObjective, Tensor]:
