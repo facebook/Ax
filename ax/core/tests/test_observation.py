@@ -274,6 +274,7 @@ class ObservationsTest(TestCase):
         }
         type(experiment).arms_by_name = PropertyMock(return_value=arms)
         type(experiment).trials = PropertyMock(return_value=trials)
+        type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
 
         df = pd.DataFrame(truth)[
             ["arm_name", "trial_index", "mean", "sem", "metric_name"]
@@ -362,6 +363,7 @@ class ObservationsTest(TestCase):
         }
         type(experiment).arms_by_name = PropertyMock(return_value=arms)
         type(experiment).trials = PropertyMock(return_value=trials)
+        type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
 
         df = pd.DataFrame(list(truth.values()))[
             ["arm_name", "trial_index", "mean", "sem", "metric_name", "fidelities"]
@@ -443,6 +445,7 @@ class ObservationsTest(TestCase):
         }
         type(experiment).arms_by_name = PropertyMock(return_value=arms)
         type(experiment).trials = PropertyMock(return_value=trials)
+        type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
 
         df = pd.DataFrame(list(truth.values()))[
             ["arm_name", "trial_index", "mean", "sem", "metric_name", "z", "timestamp"]
@@ -559,6 +562,7 @@ class ObservationsTest(TestCase):
         trials.get(2).mark_arm_abandoned(arm_name="2_1")
         type(experiment).arms_by_name = PropertyMock(return_value=arms)
         type(experiment).trials = PropertyMock(return_value=trials)
+        type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
 
         df = pd.DataFrame(list(truth.values()))[
             ["arm_name", "trial_index", "mean", "sem", "metric_name"]
@@ -635,6 +639,7 @@ class ObservationsTest(TestCase):
         }
         type(experiment).arms_by_name = PropertyMock(return_value=arms)
         type(experiment).trials = PropertyMock(return_value=trials)
+        type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
 
         df = pd.DataFrame(truth)[
             ["arm_name", "trial_index", "mean", "sem", "metric_name", "start_time"]
@@ -719,7 +724,7 @@ class ObservationsTest(TestCase):
         }
         type(experiment).arms_by_name = PropertyMock(return_value=arms_by_name)
         type(experiment).trials = PropertyMock(return_value=trials)
-
+        type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
         df = pd.DataFrame(truth)[
             [
                 "arm_name",
@@ -856,6 +861,7 @@ class ObservationsTest(TestCase):
         }
         type(experiment).arms_by_name = PropertyMock(return_value=arms)
         type(experiment).trials = PropertyMock(return_value=trials)
+        type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
 
         df = pd.DataFrame(truth)[
             ["arm_name", "trial_index", "mean", "sem", "metric_name"]
