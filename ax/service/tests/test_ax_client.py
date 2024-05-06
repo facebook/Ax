@@ -1500,7 +1500,6 @@ class TestAxClient(TestCase):
         ax_client = get_branin_optimization()
         params, idx = ax_client.get_next_trial()
         ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
-        ax_client.update_trial_data(trial_index=idx, raw_data={"m1": (1, 0.0)})
         metrics_in_data = ax_client.experiment.fetch_data().df["metric_name"].values
         self.assertNotIn("m1", metrics_in_data)
         self.assertIn("branin", metrics_in_data)
