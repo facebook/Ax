@@ -32,7 +32,7 @@ class ALEBOStrategyTest(TestCase):
             pd.DataFrame(
                 {
                     "arm_name": ["0_0", "0_1", "0_2"],
-                    "metric_name": "y",
+                    "metric_name": "branin",
                     "mean": [-1.0, 0.0, 1.0],
                     "sem": 0.1,
                 }

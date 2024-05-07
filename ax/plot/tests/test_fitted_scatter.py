@@ -14,7 +14,7 @@ from ax.modelbridge.registry import Models
 from ax.plot.base import AxPlotConfig
 from ax.plot.scatter import interact_fitted, interact_fitted_plotly
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_branin_experiment
+from ax.utils.testing.core_stubs import get_branin_experiment, get_branin_metric
 from ax.utils.testing.mock import fast_botorch_optimize
 
 
@@ -27,6 +27,7 @@ class FittedScatterTest(TestCase):
         data = exp.fetch_data()
         df = deepcopy(data.df)
         df["metric_name"] = "branin_dup"
+        exp.add_tracking_metric(get_branin_metric(name="branin_dup"))
 
         model = Models.BOTORCH_MODULAR(
             # Model bridge kwargs
@@ -47,11 +48,12 @@ class FittedScatterTest(TestCase):
         self.assertIsInstance(plot, AxPlotConfig)
 
         # Make sure all parameters and metrics are displayed in tooltips
-        tooltips = list(exp.parameters.keys()) + list(exp.metrics.keys())
-        for d in plot.data["data"]:
+        metric_names = ["branin", "branin_dup", "branin:agg"]
+        tooltips = [list(exp.parameters.keys()) + [m_name] for m_name in metric_names]
+        for idata, d in enumerate(plot.data["data"]):
             # Only check scatter plots hoverovers
             if d["type"] != "scatter":
                 continue
             for text in d["text"]:
-                for tt in tooltips:
+                for tt in tooltips[idata]:
                     self.assertTrue(tt in text)

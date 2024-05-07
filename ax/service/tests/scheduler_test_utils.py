@@ -81,6 +81,7 @@ from pyre_extensions import none_throws
 from sqlalchemy.orm.exc import StaleDataError
 
 DUMMY_EXCEPTION = "test_exception"
+TEST_MEAN = 1.0
 
 
 class SyntheticRunnerWithStatusPolling(SyntheticRunner):
@@ -2147,28 +2148,26 @@ class AxSchedulerTestCase(TestCase):
                 df=pd.DataFrame(
                     {
                         "arm_name": ["0_0"],
-                        "metric_name": ["foo"],
-                        "mean": [1.0],
+                        "metric_name": ["branin"],
+                        "mean": [TEST_MEAN],
                         "sem": [0.1],
                         "trial_index": [0],
                     }
                 )
             )
         )
-        attached_metrics = (
-            self.branin_experiment.lookup_data().df["metric_name"].unique()
-        )
+
+        attached_means = self.branin_experiment.lookup_data().df["mean"].unique()
         # the attach has overwritten the data, so we can infer that
         # fetching happened in the next `run_n_trials()`
-        self.assertNotIn("branin", attached_metrics)
+        self.assertIn(TEST_MEAN, attached_means)
+        self.assertEqual(len(attached_means), 1)
 
         scheduler.run_n_trials(max_trials=1)
-        attached_metrics = (
-            self.branin_experiment.lookup_data().df["metric_name"].unique()
-        )
-        # it did fetch again, but kept "foo" because of the combine kwarg
-        self.assertIn("foo", attached_metrics)
-        self.assertIn("branin", attached_metrics)
+        attached_means = self.branin_experiment.lookup_data().df["mean"].unique()
+        # it did fetch again, but kept both rows because of the combine kwarg
+        self.assertIn(TEST_MEAN, attached_means)
+        self.assertEqual(len(attached_means), 2)
 
     @fast_botorch_optimize
     def test_it_works_with_multitask_models(
