@@ -5,11 +5,12 @@
 
 # pyre-strict
 
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Set, Tuple, Type
 
 import numpy as np
 
 import torch
+from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
@@ -66,6 +67,7 @@ class MapTorchModelBridge(TorchModelBridge):
         optimization_config: Optional[OptimizationConfig] = None,
         fit_out_of_design: bool = False,
         fit_on_init: bool = True,
+        fit_abandoned: bool = False,
         default_model_gen_options: Optional[TConfig] = None,
         map_data_limit_rows_per_metric: Optional[int] = None,
         map_data_limit_rows_per_group: Optional[int] = None,
@@ -101,6 +103,9 @@ class MapTorchModelBridge(TorchModelBridge):
                 To fit the model afterwards, use `_process_and_transform_data`
                 to get the transformed inputs and call `_fit_if_implemented` with
                 the transformed inputs.
+            fit_abandoned: Whether data for abandoned arms or trials should be
+                included in model training data. If ``False``, only
+                non-abandoned points are returned.
             default_model_gen_options: Options passed down to `model.gen(...)`.
             map_data_limit_rows_per_metric: Subsample the map data so that the
                 total number of rows per metric is limited by this value.
@@ -134,6 +139,10 @@ class MapTorchModelBridge(TorchModelBridge):
             fit_on_init=fit_on_init,
             default_model_gen_options=default_model_gen_options,
         )
+
+    @property
+    def statuses_to_fit_map_metric(self) -> Set[TrialStatus]:
+        return self.statuses_to_fit
 
     @property
     def parameters_with_map_keys(self) -> List[str]:
@@ -239,9 +248,10 @@ class MapTorchModelBridge(TorchModelBridge):
             experiment=experiment,
             map_data=data,  # pyre-ignore[6]: Checked in __init__.
             map_keys_as_parameters=True,
-            include_abandoned=self._fit_abandoned,
             limit_rows_per_metric=self._map_data_limit_rows_per_metric,
             limit_rows_per_group=self._map_data_limit_rows_per_group,
+            statuses_to_include=self.statuses_to_fit,
+            statuses_to_include_map_metric=self.statuses_to_fit_map_metric,
         )
 
     def _compute_in_design(
