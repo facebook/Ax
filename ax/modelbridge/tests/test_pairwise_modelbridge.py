@@ -52,8 +52,8 @@ class PairwiseModelBridgeTest(TestCase):
             arm2_sum = float(sum(arm2_outcome_values))
             is_arm1_preferred = int(arm1_sum - arm2_sum > 0)
             return {
-                arm1: {Keys.PAIRWISE_PREFERENCE_QUERY: is_arm1_preferred},
-                arm2: {Keys.PAIRWISE_PREFERENCE_QUERY: 1 - is_arm1_preferred},
+                arm1: {Keys.PAIRWISE_PREFERENCE_QUERY.value: is_arm1_preferred},
+                arm2: {Keys.PAIRWISE_PREFERENCE_QUERY.value: 1 - is_arm1_preferred},
             }
 
         experiment = InstantiationBase.make_experiment(
@@ -70,7 +70,7 @@ class PairwiseModelBridgeTest(TestCase):
                     "bounds": [0.0, 0.7],
                 },
             ],
-            objectives={Keys.PAIRWISE_PREFERENCE_QUERY: "minimize"},
+            objectives={Keys.PAIRWISE_PREFERENCE_QUERY.value: "minimize"},
             is_test=True,
         )
 
@@ -145,12 +145,12 @@ class PairwiseModelBridgeTest(TestCase):
 
         observation_data = [
             ObservationData(
-                metric_names=[Keys.PAIRWISE_PREFERENCE_QUERY],
+                metric_names=[Keys.PAIRWISE_PREFERENCE_QUERY.value],
                 means=np.array([0]),
                 covariance=np.array([[np.nan]]),
             ),
             ObservationData(
-                metric_names=[Keys.PAIRWISE_PREFERENCE_QUERY],
+                metric_names=[Keys.PAIRWISE_PREFERENCE_QUERY.value],
                 means=np.array([1]),
                 covariance=np.array([[np.nan]]),
             ),
@@ -168,7 +168,7 @@ class PairwiseModelBridgeTest(TestCase):
             ),
         ]
         parameters = ["X1", "X2"]
-        outcomes = [checked_cast(str, Keys.PAIRWISE_PREFERENCE_QUERY)]
+        outcomes = [checked_cast(str, Keys.PAIRWISE_PREFERENCE_QUERY.value)]
 
         datasets, _, candidate_metadata = pmb._convert_observations(
             observation_data=observation_data,
