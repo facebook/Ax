@@ -183,6 +183,51 @@ class FrontierEvaluatorTest(TestCase):
         )
         self.assertTrue(torch.equal(torch.tensor([2], dtype=torch.long), indx))
 
+    def test_pareto_frontier_evaluator_with_nan(self) -> None:
+        Y = torch.cat([self.Y, torch.zeros(5, 1)], dim=-1)
+        Yvar = torch.zeros(5, 4, 4)
+        weights = torch.tensor([1.0, 1.0, 0.0, 0.0])
+        outcome_constraints = (
+            torch.tensor([[0.0, 0.0, 1.0, 0.0]]),
+            torch.tensor([[3.5]]),
+        )
+        # Evaluate without NaNs as a baseline.
+        _, _, idx = pareto_frontier_evaluator(
+            model=None, objective_weights=weights, Y=Y, Yvar=Yvar
+        )
+        self.assertEqual(idx.tolist(), [2, 3, 4])
+        # Set an element of idx 2 to NaN. Should be removed.
+        Y[2, 1] = float("nan")
+        _, _, idx = pareto_frontier_evaluator(
+            model=None, objective_weights=weights, Y=Y, Yvar=Yvar
+        )
+        self.assertEqual(idx.tolist(), [3, 4])
+        # Set the unused constraint element of idx 3 to NaN. No effect.
+        Y[3, 2] = float("nan")
+        _, _, idx = pareto_frontier_evaluator(
+            model=None, objective_weights=weights, Y=Y, Yvar=Yvar
+        )
+        self.assertEqual(idx.tolist(), [3, 4])
+        # Add constraint, 3 should be removed.
+        _, _, idx = pareto_frontier_evaluator(
+            model=None,
+            objective_weights=weights,
+            Y=Y,
+            Yvar=Yvar,
+            outcome_constraints=outcome_constraints,
+        )
+        self.assertEqual(idx.tolist(), [4])
+        # Set unused index of 4 to NaN. No effect.
+        Y[4, 3] = float("nan")
+        _, _, idx = pareto_frontier_evaluator(
+            model=None,
+            objective_weights=weights,
+            Y=Y,
+            Yvar=Yvar,
+            outcome_constraints=outcome_constraints,
+        )
+        self.assertEqual(idx.tolist(), [4])
+
 
 class BotorchMOODefaultsTest(TestCase):
     def test_get_qLogEHVI_input_validation_errors(self) -> None:
