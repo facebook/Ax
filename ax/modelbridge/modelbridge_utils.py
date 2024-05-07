@@ -201,7 +201,7 @@ def extract_search_space_digest(
     assumptions regarding the parameters being transformed.
 
     For ChoiceParameters:
-    * The choices are assumed to be numerical. ChoiceEncode
+    * The choices are assumed to be numerical. ChoiceToNumericChoice
     and OrderedChoiceToIntegerRange
     transforms handle this.
     * If is_task, its index is added to task_features.

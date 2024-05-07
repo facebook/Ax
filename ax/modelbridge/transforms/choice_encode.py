@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from ax import modelbridge as modelbridge_module  # noqa F401
 
 
-class ChoiceEncode(Transform):
+class ChoiceToNumericChoice(Transform):
     """Convert general ChoiceParameters to integer or float ChoiceParameters.
 
     If the parameter type is numeric (int, float) and the parameter is ordered,
@@ -56,7 +56,7 @@ class ChoiceEncode(Transform):
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
-        assert search_space is not None, "ChoiceEncode requires search space"
+        assert search_space is not None, "ChoiceToNumericChoice requires search space"
         # Identify parameters that should be transformed
         self.encoded_parameters: Dict[str, Dict[TParamValue, TParamValue]] = {}
         self.encoded_parameters_inverse: Dict[str, ClosestLookupDict] = {}
@@ -123,7 +123,14 @@ class ChoiceEncode(Transform):
         return observation_features
 
 
-class OrderedChoiceToIntegerRange(ChoiceEncode):
+class ChoiceEncode(DeprecatedTransformMixin, ChoiceToNumericChoice):
+    """Deprecated alias for ChoiceToNumericChoice."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class OrderedChoiceToIntegerRange(ChoiceToNumericChoice):
     """Convert ordered ChoiceParameters to integer RangeParameters.
 
     Parameters will be transformed to an integer RangeParameters, mapped from the
@@ -133,7 +140,7 @@ class OrderedChoiceToIntegerRange(ChoiceEncode):
     In the inverse transform, parameters will be mapped back onto the original domain.
 
     In order to encode all ChoiceParameters (not just ordered ChoiceParameters),
-    use ChoiceEncode instead.
+    use ChoiceToNumericChoice instead.
 
     Transform is done in-place.
     """
