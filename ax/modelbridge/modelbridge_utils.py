@@ -9,10 +9,8 @@
 from __future__ import annotations
 
 import warnings
-
 from copy import deepcopy
 from functools import partial
-
 from logging import Logger
 from typing import (
     Any,
@@ -55,7 +53,6 @@ from ax.core.search_space import (
     SearchSpaceDigest,
 )
 from ax.core.types import TBounds, TCandidateMetadata
-
 from ax.core.utils import (  # noqa F402: Temporary import for backward compatibility.
     get_pending_observation_features,  # noqa F401
     get_pending_observation_features_based_on_trial_status,  # noqa F401
@@ -1198,29 +1195,34 @@ def observation_data_to_array(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Convert a list of Observation data to arrays.
 
+    Any missing mean or covariance values will be returned as NaNs.
+
     Args:
-        observation_data: A list of n ObservationData
+        outcomes: A list of `m` outcomes to extract observation data for.
+        observation_data: A list of `n` ``ObservationData`` objects.
 
     Returns:
-        An array of n ObservationData, each containing
-            - f: An (n x m) array
-            - cov: An (n x m x m) array
+        - means: An (n x m) array of mean observations.
+        - cov: An (n x m x m) array of covariance observations.
     """
     means = []
     cov = []
-    for obsd in observation_data:
-        try:
-            metric_idxs = np.array([obsd.metric_names.index(m) for m in outcomes])
-        except ValueError:
-            missing = set(outcomes).difference(set(obsd.metric_names))
-            logger.warning(
-                f"{obsd} is missing the metrics {missing}. Ignoring the data "
-                "for the remaining metrics."
-            )
-            continue
-        means.append(obsd.means[metric_idxs])
-        cov.append(obsd.covariance[metric_idxs][:, metric_idxs])
-    return np.array(means), np.array(cov)
+    # Initialize arrays with all NaN values.
+    means = np.full((len(observation_data), len(outcomes)), np.nan)
+    cov = np.full((len(observation_data), len(outcomes), len(outcomes)), np.nan)
+    # Iterate over observations and extract the relevant data.
+    for i, obsd in enumerate(observation_data):
+        # Indices of outcomes that are observed.
+        outcome_idx = [j for j, o in enumerate(outcomes) if o in obsd.metric_names]
+        # Corresponding indices in the observation data.
+        observation_idx = [obsd.metric_names.index(outcomes[j]) for j in outcome_idx]
+        means[i, outcome_idx] = obsd.means[observation_idx]
+        # We can't use advanced indexing over two dimensions jointly for assignment,
+        # so this has to be done in two steps.
+        cov_pick = np.full((len(outcome_idx), len(outcomes)), np.nan)
+        cov_pick[:, outcome_idx] = obsd.covariance[observation_idx][:, observation_idx]
+        cov[i, outcome_idx] = cov_pick
+    return means, cov
 
 
 def observation_features_to_array(
