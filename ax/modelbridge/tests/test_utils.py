@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from unittest import mock
 from unittest.mock import patch
 
 import numpy as np
@@ -219,15 +218,25 @@ class TestModelbridgeUtils(TestCase):
             means=np.array([1, 2]),
             covariance=np.array([[1, 2], [4, 5]]),
         )
-        with mock.patch("ax.modelbridge.modelbridge_utils.logger.warning") as mock_warn:
-            Y, Ycov = observation_data_to_array(
-                outcomes=outcomes, observation_data=[obsd, obsd2]
-            )
-        self.assertTrue(np.array_equal(Y, np.array([[2, 3, 1]])))
-        self.assertTrue(
-            np.array_equal(Ycov, np.array([[[5, 6, 4], [8, 9, 7], [2, 3, 1]]]))
+        Y, Ycov = observation_data_to_array(
+            outcomes=outcomes, observation_data=[obsd, obsd2]
         )
-        mock_warn.assert_called_once()
+        nan = float("nan")
+        self.assertTrue(
+            np.array_equal(Y, np.array([[2, 3, 1], [2, nan, 1]]), equal_nan=True)
+        )
+        self.assertTrue(
+            np.array_equal(
+                Ycov,
+                np.array(
+                    [
+                        [[5, 6, 4], [8, 9, 7], [2, 3, 1]],
+                        [[5, nan, 4], [nan, nan, nan], [2, nan, 1]],
+                    ]
+                ),
+                equal_nan=True,
+            )
+        )
 
     def test_feasible_hypervolume(self) -> None:
         ma = Metric(name="a", lower_is_better=False)
