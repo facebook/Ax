@@ -17,7 +17,9 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData, MapKeyInfo
+from ax.core.map_metric import MapMetric
 from ax.core.observation import (
+    _filter_data_on_status,
     Observation,
     ObservationData,
     ObservationFeatures,
@@ -274,15 +276,34 @@ class ObservationsTest(TestCase):
         }
         type(experiment).arms_by_name = PropertyMock(return_value=arms)
         type(experiment).trials = PropertyMock(return_value=trials)
-        type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
 
         df = pd.DataFrame(truth)[
             ["arm_name", "trial_index", "mean", "sem", "metric_name"]
         ]
         data = Data(df=df)
-        observations = observations_from_data(experiment, data)
 
+        with self.assertRaisesRegex(ValueError, "`metric_name` column is missing"):
+            observations = _filter_data_on_status(
+                df=df.drop(columns="metric_name"),
+                experiment=experiment,
+                trial_status=None,
+                is_arm_abandoned=False,
+                statuses_to_include=set(),
+                statuses_to_include_map_metric=set(),
+            )
+        type(experiment).metrics = PropertyMock(return_value={"a": "a"})
+        observations = observations_from_data(experiment, data)
         self.assertEqual(len(observations), 2)
+        # Data is filtered only to metrics attached to the experiment.
+        for obs in observations:
+            self.assertListEqual(obs.data.metric_names, ["a"])
+
+        type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
+        observations = observations_from_data(experiment, data)
+        self.assertEqual(len(observations), 2)
+        self.assertListEqual(observations[0].data.metric_names, ["a", "b"])
+        self.assertListEqual(observations[1].data.metric_names, ["a"])
+
         # Get them in the order we want for tests below
         if observations[0].features.parameters["x"] == 1:
             observations.reverse()
@@ -474,8 +495,8 @@ class ObservationsTest(TestCase):
             self.assertEqual(obs.features.metadata, {"timestamp": t["timestamp"]})
 
     def test_ObservationsFromDataAbandoned(self) -> None:
-        truth = {
-            0.5: {
+        truth = [
+            {
                 "arm_name": "0_0",
                 "parameters": {"x": 0, "y": "a", "z": 1},
                 "mean": 2.0,
@@ -488,7 +509,20 @@ class ObservationsTest(TestCase):
                 "z": 0.5,
                 "timestamp": 50,
             },
-            1: {
+            {
+                "arm_name": "1_0",
+                "parameters": {"x": 0, "y": "a", "z": 1},
+                "mean": 4.0,
+                "sem": 4.0,
+                "trial_index": 1,
+                "metric_name": "a",
+                "updated_parameters": {"x": 0, "y": "a", "z": 1},
+                "mean_t": np.array([4.0]),
+                "covariance_t": np.array([[16.0]]),
+                "z": 1,
+                "timestamp": 100,
+            },
+            {
                 "arm_name": "1_0",
                 "parameters": {"x": 0, "y": "a", "z": 1},
                 "mean": 4.0,
@@ -501,7 +535,7 @@ class ObservationsTest(TestCase):
                 "z": 1,
                 "timestamp": 100,
             },
-            0.25: {
+            {
                 "arm_name": "2_0",
                 "parameters": {"x": 1, "y": "a", "z": 0.5},
                 "mean": 3.0,
@@ -514,7 +548,7 @@ class ObservationsTest(TestCase):
                 "z": 0.25,
                 "timestamp": 25,
             },
-            0.75: {
+            {
                 "arm_name": "2_1",
                 "parameters": {"x": 1, "y": "b", "z": 0.75},
                 "mean": 3.0,
@@ -527,7 +561,7 @@ class ObservationsTest(TestCase):
                 "z": 0.75,
                 "timestamp": 25,
             },
-        }
+        ]
         arms = {
             # pyre-fixme[6]: For 1st param expected `Optional[str]` but got
             #  `Union[Dict[str, Union[float, str]], Dict[str, Union[int, str]], float,
@@ -536,7 +570,7 @@ class ObservationsTest(TestCase):
             #  float, int, str]]` but got `Union[Dict[str, Union[float, str]],
             #  Dict[str, Union[int, str]], float, ndarray, str]`.
             obs["arm_name"]: Arm(name=obs["arm_name"], parameters=obs["parameters"])
-            for _, obs in truth.items()
+            for obs in truth
         }
         experiment = Mock()
         experiment._trial_indices_by_status = {status: set() for status in TrialStatus}
@@ -544,7 +578,7 @@ class ObservationsTest(TestCase):
             obs["trial_index"]: (
                 Trial(experiment, GeneratorRun(arms=[arms[obs["arm_name"]]]))
             )
-            for _, obs in list(truth.items())[:-1]
+            for obs in truth[:-1]
             # pyre-fixme[16]: Item `Dict` of `Union[Dict[str, typing.Union[float,
             #  str]], Dict[str, typing.Union[int, str]], float, ndarray, str]` has no
             #  attribute `startswith`.
@@ -562,9 +596,11 @@ class ObservationsTest(TestCase):
         trials.get(2).mark_arm_abandoned(arm_name="2_1")
         type(experiment).arms_by_name = PropertyMock(return_value=arms)
         type(experiment).trials = PropertyMock(return_value=trials)
-        type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
+        type(experiment).metrics = PropertyMock(
+            return_value={"a": "a", "b": MapMetric(name="b")}
+        )
 
-        df = pd.DataFrame(list(truth.values()))[
+        df = pd.DataFrame(truth)[
             ["arm_name", "trial_index", "mean", "sem", "metric_name"]
         ]
         data = Data(df=df)
@@ -574,10 +610,19 @@ class ObservationsTest(TestCase):
         obs_no_abandoned = observations_from_data(experiment, data)
         self.assertEqual(len(obs_no_abandoned), 2)
 
-        # 1 arm is abandoned and 1 trial is abandoned, so only 2 observations should be
-        # included.
+        # Including all statuses for non-map metrics should yield all rows except those
+        # corresponding to a non-map metric (4 rows).
         obs_with_abandoned = observations_from_data(
-            experiment, data, include_abandoned=True
+            experiment, data, statuses_to_include=set(TrialStatus)
+        )
+        self.assertEqual(len(obs_with_abandoned), 4)
+
+        # Including all statuses for all metrics should yield all rows (5 rows).
+        obs_with_abandoned = observations_from_data(
+            experiment,
+            data,
+            statuses_to_include=set(TrialStatus),
+            statuses_to_include_map_metric=set(TrialStatus),
         )
         self.assertEqual(len(obs_with_abandoned), 4)
 

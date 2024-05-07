@@ -18,6 +18,7 @@ from logging import Logger
 from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, Type
 
 from ax.core.arm import Arm
+from ax.core.base_trial import NON_ABANDONED_STATUSES, TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import extract_arm_predictions, GeneratorRun
@@ -269,7 +270,10 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         if experiment is None or data is None:
             return []
         return observations_from_data(
-            experiment=experiment, data=data, include_abandoned=self._fit_abandoned
+            experiment=experiment,
+            data=data,
+            statuses_to_include=self.statuses_to_fit,
+            statuses_to_include_map_metric=self.statuses_to_fit_map_metric,
         )
 
     def _transform_data(
@@ -494,6 +498,18 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         is in-design for the model.
         """
         return self._training_in_design
+
+    @property
+    def statuses_to_fit(self) -> Set[TrialStatus]:
+        """Statuses to fit the model on."""
+        if self._fit_abandoned:
+            return set(TrialStatus)
+        return NON_ABANDONED_STATUSES
+
+    @property
+    def statuses_to_fit_map_metric(self) -> Set[TrialStatus]:
+        """Statuses to fit the model on."""
+        return {TrialStatus.COMPLETED}
 
     @training_in_design.setter
     def training_in_design(self, training_in_design: List[bool]) -> None:

@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod, abstractproperty
 from copy import deepcopy
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TYPE_CHECKING, Union
 
 from ax.core.arm import Arm
 from ax.core.data import Data
@@ -76,7 +76,8 @@ class TrialStatus(int, Enum):
 
     NOTE: Data for abandoned trials (or abandoned arms in batch trials) is
     not passed to the model as part of training data, unless ``fit_abandoned``
-    option is specified to model bridge.
+    option is specified to model bridge. Additionally, data from MapMetrics is
+    typically excluded unless the corresponding trial is completed.
     """
 
     CANDIDATE = 0
@@ -164,6 +165,8 @@ DEFAULT_STATUSES_TO_WARM_START: List[TrialStatus] = [
     TrialStatus.ABANDONED,
     TrialStatus.EARLY_STOPPED,
 ]
+
+NON_ABANDONED_STATUSES: Set[TrialStatus] = set(TrialStatus) - {TrialStatus.ABANDONED}
 
 
 # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
