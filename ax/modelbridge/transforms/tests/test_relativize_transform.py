@@ -7,7 +7,7 @@
 
 from copy import deepcopy
 from typing import List, Tuple
-from unittest.mock import Mock, patch, PropertyMock
+from unittest.mock import Mock
 
 import numpy as np
 from ax.core import BatchTrial
@@ -159,21 +159,6 @@ class RelativizeDataTest(TestCase):
             observations[0].features.trial_index = 999
             self.assertRaises(ValueError, tf.transform_observations, observations)
 
-            # When observation has missing trial_index and
-            # modelbridge.status_quo_data_by_trial has more than one trial,
-            # raise exception
-            observations[0].features.trial_index = None
-            with patch.object(
-                type(modelbridge), "status_quo_data_by_trial", new_callable=PropertyMock
-            ) as mock_sq_dict:
-                # Making modelbridge.status_quo_data_by_trial contains 2 trials
-                mock_sq_dict.return_value = {0: Mock(), 1: Mock()}
-                with self.assertRaisesRegex(
-                    ValueError,
-                    "Observations contain missing trial index that can't be inferred.",
-                ):
-                    tf.transform_observations(observations)
-
     def test_relativize_transform_observations(self) -> None:
         def _check_transform_observations(
             tf: Transform,
@@ -257,8 +242,18 @@ class RelativizeDataTest(TestCase):
                 observations=observations,
                 expected_mean_and_covar=expected_mean_and_covar,
             )
-            # transform should still work when trial_index is None and
-            # there is only one sq in modelbridge
+            # transform should still work when trial_index is None
+            modelbridge = Mock(
+                status_quo=Mock(
+                    data=obs_data[0], features=obs_features[0], arm_name=arm_names[0]
+                ),
+                status_quo_data_by_trial={0: obs_data[1], 1: obs_data[0]},
+            )
+            tf = relativize_cls(
+                search_space=None,
+                observations=observations,
+                modelbridge=modelbridge,
+            )
             for obs in observations:
                 obs.features.trial_index = None
             _check_transform_observations(
