@@ -12,6 +12,7 @@ from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cap_parameter import CapParameter
 from ax.modelbridge.transforms.choice_encode import (
     ChoiceEncode,
+    ChoiceToNumericChoice,
     OrderedChoiceEncode,
     OrderedChoiceToIntegerRange,
 )
@@ -80,7 +81,8 @@ TRANSFORM_REGISTRY: Dict[Type[Transform], int] = {
     Winsorize: 16,
     CapParameter: 17,
     PowerTransformY: 18,
-    ChoiceEncode: 19,
+    ChoiceEncode: 19,  # TO BE DEPRECATED
+    ChoiceToNumericChoice: 19,
     Logit: 20,
     MapUnitX: 21,
     MetricsAsTask: 22,
@@ -97,7 +99,8 @@ can still store properly, but when loading back the new class will
 be used.
 """
 DEPRECATED_TRANSFORMS: List[Type[Transform]] = [
-    OrderedChoiceEncode  # replaced by OrderedChoiceToIntegerRange
+    OrderedChoiceEncode,  # replaced by OrderedChoiceToIntegerRange
+    ChoiceEncode,  # replaced by ChoiceToNumericChoice
 ]
 
 REVERSE_TRANSFORM_REGISTRY: Dict[int, Type[Transform]] = {

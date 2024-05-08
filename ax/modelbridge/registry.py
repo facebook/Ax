@@ -36,7 +36,7 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.centered_unit_x import CenteredUnitX
 from ax.modelbridge.transforms.choice_encode import (
-    ChoiceEncode,
+    ChoiceToNumericChoice,
     OrderedChoiceToIntegerRange,
 )
 from ax.modelbridge.transforms.convert_metric_names import ConvertMetricNames
@@ -98,7 +98,7 @@ Discrete_X_trans: List[Type[Transform]] = [IntRangeToChoice]
 
 Mixed_transforms: List[Type[Transform]] = [
     RemoveFixed,
-    ChoiceEncode,
+    ChoiceToNumericChoice,
     IntToFloat,
     Log,
     Logit,

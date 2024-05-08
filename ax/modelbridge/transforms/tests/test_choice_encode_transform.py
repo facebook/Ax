@@ -15,7 +15,7 @@ from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.modelbridge.transforms.choice_encode import (
-    ChoiceEncode,
+    ChoiceToNumericChoice,
     OrderedChoiceEncode,
     OrderedChoiceToIntegerRange,
 )
@@ -25,7 +25,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class ChoiceEncodeTransformTest(TestCase):
-    t_class = ChoiceEncode
+    t_class = ChoiceToNumericChoice
 
     def setUp(self) -> None:
         super().setUp()
@@ -126,7 +126,7 @@ class ChoiceEncodeTransformTest(TestCase):
                     tranformed_param.sort_values,
                     original_param.sort_values,
                 )
-                if self.t_class == ChoiceEncode:
+                if self.t_class == ChoiceToNumericChoice:
                     self.assertEqual(
                         tranformed_param.values,
                         [i for i, _ in enumerate(original_param.values)],
