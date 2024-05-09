@@ -42,6 +42,7 @@ from ax.modelbridge.registry import (
 )
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transition_criterion import (
+    AutoTransitionAfterGenCriterion,
     MaxGenerationParallelism,
     MaxTrials,
     MinTrials,
@@ -147,6 +148,14 @@ class TestGenerationStrategy(TestCase):
                 block_gen_if_met=True,
                 only_in_statuses=None,
                 not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
+            )
+        ]
+        self.single_running_trial_criterion = [
+            MaxTrials(
+                threshold=1,
+                transition_to="gpei",
+                block_transition_if_unmet=True,
+                only_in_statuses=[TrialStatus.RUNNING],
             )
         ]
         self.sobol_model_spec = ModelSpec(
@@ -1387,6 +1396,110 @@ class TestGenerationStrategy(TestCase):
             ]
         )
         self.assertEqual(gs1, gs2)
+
+    def test_node_gs_with_auto_transitions(self) -> None:
+        """Test that node-based generation strategies which leverage
+        AutoTransitionAfterGen criterion correctly transition and create trials.
+        """
+        gs = GenerationStrategy(
+            nodes=[
+                # first node should be our exploration node and only grs from this node
+                # should be on the first trial
+                GenerationNode(
+                    node_name="sobol",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=self.single_running_trial_criterion,
+                ),
+                # node 2,3,4 will be out iteration nodes, and grs from all 3 nodes
+                # should be used to make the subsequent trials
+                GenerationNode(
+                    node_name="gpei",
+                    model_specs=[self.gpei_model_spec],
+                    transition_criteria=[
+                        AutoTransitionAfterGenCriterion(transition_to="sobol_2")
+                    ],
+                ),
+                GenerationNode(
+                    node_name="sobol_2",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=[
+                        AutoTransitionAfterGenCriterion(transition_to="gpei_2")
+                    ],
+                ),
+                GenerationNode(
+                    node_name="gpei_2",
+                    model_specs=[self.gpei_model_spec],
+                    transition_criteria=[
+                        AutoTransitionAfterGenCriterion(transition_to="gpei")
+                    ],
+                ),
+            ],
+        )
+        exp = get_branin_experiment()
+
+        self.assertEqual(gs.current_node_name, "sobol")
+        exp.new_trial(generator_run=gs.gen(exp)).run()
+        # while here, test the last generator run property on node
+        self.assertEqual(gs.current_node.node_that_generated_last_gr, "sobol")
+        gs.gen(exp)
+        self.assertEqual(gs.current_node_name, "gpei")
+        gs.gen(exp)
+        self.assertEqual(gs.current_node_name, "sobol_2")
+        gs.gen(exp)
+        self.assertEqual(gs.current_node_name, "gpei_2")
+        gs.gen(exp)
+        self.assertEqual(gs.current_node_name, "gpei")
+
+        # TODO: @mgarrard modify below test when gen handles multiple nodes
+        gs_2 = GenerationStrategy(
+            nodes=[
+                GenerationNode(
+                    node_name="sobol",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=self.single_running_trial_criterion,
+                ),
+                GenerationNode(
+                    node_name="gpei",
+                    model_specs=[self.gpei_model_spec],
+                    transition_criteria=[
+                        AutoTransitionAfterGenCriterion(transition_to="sobol_2")
+                    ],
+                ),
+                GenerationNode(
+                    node_name="sobol_2",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=[
+                        AutoTransitionAfterGenCriterion(transition_to="gpei_2")
+                    ],
+                ),
+                GenerationNode(
+                    node_name="gpei_2",
+                    model_specs=[self.gpei_model_spec],
+                    transition_criteria=[
+                        MaxTrials(
+                            threshold=2,
+                            transition_to="sobol_3",
+                            block_transition_if_unmet=True,
+                            only_in_statuses=[TrialStatus.RUNNING],
+                            use_all_trials_in_exp=True,
+                        )
+                    ],
+                ),
+                GenerationNode(
+                    node_name="sobol_3",
+                    model_specs=[self.sobol_model_spec],
+                ),
+            ],
+        )
+        self.assertEqual(gs_2.current_node_name, "sobol")
+        exp.new_trial(generator_run=gs_2.gen(exp)).run()
+        self.assertEqual(gs_2.current_node_name, "gpei")
+        gs_2.gen(exp)
+        self.assertEqual(gs_2.current_node_name, "sobol_2")
+        gs_2.gen(exp)  # noqa
+        self.assertEqual(gs_2.current_node_name, "gpei_2")
+        exp.new_trial(generator_run=gs_2.gen(exp)).run()
+        self.assertEqual(gs_2.current_node_name, "sobol_3")
 
     # ------------- Testing helpers (put tests above this line) -------------
 
