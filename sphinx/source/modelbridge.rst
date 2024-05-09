@@ -369,6 +369,14 @@ Transforms
     :undoc-members:
     :show-inheritance:
 
+`ax.modelbridge.transforms.time\_as\_feature`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.time_as_feature
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 `ax.modelbridge.transforms.trial\_as\_task`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
