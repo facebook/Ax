@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
+
 from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
@@ -153,7 +155,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         """Returns a backpointer to the GenerationStrategy, useful for obtaining the
         experiment associated with this GenerationStrategy"""
         # TODO: @mgarrard remove this property once we make experiment a required
-        # arguement on GenerationStrategy
+        # argument on GenerationStrategy
         if self._generation_strategy is None:
             raise ValueError(
                 "Generation strategy has not been initialized on this node."
@@ -296,7 +298,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                     )
         assert generator_run is not None, (
             "The GeneratorRun is None which is an unexpected state of this"
-            " GenerationStrategy. This occured on GenerationNode: {self.node_name}."
+            " GenerationStrategy. This occurred on GenerationNode: {self.node_name}."
         )
         generator_run._generation_node_name = self.node_name
         return generator_run
@@ -397,6 +399,27 @@ class GenerationNode(SerializationMixin, SortableBase):
             else None
         )
 
+    @property
+    def transition_edges(self) -> Dict[str, List[TransitionCriterion]]:
+        """Returns a dictionary mapping the next ```GenerationNode``` to the
+        TransitionCriteria that define the transition that that node.
+
+        Ex: if the transition from the current node to node x is defined by MaxTrials
+        and MinTrials criterion then the return would be {'x': [MaxTrials, MinTrials]}.
+
+        Returns:
+            Dict[str, List[TransitionCriterion]]: A dictionary mapping the next
+            ```GenerationNode``` to the ```TransitionCriterion``` that are associated
+            with it.
+        """
+        if self.transition_criteria is None:
+            return {}
+
+        tc_edges = defaultdict(list)
+        for tc in self.transition_criteria:
+            tc_edges[tc.transition_to].append(tc)
+        return tc_edges
+
     def should_transition_to_next_node(
         self, raise_data_required_error: bool = True
     ) -> Tuple[bool, Optional[str]]:
@@ -409,7 +432,8 @@ class GenerationNode(SerializationMixin, SortableBase):
                 check how many generator runs (to be made into trials) can be produced,
                 but not actually producing them yet.
         Returns:
-            bool: Whether we should transition to the next node.
+            Tuple[bool, Optional[str]]: Whether we should transition to the next node
+                and the name of the next node.
         """
         # if no transition criteria are defined, this node can generate unlimited trials
         if len(self.transition_criteria) == 0:
