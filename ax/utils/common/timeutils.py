@@ -52,3 +52,8 @@ def timestamps_in_range(
     while curr <= end:
         yield curr
         curr += delta
+
+
+def unixtime_to_pandas_ts(ts: float) -> pd.Timestamp:
+    """Convert float unixtime into pandas timestamp (UTC)."""
+    return pd.to_datetime(ts, unit="s")
