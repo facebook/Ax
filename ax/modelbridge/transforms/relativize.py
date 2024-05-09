@@ -168,15 +168,10 @@ class BaseRelativize(Transform, ABC):
             self.modelbridge.status_quo_data_by_trial, self.MISSING_STATUS_QUO_ERROR
         )
 
-        missing_index = any(obs.features.trial_index is None for obs in observations)
-        default_trial_idx: Optional[int] = None
-        if missing_index:
-            if len(sq_data_by_trial) == 1:
-                default_trial_idx = next(iter(sq_data_by_trial))
-            else:
-                raise ValueError(
-                    "Observations contain missing trial index that can't be inferred."
-                )
+        # use latest index of latest observed trial by default
+        # to handle pending trials, which may not have a trial_index
+        # if TrialAsTask was not used to generate the trial.
+        default_trial_idx: int = max(sq_data_by_trial.keys())
 
         def _get_relative_data_from_obs(
             obs: Observation,
