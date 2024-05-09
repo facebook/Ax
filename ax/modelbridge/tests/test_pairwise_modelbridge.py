@@ -22,7 +22,10 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.preference_stubs import get_pbo_experiment
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
-from botorch.acquisition.preference import AnalyticExpectedUtilityOfBestOption
+from botorch.acquisition.preference import (
+    AnalyticExpectedUtilityOfBestOption,
+    qExpectedUtilityOfBestOption,
+)
 from botorch.models.pairwise_gp import PairwiseGP, PairwiseLaplaceMarginalLogLikelihood
 from botorch.models.transforms.input import Normalize
 from botorch.utils.datasets import RankingDataset
@@ -46,14 +49,16 @@ class PairwiseModelBridgeTest(TestCase):
         )
 
         cases = [
-            (qNoisyExpectedImprovement, None),
+            (qNoisyExpectedImprovement, None, 3),
+            (qExpectedUtilityOfBestOption, None, 3),
             (
                 AnalyticExpectedUtilityOfBestOption,
                 # Analytic Acqfs do not support pending points and sequential opt
                 {"optimizer_kwargs": {"sequential": False}},
+                2,  # analytic EUBO only supports n=2
             ),
         ]
-        for botorch_acqf_class, model_gen_options in cases:
+        for botorch_acqf_class, model_gen_options, n in cases:
             pmb = PairwiseModelBridge(
                 experiment=self.experiment,
                 search_space=self.experiment.search_space,
@@ -72,8 +77,8 @@ class PairwiseModelBridgeTest(TestCase):
             )
             # Can generate candidates correctly
             # pyre-ignore: Incompatible parameter type [6]
-            generator_run = pmb.gen(n=2, model_gen_options=model_gen_options)
-            self.assertEqual(len(generator_run.arms), 2)
+            generator_run = pmb.gen(n=n, model_gen_options=model_gen_options)
+            self.assertEqual(len(generator_run.arms), n)
 
         observation_data = [
             ObservationData(
