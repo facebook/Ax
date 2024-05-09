@@ -31,8 +31,8 @@ from ax.models.torch.botorch_moo_defaults import (
     infer_objective_thresholds,
     pareto_frontier_evaluator,
     scipy_optimizer_list,
+    TFrontierEvaluator,
 )
-from ax.models.torch.frontier_utils import TFrontierEvaluator
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
     _to_inequality_constraints,

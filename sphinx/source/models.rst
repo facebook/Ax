@@ -320,14 +320,6 @@ ax.models.torch.cbo_sac module
     :undoc-members:
     :show-inheritance:
 
-ax.models.torch.frontier_utils module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.models.torch.frontier_utils
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 ax.models.torch.fully_bayesian module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

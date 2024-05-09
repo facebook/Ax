@@ -62,9 +62,9 @@ from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.utils import (
     derelativize_optimization_config_with_raw_status_quo,
 )
-from ax.models.torch.botorch_moo_defaults import pareto_frontier_evaluator
-from ax.models.torch.frontier_utils import (
+from ax.models.torch.botorch_moo_defaults import (
     get_weighted_mc_objective_and_objective_thresholds,
+    pareto_frontier_evaluator,
 )
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import (
