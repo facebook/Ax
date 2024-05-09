@@ -98,6 +98,14 @@ class TimeAsFeature(Transform):
                 obsf.parameters["duration"] = (
                     duration - self.min_duration
                 ) / self.duration_range
+            else:
+                # start time can be None for pending arms that generated
+                # with a model that did not use the TimeAsFeature transform.
+                # In that case, assume the arm is going to be evaluated at the
+                # current time, and that the duration is the midpoint of the
+                # range.
+                obsf.parameters["start_time"] = self.current_time
+                obsf.parameters["duration"] = 0.5
         return observation_features
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
