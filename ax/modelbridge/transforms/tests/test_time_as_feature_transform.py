@@ -17,6 +17,7 @@ from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.transforms.time_as_feature import TimeAsFeature
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import unixtime_to_pandas_ts
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import get_robust_search_space
 
 
@@ -48,13 +49,15 @@ class TimeAsFeatureTransformTest(TestCase):
             )
             for obsf in self.training_feats
         ]
-        with mock.patch(
+        time_patcher = mock.patch(
             "ax.modelbridge.transforms.time_as_feature.time", return_value=5.0
-        ):
-            self.t = TimeAsFeature(
-                search_space=self.search_space,
-                observations=self.training_obs,
-            )
+        )
+        self.time_patcher = time_patcher.start()
+        self.addCleanup(time_patcher.stop)
+        self.t = TimeAsFeature(
+            search_space=self.search_space,
+            observations=self.training_obs,
+        )
 
     def test_init(self) -> None:
         self.assertEqual(self.t.current_time, 5.0)
@@ -94,16 +97,24 @@ class TimeAsFeatureTransformTest(TestCase):
         self.assertEqual(obs_ft1, obs_ft_trans1)
         obs_ft1 = self.t.untransform_observation_features(obs_ft1)
         self.assertEqual(obs_ft1, self.training_feats)
+        # test transforming observation features that do not have
+        # start_time/end_time
+        obsf = [ObservationFeatures({"x": 2.5})]
+        obsf_trans = self.t.transform_observation_features(obsf)
+        self.assertEqual(
+            obsf_trans[0],
+            ObservationFeatures({"x": 2.5, "duration": 0.5, "start_time": 5.0}),
+        )
 
     def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         self.assertEqual(set(ss2.parameters.keys()), {"x", "start_time", "duration"})
-        p = ss2.parameters["start_time"]
+        p = checked_cast(RangeParameter, ss2.parameters["start_time"])
         self.assertEqual(p.parameter_type, ParameterType.FLOAT)
         self.assertEqual(p.lower, 0.0)
         self.assertEqual(p.upper, 3.0)
-        p = ss2.parameters["duration"]
+        p = checked_cast(RangeParameter, ss2.parameters["duration"])
         self.assertEqual(p.parameter_type, ParameterType.FLOAT)
         self.assertEqual(p.lower, 0.0)
         self.assertEqual(p.upper, 1.0)
