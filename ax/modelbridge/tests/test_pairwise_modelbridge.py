@@ -6,14 +6,10 @@
 
 # pyre-strict
 
-from typing import Any, Dict
-
 import numpy as np
 import torch
-from ax.core import Arm, GeneratorRun, Metric, Objective, OptimizationConfig
+from ax.core import Metric, Objective, OptimizationConfig
 from ax.core.observation import ObservationData, ObservationFeatures
-from ax.core.parameter import RangeParameter
-from ax.core.types import TEvaluationOutcome, TParameterization
 from ax.modelbridge.pairwise import (
     _binary_pref_to_comp_pair,
     _consolidate_comparisons,
@@ -21,10 +17,10 @@ from ax.modelbridge.pairwise import (
 )
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
-from ax.service.utils.instantiation import InstantiationBase
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
+from ax.utils.testing.preference_stubs import get_pbo_experiment
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.acquisition.preference import AnalyticExpectedUtilityOfBestOption
 from botorch.models.pairwise_gp import PairwiseGP, PairwiseLaplaceMarginalLogLikelihood
@@ -35,101 +31,7 @@ from botorch.utils.datasets import RankingDataset
 class PairwiseModelBridgeTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-
-        def pairwise_arm_eval(
-            parameters: Dict[str, TParameterization]
-        ) -> Dict[str, TEvaluationOutcome]:
-            # A pair at a time
-            assert len(parameters.keys()) == 2
-            arm1, arm2 = list(parameters.keys())
-            arm1_outcome_values = [
-                checked_cast(float, v) for v in parameters[arm1].values()
-            ]
-            arm2_outcome_values = [
-                checked_cast(float, v) for v in parameters[arm2].values()
-            ]
-            arm1_sum = float(sum(arm1_outcome_values))
-            arm2_sum = float(sum(arm2_outcome_values))
-            is_arm1_preferred = int(arm1_sum - arm2_sum > 0)
-            return {
-                arm1: {Keys.PAIRWISE_PREFERENCE_QUERY.value: is_arm1_preferred},
-                arm2: {Keys.PAIRWISE_PREFERENCE_QUERY.value: 1 - is_arm1_preferred},
-            }
-
-        def single_arm_eval(parameters: Dict[str, Any]) -> Dict[str, Any]:
-            assert len(parameters.keys()) == 1
-            arm1 = list(parameters.keys())[0]
-            return {
-                arm1: {"dummy_outcome": 0.0},
-            }
-
-        experiment = InstantiationBase.make_experiment(
-            name="pref_experiment",
-            parameters=[
-                {
-                    "name": "x1",
-                    "type": "range",
-                    "bounds": [0.0, 0.6],
-                },
-                {
-                    "name": "x2",
-                    "type": "range",
-                    "bounds": [0.0, 0.7],
-                },
-            ],
-            objectives={Keys.PAIRWISE_PREFERENCE_QUERY.value: "minimize"},
-            is_test=True,
-        )
-
-        # Adding arms with experimental instead of preference metrics
-        for _ in range(5):
-            arm = {}
-            for param_name, param in experiment.search_space.parameters.items():
-                lb = checked_cast(RangeParameter, param).lower
-                ub = checked_cast(RangeParameter, param).upper
-                arm[param_name] = np.random.uniform(low=lb, high=ub)
-            gr = GeneratorRun([Arm(arm)])
-            trial = experiment.new_batch_trial(generator_run=gr)
-            trial.attach_batch_trial_data(
-                raw_data=single_arm_eval({a.name: a.parameters for a in trial.arms})
-            )
-            trial.mark_running(no_runner_required=True)
-            trial.mark_completed()
-
-        # Preference Learning
-        # pairwise evaluation of randomly generated pairs of arms
-        for _ in range(3):
-            gr = GeneratorRun(
-                [
-                    Arm(
-                        {
-                            pn: np.random.uniform(
-                                low=checked_cast(RangeParameter, p).lower,
-                                high=checked_cast(RangeParameter, p).upper,
-                            )
-                            for pn, p in experiment.search_space.parameters.items()
-                        }
-                    )
-                    for _ in range(2)
-                ]
-            )
-            trial = experiment.new_batch_trial(generator_run=gr)
-            trial.attach_batch_trial_data(
-                raw_data=pairwise_arm_eval({a.name: a.parameters for a in trial.arms})
-            )
-            trial.mark_running(no_runner_required=True)
-            trial.mark_completed()
-
-        # Manually add arms from previous trials
-        trial = experiment.new_batch_trial()
-        trial.add_arm(experiment.trials[1].arms[0])
-        trial.add_arm(experiment.trials[2].arms[0])
-        trial.attach_batch_trial_data(
-            raw_data=pairwise_arm_eval({a.name: a.parameters for a in trial.arms})
-        )
-        trial.mark_running(no_runner_required=True)
-        trial.mark_completed()
-
+        experiment = get_pbo_experiment()
         self.experiment = experiment
         self.data = experiment.lookup_data()
 
@@ -186,25 +88,25 @@ class PairwiseModelBridgeTest(TestCase):
             ),
         ]
         observation_features = [
-            ObservationFeatures(parameters={"X1": 0.1, "X2": 0.2}, trial_index=0),
-            ObservationFeatures(parameters={"X1": 0.3, "X2": 0.4}, trial_index=0),
+            ObservationFeatures(parameters={"x1": 0.1, "x2": 0.2}, trial_index=0),
+            ObservationFeatures(parameters={"x1": 0.3, "x2": 0.4}, trial_index=0),
         ]
         observation_features_with_metadata = [
-            ObservationFeatures(parameters={"X1": 0.1, "X2": 0.2}, trial_index=0),
+            ObservationFeatures(parameters={"x1": 0.1, "x2": 0.2}, trial_index=0),
             ObservationFeatures(
-                parameters={"X1": 0.3, "X2": 0.4},
+                parameters={"x1": 0.3, "x2": 0.4},
                 trial_index=0,
                 metadata={"metadata_key": "metadata_val"},
             ),
         ]
-        parameters = ["X1", "X2"]
+        parameter_names = list(self.experiment.parameters.keys())
         outcomes = [checked_cast(str, Keys.PAIRWISE_PREFERENCE_QUERY.value)]
 
         datasets, _, candidate_metadata = pmb._convert_observations(
             observation_data=observation_data,
             observation_features=observation_features,
             outcomes=outcomes,
-            parameters=parameters,
+            parameters=parameter_names,
             search_space_digest=None,
         )
         self.assertTrue(len(datasets) == 1)
@@ -215,7 +117,7 @@ class PairwiseModelBridgeTest(TestCase):
             observation_data=observation_data,
             observation_features=observation_features_with_metadata,
             outcomes=outcomes,
-            parameters=parameters,
+            parameters=parameter_names,
             search_space_digest=None,
         )
         self.assertTrue(len(datasets) == 1)
