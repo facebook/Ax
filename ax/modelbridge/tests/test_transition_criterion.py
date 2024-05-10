@@ -12,9 +12,15 @@ from unittest.mock import patch
 import pandas as pd
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.generation_strategy import (
+    GenerationNode,
+    GenerationStep,
+    GenerationStrategy,
+)
+from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
 from ax.modelbridge.transition_criterion import (
+    AutoTransitionAfterGenCriterion,
     MaxGenerationParallelism,
     MaxTrials,
     MinimumPreferenceOccurances,
@@ -30,6 +36,15 @@ logger: Logger = get_logger(__name__)
 
 
 class TestTransitionCriterion(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.sobol_model_spec = ModelSpec(
+            model_enum=Models.SOBOL,
+            model_kwargs={"init_position": 3},
+            model_gen_kwargs={"some_gen_kwarg": "some_value"},
+        )
+        self.branin_experiment = get_branin_experiment()
+
     def test_minimum_preference_criterion(self) -> None:
         """Tests the minimum preference criterion subcalss of TransitionCriterion."""
         criterion = MinimumPreferenceOccurances(metric_name="m1", threshold=3)
@@ -154,7 +169,7 @@ class TestTransitionCriterion(TestCase):
 
     def test_min_trials_is_met(self) -> None:
         """Test that the is_met method in  MinTrials works"""
-        experiment = get_branin_experiment()
+        experiment = self.branin_experiment
         gs = GenerationStrategy(
             name="SOBOL::default",
             steps=[
@@ -216,9 +231,33 @@ class TestTransitionCriterion(TestCase):
                 trial._status = TrialStatus.EARLY_STOPPED
         self.assertTrue(min_criterion.is_met(experiment, gs._steps[0].trials_from_node))
 
+    def test_auto_transition(self) -> None:
+        """Very simple test to validate AutoTransitionAfterGenCriterion"""
+        experiment = self.branin_experiment
+        gs = GenerationStrategy(
+            name="test",
+            nodes=[
+                GenerationNode(
+                    node_name="sobol_1",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=[
+                        AutoTransitionAfterGenCriterion(transition_to="sobol_2")
+                    ],
+                ),
+                GenerationNode(
+                    node_name="sobol_2", model_specs=[self.sobol_model_spec]
+                ),
+            ],
+        )
+        gs.experiment = experiment
+        self.assertEqual(gs.current_node_name, "sobol_1")
+        gs.gen(experiment=experiment)
+        gs.gen(experiment=experiment)
+        self.assertEqual(gs.current_node_name, "sobol_2")
+
     def test_max_trials_is_met(self) -> None:
         """Test that the is_met method in MaxTrials works"""
-        experiment = get_branin_experiment()
+        experiment = self.branin_experiment
         gs = GenerationStrategy(
             name="SOBOL::default",
             steps=[
@@ -445,4 +484,11 @@ class TestTransitionCriterion(TestCase):
             + "'block_transition_if_unmet': False, "
             + "'block_gen_if_met': True, "
             + "'use_all_trials_in_exp': False})",
+        )
+        auto_transition = AutoTransitionAfterGenCriterion(
+            transition_to="GenerationStep_2"
+        )
+        self.assertEqual(
+            str(auto_transition),
+            "AutoTransitionAfterGenCriterion({'transition_to': 'GenerationStep_2'})",
         )
