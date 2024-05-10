@@ -186,10 +186,52 @@ class TestGenerationStrategy(TestCase):
             transition_criteria=self.gpei_criterion,
             model_specs=[self.gpei_model_spec],
         )
-
         self.sobol_GPEI_GS_nodes = GenerationStrategy(
             name="Sobol+GPEI_Nodes",
             nodes=[self.sobol_node, self.gpei_node],
+        )
+        self.gpei_to_sobol2_max = MaxTrials(
+            threshold=1,
+            transition_to="sobol_2",
+            block_transition_if_unmet=True,
+            only_in_statuses=[TrialStatus.RUNNING],
+            use_all_trials_in_exp=True,
+        )
+        self.gpei_to_sobol2_min = MinTrials(
+            threshold=1,
+            transition_to="sobol_2",
+            block_transition_if_unmet=True,
+            only_in_statuses=[TrialStatus.COMPLETED],
+            use_all_trials_in_exp=True,
+        )
+        self.gpei_to_sobol_auto = AutoTransitionAfterGenCriterion(
+            transition_to="sobol_3"
+        )
+        self.competing_tc_gs = GenerationStrategy(
+            nodes=[
+                GenerationNode(
+                    node_name="sobol",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=self.single_running_trial_criterion,
+                ),
+                GenerationNode(
+                    node_name="gpei",
+                    model_specs=[self.gpei_model_spec],
+                    transition_criteria=[
+                        self.gpei_to_sobol2_max,
+                        self.gpei_to_sobol2_min,
+                        self.gpei_to_sobol_auto,
+                    ],
+                ),
+                GenerationNode(
+                    node_name="sobol_2",
+                    model_specs=[self.sobol_model_spec],
+                ),
+                GenerationNode(
+                    node_name="sobol_3",
+                    model_specs=[self.sobol_model_spec],
+                ),
+            ],
         )
 
     def tearDown(self) -> None:
@@ -1280,23 +1322,65 @@ class TestGenerationStrategy(TestCase):
         gs2 = self.basic_sobol_gpei_gs
         self.assertEqual(gs1, gs2)
 
+    def test_gs_with_competing_transition_edges(self) -> None:
+        """Test that a ```GenerationStrategy``` with a node with competing transition
+        edges correctly transitions.
+        """
+        # this gs has a single sobol node which transitions to gpei. If the MaxTrials
+        # and MinTrials criterion are met, the transition to sobol_2 should occur,
+        # otherwise, should transition to sobol_3
+        gs = self.competing_tc_gs
+        exp = get_branin_experiment()
+
+        # check that gpei will move to sobol_3 when MaxTrials and MinTrials are unmet
+        exp.new_trial(generator_run=gs.gen(exp)).run()
+        gs.gen(exp)
+        self.assertEqual(gs.current_node_name, "gpei")
+        gs.gen(exp)
+        self.assertEqual(gs.current_node_name, "sobol_3")
+
+    def test_gs_with_competing_transition_edges_2(self) -> None:
+        """Test that a ```GenerationStrategy``` with a node with competing transition
+        edges correctly transitions.
+        """
+        # this gs has a single sobol node which transitions to gpei. If the MaxTrials
+        # and MinTrials criterion are met, the transition to sobol_2 should occur,
+        # otherwise, should transition to sobol_3
+        gs = self.competing_tc_gs
+        exp = get_branin_experiment()
+
+        # check that gpei will move to sobol_3 when MaxTrials is met and MinTrials
+        # is unmet
+        exp.new_trial(generator_run=gs.gen(exp)).run()
+        exp.new_trial(generator_run=gs.gen(exp)).run()
+        self.assertEqual(gs.current_node_name, "gpei")
+        gs.gen(exp)
+        self.assertEqual(gs.current_node_name, "sobol_3")
+
+    def test_gs_with_competing_transition_edges_3(self) -> None:
+        """Test that a ```GenerationStrategy``` with a node with competing transition
+        edges correctly transitions.
+        """
+        # this gs has a single sobol node which transitions to gpei. If the MaxTrials
+        # and MinTrials criterion are met, the transition to sobol_2 should occur,
+        # otherwise, should transition to sobol_3
+        gs = self.competing_tc_gs
+        exp = get_branin_experiment()
+
+        # check that gpei will transition to sobol_2 when MaxTrials is met and
+        # MinTrials are met
+        trial = exp.new_trial(generator_run=gs.gen(exp)).run()
+        exp.new_trial(generator_run=gs.gen(exp)).run()
+        self.assertEqual(gs.current_node_name, "gpei")
+        trial.mark_completed()
+        gs.gen(exp)
+        self.assertEqual(gs.current_node_name, "sobol_2")
+
     def test_transition_edges(self) -> None:
         """Test transition_edges property of ``GenerationNode``"""
         # this gs has a single sobol node which transitions to gpei. If the MaxTrials
         # and MinTrials criterion are met, the transition to sobol_2 should occur,
         # otherwise, should transition back to sobol.
-        gpei_to_sobol2_max = MaxTrials(
-            threshold=2,
-            transition_to="sobol_2",
-            block_transition_if_unmet=True,
-            only_in_statuses=[TrialStatus.RUNNING],
-        )
-        gpei_to_sobol2_min = MinTrials(
-            threshold=1,
-            transition_to="sobol_2",
-            block_transition_if_unmet=True,
-            only_in_statuses=[TrialStatus.COMPLETED],
-        )
         gpei_to_sobol_auto = AutoTransitionAfterGenCriterion(transition_to="sobol")
         gs = GenerationStrategy(
             nodes=[
@@ -1309,8 +1393,8 @@ class TestGenerationStrategy(TestCase):
                     node_name="gpei",
                     model_specs=[self.gpei_model_spec],
                     transition_criteria=[
-                        gpei_to_sobol2_max,
-                        gpei_to_sobol2_min,
+                        self.gpei_to_sobol2_max,
+                        self.gpei_to_sobol2_min,
                         gpei_to_sobol_auto,
                     ],
                 ),
@@ -1330,7 +1414,7 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(
             gs._curr.transition_edges,
             {
-                "sobol_2": [gpei_to_sobol2_max, gpei_to_sobol2_min],
+                "sobol_2": [self.gpei_to_sobol2_max, self.gpei_to_sobol2_min],
                 "sobol": [gpei_to_sobol_auto],
             },
         )
