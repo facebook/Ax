@@ -40,7 +40,8 @@ class ChoiceToNumericChoice(Transform):
 
     In the inverse transform, parameters will be mapped back onto the original domain.
 
-    This transform does not transform task parameters (use TaskEncode for this).
+    This transform does not transform task parameters
+    (use TaskChoiceToIntTaskChoice for this).
 
     Note that this behavior is different from that of OrderedChoiceToIntegerRange, which
     transforms (ordered) ChoiceParameters to integer RangeParameters (rather than

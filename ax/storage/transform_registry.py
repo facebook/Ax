@@ -39,7 +39,7 @@ from ax.modelbridge.transforms.remove_fixed import RemoveFixed
 from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.modelbridge.transforms.standardize_y import StandardizeY
 from ax.modelbridge.transforms.stratified_standardize_y import StratifiedStandardizeY
-from ax.modelbridge.transforms.task_encode import TaskEncode
+from ax.modelbridge.transforms.task_encode import TaskChoiceToIntTaskChoice, TaskEncode
 from ax.modelbridge.transforms.time_as_feature import TimeAsFeature
 from ax.modelbridge.transforms.trial_as_task import TrialAsTask
 from ax.modelbridge.transforms.unit_x import UnitX
@@ -76,7 +76,8 @@ TRANSFORM_REGISTRY: Dict[Type[Transform], int] = {
     SearchSpaceToChoice: 10,
     StandardizeY: 11,
     StratifiedStandardizeY: 12,
-    TaskEncode: 13,
+    TaskEncode: 13,  # TO BE DEPRECATED
+    TaskChoiceToIntTaskChoice: 13,
     TrialAsTask: 14,
     UnitX: 15,
     Winsorize: 16,
@@ -103,6 +104,7 @@ be used.
 DEPRECATED_TRANSFORMS: List[Type[Transform]] = [
     OrderedChoiceEncode,  # replaced by OrderedChoiceToIntegerRange
     ChoiceEncode,  # replaced by ChoiceToNumericChoice
+    TaskEncode,  # replaced by TaskChoiceToIntTaskChoice
 ]
 
 REVERSE_TRANSFORM_REGISTRY: Dict[int, Type[Transform]] = {
