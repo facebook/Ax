@@ -379,7 +379,8 @@ class TorchModelBridge(ModelBridge):
             if any(int(t) != t for t in task_choices):
                 raise ValueError(
                     "The values of the task feature must be integers. "
-                    "This is often accomplished using a TaskEncode transform. "
+                    "This is often accomplished using a "
+                    "TaskChoiceToIntTaskChoice transform. "
                     "Check that the model is using the correct set of transforms. "
                     f"Got {task_choices=}."
                 )

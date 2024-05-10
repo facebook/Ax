@@ -18,6 +18,8 @@ from ax.modelbridge.transforms.choice_encode import (
 
 from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
 
+from ax.modelbridge.transforms.task_encode import TaskChoiceToIntTaskChoice, TaskEncode
+
 from ax.storage.json_store.decoders import transform_type_from_json
 from ax.storage.json_store.encoders import transform_type_to_dict
 
@@ -25,6 +27,12 @@ from ax.storage.json_store.encoders import transform_type_to_dict
 class TestTransformEncode(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
+
+        self.deprecatedTestCases = [
+            (OrderedChoiceEncode, OrderedChoiceToIntegerRange, 7),
+            (ChoiceEncode, ChoiceToNumericChoice, 19),
+            (TaskEncode, TaskChoiceToIntTaskChoice, 13),
+        ]
 
     def test_encode_and_decode_transform(self) -> None:
         registry_index = 2
@@ -37,28 +45,14 @@ class TestTransformEncode(unittest.TestCase):
         decoded_transform_type = transform_type_from_json(transform_dict)
         self.assertEqual(decoded_transform_type, IntRangeToChoice)
 
-    def test_encode_and_decode_deprecated_choice_transform(self) -> None:
-        deprecated_type = ChoiceEncode
-        current_type = ChoiceToNumericChoice
-        registry_index = 19
+    def test_encode_and_decode_deprecated_transforms(self) -> None:
+        for deprecated_type, current_type, registry_index in self.deprecatedTestCases:
+            transform_dict = transform_type_to_dict(deprecated_type)
+            self.assertEqual(transform_dict["__type"], "Type[Transform]")
+            self.assertEqual(transform_dict["index_in_registry"], registry_index)
+            self.assertIn(deprecated_type.__name__, transform_dict["transform_type"])
 
-        transform_dict = transform_type_to_dict(deprecated_type)
-        self.assertEqual(transform_dict["__type"], "Type[Transform]")
-        self.assertEqual(transform_dict["index_in_registry"], registry_index)
-        self.assertIn("ChoiceEncode", transform_dict["transform_type"])
-
-        decoded_transform_type = transform_type_from_json(transform_dict)
-        self.assertEqual(decoded_transform_type, current_type)
-
-    def test_encode_and_decode_deprecated_ordered_choice_transform(self) -> None:
-        deprecated_type = OrderedChoiceEncode
-        current_type = OrderedChoiceToIntegerRange
-        registry_index = 7
-
-        transform_dict = transform_type_to_dict(deprecated_type)
-        self.assertEqual(transform_dict["__type"], "Type[Transform]")
-        self.assertEqual(transform_dict["index_in_registry"], registry_index)
-        self.assertIn("OrderedChoiceEncode", transform_dict["transform_type"])
-
-        decoded_transform_type = transform_type_from_json(transform_dict)
-        self.assertEqual(decoded_transform_type, current_type)
+            decoded_transform_type = transform_type_from_json(transform_dict)
+            # Deprecated type is decoded into the current type.
+            self.assertNotEqual(decoded_transform_type, deprecated_type)
+            self.assertEqual(decoded_transform_type, current_type)

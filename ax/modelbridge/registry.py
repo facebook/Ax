@@ -52,7 +52,7 @@ from ax.modelbridge.transforms.remove_fixed import RemoveFixed
 from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.modelbridge.transforms.standardize_y import StandardizeY
 from ax.modelbridge.transforms.stratified_standardize_y import StratifiedStandardizeY
-from ax.modelbridge.transforms.task_encode import TaskEncode
+from ax.modelbridge.transforms.task_encode import TaskChoiceToIntTaskChoice
 from ax.modelbridge.transforms.trial_as_task import TrialAsTask
 from ax.modelbridge.transforms.unit_x import UnitX
 from ax.models.base import Model
@@ -119,7 +119,7 @@ MT_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
     ConvertMetricNames,
     TrialAsTask,
     StratifiedStandardizeY,
-    TaskEncode,
+    TaskChoiceToIntTaskChoice,
 ]
 
 # Single-type MTGP transforms
@@ -127,14 +127,14 @@ ST_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
     Derelativize,
     TrialAsTask,
     StratifiedStandardizeY,
-    TaskEncode,
+    TaskChoiceToIntTaskChoice,
 ]
 
 # Single-type MTGP transforms
 Specified_Task_ST_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
     Derelativize,
     StratifiedStandardizeY,
-    TaskEncode,
+    TaskChoiceToIntTaskChoice,
 ]
 
 ALEBO_X_trans: List[Type[Transform]] = [RemoveFixed, IntToFloat, CenteredUnitX]

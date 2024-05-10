@@ -142,7 +142,7 @@ class TrialAsTask(Transform):
                 parameter_type=ParameterType.INT if is_int else ParameterType.STRING,
                 values=level_values,  # pyre-fixme [6]
                 # if all values are integers, retain the original order
-                # they are encoded in TaskEncode
+                # they are encoded in TaskChoiceToIntTaskChoice
                 is_ordered=is_int,
                 is_task=True,
                 sort_values=True,
