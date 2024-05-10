@@ -1029,7 +1029,7 @@ class TestGenerationStrategy(TestCase):
 
     # ---------- Tests for GenerationStrategies composed of GenerationNodes --------
     def test_gs_setup_with_nodes(self) -> None:
-        """Test GS initalization and validation with nodes"""
+        """Test GS initialization and validation with nodes"""
         node_1_criterion = [
             MaxTrials(
                 threshold=4,
@@ -1279,6 +1279,61 @@ class TestGenerationStrategy(TestCase):
         gs1 = self.basic_sobol_gpei_gs
         gs2 = self.basic_sobol_gpei_gs
         self.assertEqual(gs1, gs2)
+
+    def test_transition_edges(self) -> None:
+        """Test transition_edges property of ``GenerationNode``"""
+        # this gs has a single sobol node which transitions to gpei. If the MaxTrials
+        # and MinTrials criterion are met, the transition to sobol_2 should occur,
+        # otherwise, should transition back to sobol.
+        gpei_to_sobol2_max = MaxTrials(
+            threshold=2,
+            transition_to="sobol_2",
+            block_transition_if_unmet=True,
+            only_in_statuses=[TrialStatus.RUNNING],
+        )
+        gpei_to_sobol2_min = MinTrials(
+            threshold=1,
+            transition_to="sobol_2",
+            block_transition_if_unmet=True,
+            only_in_statuses=[TrialStatus.COMPLETED],
+        )
+        gpei_to_sobol_auto = AutoTransitionAfterGenCriterion(transition_to="sobol")
+        gs = GenerationStrategy(
+            nodes=[
+                GenerationNode(
+                    node_name="sobol",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=self.single_running_trial_criterion,
+                ),
+                GenerationNode(
+                    node_name="gpei",
+                    model_specs=[self.gpei_model_spec],
+                    transition_criteria=[
+                        gpei_to_sobol2_max,
+                        gpei_to_sobol2_min,
+                        gpei_to_sobol_auto,
+                    ],
+                ),
+                GenerationNode(
+                    node_name="sobol_2",
+                    model_specs=[self.sobol_model_spec],
+                ),
+            ],
+        )
+        exp = get_branin_experiment()
+        self.assertEqual(
+            gs._curr.transition_edges, {"gpei": self.single_running_trial_criterion}
+        )
+        exp.new_trial(generator_run=gs.gen(exp)).run()
+        gs.gen(exp)
+        self.assertEqual(gs.current_node_name, "gpei")
+        self.assertEqual(
+            gs._curr.transition_edges,
+            {
+                "sobol_2": [gpei_to_sobol2_max, gpei_to_sobol2_min],
+                "sobol": [gpei_to_sobol_auto],
+            },
+        )
 
     def test_node_gs_with_auto_transitions(self) -> None:
         """Test that node-based generation strategies which leverage
