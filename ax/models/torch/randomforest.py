@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -73,7 +73,6 @@ class RandomForest(TorchModel):
         self,
         datasets: List[SupervisedDataset],
         X_test: Tensor,
-        **kwargs: Any,
     ) -> Tuple[Tensor, Tensor]:
         Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)
         cv_models: List[RandomForestRegressor] = []

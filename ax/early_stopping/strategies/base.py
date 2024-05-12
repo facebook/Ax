@@ -10,7 +10,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Type
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, Type
 
 import numpy as np
 import pandas as pd
@@ -115,7 +115,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         self,
         trial_indices: Set[int],
         experiment: Experiment,
-        **kwargs: Dict[str, Any],
     ) -> Dict[int, Optional[str]]:
         """Decide whether to complete trials before evaluation is fully concluded.
 

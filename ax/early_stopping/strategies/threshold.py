@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import pandas as pd
 from ax.core.experiment import Experiment
@@ -84,7 +84,6 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self,
         trial_indices: Set[int],
         experiment: Experiment,
-        **kwargs: Dict[str, Any],
     ) -> Dict[int, Optional[str]]:
         """Stop a trial if its performance doesn't reach a pre-specified threshold
         by `min_progression`.

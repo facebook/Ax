@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import numpy as np
 import pandas as pd
@@ -92,7 +92,6 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self,
         trial_indices: Set[int],
         experiment: Experiment,
-        **kwargs: Dict[str, Any],
     ) -> Dict[int, Optional[str]]:
         """Stop a trial if its performance is in the bottom `percentile_threshold`
         of the trials at the same step.
