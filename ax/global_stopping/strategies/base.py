@@ -41,9 +41,7 @@ class BaseGlobalStoppingStrategy(ABC, Base):
         self.inactive_when_pending_trials = inactive_when_pending_trials
 
     @abstractmethod
-    def _should_stop_optimization(
-        self, experiment: Experiment, **kwargs: Any
-    ) -> Tuple[bool, str]:
+    def _should_stop_optimization(self, experiment: Experiment) -> Tuple[bool, str]:
         """
         Decide whether to stop optimization.
 

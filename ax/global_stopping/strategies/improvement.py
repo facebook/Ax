@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -87,7 +87,6 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         experiment: Experiment,
         trial_to_check: Optional[int] = None,
         objective_thresholds: Optional[List[ObjectiveThreshold]] = None,
-        **kwargs: Dict[str, Any],
     ) -> Tuple[bool, str]:
         """
         Check if the objective has improved significantly in the past
@@ -110,7 +109,6 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
                 If no thresholds are provided, they are automatically inferred. They are
                 only inferred once for each instance of the strategy (i.e. inferred
                 thresholds don't update with additional data).
-            kwargs: Unused.
 
         Returns:
             A Tuple with a boolean determining whether the optimization should stop,
