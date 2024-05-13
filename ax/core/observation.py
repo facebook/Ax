@@ -380,6 +380,11 @@ def _filter_data_on_status(
         metric_name = g
         # Filter out any metrics that are not on the experiment.
         if metric_name not in experiment.metrics:
+            warnings.warn(
+                f"Metric {metric_name} not found on {experiment}. Not attaching to "
+                "observation.",
+                stacklevel=2,
+            )
             continue
         metric = experiment.metrics[metric_name]
         statuses_to_include_metric = (
