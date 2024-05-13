@@ -424,7 +424,11 @@ class GenerationNode(SerializationMixin, SortableBase):
         self, raise_data_required_error: bool = True
     ) -> Tuple[bool, Optional[str]]:
         """Checks whether we should transition to the next node based on this node's
-        TransitionCriterion
+        TransitionCriterion.
+
+        Important: This method relies on the ``transition_criterion`` of this node to
+        be listed in order of importance. Ex: a fallback transition should come after
+        the primary transition in the transition criterion list.
 
         Args:
             raise_data_required_error: Whether to raise ``DataRequiredError`` in the
@@ -439,54 +443,47 @@ class GenerationNode(SerializationMixin, SortableBase):
         if len(self.transition_criteria) == 0:
             return False, None
 
-        transition_blocking = [
-            tc for tc in self.transition_criteria if tc.block_transition_if_unmet
-        ]
-        transition_blocking_met = all(
-            tc.is_met(
-                experiment=self.experiment,
-                trials_from_node=self.trials_from_node,
-                curr_node_name=self.node_name,
-                node_that_generated_last_gr=(
-                    self.generation_strategy.last_generator_run._generation_node_name
-                    if self.generation_strategy.last_generator_run is not None
-                    else None
-                ),
-            )
-            for tc in transition_blocking
-        )
-        # Raise any necessary generation errors: for any met criterion,
-        # call its `block_continued_generation_error` method if not all
-        # transition-blocking criteria are met. The method might not raise an
-        # error, depending on its implementation on given criterion, so the error
-        # from the first met one that does block continued generation, will be raised.
-        if not transition_blocking_met:
-            for tc in self.transition_criteria:
-                if (
-                    tc.is_met(self.experiment, trials_from_node=self.trials_from_node)
-                    and raise_data_required_error
-                ):
-                    tc.block_continued_generation_error(
-                        node_name=self.node_name,
-                        model_name=self.model_to_gen_from_name,
-                        experiment=self.experiment,
-                        trials_from_node=self.trials_from_node,
-                    )
-
-        # Determine transition state
-        if len(transition_blocking) > 0 and transition_blocking_met:
-            next_nodes = [
-                c.transition_to
-                for c in transition_blocking
-                if c._transition_to is not None
-            ]
-            if len(set(next_nodes)) > 1:
-                # TODO: support intelligent selection between multiple transition nodes
-                raise NotImplementedError(
-                    "Cannot currently select between multiple nodes to transition to."
+        # for each edge in node DAG, check if the transition criterion are met, if so
+        # transition to the next node defined by that edge.
+        for next_node, all_tc in self.transition_edges.items():
+            transition_blocking = [tc for tc in all_tc if tc.block_transition_if_unmet]
+            gs_lgr = self.generation_strategy.last_generator_run
+            transition_blocking_met = all(
+                tc.is_met(
+                    experiment=self.experiment,
+                    trials_from_node=self.trials_from_node,
+                    curr_node_name=self.node_name,
+                    # TODO @mgarrard: should we instead pass a backpointer to gs/node
+                    node_that_generated_last_gr=(
+                        gs_lgr._generation_node_name if gs_lgr is not None else None
+                    ),
                 )
-            else:
-                return True, next_nodes[0]
+                for tc in transition_blocking
+            )
+
+            # Raise any necessary generation errors: for any met criterion,
+            # call its `block_continued_generation_error` method if not all
+            # transition-blocking criteria are met. The method might not raise an
+            # error, depending on its implementation on given criterion, so the error
+            # from the first met one that does block continued generation, will raise.
+            # TODO: @mgarrard see if we can replace MaxGenerationParallelism with a
+            # transition to self and rework this error block.
+            if not transition_blocking_met:
+                for tc in all_tc:
+                    if (
+                        tc.is_met(
+                            self.experiment, trials_from_node=self.trials_from_node
+                        )
+                        and raise_data_required_error
+                    ):
+                        tc.block_continued_generation_error(
+                            node_name=self.node_name,
+                            model_name=self.model_to_gen_from_name,
+                            experiment=self.experiment,
+                            trials_from_node=self.trials_from_node,
+                        )
+            if len(transition_blocking) > 0 and transition_blocking_met:
+                return True, next_node
 
         return False, None
 
