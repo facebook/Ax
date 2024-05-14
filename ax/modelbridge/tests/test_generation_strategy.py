@@ -1149,6 +1149,44 @@ class TestGenerationStrategy(TestCase):
                 ],
             )
 
+        # check error raised if two transition criterion defining a single edge have
+        # differing `continue_trial_generation` settings
+        with self.assertRaisesRegex(
+            GenerationStrategyMisconfiguredException,
+            "should have the same `continue_trial_generation`",
+        ):
+            GenerationStrategy(
+                nodes=[
+                    GenerationNode(
+                        node_name="node_1",
+                        transition_criteria=[
+                            MaxTrials(
+                                threshold=4,
+                                block_gen_if_met=False,
+                                transition_to="node_2",
+                                only_in_statuses=None,
+                                not_in_statuses=[
+                                    TrialStatus.FAILED,
+                                    TrialStatus.ABANDONED,
+                                ],
+                                continue_trial_generation=False,
+                            ),
+                            MinTrials(
+                                only_in_statuses=[
+                                    TrialStatus.COMPLETED,
+                                    TrialStatus.EARLY_STOPPED,
+                                ],
+                                threshold=2,
+                                transition_to="node_2",
+                                continue_trial_generation=True,
+                            ),
+                        ],
+                        model_specs=[self.sobol_model_spec],
+                    ),
+                    node_2,
+                ],
+            )
+
         # check error raised if provided both steps and nodes under node list
         with self.assertRaisesRegex(
             GenerationStrategyMisconfiguredException, "`GenerationStrategy` inputs are:"
