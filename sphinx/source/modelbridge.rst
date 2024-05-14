@@ -416,19 +416,3 @@ Transforms
     :members:
     :undoc-members:
     :show-inheritance:
-
-Strategies
--------------
-
-`ax.modelbridge.strategies.alebo`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.modelbridge.strategies.alebo
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: ax.modelbridge.strategies.rembo
-    :members:
-    :undoc-members:
-    :show-inheritance:

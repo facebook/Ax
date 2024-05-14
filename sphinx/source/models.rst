@@ -116,33 +116,8 @@ ax.models.random.sobol module
     :undoc-members:
     :show-inheritance:
 
-ax.models.random.alebo_initializer module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.models.random.alebo_initializer
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-ax.models.random.rembo_initializer module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.models.random.rembo_initializer
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
 Torch Models & Utilities
 ------------------------
-
-ax.models.torch.alebo module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.models.torch.alebo
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
 ax.models.torch.botorch module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -340,14 +315,6 @@ ax.models.torch.posterior_mean module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.models.torch.posterior_mean
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-ax.models.torch.rembo module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.models.torch.rembo
     :members:
     :undoc-members:
     :show-inheritance:
