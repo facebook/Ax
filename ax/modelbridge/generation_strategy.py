@@ -591,25 +591,34 @@ class GenerationStrategy(GenerationStrategyInterface):
             node_names.append(node.node_name)
             node._generation_strategy = self
 
-        # validate `transition_criterion`
-        # TODO[@mgarrard]: Validate that all TCs in one "transition edge" (so all TCs
-        # from one node to another) have the same `continue_trial_generation` setting.
-        # Since multiple TCs together constitute one "transition edge", not having all
-        # TCs on such an "edge" indicate the same resulting state (continuing
-        # generation for same trial vs. stopping it after generating from current node)
-        # would indicate a malformed generation node DAG definition and therefore a
-        # malformed `GenerationStrategy`.
+        # Validate that the next_node is in the ``GenerationStrategy`` and that all
+        # TCs in one "transition edge" (so all TCs from one node to another) have the
+        # same `continue_trial_generation` setting. Since multiple TCs together
+        # constitute one "transition edge", not having all TCs on such an "edge"
+        # indicate the same resulting state (continuing generation for same trial
+        # vs. stopping it after generating from current node) would indicate a
+        # malformed generation node DAG definition and therefore a
+        # malformed ``GenerationStrategy``.
         contains_a_transition_to_argument = False
         for node in self._nodes:
-            for transition_criteria in node.transition_criteria:
-                if transition_criteria.transition_to is not None:
-                    contains_a_transition_to_argument = True
-                    if transition_criteria.transition_to not in node_names:
-                        raise GenerationStrategyMisconfiguredException(
-                            error_info=f"`transition_to` argument "
-                            f"{transition_criteria.transition_to} does not "
-                            "correspond to any node in this GenerationStrategy."
-                        )
+            for next_node, tcs in node.transition_edges.items():
+                contains_a_transition_to_argument = True
+                if next_node is not None and next_node not in node_names:
+                    raise GenerationStrategyMisconfiguredException(
+                        error_info=f"`transition_to` argument "
+                        f"{next_node} does not correspond to any node in"
+                        " this GenerationStrategy."
+                    )
+                if (
+                    next_node is not None
+                    and len({tc.continue_trial_generation for tc in tcs}) > 1
+                ):
+                    raise GenerationStrategyMisconfiguredException(
+                        error_info=f"All transition criteria on an edge "
+                        f"from node {node.node_name} to node {next_node} "
+                        "should have the same `continue_trial_generation` "
+                        "setting."
+                    )
 
         # validate that at least one node has transition_to field
         if len(self._nodes) > 1 and not contains_a_transition_to_argument:
