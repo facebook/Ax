@@ -17,19 +17,33 @@ Adaptive experimentation is the machine-learning guided process of iteratively
 exploring a (possibly infinite) parameter space in order to identify optimal
 configurations in a resource-efficient manner. Ax currently supports Bayesian
 optimization and bandit optimization as exploration strategies. Bayesian
-optimization in Ax is powered by [BoTorch](https://github.com/facebookexternal/botorch),
-a modern library for Bayesian optimization research built on PyTorch.
+optimization in Ax is powered by
+[BoTorch](https://github.com/facebookexternal/botorch), a modern library for
+Bayesian optimization research built on PyTorch.
 
 For full documentation and tutorials, see the [Ax website](https://ax.dev)
 
 ## Why Ax?
 
-* **Versatility**: Ax supports different kinds of experiments, from dynamic ML-assisted A/B testing, to hyperparameter optimization in machine learning.
-* **Customization**: Ax makes it easy to add new modeling and decision algorithms, enabling research and development with minimal overhead.
-* **Production-completeness**: Ax comes with storage integration and ability to fully save and reload experiments.
-* **Support for multi-modal and constrained experimentation**: Ax allows for running and combining multiple experiments (e.g. simulation with a real-world "online" A/B test) and for constrained optimization (e.g. improving classification accuracy without significant increase in resource-utilization).
-* **Efficiency in high-noise setting**: Ax offers state-of-the-art algorithms specifically geared to noisy experiments, such as simulations with reinforcement-learning agents.
-* **Ease of use**: Ax includes 3 different APIs that strike different balances between lightweight structure and flexibility. Using the most concise Loop API, a whole optimization can be done in just one function call. The Service API integrates easily with external schedulers. The most elaborate Developer API affords full algorithm customization and experiment introspection.
+- **Versatility**: Ax supports different kinds of experiments, from dynamic
+  ML-assisted A/B testing, to hyperparameter optimization in machine learning.
+- **Customization**: Ax makes it easy to add new modeling and decision
+  algorithms, enabling research and development with minimal overhead.
+- **Production-completeness**: Ax comes with storage integration and ability to
+  fully save and reload experiments.
+- **Support for multi-modal and constrained experimentation**: Ax allows for
+  running and combining multiple experiments (e.g. simulation with a real-world
+  "online" A/B test) and for constrained optimization (e.g. improving
+  classification accuracy without significant increase in resource-utilization).
+- **Efficiency in high-noise setting**: Ax offers state-of-the-art algorithms
+  specifically geared to noisy experiments, such as simulations with
+  reinforcement-learning agents.
+- **Ease of use**: Ax includes 3 different APIs that strike different balances
+  between lightweight structure and flexibility. The Service API (recommended
+  for the vast majority of use-cases) provides an extensive, robust, and
+  easy-to-use interface to Ax; the Loop API enables particularly concise usage;
+  and the Developer API enables advanced experimental and methodological
+  control.
 
 ## Getting Started
 
@@ -63,20 +77,22 @@ artificial evaluation function):
 ## Installation
 
 ### Requirements
+
 You need Python 3.10 or later to run Ax.
 
 The required Python dependencies are:
 
-* [botorch](https://www.botorch.org)
-* jinja2
-* pandas
-* scipy
-* sklearn
-* plotly >=2.2.1
+- [botorch](https://www.botorch.org)
+- jinja2
+- pandas
+- scipy
+- sklearn
+- plotly >=2.2.1
 
 ### Stable Version
 
 #### Installing via pip
+
 We recommend installing Ax via pip (even if using Conda environment):
 
 ```
@@ -84,26 +100,35 @@ conda install pytorch torchvision -c pytorch  # OSX only (details below)
 pip install ax-platform
 ```
 
-Installation will use Python wheels from PyPI, available for [OSX, Linux, and Windows](https://pypi.org/project/ax-platform/#files).
+Installation will use Python wheels from PyPI, available for
+[OSX, Linux, and Windows](https://pypi.org/project/ax-platform/#files).
 
-*Note*: Make sure the `pip` being used to install `ax-platform` is actually the one from the newly created Conda environment.
-If you're using a Unix-based OS, you can use `which pip` to check.
+_Note_: Make sure the `pip` being used to install `ax-platform` is actually the
+one from the newly created Conda environment. If you're using a Unix-based OS,
+you can use `which pip` to check.
 
-*Recommendation for MacOS users*: PyTorch is a required dependency of BoTorch, and can be automatically installed via pip.
-However, **we recommend you [install PyTorch manually](https://pytorch.org/get-started/locally/#anaconda-1) before installing Ax, using the Anaconda package manager**.
-Installing from Anaconda will link against MKL (a library that optimizes mathematical computation for Intel processors).
-This will result in up to an order-of-magnitude speed-up for Bayesian optimization, as at the moment, installing PyTorch from pip does not link against MKL.
+_Recommendation for MacOS users_: PyTorch is a required dependency of BoTorch,
+and can be automatically installed via pip. However, **we recommend you
+[install PyTorch manually](https://pytorch.org/get-started/locally/#anaconda-1)
+before installing Ax, using the Anaconda package manager**. Installing from
+Anaconda will link against MKL (a library that optimizes mathematical
+computation for Intel processors). This will result in up to an
+order-of-magnitude speed-up for Bayesian optimization, as at the moment,
+installing PyTorch from pip does not link against MKL.
 
-If you need CUDA on MacOS, you will need to build PyTorch from source. Please consult the PyTorch installation instructions above.
+If you need CUDA on MacOS, you will need to build PyTorch from source. Please
+consult the PyTorch installation instructions above.
 
 #### Optional Dependencies
 
 To use Ax with a notebook environment, you will need Jupyter. Install it first:
+
 ```
 pip install jupyter
 ```
 
 If you want to store the experiments in MySQL, you will need SQLAlchemy:
+
 ```
 pip install SQLAlchemy
 ```
@@ -116,7 +141,8 @@ You can install the latest (bleeding edge) version from Git.
 
 First, see recommendation for installing PyTorch for MacOS users above.
 
-At times, the bleeding edge for Ax can depend on bleeding edge versions of BoTorch (or GPyTorch). We therefore recommend installing those from Git as well:
+At times, the bleeding edge for Ax can depend on bleeding edge versions of
+BoTorch (or GPyTorch). We therefore recommend installing those from Git as well:
 
 ```
 pip install git+https://github.com/cornellius-gp/linear_operator.git
@@ -141,9 +167,11 @@ To support plotly-based plotting in newer Jupyter notebook versions
 pip install "notebook>=5.3" "ipywidgets==7.5"
 ```
 
-[See Plotly repo's README](https://github.com/plotly/plotly.py#jupyter-notebook-support) for details and JupyterLab instructions.
+[See Plotly repo's README](https://github.com/plotly/plotly.py#jupyter-notebook-support)
+for details and JupyterLab instructions.
 
 If storing Ax experiments via SQLAlchemy in MySQL or SQLite:
+
 ```
 pip install git+https://github.com/facebook/Ax.git#egg=ax-platform[mysql]
 ```
@@ -152,13 +180,18 @@ pip install git+https://github.com/facebook/Ax.git#egg=ax-platform[mysql]
 
 ### Getting help
 
-Please open an issue on our [issues page](https://github.com/facebook/Ax/issues) with any questions, feature requests or bug reports! If posting a bug report, please include a minimal reproducible example (as a code snippet) that we can use to reproduce and debug the problem you encountered.
+Please open an issue on our [issues page](https://github.com/facebook/Ax/issues)
+with any questions, feature requests or bug reports! If posting a bug report,
+please include a minimal reproducible example (as a code snippet) that we can
+use to reproduce and debug the problem you encountered.
 
 ### Contributing
 
 See the [CONTRIBUTING](CONTRIBUTING.md) file for how to help out.
 
-When contributing to Ax, we recommend cloning the [repository](https://github.com/facebook/Ax) and installing all optional dependencies:
+When contributing to Ax, we recommend cloning the
+[repository](https://github.com/facebook/Ax) and installing all optional
+dependencies:
 
 ```
 pip install git+https://github.com/cornellius-gp/linear_operator.git
@@ -175,8 +208,8 @@ See recommendation for installing PyTorch for MacOS users above.
 
 The above example limits the cloned directory size via the
 [`--depth`](https://git-scm.com/docs/git-clone#Documentation/git-clone.txt---depthltdepthgt)
-argument to `git clone`. If you require the entire commit history you may remove this
-argument.
+argument to `git clone`. If you require the entire commit history you may remove
+this argument.
 
 ## License
 

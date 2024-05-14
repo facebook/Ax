@@ -21,9 +21,10 @@ From most lightweight to fullest functionality, our APIs are:
   optimization is complete. **Use this API only for the simplest use cases where
   running a single trial is fast and only one trial should be running at a
   time.**
-- **Service API** ([tutorial](/tutorials/gpei_hartmann_service.html)) can be
-  used as a lightweight service for parameter-tuning applications where trials
-  might be evaluated in parallel and data is available asynchronously (e.g.
+- **[RECOMMENDED] Service API**
+  ([tutorial](/tutorials/gpei_hartmann_service.html)) can be used as a
+  lightweight service for parameter-tuning applications where trials might be
+  evaluated in parallel and data is available asynchronously (e.g.
   hyperparameter or simulation optimization). It requires little to no knowledge
   of Ax data structures and easily integrates with various schedulers. In this
   mode, Ax suggests one-[arm](glossary.md#arm) trials to be evaluated by the
