@@ -1,12 +1,12 @@
 {
   "API Comparison": [
     {
-      "id": "gpei_hartmann_loop",
-      "title": "Loop API"
+      "id": "gpei_hartmann_service",
+      "title": "[RECOMMENDED] Service API"
     },
     {
-      "id": "gpei_hartmann_service",
-      "title": "Service API"
+      "id": "gpei_hartmann_loop",
+      "title": "Loop API"
     },
     {
       "id": "gpei_hartmann_developer",

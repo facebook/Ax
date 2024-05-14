@@ -3,11 +3,21 @@ id: trial-evaluation
 title: Trial Evaluation
 ---
 
-There are 3 paradigms for evaluating [trials](glossary.md#trial) in Ax.
-Note: ensure that you are using the [appropriate type of trials](core.md#trial-vs-batched-trial) for your experiment, before proceeding to trial evaluation.
+There are 3 paradigms for evaluating [trials](glossary.md#trial) in Ax. Note:
+ensure that you are using the
+[appropriate type of trials](core.md#trial-vs-batched-trial) for your
+experiment, before proceeding to trial evaluation.
 
-## Service API
-The [```AxClient```](/api/service.html#module-ax.service.ax_client) exposes [```get_next_trial```](/api/service.html#ax.service.ax_client.AxClient.get_next_trial), as well as [```complete_trial```](/api/service.html#ax.service.ax_client.AxClient.complete_trial).  The user is responsible for evaluating the trial parameters and passing the results to [```complete_trial```](/api/service.html#ax.service.ax_client.AxClient.complete_trial).
+## [RECOMMENDED] Service API
+
+The Service API [`AxClient`](/api/service.html#module-ax.service.ax_client)
+exposes
+[`get_next_trial`](/api/service.html#ax.service.ax_client.AxClient.get_next_trial),
+as well as
+[`complete_trial`](/api/service.html#ax.service.ax_client.AxClient.complete_trial).
+The user is responsible for evaluating the trial parameters and passing the
+results to
+[`complete_trial`](/api/service.html#ax.service.ax_client.AxClient.complete_trial).
 
 ```python
 ...
@@ -19,16 +29,29 @@ for i in range(25):
 
 ### Evaluating Trial Parameters
 
-In the Service API, the [```complete_trial```](/api/service.html#ax.service.ax_client.AxClient.complete_trial) requires `raw_data` evaluated from the parameters suggested by [```get_next_trial```](/api/service.html#ax.service.ax_client.AxClient.get_next_trial).
+In the Service API, the
+[`complete_trial`](/api/service.html#ax.service.ax_client.AxClient.complete_trial)
+method requires `raw_data` evaluated from the parameters suggested by
+[`get_next_trial`](/api/service.html#ax.service.ax_client.AxClient.get_next_trial).
 
 The data can be in the form of:
+
 - A dictionary of metric names to tuples of (mean and [SEM](glossary.md#sem))
 - A single (mean, SEM) tuple
 - A single mean
 
-In the second case, Ax will assume that the mean and the SEM are for the experiment objective (if the evaluations are noiseless, simply provide an SEM of 0.0). In the third case, Ax will assume that observations are corrupted by Gaussian noise with zero mean and unknown SEM, and infer the SEM from the data (this is equivalent to specifying an SEM of None). Note that if the observation noise is non-zero (either provided or inferred), the "best arm" suggested by Ax may not always be the one whose evaluation returned the best observed value (as the "best arm" is selected based on the model-predicted mean).
+In the second case, Ax will assume that the mean and the SEM are for the
+experiment objective (if the evaluations are noiseless, simply provide an SEM of
+0.0). In the third case, Ax will assume that observations are corrupted by
+Gaussian noise with zero mean and unknown SEM, and infer the SEM from the data
+(this is equivalent to specifying an SEM of None). Note that if the observation
+noise is non-zero (either provided or inferred), the "best arm" suggested by Ax
+may not always be the one whose evaluation returned the best observed value (as
+the "best arm" is selected based on the model-predicted mean).
 
-For example, this evaluation function computes mean and SEM for [Hartmann6](https://www.sfu.ca/~ssurjano/hart6.html) function and for the L2-norm. We return `0.0` for SEM since the observations are noiseless:
+For example, this evaluation function computes mean and SEM for
+[Hartmann6](https://www.sfu.ca/~ssurjano/hart6.html) function and for the
+L2-norm. We return `0.0` for SEM since the observations are noiseless:
 
 ```python
 from ax.utils.measurement.synthetic_functions import hartmann6
@@ -38,7 +61,9 @@ def hartmann_evaluation_function(parameterization):
     return {"hartmann6": (hartmann6(x), 0.0), "l2norm": (np.sqrt((x ** 2).sum()), 0.0)}
 ```
 
-This function computes just the objective mean and SEM, assuming the [Branin](https://www.sfu.ca/~ssurjano/branin.html) function is the objective of the experiment:
+This function computes just the objective mean and SEM, assuming the
+[Branin](https://www.sfu.ca/~ssurjano/branin.html) function is the objective of
+the experiment:
 
 ```python
 from ax.utils.measurement.synthetic_functions import branin
@@ -62,16 +87,32 @@ def branin_evaluation_function_unknown_sem(parameterization):
 ```
 
 ## Loop API
-The [```optimize```](/api/service.html#ax.service.managed_loop.optimize) function requires an `evaluation_function`, which accepts parameters and returns raw data in the format described above.
-It can also accept a `weight` parameter, a nullable `float` representing the fraction of available data on which the parameterization should be evaluated. For example, this could be a downsampling rate in case of hyperparameter optimization (what portion of data the ML model should be trained on for evaluation) or the percentage of users exposed to a given configuration in A/B testing. This weight is not used in unweighted experiments and defaults to `None`.
+
+The [`optimize`](/api/service.html#ax.service.managed_loop.optimize) function
+requires an `evaluation_function`, which accepts parameters and returns raw data
+in the format described above. It can also accept a `weight` parameter, a
+nullable `float` representing the fraction of available data on which the
+parameterization should be evaluated. For example, this could be a downsampling
+rate in case of hyperparameter optimization (what portion of data the ML model
+should be trained on for evaluation) or the percentage of users exposed to a
+given configuration in A/B testing. This weight is not used in unweighted
+experiments and defaults to `None`.
 
 ## Developer API
 
-The Developer API is supported by the [```Experiment```](/api/core.html#module-ax.core.experiment) class. In this paradigm, the user specifies:
-  * [`Runner`](../api/core.html#ax.core.runner.Runner): Defines how to deploy the experiment.
-  * List of [`Metrics`](../api/core.html#ax.core.metric.Metric): Each defines how to compute/fetch data for a given objective or outcome.
+The Developer API is supported by the
+[`Experiment`](/api/core.html#module-ax.core.experiment) class. In this
+paradigm, the user specifies:
 
-The experiment requires a `generator_run` to create a new trial or batch trial.  A generator run can be generated by a model.  The trial then has its own `run` and `mark_complete` methods.
+- [`Runner`](../api/core.html#ax.core.runner.Runner): Defines how to deploy the
+  experiment.
+- List of [`Metrics`](../api/core.html#ax.core.metric.Metric): Each defines how
+  to compute/fetch data for a given objective or outcome.
+
+The experiment requires a `generator_run` to create a new trial or batch trial.
+A generator run can be generated by a model. The trial then has its own `run`
+and `mark_complete` methods.
+
 ```python
 ...
 sobol = Models.SOBOL(exp.search_space)
@@ -90,7 +131,12 @@ for i in range(15):
 
 ### Custom Metrics
 
-Similar to a trial evaluation in the Service API, a custom metric computes a mean and SEM for each arm of a trial.  However, the metric's `fetch_trial_data` method will be called automatically by the experiment's [```fetch_data```](/api/core.html#ax.core.base_trial.BaseTrial.fetch_data) method.  If there are multiple objectives or outcomes that need to be optimized for, each needs its own metric.
+Similar to a trial evaluation in the Service API, a custom metric computes a
+mean and SEM for each arm of a trial. However, the metric's `fetch_trial_data`
+method will be called automatically by the experiment's
+[`fetch_data`](/api/core.html#ax.core.base_trial.BaseTrial.fetch_data) method.
+If there are multiple objectives or outcomes that need to be optimized for, each
+needs its own metric.
 
 ```python
 class MyMetric(Metric):
@@ -110,11 +156,23 @@ class MyMetric(Metric):
 
 ### Adding Your Own Runner
 
-In order to control how the experiment is deployed, you can add your own runner. To do so, subclass [`Runner`](../api/core.html#ax.core.runner.Runner) and implement the [`run`](../api/core.html#ax.core.runner.Runner.run) method and [`staging_required`](../api/core.html#ax.core.runner.Runner.staging_required) property.
+In order to control how the experiment is deployed, you can add your own runner.
+To do so, subclass [`Runner`](../api/core.html#ax.core.runner.Runner) and
+implement the [`run`](../api/core.html#ax.core.runner.Runner.run) method and
+[`staging_required`](../api/core.html#ax.core.runner.Runner.staging_required)
+property.
 
-The [`run`](../api/core.html#ax.core.runner.Runner.run) method accepts a [`Trial`](../api/core.html#ax.core.trial.Trial) and returns a JSON-serializable dictionary of any necessary tracking info to fetch data later from this external system. A unique identifier or name for this trial in the external system should be stored in this dictionary with the key `"name"`, and this can later be accessed via `trial.deployed_name`.
+The [`run`](../api/core.html#ax.core.runner.Runner.run) method accepts a
+[`Trial`](../api/core.html#ax.core.trial.Trial) and returns a JSON-serializable
+dictionary of any necessary tracking info to fetch data later from this external
+system. A unique identifier or name for this trial in the external system should
+be stored in this dictionary with the key `"name"`, and this can later be
+accessed via `trial.deployed_name`.
 
-The [`staging_required`](../api/core.html#ax.core.runner.Runner.staging_required) indicates whether the trial requires an intermediate staging period before evaluation begins. This property returns False by default.
+The
+[`staging_required`](../api/core.html#ax.core.runner.Runner.staging_required)
+indicates whether the trial requires an intermediate staging period before
+evaluation begins. This property returns False by default.
 
 An example implementation is given below:
 
