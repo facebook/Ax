@@ -105,7 +105,8 @@ try:
                     for metric in tb_metrics
                 }
 
-            if len(mul.PluginRunToTagToContent("scalars")) == 0:
+            scalar_dict = mul.PluginRunToTagToContent("scalars")
+            if len(scalar_dict) == 0:
                 return {
                     metric.name: Err(
                         MetricFetchE(
@@ -135,13 +136,28 @@ try:
                             ),
                             "sem": float("nan"),
                         }
-                        for run_name, tb_metrics in mul.PluginRunToTagToContent(
-                            "scalars"
-                        ).items()
-                        for tag in tb_metrics
+                        for run_name, tags in scalar_dict.items()
+                        for tag in tags
                         if tag == metric.tag
                         for t in mul.Tensors(run_name, tag)
                     ]
+
+                    # If records is empty something has gone wrong: either the tag is
+                    # not present on the multiplexer or the content referenced is empty
+                    if len(records) == 0:
+                        if metric.tag not in [
+                            j for sub in scalar_dict.values() for j in sub
+                        ]:
+                            raise KeyError(
+                                f"Tag {metric.tag} not found on multiplexer {mul=}. "
+                                "Did you specify this tag exactly as it appears in "
+                                "the TensorBoard UI's Scalars tab?"
+                            )
+                        else:
+                            raise ValueError(
+                                f"Found tag {metric.tag}, but no data found for it. Is "
+                                "the curve empty in the TensorBoard UI?"
+                            )
 
                     df = (
                         pd.DataFrame(records)
