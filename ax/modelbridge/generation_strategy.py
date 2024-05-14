@@ -104,7 +104,6 @@ class GenerationStrategy(GenerationStrategyInterface):
     # Experiment, for which this generation strategy has generated trials, if
     # it exists.
     _experiment: Optional[Experiment] = None
-    # Trial indices as last seen by the model; updated in `_model` property setter.
     _model: Optional[ModelBridge] = None  # Current model.
 
     def __init__(
@@ -376,6 +375,55 @@ class GenerationStrategy(GenerationStrategyInterface):
             **kwargs,
         )[0]
 
+    def gen_with_multiple_nodes(
+        self,
+        experiment: Experiment,
+        data: Optional[Data] = None,
+        n: int = 1,  # Total arms to generate
+        pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
+        **kwargs: Any,  # TODO: @mgarrard Ensure correct dispatch to nodes
+    ) -> List[GeneratorRun]:
+        """Produces a List of GeneratorRuns for a single trial, either ```Trial``` or
+        ```BatchTrial```, and if producing a ```BatchTrial`` allows for multiple
+        models to be used to generate GeneratorRuns for that trial.
+
+        NOTE: This method is in development.  Please do not use it yet.
+
+        Args:
+            experiment: Experiment, for which the generation strategy is producing
+                a new generator run in the course of `gen`, and to which that
+                generator run will be added as trial(s). Information stored on the
+                experiment (e.g., trial statuses) is used to determine which model
+                will be used to produce the generator run returned from this method.
+            data: Optional data to be passed to the underlying model's `gen`, which
+                is called within this method and actually produces the resulting
+                generator run. By default, data is all data on the `experiment`.
+            n: Integer representing how total arms to generate for this trial.
+            pending_observations: A map from metric name to pending
+                observations for that metric, used by some models to avoid
+                resuggesting points that are currently being evaluated.
+
+        Returns:
+            A list of ```GeneratorRuns``` for a single trial.
+        """
+        # TODO: @mgarrard merge into gen method, just starting here to derisk
+        grs = []
+        continue_gen_for_trial = True
+
+        while continue_gen_for_trial:
+            grs.extend(
+                self._gen_multiple(
+                    experiment=experiment,
+                    num_generator_runs=1,
+                    data=data,
+                    n=n,
+                    pending_observations=pending_observations,
+                    **kwargs,
+                )
+            )
+            continue_gen_for_trial = self._should_continue_gen_for_trial()
+        return grs
+
     def gen_for_multiple_trials_with_multiple_models(
         self,
         experiment: Experiment,
@@ -544,6 +592,13 @@ class GenerationStrategy(GenerationStrategyInterface):
             node._generation_strategy = self
 
         # validate `transition_criterion`
+        # TODO[@mgarrard]: Validate that all TCs in one "transition edge" (so all TCs
+        # from one node to another) have the same `continue_trial_generation` setting.
+        # Since multiple TCs together constitute one "transition edge", not having all
+        # TCs on such an "edge" indicate the same resulting state (continuing
+        # generation for same trial vs. stopping it after generating from current node)
+        # would indicate a malformed generation node DAG definition and therefore a
+        # malformed `GenerationStrategy`.
         contains_a_transition_to_argument = False
         for node in self._nodes:
             for transition_criteria in node.transition_criteria:
@@ -707,6 +762,31 @@ class GenerationStrategy(GenerationStrategyInterface):
                 generator_run=generator_run,
             )
         return generator_runs
+
+    def _should_continue_gen_for_trial(self) -> bool:
+        """Determine if we should continue generating for the current trial, or end
+        generation for the current trial. Note that generating more would involve
+        transitioning to a next node, because each node generates once per call to
+        ``GenerationStrategy.gen_with_multiple_nodes``.
+
+        Returns:
+            A boolean which represents if generation for a trial is complete
+        """
+        should_transition, next_node = self._curr.should_transition_to_next_node(
+            raise_data_required_error=False
+        )
+        # if we should not transition nodes, we should stop generation for this trial.
+        if not should_transition:
+            return False
+
+        # if we will transition nodes, check if the transition criterion which define
+        # the transition from this node to the next node indicate that we should
+        # continue generating in the same trial, otherwise end the generation.
+        assert next_node is not None
+        return all(
+            tc.continue_trial_generation
+            for tc in self._curr.transition_edges[next_node]
+        )
 
     # ------------------------- Model selection logic helpers. -------------------------
 
