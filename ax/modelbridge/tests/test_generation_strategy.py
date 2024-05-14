@@ -1323,7 +1323,7 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(gs1, gs2)
 
     def test_gs_with_competing_transition_edges(self) -> None:
-        """Test that a ```GenerationStrategy``` with a node with competing transition
+        """Test that a ``GenerationStrategy`` with a node with competing transition
         edges correctly transitions.
         """
         # this gs has a single sobol node which transitions to gpei. If the MaxTrials
@@ -1340,7 +1340,7 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(gs.current_node_name, "sobol_3")
 
     def test_gs_with_competing_transition_edges_2(self) -> None:
-        """Test that a ```GenerationStrategy``` with a node with competing transition
+        """Test that a ``GenerationStrategy`` with a node with competing transition
         edges correctly transitions.
         """
         # this gs has a single sobol node which transitions to gpei. If the MaxTrials
@@ -1358,7 +1358,7 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(gs.current_node_name, "sobol_3")
 
     def test_gs_with_competing_transition_edges_3(self) -> None:
-        """Test that a ```GenerationStrategy``` with a node with competing transition
+        """Test that a ``GenerationStrategy`` with a node with competing transition
         edges correctly transitions.
         """
         # this gs has a single sobol node which transitions to gpei. If the MaxTrials

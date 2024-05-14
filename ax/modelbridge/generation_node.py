@@ -401,7 +401,7 @@ class GenerationNode(SerializationMixin, SortableBase):
 
     @property
     def transition_edges(self) -> Dict[str, List[TransitionCriterion]]:
-        """Returns a dictionary mapping the next ```GenerationNode``` to the
+        """Returns a dictionary mapping the next ``GenerationNode`` to the
         TransitionCriteria that define the transition that that node.
 
         Ex: if the transition from the current node to node x is defined by MaxTrials
@@ -409,7 +409,7 @@ class GenerationNode(SerializationMixin, SortableBase):
 
         Returns:
             Dict[str, List[TransitionCriterion]]: A dictionary mapping the next
-            ```GenerationNode``` to the ```TransitionCriterion``` that are associated
+            ``GenerationNode`` to the ``TransitionCriterion`` that are associated
             with it.
         """
         if self.transition_criteria is None:

@@ -90,7 +90,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             should use nodes. Notably, either, but not both, of `nodes` and `steps`
             must be provided.
         steps: A list of `GenerationStep` describing steps of this strategy.
-        name: An optional name for this generaiton strategy. If not specified,
+        name: An optional name for this generation strategy. If not specified,
             strategy's name will be names of its nodes' models joined with '+'.
     """
 
@@ -383,8 +383,8 @@ class GenerationStrategy(GenerationStrategyInterface):
         pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
         **kwargs: Any,  # TODO: @mgarrard Ensure correct dispatch to nodes
     ) -> List[GeneratorRun]:
-        """Produces a List of GeneratorRuns for a single trial, either ```Trial``` or
-        ```BatchTrial```, and if producing a ```BatchTrial`` allows for multiple
+        """Produces a List of GeneratorRuns for a single trial, either ``Trial`` or
+        ``BatchTrial``, and if producing a ``BatchTrial`` allows for multiple
         models to be used to generate GeneratorRuns for that trial.
 
         NOTE: This method is in development.  Please do not use it yet.
@@ -404,7 +404,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                 resuggesting points that are currently being evaluated.
 
         Returns:
-            A list of ```GeneratorRuns``` for a single trial.
+            A list of ``GeneratorRuns`` for a single trial.
         """
         # TODO: @mgarrard merge into gen method, just starting here to derisk
         grs = []
@@ -485,7 +485,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                 generate any more generator runs at all.
         """
         try:
-            self._maybe_move_to_next_step(raise_data_required_error=False)
+            self._maybe_transition_to_next_node(raise_data_required_error=False)
         except GenerationStrategyCompleted:
             return 0, True
 
@@ -526,9 +526,9 @@ class GenerationStrategy(GenerationStrategyInterface):
         This function validates:
             1. That only the last step has num_trials=-1, which indicates unlimited
                trial generation is possible.
-            2. That each step's num_trials attrivute is either positive or -1
+            2. That each step's num_trials attribute is either positive or -1
             3. That each step's max_parallelism attribute is either None or positive
-        It then sets the corect TransitionCriterion and node_name attributes on the
+        It then sets the correct TransitionCriterion and node_name attributes on the
         underlying GenerationNode objects.
         """
         for idx, step in enumerate(steps):
@@ -537,8 +537,8 @@ class GenerationStrategy(GenerationStrategyInterface):
                     raise UserInputError(
                         "Only last step in generation strategy can have "
                         "`num_trials` set to -1 to indicate that the model in "
-                        "the step shouldbe used to generate new trials "
-                        "indefinitely unless completion critera present."
+                        "the step should be used to generate new trials "
+                        "indefinitely unless completion criteria present."
                     )
             elif step.num_trials < 1 and step.num_trials != -1:
                 raise UserInputError(
@@ -691,12 +691,12 @@ class GenerationStrategy(GenerationStrategyInterface):
         """Produce multiple generator runs at once, to be made into multiple
         trials on the experiment.
 
-        NOTE: This is used to ensure that maximum paralellism and number
+        NOTE: This is used to ensure that maximum parallelism and number
         of trials per node are not violated when producing many generator
         runs from this generation strategy in a row. Without this function,
         if one generates multiple generator runs without first making any
         of them into running trials, generation strategy cannot enforce that it only
-        produces as many generator runs as are allowed by the paralellism
+        produces as many generator runs as are allowed by the parallelism
         limit and the limit on number of trials in current node.
 
         Args:
@@ -721,7 +721,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                 ``ModelSpec.gen``, which will pass them to ``ModelBridge.gen``.
         """
         self.experiment = experiment
-        self._maybe_move_to_next_step()
+        self._maybe_transition_to_next_node()
         self._fit_current_model(data=data)
 
         # Get GeneratorRun limit that respects the node's transition criterion that
@@ -810,7 +810,9 @@ class GenerationStrategy(GenerationStrategyInterface):
         self._curr.fit(experiment=self.experiment, data=data, **model_state_on_lgr)
         self._model = self._curr._fitted_model
 
-    def _maybe_move_to_next_step(self, raise_data_required_error: bool = True) -> bool:
+    def _maybe_transition_to_next_node(
+        self, raise_data_required_error: bool = True
+    ) -> bool:
         """Moves this generation strategy to next node if the current node is completed,
         and it is not the last node in this generation strategy. This method is safe to
         use both when generating candidates or simply checking how many generator runs

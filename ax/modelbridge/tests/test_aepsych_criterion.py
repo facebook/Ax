@@ -47,7 +47,7 @@ class TestAEPsychCriterion(TestCase):
 
         # Has not seen enough of each preference
         self.assertFalse(
-            generation_strategy._maybe_move_to_next_step(
+            generation_strategy._maybe_transition_to_next_node(
                 raise_data_required_error=False
             )
         )
@@ -71,7 +71,7 @@ class TestAEPsychCriterion(TestCase):
         with patch.object(experiment, "fetch_data", return_value=data):
             # We have seen three "yes" and three "no"
             self.assertTrue(
-                generation_strategy._maybe_move_to_next_step(
+                generation_strategy._maybe_transition_to_next_node(
                     raise_data_required_error=False
                 )
             )
@@ -105,7 +105,7 @@ class TestAEPsychCriterion(TestCase):
 
         # Has not seen enough of each preference
         self.assertFalse(
-            generation_strategy._maybe_move_to_next_step(
+            generation_strategy._maybe_transition_to_next_node(
                 raise_data_required_error=False
             )
         )
@@ -125,7 +125,7 @@ class TestAEPsychCriterion(TestCase):
             # We have seen three "yes" and three "no", but not enough trials
             # are completed
             self.assertFalse(
-                generation_strategy._maybe_move_to_next_step(
+                generation_strategy._maybe_transition_to_next_node(
                     raise_data_required_error=False
                 )
             )
@@ -138,7 +138,7 @@ class TestAEPsychCriterion(TestCase):
         # Enough trials are completed but we have not seen three "yes" and three
         # "no"
         self.assertFalse(
-            generation_strategy._maybe_move_to_next_step(
+            generation_strategy._maybe_transition_to_next_node(
                 raise_data_required_error=False
             )
         )
@@ -147,7 +147,7 @@ class TestAEPsychCriterion(TestCase):
             # Enough trials are completed but we have not seen three "yes" and three
             # "no"
             self.assertTrue(
-                generation_strategy._maybe_move_to_next_step(
+                generation_strategy._maybe_transition_to_next_node(
                     raise_data_required_error=False
                 )
             )
