@@ -2302,7 +2302,7 @@ class TestAxClient(TestCase):
         ax_client, branin_currin = get_branin_currin_optimization_with_N_sobol_trials(
             num_trials=20, outcome_constraints=outcome_constraints
         )
-        ax_client.generation_strategy._maybe_move_to_next_step()
+        ax_client.generation_strategy._maybe_transition_to_next_node()
         ax_client.generation_strategy._fit_current_model(
             data=ax_client.experiment.lookup_data()
         )
@@ -2488,7 +2488,7 @@ class TestAxClient(TestCase):
         ax_client, _ = get_branin_currin_optimization_with_N_sobol_trials(
             num_trials=20, include_objective_thresholds=False
         )
-        ax_client.generation_strategy._maybe_move_to_next_step()
+        ax_client.generation_strategy._maybe_transition_to_next_node()
         ax_client.generation_strategy._fit_current_model(
             data=ax_client.experiment.lookup_data()
         )

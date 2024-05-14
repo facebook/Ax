@@ -46,7 +46,7 @@ class TestTransitionCriterion(TestCase):
         self.branin_experiment = get_branin_experiment()
 
     def test_minimum_preference_criterion(self) -> None:
-        """Tests the minimum preference criterion subcalss of TransitionCriterion."""
+        """Tests the minimum preference criterion subclass of TransitionCriterion."""
         criterion = MinimumPreferenceOccurances(metric_name="m1", threshold=3)
         experiment = get_experiment()
         generation_strategy = GenerationStrategy(
@@ -68,7 +68,7 @@ class TestTransitionCriterion(TestCase):
 
         # Has not seen enough of each preference
         self.assertFalse(
-            generation_strategy._maybe_move_to_next_step(
+            generation_strategy._maybe_transition_to_next_node(
                 raise_data_required_error=False
             )
         )
@@ -87,7 +87,7 @@ class TestTransitionCriterion(TestCase):
         with patch.object(experiment, "fetch_data", return_value=data):
             # We have seen three "yes" and three "no"
             self.assertTrue(
-                generation_strategy._maybe_move_to_next_step(
+                generation_strategy._maybe_transition_to_next_node(
                     raise_data_required_error=False
                 )
             )
@@ -192,14 +192,14 @@ class TestTransitionCriterion(TestCase):
         for _i in range(4):
             experiment.new_trial(gs.gen(experiment=experiment))
 
-        # TODO: @mgarrard More comphrensive test of trials_from_node
+        # TODO: @mgarrard More comprehensive test of trials_from_node
         node_0_trials = gs._steps[0].trials_from_node
         node_1_trials = gs._steps[1].trials_from_node
 
         self.assertEqual(len(node_0_trials), 4)
         self.assertEqual(len(node_1_trials), 0)
 
-        # MinTrials is met should not pass yet, becasue no trials
+        # MinTrials is met should not pass yet, because no trials
         # are marked completed
         self.assertFalse(
             gs._steps[0]
@@ -450,11 +450,11 @@ class TestTransitionCriterion(TestCase):
             + "'use_all_trials_in_exp': False, "
             + "'continue_trial_generation': False})",
         )
-        minimum_preference_occurances_criterion = MinimumPreferenceOccurances(
+        minimum_preference_occurrences_criterion = MinimumPreferenceOccurances(
             metric_name="m1", threshold=3
         )
         self.assertEqual(
-            str(minimum_preference_occurances_criterion),
+            str(minimum_preference_occurrences_criterion),
             "MinimumPreferenceOccurances({'metric_name': 'm1', 'threshold': 3, "
             + "'transition_to': None, 'block_gen_if_met': False, "
             "'block_transition_if_unmet': True})",
