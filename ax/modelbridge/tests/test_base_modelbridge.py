@@ -33,6 +33,7 @@ from ax.models.base import Model
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
@@ -768,6 +769,65 @@ class BaseModelBridgeTest(TestCase):
         gr = modelbridge.gen(1)
         self.assertIsNone(gr.optimization_config)
         self.assertIsNone(gr.search_space)
+
+    def test_set_status_quo(self) -> None:
+        # experiment with single status quo in trial
+        exp = get_branin_experiment(
+            with_batch=True,
+            with_status_quo=True,
+            num_batch_trial=1,
+            with_completed_batch=True,
+        )
+        modelbridge = ModelBridge(
+            search_space=exp.search_space,
+            experiment=exp,
+            model=Model,
+            data=exp.lookup_data(),
+        )
+
+        # we are able to set status_quo_data_by_trial when multiple
+        # status_quos present in each trial
+        self.assertIsNotNone(modelbridge.status_quo_data_by_trial)
+        # status_quo is set
+        self.assertIsNotNone(modelbridge.status_quo)
+        # Status quo name is logged
+        self.assertEqual(modelbridge._status_quo_name, not_none(exp.status_quo).name)
+
+        # experiment with multiple status quos in different trials
+        exp = get_branin_experiment(
+            with_batch=True,
+            with_status_quo=True,
+            num_batch_trial=2,
+            with_completed_batch=True,
+        )
+        modelbridge = ModelBridge(
+            search_space=exp.search_space,
+            experiment=exp,
+            model=Model,
+            data=exp.lookup_data(),
+        )
+        # we are able to set status_quo_data_by_trial when multiple
+        # status_quos present in each trial
+        self.assertIsNotNone(modelbridge.status_quo_data_by_trial)
+        # status_quo is not set
+        self.assertIsNone(modelbridge.status_quo)
+        # Status quo name can still be logged
+        self.assertEqual(modelbridge._status_quo_name, not_none(exp.status_quo).name)
+
+        # a unique status_quo can be identified (by trial index)
+        # if status_quo_features is specified
+        status_quo_features = ObservationFeatures(
+            parameters=not_none(exp.status_quo).parameters,
+            trial_index=0,
+        )
+        modelbridge = ModelBridge(
+            search_space=exp.search_space,
+            experiment=exp,
+            model=Model,
+            data=exp.lookup_data(),
+            status_quo_features=status_quo_features,
+        )
+        self.assertIsNotNone(modelbridge.status_quo)
 
 
 class testClampObservationFeatures(TestCase):

@@ -153,6 +153,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         self._optimization_config: Optional[OptimizationConfig] = optimization_config
         self._training_in_design: List[bool] = []
         self._status_quo: Optional[Observation] = None
+        self._status_quo_name: Optional[str] = None
         self._arms_by_signature: Optional[Dict[str, Arm]] = None
         self.transforms: MutableMapping[str, Transform] = OrderedDict()
         self._model_key: Optional[str] = None
@@ -402,7 +403,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         status_quo_name: Optional[str],
         status_quo_features: Optional[ObservationFeatures],
     ) -> None:
-        """Set model status quo.
+        """Set model status quo by matching status_quo_name or status_quo_features.
 
         First checks for status quo in inputs status_quo_name and
         status_quo_features. If neither of these is provided, checks the
@@ -415,6 +416,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
             status_quo_features: Features for status quo.
         """
         self._status_quo: Optional[Observation] = None
+        sq_obs = None
 
         if (
             status_quo_name is None
@@ -432,17 +434,6 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
             sq_obs = [
                 obs for obs in self._training_data if obs.arm_name == status_quo_name
             ]
-
-            if len(sq_obs) == 0:
-                logger.warning(f"Status quo {status_quo_name} not present in data")
-            elif len(sq_obs) > 1:
-                logger.warning(
-                    f"Status quo {status_quo_name} found in data with multiple "
-                    "features. Use status_quo_features to specify which to use."
-                )
-            else:
-                self._status_quo = sq_obs[0]
-
         elif status_quo_features is not None:
             sq_obs = [
                 obs
@@ -451,14 +442,25 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
                 and (obs.features.trial_index == status_quo_features.trial_index)
             ]
 
+        # if status_quo_name or status_quo_features is used for matching status quo
+        if sq_obs is not None:
             if len(sq_obs) == 0:
-                logger.warning(
-                    f"Status quo features {status_quo_features} not found in data."
-                )
-            else:
-                # len(sq_obs) will not be > 1,
-                # unique features verified in _set_training_data.
-                self._status_quo = sq_obs[0]
+                logger.warning(f"Status quo {status_quo_name} not present in data")
+            elif len(sq_obs) >= 1:
+                # status quo name (not features as trial index is part of the
+                # observation features) should be consistent even if we have multiple
+                # observations of the status quo.
+                # This is useful for getting status_quo_data_by_trial
+                self._status_quo_name = sq_obs[0].arm_name
+                if len(sq_obs) > 1:
+                    logger.warning(
+                        f"Status quo {status_quo_name} found in data with multiple "
+                        "features. Use status_quo_features to specify which to use."
+                    )
+                else:
+                    # if there is a unique status_quo, set it
+                    # unique features verified in _set_training_data.
+                    self._status_quo = sq_obs[0]
 
     @property
     def status_quo_data_by_trial(self) -> Optional[Dict[int, ObservationData]]:
@@ -466,10 +468,12 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         return _get_status_quo_by_trial(
             observations=self._training_data,
             status_quo_name=(
-                None if self._status_quo is None else self._status_quo.arm_name
+                self._status_quo_name
+                if self.status_quo is None
+                else self.status_quo.arm_name
             ),
             status_quo_features=(
-                None if self._status_quo is None else self._status_quo.features
+                None if self.status_quo is None else self.status_quo.features
             ),
         )
 

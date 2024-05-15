@@ -280,6 +280,14 @@ Modeling Stubs
     :undoc-members:
     :show-inheritance:
 
+Preference Stubs
+~~~~~~~~~~~~~~
+
+.. automodule:: ax.utils.testing.preference_stubs
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Mocking
 ~~~~~~~

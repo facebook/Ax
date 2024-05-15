@@ -250,6 +250,8 @@ def get_branin_experiment(
     search_space: Optional[SearchSpace] = None,
     minimize: bool = False,
     named: bool = True,
+    num_batch_trial: int = 1,
+    with_completed_batch: bool = False,
     with_completed_trial: bool = False,
 ) -> Experiment:
     search_space = search_space or get_branin_search_space(
@@ -267,17 +269,19 @@ def get_branin_experiment(
         ),
         runner=SyntheticRunner(),
         is_test=True,
+        status_quo=Arm(parameters={"x1": 0.0, "x2": 0.0}) if with_status_quo else None,
     )
 
-    if with_status_quo:
-        exp.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
-
     if with_batch:
-        sobol_generator = get_sobol(search_space=exp.search_space)
-        sobol_run = sobol_generator.gen(n=15)
-        exp.new_batch_trial(optimize_for_power=with_status_quo).add_generator_run(
-            sobol_run
-        )
+        for _ in range(num_batch_trial):
+            sobol_generator = get_sobol(search_space=exp.search_space)
+            sobol_run = sobol_generator.gen(n=15)
+            trial = exp.new_batch_trial(optimize_for_power=with_status_quo)
+            trial.add_generator_run(sobol_run)
+            if with_completed_batch:
+                trial.mark_running(no_runner_required=True)
+                exp.attach_data(get_branin_data_batch(batch=trial))
+                trial.mark_completed()
 
     if with_trial or with_completed_trial:
         sobol_generator = get_sobol(search_space=exp.search_space)
