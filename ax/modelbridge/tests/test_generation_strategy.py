@@ -850,10 +850,6 @@ class TestGenerationStrategy(TestCase):
                 all_parameter_names = checked_cast(
                     HierarchicalSearchSpace, experiment.search_space
                 )._all_parameter_names.copy()
-                # One of the parameter names is modified by transforms (because it's
-                # one-hot encoded).
-                all_parameter_names.remove("model")
-                all_parameter_names.add("model_OH_PARAM_")
                 for obs in observations:
                     for p_name in all_parameter_names:
                         self.assertIn(p_name, obs.features.parameters)
