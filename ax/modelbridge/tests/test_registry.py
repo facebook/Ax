@@ -8,10 +8,7 @@
 
 from collections import OrderedDict
 
-import numpy as np
-import pandas as pd
 import torch
-from ax.core.data import Data
 from ax.core.observation import ObservationFeatures
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.random import RandomModelBridge
@@ -26,8 +23,6 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.models.base import Model
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
-from ax.models.random.alebo_initializer import ALEBOInitializer
-from ax.models.torch.alebo import ALEBO
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
@@ -370,46 +365,6 @@ class ModelRegistryTest(TestCase):
             bridge_args = set(get_function_argument_names(bridge_class))
             # Intersection of two sets should be empty
             self.assertEqual(model_args & bridge_args, set())
-
-    @fast_botorch_optimize
-    def test_ALEBO(self) -> None:
-        """Tests Alebo fitting and generations"""
-        experiment = get_branin_experiment(with_batch=True)
-        B = np.array([[1.0, 2.0]])
-        data = Data(
-            pd.DataFrame(
-                {
-                    "arm_name": ["0_0", "0_1", "0_2"],
-                    "metric_name": "branin",
-                    "mean": [-1.0, 0.0, 1.0],
-                    "sem": 0.1,
-                }
-            )
-        )
-        m = Models.ALEBO(
-            experiment=experiment,
-            search_space=None,
-            data=data,
-            B=torch.from_numpy(B).double(),
-        )
-        self.assertIsInstance(m, TorchModelBridge)
-        self.assertIsInstance(m.model, ALEBO)
-        self.assertTrue(np.array_equal(m.model.B.numpy(), B))
-
-    def test_ALEBO_Initializer(self) -> None:
-        """Tests Alebo Initializer generations"""
-        experiment = get_branin_experiment(with_batch=True)
-        B = np.array([[1.0, 2.0]])
-        m = Models.ALEBO_INITIALIZER(
-            experiment=experiment,
-            search_space=None,
-            B=B,
-        )
-        self.assertIsInstance(m, RandomModelBridge)
-        self.assertIsInstance(m.model, ALEBOInitializer)
-
-        gr = m.gen(n=2)
-        self.assertEqual(len(gr.arms), 2)
 
     @fast_botorch_optimize
     def test_ST_MTGP_LEGACY(self) -> None:
