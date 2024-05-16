@@ -1112,7 +1112,7 @@ def get_robust_search_space(
         RangeParameter("x", ParameterType.FLOAT, lb, ub),
         RangeParameter("y", ParameterType.FLOAT, lb, ub),
         RangeParameter("z", ParameterType.INT, lb, ub),
-        ChoiceParameter("c", ParameterType.STRING, ["red", "panda"]),
+        ChoiceParameter("c", ParameterType.STRING, ["red", "blue", "green"]),
     ]
     if multivariate:
         if use_discrete:

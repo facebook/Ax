@@ -16,7 +16,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.exceptions.core import AxWarning, UserInputError
+from ax.exceptions.core import AxParameterWarning, AxWarning, UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
 
@@ -242,7 +242,7 @@ class ChoiceParameterTest(TestCase):
         )
         self.param3_repr = (
             "ChoiceParameter(name='x', parameter_type=STRING, "
-            "values=['foo', 'bar'], is_fidelity=True, is_ordered=False, "
+            "values=['foo', 'bar'], is_fidelity=True, is_ordered=True, "
             "sort_values=False, target_value='bar')"
         )
         self.param4 = ChoiceParameter(
@@ -485,7 +485,7 @@ class ChoiceParameterTest(TestCase):
                 "type": "Choice",
                 "domain": "values=['foo', 'bar']",
                 "parameter_type": "string",
-                "flags": "fidelity, unordered, unsorted",
+                "flags": "fidelity, ordered, unsorted",
                 "target_value": "bar",
             },
         )
@@ -508,6 +508,48 @@ class ChoiceParameterTest(TestCase):
                 values=["foo", "bar", "foo"],
             )
         self.assertEqual(p.values, ["foo", "bar"])
+
+    def test_two_values_is_ordered(self) -> None:
+        parameter_types = (
+            ParameterType.INT,
+            ParameterType.FLOAT,
+            ParameterType.BOOL,
+            ParameterType.STRING,
+        )
+        parameter_values = ([0, 4], [0, 1.234], [False, True], ["foo", "bar"])
+        for parameter_type, values in zip(parameter_types, parameter_values):
+            p = ChoiceParameter(
+                name="x",
+                parameter_type=parameter_type,
+                values=values,  # pyre-ignore
+            )
+            self.assertEqual(p._is_ordered, True)
+
+            # Change `is_ordered` to True and warn
+            with self.assertWarnsRegex(
+                AxParameterWarning,
+                "Changing `is_ordered` to `True` for `ChoiceParameter` 'x' since "
+                "there are only two possible values",
+            ):
+                p = ChoiceParameter(
+                    name="x",
+                    parameter_type=parameter_type,
+                    values=values,  # pyre-ignore
+                    is_ordered=False,
+                )
+                self.assertEqual(p._is_ordered, True)
+
+            # Set to True if `is_ordered` is not specified
+            with self.assertWarnsRegex(
+                AxParameterWarning, "since there are exactly two choices"
+            ):
+                p = ChoiceParameter(
+                    name="x",
+                    parameter_type=parameter_type,
+                    values=values,  # pyre-ignore
+                    sort_values=False,
+                )
+                self.assertEqual(p._is_ordered, True)
 
 
 class FixedParameterTest(TestCase):

@@ -36,7 +36,6 @@ class OneHotTransformTest(TestCase):
                     "c",
                     parameter_type=ParameterType.BOOL,
                     values=[True, False],
-                    is_ordered=False,
                 ),
                 ChoiceParameter(
                     "d",
@@ -66,8 +65,7 @@ class OneHotTransformTest(TestCase):
                 "b" + OH_PARAM_INFIX + "_0": 0,
                 "b" + OH_PARAM_INFIX + "_1": 1,
                 "b" + OH_PARAM_INFIX + "_2": 0,
-                # Only two choices => one parameter.
-                "c" + OH_PARAM_INFIX: 0,
+                "c": False,
                 "d": 10.0,
             }
         )
@@ -76,8 +74,8 @@ class OneHotTransformTest(TestCase):
         )
 
     def test_Init(self) -> None:
-        self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c"])
-        self.assertEqual(list(self.t2.encoded_parameters.keys()), ["b", "c"])
+        self.assertEqual(list(self.t.encoded_parameters.keys()), ["b"])
+        self.assertEqual(list(self.t2.encoded_parameters.keys()), ["b"])
 
     def test_TransformObservationFeatures(self) -> None:
         observation_features = [self.observation_features]
@@ -126,9 +124,7 @@ class OneHotTransformTest(TestCase):
             ss2.parameters["b" + OH_PARAM_INFIX + "_1"].parameter_type,
             ParameterType.FLOAT,
         )
-        self.assertEqual(
-            ss2.parameters["c" + OH_PARAM_INFIX].parameter_type, ParameterType.FLOAT
-        )
+        self.assertEqual(ss2.parameters["c"].parameter_type, ParameterType.BOOL)
         self.assertEqual(ss2.parameters["d"].parameter_type, ParameterType.FLOAT)
 
         # Parameter range fixed to [0,1].
@@ -136,8 +132,7 @@ class OneHotTransformTest(TestCase):
         self.assertEqual(ss2.parameters["b" + OH_PARAM_INFIX + "_0"].lower, 0.0)
         # pyre-fixme[16]: `Parameter` has no attribute `upper`.
         self.assertEqual(ss2.parameters["b" + OH_PARAM_INFIX + "_1"].upper, 1.0)
-        self.assertEqual(ss2.parameters["c" + OH_PARAM_INFIX].lower, 0.0)
-        self.assertEqual(ss2.parameters["c" + OH_PARAM_INFIX].upper, 1.0)
+        self.assertEqual(ss2.parameters["c"].parameter_type, ParameterType.BOOL)
 
         # Ensure we error if we try to transform a fidelity parameter
         ss3 = SearchSpace(
@@ -158,14 +153,11 @@ class OneHotTransformTest(TestCase):
     def test_w_parameter_distributions(self) -> None:
         rss = get_robust_search_space()
         # Transform a non-distributional parameter.
-        t = OneHot(
-            search_space=rss,
-            observations=[],
-        )
+        t = OneHot(search_space=rss, observations=[])
         rss_new = t.transform_search_space(rss)
         # Make sure that the return value is still a RobustSearchSpace.
         self.assertIsInstance(rss_new, RobustSearchSpace)
-        self.assertEqual(len(rss_new.parameters.keys()), 4)
+        self.assertEqual(len(rss_new.parameters.keys()), 6)
         # pyre-fixme[16]: `SearchSpace` has no attribute `parameter_distributions`.
         self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
         self.assertNotIn("c", rss_new.parameters)
@@ -183,7 +175,7 @@ class OneHotTransformTest(TestCase):
         )
         rss_new = t.transform_search_space(rss)
         self.assertIsInstance(rss_new, RobustSearchSpace)
-        self.assertEqual(len(rss_new.parameters.keys()), 4)
+        self.assertEqual(len(rss_new.parameters.keys()), 6)
         self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
         # pyre-fixme[16]: `SearchSpace` has no attribute `_environmental_variables`.
         self.assertEqual(rss._environmental_variables, rss_new._environmental_variables)

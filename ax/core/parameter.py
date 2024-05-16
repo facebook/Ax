@@ -571,16 +571,24 @@ class ChoiceParameter(Parameter):
             )
             values = list(dict_values)
 
+        if is_ordered is False and len(values) == 2:
+            is_ordered = True
+            warn(
+                f"Changing `is_ordered` to `True` for `ChoiceParameter` '{name}' since "
+                "there are only two possible values.",
+                AxParameterWarning,
+                stacklevel=3,
+            )
         self._is_ordered: bool = (
             is_ordered
             if is_ordered is not None
-            else self._get_default_bool_and_warn(param_string="is_ordered")
+            else self._get_default_is_ordered_and_warn(num_choices=len(values))
         )
         # sort_values defaults to True if the parameter is not a string
         self._sort_values: bool = (
             sort_values
             if sort_values is not None
-            else self._get_default_bool_and_warn(param_string="sort_values")
+            else self._get_default_sort_values_and_warn()
         )
         if self.sort_values:
             values = cast(List[TParamValue], sorted([not_none(v) for v in values]))
@@ -597,14 +605,33 @@ class ChoiceParameter(Parameter):
         # that is done in `HierarchicalSearchSpace` constructor.
         self._dependents = dependents
 
-    def _get_default_bool_and_warn(self, param_string: str) -> bool:
+    def _get_default_is_ordered_and_warn(self, num_choices: int) -> bool:
+        default_bool = self._parameter_type != ParameterType.STRING or num_choices == 2
+        if self._parameter_type == ParameterType.STRING and num_choices > 2:
+            motivation = " since the parameter is a string with more than 2 choices."
+        elif num_choices == 2:
+            motivation = " since there are exactly two choices."
+        else:
+            motivation = " since the parameter is not of type string."
+        warn(
+            f'`is_ordered` is not specified for `ChoiceParameter` "{self._name}". '
+            f"Defaulting to `{default_bool}` {motivation}. To override this behavior "
+            f"(or avoid this warning), specify `is_ordered` during `ChoiceParameter` "
+            "construction. Note that choice parameters with exactly 2 choices are "
+            "always considered ordered and that the user-supplied `is_ordered` has no "
+            "effect in this particular case.",
+            AxParameterWarning,
+            stacklevel=3,
+        )
+        return default_bool
+
+    def _get_default_sort_values_and_warn(self) -> bool:
         default_bool = self._parameter_type != ParameterType.STRING
         warn(
-            f'`{param_string}` is not specified for `ChoiceParameter` "{self._name}". '
+            f'`sort_values` is not specified for `ChoiceParameter` "{self._name}". '
             f"Defaulting to `{default_bool}` for parameters of `ParameterType` "
             f"{self.parameter_type.name}. To override this behavior (or avoid this "
-            f"warning), specify `{param_string}` during `ChoiceParameter` "
-            "construction.",
+            f"warning), specify `sort_values` during `ChoiceParameter` construction.",
             AxParameterWarning,
             stacklevel=3,
         )

@@ -160,7 +160,7 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertEqual(p.parameter_type, ParameterType.STRING)
         self.assertEqual(set(p.values), {"u1", "u2"})
         self.assertTrue(p.is_task)
-        self.assertFalse(p.is_ordered)
+        self.assertTrue(p.is_ordered)  # 2 choices so always ordered
         self.assertEqual(p.target_value, "u1")
         t = TrialAsTask(
             search_space=self.search_space,
