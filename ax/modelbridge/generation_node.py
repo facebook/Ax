@@ -487,7 +487,7 @@ class GenerationNode(SerializationMixin, SortableBase):
 
         return False, None
 
-    def generator_run_limit(self, supress_generation_errors: bool = True) -> int:
+    def generator_run_limit(self, raise_generation_errors: bool = False) -> int:
         """How many generator runs can this generation strategy generate right now,
         assuming each one of them becomes its own trial. Only considers
         `transition_criteria` that are TrialBasedCriterion.
@@ -497,11 +497,6 @@ class GenerationNode(SerializationMixin, SortableBase):
             meaning unlimited generator runs.
         """
         # TODO: @mgarrard Should we consider returning `None` if there is no limit?
-        # TODO:@mgarrard Should we instead have `raise_generation_error`? The name
-        # of this method doesn't suggest that it would raise errors by default, since
-        # it's just finding out the limit according to the name. I know we want the
-        # errors in some cases, so we could call the flag `raise_error_if_cannot_gen` or
-        # something like that : )
         trial_based_gen_blocking_criteria = [
             criterion
             for criterion in self.transition_criteria
@@ -519,7 +514,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         # raise an error, depending on its implementation on given criterion, so the
         # error from the first met one that does block continued generation, will be
         # raised.
-        if not supress_generation_errors:
+        if not raise_generation_errors:
             for criterion in trial_based_gen_blocking_criteria:
                 # TODO[mgarrard]: Raise a group of all the errors, from each gen-
                 # blocking transition criterion.

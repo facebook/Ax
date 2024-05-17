@@ -490,7 +490,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             return 0, True
 
         # if the generation strategy is not complete, optimization is not complete
-        return self._curr.generator_run_limit(), False
+        return self._curr.generator_run_limit(raise_generation_errors=True), False
 
     def clone_reset(self) -> GenerationStrategy:
         """Copy this generation strategy without it's state."""
@@ -735,7 +735,7 @@ class GenerationStrategy(GenerationStrategyInterface):
 
         # Get GeneratorRun limit that respects the node's transition criterion that
         # affect the number of generator runs that can be produced.
-        gr_limit = self._curr.generator_run_limit(supress_generation_errors=False)
+        gr_limit = self._curr.generator_run_limit(raise_generation_errors=False)
         if gr_limit == -1:
             num_generator_runs = max(num_generator_runs, 1)
         else:
