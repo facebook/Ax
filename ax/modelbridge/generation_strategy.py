@@ -887,11 +887,6 @@ class GenerationStrategy(GenerationStrategyInterface):
 
     def _get_model_state_from_last_generator_run(self) -> Dict[str, Any]:
         lgr = self.last_generator_run
-        # NOTE: This will not be easily compatible with `GenerationNode`;
-        # will likely need to find last generator run per model. Not a problem
-        # for now though as GS only allows `GenerationStep`-s for now.
-        # Potential solution: store generator runs on `GenerationNode`-s and
-        # split them per-model there.
         model_state_on_lgr = {}
         # Need to check if model_spec_to_gen_from is none to account for
         # ExternalGenerationNodes which leverage models from outside Ax.
@@ -910,8 +905,6 @@ class GenerationStrategy(GenerationStrategyInterface):
 
         if grs_equal and lgr._model_state_after_gen:
             if self.model or isinstance(model_on_curr, ModelRegistryBase):
-                # TODO[drfreund]: Consider moving this to `GenerationStep` or
-                # `GenerationNode`.
                 model_cls = (
                     self.model.model.__class__
                     if self.model is not None
