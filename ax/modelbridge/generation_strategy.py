@@ -379,9 +379,8 @@ class GenerationStrategy(GenerationStrategyInterface):
         self,
         experiment: Experiment,
         data: Optional[Data] = None,
-        n: int = 1,  # Total arms to generate
         pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
-        **kwargs: Any,  # TODO: @mgarrard Ensure correct dispatch to nodes
+        arms_per_node: Optional[Dict[str, int]] = None,
     ) -> List[GeneratorRun]:
         """Produces a List of GeneratorRuns for a single trial, either ``Trial`` or
         ``BatchTrial``, and if producing a ``BatchTrial`` allows for multiple
@@ -398,27 +397,53 @@ class GenerationStrategy(GenerationStrategyInterface):
             data: Optional data to be passed to the underlying model's `gen`, which
                 is called within this method and actually produces the resulting
                 generator run. By default, data is all data on the `experiment`.
-            n: Integer representing how total arms to generate for this trial.
             pending_observations: A map from metric name to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
+            arms_per_node: A map from node name to the number of arms to generate
+                from that node. If not provided, the number of arms to generate
+                from each node defaults to one.
 
         Returns:
             A list of ``GeneratorRuns`` for a single trial.
         """
         # TODO: @mgarrard merge into gen method, just starting here to derisk
+        # Validate `arms_per_node` if specified, otherwise construct the default
+        # behavior with keys being node names and values being 1 to represent
+        # generating a single GR from each node.
+        node_names = [node.node_name for node in self._nodes]
+        if arms_per_node is not None and not all(
+            node_name in arms_per_node for node_name in node_names
+        ):
+            raise UserInputError(
+                f"""
+                Each node defined in the GenerationStrategy must have
+                an associated number of arms to generate from that node
+                defined in `arms_per_node`. {arms_per_node} does not
+                include all of {node_names}. It may be helpful to double check
+                the spelling.
+                """
+            )
+        if arms_per_node is None:
+            arms_per_node = {node_name: 1 for node_name in node_names}
         grs = []
         continue_gen_for_trial = True
 
         while continue_gen_for_trial:
+            next_node_name = self.current_node_name
+            should_transition, next_node = self._curr.should_transition_to_next_node(
+                raise_data_required_error=False
+            )
+            if should_transition:
+                assert next_node is not None
+                next_node_name = next_node
             grs.extend(
                 self._gen_multiple(
                     experiment=experiment,
                     num_generator_runs=1,
                     data=data,
-                    n=n,
+                    n=arms_per_node[next_node_name],
                     pending_observations=pending_observations,
-                    **kwargs,
                 )
             )
             continue_gen_for_trial = self._should_continue_gen_for_trial()

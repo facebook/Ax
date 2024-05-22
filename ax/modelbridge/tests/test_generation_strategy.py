@@ -233,6 +233,53 @@ class TestGenerationStrategy(TestCase):
                 ),
             ],
         )
+        self.complex_multinode_per_trial_gs = GenerationStrategy(
+            nodes=[
+                GenerationNode(
+                    node_name="sobol",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=self.single_running_trial_criterion,
+                ),
+                GenerationNode(
+                    node_name="gpei",
+                    model_specs=[self.gpei_model_spec],
+                    transition_criteria=[
+                        AutoTransitionAfterGenCriterion(
+                            transition_to="sobol_2",
+                        )
+                    ],
+                ),
+                GenerationNode(
+                    node_name="sobol_2",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=[
+                        AutoTransitionAfterGenCriterion(transition_to="sobol_3")
+                    ],
+                ),
+                GenerationNode(
+                    node_name="sobol_3",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=[
+                        MaxTrials(
+                            threshold=2,
+                            transition_to="sobol_4",
+                            block_transition_if_unmet=True,
+                            only_in_statuses=[TrialStatus.RUNNING],
+                            use_all_trials_in_exp=True,
+                        ),
+                        AutoTransitionAfterGenCriterion(
+                            transition_to="gpei",
+                            block_transition_if_unmet=True,
+                            continue_trial_generation=False,
+                        ),
+                    ],
+                ),
+                GenerationNode(
+                    node_name="sobol_4",
+                    model_specs=[self.sobol_model_spec],
+                ),
+            ],
+        )
 
     def tearDown(self) -> None:
         self.torch_model_bridge_patcher.stop()
@@ -1453,6 +1500,70 @@ class TestGenerationStrategy(TestCase):
             },
         )
 
+    def test_multiple_arms_per_node(self) -> None:
+        """Test that a ``GenerationStrategy`` which expects some trials to be composed
+        of multiple nodes can generate multiple arms per node using `arms_per_node`.
+        """
+        exp = get_branin_experiment()
+        gs = self.complex_multinode_per_trial_gs
+        gs.experiment = exp
+        # first check that arms_per node validation works
+        arms_per_node = {
+            "sobol": 3,
+            "sobol_2": 2,
+            "sobol_3": 1,
+            "sobol_4": 4,
+        }
+        with self.assertRaisesRegex(UserInputError, "defined in `arms_per_node`"):
+            gs.gen_with_multiple_nodes(exp, arms_per_node=arms_per_node)
+
+        # now we will check that the first trial contains 3 arms, the sconed trial
+        # contains 6 arms (2 from gpei, 1 from sobol_2, 3 from sobol_3), and all
+        # remaining trials contain 4 arms
+        arms_per_node = {
+            "sobol": 3,
+            "gpei": 1,
+            "sobol_2": 2,
+            "sobol_3": 3,
+            "sobol_4": 4,
+        }
+        # for the first trial, we start on sobol, we generate the trial, but it hasn't
+        # been run yet, so we remain on sobol
+        trial0 = exp.new_batch_trial(
+            generator_runs=gs.gen_with_multiple_nodes(exp, arms_per_node=arms_per_node)
+        )
+        self.assertEqual(len(trial0.arms_by_name), 3)
+        self.assertEqual(trial0.generator_runs[0]._generation_node_name, "sobol")
+        trial0.run()
+
+        # after trial 0 is run, we create a trial with nodes gpei, sobol_2, and sobol_3
+        # However, the sobol_3 criterion requires that we have two running trials. We
+        # don't move onto sobol_4 until we have two running trials, instead we reset
+        # to the last first node in a trial.
+        for _i in range(0, 2):
+            trial = exp.new_batch_trial(
+                generator_runs=gs.gen_with_multiple_nodes(
+                    exp, arms_per_node=arms_per_node
+                )
+            )
+            self.assertEqual(gs.current_node_name, "sobol_3")
+            self.assertEqual(len(trial.arms_by_name), 6)
+            self.assertEqual(len(trial.generator_runs), 3)
+            self.assertEqual(trial.generator_runs[0]._generation_node_name, "gpei")
+            self.assertEqual(len(trial.generator_runs[0].arms), 1)
+            self.assertEqual(trial.generator_runs[1]._generation_node_name, "sobol_2")
+            self.assertEqual(len(trial.generator_runs[1].arms), 2)
+            self.assertEqual(trial.generator_runs[2]._generation_node_name, "sobol_3")
+            self.assertEqual(len(trial.generator_runs[2].arms), 3)
+
+        # after running the next trial should be made from sobol 4
+        trial.run()
+        trial = exp.new_batch_trial(
+            generator_runs=gs.gen_with_multiple_nodes(exp, arms_per_node=arms_per_node)
+        )
+        self.assertEqual(trial.generator_runs[0]._generation_node_name, "sobol_4")
+        self.assertEqual(len(trial.generator_runs[0].arms), 4)
+
     def test_node_gs_with_auto_transitions(self) -> None:
         """Test that node-based generation strategies which leverage
         AutoTransitionAfterGen criterion correctly transition and create trials.
@@ -1496,6 +1607,7 @@ class TestGenerationStrategy(TestCase):
             ],
         )
         exp = get_branin_experiment()
+        gs.experiment = exp
 
         # for the first trial, we start on sobol, we generate the trial, but it hasn't
         # been run yet, so we remain on sobol, after the trial  is run, the subsequent
@@ -1517,53 +1629,8 @@ class TestGenerationStrategy(TestCase):
 
     def test_node_gs_with_auto_transitions_three_phase(self) -> None:
         exp = get_branin_experiment()
-        gs_2 = GenerationStrategy(
-            nodes=[
-                GenerationNode(
-                    node_name="sobol",
-                    model_specs=[self.sobol_model_spec],
-                    transition_criteria=self.single_running_trial_criterion,
-                ),
-                GenerationNode(
-                    node_name="gpei",
-                    model_specs=[self.gpei_model_spec],
-                    transition_criteria=[
-                        AutoTransitionAfterGenCriterion(
-                            transition_to="sobol_2",
-                        )
-                    ],
-                ),
-                GenerationNode(
-                    node_name="sobol_2",
-                    model_specs=[self.sobol_model_spec],
-                    transition_criteria=[
-                        AutoTransitionAfterGenCriterion(transition_to="sobol_3")
-                    ],
-                ),
-                GenerationNode(
-                    node_name="sobol_3",
-                    model_specs=[self.sobol_model_spec],
-                    transition_criteria=[
-                        MaxTrials(
-                            threshold=2,
-                            transition_to="sobol_4",
-                            block_transition_if_unmet=True,
-                            only_in_statuses=[TrialStatus.RUNNING],
-                            use_all_trials_in_exp=True,
-                        ),
-                        AutoTransitionAfterGenCriterion(
-                            transition_to="gpei",
-                            block_transition_if_unmet=True,
-                            continue_trial_generation=False,
-                        ),
-                    ],
-                ),
-                GenerationNode(
-                    node_name="sobol_4",
-                    model_specs=[self.sobol_model_spec],
-                ),
-            ],
-        )
+        gs_2 = self.complex_multinode_per_trial_gs
+        gs_2.experiment = exp
 
         # for the first trial, we start on sobol, we generate the trial, but it hasn't
         # been run yet, so we remain on sobol
