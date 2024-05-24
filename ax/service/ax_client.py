@@ -322,7 +322,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             is_test: Whether this experiment will be a test experiment (useful for
                 marking test experiments in storage etc). Defaults to False.
             metric_definitions: A mapping of metric names to extra kwargs to pass
-                to that metric
+                to that metric. Note these are modified in-place. Each
+                Metric must have its own dictionary (metrics cannot share a
+                single dictionary object).
         """
         self._validate_early_stopping_strategy(support_intermediate_data)
 
@@ -427,7 +429,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         Args:
             metric_names: Names of metrics to be added.
             metric_definitions: A mapping of metric names to extra kwargs to pass
-                to that metric
+                to that metric. Note these are modified in-place. Each
+                Metric must have its is own dictionary (metrics cannot share a
+                single dictionary object).
         """
         self.experiment.add_tracking_metrics(
             metrics=[
