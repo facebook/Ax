@@ -38,7 +38,7 @@ DEV_REQUIRES = [
     "flake8",
     "hypothesis",
     "Jinja2",
-    "pyfakefs==5.1.0",
+    "pyfakefs",
     "pytest>=4.6",
     "pytest-cov",
     "sphinx==5.3.0",
@@ -46,7 +46,6 @@ DEV_REQUIRES = [
     "torchvision>=0.5.0",
     "nbconvert",
     "jupyter-client==6.1.12",
-    "yappi",
 ]
 
 MYSQL_REQUIRES = ["SQLAlchemy==1.4.17"]
