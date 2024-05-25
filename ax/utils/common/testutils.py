@@ -19,7 +19,6 @@ import sys
 import types
 import unittest
 import warnings
-from functools import wraps
 from logging import Logger
 from types import FrameType
 from typing import (
@@ -38,7 +37,6 @@ from typing import (
 from unittest.mock import MagicMock
 
 import numpy as np
-import yappi
 from ax.exceptions.core import AxParameterWarning
 from ax.utils.common.base import Base
 from ax.utils.common.equality import object_attribute_dicts_find_unequal_fields
@@ -296,23 +294,10 @@ class TestCase(fake_filesystem_unittest.TestCase):
         3: ("ttot", 8),
         4: ("tavg", 8),
     }
-    # some test cases have a conflict with the profiler(P511247687)
-    # it appears to be pytorch related https://fburl.com/wiki/r8u9f3rs
-    # set to `False` on the specific testcase class if this occurs
-    CAN_PROFILE = True
 
     def __init__(self, methodName: str = "runTest") -> None:
         def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
-            if self.CAN_PROFILE:
-                logger.warning(
-                    f"Test took longer than {self.MAX_TEST_SECONDS} seconds. Printing "
-                    "`yappi` profile."
-                )
-                yappi.get_func_stats(
-                    filter_callback=lambda s: s.ttot > self.MIN_TTOT
-                ).sort(sort_type="ttot", sort_order="asc").print_all(
-                    columns=self.PROFILER_COLUMNS
-                )
+            logger.warning(f"Test took longer than {self.MAX_TEST_SECONDS} seconds.")
 
         super().__init__(methodName=methodName)
         signal.signal(signal.SIGALRM, signal_handler)
@@ -358,15 +343,8 @@ class TestCase(fake_filesystem_unittest.TestCase):
         # in specified number of seconds.
         signal.alarm(self.MAX_TEST_SECONDS)
         try:
-            if self.CAN_PROFILE:
-                yappi.set_clock_type("wall")
-                yappi.start()
-
             result = super().run(result)
         finally:
-            if self.CAN_PROFILE:
-                yappi.stop()
-
             signal.alarm(0)
         return result
 
@@ -512,16 +490,3 @@ class TestCase(fake_filesystem_unittest.TestCase):
     assertRegexpMatches = _deprecate(unittest.TestCase.assertRegex)
     # pyre-fixme[4]: Attribute must be annotated.
     assertNotRegexpMatches = _deprecate(unittest.TestCase.assertNotRegex)
-
-
-def disable_profiler(f: Callable[..., T]) -> Callable[..., T]:
-    """Not all tests are compatible with yappi.  This wrapper can be used
-    on a test to stop profiling instead of disabling it for the entire
-    test case"""
-
-    @wraps(f)
-    def inner(self: TestCase, *args: Any, **kwargs: Any) -> T:
-        yappi.stop()
-        return f(self, *args, **kwargs)
-
-    return inner
