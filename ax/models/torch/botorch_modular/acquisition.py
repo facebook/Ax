@@ -293,12 +293,16 @@ class Acquisition(Base):
             "constraints": get_outcome_constraint_transforms(
                 outcome_constraints=outcome_constraints
             ),
-            "target_fidelities": target_fidelities,
-            "bounds": search_space_digest.bounds,
+            "objective": objective,
+            "posterior_transform": posterior_transform,
             **acqf_model_kwarg,
             **model_deps,
             **self.options,
         }
+
+        if len(target_fidelities) > 0:
+            input_constructor_kwargs["target_fidelities"] = target_fidelities
+
         input_constructor = get_acqf_input_constructor(botorch_acqf_class)
         # Handle multi-dataset surrogates - TODO: Improve this
         # If there is only one SupervisedDataset return it alone
@@ -317,9 +321,8 @@ class Acquisition(Base):
 
         acqf_inputs = input_constructor(
             training_data=training_data,
-            objective=objective,
-            posterior_transform=posterior_transform,
-            **input_constructor_kwargs,
+            bounds=search_space_digest.bounds,
+            **{k: v for k, v in input_constructor_kwargs.items() if v is not None},
         )
         self.acqf = botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
         self.X_pending: Optional[Tensor] = unique_Xs_pending
