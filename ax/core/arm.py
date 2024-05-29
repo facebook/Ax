@@ -39,7 +39,7 @@ class Arm(SortableBase):
     def parameters(self) -> TParameterization:
         """Get mapping from parameter names to values."""
         # Make a copy before returning so it cannot be accidentally mutated
-        return dict(self._parameters)
+        return self._parameters.copy()
 
     @property
     def has_name(self) -> bool:

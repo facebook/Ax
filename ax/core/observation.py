@@ -92,6 +92,9 @@ class ObservationFeatures(Base):
         data as specified.
         """
         return ObservationFeatures(
+            # NOTE: Arm.parameters makes a copy of the original dict, so any
+            # modifications to the parameters dict will not be reflected in
+            # the original Arm parameters.
             parameters=arm.parameters,
             trial_index=trial_index,
             start_time=start_time,

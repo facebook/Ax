@@ -102,6 +102,7 @@ class ObservationsTest(TestCase):
     def test_ObservationFeaturesFromArm(self) -> None:
         arm = Arm({"x": 0, "y": "a"})
         obsf = ObservationFeatures.from_arm(arm, trial_index=3)
+        self.assertIsNot(arm.parameters, obsf.parameters)
         self.assertEqual(obsf.parameters, arm.parameters)
         self.assertEqual(obsf.trial_index, 3)
 
