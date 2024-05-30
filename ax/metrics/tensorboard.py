@@ -46,7 +46,7 @@ try:
             self,
             name: str,
             tag: str,
-            lower_is_better: bool = True,
+            lower_is_better: Optional[bool] = True,
             smoothing: float = SMOOTHING_DEFAULT,
             cumulative_best: bool = False,
         ) -> None:
