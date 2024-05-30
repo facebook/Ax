@@ -296,6 +296,25 @@ class Experiment(Base):
         return self._arms_by_signature
 
     @property
+    def arms_by_signature_for_deduplication(self) -> Dict[str, Arm]:
+        """The arms belonging to this experiment that should be used for deduplication
+        in ``GenerationStrategy``, by their signature.
+
+        In its current form, this includes all arms except for those that are
+        associated with a ``FAILED`` trial.
+        - The ``CANDIDATE``, ``STAGED``, ``RUNNING``, and ``ABANDONED`` arms are
+        included as pending points during generation, so they should be less likely
+         to get suggested by the model again.
+        - The ``EARLY_STOPPED`` and ``COMPLETED`` trials were already evaluated, so
+        the model will have data for these and is unlikely to suggest them again.
+        """
+        arms_dict = self.arms_by_signature.copy()
+        for trial in self.trials_by_status[TrialStatus.FAILED]:
+            for arm in trial.arms:
+                arms_dict.pop(arm.signature, None)
+        return arms_dict
+
+    @property
     def sum_trial_sizes(self) -> int:
         """Sum of numbers of arms attached to each trial in this experiment."""
         return reduce(lambda a, b: a + len(b.arms_by_name), self._trials.values(), 0)
