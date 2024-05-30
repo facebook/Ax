@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from collections import defaultdict
+from copy import deepcopy
 from typing import Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
 
 import numpy as np
@@ -17,10 +17,8 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.objective import MultiObjective
-
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
-
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from pyre_extensions import none_throws
@@ -245,7 +243,7 @@ def get_pending_observation_features(
     include_out_of_design_points: bool = False,
 ) -> Optional[Dict[str, List[ObservationFeatures]]]:
     """Computes a list of pending observation features (corresponding to:
-    - arms that have been generated and run in the course of the experiment,
+    - arms that have been generated in the course of the experiment,
     but have not been completed with data,
     - arms that have been abandoned or belong to abandoned trials).
 
@@ -299,10 +297,14 @@ def get_pending_observation_features(
             if metric_name not in pending_features:
                 pending_features[metric_name] = []
 
-            if trial.status.is_abandoned or (
-                trial.status.is_deployed
-                and metric_name not in metric_names_in_data
-                and trial.arms is not None
+            if (
+                trial.status.is_abandoned
+                or trial.status.is_candidate
+                or (
+                    trial.status.is_deployed
+                    and metric_name not in metric_names_in_data
+                    and trial.arms is not None
+                )
             ):
                 for arm in trial.arms:
                     if feature := create_observation_feature(
@@ -337,8 +339,8 @@ def get_pending_observation_features_based_on_trial_status(
 
     Assumptions:
 
-    * All arms in all trials in ``STAGED,`` ``RUNNING`` and ``ABANDONED`` statuses
-      are to be considered pending for all outcomes.
+    * All arms in all trials in ``CANDIDATE``, ``STAGED``, ``RUNNING`` and ``ABANDONED``
+      statuses are to be considered pending for all outcomes.
     * All arms in all trials in other statuses are to be considered not pending for
       all outcomes.
 
@@ -361,24 +363,32 @@ def get_pending_observation_features_based_on_trial_status(
         pending for that metric (i.e. do not have evaluation data for that metric).
         If there are no pending features for any of the metrics, return is None.
     """
-    pending_features = defaultdict(list)
-    for status in [TrialStatus.STAGED, TrialStatus.RUNNING, TrialStatus.ABANDONED]:
+    pending_features_list = []
+    for status in [
+        TrialStatus.CANDIDATE,
+        TrialStatus.STAGED,
+        TrialStatus.RUNNING,
+        TrialStatus.ABANDONED,
+    ]:
         for trial in experiment.trials_by_status[status]:
-            for metric_name in experiment.metrics:
-                for arm in trial.arms:
-                    if (
-                        not include_out_of_design_points
-                        and not experiment.search_space.check_membership(arm.parameters)
-                    ):
-                        continue
-                    pending_features[metric_name].append(
+            for arm in trial.arms:
+                if (
+                    include_out_of_design_points
+                    or experiment.search_space.check_membership(arm.parameters)
+                ):
+                    pending_features_list.append(
                         ObservationFeatures.from_arm(
                             arm=arm,
                             trial_index=trial.index,
                             metadata=trial._get_candidate_metadata(arm_name=arm.name),
                         )
                     )
-    return dict(pending_features) if any(x for x in pending_features.values()) else None
+    pending_features = {
+        # Using deepcopy here to avoid issues due to in-place transforms.
+        metric_name: deepcopy(pending_features_list)
+        for metric_name in experiment.metrics
+    }
+    return pending_features if pending_features_list else None
 
 
 def extend_pending_observations(

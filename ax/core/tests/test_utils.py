@@ -46,6 +46,7 @@ from pyre_extensions import none_throws
 class UtilsTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
+        self.empty_experiment = get_experiment()
         self.experiment = get_experiment()
         self.arm = Arm({"x": 5, "y": "foo", "z": True, "w": 5})
         self.trial = self.experiment.new_trial(GeneratorRun([self.arm]))
@@ -203,10 +204,14 @@ class UtilsTest(TestCase):
 
     def test_get_pending_observation_features(self) -> None:
         # Pending observations should be none if there aren't any.
-        self.assertIsNone(get_pending_observation_features(self.experiment))
+        self.assertIsNone(get_pending_observation_features(self.empty_experiment))
+        # Candidate trial is included as pending trial.
+        self.assertEqual(
+            get_pending_observation_features(self.experiment),
+            {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
+        )
+        # Still a pending trial after deployment.
         self.trial.mark_running(no_runner_required=True)
-        # Now that the trial is deployed, it should become a pending trial on the
-        # experiment and appear as pending for all metrics.
         self.assertEqual(
             get_pending_observation_features(self.experiment),
             {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
@@ -289,14 +294,9 @@ class UtilsTest(TestCase):
             )
 
     def test_get_pending_observation_features_multi_trial(self) -> None:
-        # Pending observations should be none if there aren't any.
-        self.assertIsNone(get_pending_observation_features(self.experiment))
-        self.trial.mark_running(no_runner_required=True)
-        # Now that the trial is deployed, it should become a pending trial on the
-        # experiment and appear as pending for all metrics.
-
         # With `fetch_data` on trial returning data for metric "m2", that metric
         # should no longer have pending observation features.
+        self.trial.mark_running(no_runner_required=True)
         with patch.object(
             self.trial,
             "lookup_data",
@@ -341,11 +341,7 @@ class UtilsTest(TestCase):
                 )
 
     def test_get_pending_observation_features_out_of_design(self) -> None:
-        # Pending observations should be none if there aren't any.
-        self.assertIsNone(get_pending_observation_features(self.experiment))
-        self.trial.mark_running(no_runner_required=True)
-        # Now that the trial is deployed, it should become a pending trial on the
-        # experiment and appear as pending for all metrics.
+        # Out of design points are excluded depending on the kwarg.
         with patch.object(
             self.experiment.search_space,
             "check_membership",
@@ -374,10 +370,7 @@ class UtilsTest(TestCase):
             )
 
     def test_get_pending_observation_features_hss(self) -> None:
-        # Pending observations should be none if there aren't any.
-        self.assertIsNone(get_pending_observation_features(self.hss_exp))
-        self.hss_trial.mark_running(no_runner_required=True)
-        # Now that the trial is deployed, it should become a pending trial on the
+        # The trial is candidate, it should be a pending trial on the
         # experiment and appear as pending for all metrics.
         pending = get_pending_observation_features(self.hss_exp)
         self.assertEqual(
@@ -401,6 +394,7 @@ class UtilsTest(TestCase):
 
         # With `fetch_data` on trial returning data for metric "m2", that metric
         # should no longer have pending observation features.
+        self.hss_trial.mark_running(no_runner_required=True)
         with patch.object(
             self.hss_trial,
             "lookup_data",
@@ -422,6 +416,8 @@ class UtilsTest(TestCase):
         hss_exp = get_hierarchical_search_space_experiment()
         hss_batch_trial = hss_exp.new_batch_trial(generator_run=self.hss_gr)
         hss_batch_trial.mark_arm_abandoned(hss_batch_trial.arms[0].name)
+        # Mark the trial failed, so that only abandoned arm shows up.
+        hss_batch_trial.mark_running(no_runner_required=True).mark_failed()
         # Checking with data for all metrics.
         with patch.object(
             hss_batch_trial,
@@ -482,8 +478,6 @@ class UtilsTest(TestCase):
 
     def test_get_pending_observation_features_batch_trial(self) -> None:
         # Check the same functionality for batched trials.
-        self.assertIsNone(get_pending_observation_features(self.experiment_2))
-        self.batch_trial.mark_running(no_runner_required=True)
         # Status quo of this experiment is out-of-design, so it shouldn't be
         # among the pending points.
         self.assertEqual(
@@ -512,6 +506,7 @@ class UtilsTest(TestCase):
                 "m1": [self.obs_feat, sq_obs_feat],
             },
         )
+        self.batch_trial.mark_running(no_runner_required=True)
         self.batch_trial.mark_completed()
 
         # Set SQ to in-design; then we can expect it to appear among the pending
@@ -545,12 +540,7 @@ class UtilsTest(TestCase):
         )
 
     def test_get_pending_observation_features_based_on_trial_status(self) -> None:
-        # Pending observations should be none if there aren't any as trial is
-        # candidate.
-        self.assertTrue(self.trial.status.is_candidate)
-        self.assertIsNone(get_pending_status(self.experiment))
-        self.trial.mark_staged()
-        # Now that the trial is staged, it should become a pending trial on the
+        # The trial is candidate, it should be a pending trial on the
         # experiment and appear as pending for all metrics.
         self.assertEqual(
             get_pending_status(self.experiment),
@@ -578,11 +568,7 @@ class UtilsTest(TestCase):
         )
 
     def test_get_pending_observation_features_based_on_trial_status_hss(self) -> None:
-        self.assertTrue(self.hss_trial.status.is_candidate)
-        self.assertIsNone(get_pending_status(self.hss_exp))
-        self.hss_trial.mark_staged()
-        # Now that the trial is staged, it should become a pending trial on the
-        # experiment and appear as pending for all metrics.
+        # The HSS trial is candidate, so it should appear pending.
         pending = get_pending_status(self.hss_exp)
         self.assertEqual(
             pending,
