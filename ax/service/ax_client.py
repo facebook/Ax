@@ -1758,11 +1758,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     def _save_generation_strategy_to_db_if_possible(
         self,
         generation_strategy: Optional[GenerationStrategyInterface] = None,
-        suppress_all_errors: bool = False,
     ) -> bool:
         return super()._save_generation_strategy_to_db_if_possible(
             generation_strategy=generation_strategy or self.generation_strategy,
-            suppress_all_errors=suppress_all_errors,
         )
 
     def _gen_new_generator_run(

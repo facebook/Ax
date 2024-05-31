@@ -392,7 +392,6 @@ class WithDBSettingsBase:
     def _save_generation_strategy_to_db_if_possible(
         self,
         generation_strategy: Optional[GenerationStrategyInterface] = None,
-        suppress_all_errors: bool = False,
     ) -> bool:
         """Saves given generation strategy if DB settings are set on this
         `WithDBSettingsBase` instance and the generation strategy is an
@@ -482,7 +481,7 @@ def _save_experiment_to_db_if_possible(
     experiment: Experiment,
     encoder: Encoder,
     decoder: Decoder,
-    suppress_all_errors: bool,
+    suppress_all_errors: bool,  # Used by the decorator.
 ) -> None:
     start_time = time.time()
     _save_experiment(
@@ -506,7 +505,7 @@ def _save_or_update_trials_in_db_if_possible(
     trials: List[BaseTrial],
     encoder: Encoder,
     decoder: Decoder,
-    suppress_all_errors: bool,
+    suppress_all_errors: bool,  # Used by the decorator.
     reduce_state_generator_runs: bool = False,
 ) -> None:
     start_time = time.time()
@@ -534,7 +533,7 @@ def _save_generation_strategy_to_db_if_possible(
     generation_strategy: GenerationStrategy,
     encoder: Encoder,
     decoder: Decoder,
-    suppress_all_errors: bool,
+    suppress_all_errors: bool,  # Used by the decorator.
 ) -> None:
     start_time = time.time()
     _save_generation_strategy(
@@ -558,7 +557,7 @@ def _update_generation_strategy_in_db_if_possible(
     new_generator_runs: List[GeneratorRun],
     encoder: Encoder,
     decoder: Decoder,
-    suppress_all_errors: bool,
+    suppress_all_errors: bool,  # Used by the decorator.
     reduce_state_generator_runs: bool = False,
 ) -> None:
     start_time = time.time()
@@ -585,7 +584,7 @@ def _update_generation_strategy_in_db_if_possible(
 def _update_experiment_properties_in_db(
     experiment_with_updated_properties: Experiment,
     sqa_config: SQAConfig,
-    suppress_all_errors: bool,
+    suppress_all_errors: bool,  # Used by the decorator.
 ) -> None:
     update_properties_on_experiment(
         experiment_with_updated_properties=experiment_with_updated_properties,
