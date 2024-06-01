@@ -2010,19 +2010,24 @@ def get_branin_data(
 
 
 def get_branin_data_batch(batch: BatchTrial) -> Data:
+    means = []
+    for arm in batch.arms:
+        if arm.parameters["x1"] is None or arm.parameters["x2"] is None:
+            means.append(5.0)
+        else:
+            means.append(
+                branin(
+                    float(not_none(arm.parameters["x1"])),
+                    float(not_none(arm.parameters["x2"])),
+                )
+            )
     return Data(
         pd.DataFrame(
             {
                 "trial_index": batch.index,
                 "arm_name": [arm.name for arm in batch.arms],
                 "metric_name": "branin",
-                "mean": [
-                    branin(
-                        float(not_none(arm.parameters["x1"])),
-                        float(not_none(arm.parameters["x2"])),
-                    )
-                    for arm in batch.arms
-                ],
+                "mean": means,
                 "sem": 0.1,
             }
         )
