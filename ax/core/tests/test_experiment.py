@@ -1218,6 +1218,29 @@ class ExperimentTest(TestCase):
         )
         pd.testing.assert_frame_equal(df, expected_df)
 
+    def test_arms_by_signature_for_deduplication(self) -> None:
+        experiment = self.experiment
+        trial = experiment.new_trial()
+        arm = Arm({"w": 1, "x": 2, "y": "foo", "z": True})
+        trial.add_arm(arm)
+        expected_with_failed = {
+            experiment.status_quo.signature: experiment.status_quo,
+        }
+        expected_with_other = {
+            experiment.status_quo.signature: experiment.status_quo,
+            arm.signature: arm,
+        }
+        for status in TrialStatus:
+            trial._status = status
+            if status == TrialStatus.FAILED:
+                self.assertEqual(
+                    experiment.arms_by_signature_for_deduplication, expected_with_failed
+                )
+            else:
+                self.assertEqual(
+                    experiment.arms_by_signature_for_deduplication, expected_with_other
+                )
+
 
 class ExperimentWithMapDataTest(TestCase):
     def setUp(self) -> None:

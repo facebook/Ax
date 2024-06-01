@@ -772,7 +772,9 @@ class GenerationStrategy(GenerationStrategyInterface):
                 generator_run = self._curr.gen(
                     n=n,
                     pending_observations=pending_observations,
-                    arms_by_signature_for_deduplication=experiment.arms_by_signature,
+                    arms_by_signature_for_deduplication=(
+                        experiment.arms_by_signature_for_deduplication
+                    ),
                     **model_gen_kwargs,
                 )
 
