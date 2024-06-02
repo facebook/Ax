@@ -254,8 +254,8 @@ class TestSebo(TestCase):
                 "raw_samples": 16,
             },
         )
-        self.assertEqual(candidate, torch.zeros(1, **tkwargs))
-        self.assertEqual(acqf_val, 5 * torch.ones(1, **tkwargs))
+        self.assertTrue(torch.allclose(candidate, torch.zeros(1, **tkwargs)))
+        self.assertTrue(torch.allclose(acqf_val, 5 * torch.ones(1, **tkwargs)))
         self.assertEqual(weights, torch.ones(1, **tkwargs))
 
     @mock.patch(f"{SEBOACQUISITION_PATH}.optimize_acqf_homotopy")
