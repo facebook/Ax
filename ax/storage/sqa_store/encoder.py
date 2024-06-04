@@ -80,14 +80,6 @@ class Encoder:
     def __init__(self, config: SQAConfig) -> None:
         self.config = config
 
-        # TODO[T113829027] Remove this in a couple months
-        self.EXTRA_REGISTRY_ERROR_NOTE = (
-            "ATTENTION: There have been some recent "
-            "changes to Metric/Runner registration in Ax. Please see "
-            "https://ax.dev/tutorials/gpei_hartmann_developer.html#9.-Save-to-JSON-or-SQL "  # noqa
-            "for the most up-to-date information on saving custom metrics."
-        )
-
     @classmethod
     def validate_experiment_metadata(
         cls,
@@ -410,7 +402,6 @@ class Encoder:
                 f"subclass ({metric_class}) is missing from the registry. "
                 "The metric registry currently contains the following: "
                 f"{','.join(map(str, self.config.metric_registry.keys()))} "
-                f"{self.EXTRA_REGISTRY_ERROR_NOTE}"
             )
 
         properties = metric_class.serialize_init_args(obj=metric)
@@ -905,7 +896,6 @@ class Encoder:
                 f"subclass ({runner_class}) is missing from the registry. "
                 "The runner registry currently contains the following: "
                 f"{','.join(map(str, self.config.runner_registry.keys()))} "
-                f"{self.EXTRA_REGISTRY_ERROR_NOTE}"
             )
         properties = runner_class.serialize_init_args(obj=runner)
         # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Runner]`.
