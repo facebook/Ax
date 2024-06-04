@@ -14,7 +14,7 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
-from ax.core.observation import Observation, ObservationData, ObservationFeatures
+from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -41,7 +41,6 @@ from ax.core.risk_measures import RiskMeasure
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
-from ax.core.types import TParameterization
 
 
 __all__ = [
