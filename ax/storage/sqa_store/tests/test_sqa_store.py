@@ -62,7 +62,10 @@ from ax.storage.sqa_store.save import (
     update_runner_on_experiment,
 )
 from ax.storage.sqa_store.sqa_classes import (
+    AnalysisType,
     SQAAbandonedArm,
+    SQAAnalysis,
+    SQAAnalysisBatch,
     SQAArm,
     SQAExperiment,
     SQAGeneratorRun,
@@ -1873,3 +1876,24 @@ class SQAStoreTest(TestCase):
         engine.dialect.default_schema_name = "ax"
         with self.assertRaises(ValueError):
             create_all_tables(engine)
+
+    def test_CreateAnalysisRecords(self) -> None:
+
+        sqa_analysis = SQAAnalysis(
+            analysis_class_name="CrossValidationPlot",
+            experiment_analysis_type=AnalysisType.PLOTLY_VISUALIZATION,
+            time_analysis_start=datetime.now(),
+            time_analysis_completed=datetime.now(),
+            dataframe_json="none",
+        )
+        with session_scope() as session:
+            _ = session.merge(sqa_analysis)
+            session.flush()
+
+    def test_CreateAnalysisBatch(self) -> None:
+        sqa_analysis_batch = SQAAnalysisBatch(
+            time_batch_start=datetime.now(),
+        )
+        with session_scope() as session:
+            _ = session.merge(sqa_analysis_batch)
+            session.flush()

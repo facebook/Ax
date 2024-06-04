@@ -60,3 +60,10 @@ def stable_hash(s: str) -> int:
         int: Hash, converted to an integer.
     """
     return int(md5(s.encode("utf-8")).hexdigest(), 16)
+
+
+class AnalysisType(enum.Enum):
+    """Class for enumerating different experiment analysis types."""
+
+    ANALYSIS: str = "analysis"
+    PLOTLY_VISUALIZATION: str = "plotly_visualization"
