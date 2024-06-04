@@ -83,14 +83,6 @@ class Decoder:
     def __init__(self, config: SQAConfig) -> None:
         self.config = config
 
-        # TODO[T113829027] Remove this in a couple months
-        self.EXTRA_REGISTRY_ERROR_NOTE = (
-            "ATTENTION: There have been some recent "
-            "changes to Metric/Runner registration in Ax. Please see "
-            "https://ax.dev/tutorials/gpei_hartmann_developer.html#9.-Save-to-JSON-or-SQL "  # noqa
-            "for the most up-to-date information on saving custom metrics."
-        )
-
     def get_enum_name(
         self, value: Optional[int], enum: Optional[Enum]
     ) -> Optional[str]:
@@ -821,23 +813,19 @@ class Decoder:
             raise SQADecodeError(
                 f"Cannot decode SQARunner because {runner_sqa.runner_type} "
                 f"is an invalid type. "
-                f"{self.EXTRA_REGISTRY_ERROR_NOTE}"
             )
         runner_class = self.config.reverse_runner_registry[runner_sqa.runner_type]
 
-        try:
-            args = runner_class.deserialize_init_args(
-                args=dict(runner_sqa.properties or {}),
-                decoder_registry=self.config.json_decoder_registry,
-                class_decoder_registry=self.config.json_class_decoder_registry,
-            )
-            args.update(runner_kwargs or {})
-            # pyre-ignore[45]: Cannot instantiate abstract class `Runner`.
-            runner = runner_class(**args)
-            runner.db_id = runner_sqa.id
-            return runner
-        except ValueError as err:
-            raise ValueError(f"{err} {self.EXTRA_REGISTRY_ERROR_NOTE}")
+        args = runner_class.deserialize_init_args(
+            args=dict(runner_sqa.properties or {}),
+            decoder_registry=self.config.json_decoder_registry,
+            class_decoder_registry=self.config.json_class_decoder_registry,
+        )
+        args.update(runner_kwargs or {})
+        # pyre-ignore[45]: Cannot instantiate abstract class `Runner`.
+        runner = runner_class(**args)
+        runner.db_id = runner_sqa.id
+        return runner
 
     def trial_from_sqa(
         self,
@@ -996,7 +984,6 @@ class Decoder:
             raise SQADecodeError(
                 f"Cannot decode SQAMetric because {metric_sqa.metric_type} "
                 f"is an invalid type. "
-                f"{self.EXTRA_REGISTRY_ERROR_NOTE}"
             )
         metric_class = self.config.reverse_metric_registry[metric_sqa.metric_type]
 
@@ -1010,13 +997,11 @@ class Decoder:
         )
         args["name"] = metric_sqa.name
         args["lower_is_better"] = metric_sqa.lower_is_better
-        try:
-            args = metric_class.deserialize_init_args(args=args)
-            metric = metric_class(**args)
-            metric.db_id = metric_sqa.id
-            return metric
-        except ValueError as err:
-            raise ValueError(f"{err} {self.EXTRA_REGISTRY_ERROR_NOTE}")
+
+        args = metric_class.deserialize_init_args(args=args)
+        metric = metric_class(**args)
+        metric.db_id = metric_sqa.id
+        return metric
 
     def _objective_from_sqa(self, metric: Metric, metric_sqa: SQAMetric) -> Objective:
         if metric_sqa.minimize is None:
