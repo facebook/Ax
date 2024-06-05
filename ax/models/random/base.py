@@ -140,29 +140,31 @@ class RandomModel(Model):
         except SearchSpaceExhausted as e:
             if self.fallback_to_sample_polytope:
                 logger.info(
-                    "Rejection sampling exceeded specified maximum draws."
+                    "Rejection sampling exceeded specified maximum draws. "
                     "Falling back on HitAndRunPolytopeSampler instead of "
                     f"{self.__class__.__name__}."
                 )
                 # If rejection sampling fails, try polytope sampler.
-                polytope_sampler = HitAndRunPolytopeSampler(
-                    inequality_constraints=self._convert_inequality_constraints(
-                        linear_constraints
-                    ),
-                    equality_constraints=self._convert_equality_constraints(
-                        len(bounds), fixed_features
-                    ),
-                    interior_point=self._get_last_point(),
-                    bounds=self._convert_bounds(bounds),
-                )
                 num_generated = (
                     len(self.generated_points)
                     if self.generated_points is not None
                     else 0
                 )
-                points = polytope_sampler.draw(
-                    n=n, seed=self.seed + num_generated
-                ).numpy()
+                polytope_sampler = HitAndRunPolytopeSampler(
+                    inequality_constraints=self._convert_inequality_constraints(
+                        linear_constraints,
+                    ),
+                    equality_constraints=self._convert_equality_constraints(
+                        d=len(bounds),
+                        fixed_features=fixed_features,
+                    ),
+                    bounds=self._convert_bounds(bounds),
+                    interior_point=self._get_last_point(),
+                    n_burnin=100,
+                    n_thinning=20,
+                    seed=self.seed + num_generated,
+                )
+                points = polytope_sampler.draw(n=n).numpy()
                 # TODO: Should this round & deduplicate?
             else:
                 raise e
@@ -241,8 +243,8 @@ class RandomModel(Model):
         if linear_constraints is None:
             return None
         else:
-            A = torch.tensor(linear_constraints[0], dtype=torch.double)
-            b = torch.tensor(linear_constraints[1], dtype=torch.double)
+            A = torch.as_tensor(linear_constraints[0], dtype=torch.double)
+            b = torch.as_tensor(linear_constraints[1], dtype=torch.double)
             return A, b
 
     def _convert_equality_constraints(
@@ -263,16 +265,16 @@ class RandomModel(Model):
         """
         if fixed_features is None:
             return None
-        else:
-            n = len(fixed_features)
-            fixed_indices = sorted(fixed_features.keys())
-            fixed_vals = torch.tensor(
-                [fixed_features[i] for i in fixed_indices], dtype=torch.double
-            )
-            constraint_matrix = torch.zeros((n, d), dtype=torch.double)
-            for index in range(0, len(fixed_vals)):
-                constraint_matrix[index, fixed_indices[index]] = 1.0
-            return constraint_matrix, fixed_vals
+
+        n = len(fixed_features)
+        fixed_indices = sorted(fixed_features.keys())
+        fixed_vals = torch.tensor(
+            [fixed_features[i] for i in fixed_indices], dtype=torch.double
+        )
+        constraint_matrix = torch.zeros((n, d), dtype=torch.double)
+        for index in range(0, len(fixed_vals)):
+            constraint_matrix[index, fixed_indices[index]] = 1.0
+        return constraint_matrix, fixed_vals
 
     def _convert_bounds(self, bounds: List[Tuple[float, float]]) -> Optional[Tensor]:
         """Helper method to convert bounds list used by the rejectionsampler to the
