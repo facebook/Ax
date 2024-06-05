@@ -35,8 +35,8 @@ class SobolGeneratorTest(TestCase):
         )
         self.assertEqual(np.shape(generated_points), (3, 3))
         np_bounds = np.array(bounds)
-        self.assertTrue(np.alltrue(generated_points >= np_bounds[:, 0]))
-        self.assertTrue(np.alltrue(generated_points <= np_bounds[:, 1]))
+        self.assertTrue(np.all(generated_points >= np_bounds[:, 0]))
+        self.assertTrue(np.all(generated_points <= np_bounds[:, 1]))
         self.assertTrue(np.all(weights == 1.0))
         self.assertEqual(generator._get_state().get("init_position"), 3)
 
@@ -51,8 +51,8 @@ class SobolGeneratorTest(TestCase):
         )
         self.assertEqual(np.shape(generated_points), (3, 2))
         np_bounds = np.array(bounds)
-        self.assertTrue(np.alltrue(generated_points >= np_bounds[:, 0]))
-        self.assertTrue(np.alltrue(generated_points <= np_bounds[:, 1]))
+        self.assertTrue(np.all(generated_points >= np_bounds[:, 0]))
+        self.assertTrue(np.all(generated_points <= np_bounds[:, 1]))
         # Should error out if deduplicating since there's only one feasible point.
         generator = SobolGenerator(seed=0, deduplicate=True)
         with self.assertRaisesRegex(SearchSpaceExhausted, "Rejection sampling"):
@@ -83,8 +83,8 @@ class SobolGeneratorTest(TestCase):
         )
         self.assertEqual(np.shape(generated_points), (3, 4))
         np_bounds = np.array(bounds)
-        self.assertTrue(np.alltrue(generated_points >= np_bounds[:, 0]))
-        self.assertTrue(np.alltrue(generated_points <= np_bounds[:, 1]))
+        self.assertTrue(np.all(generated_points >= np_bounds[:, 0]))
+        self.assertTrue(np.all(generated_points <= np_bounds[:, 1]))
 
     def test_SobolGeneratorOnline(self) -> None:
         # Verify that the generator will return the expected arms if called
@@ -108,8 +108,8 @@ class SobolGeneratorTest(TestCase):
                 rounding_func=lambda x: x,
             )
             self.assertEqual(weights, [1])
-            self.assertTrue(np.alltrue(generated_points >= np_bounds[:, 0]))
-            self.assertTrue(np.alltrue(generated_points <= np_bounds[:, 1]))
+            self.assertTrue(np.all(generated_points >= np_bounds[:, 0]))
+            self.assertTrue(np.all(generated_points <= np_bounds[:, 1]))
             self.assertTrue(generated_points[..., -1] == 1)
             self.assertTrue(np.array_equal(expected_points, generated_points.flatten()))
 
@@ -129,7 +129,7 @@ class SobolGeneratorTest(TestCase):
             rounding_func=lambda x: x,
         )
         self.assertEqual(np.shape(generated_points), (3, 4))
-        self.assertTrue(np.alltrue(generated_points[..., -1] == 0.5))
+        self.assertTrue(np.all(generated_points[..., -1] == 0.5))
         self.assertTrue(
             np.array_equal(
                 np.sort(generated_points[..., :-1], axis=-1),
@@ -149,16 +149,13 @@ class SobolGeneratorTest(TestCase):
         generated_points, weights = generator.gen(
             n=3,
             bounds=bounds,
-            linear_constraints=(
-                A,
-                b,
-            ),
+            linear_constraints=(A, b),
             fixed_features={fixed_param_index: 1},
             rounding_func=lambda x: x,
         )
         self.assertTrue(np.shape(generated_points) == (3, 4))
-        self.assertTrue(np.alltrue(generated_points[..., -1] == 1))
-        self.assertTrue(np.alltrue(generated_points @ A.transpose() <= b))
+        self.assertTrue(np.all(generated_points[..., -1] == 1))
+        self.assertTrue(np.all(generated_points @ A.transpose() <= b))
 
     def test_SobolGeneratorFallbackToPolytopeSampler(self) -> None:
         # Ten parameters with sum less than 1. In this example, the rejection
@@ -175,10 +172,7 @@ class SobolGeneratorTest(TestCase):
             generated_points, weights = generator.gen(
                 n=3,
                 bounds=bounds,
-                linear_constraints=(
-                    A,
-                    b,
-                ),
+                linear_constraints=(A, b),
                 rounding_func=lambda x: x,
             )
         # First call uses the original seed since no candidates are generated.
@@ -187,7 +181,7 @@ class SobolGeneratorTest(TestCase):
             "exceeded specified maximum draws" in mock_logger.call_args[0][0]
         )
         self.assertTrue(np.shape(generated_points) == (3, 10))
-        self.assertTrue(np.alltrue(generated_points @ A.transpose() <= b))
+        self.assertTrue(np.all(generated_points @ A.transpose() <= b))
 
         with mock.patch(
             "botorch.utils.sampling.sample_polytope",
@@ -196,10 +190,7 @@ class SobolGeneratorTest(TestCase):
             generator.gen(
                 n=3,
                 bounds=bounds,
-                linear_constraints=(
-                    A,
-                    b,
-                ),
+                linear_constraints=(A, b),
                 rounding_func=lambda x: x,
             )
         # Second call uses seed 3 since 3 candidates are already generated.
@@ -216,16 +207,13 @@ class SobolGeneratorTest(TestCase):
         generated_points, weights = generator.gen(
             n=3,
             bounds=bounds,
-            linear_constraints=(
-                A,
-                b,
-            ),
+            linear_constraints=(A, b),
             fixed_features={10: 1},
             rounding_func=lambda x: x,
         )
         self.assertTrue(np.shape(generated_points) == (3, 11))
-        self.assertTrue(np.alltrue(generated_points[..., -1] == 1))
-        self.assertTrue(np.alltrue(generated_points @ A.transpose() <= b))
+        self.assertTrue(np.all(generated_points[..., -1] == 1))
+        self.assertTrue(np.all(generated_points @ A.transpose() <= b))
 
     def test_SobolGeneratorOnlineRestart(self) -> None:
         # Ensure a single batch generation can also equivalently done by
