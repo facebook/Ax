@@ -79,7 +79,6 @@ class TestModelBridgeFitMetrics(TestCase):
         # testing compute_model_fit_metrics_from_modelbridge with default metrics
         fit_metrics = compute_model_fit_metrics_from_modelbridge(
             model_bridge=model_bridge,
-            experiment=self.branin_experiment,
             untransform=False,
         )
         r2 = fit_metrics.get("coefficient_of_determination")
@@ -101,7 +100,6 @@ class TestModelBridgeFitMetrics(TestCase):
             with self.subTest(untransform=untransform):
                 fit_metrics = compute_model_fit_metrics_from_modelbridge(
                     model_bridge=model_bridge,
-                    experiment=scheduler.experiment,
                     generalization=generalization,
                     untransform=untransform,
                     fit_metrics_dict={"Entropy": entropy_of_observations},
@@ -128,7 +126,6 @@ class TestModelBridgeFitMetrics(TestCase):
                 # testing with empty metrics
                 empty_metrics = compute_model_fit_metrics_from_modelbridge(
                     model_bridge=model_bridge,
-                    experiment=self.branin_experiment,
                     fit_metrics_dict={},
                 )
                 self.assertIsInstance(empty_metrics, dict)
@@ -138,7 +135,6 @@ class TestModelBridgeFitMetrics(TestCase):
                 with warnings.catch_warnings(record=True) as ws:
                     fit_metrics = compute_model_fit_metrics_from_modelbridge(
                         model_bridge=model_bridge,
-                        experiment=self.branin_experiment,
                         untransform=untransform,
                         generalization=generalization,
                     )

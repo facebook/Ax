@@ -18,7 +18,6 @@ from numbers import Number
 from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
 
 import numpy as np
-from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, recombine_observations
 from ax.core.optimization_config import OptimizationConfig
 from ax.modelbridge.base import ModelBridge, unwrap_observation_data
@@ -495,7 +494,6 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
 
 def compute_model_fit_metrics_from_modelbridge(
     model_bridge: ModelBridge,
-    experiment: Experiment,
     fit_metrics_dict: Optional[Dict[str, ModelFitMetricProtocol]] = None,
     generalization: bool = False,
     untransform: bool = False,
