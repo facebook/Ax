@@ -119,7 +119,6 @@ class SchedulerCompletedRecord:
             model_bridge = get_fitted_model_bridge(scheduler)
             model_fit_dict = compute_model_fit_metrics_from_modelbridge(
                 model_bridge=model_bridge,
-                experiment=scheduler.experiment,
                 generalization=False,
                 untransform=False,
             )
@@ -131,7 +130,6 @@ class SchedulerCompletedRecord:
             # generalization metrics
             model_gen_dict = compute_model_fit_metrics_from_modelbridge(
                 model_bridge=model_bridge,
-                experiment=scheduler.experiment,
                 generalization=True,
                 untransform=False,
             )

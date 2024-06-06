@@ -188,7 +188,6 @@ class TestScheduler(TestCase):
 
         fit_metrics = compute_model_fit_metrics_from_modelbridge(
             model_bridge=model_bridge,
-            experiment=scheduler.experiment,
             generalization=False,
             untransform=False,
         )
@@ -212,7 +211,6 @@ class TestScheduler(TestCase):
         # check generalization metrics
         gen_metrics = compute_model_fit_metrics_from_modelbridge(
             model_bridge=model_bridge,
-            experiment=scheduler.experiment,
             generalization=True,
             untransform=False,
         )
