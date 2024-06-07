@@ -34,7 +34,14 @@ class EqualityTest(TestCase):
     def test_ListsEquals(self) -> None:
         self.assertFalse(same_elements([0], [0, 1]))
         self.assertFalse(same_elements([1, 0], [0, 2]))
+        self.assertFalse(same_elements([1, 1], [1, 2]))
+        self.assertFalse(same_elements([1, 2], [1, 1]))
+        self.assertFalse(same_elements([1, 1, 2], [1, 2, 2]))
         self.assertTrue(same_elements([1, 0], [0, 1]))
+
+    def test_ListsEquals_floats(self) -> None:
+        self.assertTrue(same_elements([0.0], [0.000000000000001]))
+        self.assertTrue(same_elements([float("nan")], [float("nan")]))
 
     def test_DatetimeEquals(self) -> None:
         now = datetime.now()
