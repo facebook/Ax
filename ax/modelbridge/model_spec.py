@@ -27,6 +27,7 @@ from ax.modelbridge.cross_validation import (
     cross_validate,
     CVDiagnostics,
     CVResult,
+    get_fit_and_std_quality_and_generalization_dict,
 )
 from ax.modelbridge.registry import ModelRegistryBase
 from ax.utils.common.base import SortableBase
@@ -218,7 +219,21 @@ class ModelSpec(SortableBase, SerializationMixin):
             ],
             keywords=get_function_argument_names(fitted_model.gen),
         )
-        return fitted_model.gen(**model_gen_kwargs)
+        generator_run = fitted_model.gen(
+            **model_gen_kwargs,
+        )
+        fit_and_std_quality_and_generalization_dict = (
+            get_fit_and_std_quality_and_generalization_dict(
+                fitted_model_bridge=self.fitted_model,
+            )
+        )
+        generator_run._gen_metadata = (
+            {} if generator_run.gen_metadata is None else generator_run.gen_metadata
+        )
+        generator_run._gen_metadata.update(
+            **fit_and_std_quality_and_generalization_dict
+        )
+        return generator_run
 
     def copy(self) -> ModelSpec:
         """`ModelSpec` is both a spec and an object that performs actions.
