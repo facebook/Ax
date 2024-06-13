@@ -200,6 +200,7 @@ class TorchModel(BaseModel):
         datasets: List[SupervisedDataset],
         X_test: Tensor,
         search_space_digest: SearchSpaceDigest,
+        use_posterior_predictive: bool = False,
     ) -> Tuple[Tensor, Tensor]:
         """Do cross validation with the given training and test sets.
 
@@ -212,6 +213,9 @@ class TorchModel(BaseModel):
             X_test: (j x d) tensor of the j points at which to make predictions.
             search_space_digest: A SearchSpaceDigest object containing
                 metadata on the features in X.
+            use_posterior_predictive: A boolean indicating if the predictions
+                should be from the posterior predictive (i.e. including
+                observation noise).
 
         Returns:
             2-element tuple containing

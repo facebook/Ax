@@ -624,7 +624,9 @@ def pick_best_out_of_sample_point_acqf_class(
     return cast(Type[AcquisitionFunction], acqf_class), acqf_options
 
 
-def predict_from_model(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
+def predict_from_model(
+    model: Model, X: Tensor, use_posterior_predictive: bool = False
+) -> Tuple[Tensor, Tensor]:
     r"""Predicts outcomes given a model and input tensor.
 
     For a `GaussianMixturePosterior` we currently use a Gaussian approximation where we
@@ -634,6 +636,9 @@ def predict_from_model(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
     Args:
         model: A botorch Model.
         X: A `n x d` tensor of input parameters.
+        use_posterior_predictive: A boolean indicating if the predictions
+            should be from the posterior predictive (i.e. including
+            observation noise).
 
     Returns:
         Tensor: The predicted posterior mean as an `n x o`-dim tensor.
@@ -641,7 +646,7 @@ def predict_from_model(model: Model, X: Tensor) -> Tuple[Tensor, Tensor]:
     """
     with torch.no_grad():
         # TODO: Allow Posterior to (optionally) return the full covariance matrix
-        posterior = model.posterior(X)
+        posterior = model.posterior(X, observation_noise=use_posterior_predictive)
         if isinstance(posterior, GaussianMixturePosterior):
             mean = posterior.mixture_mean.cpu().detach()
             var = posterior.mixture_variance.cpu().detach().clamp_min(0)

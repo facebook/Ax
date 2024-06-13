@@ -594,17 +594,24 @@ class Surrogate(Base):
             self._last_datasets = {}
         self._last_search_space_digest = search_space_digest
 
-    def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
+    def predict(
+        self, X: Tensor, use_posterior_predictive: bool = False
+    ) -> Tuple[Tensor, Tensor]:
         """Predicts outcomes given an input tensor.
 
         Args:
             X: A ``n x d`` tensor of input parameters.
+            use_posterior_predictive: A boolean indicating if the predictions
+                should be from the posterior predictive (i.e. including
+                observation noise).
 
         Returns:
             Tensor: The predicted posterior mean as an ``n x o``-dim tensor.
             Tensor: The predicted posterior covariance as a ``n x o x o``-dim tensor.
         """
-        return predict_from_model(model=self.model, X=X)
+        return predict_from_model(
+            model=self.model, X=X, use_posterior_predictive=use_posterior_predictive
+        )
 
     def best_in_sample_point(
         self,

@@ -201,7 +201,9 @@ class CrossValidationTest(TestCase):
         # Test ModelBridge._cross_validate was called correctly.
         z = ma._cross_validate.mock_calls
         self.assertEqual(len(z), 3)
-        ma._cross_validate.assert_called_with(**self.transformed_cv_input_dict)
+        ma._cross_validate.assert_called_with(
+            **self.transformed_cv_input_dict, use_posterior_predictive=False
+        )
 
         # Test selector
 
@@ -218,6 +220,21 @@ class CrossValidationTest(TestCase):
             [[obsf.parameters["x"] for obsf in r[2]["cv_test_points"]] for r in z]
         )
         self.assertTrue(np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0])))
+
+        # test observation noise
+        for untransform in (True, False):
+            result = cross_validate(
+                model=ma,
+                folds=-1,
+                use_posterior_predictive=True,
+                untransform=untransform,
+            )
+            if untransform:
+                mock_cv = ma.cross_validate
+            else:
+                mock_cv = ma._cross_validate
+            call_kwargs = mock_cv.mock_calls[-1].kwargs
+            self.assertTrue(call_kwargs["use_posterior_predictive"])
 
     def test_CrossValidateByTrial(self) -> None:
         # With only 1 trial
@@ -260,6 +277,15 @@ class CrossValidationTest(TestCase):
         # Check result is correct
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].observed.features.trial_index, 2)
+
+        mock_cv = ma.cross_validate
+        call_kwargs = mock_cv.mock_calls[-1].kwargs
+        self.assertFalse(call_kwargs["use_posterior_predictive"])
+
+        # test observation noise
+        result = cross_validate_by_trial(model=ma, use_posterior_predictive=True)
+        call_kwargs = mock_cv.mock_calls[-1].kwargs
+        self.assertTrue(call_kwargs["use_posterior_predictive"])
 
     def test_cross_validate_gives_a_useful_error_for_model_with_no_data(self) -> None:
         exp = get_branin_experiment()

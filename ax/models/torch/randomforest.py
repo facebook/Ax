@@ -73,6 +73,7 @@ class RandomForest(TorchModel):
         self,
         datasets: List[SupervisedDataset],
         X_test: Tensor,
+        use_posterior_predictive: bool = False,
     ) -> Tuple[Tensor, Tensor]:
         Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)
         cv_models: List[RandomForestRegressor] = []

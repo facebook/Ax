@@ -267,8 +267,23 @@ class BaseModelBridgeTest(TestCase):
             search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
             cv_training_data=[get_observation2trans()],
             cv_test_points=[get_observation1().features],  # untransformed after
+            use_posterior_predictive=False,
         )
         self.assertTrue(cv_predictions == [get_observation1().data])
+
+        # Test use_posterior_predictive in CV
+        modelbridge.cross_validate(
+            cv_training_data=cv_training_data,
+            cv_test_points=cv_test_points,
+            use_posterior_predictive=True,
+        )
+
+        modelbridge._cross_validate.assert_called_with(
+            search_space=SearchSpace([FixedParameter("x", ParameterType.FLOAT, 8.0)]),
+            cv_training_data=[get_observation2trans()],
+            cv_test_points=[get_observation1().features],  # untransformed after
+            use_posterior_predictive=True,
+        )
 
         # Test stored training data
         obs = modelbridge.get_training_data()
