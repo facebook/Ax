@@ -24,6 +24,7 @@ from ax.core.data import Data
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.types import TCandidateMetadata, TParameterization
+from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -381,14 +382,14 @@ def _filter_data_on_status(
     dfs = []
     for g, d in df.groupby(by="metric_name"):
         metric_name = g
-        # Filter out any metrics that are not on the experiment.
         if metric_name not in experiment.metrics:
-            warnings.warn(
-                f"Metric {metric_name} not found on {experiment}. Not attaching to "
-                "observation.",
-                stacklevel=2,
+            # Observations can only be made for metrics attached to the experiment.
+            raise UserInputError(
+                f"Data contains metric {metric_name} that has not been added to the "
+                "experiment. You can either update the `optimization_config` or attach "
+                "it as a tracking metric using `Experiment.add_tracking_metrics` "
+                "or `AxClient.add_tracking_metrics`."
             )
-            continue
         metric = experiment.metrics[metric_name]
         statuses_to_include_metric = (
             statuses_to_include_map_metric
