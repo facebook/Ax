@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
+from __future__ import annotations
 
 import warnings
 from abc import ABC, abstractmethod
@@ -16,6 +17,7 @@ from functools import partial
 from logging import Logger
 from numbers import Number
 from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
+from warnings import warn
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData, recombine_observations
@@ -492,6 +494,45 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
 """
 
 
+def get_fit_and_std_quality_and_generalization_dict(
+    fitted_model_bridge: ModelBridge,
+) -> Dict[str, Optional[float]]:
+    """
+    Get stats and gen from a fitted ModelBridge for analytics purposes.
+    """
+    try:
+        model_fit_dict = compute_model_fit_metrics_from_modelbridge(
+            model_bridge=fitted_model_bridge,
+            generalization=False,
+            untransform=False,
+        )
+        # similar for uncertainty quantification, but distance from 1 matters
+        std = list(model_fit_dict["std_of_the_standardized_error"].values())
+
+        # generalization metrics
+        model_gen_dict = compute_model_fit_metrics_from_modelbridge(
+            model_bridge=fitted_model_bridge,
+            generalization=True,
+            untransform=False,
+        )
+        gen_std = list(model_gen_dict["std_of_the_standardized_error"].values())
+        return {
+            "model_fit_quality": _model_fit_metric(model_fit_dict),
+            "model_std_quality": _model_std_quality(np.array(std)),
+            "model_fit_generalization": _model_fit_metric(model_gen_dict),
+            "model_std_generalization": _model_std_quality(np.array(gen_std)),
+        }
+
+    except Exception as e:
+        warn("Encountered exception in computing model fit quality: " + str(e))
+        return {
+            "model_fit_quality": None,
+            "model_std_quality": None,
+            "model_fit_generalization": None,
+            "model_std_generalization": None,
+        }
+
+
 def compute_model_fit_metrics_from_modelbridge(
     model_bridge: ModelBridge,
     fit_metrics_dict: Optional[Dict[str, ModelFitMetricProtocol]] = None,
@@ -548,6 +589,38 @@ def compute_model_fit_metrics_from_modelbridge(
         se_pred=se_pred,
         fit_metrics_dict=fit_metrics_dict,
     )
+
+
+def _model_fit_metric(metric_dict: Dict[str, Dict[str, float]]) -> float:
+    # We'd ideally log the entire `model_fit_dict` as a single model fit metric
+    # can't capture the nuances of multiple experimental metrics, but this might
+    # lead to database performance issues. So instead, we take the worst
+    # coefficient of determination as model fit quality and store the full data
+    # in Manifold (TODO).
+    return min(metric_dict["coefficient_of_determination"].values())
+
+
+def _model_std_quality(std: np.ndarray) -> float:
+    """Quantifies quality of the model uncertainty. A value of one means the
+    uncertainty is perfectly predictive of the true standard deviation of the error.
+    Values larger than one indicate over-estimation and negative values indicate
+    under-estimation of the true standard deviation of the error. In particular, a value
+    of 2 (resp. 1 / 2) represents an over-estimation (resp. under-estimation) of the
+    true standard deviation of the error by a factor of 2.
+
+    Args:
+        std: The standard deviation of the standardized error.
+
+    Returns:
+        The factor corresponding to the worst over- or under-estimation factor of the
+        standard deviation of the error among all experimentally observed metrics.
+    """
+    max_std, min_std = np.max(std), np.min(std)
+    # comparing worst over-estimation factor with worst under-estimation factor
+    inv_model_std_quality = max_std if max_std > 1 / min_std else min_std
+    # reciprocal so that values greater than one indicate over-estimation and
+    # values smaller than indicate underestimation of the uncertainty.
+    return 1 / inv_model_std_quality
 
 
 def _predict_on_training_data(

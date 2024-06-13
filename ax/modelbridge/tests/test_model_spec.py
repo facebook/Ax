@@ -17,6 +17,7 @@ from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.modelbridge_utils import extract_search_space_digest
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import fast_botorch_optimize
 
@@ -147,6 +148,26 @@ class ModelSpecTest(BaseModelSpecTest):
         self.assertEqual(ms.fixed_features, new_features)
         # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         self.assertEqual(ms.model_gen_kwargs["fixed_features"], new_features)
+
+    def test_gen_attaches_empty_model_fit_metadata_if_fit_not_applicable(self) -> None:
+        ms = ModelSpec(model_enum=Models.SOBOL)
+        ms.fit(experiment=self.experiment, data=self.data)
+        gr = ms.gen(n=1)
+        gen_metadata = not_none(gr.gen_metadata)
+        self.assertEqual(gen_metadata["model_fit_quality"], None)
+        self.assertEqual(gen_metadata["model_std_quality"], None)
+        self.assertEqual(gen_metadata["model_fit_generalization"], None)
+        self.assertEqual(gen_metadata["model_std_generalization"], None)
+
+    def test_gen_attaches_model_fit_metadata_if_applicable(self) -> None:
+        ms = ModelSpec(model_enum=Models.GPEI)
+        ms.fit(experiment=self.experiment, data=self.data)
+        gr = ms.gen(n=1)
+        gen_metadata = not_none(gr.gen_metadata)
+        self.assertIsInstance(gen_metadata["model_fit_quality"], float)
+        self.assertIsInstance(gen_metadata["model_std_quality"], float)
+        self.assertIsInstance(gen_metadata["model_fit_generalization"], float)
+        self.assertIsInstance(gen_metadata["model_std_generalization"], float)
 
 
 class FactoryFunctionModelSpecTest(BaseModelSpecTest):

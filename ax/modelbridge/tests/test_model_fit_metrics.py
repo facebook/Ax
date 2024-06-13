@@ -19,6 +19,7 @@ from ax.modelbridge.cross_validation import (
     _predict_on_cross_validation_data,
     _predict_on_training_data,
     compute_model_fit_metrics_from_modelbridge,
+    get_fit_and_std_quality_and_generalization_dict,
 )
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
@@ -27,7 +28,7 @@ from ax.service.scheduler import get_fitted_model_bridge, Scheduler, SchedulerOp
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.model_fit_stats import _entropy_via_kde, entropy_of_observations
-from ax.utils.testing.core_stubs import get_branin_search_space
+from ax.utils.testing.core_stubs import get_branin_experiment, get_branin_search_space
 
 NUM_SOBOL = 5
 
@@ -141,3 +142,78 @@ class TestModelBridgeFitMetrics(TestCase):
                 self.assertFalse(
                     any("Input data is not standardized" in str(w.message) for w in ws)
                 )
+
+
+class TestGetFitAndStdQualityAndGeneralizationDict(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.experiment = get_branin_experiment()
+        self.sobol = Models.SOBOL(search_space=self.experiment.search_space)
+
+    def test_it_returns_empty_data_for_sobol(self) -> None:
+        results = get_fit_and_std_quality_and_generalization_dict(
+            fitted_model_bridge=self.sobol,
+        )
+        expected = {
+            "model_fit_quality": None,
+            "model_std_quality": None,
+            "model_fit_generalization": None,
+            "model_std_generalization": None,
+        }
+        self.assertDictEqual(results, expected)
+
+    def test_it_returns_float_values_when_fit_can_be_evaluated(self) -> None:
+        # GIVEN we have a model whose CV can be evaluated
+        sobol_run = self.sobol.gen(n=20)
+        self.experiment.new_batch_trial().add_generator_run(
+            sobol_run
+        ).run().mark_completed()
+        data = self.experiment.fetch_data()
+        botorch_modelbridge = Models.BOTORCH_MODULAR(
+            experiment=self.experiment, data=data
+        )
+
+        # WHEN we call get_fit_and_std_quality_and_generalization_dict
+        results = get_fit_and_std_quality_and_generalization_dict(
+            fitted_model_bridge=botorch_modelbridge,
+        )
+
+        # THEN we get expected results
+        # CALCULATE EXPECTED RESULTS
+        fit_metrics = compute_model_fit_metrics_from_modelbridge(
+            model_bridge=botorch_modelbridge,
+            generalization=False,
+            untransform=False,
+        )
+        # checking fit metrics
+        r2 = fit_metrics.get("coefficient_of_determination")
+        r2 = cast(Dict[str, float], r2)
+
+        std = fit_metrics.get("std_of_the_standardized_error")
+        std = cast(Dict[str, float], std)
+        std_branin = std["branin"]
+
+        model_std_quality = 1 / std_branin
+
+        # check generalization metrics
+        gen_metrics = compute_model_fit_metrics_from_modelbridge(
+            model_bridge=botorch_modelbridge,
+            generalization=True,
+            untransform=False,
+        )
+        r2_gen = gen_metrics.get("coefficient_of_determination")
+        r2_gen = cast(Dict[str, float], r2_gen)
+        gen_std = gen_metrics.get("std_of_the_standardized_error")
+        gen_std = cast(Dict[str, float], gen_std)
+        gen_std_branin = gen_std["branin"]
+        model_std_generalization = 1 / gen_std_branin
+
+        expected = {
+            "model_fit_quality": min(r2.values()),
+            "model_std_quality": model_std_quality,
+            "model_fit_generalization": min(r2_gen.values()),
+            "model_std_generalization": model_std_generalization,
+        }
+        # END CALCULATE EXPECTED RESULTS
+
+        self.assertDictsAlmostEqual(results, expected)

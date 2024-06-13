@@ -101,10 +101,10 @@ class TestScheduler(TestCase):
                 experiment=scheduler.experiment
             ),
             best_point_quality=float("nan"),
-            model_fit_quality=float("nan"),  # nan because no model has been fit
-            model_std_quality=float("nan"),
-            model_fit_generalization=float("nan"),
-            model_std_generalization=float("nan"),
+            model_fit_quality=None,  # nan because no model has been fit
+            model_std_quality=None,
+            model_fit_generalization=None,
+            model_std_generalization=None,
             improvement_over_baseline=5.0,
             num_metric_fetch_e_encountered=0,
             num_trials_bad_due_to_err=0,
@@ -117,10 +117,10 @@ class TestScheduler(TestCase):
                 experiment=scheduler.experiment
             ).__dict__,
             "best_point_quality": float("nan"),
-            "model_fit_quality": float("nan"),
-            "model_std_quality": float("nan"),
-            "model_fit_generalization": float("nan"),
-            "model_std_generalization": float("nan"),
+            "model_fit_quality": None,
+            "model_std_quality": None,
+            "model_fit_generalization": None,
+            "model_std_generalization": None,
             "improvement_over_baseline": 5.0,
             "num_metric_fetch_e_encountered": 0,
             "num_trials_bad_due_to_err": 0,
@@ -272,7 +272,9 @@ class TestScheduler(TestCase):
         for field in numeric_fields:
             rec_field = getattr(record, field)
             exp_field = getattr(expected, field)
-            if np.isnan(rec_field):
-                self.assertTrue(np.isnan(exp_field))
+            if rec_field is None:
+                self.assertIsNone(exp_field, msg=field)
+            elif np.isnan(rec_field):
+                self.assertTrue(np.isnan(exp_field), msg=field)
             else:
-                self.assertAlmostEqual(rec_field, exp_field)
+                self.assertAlmostEqual(rec_field, exp_field, msg=field)
