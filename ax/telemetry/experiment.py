@@ -26,7 +26,7 @@ from ax.core.utils import get_model_times
 from ax.telemetry.common import INITIALIZATION_MODELS, OTHER_MODELS
 
 INITIALIZATION_MODEL_STRS: List[str] = [enum.value for enum in INITIALIZATION_MODELS]
-OTHER_MODEL_STRS: List[str] = [enum.value for enum in OTHER_MODELS]
+OTHER_MODEL_STRS: List[str] = [enum.value for enum in OTHER_MODELS] + [None]
 
 
 @dataclass(frozen=True)
@@ -272,25 +272,34 @@ class ExperimentCompletedRecord:
         }
 
         model_keys = [
-            trial.generator_runs[0]._model_key for trial in experiment.trials.values()
+            [gr._model_key for gr in trial.generator_runs]
+            for trial in experiment.trials.values()
         ]
 
         fit_time, gen_time = get_model_times(experiment=experiment)
 
         return cls(
             num_initialization_trials=sum(
-                1 for model_key in model_keys if model_key in INITIALIZATION_MODEL_STRS
+                1
+                for model_key_list in model_keys
+                if all(
+                    model_key in INITIALIZATION_MODEL_STRS
+                    for model_key in model_key_list
+                )
             ),
             num_bayesopt_trials=sum(
                 1
-                for model_key in model_keys
-                if not (
-                    model_key in INITIALIZATION_MODEL_STRS
-                    or model_key in OTHER_MODEL_STRS
+                for model_key_list in model_keys
+                if any(
+                    model_key not in INITIALIZATION_MODEL_STRS
+                    and model_key not in OTHER_MODEL_STRS
+                    for model_key in model_key_list
                 )
             ),
             num_other_trials=sum(
-                1 for model_key in model_keys if model_key in OTHER_MODEL_STRS
+                1
+                for model_key_list in model_keys
+                if all(model_key in OTHER_MODEL_STRS for model_key in model_key_list)
             ),
             num_completed_trials=trial_count_by_status[TrialStatus.COMPLETED],
             num_failed_trials=trial_count_by_status[TrialStatus.FAILED],
