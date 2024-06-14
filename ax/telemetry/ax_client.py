@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, Optional
 
+from ax.core.base_trial import BaseTrial
+
 from ax.service.ax_client import AxClient
 from ax.telemetry.common import _get_max_transformed_dimensionality
 from ax.telemetry.experiment import ExperimentCompletedRecord, ExperimentCreatedRecord
@@ -100,23 +102,57 @@ class AxClientCompletedRecord:
     experiment_completed_record: ExperimentCompletedRecord
 
     best_point_quality: float
-    model_fit_quality: float
-    model_std_quality: float
-    model_fit_generalization: float
-    model_std_generalization: float
+    model_fit_quality: Optional[float]
+    model_std_quality: Optional[float]
+    model_fit_generalization: Optional[float]
+    model_std_generalization: Optional[float]
 
     @classmethod
-    def from_ax_client(cls, ax_client: AxClient) -> AxClientCompletedRecord:
+    def from_ax_client(
+        cls, ax_client: AxClient, completed_trial: BaseTrial
+    ) -> AxClientCompletedRecord:
         return cls(
             experiment_completed_record=ExperimentCompletedRecord.from_experiment(
                 experiment=ax_client.experiment
             ),
             best_point_quality=float("nan"),  # TODO[T147907632]
-            model_fit_quality=float("nan"),  # TODO[T147907632]
-            model_std_quality=float("nan"),
-            model_fit_generalization=float("nan"),
-            model_std_generalization=float("nan"),
+            **cls._get_model_fit_data_for_trial(completed_trial=completed_trial),
         )
+
+    @staticmethod
+    def _get_model_fit_data_for_trial(
+        completed_trial: BaseTrial,
+    ) -> Dict[str, Optional[float]]:
+        """Get model fit quality data for a completed trial.  This method assumes that
+        there is only one generator run on the trial from a model for which fit data
+        is applicable. If there are multiple, it will use the first."""
+        fit_and_std_dict = {
+            "model_fit_quality": None,  # TODO[T147907632]
+            "model_std_quality": None,
+            "model_fit_generalization": None,
+            "model_std_generalization": None,
+        }
+        empty_results = (float("nan"), None)
+        for gr in completed_trial.generator_runs:
+            gen_metadata = {} if gr.gen_metadata is None else gr.gen_metadata
+            if (
+                gen_metadata.get("model_fit_quality") not in empty_results
+                or gen_metadata.get("model_std_quality") not in empty_results
+                or gen_metadata.get("model_fit_generalization") not in empty_results
+                or gen_metadata.get("model_std_generalization") not in empty_results
+            ):
+                fit_and_std_dict = {
+                    "model_fit_quality": gen_metadata.get("model_fit_quality"),
+                    "model_std_quality": gen_metadata.get("model_std_quality"),
+                    "model_fit_generalization": gen_metadata.get(
+                        "model_fit_generalization"
+                    ),
+                    "model_std_generalization": gen_metadata.get(
+                        "model_std_generalization"
+                    ),
+                }
+                break
+        return fit_and_std_dict
 
     def flatten(self) -> Dict[str, Any]:
         """

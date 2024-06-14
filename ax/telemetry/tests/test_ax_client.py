@@ -7,6 +7,7 @@
 # pyre-strict
 
 from typing import Dict, List, Sequence, Union
+from unittest.mock import ANY
 
 import numpy as np
 
@@ -17,6 +18,7 @@ from ax.telemetry.ax_client import AxClientCompletedRecord, AxClientCreatedRecor
 from ax.telemetry.experiment import ExperimentCompletedRecord, ExperimentCreatedRecord
 from ax.telemetry.generation_strategy import GenerationStrategyCreatedRecord
 from ax.utils.common.testutils import TestCase
+from ax.utils.measurement.synthetic_functions import branin
 
 
 class TestAxClient(TestCase):
@@ -116,20 +118,96 @@ class TestAxClient(TestCase):
             objectives={"branin": ObjectiveProperties(minimize=True)},
             is_test=True,
         )
+        params, idx = ax_client.get_next_trial()
+        ax_client.complete_trial(
+            trial_index=idx,
+            # pyre-ignore[6]: branin does return a float
+            raw_data={"branin": branin(params["x"], params["y"])},
+        )
 
-        record = AxClientCompletedRecord.from_ax_client(ax_client=ax_client)
+        record = AxClientCompletedRecord.from_ax_client(
+            ax_client=ax_client,
+            completed_trial=ax_client.get_trial(0),
+        )
 
         expected = AxClientCompletedRecord(
             experiment_completed_record=ExperimentCompletedRecord.from_experiment(
                 experiment=ax_client.experiment
             ),
             best_point_quality=float("nan"),
-            model_fit_quality=float("nan"),
-            model_std_quality=float("nan"),
-            model_fit_generalization=float("nan"),
-            model_std_generalization=float("nan"),
+            model_fit_quality=None,
+            model_std_quality=None,
+            model_fit_generalization=None,
+            model_std_generalization=None,
         )
         self._compare_axclient_completed_records(record, expected)
+
+    def test_ax_client_completed_record_from_ax_client_for_model_that_fits(
+        self,
+    ) -> None:
+        num_sobol_trials = 5
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+            objectives={"branin": ObjectiveProperties(minimize=True)},
+            is_test=True,
+            choose_generation_strategy_kwargs={
+                "num_initialization_trials": num_sobol_trials
+            },
+        )
+        for _ in range(num_sobol_trials + 1):
+            params, idx = ax_client.get_next_trial()
+            ax_client.complete_trial(
+                trial_index=idx,
+                # pyre-ignore[6]: branin does return a float
+                raw_data={"branin": branin(params["x"], params["y"])},
+            )
+
+        with self.subTest("sobol trial"):
+            record = AxClientCompletedRecord.from_ax_client(
+                ax_client=ax_client,
+                # the last trial is not sobol so the fit can be evaluated
+                completed_trial=ax_client.get_trial(num_sobol_trials - 1),
+            )
+
+            expected = AxClientCompletedRecord(
+                experiment_completed_record=ExperimentCompletedRecord.from_experiment(
+                    experiment=ax_client.experiment
+                ),
+                best_point_quality=float("nan"),
+                model_fit_quality=None,
+                model_std_quality=None,
+                model_fit_generalization=None,
+                model_std_generalization=None,
+            )
+            self._compare_axclient_completed_records(record, expected)
+
+        with self.subTest("non sobol trial"):
+            record = AxClientCompletedRecord.from_ax_client(
+                ax_client=ax_client,
+                # the last trial is not sobol so the fit can be evaluated
+                completed_trial=ax_client.get_trial(num_sobol_trials),
+            )
+
+            expected = AxClientCompletedRecord(
+                experiment_completed_record=ExperimentCompletedRecord.from_experiment(
+                    experiment=ax_client.experiment
+                ),
+                best_point_quality=float("nan"),
+                model_fit_quality=ANY,
+                model_std_quality=ANY,
+                model_fit_generalization=ANY,
+                model_std_generalization=ANY,
+            )
+            self._compare_axclient_completed_records(record, expected)
+            self.assertIsNotNone(record.model_fit_quality)
+            self.assertIsNotNone(record.model_std_quality)
+            self.assertIsNotNone(record.model_fit_generalization)
+            self.assertIsNotNone(record.model_std_generalization)
 
     def test_batch_trial_warning(self) -> None:
         ax_client = AxClient()
@@ -166,7 +244,9 @@ class TestAxClient(TestCase):
         for field in numeric_fields:
             rec_field = getattr(record, field)
             exp_field = getattr(expected, field)
-            if np.isnan(rec_field):
-                self.assertTrue(np.isnan(exp_field))
+            if rec_field is None:
+                self.assertIsNone(exp_field, msg=field)
+            elif np.isnan(rec_field):
+                self.assertTrue(np.isnan(exp_field), msg=field)
             else:
-                self.assertAlmostEqual(rec_field, exp_field)
+                self.assertAlmostEqual(rec_field, exp_field, msg=field)
