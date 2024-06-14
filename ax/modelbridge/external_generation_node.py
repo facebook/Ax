@@ -188,9 +188,12 @@ class ExternalGenerationNode(GenerationNode, ABC):
         """
         t_gen_start = time.monotonic()
         n = 1 if n is None else n
-        pending_parameters: List[TParameterization] = [
-            [o.parameters for obs in (pending_observations or {}).values() for o in obs]
-        ]
+        pending_parameters: List[TParameterization] = []
+        if pending_observations:
+            for obs in pending_observations.values():
+                for o in obs:
+                    if o not in pending_parameters:
+                        pending_parameters.append(o.parameters)
         generated_params: List[TParameterization] = []
         for _ in range(n):
             params = self.get_next_candidate(pending_parameters=pending_parameters)

@@ -6,11 +6,13 @@
 
 # pyre-strict
 
+from copy import deepcopy
 from typing import List, Optional
 from unittest.mock import MagicMock
 
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.observation import ObservationFeatures
 from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.external_generation_node import ExternalGenerationNode
@@ -31,6 +33,7 @@ class DummyNode(ExternalGenerationNode):
         self.update_count = 0
         self.gen_count = 0
         self.generator: Optional[RandomModelBridge] = None
+        self.last_pending: List[TParameterization] = []
 
     def update_generator_state(self, experiment: Experiment, data: Data) -> None:
         self.update_count += 1
@@ -40,6 +43,7 @@ class DummyNode(ExternalGenerationNode):
         self, pending_parameters: List[TParameterization]
     ) -> TParameterization:
         self.gen_count += 1
+        self.last_pending = deepcopy(pending_parameters)
         return not_none(self.generator).gen(n=1).arms[0].parameters
 
 
@@ -59,6 +63,7 @@ class TestExternalGenerationNode(TestCase):
         self.assertEqual(node.gen_count, 0)
         self.assertEqual(node.update_count, 0)
         experiment = get_branin_experiment()
+
         # Sequential generation.
         for _ in range(3):
             gr = gs.gen(n=1, experiment=experiment, data=experiment.lookup_data())
@@ -68,11 +73,32 @@ class TestExternalGenerationNode(TestCase):
             trial.mark_completed()
         self.assertEqual(node.gen_count, 3)
         self.assertEqual(node.update_count, 3)
+        self.assertEqual(node.last_pending, [])
+
+        # Test pending point handling.
+        pending_observations = {
+            "some_metric": [ObservationFeatures(parameters={"x1": 0.123, "x2": 0.456})]
+        }
+        gr = gs.gen(
+            n=1,
+            experiment=experiment,
+            data=experiment.lookup_data(),
+            pending_observations=pending_observations,
+        )
+        trial = experiment.new_trial(generator_run=gr)
+        trial.mark_running(no_runner_required=True)
+        experiment.attach_data(get_branin_data(trials=[trial]))
+        trial.mark_completed()
+        self.assertEqual(node.gen_count, 4)
+        self.assertEqual(node.update_count, 4)
+        self.assertEqual(node.last_pending, [{"x1": 0.123, "x2": 0.456}])
+
         # Batch generation.
         gr = gs.gen(n=5, experiment=experiment, data=experiment.lookup_data())
-        self.assertEqual(node.gen_count, 8)
-        self.assertEqual(node.update_count, 4)
+        self.assertEqual(node.gen_count, 9)
+        self.assertEqual(node.update_count, 5)
         self.assertEqual(len(gr.arms), 5)
         self.assertGreater(not_none(gr.fit_time), 0.0)
         self.assertGreater(not_none(gr.gen_time), 0.0)
         self.assertEqual(gr._model_key, "dummy")
+        self.assertEqual(len(node.last_pending), 4)
