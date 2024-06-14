@@ -30,6 +30,7 @@ from ax.core.observation import (
 )
 from ax.core.trial import Trial
 from ax.core.types import TParameterization
+from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
 
@@ -292,12 +293,6 @@ class ObservationsTest(TestCase):
                 statuses_to_include=set(),
                 statuses_to_include_map_metric=set(),
             )
-        type(experiment).metrics = PropertyMock(return_value={"a": "a"})
-        observations = observations_from_data(experiment, data)
-        self.assertEqual(len(observations), 2)
-        # Data is filtered only to metrics attached to the experiment.
-        for obs in observations:
-            self.assertListEqual(obs.data.metric_names, ["a"])
 
         type(experiment).metrics = PropertyMock(return_value={"a": "a", "b": "b"})
         observations = observations_from_data(experiment, data)
@@ -537,6 +532,19 @@ class ObservationsTest(TestCase):
                 "timestamp": 100,
             },
             {
+                "arm_name": "1_0",
+                "parameters": {"x": 0, "y": "a", "z": 1},
+                "mean": 4.0,
+                "sem": 4.0,
+                "trial_index": 1,
+                "metric_name": "c",
+                "updated_parameters": {"x": 0, "y": "a", "z": 1},
+                "mean_t": np.array([4.0]),
+                "covariance_t": np.array([[16.0]]),
+                "z": 1,
+                "timestamp": 100,
+            },
+            {
                 "arm_name": "2_0",
                 "parameters": {"x": 1, "y": "a", "z": 0.5},
                 "mean": 3.0,
@@ -606,19 +614,29 @@ class ObservationsTest(TestCase):
         ]
         data = Data(df=df)
 
+        # Data includes metric "c" not attached to the experiment.
+        with self.assertRaisesRegex(UserInputError, "Data contains metric"):
+            observations_from_data(experiment, data)
+
+        # Add "c" to the experiment
+        type(experiment).metrics = PropertyMock(
+            return_value={"a": "a", "b": MapMetric(name="b"), "c": "c"}
+        )
         # 1 arm is abandoned and 1 trial is abandoned, so only 2 observations should be
         # included.
         obs_no_abandoned = observations_from_data(experiment, data)
         self.assertEqual(len(obs_no_abandoned), 2)
 
-        # Including all statuses for non-map metrics should yield all rows except those
-        # corresponding to a non-map metric (4 rows).
+        # Including all statuses for non-map metrics should yield all metrics except b
         obs_with_abandoned = observations_from_data(
             experiment, data, statuses_to_include=set(TrialStatus)
         )
         self.assertEqual(len(obs_with_abandoned), 4)
+        for obs in obs_with_abandoned:
+            if obs.arm_name == "1_0":
+                self.assertEqual(set(obs.data.metric_names), {"a", "c"})
 
-        # Including all statuses for all metrics should yield all rows (5 rows).
+        # Including all statuses for all metrics should yield all metrics
         obs_with_abandoned = observations_from_data(
             experiment,
             data,
@@ -626,6 +644,9 @@ class ObservationsTest(TestCase):
             statuses_to_include_map_metric=set(TrialStatus),
         )
         self.assertEqual(len(obs_with_abandoned), 4)
+        for obs in obs_with_abandoned:
+            if obs.arm_name == "1_0":
+                self.assertEqual(set(obs.data.metric_names), {"a", "b", "c"})
 
     def test_ObservationsFromDataWithSomeMissingTimes(self) -> None:
         truth = [
