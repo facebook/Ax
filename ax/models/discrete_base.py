@@ -102,6 +102,7 @@ class DiscreteModel(Model):
         Ys_train: List[List[float]],
         Yvars_train: List[List[float]],
         X_test: List[TParamValueList],
+        use_posterior_predictive: bool = False,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Do cross validation with the given training and test sets.
 
@@ -116,6 +117,9 @@ class DiscreteModel(Model):
                 each outcome.
             Yvars_train: The variances of each entry in Ys, same shape.
             X_test: List of the j parameterizations at which to make predictions.
+            use_posterior_predictive: A boolean indicating if the predictions
+                should be from the posterior predictive (i.e. including
+                observation noise).
 
         Returns:
             2-element tuple containing

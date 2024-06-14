@@ -428,6 +428,7 @@ class TorchModelBridge(ModelBridge):
         cv_training_data: List[Observation],
         cv_test_points: List[ObservationFeatures],
         parameters: Optional[List[str]] = None,
+        use_posterior_predictive: bool = False,
         **kwargs: Any,
     ) -> List[ObservationData]:
         """Make predictions at cv_test_points using only the data in obs_feats
@@ -453,6 +454,7 @@ class TorchModelBridge(ModelBridge):
             datasets=datasets,
             X_test=torch.as_tensor(X_test, dtype=self.dtype, device=self.device),
             search_space_digest=search_space_digest,
+            use_posterior_predictive=use_posterior_predictive,
             **kwargs,
         )
         # Convert array back to ObservationData

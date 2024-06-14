@@ -279,6 +279,7 @@ class MapTorchModelBridge(TorchModelBridge):
         cv_training_data: List[Observation],
         cv_test_points: List[ObservationFeatures],
         parameters: Optional[List[str]] = None,
+        use_posterior_predictive: bool = False,
         **kwargs: Any,
     ) -> List[ObservationData]:
         """Make predictions at cv_test_points using only the data in obs_feats
@@ -294,6 +295,7 @@ class MapTorchModelBridge(TorchModelBridge):
             cv_training_data=cv_training_data,
             cv_test_points=cv_test_points,
             parameters=parameters,  # we pass the map_keys too by default
+            use_posterior_predictive=use_posterior_predictive,
             **kwargs,
         )
         observation_features, observation_data = separate_observations(cv_training_data)

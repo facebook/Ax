@@ -396,10 +396,15 @@ class BoTorchModel(TorchModel, Base):
         return f, cov
 
     def predict_from_surrogate(
-        self, surrogate_label: str, X: Tensor
+        self,
+        surrogate_label: str,
+        X: Tensor,
+        use_posterior_predictive: bool = False,
     ) -> Tuple[Tensor, Tensor]:
         """Predict from the Surrogate with the given label."""
-        return self.surrogates[surrogate_label].predict(X=X)
+        return self.surrogates[surrogate_label].predict(
+            X=X, use_posterior_predictive=use_posterior_predictive
+        )
 
     @copy_doc(TorchModel.gen)
     def gen(
@@ -504,6 +509,7 @@ class BoTorchModel(TorchModel, Base):
         datasets: Sequence[SupervisedDataset],
         X_test: Tensor,
         search_space_digest: SearchSpaceDigest,
+        use_posterior_predictive: bool = False,
         **additional_model_inputs: Any,
     ) -> Tuple[Tensor, Tensor]:
         # Will fail if metric_names exist across multiple models
@@ -561,7 +567,9 @@ class BoTorchModel(TorchModel, Base):
                 **additional_model_inputs,
             )
             X_test_prediction = self.predict_from_surrogate(
-                surrogate_label=surrogate_label, X=X_test
+                surrogate_label=surrogate_label,
+                X=X_test,
+                use_posterior_predictive=use_posterior_predictive,
             )
         finally:
             # Reset the surrogates back to this model's surrogate, make

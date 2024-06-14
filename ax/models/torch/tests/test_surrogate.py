@@ -9,6 +9,7 @@
 import dataclasses
 import math
 from collections import OrderedDict
+from itertools import product
 from typing import Any, Dict, Tuple, Type
 from unittest.mock import MagicMock, Mock, patch
 
@@ -520,14 +521,22 @@ class SurrogateTest(TestCase):
     @fast_botorch_optimize
     @patch(f"{SURROGATE_PATH}.predict_from_model")
     def test_predict(self, mock_predict: Mock) -> None:
-        for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
+        for botorch_model_class, use_posterior_predictive in product(
+            (SaasFullyBayesianSingleTaskGP, SingleTaskGP), (True, False)
+        ):
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.fit(
                 datasets=self.training_data,
                 search_space_digest=self.search_space_digest,
             )
-            surrogate.predict(X=self.Xs[0])
-            mock_predict.assert_called_with(model=surrogate.model, X=self.Xs[0])
+            surrogate.predict(
+                X=self.Xs[0], use_posterior_predictive=use_posterior_predictive
+            )
+            mock_predict.assert_called_with(
+                model=surrogate.model,
+                X=self.Xs[0],
+                use_posterior_predictive=use_posterior_predictive,
+            )
 
     @fast_botorch_optimize
     def test_best_in_sample_point(self) -> None:

@@ -9,6 +9,7 @@
 import dataclasses
 from collections import OrderedDict
 from copy import deepcopy
+from itertools import product
 from typing import Dict, Type
 from unittest import mock
 from unittest.mock import Mock
@@ -397,11 +398,9 @@ class BoTorchModelTest(TestCase):
         old_surrogate._model = mock.MagicMock()
         old_surrogate._model.state_dict.return_value = OrderedDict({"key": "val"})
 
-        for refit_on_cv, warm_start_refit in [
-            (True, True),
-            (True, False),
-            (False, True),
-        ]:
+        for refit_on_cv, warm_start_refit, use_posterior_predictive in product(
+            (True, False), (True, False), (True, False)
+        ):
             self.model.refit_on_cv = refit_on_cv
             self.model.warm_start_refit = warm_start_refit
             with mock.patch(
@@ -412,6 +411,7 @@ class BoTorchModelTest(TestCase):
                     datasets=self.block_design_training_data,
                     X_test=self.X_test,
                     search_space_digest=self.mf_search_space_digest,
+                    use_posterior_predictive=use_posterior_predictive,
                 )
                 # Check that `predict` is called on the cloned surrogate, not
                 # on the original one.
@@ -424,6 +424,10 @@ class BoTorchModelTest(TestCase):
                         mock_predict.call_args_list[-1][1].get("X"),
                         self.X_test,
                     ),
+                )
+                self.assertIs(
+                    mock_predict.call_args_list[-1][1]["use_posterior_predictive"],
+                    use_posterior_predictive,
                 )
 
             # Check that surrogate is reset back to `old_surrogate` at the

@@ -191,6 +191,7 @@ class DiscreteModelBridge(ModelBridge):
         search_space: SearchSpace,
         cv_training_data: List[Observation],
         cv_test_points: List[ObservationFeatures],
+        use_posterior_predictive: bool = False,
     ) -> List[ObservationData]:
         """Make predictions at cv_test_points using only the data in obs_feats
         and obs_data.
@@ -208,7 +209,11 @@ class DiscreteModelBridge(ModelBridge):
         ]
         # Use the model to do the cross validation
         f_test, cov_test = self.model.cross_validate(
-            Xs_train=Xs_train, Ys_train=Ys_train, Yvars_train=Yvars_train, X_test=X_test
+            Xs_train=Xs_train,
+            Ys_train=Ys_train,
+            Yvars_train=Yvars_train,
+            X_test=X_test,
+            use_posterior_predictive=use_posterior_predictive,
         )
         # Convert array back to ObservationData
         return array_to_observation_data(f=f_test, cov=cov_test, outcomes=self.outcomes)

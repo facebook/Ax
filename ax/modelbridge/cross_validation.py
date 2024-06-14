@@ -78,6 +78,7 @@ def cross_validate(
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     test_selector: Optional[Callable] = None,
     untransform: bool = True,
+    use_posterior_predictive: bool = False,
 ) -> List[CVResult]:
     """Cross validation for model predictions.
 
@@ -112,6 +113,12 @@ def cross_validate(
             of the original data in regions where outliers have been removed,
             we have found it to better reflect the how good the model used
             for candidate generation actually is.
+        use_posterior_predictive: A boolean indicating if the predictions
+            should be from the posterior predictive (i.e. including
+            observation noise). Note: we should reconsider how we compute
+            cross-validation and model fit metrics where there is non-
+            Gaussian noise.
+
     Returns:
         A CVResult for each observation in the training data.
     """
@@ -162,7 +169,9 @@ def cross_validate(
         # Make the prediction
         if untransform:
             cv_test_predictions = model.cross_validate(
-                cv_training_data=cv_training_data, cv_test_points=cv_test_points
+                cv_training_data=cv_training_data,
+                cv_test_points=cv_test_points,
+                use_posterior_predictive=use_posterior_predictive,
             )
         else:
             # Get test predictions in transformed space
@@ -186,6 +195,7 @@ def cross_validate(
                     search_space=search_space,
                     cv_training_data=cv_training_data,
                     cv_test_points=cv_test_points,
+                    use_posterior_predictive=use_posterior_predictive,
                 )
             # Get test observations in transformed space
             cv_test_data = deepcopy(cv_test_data)
@@ -197,7 +207,9 @@ def cross_validate(
     return result
 
 
-def cross_validate_by_trial(model: ModelBridge, trial: int = -1) -> List[CVResult]:
+def cross_validate_by_trial(
+    model: ModelBridge, trial: int = -1, use_posterior_predictive: bool = False
+) -> List[CVResult]:
     """Cross validation for model predictions on a particular trial.
 
     Uses all of the data up until the specified trial to predict each of the
@@ -206,6 +218,9 @@ def cross_validate_by_trial(model: ModelBridge, trial: int = -1) -> List[CVResul
     Args:
         model: Fitted model (ModelBridge) to cross validate.
         trial: Trial for which predictions are evaluated.
+        use_posterior_predictive: A boolean indicating if the predictions
+            should be from the posterior predictive (i.e. including
+            observation noise).
 
     Returns:
         A CVResult for each observation in the training data.
@@ -241,7 +256,9 @@ def cross_validate_by_trial(model: ModelBridge, trial: int = -1) -> List[CVResul
             cv_test_data.append(obs)
     # Make the prediction
     cv_test_predictions = model.cross_validate(
-        cv_training_data=cv_training_data, cv_test_points=cv_test_points
+        cv_training_data=cv_training_data,
+        cv_test_points=cv_test_points,
+        use_posterior_predictive=use_posterior_predictive,
     )
     # Form CVResult objects
     result = [

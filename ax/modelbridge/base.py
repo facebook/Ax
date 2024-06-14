@@ -907,12 +907,16 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         self,
         cv_training_data: List[Observation],
         cv_test_points: List[ObservationFeatures],
+        use_posterior_predictive: bool = False,
     ) -> List[ObservationData]:
         """Make a set of cross-validation predictions.
 
         Args:
             cv_training_data: The training data to use for cross validation.
             cv_test_points: The test points at which predictions will be made.
+            use_posterior_predictive: A boolean indicating if the predictions
+                should be from the posterior predictive (i.e. including
+                observation noise).
 
         Returns:
             A list of predictions at the test points.
@@ -936,6 +940,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
                 search_space=search_space,
                 cv_training_data=cv_training_data,
                 cv_test_points=cv_test_points,
+                use_posterior_predictive=use_posterior_predictive,
             )
         # Apply reverse transforms, in reverse order
         cv_test_observations = [
@@ -952,6 +957,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         search_space: SearchSpace,
         cv_training_data: List[Observation],
         cv_test_points: List[ObservationFeatures],
+        use_posterior_predictive: bool = False,
     ) -> List[ObservationData]:
         """Apply the terminal transform, make predictions on the test points,
         and reverse terminal transform on the results.

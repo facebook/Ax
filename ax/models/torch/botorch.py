@@ -64,7 +64,7 @@ TModelConstructor = Callable[
     ],
     Model,
 ]
-TModelPredictor = Callable[[Model, Tensor], Tuple[Tensor, Tensor]]
+TModelPredictor = Callable[[Model, Tensor, bool], Tuple[Tensor, Tensor]]
 
 
 # pyre-fixme[33]: Aliased annotation cannot contain `Any`.
@@ -466,6 +466,7 @@ class BotorchModel(TorchModel):
         self,
         datasets: List[SupervisedDataset],
         X_test: Tensor,
+        use_posterior_predictive: bool = False,
         **kwargs: Any,
     ) -> Tuple[Tensor, Tensor]:
         if self._model is None:
@@ -488,7 +489,10 @@ class BotorchModel(TorchModel):
             use_loocv_pseudo_likelihood=self.use_loocv_pseudo_likelihood,
             **self._kwargs,
         )
-        return self.model_predictor(model=model, X=X_test)  # pyre-ignore: [28]
+        # pyre-ignore: [28]
+        return self.model_predictor(
+            model=model, X=X_test, use_posterior_predictive=use_posterior_predictive
+        )
 
     def feature_importances(self) -> np.ndarray:
         return get_feature_importances_from_botorch_model(model=self._model)

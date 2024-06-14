@@ -100,6 +100,7 @@ class RandomModelBridge(ModelBridge):
         search_space: SearchSpace,
         cv_training_data: List[Observation],
         cv_test_points: List[ObservationFeatures],
+        use_posterior_predictive: bool = False,
     ) -> List[ObservationData]:
         raise NotImplementedError
 
