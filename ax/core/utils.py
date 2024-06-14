@@ -157,15 +157,11 @@ def best_feasible_objective(
     return accumulate(f)
 
 
-def _extract_generator_run(trial: BaseTrial) -> GeneratorRun:
+def _extract_generator_runs(trial: BaseTrial) -> List[GeneratorRun]:
     if isinstance(trial, BatchTrial):
-        if len(trial.generator_run_structs) > 1:
-            raise NotImplementedError(
-                "Run time is not supported with multiple generator runs per trial."
-            )
-        return trial._generator_run_structs[0].generator_run
+        return trial.generator_runs
     if isinstance(trial, Trial):
-        return none_throws(trial.generator_run)
+        return [none_throws(trial.generator_run)]
     raise ValueError("Unexpected trial type")
 
 
@@ -180,7 +176,9 @@ def get_model_trace_of_times(
         List of fit times, list of gen times.
     """
     generator_runs = [
-        _extract_generator_run(trial=trial) for trial in experiment.trials.values()
+        gr
+        for trial in experiment.trials.values()
+        for gr in _extract_generator_runs(trial=trial)
     ]
     fit_times = [gr.fit_time for gr in generator_runs]
     gen_times = [gr.gen_time for gr in generator_runs]

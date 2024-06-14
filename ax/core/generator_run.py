@@ -175,15 +175,7 @@ class GeneratorRun(SortableBase):
                     "one is provided."
                 )
         for arm, weight in zip(arms, weights):
-            existing_cw = self._arm_weight_table.get(arm.signature)
-            if existing_cw:
-                self._arm_weight_table[arm.signature] = ArmWeight(
-                    arm=arm, weight=existing_cw.weight + weight
-                )
-            else:
-                self._arm_weight_table[arm.signature] = ArmWeight(
-                    arm=arm, weight=weight
-                )
+            self.add_arm(arm=arm, weight=weight)
 
         self._generator_run_type: Optional[str] = type
         self._time_created: datetime = datetime.now()
@@ -393,6 +385,22 @@ class GeneratorRun(SortableBase):
             else None
         )
         return generator_run
+
+    def add_arm(self, arm: Arm, weight: float = 1.0) -> None:
+        """Adds an arm to this generator run.  This should not be used to
+        mutate generator runs that are attached to trials.
+
+        Args:
+            arm: The arm to add.
+            weight: The weight to associate with the arm.
+        """
+        existing_cw = self._arm_weight_table.get(arm.signature)
+        if existing_cw:
+            self._arm_weight_table[arm.signature] = ArmWeight(
+                arm=arm, weight=existing_cw.weight + weight
+            )
+        else:
+            self._arm_weight_table[arm.signature] = ArmWeight(arm=arm, weight=weight)
 
     def __repr__(self) -> str:
         """String representation of a GeneratorRun."""

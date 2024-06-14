@@ -7,9 +7,14 @@
 # pyre-strict
 
 from ax.core.utils import get_model_times
+from ax.modelbridge.registry import Models
 from ax.telemetry.experiment import ExperimentCompletedRecord, ExperimentCreatedRecord
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_experiment_with_custom_runner_and_metric
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
+    get_experiment_with_custom_runner_and_metric,
+)
+from ax.utils.testing.mock import fast_botorch_optimize
 
 
 class TestExperiment(TestCase):
@@ -63,3 +68,47 @@ class TestExperiment(TestCase):
             total_gen_time=int(gen_time),
         )
         self.assertEqual(record, expected)
+
+    @fast_botorch_optimize
+    def test_bayesopt_trials_are_trials_containing_bayesopt(self) -> None:
+        experiment = get_branin_experiment()
+        sobol = Models.SOBOL(search_space=experiment.search_space)
+        trial = experiment.new_batch_trial().add_generator_run(
+            generator_run=sobol.gen(5)
+        )
+        trial.mark_completed(unsafe=True)
+
+        # create a trial that among other things does bayesopt
+        botorch = Models.BOTORCH_MODULAR(
+            experiment=experiment, data=experiment.fetch_data()
+        )
+        trial = (
+            experiment.new_batch_trial()
+            .add_generator_run(generator_run=sobol.gen(2))
+            .add_generator_run(generator_run=botorch.gen(5))
+        )
+        trial.add_arm(experiment.arms_by_name["0_0"])
+        trial.mark_completed(unsafe=True)
+
+        record = ExperimentCompletedRecord.from_experiment(experiment=experiment)
+        self.assertEqual(record.num_initialization_trials, 1)
+        self.assertEqual(record.num_bayesopt_trials, 1)
+        self.assertEqual(record.num_other_trials, 0)
+
+    def test_other_trials_are_trials_with_no_models(self) -> None:
+        experiment = get_branin_experiment()
+        sobol = Models.SOBOL(search_space=experiment.search_space)
+        trial = experiment.new_batch_trial().add_generator_run(
+            generator_run=sobol.gen(5)
+        )
+        trial.mark_completed(unsafe=True)
+
+        # create a trial that has no GRs that used models
+        trial = experiment.new_batch_trial()
+        trial.add_arm(experiment.arms_by_name["0_0"])
+        trial.mark_completed(unsafe=True)
+
+        record = ExperimentCompletedRecord.from_experiment(experiment=experiment)
+        self.assertEqual(record.num_initialization_trials, 1)
+        self.assertEqual(record.num_bayesopt_trials, 0)
+        self.assertEqual(record.num_other_trials, 1)
