@@ -453,7 +453,7 @@ def best_in_sample_point(
     # Identify best point
     if method == "feasible_threshold":
         utility = obj
-        utility[pfeas < threshold] = -np.Inf
+        utility[pfeas < threshold] = -np.inf
     elif method == "max_utility":
         if B is None:
             B = obj.min()
@@ -461,7 +461,7 @@ def best_in_sample_point(
     else:  # pragma: no cover
         raise UnsupportedError(f"Unknown best point method {method}.")
     i = np.argmax(utility)
-    if utility[i] == -np.Inf:
+    if utility[i] == -np.inf:
         return None
     else:
         return X_obs[i, :], utility[i]

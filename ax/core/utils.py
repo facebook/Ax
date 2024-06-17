@@ -141,7 +141,7 @@ def best_feasible_objective(
     objective = optimization_config.objective
     f = values[objective.metric.name]
     # Set infeasible points to have infinitely bad values
-    infeas_val = np.Inf if objective.minimize else -np.Inf
+    infeas_val = np.inf if objective.minimize else -np.inf
     for oc in optimization_config.outcome_constraints:
         if oc.relative:
             raise ValueError(
