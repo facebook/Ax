@@ -213,9 +213,9 @@ class ThompsonSampler(DiscreteModel):
         objective_values = np.dot(
             samples_per_metric, objective_weights
         )  # (k x num_samples)
-        objective_values[any_violation] = -np.Inf
+        objective_values[any_violation] = -np.inf
         best_arm = objective_values.max(axis=0)  # (num_samples,)
-        all_arms_infeasible = best_arm == -np.Inf  # (num_samples,)
+        all_arms_infeasible = best_arm == -np.inf  # (num_samples,)
         fraction_all_infeasible = all_arms_infeasible.mean()
         filtered_objective = objective_values[:, ~all_arms_infeasible]  # (k x ?)
         return filtered_objective, fraction_all_infeasible
