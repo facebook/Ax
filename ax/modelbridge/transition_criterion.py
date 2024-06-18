@@ -16,12 +16,12 @@ from ax.exceptions.generation_strategy import MaxParallelismReachedException
 
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
-from ax.utils.common.serialization import SerializationMixin, serialize_init_args
+from ax.utils.common.serialization import serialize_init_args
 
 logger: Logger = get_logger(__name__)
 
 
-class TransitionCriterion(SortableBase, SerializationMixin):
+class TransitionCriterion(SortableBase):
     # TODO: @mgarrard rename to ActionCriterion
     """
     Simple class to describe a condition which must be met for this GenerationNode to
