@@ -107,6 +107,9 @@ class Metric(SortableBase, SerializationMixin):
             lower_is_better: Flag for metrics which should be minimized.
             properties: Dictionary of this metric's properties
         """
+        if name is None:
+            raise ValueError("Metric name cannot be `None`.")
+
         self._name = name
         self.lower_is_better = lower_is_better
         self.properties: Dict[str, Any] = properties or {}
