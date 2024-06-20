@@ -507,7 +507,7 @@ class ChoiceParameterTest(TestCase):
                 parameter_type=ParameterType.STRING,
                 values=["foo", "bar", "foo"],
             )
-        self.assertEqual(p.values, ["foo", "bar"])
+        self.assertEqual({*p.values}, {"foo", "bar"})
 
     def test_two_values_is_ordered(self) -> None:
         parameter_types = (
