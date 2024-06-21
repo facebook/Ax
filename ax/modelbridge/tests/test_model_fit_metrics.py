@@ -140,7 +140,7 @@ class TestModelBridgeFitMetrics(TestCase):
                         generalization=generalization,
                     )
                 self.assertFalse(
-                    any("Input data is not standardized" in str(w.message) for w in ws)
+                    any("Data is not standardized" in str(w.message) for w in ws)
                 )
 
 
