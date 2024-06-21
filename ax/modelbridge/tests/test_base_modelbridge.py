@@ -225,8 +225,7 @@ class BaseModelBridgeTest(TestCase):
             nonlocal called
             called = True
             warnings.warn(
-                "Input data is not standardized. Please consider scaling the "
-                "input to zero mean and unit variance.",
+                "Data is not standardized",
                 InputDataWarning,
                 stacklevel=2,
             )

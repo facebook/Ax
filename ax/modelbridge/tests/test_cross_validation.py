@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+import warnings
 from typing import List
 from unittest import mock
 
@@ -34,6 +35,7 @@ from ax.modelbridge.cross_validation import (
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
+from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_observation1trans, get_observation2trans
 
 
@@ -292,6 +294,17 @@ class CrossValidationTest(TestCase):
         sobol = Models.SOBOL(experiment=exp, search_space=exp.search_space)
         with self.assertRaisesRegex(ValueError, "no training data"):
             cross_validate(model=sobol)
+
+    @fast_botorch_optimize
+    def test_cross_validate_catches_warnings(self) -> None:
+        exp = get_branin_experiment(with_batch=True, with_completed_batch=True)
+        model = Models.BOTORCH_MODULAR(
+            experiment=exp, search_space=exp.search_space, data=exp.fetch_data()
+        )
+        for untransform in [False, True]:
+            with warnings.catch_warnings(record=True) as ws:
+                cross_validate(model=model, untransform=untransform)
+                self.assertEqual(len(ws), 0)
 
     def test_cross_validate_raises_not_implemented_error_for_non_cv_model_with_data(
         self,

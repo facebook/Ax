@@ -933,7 +933,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
             # users with this warning, we filter it out.
             warnings.filterwarnings(
                 "ignore",
-                message="Input data is not standardized.",
+                message="Data is not standardized",
                 category=InputDataWarning,
             )
             cv_predictions = self._cross_validate(
