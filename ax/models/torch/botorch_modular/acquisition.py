@@ -543,6 +543,8 @@ class Acquisition(Base):
             return candidates, acqf_values, arm_weights
 
         # 2b. Handle mixed search spaces that have discrete and continuous features.
+        # Only sequential optimization is supported for `optimize_acqf_mixed`.
+        optimizer_options_with_defaults.pop("sequential")
         candidates, acqf_values = optimize_acqf_mixed(
             acq_function=self.acqf,
             bounds=bounds,
