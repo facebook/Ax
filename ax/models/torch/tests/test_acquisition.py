@@ -510,9 +510,7 @@ class AcquisitionTest(TestCase):
         tkwargs = {"dtype": self.X.dtype, "device": self.X.device}
         ssd = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
-            # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float, int],
-            #  Union[float, int]]]` but got `List[Tuple[int, int, int]]`.
-            bounds=[(0, 0, 0), (1, 1, 1)],
+            bounds=[(0, 1) for _ in range(3)],
             categorical_features=[0, 1, 2],
             discrete_choices={  # 30 * 60 * 90 > 100,000
                 k: np.linspace(0, 1, 30 * (k + 1)).tolist() for k in range(3)
@@ -568,7 +566,6 @@ class AcquisitionTest(TestCase):
         )
         mock_optimize_acqf_mixed.assert_called_with(
             acq_function=acquisition.acqf,
-            sequential=True,
             bounds=mock.ANY,
             q=3,
             options={"init_batch_limit": 32, "batch_limit": 5},
