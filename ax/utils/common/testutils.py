@@ -14,6 +14,7 @@ import contextlib
 import io
 import linecache
 import logging
+import os
 import signal
 import sys
 import types
@@ -39,6 +40,7 @@ from unittest.mock import MagicMock
 import numpy as np
 from ax.exceptions.core import AxParameterWarning
 from ax.utils.common.base import Base
+from ax.utils.common.constants import TESTENV_ENV_KEY, TESTENV_ENV_VAL
 from ax.utils.common.equality import object_attribute_dicts_find_unequal_fields
 from ax.utils.common.logger import get_logger
 from botorch.exceptions.warnings import InputDataWarning
@@ -301,6 +303,12 @@ class TestCase(fake_filesystem_unittest.TestCase):
 
         super().__init__(methodName=methodName)
         signal.signal(signal.SIGALRM, signal_handler)
+        # This is set to indicate we are running in a test environment.  Code can check
+        # this to:
+        # * more strictly enforce SQL encoding
+        #  (https://github.com/facebook/Ax/blob/main/ax/storage/sqa_store/save.py#L598)
+        # * avoid actions that will affect product environments
+        os.environ[TESTENV_ENV_KEY] = TESTENV_ENV_VAL
 
     def setUp(self) -> None:
         """
