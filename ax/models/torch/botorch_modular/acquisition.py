@@ -530,6 +530,11 @@ class Acquisition(Base):
                 )
                 n = num_choices
 
+            # `raw_samples` is not supported by `optimize_acqf_discrete`.
+            # TODO[santorella]: Rather than manually removing it, we should
+            # ensure that it is never passed.
+            if optimizer_options is not None:
+                optimizer_options.pop("raw_samples")
             discrete_opt_options = optimizer_argparse(
                 self.acqf,
                 bounds=bounds,
