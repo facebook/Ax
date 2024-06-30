@@ -461,7 +461,9 @@ def scipy_optimizer(
     n: int,
     inequality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]] = None,
     equality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]] = None,
+    nonlinear_inequality_constraints: Optional[List[Callable]] = None,
     fixed_features: Optional[Dict[int, float]] = None,
+    batch_initial_conditions: Optional[Tensor] = None,
     rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
     *,
     num_restarts: int = 20,
@@ -482,6 +484,14 @@ def scipy_optimizer(
         equality constraints: A list of tuples (indices, coefficients, rhs),
             with each tuple encoding an equality constraint of the form
             `\sum_i (X[indices[i]] * coefficients[i]) == rhs`
+        nonlinear_inequality_constraints: A list of callables with that represent
+            non-linear inequality constraints of the form `callable(x) >= 0`. Each
+            callable is expected to take a `(num_restarts) x q x d`-dim tensor as an
+            input and return a `(num_restarts) x q`-dim tensor with the constraint
+            values. The constraints will later be passed to SLSQP. You need to pass in
+            `batch_initial_conditions` in this case.
+        batch_initial_conditions: A tensor to specify the initial conditions. Set
+            this if you do not want to use default initialization strategy.
         fixed_features: A map {feature_index: value} for features that should
             be fixed to a particular value during generation.
         rounding_func: A function that rounds an optimization result
@@ -514,7 +524,9 @@ def scipy_optimizer(
         options=optimize_acqf_options,
         inequality_constraints=inequality_constraints,
         equality_constraints=equality_constraints,
+        nonlinear_inequality_constraints=nonlinear_inequality_constraints,
         fixed_features=fixed_features,
+        batch_initial_conditions=batch_initial_conditions,
         sequential=sequential,
         post_processing_func=rounding_func,
     )
@@ -527,6 +539,7 @@ def recommend_best_observed_point(
     objective_weights: Tensor,
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    nonlinear_inequality_constraints: Optional[List[Callable]] = None,
     fixed_features: Optional[Dict[int, float]] = None,
     model_gen_options: Optional[TConfig] = None,
     target_fidelities: Optional[Dict[int, float]] = None,
@@ -547,6 +560,8 @@ def recommend_best_observed_point(
         linear_constraints: A tuple of (A, b). For k linear constraints on
             d-dimensional x, A is (k x d) and b is (k x 1) such that
             A x <= b.
+        nonlinear_inequality_constraints: A list of callables with that represent
+            non-linear inequality constraints of the form `callable(x) >= 0`.
         fixed_features: A map {feature_index: value} for features that
             should be fixed to a particular value in the best point.
         model_gen_options: A config dictionary that can contain
@@ -558,6 +573,11 @@ def recommend_best_observed_point(
     Returns:
         A d-array of the best point, or None if no feasible point was observed.
     """
+    if nonlinear_inequality_constraints:
+        raise NotImplementedError(
+            "`nonlinear_inequality_constraints` aren't supported by "
+            "`recommend_best_observed_point`."
+        )
     if target_fidelities:
         raise NotImplementedError(
             "target_fidelities not implemented for base BotorchModel"
@@ -583,6 +603,7 @@ def recommend_best_out_of_sample_point(
     objective_weights: Tensor,
     outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
     linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    nonlinear_inequality_constraints: Optional[List[Callable]] = None,
     fixed_features: Optional[Dict[int, float]] = None,
     model_gen_options: Optional[TConfig] = None,
     target_fidelities: Optional[Dict[int, float]] = None,
@@ -604,6 +625,8 @@ def recommend_best_out_of_sample_point(
         linear_constraints: A tuple of (A, b). For k linear constraints on
             d-dimensional x, A is (k x d) and b is (k x 1) such that
             A x <= b.
+        nonlinear_inequality_constraints: A list of callables with that represent
+            non-linear inequality constraints of the form `callable(x) >= 0`.
         fixed_features: A map {feature_index: value} for features that
             should be fixed to a particular value in the best point.
         model_gen_options: A config dictionary that can contain
@@ -645,6 +668,8 @@ def recommend_best_out_of_sample_point(
     # (including transforming constraints b/c of fixed features)
     if inequality_constraints is not None:
         raise UnsupportedError("Inequality constraints are not supported!")
+    if nonlinear_inequality_constraints is not None:
+        raise UnsupportedError("Non-linear inequality constraints are not supported!")
 
     return_best_only = optimizer_options.get("return_best_only", True)
     bounds_ = torch.tensor(bounds, dtype=model.dtype, device=model.device)
