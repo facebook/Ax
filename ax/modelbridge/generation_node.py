@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 from collections import defaultdict
-
 from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
@@ -28,7 +27,7 @@ from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyRepeatedPoints
 from ax.modelbridge.base import ModelBridge
-from ax.modelbridge.cross_validation import BestModelSelector
+from ax.modelbridge.best_model_selector import BestModelSelector
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import ModelRegistryBase
 from ax.modelbridge.transition_criterion import (
@@ -360,11 +359,8 @@ class GenerationNode(SerializationMixin, SortableBase):
                 raise NotImplementedError(CANNOT_SELECT_ONE_MODEL_MSG)
             return self.model_specs[0]
 
-        for model_spec in self.model_specs:
-            model_spec.cross_validate()
-
-        best_model_index = not_none(self.best_model_selector).best_diagnostic(
-            diagnostics=[not_none(m.diagnostics) for m in self.model_specs],
+        best_model_index = not_none(self.best_model_selector).best_model(
+            model_specs=self.model_specs,
         )
         return self.model_specs[best_model_index]
 
