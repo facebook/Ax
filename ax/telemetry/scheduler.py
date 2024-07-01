@@ -43,7 +43,7 @@ class SchedulerCreatedRecord:
 
     # Dimensionality of transformed SearchSpace can often be much higher due to one-hot
     # encoding of unordered ChoiceParameters
-    transformed_dimensionality: int
+    transformed_dimensionality: Optional[int]
 
     @classmethod
     def from_scheduler(cls, scheduler: Scheduler) -> SchedulerCreatedRecord:

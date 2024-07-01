@@ -7,9 +7,12 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from math import inf
+from typing import Optional
 
+from ax.exceptions.core import AxWarning
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.telemetry.common import INITIALIZATION_MODELS, OTHER_MODELS
 
@@ -26,17 +29,35 @@ class GenerationStrategyCreatedRecord:
     generation_strategy_name: str
 
     # -1 indicates unlimited trials requested, 0 indicates no trials requested
-    num_requested_initialization_trials: int  # Typically the number of Sobol trials
-    num_requested_bayesopt_trials: int
-    num_requested_other_trials: int
+    num_requested_initialization_trials: Optional[
+        int  # Typically the number of Sobol trials
+    ]
+    num_requested_bayesopt_trials: Optional[int]
+    num_requested_other_trials: Optional[int]
 
     # Minimum `max_parallelism` across GenerationSteps, i.e. the bottleneck
-    max_parallelism: int
+    max_parallelism: Optional[int]
 
     @classmethod
     def from_generation_strategy(
         cls, generation_strategy: GenerationStrategy
     ) -> GenerationStrategyCreatedRecord:
+        if generation_strategy.is_node_based:
+            warnings.warn(
+                "`GenerationStrategyCreatedRecord` does not fully support node-based "
+                "generation strategies. This will result in an incomplete record.",
+                category=AxWarning,
+                stacklevel=4,
+            )
+            # TODO [T192965545]: Support node-based generation strategies in telemetry
+            return cls(
+                generation_strategy_name=generation_strategy.name,
+                num_requested_initialization_trials=None,
+                num_requested_bayesopt_trials=None,
+                num_requested_other_trials=None,
+                max_parallelism=None,
+            )
+
         # Minimum `max_parallelism` across GenerationSteps, i.e. the bottleneck
         true_max_parallelism = min(
             step.max_parallelism or inf for step in generation_strategy._steps
