@@ -5,18 +5,17 @@
 
 # pyre-strict
 
+import warnings
 from datetime import datetime
-from typing import Any, Dict, List, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 from ax.core.experiment import Experiment
-
+from ax.exceptions.core import AxWarning
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-
 from ax.modelbridge.modelbridge_utils import (
     extract_search_space_digest,
     transform_search_space,
 )
-
 from ax.modelbridge.registry import ModelRegistryBase, Models, SearchSpace
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
@@ -32,11 +31,20 @@ DEFAULT_PRODUCT_SURFACE = "unknown"
 
 def _get_max_transformed_dimensionality(
     search_space: SearchSpace, generation_strategy: GenerationStrategy
-) -> int:
+) -> Optional[int]:
     """
     Get dimensionality of transformed SearchSpace for all steps in the
     GenerationStrategy and return the maximum.
     """
+    if generation_strategy.is_node_based:
+        warnings.warn(
+            "`_get_max_transformed_dimensionality` does not fully support node-based "
+            "generation strategies. This will result in an incomplete record.",
+            category=AxWarning,
+            stacklevel=4,
+        )
+        # TODO [T192965545]: Support node-based generation strategies in telemetry
+        return None
 
     transforms_by_step = [
         _extract_transforms_and_configs(step=step)
