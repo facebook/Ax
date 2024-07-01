@@ -6,12 +6,12 @@
 
 # pyre-strict
 
+import logging
 from typing import Dict, List, Sequence, Union
 
 import numpy as np
 
 from ax.core.types import TParamValue
-from ax.exceptions.core import UnsupportedError
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.telemetry.ax_client import AxClientCompletedRecord, AxClientCreatedRecord
 from ax.telemetry.experiment import ExperimentCompletedRecord, ExperimentCreatedRecord
@@ -133,11 +133,8 @@ class TestAxClient(TestCase):
 
     def test_batch_trial_warning(self) -> None:
         ax_client = AxClient()
-        error_msg = (
-            "AxClient API does not support batch trials yet."
-            " We plan to add this support in coming versions."
-        )
-        with self.assertRaisesRegex(UnsupportedError, error_msg):
+        warning_msg = "GenerationStrategy when using BatchTrials is in beta."
+        with self.assertLogs(AxClient.__module__, logging.WARNING) as logger:
             ax_client.create_experiment(
                 name="test_experiment",
                 parameters=[
@@ -148,6 +145,10 @@ class TestAxClient(TestCase):
                 choose_generation_strategy_kwargs={
                     "use_batch_trials": True,
                 },
+            )
+            self.assertTrue(
+                any(warning_msg in output for output in logger.output),
+                logger.output,
             )
 
     def _compare_axclient_completed_records(
