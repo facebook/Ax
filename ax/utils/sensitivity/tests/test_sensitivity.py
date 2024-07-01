@@ -34,6 +34,7 @@ from ax.utils.sensitivity.sobol_measures import (
     SobolSensitivityGPSampling,
 )
 from ax.utils.testing.core_stubs import get_branin_experiment
+from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel, GPyTorchModel
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.utils.transforms import unnormalize
@@ -41,6 +42,7 @@ from gpytorch.distributions import MultivariateNormal
 from torch import Tensor
 
 
+@fast_botorch_optimize
 def get_modelbridge(modular: bool = False, saasbo: bool = False) -> ModelBridge:
     exp = get_branin_experiment(with_batch=True)
     exp.trials[0].run()
@@ -152,6 +154,8 @@ class SensitivityAnalysisTest(TestCase):
         self.assertEqual(total_order.shape, torch.Size([2]))
         self.assertEqual(second_order.shape, torch.Size([1]))
 
+    def test_SobolGPMean_SAASBO(self) -> None:
+        bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()
         sensitivity_mean_saas = SobolSensitivityGPMean(
             self.saas_model, num_mc_samples=10, bounds=bounds, second_order=True
         )
@@ -312,7 +316,7 @@ class SensitivityAnalysisTest(TestCase):
                 set_rng_seed(seed)
                 # Unsigned
                 ind_dict = ax_parameter_sens(
-                    model_bridge=bridge,  # pyre-ignore
+                    model_bridge=bridge,
                     metrics=None,
                     order="total",
                     signed=False,
@@ -327,7 +331,7 @@ class SensitivityAnalysisTest(TestCase):
                 set_rng_seed(seed)  # reset seed to keep discrete features the same
                 cat_indices = bridge.model.search_space_digest.categorical_features
                 ind_dict_signed = ax_parameter_sens(
-                    model_bridge=bridge,  # pyre-ignore
+                    model_bridge=bridge,
                     metrics=None,
                     order="total",
                     signed=True,
