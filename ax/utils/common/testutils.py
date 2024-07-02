@@ -11,6 +11,7 @@
 
 import builtins
 import contextlib
+import cProfile
 import io
 import linecache
 import logging
@@ -21,6 +22,7 @@ import types
 import unittest
 import warnings
 from logging import Logger
+from pstats import Stats
 from types import FrameType
 from typing import (
     Any,
@@ -287,18 +289,22 @@ def setup_import_mocks(
 class TestCase(fake_filesystem_unittest.TestCase):
     """The base Ax test case, contains various helper functions to write unittests."""
 
-    MAX_TEST_SECONDS = 480
-    MIN_TTOT = 1.0
-    PROFILER_COLUMNS = {
-        0: ("name", 100),  # default 36 is often not enough
-        1: ("ncall", 5),
-        2: ("tsub", 8),
-        3: ("ttot", 8),
-        4: ("tavg", 8),
-    }
+    MAX_TEST_SECONDS = 10
+    NUMBER_OF_PROFILER_LINES_TO_OUTPUT = 20
 
     def __init__(self, methodName: str = "runTest") -> None:
         def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
+            s = io.StringIO()
+            ps = Stats(self.profiler, stream=s).sort_stats("cumulative").reverse_order()
+            ps.print_stats()
+            output = s.getvalue().splitlines()
+            headers = output[:5]
+            # Print the headers
+            for line in headers:
+                print(line)
+            # Print the longest running functions
+            for line in output[-self.NUMBER_OF_PROFILER_LINES_TO_OUTPUT :]:
+                print(line)
             logger.warning(f"Test took longer than {self.MAX_TEST_SECONDS} seconds.")
 
         super().__init__(methodName=methodName)
@@ -319,6 +325,9 @@ class TestCase(fake_filesystem_unittest.TestCase):
         Also silences a number of common warnings originating from Ax & BoTorch.
         """
         super().setUp()
+        self.profiler = cProfile.Profile()
+        self.profiler.enable()
+        self.addCleanup(self.profiler.disable)
         logger = get_logger(__name__, level=logging.WARNING)
         # Parent handlers are shared, so setting the level this
         # way applies it to all Ax loggers.
