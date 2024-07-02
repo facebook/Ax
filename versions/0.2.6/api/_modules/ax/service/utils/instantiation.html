@@ -1,0 +1,1080 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.6/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.6/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.6/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.6/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.6/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.6/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.6/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.6/css/main.css"/><script src="/versions/0.2.6/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.6/"><img class="logo" src="/versions/0.2.6/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.6/versions.html"><h3>0.2.6</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.6/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.6/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.6/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.service.utils.instantiation</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">import</span> <span class="nn">enum</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">ax.core.arm</span> <span class="kn">import</span> <span class="n">Arm</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">DataType</span><span class="p">,</span> <span class="n">DEFAULT_OBJECTIVE_NAME</span><span class="p">,</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.map_data</span> <span class="kn">import</span> <span class="n">MapData</span>
+<span class="kn">from</span> <span class="nn">ax.core.map_metric</span> <span class="kn">import</span> <span class="n">MapMetric</span>
+<span class="kn">from</span> <span class="nn">ax.core.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
+<span class="kn">from</span> <span class="nn">ax.core.objective</span> <span class="kn">import</span> <span class="n">MultiObjective</span><span class="p">,</span> <span class="n">Objective</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">,</span>
+    <span class="n">ObjectiveThreshold</span><span class="p">,</span>
+    <span class="n">OptimizationConfig</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.core.outcome_constraint</span> <span class="kn">import</span> <span class="n">OutcomeConstraint</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ChoiceParameter</span><span class="p">,</span>
+    <span class="n">FixedParameter</span><span class="p">,</span>
+    <span class="n">Parameter</span><span class="p">,</span>
+    <span class="n">PARAMETER_PYTHON_TYPE_MAP</span><span class="p">,</span>
+    <span class="n">ParameterType</span><span class="p">,</span>
+    <span class="n">RangeParameter</span><span class="p">,</span>
+    <span class="n">TParameterType</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter_constraint</span> <span class="kn">import</span> <span class="n">OrderConstraint</span><span class="p">,</span> <span class="n">ParameterConstraint</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">HierarchicalSearchSpace</span><span class="p">,</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ComparisonOp</span><span class="p">,</span>
+    <span class="n">TEvaluationOutcome</span><span class="p">,</span>
+    <span class="n">TMapTrialEvaluation</span><span class="p">,</span>
+    <span class="n">TParameterization</span><span class="p">,</span>
+    <span class="n">TParamValue</span><span class="p">,</span>
+    <span class="n">TTrialEvaluation</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.core</span> <span class="kn">import</span> <span class="n">UnsupportedError</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.constants</span> <span class="kn">import</span> <span class="n">Keys</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">checked_cast</span><span class="p">,</span>
+    <span class="n">checked_cast_optional</span><span class="p">,</span>
+    <span class="n">checked_cast_to_tuple</span><span class="p">,</span>
+    <span class="n">not_none</span><span class="p">,</span>
+    <span class="n">numpy_type_to_python_type</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="sd">"""Utilities for RESTful-like instantiation of Ax classes needed in AxClient."""</span>
+
+
+<span class="n">TParameterRepresentation</span> <span class="o">=</span> <span class="n">Dict</span><span class="p">[</span>
+    <span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]</span>
+<span class="p">]</span>
+<span class="n">PARAM_CLASSES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"range"</span><span class="p">,</span> <span class="s2">"choice"</span><span class="p">,</span> <span class="s2">"fixed"</span><span class="p">]</span>
+<span class="n">PARAM_TYPES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"int"</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="s2">"float"</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="s2">"bool"</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="s2">"str"</span><span class="p">:</span> <span class="nb">str</span><span class="p">}</span>
+<span class="n">COMPARISON_OPS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"&lt;="</span><span class="p">:</span> <span class="n">ComparisonOp</span><span class="o">.</span><span class="n">LEQ</span><span class="p">,</span> <span class="s2">"&gt;="</span><span class="p">:</span> <span class="n">ComparisonOp</span><span class="o">.</span><span class="n">GEQ</span><span class="p">}</span>
+<span class="n">EXPECTED_KEYS_IN_PARAM_REPR</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"name"</span><span class="p">,</span>
+    <span class="s2">"type"</span><span class="p">,</span>
+    <span class="s2">"values"</span><span class="p">,</span>
+    <span class="s2">"bounds"</span><span class="p">,</span>
+    <span class="s2">"value"</span><span class="p">,</span>
+    <span class="s2">"value_type"</span><span class="p">,</span>
+    <span class="s2">"log_scale"</span><span class="p">,</span>
+    <span class="s2">"target_value"</span><span class="p">,</span>
+    <span class="s2">"is_fidelity"</span><span class="p">,</span>
+    <span class="s2">"is_ordered"</span><span class="p">,</span>
+    <span class="s2">"is_task"</span><span class="p">,</span>
+    <span class="s2">"digits"</span><span class="p">,</span>
+    <span class="s2">"dependents"</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="MetricObjective"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.MetricObjective">[docs]</a><span class="k">class</span> <span class="nc">MetricObjective</span><span class="p">(</span><span class="n">enum</span><span class="o">.</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">MINIMIZE</span> <span class="o">=</span> <span class="n">enum</span><span class="o">.</span><span class="n">auto</span><span class="p">()</span>
+    <span class="n">MAXIMIZE</span> <span class="o">=</span> <span class="n">enum</span><span class="o">.</span><span class="n">auto</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="ObjectiveProperties"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.ObjectiveProperties">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">ObjectiveProperties</span><span class="p">:</span>
+    <span class="n">minimize</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">threshold</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="InstantiationBase"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.InstantiationBase">[docs]</a><span class="k">class</span> <span class="nc">InstantiationBase</span><span class="p">:</span>
+    <span class="sd">"""</span>
+<span class="sd">    This is a lightweight stateless class that bundles together instantiation utils.</span>
+<span class="sd">    It is used both on its own and as a mixin to AxClient, with the intent that</span>
+<span class="sd">    these methods can be overridden by its subclasses for specific use cases.</span>
+<span class="sd">    """</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_make_metric</span><span class="p">(</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">lower_is_better</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">metric_class_override</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">type</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">for_opt_config</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">metric_definitions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Metric</span><span class="p">:</span>
+        <span class="n">metric_class</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">metric_class_override</span> <span class="k">if</span> <span class="n">metric_class_override</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">Metric</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">metric_class</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">lower_is_better</span><span class="o">=</span><span class="n">lower_is_better</span><span class="p">,</span>
+            <span class="o">**</span><span class="p">(</span><span class="n">metric_definitions</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="p">{}),</span>
+        <span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_get_parameter_type</span><span class="p">(</span><span class="n">python_type</span><span class="p">:</span> <span class="n">TParameterType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParameterType</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">param_type</span><span class="p">,</span> <span class="n">py_type</span> <span class="ow">in</span> <span class="n">PARAMETER_PYTHON_TYPE_MAP</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">py_type</span> <span class="ow">is</span> <span class="n">python_type</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">param_type</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No AE parameter type corresponding to </span><span class="si">{</span><span class="n">python_type</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_to_parameter_type</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">vals</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">],</span>
+        <span class="n">typ</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">param_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">field_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParameterType</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">typ</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">typ</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">not_none</span><span class="p">(</span><span class="n">vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+            <span class="n">parameter_type</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_get_parameter_type</span><span class="p">(</span><span class="n">typ</span><span class="p">)</span>  <span class="c1"># pyre-ignore[6]</span>
+            <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">typ</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">vals</span><span class="p">),</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Values in `</span><span class="si">{</span><span class="n">field_name</span><span class="si">}</span><span class="s2">` not of the same type and no "</span>
+                <span class="s2">"`value_type` was explicitly specified; cannot infer "</span>
+                <span class="sa">f</span><span class="s2">"value type for parameter </span><span class="si">{</span><span class="n">param_name</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Inferred value type of </span><span class="si">{</span><span class="n">parameter_type</span><span class="si">}</span><span class="s2"> for parameter </span><span class="si">{</span><span class="n">param_name</span><span class="si">}</span><span class="s2">. "</span>
+                <span class="s2">"If that is not the expected value type, you can explicity specify "</span>
+                <span class="s2">"'value_type' ('int', 'float', 'bool' or 'str') in parameter dict."</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">parameter_type</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_get_parameter_type</span><span class="p">(</span><span class="n">PARAM_TYPES</span><span class="p">[</span><span class="n">typ</span><span class="p">])</span>  <span class="c1"># pyre-ignore[6]</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_make_range_param</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">representation</span><span class="p">:</span> <span class="n">TParameterRepresentation</span><span class="p">,</span>
+        <span class="n">parameter_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RangeParameter</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="s2">"bounds"</span> <span class="ow">in</span> <span class="n">representation</span><span class="p">,</span> <span class="s2">"Bounds are required for range parameters."</span>
+        <span class="n">bounds</span> <span class="o">=</span> <span class="n">representation</span><span class="p">[</span><span class="s2">"bounds"</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bounds</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">bounds</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Cannot parse parameter </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: for range parameters, json representation "</span>
+            <span class="s2">"should include a list of two values, lower and upper bounds of the range."</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">RangeParameter</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">parameter_type</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="n">_to_parameter_type</span><span class="p">(</span>
+                <span class="n">bounds</span><span class="p">,</span> <span class="n">parameter_type</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="s2">"bounds"</span>
+            <span class="p">),</span>
+            <span class="n">lower</span><span class="o">=</span><span class="n">checked_cast_to_tuple</span><span class="p">((</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">),</span> <span class="n">bounds</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+            <span class="n">upper</span><span class="o">=</span><span class="n">checked_cast_to_tuple</span><span class="p">((</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">),</span> <span class="n">bounds</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+            <span class="n">log_scale</span><span class="o">=</span><span class="n">checked_cast</span><span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="n">representation</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"log_scale"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)),</span>
+            <span class="n">digits</span><span class="o">=</span><span class="n">representation</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"digits"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>  <span class="c1"># pyre-ignore[6]</span>
+            <span class="n">is_fidelity</span><span class="o">=</span><span class="n">checked_cast</span><span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="n">representation</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"is_fidelity"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)),</span>
+            <span class="c1"># pyre-ignore[6]: Expected `Union[None, bool, float, int, str]`</span>
+            <span class="c1">#  for 8th param but got `Union[None, List[</span>
+            <span class="c1">#  Union[None, bool, float, int, str]], bool, float, int, str]`.</span>
+            <span class="n">target_value</span><span class="o">=</span><span class="n">representation</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"target_value"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_make_choice_param</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">representation</span><span class="p">:</span> <span class="n">TParameterRepresentation</span><span class="p">,</span>
+        <span class="n">parameter_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChoiceParameter</span><span class="p">:</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">representation</span><span class="p">[</span><span class="s2">"values"</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Cannot parse parameter </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: for choice parameters, json representation"</span>
+            <span class="s2">" should include a list of two or more values."</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">ChoiceParameter</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">parameter_type</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="n">_to_parameter_type</span><span class="p">(</span>
+                <span class="n">values</span><span class="p">,</span> <span class="n">parameter_type</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="s2">"values"</span>
+            <span class="p">),</span>
+            <span class="n">values</span><span class="o">=</span><span class="n">values</span><span class="p">,</span>
+            <span class="n">is_ordered</span><span class="o">=</span><span class="n">checked_cast_optional</span><span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="n">representation</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"is_ordered"</span><span class="p">)),</span>
+            <span class="n">is_fidelity</span><span class="o">=</span><span class="n">checked_cast</span><span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="n">representation</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"is_fidelity"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)),</span>
+            <span class="n">is_task</span><span class="o">=</span><span class="n">checked_cast</span><span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="n">representation</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"is_task"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)),</span>
+            <span class="n">target_value</span><span class="o">=</span><span class="n">representation</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"target_value"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>  <span class="c1"># pyre-ignore[6]</span>
+            <span class="n">dependents</span><span class="o">=</span><span class="n">checked_cast_optional</span><span class="p">(</span>
+                <span class="nb">dict</span><span class="p">,</span> <span class="n">representation</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"dependents"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_make_fixed_param</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">representation</span><span class="p">:</span> <span class="n">TParameterRepresentation</span><span class="p">,</span>
+        <span class="n">parameter_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FixedParameter</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="s2">"value"</span> <span class="ow">in</span> <span class="n">representation</span><span class="p">,</span> <span class="s2">"Value is required for fixed parameters."</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">representation</span><span class="p">[</span><span class="s2">"value"</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="n">PARAM_TYPES</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Cannot parse fixed parameter </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: for fixed parameters, json "</span>
+            <span class="s2">"representation should include a single value."</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">FixedParameter</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">parameter_type</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="n">_get_parameter_type</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>  <span class="c1"># pyre-ignore[6]</span>
+            <span class="k">if</span> <span class="n">parameter_type</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_get_parameter_type</span><span class="p">(</span><span class="n">PARAM_TYPES</span><span class="p">[</span><span class="n">parameter_type</span><span class="p">]),</span>  <span class="c1"># pyre-ignore[6]</span>
+            <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>  <span class="c1"># pyre-ignore[6]</span>
+            <span class="n">is_fidelity</span><span class="o">=</span><span class="n">checked_cast</span><span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="n">representation</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"is_fidelity"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)),</span>
+            <span class="n">target_value</span><span class="o">=</span><span class="n">representation</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"target_value"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>  <span class="c1"># pyre-ignore[6]</span>
+            <span class="n">dependents</span><span class="o">=</span><span class="n">representation</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"dependents"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>  <span class="c1"># pyre-ignore[6]</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="InstantiationBase.parameter_from_json"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.InstantiationBase.parameter_from_json">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">parameter_from_json</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">representation</span><span class="p">:</span> <span class="n">TParameterRepresentation</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Parameter</span><span class="p">:</span>
+        <span class="sd">"""Instantiate a parameter from JSON representation."""</span>
+        <span class="k">if</span> <span class="s2">"parameter_type"</span> <span class="ow">in</span> <span class="n">representation</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"'parameter_type' is not an expected key in parameter dictionary. "</span>
+                <span class="s2">"If you are looking to specify the type of values that this "</span>
+                <span class="s2">"parameter should take, use 'value_type' (expects 'int', 'float', "</span>
+                <span class="s2">"'str' or 'bool')."</span>
+            <span class="p">)</span>
+        <span class="n">unexpected_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">representation</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">-</span> <span class="n">EXPECTED_KEYS_IN_PARAM_REPR</span>
+        <span class="k">if</span> <span class="n">unexpected_keys</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Unexpected keys </span><span class="si">{</span><span class="n">unexpected_keys</span><span class="si">}</span><span class="s2"> in parameter representation."</span>
+                <span class="sa">f</span><span class="s2">"Exhaustive set of expected keys: </span><span class="si">{</span><span class="n">EXPECTED_KEYS_IN_PARAM_REPR</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">representation</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">),</span> <span class="s2">"Parameter name must be a string."</span>
+        <span class="n">parameter_class</span> <span class="o">=</span> <span class="n">representation</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parameter_class</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">parameter_class</span> <span class="ow">in</span> <span class="n">PARAM_CLASSES</span><span class="p">,</span> <span class="p">(</span>
+            <span class="s2">"Type in parameter JSON representation must be "</span>
+            <span class="s2">"`range`, `choice`, or `fixed`."</span>
+        <span class="p">)</span>
+
+        <span class="n">parameter_type</span> <span class="o">=</span> <span class="n">representation</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"value_type"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">parameter_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parameter_type</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">parameter_type</span> <span class="ow">in</span> <span class="n">PARAM_TYPES</span><span class="p">,</span> <span class="p">(</span>
+                <span class="s2">"Value type in parameter JSON representation must be 'int', 'float', "</span>
+                <span class="s2">"'bool' or 'str'."</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">parameter_class</span> <span class="o">==</span> <span class="s2">"range"</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_make_range_param</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">representation</span><span class="o">=</span><span class="n">representation</span><span class="p">,</span>
+                <span class="n">parameter_type</span><span class="o">=</span><span class="n">parameter_type</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">parameter_class</span> <span class="o">==</span> <span class="s2">"choice"</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="p">(</span>
+                <span class="s2">"values"</span> <span class="ow">in</span> <span class="n">representation</span>
+            <span class="p">),</span> <span class="s2">"Values are required for choice parameters."</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">representation</span><span class="p">[</span><span class="s2">"values"</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">representation</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"dependents"</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                        <span class="s2">"Support for hierarchical fixed parameters coming soon."</span>
+                    <span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Choice parameter </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> contains only one value, converting to a"</span>
+                    <span class="o">+</span> <span class="s2">" fixed parameter instead."</span>
+                <span class="p">)</span>
+                <span class="c1"># update the representation to a fixed parameter class</span>
+                <span class="n">parameter_class</span> <span class="o">=</span> <span class="s2">"fixed"</span>
+                <span class="n">representation</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">=</span> <span class="n">parameter_class</span>
+                <span class="n">representation</span><span class="p">[</span><span class="s2">"value"</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">del</span> <span class="n">representation</span><span class="p">[</span><span class="s2">"values"</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_make_choice_param</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+                    <span class="n">representation</span><span class="o">=</span><span class="n">representation</span><span class="p">,</span>
+                    <span class="n">parameter_type</span><span class="o">=</span><span class="n">parameter_type</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">parameter_class</span> <span class="o">==</span> <span class="s2">"fixed"</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">representation</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_make_fixed_param</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">representation</span><span class="o">=</span><span class="n">representation</span><span class="p">,</span>
+                <span class="n">parameter_type</span><span class="o">=</span><span class="n">parameter_type</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>  <span class="c1"># pragma: no cover (this is unreachable)</span>
+                <span class="sa">f</span><span class="s2">"Unrecognized parameter type </span><span class="si">{</span><span class="n">parameter_class</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="InstantiationBase.constraint_from_str"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.InstantiationBase.constraint_from_str">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">constraint_from_str</span><span class="p">(</span>
+        <span class="n">representation</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">parameters</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParameterConstraint</span><span class="p">:</span>
+        <span class="sd">"""Parse string representation of a parameter constraint."""</span>
+        <span class="n">tokens</span> <span class="o">=</span> <span class="n">representation</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+        <span class="n">parameter_names</span> <span class="o">=</span> <span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="n">order_const</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span> <span class="ow">and</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="n">COMPARISON_OPS</span>
+        <span class="n">sum_const</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">5</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">tokens</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="ow">in</span> <span class="n">COMPARISON_OPS</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">order_const</span> <span class="ow">or</span> <span class="n">sum_const</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Parameter constraint should be of form &lt;parameter_name&gt; &gt;= "</span>
+                <span class="s2">"&lt;other_parameter_name&gt; for order constraints or `&lt;parameter_name&gt; "</span>
+                <span class="s2">"+ &lt;other_parameter_name&gt; &gt;= x, where any number of terms can be "</span>
+                <span class="s2">"added and `x` is a float bound. Acceptable comparison operators "</span>
+                <span class="s1">'are "&gt;=" and "&lt;=".'</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>  <span class="c1"># Case "x1 &gt;= x2" =&gt; order constraint.</span>
+            <span class="n">left</span><span class="p">,</span> <span class="n">right</span> <span class="o">=</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+            <span class="k">assert</span> <span class="p">(</span>
+                <span class="n">left</span> <span class="ow">in</span> <span class="n">parameter_names</span>
+            <span class="p">),</span> <span class="sa">f</span><span class="s2">"Parameter </span><span class="si">{</span><span class="n">left</span><span class="si">}</span><span class="s2"> not in </span><span class="si">{</span><span class="n">parameter_names</span><span class="si">}</span><span class="s2">."</span>
+            <span class="k">assert</span> <span class="p">(</span>
+                <span class="n">right</span> <span class="ow">in</span> <span class="n">parameter_names</span>
+            <span class="p">),</span> <span class="sa">f</span><span class="s2">"Parameter </span><span class="si">{</span><span class="n">right</span><span class="si">}</span><span class="s2"> not in </span><span class="si">{</span><span class="n">parameter_names</span><span class="si">}</span><span class="s2">."</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">OrderConstraint</span><span class="p">(</span>
+                    <span class="n">lower_parameter</span><span class="o">=</span><span class="n">parameters</span><span class="p">[</span><span class="n">left</span><span class="p">],</span> <span class="n">upper_parameter</span><span class="o">=</span><span class="n">parameters</span><span class="p">[</span><span class="n">right</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">COMPARISON_OPS</span><span class="p">[</span><span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="ow">is</span> <span class="n">ComparisonOp</span><span class="o">.</span><span class="n">LEQ</span>
+                <span class="k">else</span> <span class="n">OrderConstraint</span><span class="p">(</span>
+                    <span class="n">lower_parameter</span><span class="o">=</span><span class="n">parameters</span><span class="p">[</span><span class="n">right</span><span class="p">],</span> <span class="n">upper_parameter</span><span class="o">=</span><span class="n">parameters</span><span class="p">[</span><span class="n">left</span><span class="p">]</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>  <span class="c1"># Case "x1 - 2*x2 + x3 &gt;= 2" =&gt; parameter constraint.</span>
+            <span class="n">bound</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">tokens</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Bound for the constraint must be a number; got </span><span class="si">{</span><span class="n">tokens</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">token</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"*"</span> <span class="ow">or</span> <span class="n">token</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"*"</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">tokens</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"A linear constraint should be the form a*x + b*y - c*z &lt;= d"</span>
+                <span class="s2">", where a,b,c,d are float constants and x,y,z are parameters. "</span>
+                <span class="s2">"There should be no space in each term around the operator * while "</span>
+                <span class="s2">"there should be a single space around each operator +, -, &lt;= and &gt;=."</span>
+            <span class="p">)</span>
+        <span class="n">parameter_weight</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">comparison_multiplier</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="mf">1.0</span> <span class="k">if</span> <span class="n">COMPARISON_OPS</span><span class="p">[</span><span class="n">tokens</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]]</span> <span class="ow">is</span> <span class="n">ComparisonOp</span><span class="o">.</span><span class="n">LEQ</span> <span class="k">else</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="p">)</span>
+        <span class="n">operator_sign</span> <span class="o">=</span> <span class="mf">1.0</span>  <span class="c1"># Determines whether the operator is + or -</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">token</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">tokens</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]):</span>
+            <span class="k">if</span> <span class="n">idx</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">split_token</span> <span class="o">=</span> <span class="n">token</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"*"</span><span class="p">)</span>
+                <span class="n">parameter</span> <span class="o">=</span> <span class="s2">""</span>  <span class="c1"># Initializing the parameter</span>
+                <span class="n">multiplier</span> <span class="o">=</span> <span class="mf">1.0</span>  <span class="c1"># Initializing the multiplier</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">split_token</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>  <span class="c1"># There is a non-unit multiplier</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">multiplier</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">split_token</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">"Multiplier should be float; got </span><span class="si">{</span><span class="n">split_token</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span>
+                        <span class="p">)</span>
+                    <span class="n">parameter</span> <span class="o">=</span> <span class="n">split_token</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">split_token</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># The multiplier is either -1 or 1</span>
+                    <span class="n">parameter</span> <span class="o">=</span> <span class="n">split_token</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">parameter</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"-"</span><span class="p">:</span>  <span class="c1"># The multiplier is -1</span>
+                        <span class="n">parameter</span> <span class="o">=</span> <span class="n">parameter</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+                        <span class="n">multiplier</span> <span class="o">=</span> <span class="o">-</span><span class="mf">1.0</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">multiplier</span> <span class="o">=</span> <span class="mf">1.0</span>
+                <span class="k">assert</span> <span class="p">(</span>
+                    <span class="n">parameter</span> <span class="ow">in</span> <span class="n">parameter_names</span>
+                <span class="p">),</span> <span class="sa">f</span><span class="s2">"Parameter </span><span class="si">{</span><span class="n">parameter</span><span class="si">}</span><span class="s2"> not in </span><span class="si">{</span><span class="n">parameter_names</span><span class="si">}</span><span class="s2">."</span>
+                <span class="n">parameter_weight</span><span class="p">[</span><span class="n">parameter</span><span class="p">]</span> <span class="o">=</span> <span class="n">operator_sign</span> <span class="o">*</span> <span class="n">multiplier</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="p">(</span>
+                    <span class="n">token</span> <span class="o">==</span> <span class="s2">"+"</span> <span class="ow">or</span> <span class="n">token</span> <span class="o">==</span> <span class="s2">"-"</span>
+                <span class="p">),</span> <span class="sa">f</span><span class="s2">"Expected a mixed constraint, found operator </span><span class="si">{</span><span class="n">token</span><span class="si">}</span><span class="s2">."</span>
+                <span class="n">operator_sign</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="k">if</span> <span class="n">token</span> <span class="o">==</span> <span class="s2">"+"</span> <span class="k">else</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="k">return</span> <span class="n">ParameterConstraint</span><span class="p">(</span>
+            <span class="n">constraint_dict</span><span class="o">=</span><span class="p">{</span>
+                <span class="n">p</span><span class="p">:</span> <span class="n">comparison_multiplier</span> <span class="o">*</span> <span class="n">parameter_weight</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parameter_weight</span>
+            <span class="p">},</span>
+            <span class="n">bound</span><span class="o">=</span><span class="n">comparison_multiplier</span> <span class="o">*</span> <span class="n">bound</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="InstantiationBase.outcome_constraint_from_str"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.InstantiationBase.outcome_constraint_from_str">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">outcome_constraint_from_str</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">representation</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">metric_definitions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OutcomeConstraint</span><span class="p">:</span>
+        <span class="sd">"""Parse string representation of an outcome constraint."""</span>
+        <span class="n">tokens</span> <span class="o">=</span> <span class="n">representation</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span> <span class="ow">and</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="n">COMPARISON_OPS</span><span class="p">,</span> <span class="p">(</span>
+            <span class="s2">"Outcome constraint should be of form `metric_name &gt;= x`, where x is a "</span>
+            <span class="s2">"float bound and comparison operator is &gt;= or &lt;=."</span>
+        <span class="p">)</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">COMPARISON_OPS</span><span class="p">[</span><span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="n">rel</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">bound_repr</span> <span class="o">=</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">bound_repr</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"%"</span><span class="p">:</span>
+                <span class="n">rel</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="n">bound_repr</span> <span class="o">=</span> <span class="n">bound_repr</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">bound</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">bound_repr</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Outcome constraint bound should be a float."</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">OutcomeConstraint</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">_make_metric</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="n">for_opt_config</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">metric_definitions</span><span class="o">=</span><span class="n">metric_definitions</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">op</span><span class="o">=</span><span class="n">op</span><span class="p">,</span>
+            <span class="n">bound</span><span class="o">=</span><span class="n">bound</span><span class="p">,</span>
+            <span class="n">relative</span><span class="o">=</span><span class="n">rel</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="InstantiationBase.objective_threshold_constraint_from_str"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.InstantiationBase.objective_threshold_constraint_from_str">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">objective_threshold_constraint_from_str</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">representation</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">metric_definitions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ObjectiveThreshold</span><span class="p">:</span>
+        <span class="n">oc</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">outcome_constraint_from_str</span><span class="p">(</span>
+            <span class="n">representation</span><span class="p">,</span> <span class="n">metric_definitions</span><span class="o">=</span><span class="n">metric_definitions</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">ObjectiveThreshold</span><span class="p">(</span>
+            <span class="n">metric</span><span class="o">=</span><span class="n">oc</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">clone</span><span class="p">(),</span>
+            <span class="n">bound</span><span class="o">=</span><span class="n">oc</span><span class="o">.</span><span class="n">bound</span><span class="p">,</span>
+            <span class="n">relative</span><span class="o">=</span><span class="n">oc</span><span class="o">.</span><span class="n">relative</span><span class="p">,</span>
+            <span class="n">op</span><span class="o">=</span><span class="n">oc</span><span class="o">.</span><span class="n">op</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="InstantiationBase.make_objectives"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.InstantiationBase.make_objectives">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">make_objectives</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">objectives</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+        <span class="n">metric_definitions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Objective</span><span class="p">]:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">output_objectives</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">min_or_max</span> <span class="ow">in</span> <span class="n">objectives</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">minimize</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">MetricObjective</span><span class="p">[</span><span class="n">min_or_max</span><span class="o">.</span><span class="n">upper</span><span class="p">()]</span> <span class="o">==</span> <span class="n">MetricObjective</span><span class="o">.</span><span class="n">MINIMIZE</span>
+                <span class="p">)</span>
+                <span class="n">objective</span> <span class="o">=</span> <span class="n">Objective</span><span class="p">(</span>
+                    <span class="n">metric</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="n">_make_metric</span><span class="p">(</span>
+                        <span class="n">name</span><span class="o">=</span><span class="n">metric_name</span><span class="p">,</span>
+                        <span class="n">for_opt_config</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">lower_is_better</span><span class="o">=</span><span class="n">minimize</span><span class="p">,</span>
+                        <span class="n">metric_definitions</span><span class="o">=</span><span class="n">metric_definitions</span><span class="p">,</span>
+                    <span class="p">),</span>
+                    <span class="n">minimize</span><span class="o">=</span><span class="n">minimize</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">output_objectives</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">objective</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">output_objectives</span>
+        <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">k</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Objective values should specify "</span>
+                <span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="n">MetricObjective</span><span class="o">.</span><span class="n">MINIMIZE</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">' or "</span>
+                <span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="n">MetricObjective</span><span class="o">.</span><span class="n">MAXIMIZE</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">', got </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> in"</span>
+                <span class="sa">f</span><span class="s2">" objectives(</span><span class="si">{</span><span class="n">objectives</span><span class="si">}</span><span class="s2">)"</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="InstantiationBase.make_outcome_constraints"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.InstantiationBase.make_outcome_constraints">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">make_outcome_constraints</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">status_quo_defined</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+        <span class="n">metric_definitions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">OutcomeConstraint</span><span class="p">]:</span>
+
+        <span class="n">typed_outcome_constraints</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">outcome_constraint_from_str</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">metric_definitions</span><span class="o">=</span><span class="n">metric_definitions</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">outcome_constraints</span>
+        <span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">status_quo_defined</span> <span class="ow">is</span> <span class="kc">False</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="n">oc</span><span class="o">.</span><span class="n">relative</span> <span class="k">for</span> <span class="n">oc</span> <span class="ow">in</span> <span class="n">typed_outcome_constraints</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Must set status_quo to have relative outcome constraints."</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">typed_outcome_constraints</span></div>
+
+<div class="viewcode-block" id="InstantiationBase.make_objective_thresholds"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.InstantiationBase.make_objective_thresholds">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">make_objective_thresholds</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">status_quo_defined</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+        <span class="n">metric_definitions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ObjectiveThreshold</span><span class="p">]:</span>
+
+        <span class="n">typed_objective_thresholds</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">[</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">objective_threshold_constraint_from_str</span><span class="p">(</span>
+                    <span class="n">c</span><span class="p">,</span> <span class="n">metric_definitions</span><span class="o">=</span><span class="n">metric_definitions</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">objective_thresholds</span>
+            <span class="p">]</span>
+            <span class="k">if</span> <span class="n">objective_thresholds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="p">[]</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">status_quo_defined</span> <span class="ow">is</span> <span class="kc">False</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="n">oc</span><span class="o">.</span><span class="n">relative</span> <span class="k">for</span> <span class="n">oc</span> <span class="ow">in</span> <span class="n">typed_objective_thresholds</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Must set status_quo to have relative objective thresholds."</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">typed_objective_thresholds</span></div>
+
+<div class="viewcode-block" id="InstantiationBase.optimization_config_from_objectives"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.InstantiationBase.optimization_config_from_objectives">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">optimization_config_from_objectives</span><span class="p">(</span>
+        <span class="n">objectives</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Objective</span><span class="p">],</span>
+        <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObjectiveThreshold</span><span class="p">],</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">OutcomeConstraint</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationConfig</span><span class="p">:</span>
+        <span class="sd">"""Parse objectives and constraints to define optimization config.</span>
+
+<span class="sd">        The resulting optimization config will be regular single-objective config</span>
+<span class="sd">        if `objectives` is a list of one element and a multi-objective config</span>
+<span class="sd">        otherwise.</span>
+
+<span class="sd">        NOTE: If passing in multiple objectives, `objective_thresholds` must be a</span>
+<span class="sd">        non-empty list definining constraints for each objective.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">objectives</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">objective_thresholds</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"Single-objective optimizations must not specify objective "</span>
+                    <span class="s2">"thresholds."</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">OptimizationConfig</span><span class="p">(</span>
+                <span class="n">objective</span><span class="o">=</span><span class="n">objectives</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">objective_thresholds</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">"Due to non-specification, we will use the heuristic for selecting "</span>
+                <span class="s2">"objective thresholds."</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">(</span>
+            <span class="n">objective</span><span class="o">=</span><span class="n">MultiObjective</span><span class="p">(</span><span class="n">objectives</span><span class="o">=</span><span class="n">objectives</span><span class="p">),</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="InstantiationBase.make_optimization_config"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.InstantiationBase.make_optimization_config">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">make_optimization_config</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">objectives</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+        <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">status_quo_defined</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+        <span class="n">metric_definitions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationConfig</span><span class="p">:</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">optimization_config_from_objectives</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">make_objectives</span><span class="p">(</span><span class="n">objectives</span><span class="p">,</span> <span class="n">metric_definitions</span><span class="o">=</span><span class="n">metric_definitions</span><span class="p">),</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">make_objective_thresholds</span><span class="p">(</span>
+                <span class="n">objective_thresholds</span><span class="p">,</span>
+                <span class="n">status_quo_defined</span><span class="p">,</span>
+                <span class="n">metric_definitions</span><span class="o">=</span><span class="n">metric_definitions</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">make_outcome_constraints</span><span class="p">(</span>
+                <span class="n">outcome_constraints</span><span class="p">,</span>
+                <span class="n">status_quo_defined</span><span class="p">,</span>
+                <span class="n">metric_definitions</span><span class="o">=</span><span class="n">metric_definitions</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="InstantiationBase.make_optimization_config_from_properties"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.InstantiationBase.make_optimization_config_from_properties">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">make_optimization_config_from_properties</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">objectives</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ObjectiveProperties</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">metric_definitions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">status_quo_defined</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OptimizationConfig</span><span class="p">]:</span>
+        <span class="sd">"""Makes optimization config based on ObjectiveProperties objects</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            objectives: Mapping from an objective name to object containing:</span>
+<span class="sd">                minimize: Whether this experiment represents a minimization problem.</span>
+<span class="sd">                threshold: The bound in the objective's threshold constraint.</span>
+<span class="sd">            outcome_constraints: List of string representation of outcome</span>
+<span class="sd">                constraints of form "metric_name &gt;= bound", like "m1 &lt;= 3."</span>
+<span class="sd">            status_quo_defined: bool for whether the experiment has a status quo</span>
+<span class="sd">            metric_definitions: A mapping of metric names to extra kwargs to pass</span>
+<span class="sd">                to that metric</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">objectives</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">objective_thresholds</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">build_objective_thresholds</span><span class="p">(</span><span class="n">objectives</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">objectives</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="p">[]</span>
+            <span class="p">)</span>
+            <span class="n">simple_objectives</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">objective</span><span class="p">:</span> <span class="p">(</span><span class="s2">"minimize"</span> <span class="k">if</span> <span class="n">properties</span><span class="o">.</span><span class="n">minimize</span> <span class="k">else</span> <span class="s2">"maximize"</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">objective</span><span class="p">,</span> <span class="n">properties</span> <span class="ow">in</span> <span class="n">objectives</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="p">}</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">make_optimization_config</span><span class="p">(</span>
+                <span class="n">objectives</span><span class="o">=</span><span class="n">simple_objectives</span><span class="p">,</span>
+                <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="p">,</span>
+                <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span> <span class="ow">or</span> <span class="p">[],</span>
+                <span class="n">status_quo_defined</span><span class="o">=</span><span class="n">status_quo_defined</span><span class="p">,</span>
+                <span class="n">metric_definitions</span><span class="o">=</span><span class="n">metric_definitions</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="InstantiationBase.make_search_space"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.InstantiationBase.make_search_space">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">make_search_space</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TParameterRepresentation</span><span class="p">],</span>
+        <span class="n">parameter_constraints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SearchSpace</span><span class="p">:</span>
+        <span class="n">typed_parameters</span> <span class="o">=</span> <span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="n">parameter_from_json</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">]</span>
+        <span class="n">is_hss</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">is_hierarchical</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">typed_parameters</span><span class="p">)</span>
+        <span class="n">search_space_cls</span> <span class="o">=</span> <span class="n">HierarchicalSearchSpace</span> <span class="k">if</span> <span class="n">is_hss</span> <span class="k">else</span> <span class="n">SearchSpace</span>
+
+        <span class="n">parameter_map</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">typed_parameters</span><span class="p">}</span>
+
+        <span class="n">typed_parameter_constraints</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">constraint_from_str</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">parameter_map</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">parameter_constraints</span>
+        <span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="nb">any</span><span class="p">(</span>
+                <span class="nb">isinstance</span><span class="p">(</span><span class="n">parameter_map</span><span class="p">[</span><span class="n">parameter</span><span class="p">],</span> <span class="n">ChoiceParameter</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="n">constraint</span><span class="o">.</span><span class="n">constraint_dict</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="n">typed_parameter_constraints</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="n">UnsupportedError</span><span class="p">(</span>
+                <span class="s2">"Constraints on ChoiceParameters are not allowed. Try absorbing "</span>
+                <span class="s2">"this constraint into the associated range parameter's bounds."</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="nb">any</span><span class="p">(</span>
+                <span class="nb">isinstance</span><span class="p">(</span><span class="n">parameter_map</span><span class="p">[</span><span class="n">parameter</span><span class="p">],</span> <span class="n">FixedParameter</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="n">constraint</span><span class="o">.</span><span class="n">constraint_dict</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="n">typed_parameter_constraints</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="n">UnsupportedError</span><span class="p">(</span>
+                <span class="s2">"Constraints on FixedParameters are not allowed. Try absorbing "</span>
+                <span class="s2">"this constraint into the associated range parameter's bounds."</span>
+            <span class="p">)</span>
+
+        <span class="n">ss</span> <span class="o">=</span> <span class="n">search_space_cls</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="n">typed_parameters</span><span class="p">,</span>
+            <span class="n">parameter_constraints</span><span class="o">=</span><span class="n">typed_parameter_constraints</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Created search space: </span><span class="si">{</span><span class="n">ss</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">is_hss</span><span class="p">:</span>
+            <span class="n">hss</span> <span class="o">=</span> <span class="n">checked_cast</span><span class="p">(</span><span class="n">HierarchicalSearchSpace</span><span class="p">,</span> <span class="n">ss</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">"Hieararchical structure of the search space: </span><span class="se">\n</span><span class="s2">"</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">hss</span><span class="o">.</span><span class="n">hierarchical_structure_str</span><span class="p">(</span><span class="n">parameter_names_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">search_space_cls</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="n">typed_parameters</span><span class="p">,</span>
+            <span class="n">parameter_constraints</span><span class="o">=</span><span class="n">typed_parameter_constraints</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_make_optimization_config_from_legacy_args</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">objective_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">minimize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">support_intermediate_data</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">status_quo_arm</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Arm</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OptimizationConfig</span><span class="p">]:</span>
+        <span class="sd">"""This will create a single objective OptimizationConfig based on the</span>
+<span class="sd">        objective_name arg.  The return is optional because in subclasses</span>
+<span class="sd">        we may not wish to return any default optimization config</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">OptimizationConfig</span><span class="p">(</span>
+            <span class="n">objective</span><span class="o">=</span><span class="n">Objective</span><span class="p">(</span>
+                <span class="n">metric</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="n">_make_metric</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">objective_name</span><span class="p">,</span>
+                    <span class="n">lower_is_better</span><span class="o">=</span><span class="n">minimize</span><span class="p">,</span>
+                    <span class="n">metric_class_override</span><span class="o">=</span><span class="n">MapMetric</span>
+                    <span class="k">if</span> <span class="n">support_intermediate_data</span>
+                    <span class="k">else</span> <span class="n">Metric</span><span class="p">,</span>
+                    <span class="n">for_opt_config</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">),</span>
+                <span class="n">minimize</span><span class="o">=</span><span class="n">minimize</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="n">make_outcome_constraints</span><span class="p">(</span>
+                <span class="n">outcome_constraints</span> <span class="ow">or</span> <span class="p">[],</span> <span class="n">status_quo_arm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="InstantiationBase.make_experiment"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.InstantiationBase.make_experiment">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">make_experiment</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TParameterRepresentation</span><span class="p">],</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">description</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">owners</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">parameter_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">status_quo</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TParameterization</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">experiment_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">tracking_metric_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">metric_definitions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="c1"># Single-objective optimization arguments:</span>
+        <span class="n">objective_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">minimize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="c1"># Multi-objective optimization arguments:</span>
+        <span class="n">objectives</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">support_intermediate_data</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">immutable_search_space_and_opt_config</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">is_test</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Experiment</span><span class="p">:</span>
+        <span class="sd">"""Instantiation wrapper that allows for Ax `Experiment` creation</span>
+<span class="sd">        without importing or instantiating any Ax classes.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameters: List of dictionaries representing parameters in the</span>
+<span class="sd">                experiment search space.</span>
+<span class="sd">                Required elements in the dictionaries are:</span>
+<span class="sd">                1. "name" (name of parameter, string),</span>
+<span class="sd">                2. "type" (type of parameter: "range", "fixed", or "choice", string),</span>
+<span class="sd">                and one of the following:</span>
+<span class="sd">                3a. "bounds" for range parameters (list of two values, lower bound</span>
+<span class="sd">                first),</span>
+<span class="sd">                3b. "values" for choice parameters (list of values), or</span>
+<span class="sd">                3c. "value" for fixed parameters (single value).</span>
+<span class="sd">                Optional elements are:</span>
+<span class="sd">                1. "log_scale" (for float-valued range parameters, bool),</span>
+<span class="sd">                2. "value_type" (to specify type that values of this parameter should</span>
+<span class="sd">                take; expects "float", "int", "bool" or "str"),</span>
+<span class="sd">                3. "is_fidelity" (bool) and "target_value" (float) for fidelity</span>
+<span class="sd">                parameters,</span>
+<span class="sd">                4. "is_ordered" (bool) for choice parameters,</span>
+<span class="sd">                5. "is_task" (bool) for task parameters, and</span>
+<span class="sd">                6. "digits" (int) for float-valued range parameters.</span>
+<span class="sd">            name: Name of the experiment to be created.</span>
+<span class="sd">            parameter_constraints: List of string representation of parameter</span>
+<span class="sd">                constraints, such as "x3 &gt;= x4" or "-x3 + 2*x4 - 3.5*x5 &gt;= 2". For</span>
+<span class="sd">                the latter constraints, any number of arguments is accepted, and</span>
+<span class="sd">                acceptable operators are "&lt;=" and "&gt;=".</span>
+<span class="sd">            outcome_constraints: List of string representation of outcome</span>
+<span class="sd">                constraints of form "metric_name &gt;= bound", like "m1 &lt;= 3."</span>
+<span class="sd">            status_quo: Parameterization of the current state of the system.</span>
+<span class="sd">                If set, this will be added to each trial to be evaluated alongside</span>
+<span class="sd">                test configurations.</span>
+<span class="sd">            experiment_type: String indicating type of the experiment (e.g. name of</span>
+<span class="sd">                a product in which it is used), if any.</span>
+<span class="sd">            tracking_metric_names: Names of additional tracking metrics not used for</span>
+<span class="sd">                optimization.</span>
+<span class="sd">            objective_name: Name of the metric used as objective in this experiment,</span>
+<span class="sd">                if experiment is single-objective optimization.</span>
+<span class="sd">            minimize: Whether this experiment represents a minimization problem, if</span>
+<span class="sd">                experiment is a single-objective optimization.</span>
+<span class="sd">            objectives: Mapping from an objective name to "minimize" or "maximize"</span>
+<span class="sd">                representing the direction for that objective. Used only for</span>
+<span class="sd">                multi-objective optimization experiments.</span>
+<span class="sd">            objective_thresholds: A list of objective threshold constraints for multi-</span>
+<span class="sd">                objective optimization, in the same string format as</span>
+<span class="sd">                `outcome_constraints` argument.</span>
+<span class="sd">            support_intermediate_data: Whether trials may report metrics results for</span>
+<span class="sd">                incomplete runs.</span>
+<span class="sd">            immutable_search_space_and_opt_config: Whether it's possible to update the</span>
+<span class="sd">                search space and optimization config on this experiment after creation.</span>
+<span class="sd">                Defaults to True. If set to True, we won't store or load copies of the</span>
+<span class="sd">                search space and optimization config on each generator run, which will</span>
+<span class="sd">                improve storage performance.</span>
+<span class="sd">            is_test: Whether this experiment will be a test experiment (useful for</span>
+<span class="sd">                marking test experiments in storage etc). Defaults to False.</span>
+<span class="sd">            metric_definitions: A mapping of metric names to extra kwargs to pass</span>
+<span class="sd">                to that metric</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">objective_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">objectives</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">objective_thresholds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="n">UnsupportedError</span><span class="p">(</span>
+                <span class="s2">"Ambiguous objective definition: for single-objective optimization "</span>
+                <span class="s2">"`objective_name` and `minimize` arguments expected. For "</span>
+                <span class="s2">"multi-objective optimization `objectives` and `objective_thresholds` "</span>
+                <span class="s2">"arguments expected."</span>
+            <span class="p">)</span>
+
+        <span class="n">status_quo_arm</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">status_quo</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">Arm</span><span class="p">(</span><span class="n">parameters</span><span class="o">=</span><span class="n">status_quo</span><span class="p">)</span>
+
+        <span class="c1"># TODO(jej): Needs to be decided per-metric when supporting heterogenous data.</span>
+        <span class="k">if</span> <span class="n">objectives</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">optimization_config</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_make_optimization_config_from_legacy_args</span><span class="p">(</span>
+                <span class="n">objective_name</span><span class="o">=</span><span class="n">objective_name</span> <span class="ow">or</span> <span class="n">DEFAULT_OBJECTIVE_NAME</span><span class="p">,</span>
+                <span class="n">minimize</span><span class="o">=</span><span class="n">minimize</span><span class="p">,</span>
+                <span class="n">support_intermediate_data</span><span class="o">=</span><span class="n">support_intermediate_data</span><span class="p">,</span>
+                <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+                <span class="n">status_quo_arm</span><span class="o">=</span><span class="n">status_quo_arm</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">optimization_config</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">make_optimization_config</span><span class="p">(</span>
+                <span class="n">objectives</span><span class="p">,</span>
+                <span class="n">objective_thresholds</span> <span class="ow">or</span> <span class="p">[],</span>
+                <span class="n">outcome_constraints</span> <span class="ow">or</span> <span class="p">[],</span>
+                <span class="n">status_quo_arm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">metric_definitions</span><span class="o">=</span><span class="n">metric_definitions</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">tracking_metrics</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">tracking_metric_names</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="p">[</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">_make_metric</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">metric_name</span><span class="p">,</span> <span class="n">metric_definitions</span><span class="o">=</span><span class="n">metric_definitions</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="n">tracking_metric_names</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="n">default_data_type</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">DataType</span><span class="o">.</span><span class="n">MAP_DATA</span> <span class="k">if</span> <span class="n">support_intermediate_data</span> <span class="k">else</span> <span class="n">DataType</span><span class="o">.</span><span class="n">DATA</span>
+        <span class="p">)</span>
+
+        <span class="n">properties</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">if</span> <span class="n">immutable_search_space_and_opt_config</span><span class="p">:</span>
+            <span class="n">properties</span><span class="p">[</span>
+                <span class="n">Keys</span><span class="o">.</span><span class="n">IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF</span>
+            <span class="p">]</span> <span class="o">=</span> <span class="n">immutable_search_space_and_opt_config</span>
+
+        <span class="k">if</span> <span class="n">owners</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">properties</span><span class="p">[</span><span class="s2">"owners"</span><span class="p">]</span> <span class="o">=</span> <span class="n">owners</span>
+
+        <span class="k">return</span> <span class="n">Experiment</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="n">description</span><span class="p">,</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="n">make_search_space</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="n">parameter_constraints</span> <span class="ow">or</span> <span class="p">[]),</span>
+            <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+            <span class="n">status_quo</span><span class="o">=</span><span class="n">status_quo_arm</span><span class="p">,</span>
+            <span class="n">experiment_type</span><span class="o">=</span><span class="n">experiment_type</span><span class="p">,</span>
+            <span class="n">tracking_metrics</span><span class="o">=</span><span class="n">tracking_metrics</span><span class="p">,</span>
+            <span class="n">default_data_type</span><span class="o">=</span><span class="n">default_data_type</span><span class="p">,</span>
+            <span class="n">properties</span><span class="o">=</span><span class="n">properties</span><span class="p">,</span>
+            <span class="n">is_test</span><span class="o">=</span><span class="n">is_test</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="InstantiationBase.raw_data_to_evaluation"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.InstantiationBase.raw_data_to_evaluation">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">raw_data_to_evaluation</span><span class="p">(</span>
+        <span class="n">raw_data</span><span class="p">:</span> <span class="n">TEvaluationOutcome</span><span class="p">,</span>
+        <span class="n">metric_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">start_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">end_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TEvaluationOutcome</span><span class="p">:</span>
+        <span class="sd">"""Format the trial evaluation data to a standard `TTrialEvaluation`</span>
+<span class="sd">        (mapping from metric names to a tuple of mean and SEM) representation, or</span>
+<span class="sd">        to a TMapTrialEvaluation.</span>
+
+<span class="sd">        Note: this function expects raw_data to be data for a `Trial`, not a</span>
+<span class="sd">        `BatchedTrial`.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw_data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">raw_data</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>  <span class="c1"># pragma: no cover</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Raw data is expected to be just for one arm."</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">dat</span> <span class="ow">in</span> <span class="n">raw_data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dat</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dat</span><span class="p">,</span> <span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">)):</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="s2">"Raw data for an arm is expected to either be a tuple of "</span>
+                            <span class="s2">"numerical mean and SEM or just a numerical mean."</span>
+                            <span class="sa">f</span><span class="s2">"Got: </span><span class="si">{</span><span class="n">dat</span><span class="si">}</span><span class="s2"> for metric '</span><span class="si">{</span><span class="n">metric_name</span><span class="si">}</span><span class="s2">'."</span>
+                        <span class="p">)</span>
+                    <span class="n">raw_data</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">dat</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">raw_data</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">metric_names</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Raw data must be a dictionary of metric names to mean "</span>
+                <span class="s2">"for multi-objective optimizations."</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw_data</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">raw_data</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw_data</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">{</span><span class="n">metric_names</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="n">raw_data</span><span class="p">}</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw_data</span><span class="p">,</span> <span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="p">{</span><span class="n">metric_names</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="p">(</span><span class="n">raw_data</span><span class="p">,</span> <span class="kc">None</span><span class="p">)}</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw_data</span><span class="p">,</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="p">{</span><span class="n">metric_names</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="p">(</span><span class="n">numpy_type_to_python_type</span><span class="p">(</span><span class="n">raw_data</span><span class="p">),</span> <span class="kc">None</span><span class="p">)}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Raw data has an invalid type. The data must either be in the form "</span>
+                <span class="s2">"of a dictionary of metric names to mean, sem tuples, "</span>
+                <span class="s2">"or a single mean, sem tuple, or a single mean."</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="InstantiationBase.data_and_evaluations_from_raw_data"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.InstantiationBase.data_and_evaluations_from_raw_data">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">data_and_evaluations_from_raw_data</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">raw_data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TEvaluationOutcome</span><span class="p">],</span>
+        <span class="n">metric_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">sample_sizes</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+        <span class="n">start_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">end_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TEvaluationOutcome</span><span class="p">],</span> <span class="n">Data</span><span class="p">]:</span>
+        <span class="sd">"""Transforms evaluations into Ax Data.</span>
+
+<span class="sd">        Each evaluation is either a trial evaluation: {metric_name -&gt; (mean, SEM)}</span>
+<span class="sd">        or a fidelity trial evaluation for multi-fidelity optimizations:</span>
+<span class="sd">        [(fidelities, {metric_name -&gt; (mean, SEM)})].</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            raw_data: Mapping from arm name to raw_data.</span>
+<span class="sd">            metric_names: Names of metrics used to transform raw data to evaluations.</span>
+<span class="sd">            trial_index: Index of the trial, for which the evaluations are.</span>
+<span class="sd">            sample_sizes: Number of samples collected for each arm, may be empty</span>
+<span class="sd">                if unavailable.</span>
+<span class="sd">            start_time: Optional start time of run of the trial that produced this</span>
+<span class="sd">                data, in milliseconds.</span>
+<span class="sd">            end_time: Optional end time of run of the trial that produced this</span>
+<span class="sd">                data, in milliseconds.</span>
+<span class="sd">        """</span>
+        <span class="n">evaluations</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">arm_name</span><span class="p">:</span> <span class="bp">cls</span><span class="o">.</span><span class="n">raw_data_to_evaluation</span><span class="p">(</span>
+                <span class="n">raw_data</span><span class="o">=</span><span class="n">raw_data</span><span class="p">[</span><span class="n">arm_name</span><span class="p">],</span>
+                <span class="n">metric_names</span><span class="o">=</span><span class="n">metric_names</span><span class="p">,</span>
+                <span class="n">start_time</span><span class="o">=</span><span class="n">start_time</span><span class="p">,</span>
+                <span class="n">end_time</span><span class="o">=</span><span class="n">end_time</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">arm_name</span> <span class="ow">in</span> <span class="n">raw_data</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">evaluations</span><span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">evaluations</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="c1"># All evaluations are no-fidelity evaluations.</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">Data</span><span class="o">.</span><span class="n">from_evaluations</span><span class="p">(</span>
+                <span class="n">evaluations</span><span class="o">=</span><span class="n">cast</span><span class="p">(</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TTrialEvaluation</span><span class="p">],</span> <span class="n">evaluations</span><span class="p">),</span>
+                <span class="n">trial_index</span><span class="o">=</span><span class="n">trial_index</span><span class="p">,</span>
+                <span class="n">sample_sizes</span><span class="o">=</span><span class="n">sample_sizes</span><span class="p">,</span>
+                <span class="n">start_time</span><span class="o">=</span><span class="n">start_time</span><span class="p">,</span>
+                <span class="n">end_time</span><span class="o">=</span><span class="n">end_time</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">evaluations</span><span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">evaluations</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="c1"># All evaluations are map evaluations.</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">MapData</span><span class="o">.</span><span class="n">from_map_evaluations</span><span class="p">(</span>
+                <span class="n">evaluations</span><span class="o">=</span><span class="n">cast</span><span class="p">(</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TMapTrialEvaluation</span><span class="p">],</span> <span class="n">evaluations</span><span class="p">),</span>
+                <span class="n">trial_index</span><span class="o">=</span><span class="n">trial_index</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="s2">"Evaluations included a mixture of no-fidelity and with-fidelity "</span>
+                <span class="s2">"evaluations, which is not currently supported."</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">evaluations</span><span class="p">,</span> <span class="n">data</span></div>
+
+<div class="viewcode-block" id="InstantiationBase.build_objective_thresholds"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.InstantiationBase.build_objective_thresholds">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">build_objective_thresholds</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">objectives</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ObjectiveProperties</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">"""Construct a list of constraint string for an objective thresholds</span>
+<span class="sd">        interpretable by `make_experiment()`</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            objectives: Mapping of name of the objective to Object containing:</span>
+<span class="sd">                minimize: Whether this experiment represents a minimization problem.</span>
+<span class="sd">                threshold: The bound in the objective's threshold constraint.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">build_objective_threshold</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="n">properties</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">objective</span><span class="p">,</span> <span class="n">properties</span> <span class="ow">in</span> <span class="n">objectives</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">properties</span><span class="o">.</span><span class="n">threshold</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">]</span></div>
+
+<div class="viewcode-block" id="InstantiationBase.build_objective_threshold"><a class="viewcode-back" href="../../../../service.html#ax.service.utils.instantiation.InstantiationBase.build_objective_threshold">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">build_objective_threshold</span><span class="p">(</span>
+        <span class="n">objective</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">objective_properties</span><span class="p">:</span> <span class="n">ObjectiveProperties</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Constructs constraint string for an objective threshold interpretable</span>
+<span class="sd">        by `make_experiment()`</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            objective: Name of the objective</span>
+<span class="sd">            objective_properties: Object containing:</span>
+<span class="sd">                minimize: Whether this experiment represents a minimization problem.</span>
+<span class="sd">                threshold: The bound in the objective's threshold constraint.</span>
+<span class="sd">        """</span>
+        <span class="n">operator</span> <span class="o">=</span> <span class="s2">"&lt;="</span> <span class="k">if</span> <span class="n">objective_properties</span><span class="o">.</span><span class="n">minimize</span> <span class="k">else</span> <span class="s2">"&gt;="</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">objective</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">operator</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">objective_properties</span><span class="o">.</span><span class="n">threshold</span><span class="si">}</span><span class="s2">"</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.6/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

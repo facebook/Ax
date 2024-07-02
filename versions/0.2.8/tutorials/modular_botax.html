@@ -1,0 +1,1180 @@
+<!DOCTYPE html><html lang=""><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.8/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.8/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.8/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.8/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.8/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.8/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.8/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.8/css/main.css"/><script src="/versions/0.2.8/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.8/"><img class="logo" src="/versions/0.2.8/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.8/versions.html"><h3>0.2.8</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.8/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.8/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.8/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="container docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><div class="hamburger-menu"><div class="line1"></div><div class="line2"></div><div class="line3"></div></div></div><h2><i>›</i><span></span></h2><div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div></div><div class="navGroups"><div class="navGroup"><h3 class="navGroupCategoryTitle">Tutorials</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.2.8/tutorials/">Overview</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">API Comparison</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.2.8/tutorials/gpei_hartmann_loop.html">Loop API</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.8/tutorials/gpei_hartmann_service.html">Service API</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.8/tutorials/gpei_hartmann_developer.html">Developer API</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Deep Dives</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.2.8/tutorials/visualizations.html">Visualizations</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.8/tutorials/generation_strategy.html">Generation Strategy</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.8/tutorials/scheduler.html">Scheduler</a></li><li class="navListItem navListItemActive"><a class="navItem" href="/versions/0.2.8/tutorials/modular_botax.html">Modular `BoTorchModel`</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Bayesian Optimization</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.2.8/tutorials/tune_cnn.html">Hyperparameter Optimization for PyTorch</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.8/tutorials/raytune_pytorch_cnn.html">Hyperparameter Optimization via Raytune</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.8/tutorials/multi_task.html">Multi-Task Modeling</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.8/tutorials/multiobjective_optimization.html">Multi-Objective Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.8/tutorials/saasbo.html">High-Dimensional Bayesian Optimization with Sparse Axis-Aligned Subspaces (SAASBO)</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.8/tutorials/saasbo_nehvi.html">Fully Bayesian, High-Dimensional, Multi-Objective Optimization</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Field Experiments</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.2.8/tutorials/factorial.html">Bandit Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.8/tutorials/human_in_the_loop/human_in_the_loop.html">Human-in-the-Loop Optimization</a></li></ul></div></div></section></div><script>
+            var coll = document.getElementsByClassName('collapsible');
+            var checkActiveCategory = true;
+            for (var i = 0; i < coll.length; i++) {
+              var links = coll[i].nextElementSibling.getElementsByTagName('*');
+              if (checkActiveCategory){
+                for (var j = 0; j < links.length; j++) {
+                  if (links[j].classList.contains('navListItemActive')){
+                    coll[i].nextElementSibling.classList.toggle('hide');
+                    coll[i].childNodes[1].classList.toggle('rotate');
+                    checkActiveCategory = false;
+                    break;
+                  }
+                }
+              }
+
+              coll[i].addEventListener('click', function() {
+                var arrow = this.childNodes[1];
+                arrow.classList.toggle('rotate');
+                var content = this.nextElementSibling;
+                content.classList.toggle('hide');
+              });
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+              createToggler('#navToggler', '#docsNav', 'docsSliderActive');
+              createToggler('#tocToggler', 'body', 'tocActive');
+
+              var headings = document.querySelector('.toc-headings');
+              headings && headings.addEventListener('click', function(event) {
+                var el = event.target;
+                while(el !== headings){
+                  if (el.tagName === 'A') {
+                    document.body.classList.remove('tocActive');
+                    break;
+                  } else{
+                    el = el.parentNode;
+                  }
+                }
+              }, false);
+
+              function createToggler(togglerSelector, targetSelector, className) {
+                var toggler = document.querySelector(togglerSelector);
+                var target = document.querySelector(targetSelector);
+
+                if (!toggler) {
+                  return;
+                }
+
+                toggler.onclick = function(event) {
+                  event.preventDefault();
+
+                  target.classList.toggle(className);
+                };
+              }
+            });
+        </script></nav></div><div class="container mainContainer"><div class="wrapper"><div class="tutorialBody">
+<script>
+const requirejs = Object();
+requirejs.config = function() { };
+
+const dependencyMap = {
+    'plotly': Plotly,
+}
+
+function require(deps, fxn) {
+    return fxn(...deps.map(dep => dependencyMap[dep]));
+};
+</script>
+<div class="notebook">
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [1]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span>
+
+<span class="c1"># Ax wrappers for BoTorch components</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_modular.model</span> <span class="kn">import</span> <span class="n">BoTorchModel</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_modular.surrogate</span> <span class="kn">import</span> <span class="n">Surrogate</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_modular.list_surrogate</span> <span class="kn">import</span> <span class="n">ListSurrogate</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_modular.acquisition</span> <span class="kn">import</span> <span class="n">Acquisition</span>
+
+<span class="c1"># Ax data tranformation layer</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.torch</span> <span class="kn">import</span> <span class="n">TorchModelBridge</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.registry</span> <span class="kn">import</span> <span class="n">Cont_X_trans</span><span class="p">,</span> <span class="n">Y_trans</span><span class="p">,</span> <span class="n">Models</span>
+
+<span class="c1"># Experiment examination utilities</span>
+<span class="kn">from</span> <span class="nn">ax.service.utils.report_utils</span> <span class="kn">import</span> <span class="n">exp_to_df</span>
+
+<span class="c1"># Test Ax objects</span>
+<span class="kn">from</span> <span class="nn">ax.utils.testing.core_stubs</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">get_branin_experiment</span><span class="p">,</span> 
+    <span class="n">get_branin_data</span><span class="p">,</span> 
+    <span class="n">get_branin_experiment_with_multi_objective</span><span class="p">,</span>
+    <span class="n">get_branin_data_multi_objective</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># BoTorch components</span>
+<span class="kn">from</span> <span class="nn">botorch.models.model</span> <span class="kn">import</span> <span class="n">Model</span>
+<span class="kn">from</span> <span class="nn">botorch.models.gp_regression</span> <span class="kn">import</span> <span class="n">FixedNoiseGP</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition.monte_carlo</span> <span class="kn">import</span> <span class="n">qExpectedImprovement</span><span class="p">,</span> <span class="n">qNoisyExpectedImprovement</span>
+<span class="kn">from</span> <span class="nn">gpytorch.mlls.exact_marginal_log_likelihood</span> <span class="kn">import</span> <span class="n">ExactMarginalLogLikelihood</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Setup-and-Usage-of-BoTorch-Models-in-Ax">Setup and Usage of BoTorch Models in Ax<a class="anchor-link" href="#Setup-and-Usage-of-BoTorch-Models-in-Ax">¶</a></h1><p>Ax provides a set of flexible wrapper abstractions to mix-and-match BoTorch components like <code>Model</code> and <code>AcquisitionFunction</code> and combine them into a single <code>Model</code> object in Ax. The wrapper abstractions: <code>Surrogate</code>, <code>Acquisition</code>, and <code>BoTorchModel</code> – are located in <code>ax/models/torch/botorch_modular</code> directory and aim to encapsulate boilerplate code that interfaces between Ax and BoTorch. This functionality is in beta-release and still evolving.</p>
+<p>This tutorial walks through setting up a custom combination of BoTorch components in Ax in following steps:</p>
+<ol>
+<li><strong>Quick-start example of <code>BoTorchModel</code> use</strong></li>
+<li><strong><code>BoTorchModel</code> = <code>Surrogate</code> + <code>Acquisition</code> (overview)</strong><ol>
+<li>Example with minimal options that uses the defaults</li>
+<li>Example showing all possible options</li>
+<li>Using a pre-constructed BoTorch Model (e.g. in research or development)</li>
+<li>Surrogate and Acquisition Q&amp;A</li>
+</ol>
+</li>
+<li><strong>I know which Botorch Model and AcquisitionFunction I'd like to combine in Ax. How do set this up?</strong><ol>
+<li>Making a <code>Surrogate</code> from BoTorch <code>Model</code></li>
+<li>Using an arbitrary BoTorch <code>AcquisitionFunction</code> in Ax</li>
+</ol>
+</li>
+<li><strong>Using <code>Models.BOTORCH_MODULAR</code></strong> (convenience wrapper that enables storage and resumability)</li>
+<li><strong>Utilizing <code>BoTorchModel</code> in generation strategies</strong> (abstraction that allows to chain models together and use them in Ax Service API etc.)<ol>
+<li>Specifying <code>pending_observations</code> to avoid the model re-suggesting points that are part of <code>RUNNING</code> or <code>ABANDONED</code> trials.</li>
+</ol>
+</li>
+<li><strong>Customizing a <code>Surrogate</code> or <code>Acquisition</code></strong> (for cases where existing subcomponent classes are not sufficient)</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="1.-Quick-start-example">1. Quick-start example<a class="anchor-link" href="#1.-Quick-start-example">¶</a></h2><p>Here we set up a <code>BoTorchModel</code> with <code>FixedNoiseGP</code> with <code>qNoisyExpectedImprovement</code>, one of the most popular combinations in Ax:</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [2]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">experiment</span> <span class="o">=</span> <span class="n">get_branin_experiment</span><span class="p">(</span><span class="n">with_trial</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">get_branin_data</span><span class="p">(</span><span class="n">trials</span><span class="o">=</span><span class="p">[</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 09-28 16:23:58] ax.core.experiment: The is_test flag has been set to True. This flag is meant purely for development and integration testing purposes. If you are running a live experiment, please set this flag to False
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [3]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># `Models` automatically selects a model + model bridge combination. </span>
+<span class="c1"># For `BOTORCH_MODULAR`, it will select `BoTorchModel` and `TorchModelBridge`.</span>
+<span class="n">model_bridge_with_GPEI</span> <span class="o">=</span> <span class="n">Models</span><span class="o">.</span><span class="n">BOTORCH_MODULAR</span><span class="p">(</span>
+    <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+    <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+    <span class="n">surrogate</span><span class="o">=</span><span class="n">Surrogate</span><span class="p">(</span><span class="n">FixedNoiseGP</span><span class="p">),</span>  <span class="c1"># Optional, will use default if unspecified</span>
+    <span class="n">botorch_acqf_class</span><span class="o">=</span><span class="n">qNoisyExpectedImprovement</span><span class="p">,</span>  <span class="c1"># Optional, will use default if unspecified</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 09-28 16:23:58] ax.modelbridge.transforms.standardize_y: Outcome branin is constant, within tolerance.
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Now we can use this model to generate candidates (<code>gen</code>), predict outcome at a point (<code>predict</code>), or evaluate acquisition function value at a given point (<code>evaluate_acquisition_function</code>).</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [4]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">generator_run</span> <span class="o">=</span> <span class="n">model_bridge_with_GPEI</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">generator_run</span><span class="o">.</span><span class="n">arms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[4]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>Arm(parameters={'x1': -5.0, 'x2': 0.0})</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr/>
+<p>Before you read the rest of this tutorial:</p>
+<ul>
+<li>Note that the concept of ‘model’ is Ax is somewhat a misnomer; we use <a href="https://ax.dev/docs/glossary.html#model">'model'</a> to refer to an optimization setup capable of producing candidate points for optimization (and often capable of being fit to data, with exception for quasi-random generators). See <a href="https://ax.dev/docs/models.html">Models documentation page</a> for more information.</li>
+<li>Learn about <code>ModelBridge</code> in Ax, as users should rarely be interacting with a <code>Model</code> object directly (more about ModelBridge, a data transformation layer in Ax, <a href="https://ax.dev/docs/models.html#deeper-dive-organization-of-the-modeling-stack">here</a>).</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="2.-BoTorchModel-=-Surrogate-+-Acquisition">2. BoTorchModel = Surrogate + Acquisition<a class="anchor-link" href="#2.-BoTorchModel-=-Surrogate-+-Acquisition">¶</a></h2><p>A <code>BoTorchModel</code> in Ax consists of two main subcomponents: a surrogate model and an acquisition function. A surrogate model is represented as an instance of Ax’s <code>Surrogate</code> class, which is a wrapper around BoTorch's <code>Model</code> class. The acquisition function is represented as an instance of Ax’s <code>Acquisition</code> class, a wrapper around BoTorch's <code>AcquisitionFunction</code> class.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="2A.-Example-that-uses-defaults-and-requires-no-options">2A. Example that uses defaults and requires no options<a class="anchor-link" href="#2A.-Example-that-uses-defaults-and-requires-no-options">¶</a></h3><p>BoTorchModel does not always require surrogate and acquisition specification. If instantiated without one or both components specified, defaults are selected based on properties of experiment and data (see Appendix 2 for auto-selection logic).</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [5]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># The surrogate is not specified, so it will be auto-selected</span>
+<span class="c1"># during `model.fit`.</span>
+<span class="n">GPEI_model</span> <span class="o">=</span> <span class="n">BoTorchModel</span><span class="p">(</span><span class="n">botorch_acqf_class</span><span class="o">=</span><span class="n">qExpectedImprovement</span><span class="p">)</span>
+
+<span class="c1"># The acquisition class is not specified, so it will be </span>
+<span class="c1"># auto-selected during `model.gen` or `model.evaluate_acquisition`</span>
+<span class="n">GPEI_model</span> <span class="o">=</span> <span class="n">BoTorchModel</span><span class="p">(</span><span class="n">surrogate</span><span class="o">=</span><span class="n">Surrogate</span><span class="p">(</span><span class="n">FixedNoiseGP</span><span class="p">))</span>
+
+<span class="c1"># Both the surrogate and acquisition class will be auto-selected.</span>
+<span class="n">GPEI_model</span> <span class="o">=</span> <span class="n">BoTorchModel</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="2B.-Example-with-all-the-options">2B. Example with all the options<a class="anchor-link" href="#2B.-Example-with-all-the-options">¶</a></h3><p>Below are the full set of configurable settings of a <code>BoTorchModel</code> with their descriptions:</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [6]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">BoTorchModel</span><span class="p">(</span>
+    <span class="c1"># Optional `Surrogate` specification to use instead of default</span>
+    <span class="n">surrogate</span><span class="o">=</span><span class="n">Surrogate</span><span class="p">(</span>
+        <span class="c1"># BoTorch `Model` type</span>
+        <span class="n">botorch_model_class</span><span class="o">=</span><span class="n">FixedNoiseGP</span><span class="p">,</span>
+        <span class="c1"># Optional, MLL class with which to optimize model parameters</span>
+        <span class="n">mll_class</span><span class="o">=</span><span class="n">ExactMarginalLogLikelihood</span><span class="p">,</span>
+        <span class="c1"># Optional, dictionary of keyword arguments to underlying </span>
+        <span class="c1"># BoTorch `Model` constructor</span>
+        <span class="n">model_options</span><span class="o">=</span><span class="p">{}</span>
+    <span class="p">),</span>
+    <span class="c1"># Optional options to pass to auto-picked `Surrogate` if not</span>
+    <span class="c1"># specifying the `surrogate` argument</span>
+    <span class="n">surrogate_options</span><span class="o">=</span><span class="p">{},</span>
+    
+    <span class="c1"># Optional BoTorch `AcquisitionFunction` to use instead of default</span>
+    <span class="n">botorch_acqf_class</span><span class="o">=</span><span class="n">qExpectedImprovement</span><span class="p">,</span>
+    <span class="c1"># Optional dict of keyword arguments, passed to the input </span>
+    <span class="c1"># constructor for the given BoTorch `AcquisitionFunction`</span>
+    <span class="n">acquisition_options</span><span class="o">=</span><span class="p">{},</span>
+    <span class="c1"># Optional Ax `Acquisition` subclass (if the given BoTorch</span>
+    <span class="c1"># `AcquisitionFunction` requires one, which is rare)</span>
+    <span class="n">acquisition_class</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    
+    <span class="c1"># Less common model settings shown with default values, refer</span>
+    <span class="c1"># to `BoTorchModel` documentation for detail</span>
+    <span class="n">refit_on_update</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">refit_on_cv</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">warm_start_refit</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="2C.-Surrogate-from-pre-instantiated-BoTorch-Model">2C. <code>Surrogate</code> from pre-instantiated BoTorch <code>Model</code><a class="anchor-link" href="#2C.-Surrogate-from-pre-instantiated-BoTorch-Model">¶</a></h2><p>Alternatively, for BoTorch <code>Model</code>-s that require complex instantiation procedures (or is in development stage), leverage the <code>from_botorch</code> instantiation method of Surrogate:</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [7]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">from_botorch_model</span> <span class="o">=</span> <span class="n">BoTorchModel</span><span class="p">(</span>
+    <span class="n">surrogate</span><span class="o">=</span><span class="n">Surrogate</span><span class="o">.</span><span class="n">from_botorch</span><span class="p">(</span>
+        <span class="c1"># Pre-constructed BoTorch `Model` instance, with training data already set</span>
+        <span class="n">model</span><span class="o">=...</span><span class="p">,</span>  
+        <span class="c1"># Optional, MLL class with which to optimize model parameters</span>
+        <span class="n">mll_class</span><span class="o">=</span><span class="n">ExactMarginalLogLikelihood</span><span class="p">,</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="2D.-Surrogate-and-Acquisition-Q&amp;A">2D. <code>Surrogate</code> and <code>Acquisition</code> Q&amp;A<a class="anchor-link" href="#2D.-Surrogate-and-Acquisition-Q&amp;A">¶</a></h2><p><strong>Why is the <code>surrogate</code> argument expected to be an instance, but <code>botorch_acqf_class</code> –– a class?</strong> Because a BoTorch <code>AcquisitionFunction</code> object (and therefore its Ax wrapper, <code>Acquisition</code>) is ephemeral: it is constructed, immediately used, and destroyed during <code>BoTorchModel.gen</code>, so there is no reason to keep around an <code>Acquisition</code> instance. A <code>Surrogate</code>, on another hand, is kept in memory as long as its parent <code>BoTorchModel</code> is.</p>
+<p><strong>How to know when to use specify acquisition_class (and thereby a non-default Acquisition type) instead of just passing in botorch_acqf_class?</strong> In short, custom <code>Acquisition</code> subclasses are needed when a given <code>AcquisitionFunction</code> in BoTorch needs some non-standard subcomponents or inputs (e.g. a custom BoTorch <code>AcquisitionObjective</code>). <todo></todo></p>
+<p><strong>Please post any other questions you have to our dedicated issue on Github: https://github.com/facebook/Ax/issues/363.</strong> This functionality is in beta-release and your feedback will be of great help to us!</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="3.-I-know-which-Botorch-Model-and-AcquisitionFunction-I'd-like-to-combine-in-Ax.-How-do-set-this-up?">3. I know which Botorch <code>Model</code> and <code>AcquisitionFunction</code> I'd like to combine in Ax. How do set this up?<a class="anchor-link" href="#3.-I-know-which-Botorch-Model-and-AcquisitionFunction-I'd-like-to-combine-in-Ax.-How-do-set-this-up?">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="3a.-Making-a-Surrogate-from-BoTorch-Model:">3a. Making a <code>Surrogate</code> from BoTorch <code>Model</code>:<a class="anchor-link" href="#3a.-Making-a-Surrogate-from-BoTorch-Model:">¶</a></h3><p>Most models should work with base <code>Surrogate</code> in Ax, except for BoTorch <code>ModelListGP</code>, which works with <code>ListSurrogate</code>. <code>ModelListGP</code> is a special case because its purpose is to combine multiple sub-models into a single <code>Model</code> in BoTorch. It is most commonly used for multi-objective and constrained optimization.</p>
+<p>If your <code>Model</code> is not a <code>ModelListGP</code>, the steps to set it up as a <code>Surrogate</code> are:</p>
+<ol>
+<li>Implement a <a href="https://github.com/pytorch/botorch/blob/main/botorch/models/model.py#L143"><code>construct_inputs</code> class method</a>. The purpose of this method is to produce arguments to a particular model from a standardized set of inputs passed to BoTorch <code>Model</code>-s from <a href="https://github.com/facebook/Ax/blob/main/ax/models/torch/botorch_modular/surrogate.py#L148"><code>Surrogate.construct</code></a> in Ax. It should accept training data in form of a <code>SupervisedDataset</code> container and optionally other keyword arguments and produce a dictionary of arguments to <code>__init__</code> of the <code>Model</code>. See <a href="https://github.com/pytorch/botorch/blob/5b3172f3daa22f6ea2f6f4d1d0a378a9518dcd8d/botorch/models/gp_regression_fidelity.py#L131"><code>SingleTaskMultiFidelityGP.construct_inputs</code></a> for an example.</li>
+<li>Pass any additional needed keyword arguments for the <code>Model</code> constructor (that cannot be constructed from the training data and other arguments to <code>construct_inputs</code>) via <code>model_options</code> argument to <code>Surrogate</code>.</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [8]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">botorch.models.model</span> <span class="kn">import</span> <span class="n">Model</span>
+<span class="kn">from</span> <span class="nn">botorch.utils.datasets</span> <span class="kn">import</span> <span class="n">SupervisedDataset</span>
+
+<span class="k">class</span> <span class="nc">MyModelClass</span><span class="p">(</span><span class="n">Model</span><span class="p">):</span>
+    
+    <span class="o">...</span>   <span class="c1"># Implementation of `MyModelClass`</span>
+    
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">construct_inputs</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">training_data</span><span class="p">:</span> <span class="n">SupervisedDataset</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="n">fidelity_features</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"fidelity_features"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">fidelity_features</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Fidelity features required for </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="o">**</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">construct_inputs</span><span class="p">(</span><span class="n">training_data</span><span class="o">=</span><span class="n">training_data</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">),</span>
+            <span class="s2">"fidelity_features"</span><span class="p">:</span> <span class="n">fidelity_features</span><span class="p">,</span>
+        <span class="p">}</span>
+
+<span class="n">surrogate</span> <span class="o">=</span> <span class="n">Surrogate</span><span class="p">(</span>
+    <span class="n">botorch_model_class</span><span class="o">=</span><span class="n">MyModelClass</span><span class="p">,</span>  <span class="c1"># Must implement `construct_inputs`</span>
+    <span class="c1"># Optional dict of additional keyword arguments to `MyModelClass`</span>
+    <span class="n">model_options</span><span class="o">=</span><span class="p">{},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>For a <code>ModelListGP</code>, the setup is similar, except that the surrogate is defined in terms of sub-models rather than one model. Both of the following options will work:</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [9]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">class</span> <span class="nc">MyOtherModelClass</span><span class="p">(</span><span class="n">MyModelClass</span><span class="p">):</span>
+    <span class="k">pass</span>
+
+<span class="n">surrogate</span> <span class="o">=</span> <span class="n">ListSurrogate</span><span class="p">(</span>
+    <span class="n">botorch_submodel_class_per_outcome</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">"metric_a"</span><span class="p">:</span> <span class="n">MyModelClass</span><span class="p">,</span> 
+        <span class="s2">"metric_b"</span><span class="p">:</span> <span class="n">MyOtherModelClass</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="n">submodel_options_per_outcome</span><span class="o">=</span><span class="p">{</span><span class="s2">"metric_a"</span><span class="p">:</span> <span class="p">{},</span> <span class="s2">"metric_b"</span><span class="p">:</span> <span class="p">{}},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [10]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">surrogate</span> <span class="o">=</span> <span class="n">ListSurrogate</span><span class="p">(</span>
+    <span class="c1"># Shortcut if all submodels are the same type</span>
+    <span class="n">botorch_submodel_class</span><span class="o">=</span><span class="n">MyModelClass</span><span class="p">,</span>
+    <span class="c1"># Shortcut if all submodel options are the same</span>
+    <span class="n">submodel_options</span><span class="o">=</span><span class="p">{},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>NOTE: if you run into a case where base <code>Surrogate</code> does not work with your BoTorch <code>Model</code>, please let us know in this Github issue: https://github.com/facebook/Ax/issues/363, so we can find the right solution and augment this tutorial.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="3B.-Using-an-arbitrary-BoTorch-AcquisitionFunction-in-Ax">3B. Using an arbitrary BoTorch <code>AcquisitionFunction</code> in Ax<a class="anchor-link" href="#3B.-Using-an-arbitrary-BoTorch-AcquisitionFunction-in-Ax">¶</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Steps to set up any <code>AcquisitionFunction</code> in Ax are:</p>
+<ol>
+<li>Define an input constructor function. The purpose of this method is to produce arguments to a acquisition function from a standardized set of inputs passed to BoTorch <code>AcquisitionFunction</code>-s from <code>Acquisition.__init__</code> in Ax. For example, see <a href="https://github.com/pytorch/botorch/blob/main/botorch/acquisition/input_constructors.py#L477"><code>construct_inputs_qEHVI</code></a>, which creates a fairly complex set of arguments needed by <code>qExpectedHypervolumeImprovement</code> –– a popular multi-objective optimization acquisition function offered in Ax and BoTorch. For more examples, see this collection in BoTorch: <a href="https://github.com/pytorch/botorch/blob/main/botorch/acquisition/input_constructors.py">botorch/acquisition/input_constructors.py</a><ol>
+<li>Note that the new input constructor needs to be decorated with <code>@acqf_input_constructor(AcquisitionFunctionClass)</code> to register it.</li>
+</ol>
+</li>
+<li>(Optional) If a given <code>AcquisitionFunction</code> requires specific options passed to the BoTorch <code>optimize_acqf</code>, it's possible to add default optimizer options for a given <code>AcquisitionFunction</code> to avoid always manually passing them via <code>acquisition_options</code>.</li>
+<li>Specify the BoTorch <code>AcquisitionFunction</code> class as <code>botorch_acqf_class</code> to <code>BoTorchModel</code></li>
+<li>(Optional) Pass any additional keyword arguments to acquisition function constructor or to the optimizer function via <code>acquisition_options</code> argument to <code>BoTorchModel</code>.</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [11]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax.models.torch.botorch_modular.optimizer_argparse</span> <span class="kn">import</span> <span class="n">optimizer_argparse</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition.acquisition</span> <span class="kn">import</span> <span class="n">AcquisitionFunction</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition.input_constructors</span> <span class="kn">import</span> <span class="n">MaybeDict</span><span class="p">,</span> <span class="n">acqf_input_constructor</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition.objective</span> <span class="kn">import</span> <span class="n">AcquisitionObjective</span>
+<span class="kn">from</span> <span class="nn">botorch.utils.datasets</span> <span class="kn">import</span> <span class="n">SupervisedDataset</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
+
+
+<span class="k">class</span> <span class="nc">MyAcquisitionFunctionClass</span><span class="p">(</span><span class="n">AcquisitionFunction</span><span class="p">):</span>
+    <span class="o">...</span>  <span class="c1"># Actual contents of the acquisition function class.</span>
+
+
+<span class="c1"># 1. Add input constructor</span>
+<span class="nd">@acqf_input_constructor</span><span class="p">(</span><span class="n">MyAcquisitionFunctionClass</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">construct_inputs_my_acqf</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span>
+    <span class="n">training_data</span><span class="p">:</span> <span class="n">MaybeDict</span><span class="p">[</span><span class="n">SupervisedDataset</span><span class="p">],</span>
+    <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">objective</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AcquisitionObjective</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">pass</span>
+
+
+<span class="c1"># 2. Register default optimizer options</span>
+<span class="nd">@optimizer_argparse</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">MyAcquisitionFunctionClass</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_argparse_my_acqf</span><span class="p">(</span><span class="n">acqf</span><span class="p">:</span> <span class="n">MyAcquisitionFunctionClass</span><span class="p">,</span> <span class="n">sequential</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">"sequential"</span><span class="p">:</span> <span class="n">sequential</span><span class="p">}</span>  <span class="c1"># default to sequentially optimizing batches of queries</span>
+
+
+<span class="c1"># 3-4. Specifying `botorch_acqf_class` and `acquisition_options`</span>
+<span class="n">BoTorchModel</span><span class="p">(</span>
+    <span class="n">botorch_acqf_class</span><span class="o">=</span><span class="n">MyAcquisitionFunctionClass</span><span class="p">,</span>
+    <span class="n">acquisition_options</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">"alpha"</span><span class="p">:</span> <span class="mi">10</span> <span class="o">**</span> <span class="o">-</span><span class="mi">6</span><span class="p">,</span>
+        <span class="c1"># The sub-dict by the key "optimizer_options" can be passed</span>
+        <span class="c1"># to propagate options to `optimize_acqf`, used in</span>
+        <span class="c1"># `Acquisition.optimize`, to add/override the default</span>
+        <span class="c1"># optimizer options registered above.</span>
+        <span class="s2">"optimizer_options"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"sequential"</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+    <span class="p">},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[11]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>&lt;ax.models.torch.botorch_modular.model.BoTorchModel at 0x7f33c2e2f4f0&gt;</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>See section 2A for combining the resulting <code>Surrogate</code> instance and <code>Acquisition</code> type into a <code>BoTorchModel</code>. You can also leverage <code>Models.BOTORCH_MODULAR</code> for ease of use; more on it in section 4 below or in section 1 quick-start example.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="4.-Using-Models.BOTORCH_MODULAR-and-Models.MOO_MODULAR">4. Using <code>Models.BOTORCH_MODULAR</code> and <code>Models.MOO_MODULAR</code><a class="anchor-link" href="#4.-Using-Models.BOTORCH_MODULAR-and-Models.MOO_MODULAR">¶</a></h2><p>To simplify the instantiation of an Ax ModelBridge and its undelying Model, Ax provides a <a href="https://github.com/facebook/Ax/blob/main/ax/modelbridge/registry.py#L355"><code>Models</code> registry enum</a>. When calling entries of that enum (e.g. <code>Models.BOTORCH_MODULAR(experiment, data)</code>), the inputs are automatically distributed between a <code>Model</code> and a <code>ModelBridge</code> for a given setup. A call to a <code>Model</code> enum member yields a model bridge with an underlying model, ready for use to generate candidates.</p>
+<p>Here we use <code>Models.BOTORCH_MODULAR</code> to set up a model with all-default subcomponents:</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [12]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">model_bridge_with_GPEI</span> <span class="o">=</span> <span class="n">Models</span><span class="o">.</span><span class="n">BOTORCH_MODULAR</span><span class="p">(</span>
+    <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">model_bridge_with_GPEI</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 09-28 16:23:58] ax.modelbridge.transforms.standardize_y: Outcome branin is constant, within tolerance.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt output_prompt">Out[12]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>GeneratorRun(1 arms, total weight 1.0)</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [13]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">model_bridge_with_GPEI</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">botorch_acqf_class</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[13]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>botorch.acquisition.monte_carlo.qNoisyExpectedImprovement</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [14]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">model_bridge_with_GPEI</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">surrogate</span><span class="o">.</span><span class="n">botorch_model_class</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[14]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>botorch.models.gp_regression.FixedNoiseGP</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>And here we use <code>Models.MOO_MODULAR</code> (analogue of <code>Models.BOTORCH_MODULAR</code>, except set up with multi-objective model bridge) to set up a model for multi-objective optimization:</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [15]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">model_bridge_with_EHVI</span> <span class="o">=</span> <span class="n">Models</span><span class="o">.</span><span class="n">MOO_MODULAR</span><span class="p">(</span>
+    <span class="n">experiment</span><span class="o">=</span><span class="n">get_branin_experiment_with_multi_objective</span><span class="p">(</span><span class="n">has_objective_thresholds</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">with_batch</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+    <span class="n">data</span><span class="o">=</span><span class="n">get_branin_data_multi_objective</span><span class="p">(),</span>
+<span class="p">)</span>
+<span class="n">model_bridge_with_EHVI</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 09-28 16:23:58] ax.core.experiment: The is_test flag has been set to True. This flag is meant purely for development and integration testing purposes. If you are running a live experiment, please set this flag to False
+[INFO 09-28 16:23:58] ax.modelbridge.transforms.standardize_y: Outcome branin_a is constant, within tolerance.
+[INFO 09-28 16:23:58] ax.modelbridge.transforms.standardize_y: Outcome branin_b is constant, within tolerance.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt output_prompt">Out[15]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>GeneratorRun(1 arms, total weight 1.0)</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [16]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">model_bridge_with_EHVI</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">botorch_acqf_class</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[16]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>botorch.acquisition.multi_objective.monte_carlo.qNoisyExpectedHypervolumeImprovement</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [17]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">model_bridge_with_EHVI</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">surrogate</span><span class="o">.</span><span class="n">botorch_model_class</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[17]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>botorch.models.gp_regression.FixedNoiseGP</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Furthermore, the quick-start example at the top of this tutorial shows how to specify surrogate and acquisition subcomponents to <code>Models.BOTORCH_MODULAR</code>.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="5.-Utilizing-BoTorchModel-in-generation-strategies">5. Utilizing <code>BoTorchModel</code> in generation strategies<a class="anchor-link" href="#5.-Utilizing-BoTorchModel-in-generation-strategies">¶</a></h2><p>Generation strategy is a key concept in Ax, enabling use of Service API (a.k.a. <code>AxClient</code>) and many other higher-level abstractions. A <code>GenerationStrategy</code> allows to chain multiple models in Ax and thereby automate candidate generation. Refer to the "Generation Strategy" tutorial for more detail in generation strategies.</p>
+<p>An example generation stategy with the modular <code>BoTorchModel</code> would look like this:</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [18]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax.modelbridge.generation_strategy</span> <span class="kn">import</span> <span class="n">GenerationStep</span><span class="p">,</span> <span class="n">GenerationStrategy</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition</span> <span class="kn">import</span> <span class="n">UpperConfidenceBound</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.modelbridge_utils</span> <span class="kn">import</span> <span class="n">get_pending_observation_features</span>
+
+<span class="n">gs</span> <span class="o">=</span> <span class="n">GenerationStrategy</span><span class="p">(</span>
+    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">GenerationStep</span><span class="p">(</span>  <span class="c1"># Initialization step</span>
+            <span class="c1"># Which model to use for this step</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">Models</span><span class="o">.</span><span class="n">SOBOL</span><span class="p">,</span>
+            <span class="c1"># How many generator runs (each of which is then made a trial) </span>
+            <span class="c1"># to produce with this step</span>
+            <span class="n">num_trials</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+            <span class="c1"># How many trials generated from this step must be `COMPLETED` </span>
+            <span class="c1"># before the next one</span>
+            <span class="n">min_trials_observed</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> 
+        <span class="p">),</span>
+        <span class="n">GenerationStep</span><span class="p">(</span>  <span class="c1"># BayesOpt step</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">Models</span><span class="o">.</span><span class="n">BOTORCH_MODULAR</span><span class="p">,</span>
+            <span class="c1"># No limit on how many generator runs will be produced</span>
+            <span class="n">num_trials</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">model_kwargs</span><span class="o">=</span><span class="p">{</span>  <span class="c1"># Kwargs to pass to `BoTorchModel.__init__`</span>
+                <span class="s2">"surrogate"</span><span class="p">:</span> <span class="n">Surrogate</span><span class="p">(</span><span class="n">FixedNoiseGP</span><span class="p">),</span>
+                <span class="s2">"botorch_acqf_class"</span><span class="p">:</span> <span class="n">qNoisyExpectedImprovement</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+    <span class="p">]</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Set up an experiment and generate 10 trials in it, adding synthetic data to experiment after each one:</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [19]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">experiment</span> <span class="o">=</span> <span class="n">get_branin_experiment</span><span class="p">(</span><span class="n">minimize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+<span class="n">experiment</span><span class="o">.</span><span class="n">search_space</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 09-28 16:23:58] ax.core.experiment: The is_test flag has been set to True. This flag is meant purely for development and integration testing purposes. If you are running a live experiment, please set this flag to False
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt output_prompt">Out[19]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>SearchSpace(parameters=[RangeParameter(name='x1', parameter_type=FLOAT, range=[-5.0, 10.0]), RangeParameter(name='x2', parameter_type=FLOAT, range=[0.0, 15.0])], parameter_constraints=[])</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="5a.-Specifying-pending_observations">5a. Specifying <code>pending_observations</code><a class="anchor-link" href="#5a.-Specifying-pending_observations">¶</a></h2><p>Note that it's important to <strong>specify pending observations</strong> to the call to <code>gen</code> to avoid getting the same points re-suggested. Without <code>pending_observations</code> argument, Ax models are not aware of points that should be excluded from generation. Points are considered "pending" when they belong to <code>STAGED</code>, <code>RUNNING</code>, or <code>ABANDONED</code> trials (with the latter included so model does not re-suggest points that are considered "bad" and should not be re-suggested).</p>
+<p>If the call to <code>get_pending_observation_features</code> becomes slow in your setup (since it performs data-fetching etc.), you can opt for <code>get_pending_observation_features_based_on_trial_status</code> (also from <code>ax.modelbridge.modelbridge_utils</code>), but note the limitations of that utility (detailed in its docstring).</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [20]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+    <span class="c1"># Produce a new generator run and attach it to experiment as a trial</span>
+    <span class="n">generator_run</span> <span class="o">=</span> <span class="n">gs</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span>
+        <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> 
+        <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> 
+        <span class="n">pending_observations</span><span class="o">=</span><span class="n">get_pending_observation_features</span><span class="p">(</span><span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">trial</span> <span class="o">=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">new_trial</span><span class="p">(</span><span class="n">generator_run</span><span class="p">)</span>
+    
+    <span class="c1"># Mark the trial as 'RUNNING' so we can mark it 'COMPLETED' later</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">mark_running</span><span class="p">(</span><span class="n">no_runner_required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    
+    <span class="c1"># Attach data for the new trial and mark it 'COMPLETED'</span>
+    <span class="n">experiment</span><span class="o">.</span><span class="n">attach_data</span><span class="p">(</span><span class="n">get_branin_data</span><span class="p">(</span><span class="n">trials</span><span class="o">=</span><span class="p">[</span><span class="n">trial</span><span class="p">]))</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">mark_completed</span><span class="p">()</span>
+    
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Completed trial #</span><span class="si">{</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="si">}</span><span class="s2">, suggested by </span><span class="si">{</span><span class="n">generator_run</span><span class="o">.</span><span class="n">_model_key</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/home/runner/work/Ax/Ax/ax/core/observation.py:274: FutureWarning: In a future version of pandas, a length 1 tuple will be returned when iterating over a groupby with a grouper equal to a list of length 1. Don't supply a list with a single grouper to avoid this warning.
+  for g, d in df.groupby(by=cols):
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Completed trial #0, suggested by Sobol.
+Completed trial #1, suggested by Sobol.
+Completed trial #2, suggested by Sobol.
+Completed trial #3, suggested by Sobol.
+Completed trial #4, suggested by Sobol.
+Completed trial #5, suggested by BoTorch.
+Completed trial #6, suggested by BoTorch.
+Completed trial #7, suggested by BoTorch.
+Completed trial #8, suggested by BoTorch.
+Completed trial #9, suggested by BoTorch.
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Now we examine the experiment and observe the trials that were added to it and produced by the generation strategy:</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [21]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">exp_to_df</span><span class="p">(</span><span class="n">experiment</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[21]:</div>
+<div class="output_html rendered_html output_subarea output_execute_result"><div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+<thead>
+<tr style="text-align: right;">
+<th></th>
+<th>branin</th>
+<th>trial_index</th>
+<th>arm_name</th>
+<th>x1</th>
+<th>x2</th>
+<th>trial_status</th>
+<th>generation_method</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th>0</th>
+<td>20.056458</td>
+<td>0</td>
+<td>0_0</td>
+<td>-0.344116</td>
+<td>5.554373</td>
+<td>COMPLETED</td>
+<td>Sobol</td>
+</tr>
+<tr>
+<th>1</th>
+<td>143.219136</td>
+<td>1</td>
+<td>1_0</td>
+<td>4.574241</td>
+<td>13.022084</td>
+<td>COMPLETED</td>
+<td>Sobol</td>
+</tr>
+<tr>
+<th>2</th>
+<td>29.468958</td>
+<td>2</td>
+<td>2_0</td>
+<td>-1.762576</td>
+<td>4.591457</td>
+<td>COMPLETED</td>
+<td>Sobol</td>
+</tr>
+<tr>
+<th>3</th>
+<td>251.771465</td>
+<td>3</td>
+<td>3_0</td>
+<td>-4.730421</td>
+<td>0.876010</td>
+<td>COMPLETED</td>
+<td>Sobol</td>
+</tr>
+<tr>
+<th>4</th>
+<td>16.368165</td>
+<td>4</td>
+<td>4_0</td>
+<td>5.407360</td>
+<td>0.702890</td>
+<td>COMPLETED</td>
+<td>Sobol</td>
+</tr>
+<tr>
+<th>5</th>
+<td>8.773547</td>
+<td>5</td>
+<td>5_0</td>
+<td>4.135004</td>
+<td>3.631441</td>
+<td>COMPLETED</td>
+<td>BoTorch</td>
+</tr>
+<tr>
+<th>6</th>
+<td>1.311341</td>
+<td>6</td>
+<td>6_0</td>
+<td>9.106460</td>
+<td>2.876144</td>
+<td>COMPLETED</td>
+<td>BoTorch</td>
+</tr>
+<tr>
+<th>7</th>
+<td>10.960889</td>
+<td>7</td>
+<td>7_0</td>
+<td>10.000000</td>
+<td>0.000000</td>
+<td>COMPLETED</td>
+<td>BoTorch</td>
+</tr>
+<tr>
+<th>8</th>
+<td>95.361415</td>
+<td>8</td>
+<td>8_0</td>
+<td>-5.000000</td>
+<td>8.096834</td>
+<td>COMPLETED</td>
+<td>BoTorch</td>
+</tr>
+<tr>
+<th>9</th>
+<td>10.635934</td>
+<td>9</td>
+<td>9_0</td>
+<td>7.797582</td>
+<td>1.752156</td>
+<td>COMPLETED</td>
+<td>BoTorch</td>
+</tr>
+</tbody>
+</table>
+</div></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="6.-Customizing-a-Surrogate-or-Acquisition">6. Customizing a <code>Surrogate</code> or <code>Acquisition</code><a class="anchor-link" href="#6.-Customizing-a-Surrogate-or-Acquisition">¶</a></h2><p>We expect the base <code>Surrogate</code>, <code>ListSurrogate</code>, and <code>Acquisition</code> classes to work with most BoTorch components, but there could be a case where you would need to subclass one of aforementioned abstractions to handle a given BoTorch component. If you run into a case like this, feel free to open an issue on our <a href="https://github.com/facebook/Ax/issues">Github issues page</a> –– it would be very useful for us to know</p>
+<p>One such example would be a need for a custom <code>AcquisitionObjective</code> or for a custom acquisition function optimization utility. To subclass <code>Acquisition</code> accordingly, one would override the <code>get_botorch_objective</code> method:</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [22]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">class</span> <span class="nc">CustomObjectiveAcquisition</span><span class="p">(</span><span class="n">Acquisition</span><span class="p">):</span>
+    
+    <span class="k">def</span> <span class="nf">get_botorch_objective</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">botorch_acqf_class</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">AcquisitionFunction</span><span class="p">],</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span>
+        <span class="n">objective_weights</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">X_observed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AcquisitionObjective</span><span class="p">:</span>
+        <span class="o">...</span>  <span class="c1"># Produce the desired `AcquisitionObjective` instead of the default</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Then to use the new subclass in <code>BoTorchModel</code>, just specify <code>acquisition_class</code> argument along with <code>botorch_acqf_class</code> (to <code>BoTorchModel</code> directly or to <code>Models.BOTORCH_MODULAR</code>, which just passes the relevant arguments to <code>BoTorchModel</code> under the hood, as discussed in section 4):</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [23]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">Models</span><span class="o">.</span><span class="n">BOTORCH_MODULAR</span><span class="p">(</span>
+    <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> 
+    <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+    <span class="n">acquisition_class</span><span class="o">=</span><span class="n">CustomObjectiveAcquisition</span><span class="p">,</span>
+    <span class="n">botorch_acqf_class</span><span class="o">=</span><span class="n">MyAcquisitionFunctionClass</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 09-28 16:24:00] ax.modelbridge.transforms.standardize_y: Outcome branin is constant, within tolerance.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt output_prompt">Out[23]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>&lt;ax.modelbridge.torch.TorchModelBridge at 0x7f33c2d3e040&gt;</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>To use a custom <code>Surrogate</code> subclass, pass the <code>surrogate</code> argument of that type:</p>
+<pre><code>Models.BOTORCH_MODULAR(
+    experiment=experiment, 
+    data=data,
+    surrogate=CustomSurrogate(botorch_model_class=MyModelClass),
+)
+</code></pre>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr/>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Appendix-1:-Methods-available-on-BoTorchModel">Appendix 1: Methods available on <code>BoTorchModel</code><a class="anchor-link" href="#Appendix-1:-Methods-available-on-BoTorchModel">¶</a></h2><p>Note that usually all these methods are used through <code>ModelBridge</code> –– a convertion and transformation layer that adapts Ax abstractions to inputs required by the given model.</p>
+<p><strong>Core methods on <code>BoTorchModel</code>:</strong></p>
+<ul>
+<li><code>fit</code> selects a surrogate if needed and fits the surrogate model to data via <code>Surrogate.fit</code>,</li>
+<li><code>predict</code> estimates metric values at a given point via <code>Surrogate.predict</code>,</li>
+<li><code>gen</code> instantiates an acquisition function via <code>Acquisition.__init__</code> and optimizes it to generate candidates.</li>
+</ul>
+<p><strong>Other methods on <code>BoTorchModel</code>:</strong></p>
+<ul>
+<li><code>update</code> updates surrogate model with training data and optionally reoptimizes model parameters via <code>Surrogate.update</code>,</li>
+<li><code>cross_validate</code> re-fits the surrogate model to subset of training data and makes predictions for test data,</li>
+<li><code>evaluate_acquisition_function</code> instantiates an acquisition function and evaluates it for a given point.</li>
+</ul>
+<hr/>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Appendix-2:-Default-surrogate-models-and-acquisition-functions">Appendix 2: Default surrogate models and acquisition functions<a class="anchor-link" href="#Appendix-2:-Default-surrogate-models-and-acquisition-functions">¶</a></h2><p>By default, the chosen surrogate model will be:</p>
+<ul>
+<li>if fidelity parameters are present in search space: <code>FixedNoiseMultiFidelityGP</code> (if <a href="https://ax.dev/docs/glossary.html#sem">SEM</a>s are known on observations) and <code>SingleTaskMultiFidelityGP</code> (if variance unknown and needs to be inferred),</li>
+<li>if task parameters are present: a set of <code>FixedNoiseMultiTaskGP</code> (if known variance) or <code>MultiTaskGP</code> (if unknown variance), wrapped in a <code>ModelListGP</code> and each modeling one task,</li>
+<li><code>FixedNoiseGP</code> (known variance) and <code>SingleTaskGP</code> (unknown variance) otherwise.</li>
+</ul>
+<p>The chosen acquisition function will be:</p>
+<ul>
+<li>for multi-objective settings: <code>qExpectedHypervolumeImprovement</code>,</li>
+<li><code>qExpectedImprovement</code> (known variance) and <code>qNoisyExpectedImprovement</code> (unknown variance) otherwise.</li>
+</ul>
+<hr/>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Appendix-3:-Handling-storage-errors-that-arise-from-objects-that-don't-have-serialization-logic-in-A">Appendix 3: Handling storage errors that arise from objects that don't have serialization logic in A<a class="anchor-link" href="#Appendix-3:-Handling-storage-errors-that-arise-from-objects-that-don't-have-serialization-logic-in-A">¶</a></h2><p>Attempting to store a generator run produced via <code>Models.BOTORCH_MODULAR</code> instance that included options without serization logic with will produce an error like: <code>"Object &lt;SomeAcquisitionOption object&gt; passed to 'object_to_json' (of type &lt;class SomeAcquisitionOption'&gt;) is not registered with a corresponding encoder in ENCODER_REGISTRY."</code></p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The two options for handling this error are:</p>
+<ol>
+<li>disabling storage of <code>BoTorchModel</code>'s options by passing <code>no_model_options_storage=True</code> to <code>Models.BOTORCH_MODULAR(...)</code> call –– this will prevent model options from being stored on the generator run, so a generator run can be saved but cannot be used to restore the model that produced it,</li>
+<li>specifying serialization logic for a given object that needs to occur among the <code>Model</code> or <code>AcquisitionFunction</code> options. Tutorial for this is in the works, but in the meantime you can <a href="https://github.com/facebook/Ax/issues">post an issue on the Ax GitHub</a> to get help with this.</li>
+</ol>
+</div>
+</div>
+</div>
+</div></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/0.2.8/files/modular_botax.ipynb" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Jupyter Notebook</a></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/0.2.8/files//modular_botax.py" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Source Code</a></div><div class="tutorialRuntime"><p>Total runtime of script: 6.02 seconds.</p></div></div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.8/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>
