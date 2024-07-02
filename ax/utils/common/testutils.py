@@ -11,6 +11,7 @@
 
 import builtins
 import contextlib
+import cProfile
 import io
 import linecache
 import logging
@@ -21,6 +22,7 @@ import types
 import unittest
 import warnings
 from logging import Logger
+from pstats import Stats
 from types import FrameType
 from typing import (
     Any,
@@ -288,18 +290,19 @@ class TestCase(fake_filesystem_unittest.TestCase):
     """The base Ax test case, contains various helper functions to write unittests."""
 
     MAX_TEST_SECONDS = 480
-    MIN_TTOT = 1.0
-    PROFILER_COLUMNS = {
-        0: ("name", 100),  # default 36 is often not enough
-        1: ("ncall", 5),
-        2: ("tsub", 8),
-        3: ("ttot", 8),
-        4: ("tavg", 8),
-    }
+    NUMBER_OF_PROFILER_LINES_TO_OUTPUT = 20
+    PROFILE_TESTS = False
 
     def __init__(self, methodName: str = "runTest") -> None:
         def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
-            logger.warning(f"Test took longer than {self.MAX_TEST_SECONDS} seconds.")
+            message = f"Test took longer than {self.MAX_TEST_SECONDS} seconds."
+            if self.PROFILE_TESTS:
+                self._print_profiler_output()
+            else:
+                message += (
+                    " To see a profiler output, set `TestCase.PROFILE_TESTS` to `True`."
+                )
+            logger.warning(message)
 
         super().__init__(methodName=methodName)
         signal.signal(signal.SIGALRM, signal_handler)
@@ -319,6 +322,10 @@ class TestCase(fake_filesystem_unittest.TestCase):
         Also silences a number of common warnings originating from Ax & BoTorch.
         """
         super().setUp()
+        self.profiler = cProfile.Profile()
+        if self.PROFILE_TESTS:
+            self.profiler.enable()
+            self.addCleanup(self.profiler.disable)
         logger = get_logger(__name__, level=logging.WARNING)
         # Parent handlers are shared, so setting the level this
         # way applies it to all Ax loggers.
@@ -472,6 +479,20 @@ class TestCase(fake_filesystem_unittest.TestCase):
             raise
         finally:
             sys.stderr = old_err
+
+    def _print_profiler_output(self) -> None:
+        """Print profiler output to stdout."""
+        s = io.StringIO()
+        ps = Stats(self.profiler, stream=s).sort_stats("cumulative").reverse_order()
+        ps.print_stats()
+        output = s.getvalue().splitlines()
+        headers = output[:5]
+        # Print the headers
+        for line in headers:
+            print(line)
+        # Print the longest running functions
+        for line in output[-self.NUMBER_OF_PROFILER_LINES_TO_OUTPUT :]:
+            print(line)
 
     # This list is taken from the python standard library
     # pyre-fixme[4]: Attribute must be annotated.
