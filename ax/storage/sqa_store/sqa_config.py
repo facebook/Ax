@@ -10,6 +10,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, Optional, Type
 
+from ax.analysis.analysis_report import AnalysisReport
+from ax.analysis.base_analysis import BaseAnalysis
+
 from ax.core.arm import Arm
 from ax.core.batch_trial import AbandonedArm
 from ax.core.data import Data
@@ -32,6 +35,8 @@ from ax.storage.runner_registry import CORE_RUNNER_REGISTRY
 from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
+    SQAAnalysis,
+    SQAAnalysisReport,
     SQAArm,
     SQAData,
     SQAExperiment,
@@ -74,6 +79,8 @@ class SQAConfig:
             Metric: SQAMetric,
             Runner: SQARunner,
             Trial: SQATrial,
+            BaseAnalysis: SQAAnalysis,
+            AnalysisReport: SQAAnalysisReport,
         }
 
     class_to_sqa_class: Dict[Type[Base], Type[SQABase]] = field(
