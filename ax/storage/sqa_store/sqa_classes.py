@@ -34,7 +34,13 @@ from ax.storage.sqa_store.json import (
 )
 from ax.storage.sqa_store.sqa_enum import IntEnum, StringEnum
 from ax.storage.sqa_store.timestamp import IntTimestamp
-from ax.storage.utils import DataType, DomainType, MetricIntent, ParameterConstraintType
+from ax.storage.utils import (
+    AnalysisType,
+    DataType,
+    DomainType,
+    MetricIntent,
+    ParameterConstraintType,
+)
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -514,3 +520,54 @@ class SQAExperiment(Base):
         uselist=False,
         lazy=True,
     )
+
+
+class SQAAnalysis(Base):
+    __tablename__: str = "experiment_analysis"
+
+    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
+    id: int = Column(Integer, primary_key=True)
+
+    # pyre-fixme[8]: Attribute has type `str`; used as `Column[str]`.
+    analysis_class_name: str = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
+    # pyre-fixme[8]: Attribute has type `datetime`; used as `Column[typing.Any]`.
+    time_analysis_start: datetime = Column(IntTimestamp, nullable=False)
+    # pyre-fixme[8]: Attribute has type `datetime`; used as `Column[typing.Any]`.
+    time_analysis_completed: datetime = Column(IntTimestamp, nullable=False)
+
+    # pyre-fixme[8]: Attribute has type `AnalysisType`; used as
+    #  `Column[typing.Any]`.
+    experiment_analysis_type: AnalysisType = Column(
+        StringEnum(AnalysisType), nullable=False
+    )
+
+    # pyre-fixme[8]: Attribute has type `str`; used as `Column[str]`.
+    dataframe_json: str = Column(Text(LONGTEXT_BYTES), nullable=False)
+
+    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as
+    #  `Column[Optional[str]]`.
+    fig_json: Optional[str] = Column(Text(LONGTEXT_BYTES), nullable=True)
+    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as
+    #  `Column[Optional[str]]`.
+    plotly_version: Optional[str] = Column(String, nullable=True)
+
+    # pyre-fixme[8]: Attribute has type `int`; used as `Column[Optional[int]]`.
+    experiment_id: int = Column(Integer)
+    # pyre-fixme[8]: Attribute has type `int`; used as `Column[Optional[int]]`.
+    analysis_report_id: int = Column(Integer, ForeignKey("analysis_report_v2.id"))
+
+
+class SQAAnalysisReport(Base):
+    __tablename__: str = "analysis_report_v2"
+
+    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
+    id: int = Column(Integer, primary_key=True)
+    # pyre-fixme[8]: Attribute has type `datetime`; used as `Column[typing.Any]`.
+    time_report_start: datetime = Column(IntTimestamp, nullable=False)
+
+    analyses: Optional[List[SQAAnalysis]] = relationship(
+        "SQAAnalysis", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+    # pyre-fixme[8]: Attribute has type `int`; used as `Column[Optional[int]]`.
+    experiment_id: int = Column(Integer, ForeignKey("experiment_v2.id"))
