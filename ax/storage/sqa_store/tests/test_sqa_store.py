@@ -10,6 +10,7 @@ import logging
 from datetime import datetime
 from logging import Logger
 from typing import Any
+from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 
 from ax.core.arm import Arm
@@ -27,7 +28,7 @@ from ax.metrics.branin import BraninMetric
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
-from ax.storage.metric_registry import CORE_METRIC_REGISTRY, register_metric
+from ax.storage.metric_registry import CORE_METRIC_REGISTRY, register_metrics
 from ax.storage.registry_bundle import RegistryBundle
 from ax.storage.runner_registry import CORE_RUNNER_REGISTRY, register_runner
 from ax.storage.sqa_store.db import (
@@ -235,7 +236,7 @@ class SQAStoreTest(TestCase):
             metric_registry,
             partial_encoder_registry,
             partial_decoder_registry,
-        ) = register_metric(metric_cls=CustomTestMetric)
+        ) = register_metrics(metric_clss={CustomTestMetric: None, Metric: 0})
 
         runner_registry, encoder_registry, decoder_registry = register_runner(
             runner_cls=CustomTestRunner,
@@ -1244,7 +1245,8 @@ class SQAStoreTest(TestCase):
             metric_registry,
             partial_encoder_registry,
             partial_decoder_registry,
-        ) = register_metric(metric_cls=MyMetric)
+        ) = register_metrics(metric_clss={MyMetric: None, Metric: 0})
+        self.assertEqual(metric_registry, {MyMetric: mock.ANY, Metric: 0})
         runner_registry, encoder_registry, decoder_registry = register_runner(
             runner_cls=MyRunner,
             encoder_registry=partial_encoder_registry,
@@ -1277,8 +1279,9 @@ class SQAStoreTest(TestCase):
             pass
 
         bundle = RegistryBundle(
-            metric_clss={MyMetric: 1998}, runner_clss={MyRunner: None}
+            metric_clss={MyMetric: 1998, Metric: 0}, runner_clss={MyRunner: None}
         )
+        self.assertEqual(bundle.metric_registry, {MyMetric: 1998, Metric: 0})
 
         experiment = get_experiment_with_batch_trial()
         experiment.runner = MyRunner()
