@@ -46,44 +46,8 @@ CORE_METRIC_REGISTRY: Dict[Type[Metric], int] = {
 
 
 # pyre-fixme[3]: Return annotation cannot contain `Any`.
-def register_metric(
-    metric_cls: Type[Metric],
-    metric_registry: Optional[Dict[Type[Metric], int]] = None,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    encoder_registry: Dict[
-        Type, Callable[[Any], Dict[str, Any]]
-    ] = CORE_ENCODER_REGISTRY,
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
-    val: Optional[int] = None,
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
-    #  avoid runtime subscripting errors.
-) -> Tuple[
-    Dict[Type[Metric], int],
-    Dict[Type, Callable[[Any], Dict[str, Any]]],
-    Dict[str, Type],
-]:
-    """Add a custom metric class to the SQA and JSON registries.
-    For the SQA registry, if no int is specified, use a hash of the class name.
-    """
-    metric_registry = metric_registry or {Metric: 0}
-
-    registered_val = val or abs(stable_hash(metric_cls.__name__)) % (10**5)
-
-    new_metric_registry = {metric_cls: registered_val, **metric_registry}
-    new_encoder_registry = {metric_cls: metric_to_dict, **encoder_registry}
-    new_decoder_registry = {metric_cls.__name__: metric_cls, **decoder_registry}
-
-    return new_metric_registry, new_encoder_registry, new_decoder_registry
-
-
-# pyre-fixme[3]: Return annotation cannot contain `Any`.
 def register_metrics(
     metric_clss: Dict[Type[Metric], Optional[int]],
-    metric_registry: Optional[Dict[Type[Metric], int]] = None,
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
@@ -103,14 +67,10 @@ def register_metrics(
     """Add custom metric classes to the SQA and JSON registries.
     For the SQA registry, if no int is specified, use a hash of the class name.
     """
-    metric_registry = metric_registry or {Metric: 1}
 
     new_metric_registry = {
-        **{
-            metric_cls: val if val else abs(stable_hash(metric_cls.__name__)) % (10**5)
-            for metric_cls, val in metric_clss.items()
-        },
-        **metric_registry,
+        metric_cls: val if val else abs(stable_hash(metric_cls.__name__)) % (10**5)
+        for metric_cls, val in metric_clss.items()
     }
     new_encoder_registry = {
         **{metric_cls: metric_to_dict for metric_cls in metric_clss},
