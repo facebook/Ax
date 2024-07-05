@@ -10,7 +10,6 @@ import pathlib
 from typing import Any, Callable, Dict, Type
 
 import torch
-
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
@@ -83,6 +82,10 @@ from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.metrics.l2norm import L2NormMetric
 from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.metrics.sklearn import SklearnDataset, SklearnMetric, SklearnModelType
+from ax.modelbridge.best_model_selector import (
+    ReductionCriterion,
+    SingleDiagnosticBestModelSelector,
+)
 from ax.modelbridge.factory import Models
 from ax.modelbridge.generation_node import GenerationNode, GenerationStep
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -114,6 +117,7 @@ from ax.storage.json_store.encoders import (
     arm_to_dict,
     batch_to_dict,
     benchmark_problem_to_dict,
+    best_model_selector_to_dict,
     botorch_component_to_dict,
     botorch_model_to_dict,
     botorch_modular_to_dict,
@@ -179,9 +183,9 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     AugmentedBraninMetric: metric_to_dict,
     AugmentedHartmann6Metric: metric_to_dict,
     BatchTrial: batch_to_dict,
+    BenchmarkMetric: metric_to_dict,
     BenchmarkProblem: benchmark_problem_to_dict,
     BoTorchModel: botorch_model_to_dict,
-    BenchmarkMetric: metric_to_dict,
     BotorchTestProblemRunner: runner_to_dict,
     BraninMetric: metric_to_dict,
     BraninTimestampMapMetric: metric_to_dict,
@@ -247,6 +251,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     TransitionCriterion: transition_criterion_to_dict,
     ScalarizedObjective: scalarized_objective_to_dict,
     SearchSpace: search_space_to_dict,
+    SingleDiagnosticBestModelSelector: best_model_selector_to_dict,
     SingleObjectiveBenchmarkProblem: single_objective_benchmark_problem_to_dict,
     HierarchicalSearchSpace: search_space_to_dict,
     SumConstraint: sum_parameter_constraint_to_dict,
@@ -286,8 +291,8 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "AugmentedBraninMetric": AugmentedBraninMetric,
     "AugmentedHartmann6Metric": AugmentedHartmann6Metric,
     "Arm": Arm,
-    "BatchTrial": BatchTrial,
     "AggregatedBenchmarkResult": AggregatedBenchmarkResult,
+    "BatchTrial": BatchTrial,
     "BenchmarkMethod": BenchmarkMethod,
     "BenchmarkMetric": BenchmarkMetric,
     "BenchmarkProblem": BenchmarkProblem,
@@ -365,12 +370,14 @@ CORE_DECODER_REGISTRY: Dict[str, Type] = {
     "PyTorchCNNMetric": PyTorchCNNMetric,
     "PyTorchCNNTorchvisionRunner": PyTorchCNNTorchvisionRunner,
     "RangeParameter": RangeParameter,
+    "ReductionCriterion": ReductionCriterion,
     "RiskMeasure": RiskMeasure,
     "RobustSearchSpace": RobustSearchSpace,
     "Round": Round,
     "ScalarizedObjective": ScalarizedObjective,
     "SchedulerOptions": SchedulerOptions,
     "SearchSpace": SearchSpace,
+    "SingleDiagnosticBestModelSelector": SingleDiagnosticBestModelSelector,
     "SingleObjectiveBenchmarkProblem": SingleObjectiveBenchmarkProblem,
     "SklearnDataset": SklearnDataset,
     "SklearnMetric": SklearnMetric,

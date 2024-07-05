@@ -65,8 +65,11 @@ class GenerationNode(SerializationMixin, SortableBase):
     the hood and generating candidates from them.
 
     Args:
+        node_name: A unique name for the GenerationNode. Used for storage purposes.
         model_specs: A list of ModelSpecs to be selected from for generation in this
-            GenerationNode
+            GenerationNode.
+        best_model_selector: A ``BestModelSelector`` used to select the ``ModelSpec``
+            to generate from in ``GenerationNode`` with multiple ``ModelSpec``s.
         should_deduplicate: Whether to deduplicate the parameters of proposed arms
             against those of previous arms via rejection sampling. If this is True,
             the GenerationStrategy will discard generator runs produced from the
@@ -76,7 +79,6 @@ class GenerationNode(SerializationMixin, SortableBase):
             attempts, a `GenerationStrategyRepeatedPoints` error will be raised, as we
             assume that the optimization converged when the model can no longer suggest
             unique arms.
-        node_name: A unique name for the GenerationNode. Used for storage purposes.
         transition_criteria: List of TransitionCriterion, each of which describes a
             condition that must be met before completing a GenerationNode. All `is_met`
             must evaluateTrue for the GenerationStrategy to move on to the next

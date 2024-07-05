@@ -657,9 +657,11 @@ def generation_node_from_json(
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         ),
-        # TODO @mgarrad this should probably be a object_from_json but bestmodelselector
-        # isn't implemented
-        best_model_selector=generation_node_json.pop("best_model_selector", None),
+        best_model_selector=object_from_json(
+            generation_node_json.pop("best_model_selector", None),
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        ),
         should_deduplicate=generation_node_json.pop("should_deduplicate", False),
         transition_criteria=(
             object_from_json(

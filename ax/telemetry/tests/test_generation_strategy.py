@@ -40,7 +40,7 @@ class TestGenerationStrategy(TestCase):
                 generation_strategy=gs
             )
         expected = GenerationStrategyCreatedRecord(
-            generation_strategy_name="Sobol+GPEI_Nodes",
+            generation_strategy_name="Sobol+MBM_Nodes",
             num_requested_initialization_trials=None,
             num_requested_bayesopt_trials=None,
             num_requested_other_trials=None,
