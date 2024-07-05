@@ -523,7 +523,7 @@ class SQAExperiment(Base):
 
 
 class SQAAnalysis(Base):
-    __tablename__: str = "experiment_analysis"
+    __tablename__: str = "analysis"
 
     # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
     id: int = Column(Integer, primary_key=True)
@@ -549,7 +549,9 @@ class SQAAnalysis(Base):
     fig_json: Optional[str] = Column(Text(LONGTEXT_BYTES), nullable=True)
     # pyre-fixme[8]: Attribute has type `Optional[str]`; used as
     #  `Column[Optional[str]]`.
-    plotly_version: Optional[str] = Column(String, nullable=True)
+    plotly_version: Optional[str] = Column(
+        String(NAME_OR_TYPE_FIELD_LENGTH), nullable=True
+    )
 
     # pyre-fixme[8]: Attribute has type `int`; used as `Column[Optional[int]]`.
     experiment_id: int = Column(Integer)
