@@ -615,9 +615,9 @@ class GenerationStep(GenerationNode, SortableBase):
 
     # Optional model specifications:
     # Kwargs to pass into the Models constructor (or factory function).
-    model_kwargs: Optional[Dict[str, Any]] = None
+    model_kwargs: Dict[str, Any] = field(default_factory=dict)
     # Kwargs to pass into the Model's `.gen` function.
-    model_gen_kwargs: Optional[Dict[str, Any]] = None
+    model_gen_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     # Optional specifications for use in generation strategy:
     completion_criteria: Sequence[TransitionCriterion] = field(default_factory=list)
@@ -651,6 +651,9 @@ class GenerationStep(GenerationNode, SortableBase):
                 f"{self.num_trials}`), making completion of this step impossible. "
                 "Please alter inputs so that `min_trials_observed <= num_trials`."
             )
+        # For backwards compatibility with None / Optional input.
+        self.model_kwargs = self.model_kwargs or {}
+        self.model_gen_kwargs = self.model_gen_kwargs or {}
         if not isinstance(self.model, ModelRegistryBase):
             if not callable(self.model):
                 raise UserInputError(

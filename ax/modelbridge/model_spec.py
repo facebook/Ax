@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import warnings
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from ax.core.data import Data
@@ -56,11 +56,11 @@ class ModelSpec(SortableBase, SerializationMixin):
     model_enum: ModelRegistryBase
     # Kwargs to pass into the `Model` + `ModelBridge` constructors in
     # `ModelRegistryBase.__call__`.
-    model_kwargs: Optional[Dict[str, Any]] = None
+    model_kwargs: Dict[str, Any] = field(default_factory=dict)
     # Kwargs to pass to `ModelBridge.gen`.
-    model_gen_kwargs: Optional[Dict[str, Any]] = None
+    model_gen_kwargs: Dict[str, Any] = field(default_factory=dict)
     # Kwargs to pass to `cross_validate`.
-    model_cv_kwargs: Optional[Dict[str, Any]] = None
+    model_cv_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     # Fitted model, constructed using specified `model_kwargs` and `Data`
     # on `ModelSpec.fit`
@@ -91,19 +91,13 @@ class ModelSpec(SortableBase, SerializationMixin):
         """
         Fixed generation features to pass into the Model's `.gen` function.
         """
-        return (
-            self.model_gen_kwargs.get("fixed_features")
-            if self.model_gen_kwargs is not None
-            else None
-        )
+        return self.model_gen_kwargs.get("fixed_features", None)
 
     @fixed_features.setter
     def fixed_features(self, value: Optional[ObservationFeatures]) -> None:
         """
         Fixed generation features to pass into the Model's `.gen` function.
         """
-        if self.model_gen_kwargs is None:
-            self.model_gen_kwargs = {}
         self.model_gen_kwargs["fixed_features"] = value
 
     @property
@@ -131,7 +125,7 @@ class ModelSpec(SortableBase, SerializationMixin):
         # NOTE: It's important to copy `self.model_kwargs` here to avoid actually
         # adding contents of `model_kwargs` passed to this method, to
         # `self.model_kwargs`.
-        combined_model_kwargs = {**(self.model_kwargs or {}), **model_kwargs}
+        combined_model_kwargs = {**self.model_kwargs, **model_kwargs}
         if self._fitted_model is not None and self._safe_to_update(
             experiment=experiment, combined_model_kwargs=combined_model_kwargs
         ):
@@ -168,11 +162,12 @@ class ModelSpec(SortableBase, SerializationMixin):
         self._assert_fitted()
         try:
             self._cv_results = cross_validate(
-                model=self.fitted_model,
-                **(self.model_cv_kwargs or {}),
+                model=self.fitted_model, **self.model_cv_kwargs
             )
         except NotImplementedError:
-            warnings.warn(f"{self.model_enum.value} cannot be cross validated")
+            warnings.warn(
+                f"{self.model_enum.value} cannot be cross validated", stacklevel=2
+            )
             return None, None
 
         self._diagnostics = compute_diagnostics(self._cv_results)
@@ -213,15 +208,10 @@ class ModelSpec(SortableBase, SerializationMixin):
         """
         fitted_model = self.fitted_model
         model_gen_kwargs = consolidate_kwargs(
-            kwargs_iterable=[
-                self.model_gen_kwargs,
-                model_gen_kwargs,
-            ],
+            kwargs_iterable=[self.model_gen_kwargs, model_gen_kwargs],
             keywords=get_function_argument_names(fitted_model.gen),
         )
-        generator_run = fitted_model.gen(
-            **model_gen_kwargs,
-        )
+        generator_run = fitted_model.gen(**model_gen_kwargs)
         fit_and_std_quality_and_generalization_dict = (
             get_fit_and_std_quality_and_generalization_dict(
                 fitted_model_bridge=self.fitted_model,
@@ -320,6 +310,7 @@ class FactoryFunctionModelSpec(ModelSpec):
     model_enum: Optional[ModelRegistryBase] = None
 
     def __post_init__(self) -> None:
+        super().__post_init__()
         if self.model_enum is not None:
             raise UserInputError(
                 "Use regular `ModelSpec` when it's possible to describe the "
@@ -333,7 +324,8 @@ class FactoryFunctionModelSpec(ModelSpec):
             )
         warnings.warn(
             "Using a factory function to describe the model, so optimization state "
-            "cannot be stored and optimization is not resumable if interrupted."
+            "cannot be stored and optimization is not resumable if interrupted.",
+            stacklevel=3,
         )
 
     @property
@@ -360,7 +352,7 @@ class FactoryFunctionModelSpec(ModelSpec):
         kwargs to this function (local kwargs take precedent)
         """
         factory_function = not_none(self.factory_function)
-        all_kwargs = deepcopy((self.model_kwargs or {}))
+        all_kwargs = deepcopy(self.model_kwargs)
         all_kwargs.update(model_kwargs)
         self._fitted_model = factory_function(
             # Factory functions do not have a unified signature; e.g. some factory
