@@ -17,6 +17,7 @@ from ax.storage.json_store.registry import (
     CORE_CLASS_ENCODER_REGISTRY,
     CORE_DECODER_REGISTRY,
     CORE_ENCODER_REGISTRY,
+    TDecoderRegistry,
 )
 from ax.storage.metric_registry import register_metrics
 from ax.storage.runner_registry import register_runners
@@ -61,9 +62,7 @@ class RegistryBundleBase(ABC):
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
         json_class_encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]],
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-        json_decoder_registry: Dict[str, Type],
+        json_decoder_registry: TDecoderRegistry,
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         json_class_decoder_registry: Dict[str, Callable[[Dict[str, Any]], Any]],
     ) -> None:
@@ -105,9 +104,7 @@ class RegistryBundleBase(ABC):
         return self._encoder_registry
 
     @property
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    def decoder_registry(self) -> Dict[str, Type]:
+    def decoder_registry(self) -> TDecoderRegistry:
         return self._decoder_registry
 
     @property
@@ -183,9 +180,7 @@ class RegistryBundle(RegistryBundleBase):
         json_class_encoder_registry: Dict[
             Type, Callable[[Any], Dict[str, Any]]
         ] = CORE_CLASS_ENCODER_REGISTRY,
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-        json_decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
+        json_decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         json_class_decoder_registry: Dict[
             str, Callable[[Dict[str, Any]], Any]

@@ -91,6 +91,7 @@ from ax.storage.json_store.registry import (
     CORE_CLASS_ENCODER_REGISTRY,
     CORE_DECODER_REGISTRY,
     CORE_ENCODER_REGISTRY,
+    TDecoderRegistry,
 )
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
@@ -1424,9 +1425,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     def from_json_snapshot(
         cls: Type[AxClientSubclass],
         serialized: Dict[str, Any],
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-        decoder_registry: Optional[Dict[str, Type]] = None,
+        decoder_registry: Optional[TDecoderRegistry] = None,
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         class_decoder_registry: Optional[
             Dict[str, Callable[[Dict[str, Any]], Any]]

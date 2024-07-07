@@ -12,7 +12,11 @@ from typing import Any, Callable, Dict, Optional, Tuple, Type
 from ax.core.runner import Runner
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.json_store.encoders import runner_to_dict
-from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
+from ax.storage.json_store.registry import (
+    CORE_DECODER_REGISTRY,
+    CORE_ENCODER_REGISTRY,
+    TDecoderRegistry,
+)
 from ax.storage.utils import stable_hash
 from ax.utils.common.logger import get_logger
 
@@ -40,16 +44,14 @@ def register_runner(
     encoder_registry: Dict[
         Type, Callable[[Any], Dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     val: Optional[int] = None,
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
     #  avoid runtime subscripting errors.
 ) -> Tuple[
     Dict[Type[Runner], int],
     Dict[Type, Callable[[Any], Dict[str, Any]]],
-    Dict[str, Type],
+    TDecoderRegistry,
 ]:
     """Add a custom runner class to the SQA and JSON registries.
     For the SQA registry, if no int is specified, use a hash of the class name.
@@ -73,15 +75,13 @@ def register_runners(
     encoder_registry: Dict[
         Type, Callable[[Any], Dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
     #  avoid runtime subscripting errors.
 ) -> Tuple[
     Dict[Type[Runner], int],
     Dict[Type, Callable[[Any], Dict[str, Any]]],
-    Dict[str, Type],
+    TDecoderRegistry,
 ]:
     """Add custom runner classes to the SQA and JSON registries.
     For the SQA registry, if no int is specified, use a hash of the class name.

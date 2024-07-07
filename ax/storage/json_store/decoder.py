@@ -164,7 +164,9 @@ def object_from_json(
             )
             raise JSONDecodeError(err)
 
-        _class = decoder_registry[_type]
+        # pyre-fixme[9, 24]: Generic type `type` expects 1 type parameter, use
+        # `typing.Type[<base type>]` to avoid runtime subscripting errors.
+        _class: Type = decoder_registry[_type]
 
         if isclass(_class) and issubclass(_class, Enum):
             # to access enum members by name, use item access

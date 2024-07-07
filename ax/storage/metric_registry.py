@@ -19,7 +19,11 @@ from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.metrics.sklearn import SklearnMetric
 from ax.storage.json_store.encoders import metric_to_dict
-from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
+from ax.storage.json_store.registry import (
+    CORE_DECODER_REGISTRY,
+    CORE_ENCODER_REGISTRY,
+    TDecoderRegistry,
+)
 from ax.storage.utils import stable_hash
 from ax.utils.common.logger import get_logger
 
@@ -54,15 +58,13 @@ def register_metrics(
     encoder_registry: Dict[
         Type, Callable[[Any], Dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
     #  avoid runtime subscripting errors.
 ) -> Tuple[
     Dict[Type[Metric], int],
     Dict[Type, Callable[[Any], Dict[str, Any]]],
-    Dict[str, Type],
+    TDecoderRegistry,
 ]:
     """Add custom metric classes to the SQA and JSON registries.
     For the SQA registry, if no int is specified, use a hash of the class name.

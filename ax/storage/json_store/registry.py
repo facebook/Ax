@@ -161,6 +161,7 @@ from ax.storage.json_store.encoders import (
     winsorization_config_to_dict,
 )
 from ax.storage.utils import DomainType, ParameterConstraintType
+from ax.utils.common.serialization import TDecoderRegistry
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from botorch.models.transforms.input import ChainedInputTransform, Normalize, Round
@@ -279,8 +280,7 @@ CORE_CLASS_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
 
 # TODO Clean up type signature. Decoders should be allowed to be any method from some
 # splattable inputs to the resultant class, not just Types with kwarg inits.
-# pyre-fixme[9, 24]
-CORE_DECODER_REGISTRY: Dict[str, Type] = {
+CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "AbandonedArm": AbandonedArm,
     "AndEarlyStoppingStrategy": AndEarlyStoppingStrategy,
     "AugmentedBraninMetric": AugmentedBraninMetric,
