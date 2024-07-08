@@ -11,12 +11,11 @@ from __future__ import annotations
 import inspect
 import pydoc
 from types import FunctionType
-from typing import Any, Callable, Dict, List, Optional, Type
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
 
 
-# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
-# avoid runtime subscripting errors.
-TDecoderRegistry = Dict[str, Type]
+T = TypeVar("T")
+TDecoderRegistry = Dict[str, Union[Type[T], Callable[..., T]]]
 # pyre-fixme[33]: `TClassDecoderRegistry` cannot alias to a type containing `Any`.
 TClassDecoderRegistry = Dict[str, Callable[[Dict[str, Any]], Any]]
 

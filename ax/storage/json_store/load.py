@@ -7,7 +7,7 @@
 # pyre-strict
 
 import json
-from typing import Any, Callable, Dict, Type
+from typing import Any, Callable, Dict
 
 from ax.core.experiment import Experiment
 from ax.storage.json_store.decoder import object_from_json
@@ -15,13 +15,12 @@ from ax.storage.json_store.registry import (
     CORE_CLASS_DECODER_REGISTRY,
     CORE_DECODER_REGISTRY,
 )
+from ax.utils.common.serialization import TDecoderRegistry
 
 
 def load_experiment(
     filepath: str,
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    decoder_registry: Dict[str, Type] = CORE_DECODER_REGISTRY,
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     class_decoder_registry: Dict[
         str, Callable[[Dict[str, Any]], Any]

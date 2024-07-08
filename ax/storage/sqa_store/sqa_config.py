@@ -29,6 +29,7 @@ from ax.storage.json_store.registry import (
     CORE_CLASS_ENCODER_REGISTRY,
     CORE_DECODER_REGISTRY,
     CORE_ENCODER_REGISTRY,
+    TDecoderRegistry,
 )
 from ax.storage.metric_registry import CORE_METRIC_REGISTRY
 from ax.storage.runner_registry import CORE_RUNNER_REGISTRY
@@ -101,9 +102,8 @@ class SQAConfig:
     json_class_encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]] = field(
         default_factory=lambda: CORE_CLASS_ENCODER_REGISTRY
     )
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    json_decoder_registry: Dict[str, Type] = field(
+
+    json_decoder_registry: TDecoderRegistry = field(
         default_factory=lambda: CORE_DECODER_REGISTRY
     )
     # pyre-fixme[4]: Attribute annotation cannot contain `Any`.
