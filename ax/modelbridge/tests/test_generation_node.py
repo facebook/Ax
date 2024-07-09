@@ -210,7 +210,6 @@ class TestGenerationStep(TestCase):
             #  `Union[typing.Callable[..., ModelBridge], ModelRegistryBase]`.
             model_enum=self.sobol_generation_step.model,
             model_kwargs=self.model_kwargs,
-            model_gen_kwargs=None,
         )
 
     def test_init(self) -> None:
@@ -251,13 +250,7 @@ class TestGenerationStep(TestCase):
         generation_step = GenerationStep(model=get_sobol, num_trials=-1)
         self.assertEqual(
             generation_step.model_specs,
-            [
-                FactoryFunctionModelSpec(
-                    factory_function=get_sobol,
-                    model_kwargs=None,
-                    model_gen_kwargs=None,
-                )
-            ],
+            [FactoryFunctionModelSpec(factory_function=get_sobol)],
         )
 
     def test_properties(self) -> None:

@@ -2816,7 +2816,6 @@ class TestAxClient(TestCase):
             )
         ax_client = get_branin_optimization(torch_device=device)
         gpei_step_kwargs = ax_client.generation_strategy._steps[1].model_kwargs
-        # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
         self.assertEqual(gpei_step_kwargs["torch_device"], device)
 
     def test_repr_function(
@@ -3019,5 +3018,5 @@ def _attach_not_completed_trials(ax_client) -> None:
 # Test metric evaluation method
 # pyre-fixme[2]: Parameter must be annotated.
 def _evaluate_test_metrics(parameters) -> Dict[str, Tuple[float, float]]:
-    x = np.array([parameters.get(f"x{i+1}") for i in range(2)])
+    x = np.array([parameters.get(f"x{i + 1}") for i in range(2)])
     return {"test_metric1": (x[0] / x[1], 0.0), "test_metric2": (x[0] + x[1], 0.0)}

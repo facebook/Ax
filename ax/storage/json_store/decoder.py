@@ -720,7 +720,7 @@ def generation_step_from_json(
                 ),
             )
             if kwargs
-            else None
+            else {}
         ),
         model_gen_kwargs=(
             _decode_callables_from_references(
@@ -731,7 +731,7 @@ def generation_step_from_json(
                 ),
             )
             if gen_kwargs
-            else None
+            else {}
         ),
         index=generation_step_json.pop("index", -1),
         should_deduplicate=generation_step_json.pop("should_deduplicate", False),
@@ -763,7 +763,7 @@ def model_spec_from_json(
                 ),
             )
             if kwargs
-            else None
+            else {}
         ),
         model_gen_kwargs=(
             _decode_callables_from_references(
@@ -774,7 +774,7 @@ def model_spec_from_json(
                 ),
             )
             if gen_kwargs
-            else None
+            else {}
         ),
     )
 

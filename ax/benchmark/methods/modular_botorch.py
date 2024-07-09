@@ -128,7 +128,7 @@ def get_sobol_botorch_modular_acquisition(
                 model=Models.BOTORCH_MODULAR,
                 num_trials=-1,
                 model_kwargs=model_kwargs,
-                model_gen_kwargs=model_gen_kwargs,
+                model_gen_kwargs=model_gen_kwargs or {},
             ),
         ],
     )

@@ -146,7 +146,6 @@ class ModelSpecTest(BaseModelSpecTest):
         new_features = ObservationFeatures(parameters={"a": 1.0})
         ms.fixed_features = new_features
         self.assertEqual(ms.fixed_features, new_features)
-        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         self.assertEqual(ms.model_gen_kwargs["fixed_features"], new_features)
 
     def test_gen_attaches_empty_model_fit_metadata_if_fit_not_applicable(self) -> None:
