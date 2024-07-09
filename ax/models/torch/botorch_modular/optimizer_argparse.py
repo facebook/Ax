@@ -42,15 +42,22 @@ def _argparse_base(
     init_batch_limit: int = INIT_BATCH_LIMIT,
     batch_limit: int = BATCH_LIMIT,
     optimizer_options: Optional[Dict[str, Any]] = None,
-    optimizer_is_discrete: bool = False,
+    *,
+    optimizer: str = "optimize_acqf",
     **ignore: Any,
 ) -> Dict[str, Any]:
-    """Extract the base optimizer kwargs form the given arguments.
+    """Extract the kwargs to be passed to a BoTorch optimizer.
 
     NOTE: Since `optimizer_options` is how the user would typically pass in these
     options, it takes precedence over other arguments. E.g., if both `num_restarts`
     and `optimizer_options["num_restarts"]` are provided, this will use
     `num_restarts` from `optimizer_options`.
+
+    NOTE: Arguments in `**ignore` are ignored; in addition, any arguments
+    specified in `optimizer_options` that are supported for some optimizers and
+    not others can be silently ignored. For example, `sequential` will not be
+    passed when the `optimizer` is `optimize_acqf_discrete`, since
+    `optimize_acqf_discrete` does not support it.
 
     Args:
         acqf: The acquisition function being optimized.
@@ -75,23 +82,46 @@ def _argparse_base(
                 >>>     },
                 >>>     "retry_on_optimization_warning": False,
                 >>> }
-        optimizer_is_discrete: True if the optimizer is `optimizer_acqf_discrete`,
-            which supports a limited set of arguments.
+        optimizer: one of "optimize_acqf",
+            "optimize_acqf_discrete_local_search", "optimize_acqf_discrete", or
+            "optimize_acqf_mixed". This is generally chosen by
+            `Acquisition.optimize`.
     """
-    optimizer_options = optimizer_options or {}
-    if optimizer_is_discrete:
-        return optimizer_options
-    return {
-        "sequential": sequential,
+    supported_optimizers = [
+        "optimize_acqf",
+        "optimize_acqf_discrete_local_search",
+        "optimize_acqf_discrete",
+        "optimize_acqf_mixed",
+    ]
+    if optimizer not in supported_optimizers:
+        raise ValueError(
+            f"optimizer=`{optimizer}` is not supported. Accepted options are "
+            f"{supported_optimizers}"
+        )
+    provided_options = optimizer_options if optimizer_options is not None else {}
+
+    # construct arguments from options that are not `provided_options`
+    options = {
         "num_restarts": num_restarts,
         "raw_samples": raw_samples,
-        "options": {
+    }
+    # if not, 'options' will be silently ignored
+    if optimizer in ["optimize_acqf", "optimize_acqf_mixed"]:
+        options["options"] = {
             "init_batch_limit": init_batch_limit,
             "batch_limit": batch_limit,
-            **optimizer_options.get("options", {}),
-        },
-        **{k: v for k, v in optimizer_options.items() if k != "options"},
-    }
+            **provided_options.get("options", {}),
+        }
+
+    if optimizer == "optimize_acqf":
+        options["sequential"] = sequential
+
+    # optimize_acqf_discrete only accepts 'choices', 'max_batch_size', 'unique'
+    if optimizer == "optimize_acqf_discrete":
+        return provided_options
+
+    options.update(**{k: v for k, v in provided_options.items() if k != "options"})
+    return options
 
 
 @optimizer_argparse.register(qKnowledgeGradient)
@@ -117,6 +147,7 @@ def _argparse_kg(
         num_restarts=num_restarts,
         raw_samples=raw_samples,
         optimizer_options=optimizer_options,
+        optimizer="optimize_acqf",
         **kwargs,
     )
 
