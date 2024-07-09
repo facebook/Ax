@@ -1074,7 +1074,9 @@ class SearchSpaceDigest:
     bounds: List[Tuple[Union[int, float], Union[int, float]]]
     ordinal_features: List[int] = field(default_factory=list)
     categorical_features: List[int] = field(default_factory=list)
-    discrete_choices: Dict[int, List[Union[int, float]]] = field(default_factory=dict)
+    discrete_choices: Mapping[int, List[Union[int, float]]] = field(
+        default_factory=dict
+    )
     task_features: List[int] = field(default_factory=list)
     fidelity_features: List[int] = field(default_factory=list)
     target_values: Dict[int, Union[int, float]] = field(default_factory=dict)

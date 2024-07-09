@@ -21,6 +21,7 @@ from botorch.test_functions.synthetic import (
     Ackley,
     ConstrainedGramacy,
     ConstrainedHartmann,
+    Cosine8,
 )
 from hypothesis import given, strategies as st
 
@@ -197,3 +198,12 @@ class TestBenchmarkProblem(TestCase):
             branin_currin_problem.maximum_hypervolume, test_problem._max_hv
         )
         self.assertEqual(branin_currin_problem.reference_point, test_problem._ref_point)
+
+    def test_maximization_problem(self) -> None:
+        test_problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
+            test_problem_class=Cosine8,
+            lower_is_better=False,
+            num_trials=1,
+            test_problem_kwargs={},
+        )
+        self.assertFalse(test_problem.optimization_config.objective.minimize)

@@ -18,7 +18,7 @@ References
     35, 2022.
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Dict, List, Optional, Tuple, Type, Union
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.metrics.benchmark import BenchmarkMetric
@@ -86,10 +86,10 @@ def _get_problem_from_common_inputs(
                 lower_is_better=lower_is_better,
                 observe_noise_sd=observe_noise_sd,
             ),
-            minimize=True,
+            minimize=lower_is_better,
         )
     )
-    test_problem_kwargs: Dict[str, Any] = {"dim": dim}
+    test_problem_kwargs: Dict[str, Union[int, List[Tuple[float, float]]]] = {"dim": dim}
     if test_problem_bounds is not None:
         test_problem_kwargs["bounds"] = test_problem_bounds
     runner = BotorchTestProblemRunner(

@@ -174,7 +174,7 @@ class BenchmarkProblem(Base):
                 observe_noise_sd=observe_noise_sd,
                 outcome_index=0,
             ),
-            minimize=True,
+            minimize=lower_is_better,
         )
 
         outcome_names = [name]
