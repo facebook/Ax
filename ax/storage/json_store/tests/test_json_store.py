@@ -125,6 +125,7 @@ from ax.utils.testing.modeling_stubs import (
     get_observation_features,
     get_outcome_transfrom_type,
     get_transform_type,
+    sobol_gpei_generation_node_gs,
 )
 from ax.utils.testing.utils import generic_equals
 
@@ -172,6 +173,10 @@ TEST_CASES = [
             with_generation_nodes=True,
             with_callable_model_kwarg=False,
         ),
+    ),
+    (
+        "GenerationStrategy",
+        partial(sobol_gpei_generation_node_gs, with_model_selection=True),
     ),
     ("GeneratorRun", get_generator_run),
     ("Hartmann6Metric", get_hartmann_metric),

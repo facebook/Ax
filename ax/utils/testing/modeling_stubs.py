@@ -17,6 +17,11 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.best_model_selector import (
+    ReductionCriterion,
+    SingleDiagnosticBestModelSelector,
+)
+from ax.modelbridge.cross_validation import FISHER_EXACT_TEST_P
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_node import GenerationNode
@@ -205,18 +210,25 @@ def get_generation_strategy(
     return gs
 
 
-def sobol_gpei_generation_node_gs() -> GenerationStrategy:
-    """Returns a basic SOBOL +GPEI GS usecase using GenerationNodes for testing"""
+def sobol_gpei_generation_node_gs(
+    with_model_selection: bool = False,
+) -> GenerationStrategy:
+    """Returns a basic SOBOL+MBM GS using GenerationNodes for testing.
+
+    Args:
+        with_model_selection: If True, will add a second ModelSpec in the MBM node.
+            This can be used for testing model selection.
+    """
     sobol_criterion = [
         MaxTrials(
             threshold=5,
-            transition_to="GPEI_node",
+            transition_to="MBM_node",
             block_gen_if_met=True,
             only_in_statuses=None,
             not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
         )
     ]
-    gpei_criterion = [
+    mbm_criterion = [
         MaxTrials(
             threshold=2,
             transition_to=None,
@@ -247,28 +259,42 @@ def sobol_gpei_generation_node_gs() -> GenerationStrategy:
         model_kwargs=step_model_kwargs,
         model_gen_kwargs={},
     )
-    gpei_model_spec = ModelSpec(
-        model_enum=Models.GPEI,
-        model_kwargs=step_model_kwargs,
-        model_gen_kwargs={},
-    )
+    mbm_model_specs = [
+        ModelSpec(
+            model_enum=Models.BOTORCH_MODULAR,
+            model_kwargs=step_model_kwargs,
+            model_gen_kwargs={},
+        )
+    ]
     sobol_node = GenerationNode(
         node_name="sobol_node",
         transition_criteria=sobol_criterion,
         model_specs=[sobol_model_spec],
     )
-    gpei_node = GenerationNode(
-        node_name="GPEI_node",
-        transition_criteria=gpei_criterion,
-        model_specs=[gpei_model_spec],
+    if with_model_selection:
+        # This is just MBM with different transforms.
+        mbm_model_specs.append(ModelSpec(model_enum=Models.BO_MIXED))
+        best_model_selector = SingleDiagnosticBestModelSelector(
+            diagnostic=FISHER_EXACT_TEST_P,
+            metric_aggregation=ReductionCriterion.MEAN,
+            criterion=ReductionCriterion.MIN,
+        )
+    else:
+        best_model_selector = None
+
+    mbm_node = GenerationNode(
+        node_name="MBM_node",
+        transition_criteria=mbm_criterion,
+        model_specs=mbm_model_specs,
+        best_model_selector=best_model_selector,
     )
 
-    sobol_GPEI_GS_nodes = GenerationStrategy(
-        name="Sobol+GPEI_Nodes",
-        nodes=[sobol_node, gpei_node],
+    sobol_mbm_GS_nodes = GenerationStrategy(
+        name="Sobol+MBM_Nodes",
+        nodes=[sobol_node, mbm_node],
         steps=None,
     )
-    return sobol_GPEI_GS_nodes
+    return sobol_mbm_GS_nodes
 
 
 def get_transform_type() -> Type[Transform]:

@@ -51,6 +51,7 @@ from ax.early_stopping.strategies import (
 from ax.exceptions.core import AxStorageWarning
 from ax.exceptions.storage import JSONEncodeError
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
+from ax.modelbridge.best_model_selector import BestModelSelector
 from ax.modelbridge.generation_node import GenerationNode
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
@@ -495,11 +496,12 @@ def generation_node_to_dict(generation_node: GenerationNode) -> Dict[str, Any]:
     """Convert Ax generation node to a dictionary."""
     return {
         "__type": generation_node.__class__.__name__,
-        "model_specs": generation_node.model_specs,
-        "should_deduplicate": generation_node.should_deduplicate,
         "node_name": generation_node.node_name,
-        "model_spec_to_gen_from": generation_node._model_spec_to_gen_from,
+        "model_specs": generation_node.model_specs,
+        "best_model_selector": generation_node.best_model_selector,
+        "should_deduplicate": generation_node.should_deduplicate,
         "transition_criteria": generation_node.transition_criteria,
+        "model_spec_to_gen_from": generation_node._model_spec_to_gen_from,
     }
 
 
@@ -548,6 +550,16 @@ def model_spec_to_dict(model_spec: ModelSpec) -> Dict[str, Any]:
         "model_enum": model_spec.model_enum,
         "model_kwargs": model_spec.model_kwargs,
         "model_gen_kwargs": model_spec.model_gen_kwargs,
+    }
+
+
+def best_model_selector_to_dict(
+    best_model_selector: BestModelSelector,
+) -> Dict[str, Any]:
+    """Convert ``BestModelSelector`` to a dictionary."""
+    return {
+        "__type": best_model_selector.__class__.__name__,
+        **serialize_init_args(obj=best_model_selector),
     }
 
 
