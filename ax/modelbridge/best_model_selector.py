@@ -16,12 +16,13 @@ from typing import Callable, List, Union
 import numpy as np
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.model_spec import ModelSpec
+from ax.utils.common.base import Base
 from ax.utils.common.typeutils import not_none
 
 ARRAYLIKE = Union[np.ndarray, List[float], List[np.ndarray]]
 
 
-class BestModelSelector(ABC):
+class BestModelSelector(ABC, Base):
     @abstractmethod
     def best_model(self, model_specs: List[ModelSpec]) -> int:
         """
