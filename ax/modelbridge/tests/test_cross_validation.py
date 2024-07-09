@@ -30,7 +30,6 @@ from ax.modelbridge.cross_validation import (
     CVDiagnostics,
     CVResult,
     has_good_opt_config_model_fit,
-    SingleDiagnosticBestModelSelector,
 )
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
@@ -419,27 +418,3 @@ class CrossValidationTest(TestCase):
             assess_model_fit_result=assess_model_fit_result,
         )
         self.assertFalse(has_good_fit)
-
-    def test_SingleDiagnosticBestModelSelector_min_mean(self) -> None:
-        s = SingleDiagnosticBestModelSelector(
-            diagnostic="Fisher exact test p",
-            criterion=min,
-            metric_aggregation=np.mean,
-        )
-        self.assertEqual(s.best_diagnostic(self.diagnostics), 1)
-
-    def test_SingleDiagnosticBestModelSelector_min_min(self) -> None:
-        s = SingleDiagnosticBestModelSelector(
-            diagnostic="Fisher exact test p",
-            criterion=min,
-            metric_aggregation=min,
-        )
-        self.assertEqual(s.best_diagnostic(self.diagnostics), 0)
-
-    def test_SingleDiagnosticBestModelSelector_max_mean(self) -> None:
-        s = SingleDiagnosticBestModelSelector(
-            diagnostic="Fisher exact test p",
-            criterion=max,
-            metric_aggregation=np.mean,
-        )
-        self.assertEqual(s.best_diagnostic(self.diagnostics), 2)

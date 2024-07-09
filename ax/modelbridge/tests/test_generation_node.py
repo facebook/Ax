@@ -7,14 +7,13 @@
 # pyre-strict
 
 from logging import Logger
-from unittest.mock import patch, PropertyMock
+from unittest.mock import MagicMock, patch, PropertyMock
 
 from ax.core.base_trial import TrialStatus
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
-from ax.modelbridge.cross_validation import (
-    DiagnosticCriterion,
-    MetricAggregation,
+from ax.modelbridge.best_model_selector import (
+    ReductionCriterion,
     SingleDiagnosticBestModelSelector,
 )
 from ax.modelbridge.factory import get_sobol
@@ -267,36 +266,24 @@ class TestGenerationStep(TestCase):
 
 
 class TestGenerationNodeWithBestModelSelector(TestCase):
-    @fast_botorch_optimize
     def setUp(self) -> None:
         super().setUp()
-        self.branin_experiment = get_branin_experiment()
-        sobol = Models.SOBOL(search_space=self.branin_experiment.search_space)
-        sobol_run = sobol.gen(n=20)
-        self.branin_experiment.new_batch_trial().add_generator_run(
-            sobol_run
-        ).run().mark_completed()
-        data = self.branin_experiment.fetch_data()
-
-        ms_gpei = ModelSpec(model_enum=Models.GPEI)
-        ms_gpei.fit(experiment=self.branin_experiment, data=data)
-
+        self.branin_experiment = get_branin_experiment(
+            with_batch=True, with_completed_batch=True
+        )
+        ms_mixed = ModelSpec(model_enum=Models.BO_MIXED)
         ms_botorch = ModelSpec(model_enum=Models.BOTORCH_MODULAR)
-        ms_botorch.fit(experiment=self.branin_experiment, data=data)
 
-        self.fitted_model_specs = [ms_gpei, ms_botorch]
-
+        self.mock_aggregation = MagicMock(
+            side_effect=ReductionCriterion.MEAN, spec=ReductionCriterion
+        )
         self.model_selection_node = GenerationNode(
             node_name="test",
-            model_specs=self.fitted_model_specs,
+            model_specs=[ms_mixed, ms_botorch],
             best_model_selector=SingleDiagnosticBestModelSelector(
                 diagnostic="Fisher exact test p",
-                # pyre-fixme[6]: For 2nd param expected `DiagnosticCriterion` but
-                #  got `MetricAggregation`.
-                criterion=MetricAggregation.MEAN,
-                # pyre-fixme[6]: For 3rd param expected `MetricAggregation` but got
-                #  `DiagnosticCriterion`.
-                metric_aggregation=DiagnosticCriterion.MIN,
+                metric_aggregation=self.mock_aggregation,
+                criterion=ReductionCriterion.MIN,
             ),
         )
 
@@ -308,10 +295,12 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
         # Check that with `ModelSelectionNode` generation from a node with
         # multiple model specs does not fail.
         gr = self.model_selection_node.gen(n=1, pending_observations={"branin": []})
-        # Currently, `ModelSelectionNode` should just pick the first model
-        # spec as the one to generate from.
-        # TODO[adamobeng]: Test correct behavior here when implemented.
-        self.assertEqual(gr._model_key, "GPEI")
+        # Check that the metric aggregation function is called twice, once for each
+        # model spec.
+        self.assertEqual(self.mock_aggregation.call_count, 2)
+        # The model specs are practically identical for this example.
+        # Should pick the first one.
+        self.assertEqual(gr._model_key, "BO_MIXED")
 
         # test model_to_gen_from_name property
-        self.assertEqual(self.model_selection_node.model_to_gen_from_name, "GPEI")
+        self.assertEqual(self.model_selection_node.model_to_gen_from_name, "BO_MIXED")
