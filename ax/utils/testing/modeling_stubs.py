@@ -196,7 +196,7 @@ def get_generation_strategy(
             search_space=get_search_space(), should_deduplicate=True
         )
         if with_callable_model_kwarg:
-            # pyre-ignore[16]: testing hack to test serialization of callable kwargs
+            # Testing hack to test serialization of callable kwargs
             # in generation steps.
             gs._steps[0].model_kwargs["model_constructor"] = get_sobol
     if with_experiment:
