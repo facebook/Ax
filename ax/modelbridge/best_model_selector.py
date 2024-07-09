@@ -11,7 +11,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from enum import Enum
 from functools import partial
-from typing import Callable, List, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 from ax.exceptions.core import UserInputError
@@ -58,9 +58,10 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
     Example:
      ::
         s = SingleDiagnosticBestModelSelector(
-            diagnostic = 'Fisher exact test p',
-            metric_aggregation = ReductionCriterion.MEAN,
-            criterion = ReductionCriterion.MIN,
+            diagnostic='Fisher exact test p',
+            metric_aggregation=ReductionCriterion.MEAN,
+            criterion=ReductionCriterion.MIN,
+            model_cv_kwargs={"untransform": False},
         )
         best_diagnostic_index = s.best_diagnostic(diagnostics)
 
@@ -71,6 +72,8 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
             diagnostic for a single model to produce a single number.
         criterion: ``ReductionCriterion`` used to determine which of the
             (aggregated) diagnostics is the best.
+        model_cv_kwargs: Optional dictionary of kwargs to pass in while computing
+            the cross validation diagnostics.
 
     Returns:
         int: index of the selected best diagnostic.
@@ -81,6 +84,7 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
         diagnostic: str,
         metric_aggregation: ReductionCriterion,
         criterion: ReductionCriterion,
+        model_cv_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.diagnostic = diagnostic
         if not isinstance(metric_aggregation, ReductionCriterion) or not isinstance(
@@ -96,10 +100,11 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
             )
         self.metric_aggregation = metric_aggregation
         self.criterion = criterion
+        self.model_cv_kwargs = model_cv_kwargs
 
     def best_model(self, model_specs: List[ModelSpec]) -> int:
         for model_spec in model_specs:
-            model_spec.cross_validate()
+            model_spec.cross_validate(model_cv_kwargs=self.model_cv_kwargs)
         aggregated_diagnostic_values = [
             self.metric_aggregation(
                 list(not_none(model_spec.diagnostics)[self.diagnostic].values())
