@@ -135,6 +135,13 @@ Cross Validation
     :undoc-members:
     :show-inheritance:
 
+Model Selection
+~~~~~~~~~~~~~~~~
+.. automodule:: ax.modelbridge.best_model_selector
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Dispatch Utilities
 ~~~~~~~~~~~~~~~~~~
 
