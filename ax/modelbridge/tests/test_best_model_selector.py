@@ -32,6 +32,7 @@ class TestBestModelSelector(TestCase):
             ms = ModelSpec(model_enum=Models.BOTORCH_MODULAR)
             ms._cv_results = Mock()
             ms._diagnostics = diagnostics
+            ms._last_cv_kwargs = {}
             self.model_specs.append(ms)
 
     def test_user_input_error(self) -> None:

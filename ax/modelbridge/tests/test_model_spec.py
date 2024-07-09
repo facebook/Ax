@@ -101,6 +101,7 @@ class ModelSpecTest(BaseModelSpecTest):
             self.assertIsNotNone(cv_diagnostics)
             mock_cv.assert_not_called()
             mock_diagnostics.assert_not_called()
+            self.assertEqual(ms._last_cv_kwargs, {"test_key": "test-value"})
 
         with self.subTest("fit clears the CV cache"):
             mock_cv.reset_mock()
@@ -116,6 +117,19 @@ class ModelSpecTest(BaseModelSpecTest):
             self.assertIsNotNone(cv_diagnostics)
             mock_cv.assert_called_with(model=fake_mb, test_key="test-value")
             mock_diagnostics.assert_called_with(["fake-cv-result"])
+
+        with self.subTest("pass in optional kwargs"):
+            mock_cv.reset_mock()
+            mock_diagnostics.reset_mock()
+            # Cache is not empty, but CV will be called since there are new kwargs.
+            assert ms._cv_results is not None
+
+            cv_results, cv_diagnostics = ms.cross_validate(model_cv_kwargs={"test": 1})
+
+            self.assertIsNotNone(cv_results)
+            self.assertIsNotNone(cv_diagnostics)
+            mock_cv.assert_called_with(model=fake_mb, test_key="test-value", test=1)
+            self.assertEqual(ms._last_cv_kwargs, {"test": 1, "test_key": "test-value"})
 
     @patch(f"{ModelSpec.__module__}.compute_diagnostics")
     @patch(f"{ModelSpec.__module__}.cross_validate", side_effect=NotImplementedError)
