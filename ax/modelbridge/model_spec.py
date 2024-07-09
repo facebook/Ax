@@ -66,11 +66,14 @@ class ModelSpec(SortableBase, SerializationMixin):
     # on `ModelSpec.fit`
     _fitted_model: Optional[ModelBridge] = None
 
-    # stored cross validation results set in cross validate
+    # Stored cross validation results set in cross validate.
     _cv_results: Optional[List[CVResult]] = None
 
-    # stored cross validation diagnostics set in cross validate
+    # Stored cross validation diagnostics set in cross validate.
     _diagnostics: Optional[CVDiagnostics] = None
+
+    # Stored to check if the CV result & diagnostic cache is safe to reuse.
+    _last_cv_kwargs: Optional[Dict[str, Any]] = None
 
     # Stored to check if the model can be safely updated in fit.
     _last_fit_arg_ids: Optional[Dict[str, int]] = None
@@ -151,19 +154,35 @@ class ModelSpec(SortableBase, SerializationMixin):
 
     def cross_validate(
         self,
+        model_cv_kwargs: Optional[Dict[str, Any]] = None,
     ) -> Tuple[Optional[List[CVResult]], Optional[CVDiagnostics]]:
         """
-        Call cross_validate, compute_diagnostics and cache the results
-        If the model cannot be cross validated, warn and return None
+        Call cross_validate, compute_diagnostics and cache the results.
+        If the model cannot be cross validated, warn and return None.
+
+        NOTE: If there are cached results, and the cache was computed using
+        the same kwargs, this will return the cached results.
+
+        Args:
+            model_cv_kwargs: Optional kwargs to pass into `cross_validate` call.
+                These are combined with `self.model_cv_kwargs`, with the
+                `model_cv_kwargs` taking precedence over `self.model_cv_kwargs`.
+
+        Returns:
+            A tuple of CV results (observed vs predicted values) and the
+            corresponding diagnostics.
         """
-        if self._cv_results is not None and self._diagnostics is not None:
+        cv_kwargs = {**self.model_cv_kwargs, **(model_cv_kwargs or {})}
+        if (
+            self._cv_results is not None
+            and self._diagnostics is not None
+            and cv_kwargs == self._last_cv_kwargs
+        ):
             return self._cv_results, self._diagnostics
 
         self._assert_fitted()
         try:
-            self._cv_results = cross_validate(
-                model=self.fitted_model, **self.model_cv_kwargs
-            )
+            self._cv_results = cross_validate(model=self.fitted_model, **cv_kwargs)
         except NotImplementedError:
             warnings.warn(
                 f"{self.model_enum.value} cannot be cross validated", stacklevel=2
@@ -171,6 +190,7 @@ class ModelSpec(SortableBase, SerializationMixin):
             return None, None
 
         self._diagnostics = compute_diagnostics(self._cv_results)
+        self._last_cv_kwargs = cv_kwargs
         return self._cv_results, self._diagnostics
 
     @property
