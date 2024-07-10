@@ -1,0 +1,30 @@
+name: General Support
+description: Get advice on an experiment you're currently running, ask questions about methods, and receive general help with Ax.
+labels: ["question"]
+title: "[GENERAL SUPPORT]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reaching out -- we will do our best to respond to your inquiry promptly.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: Provide a detailed description of the problem you're facing or the question you would like help answering.
+    validations:
+      required: true
+  - type: textarea
+    id: snippet
+    attributes:
+      label: Please provide any relevant code snippet if applicable.
+      description: This will be automatically formatted into code, so no need for backticks.
+      render: shell
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue you agree to follow Ax's [Code of Conduct](https://github.com/facebook/Ax/blob/main/CODE_OF_CONDUCT.md).
+      options:
+        - label: I agree to follow this Ax's Code of Conduct
+          required: true
