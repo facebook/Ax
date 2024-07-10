@@ -14,6 +14,7 @@ from unittest.mock import patch
 from ax.models.torch.botorch_modular import optimizer_argparse as Argparse
 from ax.models.torch.botorch_modular.optimizer_argparse import (
     _argparse_base,
+    INIT_BATCH_LIMIT,
     MaybeType,
     optimizer_argparse,
 )
@@ -23,14 +24,6 @@ from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.knowledge_gradient import (
     qKnowledgeGradient,
     qMultiFidelityKnowledgeGradient,
-)
-from botorch.acquisition.max_value_entropy_search import (
-    qMaxValueEntropy,
-    qMultiFidelityMaxValueEntropy,
-)
-from botorch.acquisition.multi_objective.monte_carlo import (
-    qExpectedHypervolumeImprovement,
-    qNoisyExpectedHypervolumeImprovement,
 )
 
 
@@ -65,17 +58,11 @@ class OptimizerArgparseTest(TestCase):
             self.assertEqual(optimizer_argparse[DummyAcquisitionFunction], _argparse)
 
     def test_optimizer_options(self) -> None:
-        skipped_funcs = {  # These should all have bespoke tests
-            optimizer_argparse[acqf_class]
-            for acqf_class in (
-                qExpectedHypervolumeImprovement,
-                qKnowledgeGradient,
-                qMaxValueEntropy,
-            )
-        }
+        # This has a bespoke test
+        skipped_func = optimizer_argparse[qKnowledgeGradient]
         user_options = {"foo": "bar", "num_restarts": 13}
         for func in optimizer_argparse.funcs.values():
-            if func in skipped_funcs:
+            if func is skipped_func:
                 continue
 
             parsed_options = func(None, optimizer_options=user_options)
@@ -89,38 +76,8 @@ class OptimizerArgparseTest(TestCase):
         )
         self.assertEqual(
             parsed_options["options"],
-            {"batch_limit": 10, "init_batch_limit": 32, "maxiter": 20},
+            {"batch_limit": 10, "init_batch_limit": INIT_BATCH_LIMIT, "maxiter": 20},
         )
-
-    def test_ehvi(self) -> None:
-        user_options = {"foo": "bar", "num_restarts": 651}
-        inner_options = {"init_batch_limit": 23, "batch_limit": 67}
-        generic_options = _argparse_base(None, optimizer_options=user_options)
-        generic_options.pop("options")
-        for acqf in (
-            qExpectedHypervolumeImprovement,
-            qNoisyExpectedHypervolumeImprovement,
-        ):
-            with self.subTest(acqf=acqf):
-                options = optimizer_argparse(
-                    acqf,
-                    optimizer_options=user_options,
-                    **inner_options,
-                )
-                self.assertEqual(options["sequential"], True)
-                self.assertEqual(options.pop("options"), inner_options)
-                self.assertEqual(options, generic_options)
-
-                # Defaults
-                options = optimizer_argparse(
-                    acqf,
-                    sequential=True,
-                    optimizer_options=user_options,
-                )
-                self.assertEqual(
-                    options.pop("options"), {"init_batch_limit": 32, "batch_limit": 5}
-                )
-                self.assertEqual(options, generic_options)
 
     def test_kg(self) -> None:
         with patch(
@@ -141,15 +98,3 @@ class OptimizerArgparseTest(TestCase):
                     )
                     self.assertEqual(options.pop(Keys.BATCH_INIT_CONDITIONS), "TEST")
                     self.assertEqual(options, generic_options)
-
-    def test_mes(self) -> None:
-        user_options = {"foo": "bar", "num_restarts": 83}
-        generic_options = _argparse_base(None, optimizer_options=user_options)
-        for acqf in (qMaxValueEntropy, qMultiFidelityMaxValueEntropy):
-            with self.subTest(acqf=acqf):
-                options = optimizer_argparse(
-                    acqf,
-                    optimizer_options=user_options,
-                )
-                self.assertEqual(options["sequential"], True)
-                self.assertEqual(options, generic_options)

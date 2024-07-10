@@ -15,15 +15,17 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
-from botorch.acquisition.max_value_entropy_search import qMaxValueEntropy
-from botorch.acquisition.multi_objective.monte_carlo import (
-    qExpectedHypervolumeImprovement,
-)
 from botorch.optim.initializers import gen_one_shot_kg_initial_conditions
 from botorch.utils.dispatcher import Dispatcher
 
 T = TypeVar("T")
 MaybeType = Union[T, Type[T]]  # Annotation for a type or instance thereof
+
+# Acquisition defaults
+NUM_RESTARTS = 20
+RAW_SAMPLES = 1024
+INIT_BATCH_LIMIT = 32
+BATCH_LIMIT = 5
 
 
 optimizer_argparse = Dispatcher(
@@ -35,10 +37,10 @@ optimizer_argparse = Dispatcher(
 def _argparse_base(
     acqf: MaybeType[AcquisitionFunction],
     sequential: bool = True,
-    num_restarts: int = 20,
-    raw_samples: int = 1024,
-    init_batch_limit: int = 32,
-    batch_limit: int = 5,
+    num_restarts: int = NUM_RESTARTS,
+    raw_samples: int = RAW_SAMPLES,
+    init_batch_limit: int = INIT_BATCH_LIMIT,
+    batch_limit: int = BATCH_LIMIT,
     optimizer_options: Optional[Dict[str, Any]] = None,
     optimizer_is_discrete: bool = False,
     **ignore: Any,
@@ -92,40 +94,24 @@ def _argparse_base(
     }
 
 
-@optimizer_argparse.register(qExpectedHypervolumeImprovement)
-def _argparse_ehvi(
-    acqf: MaybeType[qExpectedHypervolumeImprovement],
-    sequential: bool = True,
-    init_batch_limit: int = 32,
-    batch_limit: int = 5,
-    optimizer_options: Optional[Dict[str, Any]] = None,
-    **kwargs: Any,
-) -> Dict[str, Any]:
-    return {
-        **_argparse_base(
-            acqf=acqf,
-            init_batch_limit=init_batch_limit,
-            batch_limit=batch_limit,
-            optimizer_options=optimizer_options,
-            **kwargs,
-        ),
-        "sequential": sequential,
-    }
-
-
 @optimizer_argparse.register(qKnowledgeGradient)
 def _argparse_kg(
     acqf: qKnowledgeGradient,
     q: int,
     bounds: torch.Tensor,
-    num_restarts: int = 20,
-    raw_samples: int = 1024,
+    num_restarts: int = NUM_RESTARTS,
+    raw_samples: int = RAW_SAMPLES,
     frac_random: float = 0.1,
     optimizer_options: Optional[Dict[str, Any]] = None,
     **kwargs: Any,
 ) -> Dict[str, Any]:
+    """
+    Argument constructor for optimization with qKG, differing from the
+    base case in that it computes and returns initial conditions.
 
-    optimizer_options = optimizer_options or {}
+    To do so, it requires specifying additional arguments `q` and `bounds` and
+    allows for specifying `frac_random`.
+    """
     base_options = _argparse_base(
         acqf,
         num_restarts=num_restarts,
@@ -150,17 +136,4 @@ def _argparse_kg(
     return {
         **base_options,
         Keys.BATCH_INIT_CONDITIONS: initial_conditions,
-    }
-
-
-@optimizer_argparse.register(qMaxValueEntropy)
-def _argparse_mes(
-    acqf: AcquisitionFunction,
-    sequential: bool = True,
-    optimizer_options: Optional[Dict[str, Any]] = None,
-    **kwargs: Any,
-) -> Dict[str, Any]:
-    return {
-        **_argparse_base(acqf=acqf, optimizer_options=optimizer_options, **kwargs),
-        "sequential": sequential,
     }
