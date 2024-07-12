@@ -36,16 +36,17 @@ optimizer_argparse = Dispatcher(
 @optimizer_argparse.register(AcquisitionFunction)
 def _argparse_base(
     acqf: MaybeType[AcquisitionFunction],
+    *,
+    optimizer: str,
     sequential: bool = True,
     num_restarts: int = NUM_RESTARTS,
     raw_samples: int = RAW_SAMPLES,
     init_batch_limit: int = INIT_BATCH_LIMIT,
     batch_limit: int = BATCH_LIMIT,
     optimizer_options: Optional[Dict[str, Any]] = None,
-    optimizer_is_discrete: bool = False,
     **ignore: Any,
 ) -> Dict[str, Any]:
-    """Extract the base optimizer kwargs form the given arguments.
+    """Extract the kwargs to be passed to a BoTorch optimizer.
 
     NOTE: Since `optimizer_options` is how the user would typically pass in these
     options, it takes precedence over other arguments. E.g., if both `num_restarts`
@@ -54,15 +55,24 @@ def _argparse_base(
 
     Args:
         acqf: The acquisition function being optimized.
-        sequential: Whether we choose one candidate at a time in a sequential manner.
+        optimizer: one of "optimize_acqf",
+            "optimize_acqf_discrete_local_search", "optimize_acqf_discrete", or
+            "optimize_acqf_mixed". This is generally chosen by
+            `Acquisition.optimize`.
+        sequential: Whether we choose one candidate at a time in a sequential
+            manner. Ignored unless the optimizer is `optimize_acqf`.
         num_restarts: The number of starting points for multistart acquisition
-            function optimization.
-        raw_samples: The number of samples for initialization.
+            function optimization. Ignored if the optimizer is
+            `optimize_acqf_discrete`.
+        raw_samples: The number of samples for initialization. Ignored if the
+            optimizer is `optimize_acqf_discrete`.
         init_batch_limit: The size of mini-batches used to evaluate the `raw_samples`.
-            This helps reduce peak memory usage.
+            This helps reduce peak memory usage. Ignored if the optimizer is
+            `optimize_acqf_discrete` or `optimize_acqf_discrete_local_search`.
         batch_limit: The size of mini-batches used while optimizing the `acqf`.
-            This helps reduce peak memory usage.
-        optimizer_options: An optional dictionary of optimizer options. This may
+            This helps reduce peak memory usage. Ignored if the optimizer is
+            `optimize_acqf_discrete` or `optimize_acqf_discrete_local_search`.
+    optimizer_options: An optional dictionary of optimizer options. This may
             include overrides for the above options (some of these under an `options`
             dictionary) or any other option that is accepted by the optimizer. See
             the docstrings in `botorch/optim/optimize.py` for supported options.
@@ -75,23 +85,43 @@ def _argparse_base(
                 >>>     },
                 >>>     "retry_on_optimization_warning": False,
                 >>> }
-        optimizer_is_discrete: True if the optimizer is `optimizer_acqf_discrete`,
-            which supports a limited set of arguments.
     """
-    optimizer_options = optimizer_options or {}
-    if optimizer_is_discrete:
-        return optimizer_options
-    return {
-        "sequential": sequential,
+    supported_optimizers = [
+        "optimize_acqf",
+        "optimize_acqf_discrete_local_search",
+        "optimize_acqf_discrete",
+        "optimize_acqf_mixed",
+        "optimize_acqf_homotopy",
+    ]
+    if optimizer not in supported_optimizers:
+        raise ValueError(
+            f"optimizer=`{optimizer}` is not supported. Accepted options are "
+            f"{supported_optimizers}"
+        )
+    provided_options = optimizer_options if optimizer_options is not None else {}
+
+    # optimize_acqf_discrete only accepts 'choices', 'max_batch_size', 'unique'
+    if optimizer == "optimize_acqf_discrete":
+        return provided_options
+
+    # construct arguments from options that are not `provided_options`
+    options = {
         "num_restarts": num_restarts,
         "raw_samples": raw_samples,
-        "options": {
+    }
+    # if not, 'options' will be silently ignored
+    if optimizer in ["optimize_acqf", "optimize_acqf_mixed", "optimize_acqf_homotopy"]:
+        options["options"] = {
             "init_batch_limit": init_batch_limit,
             "batch_limit": batch_limit,
-            **optimizer_options.get("options", {}),
-        },
-        **{k: v for k, v in optimizer_options.items() if k != "options"},
-    }
+            **provided_options.get("options", {}),
+        }
+
+    if optimizer == "optimize_acqf":
+        options["sequential"] = sequential
+
+    options.update(**{k: v for k, v in provided_options.items() if k != "options"})
+    return options
 
 
 @optimizer_argparse.register(qKnowledgeGradient)
@@ -117,6 +147,7 @@ def _argparse_kg(
         num_restarts=num_restarts,
         raw_samples=raw_samples,
         optimizer_options=optimizer_options,
+        optimizer="optimize_acqf",
         **kwargs,
     )
 

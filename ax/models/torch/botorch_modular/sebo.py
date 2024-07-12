@@ -63,7 +63,7 @@ class SEBOAcquisition(Acquisition):
         surrogate = surrogates[Keys.ONLY_SURROGATE]
 
         tkwargs: Dict[str, Any] = {"dtype": surrogate.dtype, "device": surrogate.device}
-        options = options or {}
+        options = {} if options is None else options
         self.penalty_name: str = options.pop("penalty", "L0_norm")
         self.target_point: Tensor = options.pop("target_point", None)
         if self.target_point is None:
@@ -296,9 +296,10 @@ class SEBOAcquisition(Acquisition):
             bounds=bounds,
             q=n,
             optimizer_options=optimizer_options,
+            optimizer="optimize_acqf_homotopy",
         )
 
-        def callback():  # pyre-ignore
+        def callback() -> None:
             if (
                 self.acqf.cache_pending
             ):  # If true, pending points are concatenated with X_baseline

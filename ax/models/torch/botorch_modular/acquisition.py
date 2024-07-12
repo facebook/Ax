@@ -425,6 +425,35 @@ class Acquisition(Base):
         _tensorize = partial(torch.tensor, dtype=self.dtype, device=self.device)
         ssd = search_space_digest
         bounds = _tensorize(ssd.bounds).t()
+        discrete_features = sorted(ssd.ordinal_features + ssd.categorical_features)
+        discrete_choices = mk_discrete_choices(ssd=ssd, fixed_features=fixed_features)
+        if (
+            optimizer_options is not None
+            and "force_use_optimize_acqf" in optimizer_options
+        ):
+            force_use_optimize_acqf = optimizer_options.pop("force_use_optimize_acqf")
+        else:
+            force_use_optimize_acqf = False
+
+        if (len(discrete_features) == 0) or force_use_optimize_acqf:
+            optimizer = "optimize_acqf"
+        else:
+            fully_discrete = len(discrete_choices) == len(ssd.feature_names)
+            if fully_discrete:
+                total_discrete_choices = reduce(
+                    operator.mul, [float(len(c)) for c in discrete_choices.values()]
+                )
+                if total_discrete_choices > MAX_CHOICES_ENUMERATE:
+                    optimizer = "optimize_acqf_discrete_local_search"
+                else:
+                    optimizer = "optimize_acqf_discrete"
+                    # `raw_samples` is not supported by `optimize_acqf_discrete`.
+                    # TODO[santorella]: Rather than manually removing it, we should
+                    # ensure that it is never passed.
+                    if optimizer_options is not None:
+                        optimizer_options.pop("raw_samples")
+            else:
+                optimizer = "optimize_acqf_mixed"
 
         # Prepare arguments for optimizer
         optimizer_options_with_defaults = optimizer_argparse(
@@ -432,12 +461,12 @@ class Acquisition(Base):
             bounds=bounds,
             q=n,
             optimizer_options=optimizer_options,
+            optimizer=optimizer,
         )
         post_processing_func = get_post_processing_func(
             rounding_func=rounding_func,
             optimizer_options=optimizer_options_with_defaults,
         )
-        discrete_features = sorted(ssd.ordinal_features + ssd.categorical_features)
         if fixed_features is not None:
             for i in fixed_features:
                 if not 0 <= i < len(ssd.feature_names):
@@ -446,10 +475,7 @@ class Acquisition(Base):
         # customized in subclasses if necessary.
         arm_weights = torch.ones(n, dtype=self.dtype)
         # 1. Handle the fully continuous search space.
-        if (
-            optimizer_options_with_defaults.pop("force_use_optimize_acqf", False)
-            or not discrete_features
-        ):
+        if optimizer == "optimize_acqf":
             candidates, acqf_values = optimize_acqf(
                 acq_function=self.acqf,
                 bounds=bounds,
@@ -462,10 +488,11 @@ class Acquisition(Base):
             return candidates, acqf_values, arm_weights
 
         # 2. Handle search spaces with discrete features.
-        discrete_choices = mk_discrete_choices(ssd=ssd, fixed_features=fixed_features)
-
         # 2a. Handle the fully discrete search space.
-        if len(discrete_choices) == len(ssd.feature_names):
+        if optimizer in (
+            "optimize_acqf_discrete",
+            "optimize_acqf_discrete_local_search",
+        ):
             X_observed = self.X_observed
             if self.X_pending is not None:
                 if X_observed is None:
@@ -474,10 +501,7 @@ class Acquisition(Base):
                     X_observed = torch.cat([X_observed, self.X_pending], dim=0)
 
             # Special handling for search spaces with a large number of choices
-            total_choices = reduce(
-                operator.mul, [float(len(c)) for c in discrete_choices.values()]
-            )
-            if total_choices > MAX_CHOICES_ENUMERATE:
+            if optimizer == "optimize_acqf_discrete_local_search":
                 discrete_choices = [
                     torch.tensor(c, device=self.device, dtype=self.dtype)
                     for c in discrete_choices.values()
@@ -492,6 +516,7 @@ class Acquisition(Base):
                 )
                 return candidates, acqf_values, arm_weights
 
+            # Else, optimizer is `optimize_acqf_discrete`
             # Enumerate all possible choices
             all_choices = (discrete_choices[i] for i in range(len(discrete_choices)))
             all_choices = _tensorize(tuple(product(*all_choices)))
@@ -530,26 +555,16 @@ class Acquisition(Base):
                 )
                 n = num_choices
 
-            # `raw_samples` is not supported by `optimize_acqf_discrete`.
-            # TODO[santorella]: Rather than manually removing it, we should
-            # ensure that it is never passed.
-            if optimizer_options is not None:
-                optimizer_options.pop("raw_samples")
-            discrete_opt_options = optimizer_argparse(
-                self.acqf,
-                bounds=bounds,
-                q=n,
-                optimizer_options=optimizer_options,
-                optimizer_is_discrete=True,
-            )
             candidates, acqf_values = optimize_acqf_discrete(
-                acq_function=self.acqf, q=n, choices=all_choices, **discrete_opt_options
+                acq_function=self.acqf,
+                q=n,
+                choices=all_choices,
+                **optimizer_options_with_defaults,
             )
             return candidates, acqf_values, arm_weights
 
         # 2b. Handle mixed search spaces that have discrete and continuous features.
         # Only sequential optimization is supported for `optimize_acqf_mixed`.
-        optimizer_options_with_defaults.pop("sequential")
         candidates, acqf_values = optimize_acqf_mixed(
             acq_function=self.acqf,
             bounds=bounds,
