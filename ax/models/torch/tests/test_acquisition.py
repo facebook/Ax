@@ -21,6 +21,7 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, SearchSpaceExhausted
 from ax.models.torch.botorch_modular.acquisition import Acquisition
+from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
@@ -30,7 +31,10 @@ from ax.models.torch.utils import (
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import (
+    fast_botorch_optimize,
+    fast_botorch_optimize_context_manager,
+)
 from ax.utils.testing.utils import generic_equals
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import (
@@ -45,6 +49,11 @@ from botorch.acquisition.multi_objective.monte_carlo import (
 )
 from botorch.acquisition.objective import LinearMCObjective
 from botorch.models.gp_regression import SingleTaskGP
+from botorch.optim.optimize import (
+    optimize_acqf,
+    optimize_acqf_discrete,
+    optimize_acqf_mixed,
+)
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.testing import MockPosterior
@@ -66,18 +75,14 @@ class DummyAcquisitionFunction(AcquisitionFunction):
         # pyre-fixme[6]: For 1st param expected `Model` but got `None`.
         AcquisitionFunction.__init__(self, model=None)
 
-    def __call__(self, X: Tensor, **kwargs: Any) -> Tensor:
-        return X.sum(dim=-1)
-
-    # pyre-fixme[14]: `set_X_pending` overrides method defined in
-    #  `AcquisitionFunction` inconsistently.
-    def set_X_pending(self, X: Tensor, **kwargs: Any) -> None:
-        self.X_pending = X
-
     # pyre-fixme[15]: `forward` overrides method defined in `AcquisitionFunction`
     #  inconsistently.
     def forward(self, X: torch.Tensor) -> None:
-        pass
+        # take the norm and sum over the q-batch dim
+        if len(X.shape) > 2:
+            return torch.linalg.norm(X, dim=-1).sum(-1)
+        else:
+            return torch.linalg.norm(X, dim=-1).squeeze(-1)
 
 
 class DummyOneShotAcquisitionFunction(DummyAcquisitionFunction, qKnowledgeGradient):
@@ -86,7 +91,6 @@ class DummyOneShotAcquisitionFunction(DummyAcquisitionFunction, qKnowledgeGradie
 
 
 class AcquisitionTest(TestCase):
-    @fast_botorch_optimize
     def setUp(self) -> None:
         super().setUp()
         qNEI_input_constructor = get_acqf_input_constructor(qNoisyExpectedImprovement)
@@ -124,14 +128,15 @@ class AcquisitionTest(TestCase):
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
             target_values={2: 1.0},
         )
-        self.surrogate.fit(
-            datasets=self.training_data,
-            search_space_digest=SearchSpaceDigest(
-                feature_names=self.search_space_digest.feature_names[:1],
-                bounds=self.search_space_digest.bounds,
-                target_values=self.search_space_digest.target_values,
-            ),
-        )
+        with fast_botorch_optimize_context_manager():
+            self.surrogate.fit(
+                datasets=self.training_data,
+                search_space_digest=SearchSpaceDigest(
+                    feature_names=self.search_space_digest.feature_names[:1],
+                    bounds=self.search_space_digest.bounds,
+                    target_values=self.search_space_digest.target_values,
+                ),
+            )
 
         self.botorch_acqf_class = DummyAcquisitionFunction
         self.objective_weights = torch.tensor([1.0])
@@ -148,7 +153,11 @@ class AcquisitionTest(TestCase):
         self.fixed_features = {1: 2.0}
         self.options = {"cache_root": False, "prune_baseline": False}
         self.inequality_constraints = [
-            (torch.tensor([0, 1], **tkwargs), torch.tensor([-1.0, 1.0], **tkwargs), 1)
+            (
+                torch.tensor([0, 1], dtype=torch.int),
+                torch.tensor([-1.0, 1.0], **tkwargs),
+                1,
+            )
         ]
         self.rounding_func = lambda x: x
         self.optimizer_options = {Keys.NUM_RESTARTS: 20, Keys.RAW_SAMPLES: 1024}
@@ -245,13 +254,8 @@ class AcquisitionTest(TestCase):
         f"{CURRENT_PATH}.Acquisition.compute_model_dependencies",
         return_value={"eta": 0.1},
     )
-    @mock.patch(
-        f"{DummyAcquisitionFunction.__module__}.DummyAcquisitionFunction.__init__",
-        return_value=None,
-    )
     def test_init_with_subset_model_false(
         self,
-        mock_botorch_acqf_class: Mock,
         mock_compute_model_deps: Mock,
         mock_get_objective_and_transform: Mock,
         mock_subset_model: Mock,
@@ -272,50 +276,59 @@ class AcquisitionTest(TestCase):
                 botorch_acqf_class=self.botorch_acqf_class,
                 options=self.options,
             )
-            mock_subset_model.assert_not_called()
-            # Check `get_botorch_objective_and_transform` kwargs
-            mock_get_objective_and_transform.assert_called_once()
-            _, ckwargs = mock_get_objective_and_transform.call_args
-            self.assertIs(ckwargs["model"], acquisition.surrogates["surrogate"].model)
-            self.assertIs(ckwargs["objective_weights"], self.objective_weights)
-            self.assertIs(ckwargs["outcome_constraints"], self.outcome_constraints)
-            self.assertTrue(torch.equal(ckwargs["X_observed"], self.X[:1]))
-            # Check final `acqf` creation
-            model_deps = {"eta": 0.1}
-            self.mock_input_constructor.assert_called_once()
-            mock_botorch_acqf_class.assert_called_once()
-            _, ckwargs = self.mock_input_constructor.call_args
-            self.assertIs(ckwargs["model"], acquisition.surrogates["surrogate"].model)
-            self.assertIs(ckwargs["objective"], botorch_objective)
-            self.assertTrue(
-                torch.equal(ckwargs["X_pending"], self.pending_observations[0])
-            )
-            for k, v in chain(self.options.items(), model_deps.items()):
-                self.assertEqual(ckwargs[k], v)
-            self.assertIs(
-                ckwargs["constraints"],
-                self.constraints,
-            )
-            mock_get_outcome_constraint_transforms.assert_called_once_with(
-                outcome_constraints=self.outcome_constraints
-            )
+        mock_subset_model.assert_not_called()
+        # Check `get_botorch_objective_and_transform` kwargs
+        mock_get_objective_and_transform.assert_called_once()
+        _, ckwargs = mock_get_objective_and_transform.call_args
+        self.assertIs(ckwargs["model"], acquisition.surrogates["surrogate"].model)
+        self.assertIs(ckwargs["objective_weights"], self.objective_weights)
+        self.assertIs(ckwargs["outcome_constraints"], self.outcome_constraints)
+        self.assertTrue(torch.equal(ckwargs["X_observed"], self.X[:1]))
+        # Check final `acqf` creation
+        model_deps = {"eta": 0.1}
+        self.mock_input_constructor.assert_called_once()
+        _, ckwargs = self.mock_input_constructor.call_args
+        self.assertIs(ckwargs["model"], acquisition.surrogates["surrogate"].model)
+        self.assertIs(ckwargs["objective"], botorch_objective)
+        self.assertTrue(torch.equal(ckwargs["X_pending"], self.pending_observations[0]))
+        for k, v in chain(self.options.items(), model_deps.items()):
+            self.assertEqual(ckwargs[k], v)
+        self.assertIs(
+            ckwargs["constraints"],
+            self.constraints,
+        )
+        mock_get_outcome_constraint_transforms.assert_called_once_with(
+            outcome_constraints=self.outcome_constraints
+        )
 
-    @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf", return_value=(Mock(), Mock()))
+    @fast_botorch_optimize
+    @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf", wraps=optimize_acqf)
     def test_optimize(self, mock_optimize_acqf: Mock) -> None:
         acquisition = self.get_acquisition_function(fixed_features=self.fixed_features)
-        acquisition.optimize(
-            n=3,
-            search_space_digest=self.search_space_digest,
-            inequality_constraints=self.inequality_constraints,
-            fixed_features=self.fixed_features,
-            rounding_func=self.rounding_func,
+        n = 5
+        with mock.patch(
+            f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
+        ) as mock_optimizer_argparse:
+            acquisition.optimize(
+                n=n,
+                search_space_digest=self.search_space_digest,
+                inequality_constraints=self.inequality_constraints,
+                fixed_features=self.fixed_features,
+                rounding_func=self.rounding_func,
+                optimizer_options=self.optimizer_options,
+            )
+        mock_optimizer_argparse.assert_called_once_with(
+            acquisition.acqf,
+            bounds=mock.ANY,
+            q=n,
             optimizer_options=self.optimizer_options,
+            optimizer="optimize_acqf",
         )
         mock_optimize_acqf.assert_called_with(
             acq_function=acquisition.acqf,
             sequential=True,
             bounds=mock.ANY,
-            q=3,
+            q=n,
             options={"init_batch_limit": 32, "batch_limit": 5},
             inequality_constraints=self.inequality_constraints,
             fixed_features=self.fixed_features,
@@ -340,7 +353,7 @@ class AcquisitionTest(TestCase):
         optimizer_options["force_use_optimize_acqf"] = True
         mock_optimize_acqf.reset_mock()
         acquisition.optimize(
-            n=3,
+            n=n,
             search_space_digest=self.search_space_digest,
             inequality_constraints=self.inequality_constraints,
             fixed_features=self.fixed_features,
@@ -351,7 +364,7 @@ class AcquisitionTest(TestCase):
             acq_function=acquisition.acqf,
             sequential=True,
             bounds=mock.ANY,
-            q=3,
+            q=n,
             options={"init_batch_limit": 32, "batch_limit": 5},
             inequality_constraints=self.inequality_constraints,
             fixed_features=self.fixed_features,
@@ -361,8 +374,9 @@ class AcquisitionTest(TestCase):
         # Now using both rounding func and post processing func.
         mock_optimize_acqf.reset_mock()
         rounding_func = Mock(side_effect=lambda x: x // 4)
+        post_processing_func.reset_mock()
         acquisition.optimize(
-            n=3,
+            n=n,
             search_space_digest=self.search_space_digest,
             inequality_constraints=self.inequality_constraints,
             fixed_features=self.fixed_features,
@@ -373,15 +387,13 @@ class AcquisitionTest(TestCase):
         # Call it with a known input to check that the functions are called in
         # the correct order.
         self.assertEqual(actual_func(3.0), 2)  # (3 ** 2) // 4 = 2
-        post_processing_func.assert_called_once_with(3.0)
-        rounding_func.assert_called_once_with(9.0)
+        post_processing_func.assert_called_with(3.0)
+        rounding_func.assert_called_with(9.0)
 
     def test_optimize_discrete(self) -> None:
         ssd1 = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
-            # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float, int],
-            #  Union[float, int]]]` but got `List[Tuple[int, int, int]]`.
-            bounds=[(1, 2, 3), (2, 3, 4)],
+            bounds=[(1, 2), (2, 3), (3, 4)],
             categorical_features=[0, 1, 2],
             discrete_choices={0: [1, 2], 1: [2, 3], 2: [3, 4]},
         )
@@ -422,11 +434,46 @@ class AcquisitionTest(TestCase):
         # 2 candidates have acqf value 8, but [1, 3, 4] is pending and thus should
         # not be selected. [2, 3, 4] is the best point, but has already been picked
         acquisition = self.get_acquisition_function()
-        X_selected, _, weights = acquisition.optimize(
-            n=2,
-            search_space_digest=ssd1,
-            rounding_func=self.rounding_func,
+        n = 2
+        with mock.patch(
+            f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
+        ) as mock_optimizer_argparse, mock.patch(
+            f"{ACQUISITION_PATH}.optimize_acqf_discrete", wraps=optimize_acqf_discrete
+        ) as mock_optimize_acqf_discrete:
+            X_selected, _, weights = acquisition.optimize(
+                n=n,
+                search_space_digest=ssd1,
+                rounding_func=self.rounding_func,
+            )
+        mock_optimizer_argparse.assert_called_once_with(
+            acquisition.acqf,
+            bounds=mock.ANY,
+            q=n,
+            optimizer_options=None,
+            optimizer="optimize_acqf_discrete",
         )
+
+        mock_optimize_acqf_discrete.assert_called_once_with(
+            acq_function=acquisition.acqf,
+            q=n,
+            choices=mock.ANY,
+        )
+        expected_choices = torch.tensor(
+            [
+                elt
+                for elt in all_possible_choices
+                # not a pending observation
+                if not (self.pending_observations[0] == torch.tensor(elt)).all()
+                # not in training data
+                and not (self.X == torch.tensor(elt)).all(1).any()
+            ],
+        )
+        self.assertTrue(
+            torch.equal(
+                expected_choices, mock_optimize_acqf_discrete.call_args[1]["choices"]
+            )
+        )
+
         expected = torch.tensor([[2, 2, 4], [2, 3, 3]]).to(self.X)
         self.assertTrue(X_selected.shape == (2, 3))
         self.assertTrue(
@@ -438,20 +485,36 @@ class AcquisitionTest(TestCase):
         # [4, 2, 4], [3, 2, 4], [4, 2, 3]
         ssd2 = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
-            # pyre-fixme[6]: For 2nd param expected `List[Tuple[Union[float, int],
-            #  Union[float, int]]]` but got `List[Tuple[int, int, int]]`.
-            bounds=[(0, 0, 0), (4, 4, 4)],
+            bounds=[(0, 4) for _ in range(3)],
             categorical_features=[0, 1, 2],
             # pyre-fixme[6]: For 4th param expected `Dict[int, List[Union[float,
             #  int]]]` but got `Dict[int, List[int]]`.
             discrete_choices={k: [0, 1, 2, 3, 4] for k in range(3)},
         )
-        X_selected, _, weights = acquisition.optimize(
-            n=3,
-            search_space_digest=ssd2,
-            fixed_features=self.fixed_features,
-            rounding_func=self.rounding_func,
+        with mock.patch(
+            f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
+        ) as mock_optimizer_argparse, mock.patch(
+            f"{ACQUISITION_PATH}.optimize_acqf_discrete", wraps=optimize_acqf_discrete
+        ) as mock_optimize_acqf_discrete:
+            X_selected, _, weights = acquisition.optimize(
+                n=3,
+                search_space_digest=ssd2,
+                fixed_features=self.fixed_features,
+                rounding_func=self.rounding_func,
+            )
+        mock_optimizer_argparse.assert_called_once_with(
+            acquisition.acqf,
+            bounds=mock.ANY,
+            q=3,
+            optimizer_options=None,
+            optimizer="optimize_acqf_discrete",
         )
+        mock_optimize_acqf_discrete.assert_called_once_with(
+            acq_function=acquisition.acqf,
+            q=3,
+            choices=mock.ANY,
+        )
+
         expected = torch.tensor([[4, 2, 4], [3, 2, 4], [4, 2, 3]]).to(self.X)
         self.assertTrue(X_selected.shape == (3, 3))
         self.assertTrue(
@@ -499,6 +562,8 @@ class AcquisitionTest(TestCase):
             all((x.unsqueeze(0) == expected).all(dim=-1).any() for x in X_selected)
         )
 
+    # mock `optimize_acqf_discrete_local_search` because it isn't handled by
+    # `fast_botorch_optimize`
     @mock.patch(
         f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search",
         return_value=(Mock(), Mock()),
@@ -517,16 +582,39 @@ class AcquisitionTest(TestCase):
             },
         )
         acquisition = self.get_acquisition_function()
-        acquisition.optimize(
-            n=3,
-            search_space_digest=ssd,
-            inequality_constraints=self.inequality_constraints,
-            fixed_features=None,
-            rounding_func=self.rounding_func,
+        with mock.patch(
+            f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
+        ) as mock_optimizer_argparse:
+            acquisition.optimize(
+                n=3,
+                search_space_digest=ssd,
+                inequality_constraints=self.inequality_constraints,
+                fixed_features=None,
+                rounding_func=self.rounding_func,
+                optimizer_options=self.optimizer_options,
+            )
+        mock_optimizer_argparse.assert_called_once_with(
+            acquisition.acqf,
+            bounds=mock.ANY,
+            q=3,
             optimizer_options=self.optimizer_options,
+            optimizer="optimize_acqf_discrete_local_search",
         )
         mock_optimize_acqf_discrete_local_search.assert_called_once()
         args, kwargs = mock_optimize_acqf_discrete_local_search.call_args
+        self.assertEqual(len(args), 0)
+        self.assertSetEqual(
+            {
+                "acq_function",
+                "discrete_choices",
+                "q",
+                "num_restarts",
+                "raw_samples",
+                "inequality_constraints",
+                "X_avoid",
+            },
+            set(kwargs.keys()),
+        )
         self.assertEqual(kwargs["acq_function"], acquisition.acqf)
         self.assertEqual(kwargs["q"], 3)
         self.assertEqual(kwargs["inequality_constraints"], self.inequality_constraints)
@@ -544,10 +632,8 @@ class AcquisitionTest(TestCase):
             all((X_avoid_true == x).all(dim=-1).any().item() for x in kwargs["X_avoid"])
         )
 
-    @mock.patch(
-        f"{ACQUISITION_PATH}.optimize_acqf_mixed", return_value=(Mock(), Mock())
-    )
-    def test_optimize_mixed(self, mock_optimize_acqf_mixed: Mock) -> None:
+    @fast_botorch_optimize
+    def test_optimize_mixed(self) -> None:
         tkwargs = {"dtype": self.X.dtype, "device": self.X.device}
         ssd = SearchSpaceDigest(
             feature_names=["a", "b"],
@@ -556,14 +642,17 @@ class AcquisitionTest(TestCase):
             discrete_choices={1: [0, 1, 2]},
         )
         acquisition = self.get_acquisition_function()
-        acquisition.optimize(
-            n=3,
-            search_space_digest=ssd,
-            inequality_constraints=self.inequality_constraints,
-            fixed_features=None,
-            rounding_func=self.rounding_func,
-            optimizer_options=self.optimizer_options,
-        )
+        with mock.patch(
+            f"{ACQUISITION_PATH}.optimize_acqf_mixed", wraps=optimize_acqf_mixed
+        ) as mock_optimize_acqf_mixed:
+            acquisition.optimize(
+                n=3,
+                search_space_digest=ssd,
+                inequality_constraints=self.inequality_constraints,
+                fixed_features=None,
+                rounding_func=self.rounding_func,
+                optimizer_options=self.optimizer_options,
+            )
         mock_optimize_acqf_mixed.assert_called_with(
             acq_function=acquisition.acqf,
             bounds=mock.ANY,
@@ -582,12 +671,13 @@ class AcquisitionTest(TestCase):
             )
         )
         # Check that we don't use mixed optimizer if force_use_optimize_acqf is True.
-        mock_optimize_acqf_mixed.reset_mock()
         optimizer_options = self.optimizer_options.copy()
         optimizer_options["force_use_optimize_acqf"] = True
         with mock.patch(
-            f"{ACQUISITION_PATH}.optimize_acqf", return_value=(Mock(), Mock())
-        ) as mock_optimize_acqf:
+            f"{ACQUISITION_PATH}.optimize_acqf", wraps=optimize_acqf
+        ) as mock_optimize_acqf, mock.patch(
+            f"{ACQUISITION_PATH}.optimize_acqf_mixed", wraps=optimize_acqf_mixed
+        ) as mock_optimize_acqf_mixed:
             acquisition.optimize(
                 n=3,
                 search_space_digest=ssd,
