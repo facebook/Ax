@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import itertools
 import warnings
-from typing import Callable, Dict, List, Optional, Protocol, Set, Tuple, Union
+from typing import Callable, Dict, List, Mapping, Optional, Protocol, Set, Tuple, Union
 
 import numpy as np
 import torch
@@ -578,7 +578,7 @@ def filter_constraints_and_fixed_features(
 def mk_discrete_choices(
     ssd: SearchSpaceDigest,
     fixed_features: Optional[Dict[int, float]] = None,
-) -> Dict[int, List[Union[int, float]]]:
+) -> Mapping[int, List[Union[int, float]]]:
     discrete_choices = ssd.discrete_choices
     # Add in fixed features.
     if fixed_features is not None:
@@ -591,7 +591,7 @@ def mk_discrete_choices(
 
 
 def enumerate_discrete_combinations(
-    discrete_choices: Dict[int, List[Union[int, float]]],
+    discrete_choices: Mapping[int, List[Union[int, float]]],
 ) -> List[Dict[int, Union[float, int]]]:
     n_combos = np.prod([len(v) for v in discrete_choices.values()])
     if n_combos > 50:
