@@ -152,7 +152,9 @@ class TestGenerationStrategy(TestCase):
         self.gpei_criterion = [
             MaxTrials(
                 threshold=2,
-                transition_to=None,
+                # this self-pointing isn't representative of real-world, but is
+                # useful for testing attributes likes repr etc
+                transition_to="GPEI_node",
                 block_gen_if_met=True,
                 only_in_statuses=None,
                 not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
