@@ -228,10 +228,12 @@ def sobol_gpei_generation_node_gs(
             not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
         )
     ]
+    # self-transitioning for mbm criterion isn't representative of real-world, but is
+    # useful for testing attributes likes repr etc
     mbm_criterion = [
         MaxTrials(
             threshold=2,
-            transition_to=None,
+            transition_to="MBM_node",
             block_gen_if_met=True,
             only_in_statuses=None,
             not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
@@ -240,7 +242,7 @@ def sobol_gpei_generation_node_gs(
         # we wanted to have an instance of them to test for storage compatibility.
         MinTrials(
             threshold=0,
-            transition_to=None,
+            transition_to="MBM_node",
             block_gen_if_met=False,
             only_in_statuses=[TrialStatus.CANDIDATE],
             not_in_statuses=None,

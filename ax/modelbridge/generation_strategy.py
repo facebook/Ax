@@ -632,6 +632,17 @@ class GenerationStrategy(GenerationStrategyInterface):
         for node in self._nodes:
             for next_node, tcs in node.transition_edges.items():
                 contains_a_transition_to_argument = True
+                if next_node is None:
+                    # TODO: @mgarrard remove MaxGenerationParallelism check when
+                    # we update TransitionCriterion always define `transition_to`
+                    for tc in tcs:
+                        if "MaxGenerationParallelism" not in tc.criterion_class:
+                            raise GenerationStrategyMisconfiguredException(
+                                error_info="Only MaxGenerationParallelism transition"
+                                " criterion can have a null `transition_to` argument,"
+                                f" but {tc.criterion_class} does not define "
+                                f"`transition_to` on {node.node_name}."
+                            )
                 if next_node is not None and next_node not in node_names:
                     raise GenerationStrategyMisconfiguredException(
                         error_info=f"`transition_to` argument "
