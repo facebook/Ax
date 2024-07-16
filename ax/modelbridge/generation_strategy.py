@@ -276,44 +276,48 @@ class GenerationStrategy(GenerationStrategyInterface):
         viewing.
 
         For example for a GenerationStrategy composed of GenerationSteps:
-        Gen. Step | Model | Trial Index | Trial Status | Arm Parameterizations
-        0         | Sobol | 0           | RUNNING      | {"0_0":{"x":9.17...}}
+        Gen. Step | Models   | Trial Index | Trial Status | Arm Parameterizations
+        [0]       | [Sobol]  | 0           | RUNNING      | {"0_0":{"x":9.17...}}
         """
         logger.info(
             "Note that parameter values in dataframe are rounded to 2 decimal "
             "points; the values in the dataframe are thus not the exact ones "
             "suggested by Ax in trials."
         )
-
-        if self._experiment is None or all(
-            len(step.trials_from_node) == 0 for step in self._nodes
-        ):
+        if self._experiment is None or len(self.experiment.trials) == 0:
             return None
 
         step_or_node_col = (
-            "Generation Node" if self.is_node_based else "Generation Step"
+            "Generation Nodes" if self.is_node_based else "Generation Step"
         )
         records = [
             {
-                step_or_node_col: node.node_name,
-                "Generation Model": self._nodes[
-                    node_idx
-                ].model_spec_to_gen_from.model_key,
+                step_or_node_col: [
+                    (
+                        gr._generation_node_name
+                        if gr.generator_run_type != "MANUAL"
+                        else "MANUAL"
+                    )
+                    for gr in trial.generator_runs
+                ],
+                "Generation Model(s)": [
+                    (gr._model_key if gr.generator_run_type != "MANUAL" else "MANUAL")
+                    for gr in trial.generator_runs
+                ],
                 "Trial Index": trial_idx,
-                "Trial Status": self.experiment.trials[trial_idx].status.name,
+                "Trial Status": trial.status.name,
                 "Arm Parameterizations": {
                     arm.name: _round_floats_for_logging(arm.parameters)
-                    for arm in self.experiment.trials[trial_idx].arms
+                    for arm in trial.arms
                 },
             }
-            for node_idx, node in enumerate(self._nodes)
-            for trial_idx in node.trials_from_node
+            for trial_idx, trial in self.experiment.trials.items()
         ]
 
         return pd.DataFrame.from_records(records).reindex(
             columns=[
                 step_or_node_col,
-                "Generation Model",
+                "Generation Model(s)",
                 "Trial Index",
                 "Trial Status",
                 "Arm Parameterizations",

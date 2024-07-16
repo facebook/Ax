@@ -692,62 +692,8 @@ class TestGenerationStrategy(TestCase):
             # attach necessary trials to fill up the Generation Strategy
             trial = exp.new_trial(sobol_generation_strategy.gen(experiment=exp))
         trials_df = not_none(sobol_generation_strategy.trials_as_df)
-        self.assertEqual(trials_df.head()["Generation Step"][0], "GenerationStep_0")
-        self.assertEqual(trials_df.head()["Generation Step"][2], "GenerationStep_1")
-
-        # construct the same GS as above but directly with nodes
-        sobol_model_spec = ModelSpec(
-            model_enum=Models.SOBOL,
-            model_kwargs={},
-            model_gen_kwargs={},
-        )
-        node_gs = GenerationStrategy(
-            nodes=[
-                GenerationNode(
-                    node_name="sobol_2_trial",
-                    model_specs=[sobol_model_spec],
-                    transition_criteria=[
-                        MaxTrials(
-                            threshold=2,
-                            not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
-                            block_gen_if_met=True,
-                            block_transition_if_unmet=True,
-                            transition_to="sobol_3_trial",
-                        )
-                    ],
-                ),
-                GenerationNode(
-                    node_name="sobol_3_trial",
-                    model_specs=[sobol_model_spec],
-                    transition_criteria=[
-                        MaxTrials(
-                            threshold=2,
-                            not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
-                            block_gen_if_met=True,
-                            block_transition_if_unmet=True,
-                            transition_to=None,
-                        )
-                    ],
-                ),
-            ]
-        )
-        self.assertIsNone(node_gs.trials_as_df)
-        # Now the trial should appear in the DF.
-        trial = exp.new_trial(node_gs.gen(experiment=exp))
-        trials_df = not_none(node_gs.trials_as_df)
-        self.assertFalse(trials_df.empty)
-        self.assertEqual(trials_df.head()["Trial Status"][0], "CANDIDATE")
-        # Changes in trial status should be reflected in the DF.
-        trial._status = TrialStatus.RUNNING
-        trials_df = not_none(node_gs.trials_as_df)
-        self.assertEqual(trials_df.head()["Trial Status"][0], "RUNNING")
-        # Check that rows are present for step 0 and 1 after moving to step 1
-        for _i in range(3):
-            # attach necessary trials to fill up the Generation Strategy
-            trial = exp.new_trial(node_gs.gen(experiment=exp))
-        trials_df = not_none(node_gs.trials_as_df)
-        self.assertEqual(trials_df.head()["Generation Node"][0], "sobol_2_trial")
-        self.assertEqual(trials_df.head()["Generation Node"][2], "sobol_3_trial")
+        self.assertEqual(trials_df.head()["Generation Step"][0], ["GenerationStep_0"])
+        self.assertEqual(trials_df.head()["Generation Step"][2], ["GenerationStep_1"])
 
     def test_max_parallelism_reached(self) -> None:
         exp = get_branin_experiment()
@@ -1390,19 +1336,6 @@ class TestGenerationStrategy(TestCase):
         gs2 = self.basic_sobol_gpei_gs
         self.assertEqual(gs1, gs2)
 
-    def test_generation_strategy_eq_no_print(self) -> None:
-        """
-        Calling a GenerationStrategy's ``__repr__`` method should not alter
-        its ``__dict__`` attribute.
-        In the past, ``__repr__``  was causing ``name`` to change
-        under the hood, resulting in
-        ``RuntimeError: dictionary changed size during iteration.``
-        This test ensures this issue doesn't reappear.
-        """
-        gs1 = self.basic_sobol_gpei_gs
-        gs2 = self.basic_sobol_gpei_gs
-        self.assertEqual(gs1, gs2)
-
     def test_gs_with_competing_transition_edges(self) -> None:
         """Test that a ``GenerationStrategy`` with a node with competing transition
         edges correctly transitions.
@@ -1419,43 +1352,6 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(gs.current_node_name, "gpei")
         gs.gen(exp)
         self.assertEqual(gs.current_node_name, "sobol_3")
-
-    def test_gs_with_competing_transition_edges_2(self) -> None:
-        """Test that a ``GenerationStrategy`` with a node with competing transition
-        edges correctly transitions.
-        """
-        # this gs has a single sobol node which transitions to gpei. If the MaxTrials
-        # and MinTrials criterion are met, the transition to sobol_2 should occur,
-        # otherwise, should transition to sobol_3
-        gs = self.competing_tc_gs
-        exp = get_branin_experiment()
-
-        # check that gpei will move to sobol_3 when MaxTrials is met and MinTrials
-        # is unmet
-        exp.new_trial(generator_run=gs.gen(exp)).run()
-        exp.new_trial(generator_run=gs.gen(exp)).run()
-        self.assertEqual(gs.current_node_name, "gpei")
-        gs.gen(exp)
-        self.assertEqual(gs.current_node_name, "sobol_3")
-
-    def test_gs_with_competing_transition_edges_3(self) -> None:
-        """Test that a ``GenerationStrategy`` with a node with competing transition
-        edges correctly transitions.
-        """
-        # this gs has a single sobol node which transitions to gpei. If the MaxTrials
-        # and MinTrials criterion are met, the transition to sobol_2 should occur,
-        # otherwise, should transition to sobol_3
-        gs = self.competing_tc_gs
-        exp = get_branin_experiment()
-
-        # check that gpei will transition to sobol_2 when MaxTrials is met and
-        # MinTrials are met
-        trial = exp.new_trial(generator_run=gs.gen(exp)).run()
-        exp.new_trial(generator_run=gs.gen(exp)).run()
-        self.assertEqual(gs.current_node_name, "gpei")
-        trial.mark_completed()
-        gs.gen(exp)
-        self.assertEqual(gs.current_node_name, "sobol_2")
 
     def test_transition_edges(self) -> None:
         """Test transition_edges property of ``GenerationNode``"""
@@ -1657,6 +1553,39 @@ class TestGenerationStrategy(TestCase):
         trial.run()
         trial = exp.new_batch_trial(generator_runs=gs_2.gen_with_multiple_nodes(exp))
         self.assertEqual(trial.generator_runs[0]._generation_node_name, "sobol_4")
+
+    def test_trials_as_df_node_gs(self) -> None:
+        exp = get_branin_experiment()
+        gs = self.complex_multinode_per_trial_gs
+        arms_per_node = {
+            "sobol": 3,
+            "gpei": 1,
+            "sobol_2": 2,
+            "sobol_3": 3,
+            "sobol_4": 4,
+        }
+        gs.experiment = exp
+        self.assertIsNone(gs.trials_as_df)
+        # Now the trial should appear in the DF.
+        trial = exp.new_batch_trial(
+            generator_runs=gs.gen_with_multiple_nodes(exp, arms_per_node=arms_per_node)
+        )
+        trials_df = not_none(gs.trials_as_df)
+        self.assertFalse(trials_df.empty)
+        self.assertEqual(trials_df.head()["Trial Status"][0], "CANDIDATE")
+        self.assertEqual(trials_df.head()["Generation Model(s)"][0], ["Sobol"])
+        # Changes in trial status should be reflected in the DF.
+        trial.run()
+        self.assertEqual(not_none(gs.trials_as_df).head()["Trial Status"][0], "RUNNING")
+        # Add a new trial which will be generated from multiple nodes, and check that
+        # is properly reflected in the DF.
+        trial = exp.new_batch_trial(
+            generator_runs=gs.gen_with_multiple_nodes(exp, arms_per_node=arms_per_node)
+        )
+        self.assertEqual(
+            not_none(gs.trials_as_df).head()["Generation Nodes"][1],
+            ["gpei", "sobol_2", "sobol_3"],
+        )
 
     # ------------- Testing helpers (put tests above this line) -------------
 
