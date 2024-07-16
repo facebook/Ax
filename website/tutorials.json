@@ -41,10 +41,6 @@
       "title": "Hyperparameter Optimization on SLURM via SubmitIt"
     },
     {
-      "id": "raytune_pytorch_cnn",
-      "title": "Hyperparameter Optimization via Raytune"
-    },
-    {
       "id": "multi_task",
       "title": "Multi-Task Modeling"
     },
