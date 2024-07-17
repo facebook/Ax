@@ -13,7 +13,7 @@ from itertools import product
 from math import ceil
 from typing import Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 from unittest import mock
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
@@ -2104,24 +2104,14 @@ class TestAxClient(TestCase):
         self.assertIsNone(ax_client.experiment._name)
 
     @patch(
-        "ax.modelbridge.base.observations_from_data",
-        autospec=True,
-        return_value=([get_observation1(first_metric_name="branin")]),
-    )
-    @patch(
-        "ax.modelbridge.random.RandomModelBridge.get_training_data",
-        autospec=True,
-        return_value=([get_observation1(first_metric_name="branin")]),
-    )
-    @patch(
         "ax.modelbridge.random.RandomModelBridge._predict",
         autospec=True,
         return_value=[get_observation1trans(first_metric_name="branin").data],
     )
-    def test_get_model_predictions(self, _predict, _tr_data, _obs_from_data) -> None:
+    def test_get_model_predictions(self, _predict) -> None:
         ax_client = get_branin_optimization()
         ax_client.get_next_trial()
-        ax_client.experiment.trials[0].arm._name = "1_1"
+        ax_client.complete_trial(0, {"branin": (5.0, 0.5)})
         self.assertEqual(ax_client.get_model_predictions(), {0: {"branin": (9.0, 1.0)}})
 
     def test_get_model_predictions_no_next_trial_all_trials(self) -> None:
@@ -2139,7 +2129,10 @@ class TestAxClient(TestCase):
         ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
         _attach_not_completed_trials(ax_client)
 
-        self.assertRaises(ValueError, ax_client.get_model_predictions)
+        with self.assertRaisesRegex(
+            DataRequiredError, "At least one trial must be completed"
+        ):
+            ax_client.get_model_predictions()
 
     def test_get_model_predictions_no_next_trial_filtered(self) -> None:
         ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
@@ -2293,19 +2286,14 @@ class TestAxClient(TestCase):
     @fast_botorch_optimize
     def helper_test_get_pareto_optimal_points(
         self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_observed_pareto,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_predicted_pareto,
+        mock_observed_pareto: Mock,
+        mock_predicted_pareto: Mock,
         outcome_constraints: Optional[List[str]] = None,
     ) -> None:
         ax_client, branin_currin = get_branin_currin_optimization_with_N_sobol_trials(
             num_trials=20, outcome_constraints=outcome_constraints
         )
-        ax_client.generation_strategy._maybe_transition_to_next_node()
-        ax_client.generation_strategy._fit_current_model(
-            data=ax_client.experiment.lookup_data()
-        )
+        ax_client.fit_model()
         self.assertEqual(
             ax_client.generation_strategy._curr.model_spec_to_gen_from.model_key,
             "BoTorch",
