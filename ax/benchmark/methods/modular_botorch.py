@@ -85,11 +85,11 @@ def get_sobol_botorch_modular_acquisition(
         ...     scheduler_options=get_benchmark_scheduler_options(
         ...         batch_size=5,
         ...     ),
-        ...     model_gen_kwargs=model_gen_kwargs={
-        ...             "model_gen_options": {
-        ...                 "optimizer_kwargs": {"sequential": False}
-        ...             }
+        ...     model_gen_kwargs={
+        ...         "model_gen_options": {
+        ...             "optimizer_kwargs": {"sequential": False}
         ...         }
+        ...     },
         ...     num_sobol_trials=1,
         ... )
     """
