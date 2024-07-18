@@ -108,6 +108,7 @@ from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.storage.json_store.decoders import (
     class_from_json,
+    default_from_json,
     input_transform_type_from_json,
     outcome_transform_type_from_json,
     pathlib_from_json,
@@ -123,6 +124,7 @@ from ax.storage.json_store.encoders import (
     botorch_modular_to_dict,
     choice_parameter_to_dict,
     data_to_dict,
+    default_to_dict,
     experiment_to_dict,
     fixed_parameter_to_dict,
     generation_node_to_dict,
@@ -169,6 +171,7 @@ from ax.utils.common.serialization import TDecoderRegistry
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from botorch.models.transforms.input import ChainedInputTransform, Normalize, Round
+from botorch.utils.types import DEFAULT
 from gpytorch.constraints import Interval
 from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
@@ -281,6 +284,7 @@ CORE_CLASS_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     MarginalLogLikelihood: botorch_modular_to_dict,  # BoTorch component
     Model: botorch_modular_to_dict,  # BoTorch component
     Transform: transform_type_to_dict,  # Ax general (not just MBM) component
+    DEFAULT: default_to_dict,  # BoTorch DEFAULT, used in MBM.
 }
 
 # TODO Clean up type signature. Decoders should be allowed to be any method from some
@@ -403,6 +407,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
 CORE_CLASS_DECODER_REGISTRY: Dict[str, Callable[[Dict[str, Any]], Any]] = {
     "Type[Acquisition]": class_from_json,
     "Type[AcquisitionFunction]": class_from_json,
+    "Type[Kernel]": class_from_json,
     "Type[Likelihood]": class_from_json,
     "Type[torch.nn.Module]": class_from_json,
     "Type[MarginalLogLikelihood]": class_from_json,
@@ -410,4 +415,5 @@ CORE_CLASS_DECODER_REGISTRY: Dict[str, Callable[[Dict[str, Any]], Any]] = {
     "Type[Transform]": transform_type_from_json,
     "Type[InputTransform]": input_transform_type_from_json,
     "Type[OutcomeTransform]": outcome_transform_type_from_json,
+    "_DefaultType": default_from_json,
 }

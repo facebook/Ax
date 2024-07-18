@@ -40,6 +40,7 @@ from ax.utils.common.typeutils import checked_cast
 from ax.utils.common.typeutils_torch import torch_type_from_str
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
 from botorch.models.transforms.outcome import ChainedOutcomeTransform, OutcomeTransform
+from botorch.utils.types import _DefaultType, DEFAULT
 
 logger: logging.Logger = get_logger(__name__)
 
@@ -319,3 +320,11 @@ def pathlib_from_json(pathsegments: Union[str, Iterable[str]]) -> Path:
         return Path(pathsegments)
 
     return Path(*pathsegments)
+
+
+def default_from_json(json: Dict[str, Any]) -> _DefaultType:
+    if json != {}:
+        raise JSONDecodeError(
+            f"Expected empty json object for ``DEFAULT``, got {json=}"
+        )
+    return DEFAULT

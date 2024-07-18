@@ -68,6 +68,7 @@ from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils import not_none
 from ax.utils.common.typeutils_torch import torch_type_to_str
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
+from botorch.utils.types import _DefaultType
 from torch import Tensor
 
 
@@ -764,3 +765,7 @@ def risk_measure_to_dict(
 
 def pathlib_to_dict(path: Path) -> Dict[str, Any]:
     return {"__type": path.__class__.__name__, "pathsegments": [str(path)]}
+
+
+def default_to_dict(default: _DefaultType) -> Dict[str, Any]:
+    return {"__type": default.__class__.__name__}
