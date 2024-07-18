@@ -257,16 +257,15 @@ class Experiment(Base):
             while name in arms_by_name:
                 name = f"status_quo_e{sq_idx}"
                 sq_idx += 1
-
             self._name_and_store_arm_if_not_exists(arm=status_quo, proposed_name=name)
-            logger.warning(
-                "Experiment's status_quo is updated. "
-                "Generally the status_quo should not be changed after being set."
-            )
 
         # If old status_quo not present in any trials,
         # remove from _arms_by_signature
         if self._status_quo is not None:
+            logger.warning(
+                "Experiment's status_quo is updated. "
+                "Generally the status_quo should not be changed after being set."
+            )
             persist_old_sq = False
             for trial in self._trials.values():
                 # pyre-fixme[16]: `Optional` has no attribute `name`.

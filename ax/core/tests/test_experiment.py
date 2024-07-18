@@ -373,8 +373,11 @@ class ExperimentTest(TestCase):
         self.assertEqual(len(self.experiment.arms_by_name), 1)
 
         # Change status quo, verify still just 1 arm
-        sq_parameters["w"] = 3.6
-        self.experiment.status_quo = Arm(sq_parameters)
+        with patch("ax.core.experiment.logger.warning") as mock_logger:
+            sq_parameters["w"] = 3.6
+            self.experiment.status_quo = Arm(sq_parameters)
+        mock_logger.assert_called_once()
+        self.assertIn("status_quo is updated", mock_logger.call_args.args[0])
         self.assertEqual(len(self.experiment.arms_by_signature), 1)
         self.assertEqual(len(self.experiment.arms_by_name), 1)
 
