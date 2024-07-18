@@ -102,6 +102,7 @@ from ax.modelbridge.transition_criterion import (
     TrialBasedCriterion,
 )
 from ax.models.torch.botorch_modular.acquisition import Acquisition
+from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
 from ax.models.torch.botorch_modular.sebo import SEBOAcquisition
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -119,6 +120,7 @@ from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.model import Model
 from botorch.models.transforms.input import ChainedInputTransform, Normalize, Round
 from botorch.utils.datasets import SupervisedDataset
+from botorch.utils.types import DEFAULT
 from gpytorch.constraints import Interval
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
@@ -2219,6 +2221,19 @@ def get_surrogate() -> Surrogate:
     return Surrogate(
         botorch_model_class=get_model_type(),
         mll_class=get_mll_type(),
+    )
+
+
+def get_surrogate_spec_with_default() -> SurrogateSpec:
+    return SurrogateSpec(
+        botorch_model_class=SingleTaskGP,
+        covar_module_class=ScaleMaternKernel,
+        covar_module_kwargs={
+            "ard_num_dims": DEFAULT,
+            "lengthscale_prior": GammaPrior(6.0, 3.0),
+            "outputscale_prior": GammaPrior(2.0, 0.15),
+            "batch_shape": DEFAULT,
+        },
     )
 
 
