@@ -9,7 +9,7 @@ from typing import List, Optional, Tuple
 
 import pandas as pd
 
-from ax.analysis.base_plotly_visualization import BasePlotlyVisualization
+from ax.analysis.old.base_plotly_visualization import BasePlotlyVisualization
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial

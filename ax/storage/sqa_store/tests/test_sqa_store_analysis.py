@@ -11,10 +11,10 @@ from logging import Logger
 import pandas as pd
 import plotly.graph_objects as go
 
-from ax.analysis.base_analysis import BaseAnalysis
-from ax.analysis.base_plotly_visualization import BasePlotlyVisualization
+from ax.analysis.old.base_analysis import BaseAnalysis
+from ax.analysis.old.base_plotly_visualization import BasePlotlyVisualization
 
-from ax.analysis.cross_validation_plot import CrossValidationPlot
+from ax.analysis.old.cross_validation_plot import CrossValidationPlot
 
 from ax.modelbridge.registry import Models
 

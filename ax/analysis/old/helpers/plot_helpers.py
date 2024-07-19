@@ -10,7 +10,7 @@
 from logging import Logger
 from typing import Dict, List, Optional, Tuple, Union
 
-from ax.analysis.helpers.constants import DECIMALS, Z
+from ax.analysis.old.helpers.constants import DECIMALS, Z
 
 from ax.core.generator_run import GeneratorRun
 

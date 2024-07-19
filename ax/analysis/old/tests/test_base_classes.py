@@ -11,8 +11,8 @@ import plotly.express as px
 
 import plotly.graph_objects as go
 
-from ax.analysis.base_analysis import BaseAnalysis
-from ax.analysis.base_plotly_visualization import BasePlotlyVisualization
+from ax.analysis.old.base_analysis import BaseAnalysis
+from ax.analysis.old.base_plotly_visualization import BasePlotlyVisualization
 
 from ax.modelbridge.registry import Models
 

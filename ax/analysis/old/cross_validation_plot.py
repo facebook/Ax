@@ -10,17 +10,17 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from ax.analysis.base_plotly_visualization import BasePlotlyVisualization
+from ax.analysis.old.base_plotly_visualization import BasePlotlyVisualization
 
-from ax.analysis.helpers.cross_validation_helpers import (
+from ax.analysis.old.helpers.cross_validation_helpers import (
     cv_results_to_df,
     diagonal_trace,
     get_plotting_limit_ignore_outliers,
 )
 
-from ax.analysis.helpers.layout_helpers import layout_format, updatemenus_format
+from ax.analysis.old.helpers.layout_helpers import layout_format, updatemenus_format
 
-from ax.analysis.helpers.scatter_helpers import (
+from ax.analysis.old.helpers.scatter_helpers import (
     error_scatter_trace_from_df,
     extract_mean_and_error_from_df,
 )

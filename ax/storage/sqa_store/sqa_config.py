@@ -10,8 +10,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, Optional, Type
 
-from ax.analysis.analysis_report import AnalysisReport
-from ax.analysis.base_analysis import BaseAnalysis
+from ax.analysis.old.analysis_report import AnalysisReport
+from ax.analysis.old.base_analysis import BaseAnalysis
 
 from ax.core.arm import Arm
 from ax.core.batch_trial import AbandonedArm
