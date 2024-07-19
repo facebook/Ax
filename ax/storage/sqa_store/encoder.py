@@ -9,7 +9,7 @@
 from enum import Enum
 
 from logging import Logger
-from typing import Any, cast, Dict, List, Optional, Tuple, Type
+from typing import Any, cast, Dict, List, Optional, Tuple, Type, Union
 
 import plotly
 import plotly.io as pio
@@ -123,19 +123,28 @@ class Encoder:
                 )
 
     def get_enum_value(
-        self, value: Optional[str], enum: Optional[Enum]
+        self, value: Optional[str], enum: Optional[Union[Enum, Type[Enum]]]
     ) -> Optional[int]:
         """Given an enum name (string) and an enum (of ints), return the
         corresponding enum value. If the name is not present in the enum,
         throw an error.
         """
-        if value is None or enum is None:
+        if value is None:
             return None
 
+        error = SQAEncodeError(
+            f"Value {value} is invalid for enum {enum}.  You may be "
+            "using a registry or config that doesn't support the value "
+            "you are trying to save."
+        )
+        if enum is None:
+            raise error
+
         try:
-            return enum[value].value  # pyre-ignore T29651755
+            # pyre-ignore[16]: `Enum` has no attribute `__getitem__`. T29651755
+            return enum[value].value
         except KeyError:
-            raise SQAEncodeError(f"Value {value} is invalid for enum {enum}.")
+            raise error
 
     def experiment_to_sqa(self, experiment: Experiment) -> SQAExperiment:
         """Convert Ax Experiment to SQLAlchemy.

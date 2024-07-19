@@ -8,7 +8,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, Optional, Type
+from typing import Any, Callable, Dict, Optional, Type, Union
 
 from ax.analysis.analysis_report import AnalysisReport
 from ax.analysis.base_analysis import BaseAnalysis
@@ -87,8 +87,8 @@ class SQAConfig:
     class_to_sqa_class: Dict[Type[Base], Type[SQABase]] = field(
         default_factory=_default_class_to_sqa_class
     )
-    experiment_type_enum: Optional[Enum] = None
-    generator_run_type_enum: Optional[Enum] = GeneratorRunType  # pyre-ignore [8]
+    experiment_type_enum: Optional[Union[Enum, Type[Enum]]] = None
+    generator_run_type_enum: Optional[Union[Enum, Type[Enum]]] = GeneratorRunType
 
     # pyre-fixme[4]: Attribute annotation cannot contain `Any`.
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
