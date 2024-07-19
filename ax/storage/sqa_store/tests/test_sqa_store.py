@@ -8,6 +8,7 @@
 
 import logging
 from datetime import datetime
+from enum import Enum
 from logging import Logger
 from typing import Any
 from unittest import mock
@@ -201,6 +202,35 @@ class SQAStoreTest(TestCase):
             self.assertIsNotNone(exp.db_id)
             loaded_experiment = load_experiment(exp.name)
             self.assertEqual(loaded_experiment, exp)
+
+    def test_saving_an_experiment_with_type_requires_an_enum(self) -> None:
+        self.experiment.experiment_type = "TEST"
+        with self.assertRaises(SQAEncodeError):
+            save_experiment(self.experiment)
+
+    def test_saving_an_experiment_with_type_works_with_an_enum(self) -> None:
+        class TestExperimentTypeEnum(Enum):
+            TEST = 0
+
+        self.experiment.experiment_type = "TEST"
+        save_experiment(
+            self.experiment,
+            config=SQAConfig(experiment_type_enum=TestExperimentTypeEnum),
+        )
+        self.assertIsNotNone(self.experiment.db_id)
+
+    def test_saving_an_experiment_with_type_errors_with_missing_enum_value(
+        self,
+    ) -> None:
+        class TestExperimentTypeEnum(Enum):
+            NOT_TEST = 0
+
+        self.experiment.experiment_type = "TEST"
+        with self.assertRaises(SQAEncodeError):
+            save_experiment(
+                self.experiment,
+                config=SQAConfig(experiment_type_enum=TestExperimentTypeEnum),
+            )
 
     def test_LoadExperimentTrialsInBatches(self) -> None:
         for _ in range(4):

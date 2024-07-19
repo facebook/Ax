@@ -96,7 +96,7 @@ class Decoder:
         self.config = config
 
     def get_enum_name(
-        self, value: Optional[int], enum: Optional[Enum]
+        self, value: Optional[int], enum: Optional[Union[Enum, Type[Enum]]]
     ) -> Optional[str]:
         """Given an enum value (int) and an enum (of ints), return the
         corresponding enum name. If the value is not present in the enum,
