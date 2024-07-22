@@ -611,6 +611,8 @@ def get_branin_experiment_with_multi_objective(
     with_status_quo: bool = False,
     with_fidelity_parameter: bool = False,
     num_objectives: int = 2,
+    with_trial: bool = False,
+    with_completed_trial: bool = False,
 ) -> Experiment:
     exp = Experiment(
         name="branin_test_experiment",
@@ -639,6 +641,18 @@ def get_branin_experiment_with_multi_objective(
         exp.new_batch_trial(optimize_for_power=with_status_quo).add_generator_run(
             sobol_run
         )
+
+    if with_trial or with_completed_trial:
+        sobol_generator = get_sobol(search_space=exp.search_space)
+        sobol_run = sobol_generator.gen(n=1)
+        trial = exp.new_trial(generator_run=sobol_run)
+
+        if with_completed_trial:
+            trial.mark_running(no_runner_required=True)
+            exp.attach_data(
+                get_branin_data_multi_objective(trial_indices=[trial.index])
+            )  # Add data for one trial
+            trial.mark_completed()
 
     return exp
 

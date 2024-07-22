@@ -29,7 +29,6 @@ from ax.benchmark.metrics.benchmark import BenchmarkMetric, GroundTruthBenchmark
 from ax.benchmark.problems.registry import get_problem
 from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.modelbridge_utils import extract_search_space_digest
 from ax.modelbridge.registry import Models
 from ax.service.utils.scheduler_options import SchedulerOptions
 from ax.storage.json_store.load import load_experiment
@@ -44,7 +43,7 @@ from ax.utils.testing.benchmark_stubs import (
     get_sobol_benchmark_method,
     get_soo_surrogate,
 )
-from ax.utils.testing.core_stubs import get_dataset, get_experiment
+from ax.utils.testing.core_stubs import get_experiment
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
@@ -302,13 +301,6 @@ class TestBenchmark(TestCase):
         ]:
             with self.subTest(name, problem=problem):
                 surrogate, datasets = not_none(problem.get_surrogate_and_datasets)()
-                surrogate.fit(
-                    [get_dataset()],
-                    search_space_digest=extract_search_space_digest(
-                        problem.search_space,
-                        param_names=[*problem.search_space.parameters.keys()],
-                    ),
-                )
                 res = benchmark_replication(problem=problem, method=method, seed=0)
 
                 self.assertEqual(
