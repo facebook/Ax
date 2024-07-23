@@ -8,7 +8,7 @@ import os
 
 from setuptools import find_packages, setup
 
-PINNED_BOTORCH_VERSION = "0.11.0"
+PINNED_BOTORCH_VERSION = "0.11.3"
 
 if os.environ.get("ALLOW_BOTORCH_LATEST"):
     # allows a more recent previously installed version of botorch to remain
