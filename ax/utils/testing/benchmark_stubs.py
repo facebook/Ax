@@ -21,15 +21,21 @@ from ax.benchmark.problems.surrogate import (
     SOOSurrogateBenchmarkProblem,
 )
 from ax.core.experiment import Experiment
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
+from ax.modelbridge.torch import TorchModelBridge
+from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.service.scheduler import SchedulerOptions
 from ax.utils.common.constants import Keys
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
-    get_branin_multi_objective_optimization_config,
-    get_branin_optimization_config,
-    get_branin_search_space,
+    get_branin_experiment,
+    get_branin_experiment_with_multi_objective,
 )
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.gp_regression import SingleTaskGP
@@ -96,11 +102,20 @@ def get_sobol_benchmark_method() -> BenchmarkMethod:
 
 
 def get_soo_surrogate() -> SOOSurrogateBenchmarkProblem:
-    surrogate = Surrogate(botorch_model_class=SingleTaskGP)
+    experiment = get_branin_experiment(with_completed_trial=True)
+    surrogate = TorchModelBridge(
+        experiment=experiment,
+        search_space=experiment.search_space,
+        model=BoTorchModel(surrogate=Surrogate(botorch_model_class=SingleTaskGP)),
+        data=experiment.lookup_data(),
+        transforms=[],
+    )
     return SOOSurrogateBenchmarkProblem(
         name="test",
-        search_space=get_branin_search_space(),
-        optimization_config=get_branin_optimization_config(),
+        search_space=experiment.search_space,
+        optimization_config=checked_cast(
+            OptimizationConfig, experiment.optimization_config
+        ),
         num_trials=6,
         outcome_names=["branin"],
         observe_noise_stds=True,
@@ -110,11 +125,20 @@ def get_soo_surrogate() -> SOOSurrogateBenchmarkProblem:
 
 
 def get_moo_surrogate() -> MOOSurrogateBenchmarkProblem:
-    surrogate = Surrogate(botorch_model_class=SingleTaskGP)
+    experiment = get_branin_experiment_with_multi_objective(with_completed_trial=True)
+    surrogate = TorchModelBridge(
+        experiment=experiment,
+        search_space=experiment.search_space,
+        model=BoTorchModel(surrogate=Surrogate(botorch_model_class=SingleTaskGP)),
+        data=experiment.lookup_data(),
+        transforms=[],
+    )
     return MOOSurrogateBenchmarkProblem(
         name="test",
-        search_space=get_branin_search_space(),
-        optimization_config=get_branin_multi_objective_optimization_config(),
+        search_space=experiment.search_space,
+        optimization_config=checked_cast(
+            MultiObjectiveOptimizationConfig, experiment.optimization_config
+        ),
         num_trials=10,
         outcome_names=["branin_a", "branin_b"],
         observe_noise_stds=True,

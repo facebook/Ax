@@ -6,21 +6,16 @@
 # pyre-strict
 
 import warnings
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Union
 
 import torch
 from ax.benchmark.runners.base import BenchmarkRunner
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.observation import ObservationFeatures
-from ax.core.parameter import RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import TParameterization
-from ax.modelbridge.transforms.int_to_float import IntToFloat
-from ax.modelbridge.transforms.log import Log
-from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.modelbridge.torch import TorchModelBridge
 from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
-from ax.utils.common.typeutils import not_none
 from botorch.utils.datasets import SupervisedDataset
 from torch import Tensor
 
@@ -29,7 +24,7 @@ class SurrogateRunner(BenchmarkRunner):
     def __init__(
         self,
         name: str,
-        surrogate: Surrogate,
+        surrogate: TorchModelBridge,
         datasets: List[SupervisedDataset],
         search_space: SearchSpace,
         outcome_names: List[str],
@@ -59,52 +54,25 @@ class SurrogateRunner(BenchmarkRunner):
         self.noise_stds = noise_stds
         self.statuses: Dict[int, TrialStatus] = {}
 
-        # If there are log scale parameters, these need to be transformed.
-        if any(
-            isinstance(p, RangeParameter) and p.log_scale
-            for p in search_space.parameters.values()
-        ):
-            int_to_float_tf = IntToFloat(search_space=search_space)
-            log_tf = Log(
-                search_space=int_to_float_tf.transform_search_space(
-                    search_space.clone()
-                )
-            )
-            self.transforms: Optional[Tuple[IntToFloat, Log]] = (
-                int_to_float_tf,
-                log_tf,
-            )
-        else:
-            self.transforms = None
-
     @property
     def outcome_names(self) -> List[str]:
         return self._outcome_names
-
-    def _get_transformed_parameters(
-        self, parameters: TParameterization
-    ) -> TParameterization:
-        if self.transforms is None:
-            return parameters
-
-        obs_ft = ObservationFeatures(parameters=parameters)
-        for t in not_none(self.transforms):
-            obs_ft = t.transform_observation_features([obs_ft])[0]
-        return obs_ft.parameters
 
     def get_noise_stds(self) -> Union[None, float, Dict[str, float]]:
         return self.noise_stds
 
     def get_Y_true(self, arm: Arm) -> Tensor:
-        X = torch.tensor(
-            [list(self._get_transformed_parameters(arm.parameters).values())],
+        # We're ignoring the uncertainty predictions of the surrogate model here and
+        # use the mean predictions as the outcomes (before potentially adding noise)
+        means, _ = self.surrogate.predict(
+            observation_features=[ObservationFeatures(arm.parameters)]
+        )
+        means = [means[name][0] for name in self.outcome_names]
+        return torch.tensor(
+            means,
             device=self.surrogate.device,
             dtype=self.surrogate.dtype,
         )
-        # We're ignoring the uncertainty predictions of the surrogate model here and
-        # use the mean predictions as the outcomes (before potentially adding noise)
-        means, _ = self.surrogate.predict(X=X)
-        return means.squeeze(0)
 
     def run(self, trial: BaseTrial) -> Dict[str, Any]:
         """Run the trial by evaluating its parameterization(s) on the surrogate model.

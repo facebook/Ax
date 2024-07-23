@@ -16,7 +16,7 @@ from ax.core.optimization_config import (
 )
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
-from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.modelbridge.torch import TorchModelBridge
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -42,7 +42,7 @@ class SurrogateBenchmarkProblemBase(Base):
         observe_noise_stds: Union[bool, Dict[str, bool]] = False,
         noise_stds: Union[float, Dict[str, float]] = 0.0,
         get_surrogate_and_datasets: Optional[
-            Callable[[], Tuple[Surrogate, List[SupervisedDataset]]]
+            Callable[[], Tuple[TorchModelBridge, List[SupervisedDataset]]]
         ] = None,
         tracking_metrics: Optional[List[BenchmarkMetricBase]] = None,
         _runner: Optional[Runner] = None,
@@ -163,7 +163,7 @@ class SOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
         observe_noise_stds: Union[bool, Dict[str, bool]] = False,
         noise_stds: Union[float, Dict[str, float]] = 0.0,
         get_surrogate_and_datasets: Optional[
-            Callable[[], Tuple[Surrogate, List[SupervisedDataset]]]
+            Callable[[], Tuple[TorchModelBridge, List[SupervisedDataset]]]
         ] = None,
         tracking_metrics: Optional[List[BenchmarkMetricBase]] = None,
         _runner: Optional[Runner] = None,
@@ -210,7 +210,7 @@ class MOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
         observe_noise_stds: Union[bool, Dict[str, bool]] = False,
         noise_stds: Union[float, Dict[str, float]] = 0.0,
         get_surrogate_and_datasets: Optional[
-            Callable[[], Tuple[Surrogate, List[SupervisedDataset]]]
+            Callable[[], Tuple[TorchModelBridge, List[SupervisedDataset]]]
         ] = None,
         tracking_metrics: Optional[List[BenchmarkMetricBase]] = None,
         _runner: Optional[Runner] = None,
