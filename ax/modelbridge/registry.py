@@ -433,18 +433,6 @@ class Models(ModelRegistryBase):
 
     @classmethod
     @property
-    def BOTORCH(cls) -> Models:
-        warnings.warn(
-            "`BOTORCH` Model class has been deprecated and renamed to "
-            "`LEGACY_BOTORCH`, and it will be removed in a future release. "
-            "Please use `BOTORCH_MODULAR` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return cls.LEGACY_BOTORCH
-
-    @classmethod
-    @property
     def FULLYBAYESIAN(cls) -> Models:
         return _deprecated_model_with_warning(
             old_model_str="FULLYBAYESIAN", new_model=cls.SAASBO
