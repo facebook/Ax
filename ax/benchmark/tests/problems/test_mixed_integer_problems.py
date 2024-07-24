@@ -20,15 +20,17 @@ from ax.core.parameter import ParameterType
 from ax.core.trial import Trial
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
+from botorch.test_functions.synthetic import Ackley, Hartmann, Rosenbrock
 
 
 class MixedIntegerProblemsTest(TestCase):
     def test_problems(self) -> None:
-        for name, constructor, dim, dim_int in (
-            ("Hartmann", get_discrete_hartmann, 6, 4),
-            ("Ackley", get_discrete_ackley, 13, 10),
-            ("Rosenbrock", get_discrete_rosenbrock, 10, 6),
+        for problem_cls, constructor, dim, dim_int in (
+            (Hartmann, get_discrete_hartmann, 6, 4),
+            (Ackley, get_discrete_ackley, 13, 10),
+            (Rosenbrock, get_discrete_rosenbrock, 10, 6),
         ):
+            name = problem_cls.__name__
             problem = constructor()
             self.assertEqual(f"Discrete {name}", problem.name)
             self.assertEqual(
@@ -56,6 +58,10 @@ class MixedIntegerProblemsTest(TestCase):
                 ).test_problem._bounds,
                 expected_bounds,
             )
+            print(f"{name=}")
+            print(f"{problem.optimal_value=}")
+            print(f"{problem_cls().optimal_value=}")
+            self.assertGreaterEqual(problem.optimal_value, problem_cls().optimal_value)
 
         # Test that they match correctly to the original problems.
         # Hartmann - evaluate at 0 - should correspond to 0.
