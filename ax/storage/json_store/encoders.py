@@ -165,7 +165,7 @@ def multi_objective_benchmark_problem_to_dict(
         "observe_noise_sd": moo_benchmark_problem.observe_noise_sd,
         "has_ground_truth": moo_benchmark_problem.has_ground_truth,
         "tracking_metrics": moo_benchmark_problem.tracking_metrics,
-        "maximum_hypervolume": moo_benchmark_problem.maximum_hypervolume,
+        "optimal_value": moo_benchmark_problem.optimal_value,
         "reference_point": moo_benchmark_problem.reference_point,
     }
 
