@@ -143,7 +143,7 @@ def get_moo_surrogate() -> MOOSurrogateBenchmarkProblem:
         outcome_names=["branin_a", "branin_b"],
         observe_noise_stds=True,
         get_surrogate_and_datasets=lambda: (surrogate, []),
-        maximum_hypervolume=1.0,
+        optimal_value=1.0,
         reference_point=[],
     )
 

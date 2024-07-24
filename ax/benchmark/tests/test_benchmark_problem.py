@@ -194,9 +194,7 @@ class TestBenchmarkProblem(TestCase):
         )
 
         # Test hypervolume
-        self.assertEqual(
-            branin_currin_problem.maximum_hypervolume, test_problem._max_hv
-        )
+        self.assertEqual(branin_currin_problem.optimal_value, test_problem._max_hv)
         self.assertEqual(branin_currin_problem.reference_point, test_problem._ref_point)
 
     def test_maximization_problem(self) -> None:
