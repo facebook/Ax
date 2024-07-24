@@ -14,11 +14,11 @@ import numpy as np
 import pandas as pd
 
 import plotly.graph_objs as go
-from ax.analysis.helpers.color_helpers import rgba
+from ax.analysis.old.helpers.color_helpers import rgba
 
-from ax.analysis.helpers.constants import CI_OPACITY, COLORS, DECIMALS, Z
+from ax.analysis.old.helpers.constants import CI_OPACITY, COLORS, DECIMALS, Z
 
-from ax.analysis.helpers.plot_helpers import _format_CI, _format_dict
+from ax.analysis.old.helpers.plot_helpers import _format_CI, _format_dict
 
 from ax.core.types import TParameterization
 

@@ -10,8 +10,8 @@ from typing import List, Optional, Tuple
 import pandas as pd
 import plotly.graph_objects as go
 
-from ax.analysis.base_analysis import BaseAnalysis
-from ax.analysis.base_plotly_visualization import BasePlotlyVisualization
+from ax.analysis.old.base_analysis import BaseAnalysis
+from ax.analysis.old.base_plotly_visualization import BasePlotlyVisualization
 
 from ax.core.experiment import Experiment
 

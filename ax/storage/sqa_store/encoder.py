@@ -14,8 +14,8 @@ from typing import Any, cast, Dict, List, Optional, Tuple, Type, Union
 import plotly
 import plotly.io as pio
 
-from ax.analysis.base_analysis import BaseAnalysis
-from ax.analysis.base_plotly_visualization import BasePlotlyVisualization
+from ax.analysis.old.base_analysis import BaseAnalysis
+from ax.analysis.old.base_plotly_visualization import BasePlotlyVisualization
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial

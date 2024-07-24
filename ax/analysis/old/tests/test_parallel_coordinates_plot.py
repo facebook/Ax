@@ -6,7 +6,7 @@
 # pyre-strict
 
 
-from ax.analysis.parallel_coordinates_plot import ParallelCoordinatesPlot
+from ax.analysis.old.parallel_coordinates_plot import ParallelCoordinatesPlot
 from ax.core.batch_trial import BatchTrial
 
 from ax.utils.common.testutils import TestCase

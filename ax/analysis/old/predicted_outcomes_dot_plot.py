@@ -11,14 +11,14 @@ import numpy as np
 
 import pandas as pd
 
-from ax.analysis.base_plotly_visualization import BasePlotlyVisualization
+from ax.analysis.old.base_plotly_visualization import BasePlotlyVisualization
 
-from ax.analysis.helpers.layout_helpers import updatemenus_format
+from ax.analysis.old.helpers.layout_helpers import updatemenus_format
 
-from ax.analysis.helpers.plot_data_df_helpers import get_plot_data_in_sample_arms_df
-from ax.analysis.helpers.plot_helpers import arm_name_to_sort_key, resize_subtitles
+from ax.analysis.old.helpers.plot_data_df_helpers import get_plot_data_in_sample_arms_df
+from ax.analysis.old.helpers.plot_helpers import arm_name_to_sort_key, resize_subtitles
 
-from ax.analysis.helpers.scatter_helpers import (
+from ax.analysis.old.helpers.scatter_helpers import (
     error_dot_plot_trace_from_df,
     relativize_dataframe,
 )

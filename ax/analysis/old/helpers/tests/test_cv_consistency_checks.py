@@ -9,11 +9,11 @@
 import copy
 
 import plotly.graph_objects as go
-from ax.analysis.cross_validation_plot import CrossValidationPlot
-from ax.analysis.helpers.cross_validation_helpers import (
+from ax.analysis.old.cross_validation_plot import CrossValidationPlot
+from ax.analysis.old.helpers.cross_validation_helpers import (
     error_scatter_data_from_cv_results,
 )
-from ax.analysis.helpers.scatter_helpers import error_scatter_trace_from_df
+from ax.analysis.old.helpers.scatter_helpers import error_scatter_trace_from_df
 from ax.modelbridge.cross_validation import cross_validate
 from ax.modelbridge.registry import Models
 from ax.plot.base import PlotMetric

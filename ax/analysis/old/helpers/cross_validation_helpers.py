@@ -12,9 +12,9 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objs as go
 
-from ax.analysis.helpers.constants import Z
+from ax.analysis.old.helpers.constants import Z
 
-from ax.analysis.helpers.plot_helpers import arm_name_to_sort_key
+from ax.analysis.old.helpers.plot_helpers import arm_name_to_sort_key
 
 from ax.modelbridge.cross_validation import CVResult
 
