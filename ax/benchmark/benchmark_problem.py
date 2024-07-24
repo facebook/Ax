@@ -11,7 +11,7 @@
 # in the UI.
 
 import abc
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable, Type, Union
+from typing import Any, Dict, List, Optional, Protocol, runtime_checkable, Type
 
 from ax.benchmark.metrics.base import BenchmarkMetricBase
 
@@ -66,9 +66,7 @@ class BenchmarkProblemProtocol(Protocol):
     num_trials: int
     tracking_metrics: List[BenchmarkMetricBase]
     is_noiseless: bool  # If True, evaluations are deterministic
-    observe_noise_stds: Union[
-        bool, Dict[str, bool]
-    ]  # Whether we observe the observation noise level
+    observe_noise_sd: bool
     has_ground_truth: bool  # if True, evals (w/o synthetic noise) are determinstic
 
     @abc.abstractproperty
@@ -111,12 +109,6 @@ class BenchmarkProblem(Base):
     @property
     def runner(self) -> Runner:
         return self._runner
-
-    @property
-    def observe_noise_stds(self) -> Union[bool, Dict[str, bool]]:
-        # TODO: Handle cases where some outcomes have noise levels observed
-        # and others do not.
-        return self.observe_noise_sd
 
     @classmethod
     def from_botorch(

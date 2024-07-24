@@ -118,7 +118,7 @@ def get_soo_surrogate() -> SOOSurrogateBenchmarkProblem:
         ),
         num_trials=6,
         outcome_names=["branin"],
-        observe_noise_stds=True,
+        observe_noise_sd=True,
         get_surrogate_and_datasets=lambda: (surrogate, []),
         optimal_value=0.0,
     )
@@ -141,7 +141,7 @@ def get_moo_surrogate() -> MOOSurrogateBenchmarkProblem:
         ),
         num_trials=10,
         outcome_names=["branin_a", "branin_b"],
-        observe_noise_stds=True,
+        observe_noise_sd=True,
         get_surrogate_and_datasets=lambda: (surrogate, []),
         optimal_value=1.0,
         reference_point=[],
