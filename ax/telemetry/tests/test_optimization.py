@@ -267,6 +267,12 @@ class TestOptimization(TestCase):
             objectives={"branin": ObjectiveProperties(minimize=True)},
             is_test=True,
         )
+        ax_client.get_next_trial()
+        ax_client.complete_trial(
+            trial_index=0,
+            raw_data={"branin": 10.0},
+        )
+        completed_trial = ax_client.get_trial(0)
 
         record = OptimizationCompletedRecord.from_ax_client(
             ax_client=ax_client,
@@ -274,9 +280,12 @@ class TestOptimization(TestCase):
             deployed_job_id=1118,
             estimated_early_stopping_savings=19,
             estimated_global_stopping_savings=98,
+            completed_trial=completed_trial,
         )
         expected_dict = {
-            **AxClientCompletedRecord.from_ax_client(ax_client=ax_client).flatten(),
+            **AxClientCompletedRecord.from_ax_client(
+                ax_client=ax_client, completed_trial=completed_trial
+            ).flatten(),
             "unique_identifier": "foo",
             "deployed_job_id": 1118,
             "estimated_early_stopping_savings": 19,

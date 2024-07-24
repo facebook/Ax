@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Optional, Union
 
+from ax.core.base_trial import BaseTrial
+
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStrategy
 
@@ -514,9 +516,11 @@ class OptimizationCompletedRecord:
         deployed_job_id: Optional[int],
         estimated_early_stopping_savings: float,
         estimated_global_stopping_savings: float,
+        completed_trial: BaseTrial,
     ) -> OptimizationCompletedRecord:
         ax_client_completed_record = AxClientCompletedRecord.from_ax_client(
-            ax_client=ax_client
+            ax_client=ax_client,
+            completed_trial=completed_trial,
         )
         experiment_completed_record = (
             ax_client_completed_record.experiment_completed_record
