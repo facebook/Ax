@@ -27,8 +27,8 @@ class SurrogateBenchmarkProblemBase(Base):
     """
     Base class for SOOSurrogateBenchmarkProblem and MOOSurrogateBenchmarkProblem.
 
-    Allows for lazy creation of objects needed to construct a `runner`,
-    including a surrogate and datasets.
+    Its `runner` is created lazily, when `runner` is accessed or `set_runner` is
+    called, to defer construction of the surrogate and downloading of datasets.
     """
 
     def __init__(
@@ -39,7 +39,7 @@ class SurrogateBenchmarkProblemBase(Base):
         optimization_config: OptimizationConfig,
         num_trials: int,
         outcome_names: List[str],
-        observe_noise_stds: Union[bool, Dict[str, bool]] = False,
+        observe_noise_sd: bool = False,
         noise_stds: Union[float, Dict[str, float]] = 0.0,
         get_surrogate_and_datasets: Optional[
             Callable[[], Tuple[TorchModelBridge, List[SupervisedDataset]]]
@@ -56,11 +56,8 @@ class SurrogateBenchmarkProblemBase(Base):
             num_trials: The number of trials to run.
             outcome_names: The names of the metrics the benchmark problem
                 produces outcome observations for.
-            observe_noise_stds: Whether or not to observe the observation noise
-                level for each metric. If True/False, observe the the noise standard
-                deviation for all/no metrics. If a dictionary, specify this for
-                individual metrics (metrics not appearing in the dictionary will
-                be assumed to not provide observation noise levels).
+            observe_noise_sd: Whether or not to observe the observation noise
+                level.
             noise_stds: The standard deviation(s) of the observation noise(s).
                 If a single value is provided, it is used for all metrics. Providing
                 a dictionary allows specifying different noise levels for different
@@ -82,7 +79,7 @@ class SurrogateBenchmarkProblemBase(Base):
         self.optimization_config = optimization_config
         self.num_trials = num_trials
         self.outcome_names = outcome_names
-        self.observe_noise_stds = observe_noise_stds
+        self.observe_noise_sd = observe_noise_sd
         self.noise_stds = noise_stds
         self.get_surrogate_and_datasets = get_surrogate_and_datasets
         self.tracking_metrics: List[BenchmarkMetricBase] = tracking_metrics or []
@@ -139,7 +136,7 @@ class SurrogateBenchmarkProblemBase(Base):
             f"optimization_config={self.optimization_config}, "
             f"num_trials={self.num_trials}, "
             f"is_noiseless={self.is_noiseless}, "
-            f"observe_noise_stds={self.observe_noise_stds}, "
+            f"observe_noise_sd={self.observe_noise_sd}, "
             f"noise_stds={self.noise_stds}, "
             f"tracking_metrics={self.tracking_metrics})"
         )
@@ -147,8 +144,10 @@ class SurrogateBenchmarkProblemBase(Base):
 
 class SOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
     """
-    Has the same attributes/properties as a `SingleObjectiveBenchmarkProblem`,
-    but allows for constructing from a surrogate.
+    Has the same attributes/properties as a `MultiObjectiveBenchmarkProblem`,
+    but its runner is not constructed until needed, to allow for deferring
+    constructing the surrogate and downloading data. The surrogate is only
+    defined when `runner` is accessed or `set_runner` is called.
     """
 
     def __init__(
@@ -160,7 +159,7 @@ class SOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
         optimization_config: OptimizationConfig,
         num_trials: int,
         outcome_names: List[str],
-        observe_noise_stds: Union[bool, Dict[str, bool]] = False,
+        observe_noise_sd: bool = False,
         noise_stds: Union[float, Dict[str, float]] = 0.0,
         get_surrogate_and_datasets: Optional[
             Callable[[], Tuple[TorchModelBridge, List[SupervisedDataset]]]
@@ -174,7 +173,7 @@ class SOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
             optimization_config=optimization_config,
             num_trials=num_trials,
             outcome_names=outcome_names,
-            observe_noise_stds=observe_noise_stds,
+            observe_noise_sd=observe_noise_sd,
             noise_stds=noise_stds,
             get_surrogate_and_datasets=get_surrogate_and_datasets,
             tracking_metrics=tracking_metrics,
@@ -187,19 +186,15 @@ class MOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
     """
     Has the same attributes/properties as a `MultiObjectiveBenchmarkProblem`,
     but its runner is not constructed until needed, to allow for deferring
-    constructing the surrogate.
-
-    Simple aspects of the problem problem such as its search space
-    are defined immediately, while the surrogate is only defined when [TODO]
-    in order to avoid expensive operations like downloading files and fitting
-    a model.
+    constructing the surrogate and downloading data. The surrogate is only
+    defined when `runner` is accessed or `set_runner` is called.
     """
 
     optimization_config: MultiObjectiveOptimizationConfig
 
     def __init__(
         self,
-        maximum_hypervolume: float,
+        optimal_value: float,
         reference_point: List[float],
         *,
         name: str,
@@ -207,7 +202,7 @@ class MOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
         optimization_config: MultiObjectiveOptimizationConfig,
         num_trials: int,
         outcome_names: List[str],
-        observe_noise_stds: Union[bool, Dict[str, bool]] = False,
+        observe_noise_sd: bool = False,
         noise_stds: Union[float, Dict[str, float]] = 0.0,
         get_surrogate_and_datasets: Optional[
             Callable[[], Tuple[TorchModelBridge, List[SupervisedDataset]]]
@@ -221,15 +216,11 @@ class MOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
             optimization_config=optimization_config,
             num_trials=num_trials,
             outcome_names=outcome_names,
-            observe_noise_stds=observe_noise_stds,
+            observe_noise_sd=observe_noise_sd,
             noise_stds=noise_stds,
             get_surrogate_and_datasets=get_surrogate_and_datasets,
             tracking_metrics=tracking_metrics,
             _runner=_runner,
         )
         self.reference_point = reference_point
-        self.maximum_hypervolume = maximum_hypervolume
-
-    @property
-    def optimal_value(self) -> float:
-        return self.maximum_hypervolume
+        self.optimal_value = optimal_value

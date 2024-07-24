@@ -11,7 +11,7 @@
 # in the UI.
 
 import abc
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable, Type, Union
+from typing import Any, Dict, List, Optional, Protocol, runtime_checkable, Type
 
 from ax.benchmark.metrics.base import BenchmarkMetricBase
 
@@ -66,9 +66,7 @@ class BenchmarkProblemProtocol(Protocol):
     num_trials: int
     tracking_metrics: List[BenchmarkMetricBase]
     is_noiseless: bool  # If True, evaluations are deterministic
-    observe_noise_stds: Union[
-        bool, Dict[str, bool]
-    ]  # Whether we observe the observation noise level
+    observe_noise_sd: bool
     has_ground_truth: bool  # if True, evals (w/o synthetic noise) are determinstic
 
     @abc.abstractproperty
@@ -111,12 +109,6 @@ class BenchmarkProblem(Base):
     @property
     def runner(self) -> Runner:
         return self._runner
-
-    @property
-    def observe_noise_stds(self) -> Union[bool, Dict[str, bool]]:
-        # TODO: Handle cases where some outcomes have noise levels observed
-        # and others do not.
-        return self.observe_noise_sd
 
     @classmethod
     def from_botorch(
@@ -314,14 +306,16 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
 
 
 class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
-    """A BenchmarkProblem support multiple objectives. Rather than knowing each
-    objective's optimal value we track a known maximum hypervolume computed from a
-    given reference point.
+    """
+    A `BenchmarkProblem` that supports multiple objectives.
+
+    For multi-objective problems, `optimal_value` indicates the maximum
+    hypervolume attainable with the given `reference_point`.
     """
 
     def __init__(
         self,
-        maximum_hypervolume: float,
+        optimal_value: float,
         reference_point: List[float],
         *,
         name: str,
@@ -334,7 +328,7 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
         has_ground_truth: bool = False,
         tracking_metrics: Optional[List[BenchmarkMetricBase]] = None,
     ) -> None:
-        self.maximum_hypervolume = maximum_hypervolume
+        self.optimal_value = optimal_value
         self.reference_point = reference_point
         super().__init__(
             name=name,
@@ -347,10 +341,6 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
             has_ground_truth=has_ground_truth,
             tracking_metrics=tracking_metrics,
         )
-
-    @property
-    def optimal_value(self) -> float:
-        return self.maximum_hypervolume
 
     @classmethod
     def from_botorch_multi_objective(
@@ -425,6 +415,10 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
             is_noiseless=problem.is_noiseless,
             observe_noise_sd=observe_noise_sd,
             has_ground_truth=problem.has_ground_truth,
-            maximum_hypervolume=test_problem.max_hv,
+            optimal_value=test_problem.max_hv,
             reference_point=test_problem._ref_point,
         )
+
+    @property
+    def maximum_hypervolume(self) -> float:
+        return self.optimal_value
