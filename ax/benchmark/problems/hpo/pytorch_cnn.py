@@ -94,7 +94,7 @@ class PyTorchCNNBenchmarkProblem(SingleObjectiveBenchmarkProblem):
             runner=runner,
             num_trials=num_trials,
             is_noiseless=False,
-            observe_noise_sd=False,
+            observe_noise_stds=False,
             has_ground_truth=False,
         )
 

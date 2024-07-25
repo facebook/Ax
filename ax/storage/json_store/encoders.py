@@ -144,7 +144,7 @@ def benchmark_problem_to_dict(benchmark_problem: BenchmarkProblem) -> Dict[str, 
         "runner": benchmark_problem.runner,
         "num_trials": benchmark_problem.num_trials,
         "is_noiseless": benchmark_problem.is_noiseless,
-        "observe_noise_sd": benchmark_problem.observe_noise_sd,
+        "observe_noise_stds": benchmark_problem.observe_noise_stds,
         "has_ground_truth": benchmark_problem.has_ground_truth,
         "tracking_metrics": benchmark_problem.tracking_metrics,
     }
@@ -162,7 +162,7 @@ def multi_objective_benchmark_problem_to_dict(
         "runner": moo_benchmark_problem.runner,
         "num_trials": moo_benchmark_problem.num_trials,
         "is_noiseless": moo_benchmark_problem.is_noiseless,
-        "observe_noise_sd": moo_benchmark_problem.observe_noise_sd,
+        "observe_noise_stds": moo_benchmark_problem.observe_noise_stds,
         "has_ground_truth": moo_benchmark_problem.has_ground_truth,
         "tracking_metrics": moo_benchmark_problem.tracking_metrics,
         "optimal_value": moo_benchmark_problem.optimal_value,
@@ -181,7 +181,7 @@ def single_objective_benchmark_problem_to_dict(
         "runner": soo_benchmark_problem.runner,
         "num_trials": soo_benchmark_problem.num_trials,
         "is_noiseless": soo_benchmark_problem.is_noiseless,
-        "observe_noise_sd": soo_benchmark_problem.observe_noise_sd,
+        "observe_noise_stds": soo_benchmark_problem.observe_noise_stds,
         "has_ground_truth": soo_benchmark_problem.has_ground_truth,
         "tracking_metrics": soo_benchmark_problem.tracking_metrics,
         "optimal_value": soo_benchmark_problem.optimal_value,
@@ -748,7 +748,7 @@ def pytorch_cnn_torchvision_benchmark_problem_to_dict(
         "__type": problem.__class__.__name__,
         "name": not_none(re.compile("(?<=::).*").search(problem.name)).group(),
         "num_trials": problem.num_trials,
-        "observe_noise_sd": problem.observe_noise_sd,
+        "observe_noise_stds": problem.observe_noise_stds,
     }
 
 
