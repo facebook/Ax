@@ -27,8 +27,8 @@ class SurrogateBenchmarkProblemBase(Base):
     """
     Base class for SOOSurrogateBenchmarkProblem and MOOSurrogateBenchmarkProblem.
 
-    Allows for lazy creation of objects needed to construct a `runner`,
-    including a surrogate and datasets.
+    Its `runner` is created lazily, when `runner` is accessed or `set_runner` is
+    called, to defer construction of the surrogate and downloading of datasets.
     """
 
     def __init__(
@@ -147,8 +147,10 @@ class SurrogateBenchmarkProblemBase(Base):
 
 class SOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
     """
-    Has the same attributes/properties as a `SingleObjectiveBenchmarkProblem`,
-    but allows for constructing from a surrogate.
+    Has the same attributes/properties as a `MultiObjectiveBenchmarkProblem`,
+    but its runner is not constructed until needed, to allow for deferring
+    constructing the surrogate and downloading data. The surrogate is only
+    defined when `runner` is accessed or `set_runner` is called.
     """
 
     def __init__(
@@ -187,19 +189,15 @@ class MOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
     """
     Has the same attributes/properties as a `MultiObjectiveBenchmarkProblem`,
     but its runner is not constructed until needed, to allow for deferring
-    constructing the surrogate.
-
-    Simple aspects of the problem problem such as its search space
-    are defined immediately, while the surrogate is only defined when [TODO]
-    in order to avoid expensive operations like downloading files and fitting
-    a model.
+    constructing the surrogate and downloading data. The surrogate is only
+    defined when `runner` is accessed or `set_runner` is called.
     """
 
     optimization_config: MultiObjectiveOptimizationConfig
 
     def __init__(
         self,
-        maximum_hypervolume: float,
+        optimal_value: float,
         reference_point: List[float],
         *,
         name: str,
@@ -228,8 +226,4 @@ class MOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
             _runner=_runner,
         )
         self.reference_point = reference_point
-        self.maximum_hypervolume = maximum_hypervolume
-
-    @property
-    def optimal_value(self) -> float:
-        return self.maximum_hypervolume
+        self.optimal_value = optimal_value
