@@ -10,9 +10,9 @@ import tempfile
 
 import plotly.graph_objects as go
 import plotly.io as pio
-from ax.analysis.cross_validation_plot import CrossValidationPlot
-from ax.analysis.helpers.constants import Z
-from ax.analysis.helpers.cross_validation_helpers import get_min_max_with_errors
+from ax.analysis.old.cross_validation_plot import CrossValidationPlot
+from ax.analysis.old.helpers.constants import Z
+from ax.analysis.old.helpers.cross_validation_helpers import get_min_max_with_errors
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment

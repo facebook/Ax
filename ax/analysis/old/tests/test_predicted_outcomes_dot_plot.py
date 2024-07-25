@@ -9,7 +9,7 @@
 import unittest
 
 import plotly.graph_objects as go
-from ax.analysis.predicted_outcomes_dot_plot import PredictedOutcomesDotPlot
+from ax.analysis.old.predicted_outcomes_dot_plot import PredictedOutcomesDotPlot
 from ax.exceptions.core import UnsupportedPlotError
 from ax.modelbridge.registry import Models
 from ax.utils.testing.core_stubs import get_branin_experiment

@@ -11,7 +11,7 @@ import pandas as pd
 
 import plotly.graph_objects as go
 
-from ax.analysis.base_analysis import BaseAnalysis
+from ax.analysis.old.base_analysis import BaseAnalysis
 from ax.core.experiment import Experiment
 
 
