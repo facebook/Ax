@@ -14,7 +14,6 @@ from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     MultiObjectiveBenchmarkProblem,
-    SingleObjectiveBenchmarkProblem,
 )
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.metrics.benchmark import BenchmarkMetric, GroundTruthBenchmarkMetric
@@ -157,7 +156,6 @@ from ax.storage.json_store.encoders import (
     runner_to_dict,
     scalarized_objective_to_dict,
     search_space_to_dict,
-    single_objective_benchmark_problem_to_dict,
     sum_parameter_constraint_to_dict,
     surrogate_to_dict,
     threshold_early_stopping_strategy_to_dict,
@@ -256,7 +254,6 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     ScalarizedObjective: scalarized_objective_to_dict,
     SearchSpace: search_space_to_dict,
     SingleDiagnosticBestModelSelector: best_model_selector_to_dict,
-    SingleObjectiveBenchmarkProblem: single_objective_benchmark_problem_to_dict,
     HierarchicalSearchSpace: search_space_to_dict,
     SumConstraint: sum_parameter_constraint_to_dict,
     Surrogate: surrogate_to_dict,
@@ -382,7 +379,6 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "SchedulerOptions": SchedulerOptions,
     "SearchSpace": SearchSpace,
     "SingleDiagnosticBestModelSelector": SingleDiagnosticBestModelSelector,
-    "SingleObjectiveBenchmarkProblem": SingleObjectiveBenchmarkProblem,
     "SklearnDataset": SklearnDataset,
     "SklearnMetric": SklearnMetric,
     "SklearnModelType": SklearnModelType,

@@ -11,8 +11,8 @@ from typing import Any, Callable, Dict
 
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
-    MultiObjectiveBenchmarkProblem,
-    SingleObjectiveBenchmarkProblem,
+    create_multi_objective_problem_from_botorch,
+    create_single_objective_problem_from_botorch,
 )
 from ax.benchmark.problems.hd_embedding import embed_higher_dimension
 from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionBenchmarkProblem
@@ -29,7 +29,7 @@ class BenchmarkProblemRegistryEntry:
 
 BENCHMARK_PROBLEM_REGISTRY = {
     "ackley4": BenchmarkProblemRegistryEntry(
-        factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
+        factory_fn=create_single_objective_problem_from_botorch,
         factory_kwargs={
             "test_problem_class": synthetic.Ackley,
             "test_problem_kwargs": {"dim": 4},
@@ -39,7 +39,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
         },
     ),
     "branin": BenchmarkProblemRegistryEntry(
-        factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
+        factory_fn=create_single_objective_problem_from_botorch,
         factory_kwargs={
             "test_problem_class": synthetic.Branin,
             "test_problem_kwargs": {},
@@ -49,7 +49,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
         },
     ),
     "branin_currin": BenchmarkProblemRegistryEntry(
-        factory_fn=MultiObjectiveBenchmarkProblem.from_botorch_multi_objective,
+        factory_fn=create_multi_objective_problem_from_botorch,
         factory_kwargs={
             "test_problem_class": BraninCurrin,
             "test_problem_kwargs": {},
@@ -59,7 +59,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
     ),
     "branin_currin30": BenchmarkProblemRegistryEntry(
         factory_fn=lambda n, num_trials: embed_higher_dimension(
-            problem=MultiObjectiveBenchmarkProblem.from_botorch_multi_objective(
+            problem=create_multi_objective_problem_from_botorch(
                 test_problem_class=BraninCurrin,
                 test_problem_kwargs={},
                 num_trials=num_trials,
@@ -70,7 +70,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
         factory_kwargs={"n": 30, "num_trials": 30},
     ),
     "griewank4": BenchmarkProblemRegistryEntry(
-        factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
+        factory_fn=create_single_objective_problem_from_botorch,
         factory_kwargs={
             "test_problem_class": synthetic.Griewank,
             "test_problem_kwargs": {"dim": 4},
@@ -80,7 +80,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
         },
     ),
     "hartmann3": BenchmarkProblemRegistryEntry(
-        factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
+        factory_fn=create_single_objective_problem_from_botorch,
         factory_kwargs={
             "test_problem_class": synthetic.Hartmann,
             "test_problem_kwargs": {"dim": 3},
@@ -90,7 +90,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
         },
     ),
     "hartmann6": BenchmarkProblemRegistryEntry(
-        factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
+        factory_fn=create_single_objective_problem_from_botorch,
         factory_kwargs={
             "test_problem_class": synthetic.Hartmann,
             "test_problem_kwargs": {"dim": 6},
@@ -101,7 +101,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
     ),
     "hartmann30": BenchmarkProblemRegistryEntry(
         factory_fn=lambda n, num_trials: embed_higher_dimension(
-            problem=SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
+            problem=create_single_objective_problem_from_botorch(
                 test_problem_class=synthetic.Hartmann,
                 test_problem_kwargs={"dim": 6},
                 lower_is_better=True,
@@ -131,7 +131,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
         factory_kwargs={"num_trials": 50, "observe_noise_sd": False},
     ),
     "levy4": BenchmarkProblemRegistryEntry(
-        factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
+        factory_fn=create_single_objective_problem_from_botorch,
         factory_kwargs={
             "test_problem_class": synthetic.Levy,
             "test_problem_kwargs": {"dim": 4},
@@ -141,7 +141,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
         },
     ),
     "powell4": BenchmarkProblemRegistryEntry(
-        factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
+        factory_fn=create_single_objective_problem_from_botorch,
         factory_kwargs={
             "test_problem_class": synthetic.Powell,
             "test_problem_kwargs": {"dim": 4},
@@ -151,7 +151,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
         },
     ),
     "rosenbrock4": BenchmarkProblemRegistryEntry(
-        factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
+        factory_fn=create_single_objective_problem_from_botorch,
         factory_kwargs={
             "test_problem_class": synthetic.Rosenbrock,
             "test_problem_kwargs": {"dim": 4},
@@ -161,7 +161,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
         },
     ),
     "six_hump_camel": BenchmarkProblemRegistryEntry(
-        factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
+        factory_fn=create_single_objective_problem_from_botorch,
         factory_kwargs={
             "test_problem_class": synthetic.SixHumpCamel,
             "test_problem_kwargs": {},
@@ -171,7 +171,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
         },
     ),
     "three_hump_camel": BenchmarkProblemRegistryEntry(
-        factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
+        factory_fn=create_single_objective_problem_from_botorch,
         factory_kwargs={
             "test_problem_class": synthetic.ThreeHumpCamel,
             "test_problem_kwargs": {},
@@ -182,7 +182,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
     ),
     # Problems where we observe the noise level
     "branin_observed_noise": BenchmarkProblemRegistryEntry(
-        factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
+        factory_fn=create_single_objective_problem_from_botorch,
         factory_kwargs={
             "test_problem_class": synthetic.Branin,
             "test_problem_kwargs": {},
@@ -192,7 +192,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
         },
     ),
     "branin_currin_observed_noise": BenchmarkProblemRegistryEntry(
-        factory_fn=MultiObjectiveBenchmarkProblem.from_botorch_multi_objective,
+        factory_fn=create_multi_objective_problem_from_botorch,
         factory_kwargs={
             "test_problem_class": BraninCurrin,
             "test_problem_kwargs": {},
@@ -202,7 +202,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
     ),
     "branin_currin30_observed_noise": BenchmarkProblemRegistryEntry(
         factory_fn=lambda n, num_trials: embed_higher_dimension(
-            problem=MultiObjectiveBenchmarkProblem.from_botorch_multi_objective(
+            problem=create_multi_objective_problem_from_botorch(
                 test_problem_class=BraninCurrin,
                 test_problem_kwargs={},
                 num_trials=num_trials,
@@ -213,7 +213,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
         factory_kwargs={"n": 30, "num_trials": 30},
     ),
     "hartmann6_observed_noise": BenchmarkProblemRegistryEntry(
-        factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
+        factory_fn=create_single_objective_problem_from_botorch,
         factory_kwargs={
             "test_problem_class": synthetic.Hartmann,
             "test_problem_kwargs": {"dim": 6},
@@ -224,7 +224,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
     ),
     "hartmann30_observed_noise": BenchmarkProblemRegistryEntry(
         factory_fn=lambda n, num_trials: embed_higher_dimension(
-            problem=SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
+            problem=create_single_objective_problem_from_botorch(
                 test_problem_class=synthetic.Hartmann,
                 test_problem_kwargs={"dim": 6},
                 lower_is_better=True,
@@ -240,7 +240,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
         factory_kwargs={"num_trials": 25, "observe_noise_sd": True},
     ),
     "constrained_gramacy_observed_noise": BenchmarkProblemRegistryEntry(
-        factory_fn=SingleObjectiveBenchmarkProblem.from_botorch_synthetic,
+        factory_fn=create_single_objective_problem_from_botorch,
         factory_kwargs={
             "test_problem_class": synthetic.ConstrainedGramacy,
             "test_problem_kwargs": {},

@@ -8,15 +8,15 @@
 from typing import List, Optional, Union
 
 from ax.benchmark.benchmark_problem import (
-    MultiObjectiveBenchmarkProblem,
-    SingleObjectiveBenchmarkProblem,
+    create_multi_objective_problem_from_botorch,
+    create_single_objective_problem_from_botorch,
 )
 from ax.benchmark.metrics.benchmark import BenchmarkMetric
 from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
 from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
-from botorch.test_functions.multi_objective import BraninCurrin
+from botorch.test_functions.multi_objective import BraninCurrin, ConstrainedBraninCurrin
 from botorch.test_functions.synthetic import (
     Ackley,
     ConstrainedGramacy,
@@ -27,9 +27,14 @@ from hypothesis import given, strategies as st
 
 
 class TestBenchmarkProblem(TestCase):
+    def setUp(self) -> None:
+        # Print full output, so that any differences in 'repr' output are shown
+        self.maxDiff = None
+        super().setUp()
+
     def test_single_objective_from_botorch(self) -> None:
         for botorch_test_problem in [Ackley(), ConstrainedHartmann(dim=6)]:
-            test_problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
+            test_problem = create_single_objective_problem_from_botorch(
                 test_problem_class=botorch_test_problem.__class__,
                 test_problem_kwargs={},
                 lower_is_better=True,
@@ -77,15 +82,16 @@ class TestBenchmarkProblem(TestCase):
                     test_problem.optimization_config.outcome_constraints, []
                 )
                 expected_repr = (
-                    "SingleObjectiveBenchmarkProblem(name=Ackley, "
+                    "SingleObjectiveBenchmarkProblem(name='Ackley', "
                     "optimization_config=OptimizationConfig(objective=Objective("
                     'metric_name="Ackley", '
                     "minimize=True), outcome_constraints=[]), "
                     "num_trials=1, "
-                    "is_noiseless=True, "
                     "observe_noise_stds=False, "
                     "has_ground_truth=True, "
-                    "tracking_metrics=[])"
+                    "tracking_metrics=[], "
+                    "optimal_value=0.0, "
+                    "is_noiseless=True)"
                 )
             else:
                 outcome_constraint = (
@@ -96,16 +102,17 @@ class TestBenchmarkProblem(TestCase):
                 self.assertFalse(outcome_constraint.relative)
                 self.assertEqual(outcome_constraint.bound, 0.0)
                 expected_repr = (
-                    "SingleObjectiveBenchmarkProblem(name=ConstrainedHartmann, "
+                    "SingleObjectiveBenchmarkProblem(name='ConstrainedHartmann', "
                     "optimization_config=OptimizationConfig(objective=Objective("
                     'metric_name="ConstrainedHartmann", minimize=True), '
                     "outcome_constraints=[OutcomeConstraint(constraint_slack_0"
                     " >= 0.0)]), "
                     "num_trials=1, "
-                    "is_noiseless=True, "
                     "observe_noise_stds=False, "
                     "has_ground_truth=True, "
-                    "tracking_metrics=[])"
+                    "tracking_metrics=[], "
+                    "optimal_value=-3.32237, "
+                    "is_noiseless=True)"
                 )
 
             self.assertEqual(repr(test_problem), expected_repr)
@@ -124,7 +131,7 @@ class TestBenchmarkProblem(TestCase):
         objective_noise_std: Optional[float],
         constraint_noise_std: Optional[Union[float, List[float]]],
     ) -> None:
-        ax_problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
+        ax_problem = create_single_objective_problem_from_botorch(
             test_problem_class=ConstrainedGramacy,
             test_problem_kwargs={
                 "noise_std": objective_noise_std,
@@ -160,12 +167,10 @@ class TestBenchmarkProblem(TestCase):
 
     def test_moo_from_botorch(self) -> None:
         test_problem = BraninCurrin()
-        branin_currin_problem = (
-            MultiObjectiveBenchmarkProblem.from_botorch_multi_objective(
-                test_problem_class=test_problem.__class__,
-                test_problem_kwargs={},
-                num_trials=1,
-            )
+        branin_currin_problem = create_multi_objective_problem_from_botorch(
+            test_problem_class=test_problem.__class__,
+            test_problem_kwargs={},
+            num_trials=1,
         )
 
         # Test search space
@@ -197,8 +202,19 @@ class TestBenchmarkProblem(TestCase):
         self.assertEqual(branin_currin_problem.optimal_value, test_problem._max_hv)
         self.assertEqual(branin_currin_problem.reference_point, test_problem._ref_point)
 
+    def test_moo_from_botorch_constrained(self) -> None:
+        with self.assertRaisesRegex(
+            NotImplementedError,
+            "Constrained multi-objective problems are not supported.",
+        ):
+            create_multi_objective_problem_from_botorch(
+                test_problem_class=ConstrainedBraninCurrin,
+                test_problem_kwargs={},
+                num_trials=1,
+            )
+
     def test_maximization_problem(self) -> None:
-        test_problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
+        test_problem = create_single_objective_problem_from_botorch(
             test_problem_class=Cosine8,
             lower_is_better=False,
             num_trials=1,

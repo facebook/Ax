@@ -21,12 +21,13 @@ from ax.benchmark.benchmark_method import (
     BenchmarkMethod,
     get_benchmark_scheduler_options,
 )
-from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
+from ax.benchmark.benchmark_problem import create_single_objective_problem_from_botorch
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
 from ax.benchmark.metrics.base import GroundTruthMetricMixin
 from ax.benchmark.metrics.benchmark import BenchmarkMetric, GroundTruthBenchmarkMetric
 from ax.benchmark.problems.registry import get_problem
+from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
@@ -36,7 +37,6 @@ from ax.storage.json_store.save import save_experiment
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.benchmark_stubs import (
-    get_constrained_multi_objective_benchmark_problem,
     get_moo_surrogate,
     get_multi_objective_benchmark_problem,
     get_single_objective_benchmark_problem,
@@ -162,9 +162,10 @@ class TestBenchmark(TestCase):
         gt_opt_cfg = make_ground_truth_optimization_config(experiment)
         self.assertIs(gt_opt_cfg.objective.metric, gt_metric)
 
-        # Test behavior with MOO problem and outcome constraints
-        problem = get_constrained_multi_objective_benchmark_problem(
-            observe_noise_sd=False
+        # Test behavior with MOO problem
+        problem = get_multi_objective_benchmark_problem(observe_noise_sd=False)
+        self.assertIsInstance(
+            problem.optimization_config, MultiObjectiveOptimizationConfig
         )
         experiment = _create_benchmark_experiment(
             problem=problem, method_name="test_method"
@@ -300,7 +301,6 @@ class TestBenchmark(TestCase):
             ("moo", get_moo_surrogate()),
         ]:
             with self.subTest(name, problem=problem):
-                surrogate, datasets = not_none(problem.get_surrogate_and_datasets)()
                 res = benchmark_replication(problem=problem, method=method, seed=0)
 
                 self.assertEqual(
@@ -439,7 +439,7 @@ class TestBenchmark(TestCase):
                 self.assertTrue((agg.score_trace[col] <= 100).all())
 
     def test_timeout(self) -> None:
-        problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
+        problem = create_single_objective_problem_from_botorch(
             test_problem_class=Branin,
             test_problem_kwargs={},
             lower_is_better=True,

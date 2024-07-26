@@ -58,9 +58,6 @@ class MixedIntegerProblemsTest(TestCase):
                 ).test_problem._bounds,
                 expected_bounds,
             )
-            print(f"{name=}")
-            print(f"{problem.optimal_value=}")
-            print(f"{problem_cls().optimal_value=}")
             self.assertGreaterEqual(problem.optimal_value, problem_cls().optimal_value)
 
         # Test that they match correctly to the original problems.

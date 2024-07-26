@@ -46,7 +46,6 @@ from ax.storage.registry_bundle import RegistryBundle
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import (
     get_aggregated_benchmark_result,
-    get_benchmark_problem,
     get_benchmark_result,
     get_multi_objective_benchmark_problem,
     get_single_objective_benchmark_problem,
@@ -142,7 +141,7 @@ TEST_CASES = [
     ("AugmentedHartmannMetric", get_augmented_hartmann_metric),
     ("BatchTrial", get_batch_trial),
     ("BenchmarkMethod", get_sobol_gpei_benchmark_method),
-    ("BenchmarkProblem", get_benchmark_problem),
+    ("BenchmarkProblem", get_single_objective_benchmark_problem),
     ("BenchmarkResult", get_benchmark_result),
     ("BoTorchModel", get_botorch_model),
     ("BoTorchModel", get_botorch_model_with_default_acquisition_class),
