@@ -6,7 +6,7 @@
 # pyre-strict
 
 import warnings
-from typing import Any, Dict, Iterable, List, Optional, Set, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import torch
 from ax.benchmark.runners.base import BenchmarkRunner
@@ -15,20 +15,27 @@ from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.observation import ObservationFeatures
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.torch import TorchModelBridge
+from ax.utils.common.base import Base
+from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
 from botorch.utils.datasets import SupervisedDataset
+from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 
 class SurrogateRunner(BenchmarkRunner):
     def __init__(
         self,
+        *,
         name: str,
-        surrogate: TorchModelBridge,
-        datasets: List[SupervisedDataset],
         search_space: SearchSpace,
         outcome_names: List[str],
+        surrogate: Optional[TorchModelBridge] = None,
+        datasets: Optional[List[SupervisedDataset]] = None,
         noise_stds: Union[float, Dict[str, float]] = 0.0,
+        get_surrogate_and_datasets: Optional[
+            Callable[[], Tuple[TorchModelBridge, List[SupervisedDataset]]]
+        ] = None,
     ) -> None:
         """Runner for surrogate benchmark problems.
 
@@ -45,14 +52,41 @@ class SurrogateRunner(BenchmarkRunner):
                 is added to all outputs. Alternatively, a dictionary mapping outcome
                 names to noise standard deviations can be provided to specify different
                 noise levels for different outputs.
+            get_surrogate_and_datasets: Function that returns the surrogate and
+                datasets, to allow for lazy construction. If
+                `get_surrogate_and_datasets` is not provided, `surrogate` and
+                `datasets` must be provided, and vice versa.
         """
+        if get_surrogate_and_datasets is None and (
+            surrogate is None or datasets is None
+        ):
+            raise ValueError(
+                "If get_surrogate_and_datasets is provided, surrogate and "
+                "datasets must not be provided, and vice versa."
+            )
+        self.get_surrogate_and_datasets = get_surrogate_and_datasets
         self.name = name
-        self.surrogate = surrogate
+        self._surrogate = surrogate
         self._outcome_names = outcome_names
-        self.datasets = datasets
+        self._datasets = datasets
         self.search_space = search_space
         self.noise_stds = noise_stds
         self.statuses: Dict[int, TrialStatus] = {}
+
+    def set_surrogate_and_datasets(self) -> None:
+        self._surrogate, self._datasets = none_throws(self.get_surrogate_and_datasets)()
+
+    @property
+    def surrogate(self) -> TorchModelBridge:
+        if self.get_surrogate_and_datasets is not None:
+            self.set_surrogate_and_datasets()
+        return none_throws(self._surrogate)
+
+    @property
+    def datasets(self) -> List[SupervisedDataset]:
+        if self.get_surrogate_and_datasets is not None:
+            self.set_surrogate_and_datasets()
+        return none_throws(self._datasets)
 
     @property
     def outcome_names(self) -> List[str]:
@@ -131,3 +165,22 @@ class SurrogateRunner(BenchmarkRunner):
         class_decoder_registry: Optional[TClassDecoderRegistry] = None,
     ) -> Dict[str, Any]:
         return {}
+
+    @property
+    def is_noiseless(self) -> bool:
+        if self.noise_stds is None:
+            return True
+        if isinstance(self.noise_stds, float):
+            return self.noise_stds == 0.0
+        return all(
+            std == 0.0 for std in assert_is_instance(self.noise_stds, dict).values()
+        )
+
+    @equality_typechecker
+    def __eq__(self, other: Base) -> bool:
+        if type(other) is not type(self):
+            return False
+
+        # Checking the whole datasets' equality here would be too expensive to be
+        # worth it; just check names instead
+        return self.name == other.name

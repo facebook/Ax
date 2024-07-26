@@ -20,6 +20,7 @@ from ax.benchmark.problems.surrogate import (
     MOOSurrogateBenchmarkProblem,
     SOOSurrogateBenchmarkProblem,
 )
+from ax.benchmark.runners.surrogate import SurrogateRunner
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -110,6 +111,12 @@ def get_soo_surrogate() -> SOOSurrogateBenchmarkProblem:
         data=experiment.lookup_data(),
         transforms=[],
     )
+    runner = SurrogateRunner(
+        name="test",
+        search_space=experiment.search_space,
+        outcome_names=["branin"],
+        get_surrogate_and_datasets=lambda: (surrogate, []),
+    )
     return SOOSurrogateBenchmarkProblem(
         name="test",
         search_space=experiment.search_space,
@@ -117,10 +124,10 @@ def get_soo_surrogate() -> SOOSurrogateBenchmarkProblem:
             OptimizationConfig, experiment.optimization_config
         ),
         num_trials=6,
-        outcome_names=["branin"],
         observe_noise_stds=True,
-        get_surrogate_and_datasets=lambda: (surrogate, []),
         optimal_value=0.0,
+        runner=runner,
+        is_noiseless=runner.is_noiseless,
     )
 
 
@@ -133,6 +140,13 @@ def get_moo_surrogate() -> MOOSurrogateBenchmarkProblem:
         data=experiment.lookup_data(),
         transforms=[],
     )
+
+    runner = SurrogateRunner(
+        name="test",
+        search_space=experiment.search_space,
+        outcome_names=["branin_a", "branin_b"],
+        get_surrogate_and_datasets=lambda: (surrogate, []),
+    )
     return MOOSurrogateBenchmarkProblem(
         name="test",
         search_space=experiment.search_space,
@@ -140,11 +154,11 @@ def get_moo_surrogate() -> MOOSurrogateBenchmarkProblem:
             MultiObjectiveOptimizationConfig, experiment.optimization_config
         ),
         num_trials=10,
-        outcome_names=["branin_a", "branin_b"],
         observe_noise_stds=True,
-        get_surrogate_and_datasets=lambda: (surrogate, []),
         optimal_value=1.0,
         reference_point=[],
+        runner=runner,
+        is_noiseless=runner.is_noiseless,
     )
 
 

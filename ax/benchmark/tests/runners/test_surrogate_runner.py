@@ -8,10 +8,12 @@
 from unittest.mock import MagicMock
 
 import torch
-from ax.benchmark.problems.surrogate import SurrogateRunner
+from ax.benchmark.runners.surrogate import SurrogateRunner
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.modelbridge.torch import TorchModelBridge
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.benchmark_stubs import get_soo_surrogate
 
 
 class TestSurrogateRunner(TestCase):
@@ -43,3 +45,14 @@ class TestSurrogateRunner(TestCase):
                 self.assertIs(runner.surrogate, surrogate)
                 self.assertEqual(runner.outcome_names, ["dummy_metric"])
                 self.assertEqual(runner.noise_stds, noise_std)
+
+    def test_lazy_instantiation(self) -> None:
+        problem = get_soo_surrogate()
+
+        self.assertIsNone(problem.runner._surrogate)
+        self.assertIsNone(problem.runner._datasets)
+
+        # sets datasets and surrogate
+        self.assertIsInstance(problem.runner.surrogate, TorchModelBridge)
+        self.assertIsNotNone(problem.runner._surrogate)
+        self.assertIsNotNone(problem.runner._datasets)
