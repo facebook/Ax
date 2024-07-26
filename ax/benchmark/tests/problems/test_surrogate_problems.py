@@ -16,6 +16,7 @@ from ax.utils.testing.benchmark_stubs import get_moo_surrogate, get_soo_surrogat
 class TestSurrogateProblems(TestCase):
     def setUp(self) -> None:
         super().setUp()
+        # print max output so errors in 'repr' can be fully shown
         self.maxDiff = None
 
     def test_conforms_to_protocol(self) -> None:
@@ -30,12 +31,13 @@ class TestSurrogateProblems(TestCase):
         sbp = get_soo_surrogate()
 
         expected_repr = (
-            "SOOSurrogateBenchmarkProblem(name=test, "
+            "SOOSurrogateBenchmarkProblem(name='test', "
             "optimization_config=OptimizationConfig(objective=Objective(metric_name="
             '"branin", '
             "minimize=False), "
-            "outcome_constraints=[]), num_trials=6, is_noiseless=True, "
-            "observe_noise_stds=True, noise_stds=0.0, tracking_metrics=[])"
+            "outcome_constraints=[]), num_trials=6, "
+            "observe_noise_stds=True, has_ground_truth=True, "
+            "tracking_metrics=[], optimal_value=0.0, is_noiseless=True)"
         )
         self.assertEqual(repr(sbp), expected_repr)
 
