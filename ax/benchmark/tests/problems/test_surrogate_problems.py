@@ -11,6 +11,7 @@ from ax.benchmark.benchmark import compute_score_trace
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import get_moo_surrogate, get_soo_surrogate
+from pyre_extensions import assert_is_instance
 
 
 class TestSurrogateProblems(TestCase):
@@ -31,7 +32,7 @@ class TestSurrogateProblems(TestCase):
         sbp = get_soo_surrogate()
 
         expected_repr = (
-            "SOOSurrogateBenchmarkProblem(name='test', "
+            "BenchmarkProblem(name='test', "
             "optimization_config=OptimizationConfig(objective=Objective(metric_name="
             '"branin", '
             "minimize=False), "
