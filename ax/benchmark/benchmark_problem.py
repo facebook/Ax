@@ -94,7 +94,7 @@ class BenchmarkProblem(Base):
         runner: Runner,
         num_trials: int,
         is_noiseless: bool = False,
-        observe_noise_sd: bool = False,
+        observe_noise_stds: Union[bool, Dict[str, bool]] = False,
         has_ground_truth: bool = False,
         tracking_metrics: Optional[List[BenchmarkMetricBase]] = None,
     ) -> None:
@@ -104,19 +104,13 @@ class BenchmarkProblem(Base):
         self._runner = runner
         self.num_trials = num_trials
         self.is_noiseless = is_noiseless
-        self.observe_noise_sd = observe_noise_sd
+        self.observe_noise_stds = observe_noise_stds
         self.has_ground_truth = has_ground_truth
         self.tracking_metrics: List[BenchmarkMetricBase] = tracking_metrics or []
 
     @property
     def runner(self) -> Runner:
         return self._runner
-
-    @property
-    def observe_noise_stds(self) -> Union[bool, Dict[str, bool]]:
-        # TODO: Handle cases where some outcomes have noise levels observed
-        # and others do not.
-        return self.observe_noise_sd
 
     @classmethod
     def from_botorch(
@@ -216,7 +210,7 @@ class BenchmarkProblem(Base):
                 outcome_names=outcome_names,
             ),
             num_trials=num_trials,
-            observe_noise_sd=observe_noise_sd,
+            observe_noise_stds=observe_noise_sd,
             is_noiseless=test_problem.noise_std in (None, 0.0),
             has_ground_truth=True,  # all synthetic problems have ground truth
         )
@@ -232,7 +226,7 @@ class BenchmarkProblem(Base):
             f"optimization_config={self.optimization_config}, "
             f"num_trials={self.num_trials}, "
             f"is_noiseless={self.is_noiseless}, "
-            f"observe_noise_sd={self.observe_noise_sd}, "
+            f"observe_noise_stds={self.observe_noise_stds}, "
             f"has_ground_truth={self.has_ground_truth}, "
             f"tracking_metrics={self.tracking_metrics})"
         )
@@ -253,7 +247,7 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
         runner: Runner,
         num_trials: int,
         is_noiseless: bool = False,
-        observe_noise_sd: bool = False,
+        observe_noise_stds: Union[bool, Dict[str, bool]] = False,
         has_ground_truth: bool = False,
         tracking_metrics: Optional[List[BenchmarkMetricBase]] = None,
     ) -> None:
@@ -264,7 +258,7 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
             runner=runner,
             num_trials=num_trials,
             is_noiseless=is_noiseless,
-            observe_noise_sd=observe_noise_sd,
+            observe_noise_stds=observe_noise_stds,
             has_ground_truth=has_ground_truth,
             tracking_metrics=tracking_metrics,
         )
@@ -307,7 +301,7 @@ class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
             runner=problem.runner,
             num_trials=num_trials,
             is_noiseless=problem.is_noiseless,
-            observe_noise_sd=problem.observe_noise_sd,
+            observe_noise_stds=problem.observe_noise_stds,
             has_ground_truth=problem.has_ground_truth,
             optimal_value=test_problem.optimal_value,
         )
@@ -332,7 +326,7 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
         runner: Runner,
         num_trials: int,
         is_noiseless: bool = False,
-        observe_noise_sd: bool = False,
+        observe_noise_stds: Union[bool, Dict[str, bool]] = False,
         has_ground_truth: bool = False,
         tracking_metrics: Optional[List[BenchmarkMetricBase]] = None,
     ) -> None:
@@ -345,7 +339,7 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
             runner=runner,
             num_trials=num_trials,
             is_noiseless=is_noiseless,
-            observe_noise_sd=observe_noise_sd,
+            observe_noise_stds=observe_noise_stds,
             has_ground_truth=has_ground_truth,
             tracking_metrics=tracking_metrics,
         )
@@ -421,7 +415,7 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
             runner=problem.runner,
             num_trials=num_trials,
             is_noiseless=problem.is_noiseless,
-            observe_noise_sd=observe_noise_sd,
+            observe_noise_stds=observe_noise_sd,
             has_ground_truth=problem.has_ground_truth,
             optimal_value=test_problem.max_hv,
             reference_point=test_problem._ref_point,

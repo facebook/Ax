@@ -72,7 +72,7 @@ def get_jenatton_benchmark_problem(
         runner=SyntheticRunner(),
         num_trials=num_trials,
         is_noiseless=True,
-        observe_noise_sd=observe_noise_sd,
+        observe_noise_stds=observe_noise_sd,
         has_ground_truth=True,
         optimal_value=0.1,
     )

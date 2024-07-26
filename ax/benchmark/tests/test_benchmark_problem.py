@@ -83,7 +83,7 @@ class TestBenchmarkProblem(TestCase):
                     "minimize=True), outcome_constraints=[]), "
                     "num_trials=1, "
                     "is_noiseless=True, "
-                    "observe_noise_sd=False, "
+                    "observe_noise_stds=False, "
                     "has_ground_truth=True, "
                     "tracking_metrics=[])"
                 )
@@ -103,7 +103,7 @@ class TestBenchmarkProblem(TestCase):
                     " >= 0.0)]), "
                     "num_trials=1, "
                     "is_noiseless=True, "
-                    "observe_noise_sd=False, "
+                    "observe_noise_stds=False, "
                     "has_ground_truth=True, "
                     "tracking_metrics=[])"
                 )

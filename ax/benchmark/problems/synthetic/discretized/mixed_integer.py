@@ -119,7 +119,7 @@ def _get_problem_from_common_inputs(
         num_trials=num_trials,
         optimal_value=optimal_value,
         is_noiseless=True,
-        observe_noise_sd=observe_noise_sd,
+        observe_noise_stds=observe_noise_sd,
         has_ground_truth=True,
     )
 
