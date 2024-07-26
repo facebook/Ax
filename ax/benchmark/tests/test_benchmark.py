@@ -21,7 +21,7 @@ from ax.benchmark.benchmark_method import (
     BenchmarkMethod,
     get_benchmark_scheduler_options,
 )
-from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
+from ax.benchmark.benchmark_problem import create_single_objective_problem_from_botorch
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
 from ax.benchmark.metrics.base import GroundTruthMetricMixin
@@ -439,7 +439,7 @@ class TestBenchmark(TestCase):
                 self.assertTrue((agg.score_trace[col] <= 100).all())
 
     def test_timeout(self) -> None:
-        problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
+        problem = create_single_objective_problem_from_botorch(
             test_problem_class=Branin,
             test_problem_kwargs={},
             lower_is_better=True,

@@ -8,8 +8,8 @@
 from typing import List, Optional, Union
 
 from ax.benchmark.benchmark_problem import (
-    MultiObjectiveBenchmarkProblem,
-    SingleObjectiveBenchmarkProblem,
+    create_multi_objective_problem_from_botorch,
+    create_single_objective_problem_from_botorch,
 )
 from ax.benchmark.metrics.benchmark import BenchmarkMetric
 from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
@@ -34,7 +34,7 @@ class TestBenchmarkProblem(TestCase):
 
     def test_single_objective_from_botorch(self) -> None:
         for botorch_test_problem in [Ackley(), ConstrainedHartmann(dim=6)]:
-            test_problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
+            test_problem = create_single_objective_problem_from_botorch(
                 test_problem_class=botorch_test_problem.__class__,
                 test_problem_kwargs={},
                 lower_is_better=True,
@@ -131,7 +131,7 @@ class TestBenchmarkProblem(TestCase):
         objective_noise_std: Optional[float],
         constraint_noise_std: Optional[Union[float, List[float]]],
     ) -> None:
-        ax_problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
+        ax_problem = create_single_objective_problem_from_botorch(
             test_problem_class=ConstrainedGramacy,
             test_problem_kwargs={
                 "noise_std": objective_noise_std,
@@ -167,12 +167,10 @@ class TestBenchmarkProblem(TestCase):
 
     def test_moo_from_botorch(self) -> None:
         test_problem = BraninCurrin()
-        branin_currin_problem = (
-            MultiObjectiveBenchmarkProblem.from_botorch_multi_objective(
-                test_problem_class=test_problem.__class__,
-                test_problem_kwargs={},
-                num_trials=1,
-            )
+        branin_currin_problem = create_multi_objective_problem_from_botorch(
+            test_problem_class=test_problem.__class__,
+            test_problem_kwargs={},
+            num_trials=1,
         )
 
         # Test search space
@@ -209,14 +207,14 @@ class TestBenchmarkProblem(TestCase):
             NotImplementedError,
             "Constrained multi-objective problems are not supported.",
         ):
-            MultiObjectiveBenchmarkProblem.from_botorch_multi_objective(
+            create_multi_objective_problem_from_botorch(
                 test_problem_class=ConstrainedBraninCurrin,
                 test_problem_kwargs={},
                 num_trials=1,
             )
 
     def test_maximization_problem(self) -> None:
-        test_problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
+        test_problem = create_single_objective_problem_from_botorch(
             test_problem_class=Cosine8,
             lower_is_better=False,
             num_trials=1,
