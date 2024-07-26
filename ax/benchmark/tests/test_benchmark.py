@@ -27,6 +27,7 @@ from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acqui
 from ax.benchmark.metrics.base import GroundTruthMetricMixin
 from ax.benchmark.metrics.benchmark import BenchmarkMetric, GroundTruthBenchmarkMetric
 from ax.benchmark.problems.registry import get_problem
+from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
@@ -36,7 +37,6 @@ from ax.storage.json_store.save import save_experiment
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.benchmark_stubs import (
-    get_constrained_multi_objective_benchmark_problem,
     get_moo_surrogate,
     get_multi_objective_benchmark_problem,
     get_single_objective_benchmark_problem,
@@ -162,9 +162,10 @@ class TestBenchmark(TestCase):
         gt_opt_cfg = make_ground_truth_optimization_config(experiment)
         self.assertIs(gt_opt_cfg.objective.metric, gt_metric)
 
-        # Test behavior with MOO problem and outcome constraints
-        problem = get_constrained_multi_objective_benchmark_problem(
-            observe_noise_sd=False
+        # Test behavior with MOO problem
+        problem = get_multi_objective_benchmark_problem(observe_noise_sd=False)
+        self.assertIsInstance(
+            problem.optimization_config, MultiObjectiveOptimizationConfig
         )
         experiment = _create_benchmark_experiment(
             problem=problem, method_name="test_method"
