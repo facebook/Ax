@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
+from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.metrics.jenatton import JenattonMetric
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
@@ -17,7 +17,7 @@ from ax.runners.synthetic import SyntheticRunner
 def get_jenatton_benchmark_problem(
     num_trials: int = 50,
     observe_noise_sd: bool = False,
-) -> SingleObjectiveBenchmarkProblem:
+) -> BenchmarkProblem:
     search_space = HierarchicalSearchSpace(
         parameters=[
             ChoiceParameter(
@@ -65,7 +65,7 @@ def get_jenatton_benchmark_problem(
 
     name = "Jenatton" + ("_observed_noise" if observe_noise_sd else "")
 
-    return SingleObjectiveBenchmarkProblem(
+    return BenchmarkProblem(
         name=name,
         search_space=search_space,
         optimization_config=optimization_config,

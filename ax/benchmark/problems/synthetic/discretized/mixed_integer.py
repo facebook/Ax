@@ -20,7 +20,7 @@ References
 
 from typing import Dict, List, Optional, Tuple, Type, Union
 
-from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
+from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.metrics.benchmark import BenchmarkMetric
 from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
 from ax.core.objective import Objective
@@ -47,7 +47,7 @@ def _get_problem_from_common_inputs(
     num_trials: int,
     optimal_value: float,
     test_problem_bounds: Optional[List[Tuple[float, float]]] = None,
-) -> SingleObjectiveBenchmarkProblem:
+) -> BenchmarkProblem:
     """This is a helper that deduplicates common bits of the below problems.
 
     Args:
@@ -111,7 +111,7 @@ def _get_problem_from_common_inputs(
         outcome_names=[metric_name],
         modified_bounds=bounds,
     )
-    return SingleObjectiveBenchmarkProblem(
+    return BenchmarkProblem(
         name=benchmark_name + ("_observed_noise" if observe_noise_sd else ""),
         search_space=search_space,
         optimization_config=optimization_config,
@@ -128,7 +128,7 @@ def get_discrete_hartmann(
     num_trials: int = 50,
     observe_noise_sd: bool = False,
     bounds: Optional[List[Tuple[float, float]]] = None,
-) -> SingleObjectiveBenchmarkProblem:
+) -> BenchmarkProblem:
     """6D Hartmann problem where first 4 dimensions are discretized."""
     dim_int = 4
     if bounds is None:
@@ -160,7 +160,7 @@ def get_discrete_ackley(
     num_trials: int = 50,
     observe_noise_sd: bool = False,
     bounds: Optional[List[Tuple[float, float]]] = None,
-) -> SingleObjectiveBenchmarkProblem:
+) -> BenchmarkProblem:
     """13D Ackley problem where first 10 dimensions are discretized.
 
     This also restricts Ackley evaluation bounds to [0, 1].
@@ -193,7 +193,7 @@ def get_discrete_rosenbrock(
     num_trials: int = 50,
     observe_noise_sd: bool = False,
     bounds: Optional[List[Tuple[float, float]]] = None,
-) -> SingleObjectiveBenchmarkProblem:
+) -> BenchmarkProblem:
     """10D Rosenbrock problem where first 6 dimensions are discretized."""
     dim_int = 6
     if bounds is None:

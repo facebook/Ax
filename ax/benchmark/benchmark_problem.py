@@ -93,23 +93,18 @@ class BenchmarkProblem(Base):
     is_noiseless: bool
 
 
-class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
-    """A `BenchmarkProblem` that supports a single objective."""
-
-    pass
-
-
 def create_single_objective_problem_from_botorch(
     test_problem_class: Type[SyntheticTestFunction],
     test_problem_kwargs: Dict[str, Any],
     lower_is_better: bool,
     num_trials: int,
     observe_noise_sd: bool = False,
-) -> SingleObjectiveBenchmarkProblem:
+) -> BenchmarkProblem:
     """
-    Create a BenchmarkProblem from a BoTorch BaseTestProblem using
-    specialized Metrics and Runners. The test problem's result will be
-    computed on the Runner and retrieved by the Metric.
+    Create a `BenchmarkProblem` whose `optimization_config` is a
+    `SingleObjectiveOptimizationConfig` a BoTorch SyntheticTestFunction using
+    specialized Metrics and Runners for benchmarking. The test problem's result
+    will be computed on the Runner and retrieved by the Metric.
 
     Args:
         test_problem_class: The BoTorch test problem class which will be used
@@ -188,7 +183,7 @@ def create_single_objective_problem_from_botorch(
         if isinstance(test_problem, MultiObjectiveTestProblem)
         else test_problem.optimal_value
     )
-    return SingleObjectiveBenchmarkProblem(
+    return BenchmarkProblem(
         name=name,
         search_space=search_space,
         optimization_config=optimization_config,
