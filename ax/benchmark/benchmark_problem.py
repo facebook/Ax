@@ -11,17 +11,7 @@
 # in the UI.
 
 from dataclasses import dataclass, field
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-    Protocol,
-    runtime_checkable,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
 from ax.benchmark.metrics.base import BenchmarkMetricBase
 
@@ -70,33 +60,6 @@ def _get_name(
     observed_noise = "_observed_noise" if observe_noise_sd else ""
     dim_str = "" if dim is None else f"_{dim}d"
     return f"{base_name}{observed_noise}{dim_str}"
-
-
-@runtime_checkable
-class BenchmarkProblemProtocol(Protocol):
-    """
-    Specifies the interface any benchmark problem must adhere to.
-
-    Classes implementing this interface include BenchmarkProblem,
-    SurrogateBenchmarkProblem, and MOOSurrogateBenchmarkProblem.
-    """
-
-    name: str
-    search_space: SearchSpace
-    optimization_config: OptimizationConfig
-    num_trials: int
-    tracking_metrics: List[BenchmarkMetricBase]
-    is_noiseless: bool  # If True, evaluations are deterministic
-    observe_noise_stds: Union[
-        bool, Dict[str, bool]
-    ]  # Whether we observe the observation noise level
-    has_ground_truth: bool  # if True, evals (w/o synthetic noise) are determinstic
-    runner: Runner
-
-
-@runtime_checkable
-class BenchmarkProblemWithKnownOptimum(Protocol):
-    optimal_value: float
 
 
 @dataclass(kw_only=True, repr=True)
