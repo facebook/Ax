@@ -9,12 +9,15 @@
 import numpy as np
 from ax.benchmark.benchmark import compute_score_trace
 from ax.benchmark.benchmark_problem import BenchmarkProblemProtocol
-from ax.core.runner import Runner
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import get_moo_surrogate, get_soo_surrogate
 
 
 class TestSurrogateProblems(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.maxDiff = None
+
     def test_conforms_to_protocol(self) -> None:
         sbp = get_soo_surrogate()
         self.assertIsInstance(sbp, BenchmarkProblemProtocol)
@@ -22,11 +25,9 @@ class TestSurrogateProblems(TestCase):
         mbp = get_moo_surrogate()
         self.assertIsInstance(mbp, BenchmarkProblemProtocol)
 
-    def test_lazy_instantiation(self) -> None:
+    def test_repr(self) -> None:
 
-        # test instantiation from init
         sbp = get_soo_surrogate()
-        # test __repr__ method
 
         expected_repr = (
             "SOOSurrogateBenchmarkProblem(name=test, "
@@ -37,23 +38,6 @@ class TestSurrogateProblems(TestCase):
             "observe_noise_stds=True, noise_stds=0.0, tracking_metrics=[])"
         )
         self.assertEqual(repr(sbp), expected_repr)
-
-        self.assertIsNone(sbp._runner)
-        # sets runner
-        self.assertIsInstance(sbp.runner, Runner)
-
-        self.assertIsNotNone(sbp._runner)
-        self.assertIsNotNone(sbp.runner)
-
-        # repeat for MOO
-        sbp = get_moo_surrogate()
-
-        self.assertIsNone(sbp._runner)
-        # sets runner
-        self.assertIsInstance(sbp.runner, Runner)
-
-        self.assertIsNotNone(sbp._runner)
-        self.assertIsNotNone(sbp.runner)
 
     def test_compute_score_trace(self) -> None:
         soo_problem = get_soo_surrogate()
