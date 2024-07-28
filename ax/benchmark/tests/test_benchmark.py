@@ -300,7 +300,6 @@ class TestBenchmark(TestCase):
             ("moo", get_moo_surrogate()),
         ]:
             with self.subTest(name, problem=problem):
-                surrogate, datasets = not_none(problem.get_surrogate_and_datasets)()
                 res = benchmark_replication(problem=problem, method=method, seed=0)
 
                 self.assertEqual(
