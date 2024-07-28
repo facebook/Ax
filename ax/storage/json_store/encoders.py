@@ -147,6 +147,7 @@ def benchmark_problem_to_dict(benchmark_problem: BenchmarkProblem) -> Dict[str, 
         "observe_noise_stds": benchmark_problem.observe_noise_stds,
         "has_ground_truth": benchmark_problem.has_ground_truth,
         "tracking_metrics": benchmark_problem.tracking_metrics,
+        "optimal_value": benchmark_problem.optimal_value,
     }
 
 
