@@ -11,10 +11,10 @@ from typing import Any, Dict, Optional
 import numpy as np
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
+    BenchmarkProblem,
     create_multi_objective_problem_from_botorch,
     create_single_objective_problem_from_botorch,
     MultiObjectiveBenchmarkProblem,
-    SingleObjectiveBenchmarkProblem,
 )
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.problems.surrogate import (
@@ -45,20 +45,11 @@ from botorch.test_functions.multi_objective import BraninCurrin, ConstrainedBran
 from botorch.test_functions.synthetic import Branin
 
 
-def get_benchmark_problem() -> SingleObjectiveBenchmarkProblem:
-    return create_single_objective_problem_from_botorch(
-        test_problem_class=Branin,
-        test_problem_kwargs={},
-        lower_is_better=True,
-        num_trials=4,
-    )
-
-
 def get_single_objective_benchmark_problem(
     observe_noise_sd: bool = False,
     num_trials: int = 4,
     test_problem_kwargs: Optional[Dict[str, Any]] = None,
-) -> SingleObjectiveBenchmarkProblem:
+) -> BenchmarkProblem:
     return create_single_objective_problem_from_botorch(
         test_problem_class=Branin,
         test_problem_kwargs=test_problem_kwargs or {},

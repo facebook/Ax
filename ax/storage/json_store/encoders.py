@@ -14,7 +14,6 @@ from typing import Any, Dict, Type
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     MultiObjectiveBenchmarkProblem,
-    SingleObjectiveBenchmarkProblem,
 )
 from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionBenchmarkProblem
 from ax.core import ObservationFeatures
@@ -155,38 +154,9 @@ def multi_objective_benchmark_problem_to_dict(
     moo_benchmark_problem: MultiObjectiveBenchmarkProblem,
 ) -> Dict[str, Any]:
     """Convert Ax multi-objective benchmark problem to a dictionary."""
-    return {
-        "__type": moo_benchmark_problem.__class__.__name__,
-        "name": moo_benchmark_problem.name,
-        "search_space": moo_benchmark_problem.search_space,
-        "optimization_config": moo_benchmark_problem.optimization_config,
-        "runner": moo_benchmark_problem.runner,
-        "num_trials": moo_benchmark_problem.num_trials,
-        "is_noiseless": moo_benchmark_problem.is_noiseless,
-        "observe_noise_stds": moo_benchmark_problem.observe_noise_stds,
-        "has_ground_truth": moo_benchmark_problem.has_ground_truth,
-        "tracking_metrics": moo_benchmark_problem.tracking_metrics,
-        "optimal_value": moo_benchmark_problem.optimal_value,
-        "reference_point": moo_benchmark_problem.reference_point,
-    }
-
-
-def single_objective_benchmark_problem_to_dict(
-    soo_benchmark_problem: SingleObjectiveBenchmarkProblem,
-) -> Dict[str, Any]:
-    return {
-        "__type": soo_benchmark_problem.__class__.__name__,
-        "name": soo_benchmark_problem.name,
-        "search_space": soo_benchmark_problem.search_space,
-        "optimization_config": soo_benchmark_problem.optimization_config,
-        "runner": soo_benchmark_problem.runner,
-        "num_trials": soo_benchmark_problem.num_trials,
-        "is_noiseless": soo_benchmark_problem.is_noiseless,
-        "observe_noise_stds": soo_benchmark_problem.observe_noise_stds,
-        "has_ground_truth": soo_benchmark_problem.has_ground_truth,
-        "tracking_metrics": soo_benchmark_problem.tracking_metrics,
-        "optimal_value": soo_benchmark_problem.optimal_value,
-    }
+    result = benchmark_problem_to_dict(moo_benchmark_problem)
+    result["reference_point"] = moo_benchmark_problem.reference_point
+    return result
 
 
 def trial_to_dict(trial: Trial) -> Dict[str, Any]:

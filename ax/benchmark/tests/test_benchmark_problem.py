@@ -85,7 +85,7 @@ class TestBenchmarkProblem(TestCase):
                     test_problem.optimization_config.outcome_constraints, []
                 )
                 expected_repr = (
-                    "SingleObjectiveBenchmarkProblem(name='Ackley', "
+                    "BenchmarkProblem(name='Ackley', "
                     "optimization_config=OptimizationConfig(objective=Objective("
                     'metric_name="Ackley", '
                     "minimize=True), outcome_constraints=[]), "
@@ -105,7 +105,7 @@ class TestBenchmarkProblem(TestCase):
                 self.assertFalse(outcome_constraint.relative)
                 self.assertEqual(outcome_constraint.bound, 0.0)
                 expected_repr = (
-                    "SingleObjectiveBenchmarkProblem(name='ConstrainedHartmann', "
+                    "BenchmarkProblem(name='ConstrainedHartmann', "
                     "optimization_config=OptimizationConfig(objective=Objective("
                     'metric_name="ConstrainedHartmann", minimize=True), '
                     "outcome_constraints=[OutcomeConstraint(constraint_slack_0"

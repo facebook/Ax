@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterable, Set
 
 import pandas as pd
 import torch
-from ax.benchmark.benchmark_problem import SingleObjectiveBenchmarkProblem
+from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
@@ -26,7 +26,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader, Dataset
 
 
-class PyTorchCNNBenchmarkProblem(SingleObjectiveBenchmarkProblem):
+class PyTorchCNNBenchmarkProblem(BenchmarkProblem):
     @equality_typechecker
     def __eq__(self, other: Base) -> bool:
         if not isinstance(other, PyTorchCNNBenchmarkProblem):
