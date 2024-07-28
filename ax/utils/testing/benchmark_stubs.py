@@ -11,6 +11,8 @@ from typing import Any, Dict, Optional
 import numpy as np
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
+    create_multi_objective_problem_from_botorch,
+    create_single_objective_problem_from_botorch,
     MultiObjectiveBenchmarkProblem,
     SingleObjectiveBenchmarkProblem,
 )
@@ -44,7 +46,7 @@ from botorch.test_functions.synthetic import Branin
 
 
 def get_benchmark_problem() -> SingleObjectiveBenchmarkProblem:
-    return SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
+    return create_single_objective_problem_from_botorch(
         test_problem_class=Branin,
         test_problem_kwargs={},
         lower_is_better=True,
@@ -57,7 +59,7 @@ def get_single_objective_benchmark_problem(
     num_trials: int = 4,
     test_problem_kwargs: Optional[Dict[str, Any]] = None,
 ) -> SingleObjectiveBenchmarkProblem:
-    return SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
+    return create_single_objective_problem_from_botorch(
         test_problem_class=Branin,
         test_problem_kwargs=test_problem_kwargs or {},
         lower_is_better=True,
@@ -69,7 +71,7 @@ def get_single_objective_benchmark_problem(
 def get_multi_objective_benchmark_problem(
     observe_noise_sd: bool = False, num_trials: int = 4
 ) -> MultiObjectiveBenchmarkProblem:
-    return MultiObjectiveBenchmarkProblem.from_botorch_multi_objective(
+    return create_multi_objective_problem_from_botorch(
         test_problem_class=BraninCurrin,
         test_problem_kwargs={},
         num_trials=num_trials,
@@ -80,7 +82,7 @@ def get_multi_objective_benchmark_problem(
 def get_constrained_multi_objective_benchmark_problem(
     observe_noise_sd: bool = False, num_trials: int = 4
 ) -> MultiObjectiveBenchmarkProblem:
-    return MultiObjectiveBenchmarkProblem.from_botorch_multi_objective(
+    return create_multi_objective_problem_from_botorch(
         test_problem_class=ConstrainedBraninCurrin,
         test_problem_kwargs={},
         num_trials=num_trials,
