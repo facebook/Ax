@@ -11,7 +11,6 @@ from typing import Any, Dict, Optional
 import numpy as np
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
-    BenchmarkProblem,
     MultiObjectiveBenchmarkProblem,
     SingleObjectiveBenchmarkProblem,
 )
@@ -44,8 +43,8 @@ from botorch.test_functions.multi_objective import BraninCurrin, ConstrainedBran
 from botorch.test_functions.synthetic import Branin
 
 
-def get_benchmark_problem() -> BenchmarkProblem:
-    return BenchmarkProblem.from_botorch(
+def get_benchmark_problem() -> SingleObjectiveBenchmarkProblem:
+    return SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
         test_problem_class=Branin,
         test_problem_kwargs={},
         lower_is_better=True,

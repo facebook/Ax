@@ -10,8 +10,18 @@
 # `BenchmarkProblem` as return type annotation, used for serialization and rendering
 # in the UI.
 
-import abc
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable, Type, Union
+from dataclasses import dataclass, field
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+    runtime_checkable,
+    Type,
+    TypeVar,
+    Union,
+)
 
 from ax.benchmark.metrics.base import BenchmarkMetricBase
 
@@ -30,9 +40,20 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.utils.common.base import Base
 from ax.utils.common.typeutils import checked_cast
-from botorch.test_functions.base import BaseTestProblem, ConstrainedBaseTestProblem
-from botorch.test_functions.multi_objective import MultiObjectiveTestProblem
+from botorch.test_functions.base import (
+    BaseTestProblem,
+    ConstrainedBaseTestProblem,
+    MultiObjectiveTestProblem,
+)
 from botorch.test_functions.synthetic import SyntheticTestFunction
+
+TBenchmarkProblem = TypeVar("TBenchmarkProblem", bound="BenchmarkProblem")
+TSingleObjectiveBenchmarkProblem = TypeVar(
+    "TSingleObjectiveBenchmarkProblem", bound="SingleObjectiveBenchmarkProblem"
+)
+TMultiObjectiveBenchmarkProblem = TypeVar(
+    "TMultiObjectiveBenchmarkProblem", bound="MultiObjectiveBenchmarkProblem"
+)
 
 
 def _get_name(
@@ -70,10 +91,7 @@ class BenchmarkProblemProtocol(Protocol):
         bool, Dict[str, bool]
     ]  # Whether we observe the observation noise level
     has_ground_truth: bool  # if True, evals (w/o synthetic noise) are determinstic
-
-    @abc.abstractproperty
-    def runner(self) -> Runner:
-        pass  # pragma: no cover
+    runner: Runner
 
 
 @runtime_checkable
@@ -81,46 +99,68 @@ class BenchmarkProblemWithKnownOptimum(Protocol):
     optimal_value: float
 
 
+@dataclass(kw_only=True, repr=True)
 class BenchmarkProblem(Base):
-    """Benchmark problem, represented in terms of Ax search space, optimization
-    config, and runner.
+    """
+    Problem against which different methods can be benchmarked.
+
+    Defines how data is generated, the objective (via the OptimizationConfig),
+    and the SearchSpace.
+
+    Args:
+        name: Can be generated programmatically with `_get_name`.
+        optimization_config: Defines the objective of optimization.
+        num_trials: Number of optimization iterations to run. BatchTrials count
+            as one trial.
+        observe_noise_stds: If boolean, whether the standard deviation of the
+            observation noise is observed for all metrics. If a dictionary,
+            whether noise levels are observed on a per-metric basis.
+        has_ground_truth: Whether the Runner produces underlying ground truth
+            values, which are not observed in real noisy problems but may be
+            known in benchmarks.
+        tracking_metrics: Tracking metrics are not optimized, and for the
+            purpose of benchmarking, they will not be fit. The ground truth may
+            be provided as `tracking_metrics`.
+        optimal_value: The best ground-truth objective value. Hypervolume for
+            multi-objective problems. If the best value is not known, it is
+            conventional to set it to a value that is almost certainly better
+            than the best value, so that a benchmark's score will not exceed 100%.
+        search_space: The search space.
+        runner: The Runner that will be used to generate data for the problem,
+            including any ground-truth data stored as tracking metrics.
     """
 
-    def __init__(
-        self,
-        name: str,
-        search_space: SearchSpace,
-        optimization_config: OptimizationConfig,
-        runner: Runner,
-        num_trials: int,
-        is_noiseless: bool = False,
-        observe_noise_stds: Union[bool, Dict[str, bool]] = False,
-        has_ground_truth: bool = False,
-        tracking_metrics: Optional[List[BenchmarkMetricBase]] = None,
-    ) -> None:
-        self.name = name
-        self.search_space = search_space
-        self.optimization_config = optimization_config
-        self._runner = runner
-        self.num_trials = num_trials
-        self.is_noiseless = is_noiseless
-        self.observe_noise_stds = observe_noise_stds
-        self.has_ground_truth = has_ground_truth
-        self.tracking_metrics: List[BenchmarkMetricBase] = tracking_metrics or []
+    name: str
+    optimization_config: OptimizationConfig
+    num_trials: int
+    observe_noise_stds: Union[bool, Dict[str, bool]] = False
+    has_ground_truth: bool = True
+    tracking_metrics: List[BenchmarkMetricBase] = field(default_factory=list)
+    optimal_value: float
 
-    @property
-    def runner(self) -> Runner:
-        return self._runner
+    search_space: SearchSpace = field(repr=False)
+    runner: Runner = field(repr=False)
+    is_noiseless: bool
+
+
+@dataclass(kw_only=True, repr=True)
+class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
+    """
+    Benchmark problem with a single objective.
+
+    For argument descriptions, see `BenchmarkProblem`; it additionally takes a
+    `Runner`.
+    """
 
     @classmethod
-    def from_botorch(
-        cls,
-        test_problem_class: Type[BaseTestProblem],
+    def from_botorch_synthetic(
+        cls: Type[TSingleObjectiveBenchmarkProblem],
+        test_problem_class: Type[SyntheticTestFunction],
         test_problem_kwargs: Dict[str, Any],
         lower_is_better: bool,
         num_trials: int,
         observe_noise_sd: bool = False,
-    ) -> "BenchmarkProblem":
+    ) -> TSingleObjectiveBenchmarkProblem:
         """
         Create a BenchmarkProblem from a BoTorch BaseTestProblem using
         specialized Metrics and Runners. The test problem's result will be
@@ -199,7 +239,11 @@ class BenchmarkProblem(Base):
             objective=objective,
             outcome_constraints=outcome_constraints,
         )
-
+        optimal_value = (
+            test_problem.max_hv
+            if isinstance(test_problem, MultiObjectiveTestProblem)
+            else test_problem.optimal_value
+        )
         return cls(
             name=name,
             search_space=search_space,
@@ -213,155 +257,49 @@ class BenchmarkProblem(Base):
             observe_noise_stds=observe_noise_sd,
             is_noiseless=test_problem.noise_std in (None, 0.0),
             has_ground_truth=True,  # all synthetic problems have ground truth
-        )
-
-    def __repr__(self) -> str:
-        """
-        Return a string representation that includes only the attributes that
-        print nicely and contain information likely to be useful.
-        """
-        return (
-            f"{self.__class__.__name__}("
-            f"name={self.name}, "
-            f"optimization_config={self.optimization_config}, "
-            f"num_trials={self.num_trials}, "
-            f"is_noiseless={self.is_noiseless}, "
-            f"observe_noise_stds={self.observe_noise_stds}, "
-            f"has_ground_truth={self.has_ground_truth}, "
-            f"tracking_metrics={self.tracking_metrics})"
+            optimal_value=optimal_value,
         )
 
 
-class SingleObjectiveBenchmarkProblem(BenchmarkProblem):
-    """The most basic BenchmarkProblem, with a single objective and a known optimal
-    value.
-    """
-
-    def __init__(
-        self,
-        optimal_value: float,
-        *,
-        name: str,
-        search_space: SearchSpace,
-        optimization_config: OptimizationConfig,
-        runner: Runner,
-        num_trials: int,
-        is_noiseless: bool = False,
-        observe_noise_stds: Union[bool, Dict[str, bool]] = False,
-        has_ground_truth: bool = False,
-        tracking_metrics: Optional[List[BenchmarkMetricBase]] = None,
-    ) -> None:
-        super().__init__(
-            name=name,
-            search_space=search_space,
-            optimization_config=optimization_config,
-            runner=runner,
-            num_trials=num_trials,
-            is_noiseless=is_noiseless,
-            observe_noise_stds=observe_noise_stds,
-            has_ground_truth=has_ground_truth,
-            tracking_metrics=tracking_metrics,
-        )
-        self.optimal_value = optimal_value
-
-    @classmethod
-    def from_botorch_synthetic(
-        cls,
-        test_problem_class: Type[SyntheticTestFunction],
-        test_problem_kwargs: Dict[str, Any],
-        lower_is_better: bool,
-        num_trials: int,
-        observe_noise_sd: bool = False,
-    ) -> "SingleObjectiveBenchmarkProblem":
-        """Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
-        Metrics and Runners. The test problem's result will be computed on the Runner
-        and retrieved by the Metric.
-        """
-
-        # pyre-fixme [45]: Invalid class instantiation
-        test_problem = test_problem_class(**test_problem_kwargs)
-
-        problem = BenchmarkProblem.from_botorch(
-            test_problem_class=test_problem_class,
-            test_problem_kwargs=test_problem_kwargs,
-            lower_is_better=lower_is_better,
-            num_trials=num_trials,
-            observe_noise_sd=observe_noise_sd,
-        )
-
-        dim = test_problem_kwargs.get("dim", None)
-        name = _get_name(
-            test_problem=test_problem, observe_noise_sd=observe_noise_sd, dim=dim
-        )
-
-        return cls(
-            name=name,
-            search_space=problem.search_space,
-            optimization_config=problem.optimization_config,
-            runner=problem.runner,
-            num_trials=num_trials,
-            is_noiseless=problem.is_noiseless,
-            observe_noise_stds=problem.observe_noise_stds,
-            has_ground_truth=problem.has_ground_truth,
-            optimal_value=test_problem.optimal_value,
-        )
-
-
+@dataclass(kw_only=True, repr=True)
 class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
     """
     A `BenchmarkProblem` that supports multiple objectives.
 
     For multi-objective problems, `optimal_value` indicates the maximum
     hypervolume attainable with the given `reference_point`.
+
+    For argument descriptions, see `BenchmarkProblem`; it additionally takes a `runner`
+    and a `reference_point`.
     """
 
-    def __init__(
-        self,
-        optimal_value: float,
-        reference_point: List[float],
-        *,
-        name: str,
-        search_space: SearchSpace,
-        optimization_config: OptimizationConfig,
-        runner: Runner,
-        num_trials: int,
-        is_noiseless: bool = False,
-        observe_noise_stds: Union[bool, Dict[str, bool]] = False,
-        has_ground_truth: bool = False,
-        tracking_metrics: Optional[List[BenchmarkMetricBase]] = None,
-    ) -> None:
-        self.optimal_value = optimal_value
-        self.reference_point = reference_point
-        super().__init__(
-            name=name,
-            search_space=search_space,
-            optimization_config=optimization_config,
-            runner=runner,
-            num_trials=num_trials,
-            is_noiseless=is_noiseless,
-            observe_noise_stds=observe_noise_stds,
-            has_ground_truth=has_ground_truth,
-            tracking_metrics=tracking_metrics,
-        )
+    reference_point: List[float]
+    optimization_config: MultiObjectiveOptimizationConfig
 
     @classmethod
     def from_botorch_multi_objective(
-        cls,
+        cls: Type[TMultiObjectiveBenchmarkProblem],
         test_problem_class: Type[MultiObjectiveTestProblem],
         test_problem_kwargs: Dict[str, Any],
         # TODO: Figure out whether we should use `lower_is_better` here.
         num_trials: int,
         observe_noise_sd: bool = False,
-    ) -> "MultiObjectiveBenchmarkProblem":
+    ) -> TMultiObjectiveBenchmarkProblem:
         """Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
         Metrics and Runners. The test problem's result will be computed on the Runner
         once per trial and each Metric will retrieve its own result by index.
         """
+        if issubclass(test_problem_class, ConstrainedBaseTestProblem):
+            raise NotImplementedError(
+                "Constrained multi-objective problems are not supported."
+            )
 
         # pyre-fixme [45]: Invalid class instantiation
         test_problem = test_problem_class(**test_problem_kwargs)
 
-        problem = BenchmarkProblem.from_botorch(
+        problem = SingleObjectiveBenchmarkProblem.from_botorch_synthetic(
+            # pyre-fixme [6]: Passing a multi-objective problem where a
+            # single-objective problem is expected.
             test_problem_class=test_problem_class,
             test_problem_kwargs=test_problem_kwargs,
             lower_is_better=True,  # Seems like we always assume minimization for MOO?
@@ -369,10 +307,7 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
             observe_noise_sd=observe_noise_sd,
         )
 
-        dim = test_problem_kwargs.get("dim", None)
-        name = _get_name(
-            test_problem=test_problem, observe_noise_sd=observe_noise_sd, dim=dim
-        )
+        name = problem.name
 
         n_obj = test_problem.num_objectives
         if not observe_noise_sd:
@@ -420,7 +355,3 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
             optimal_value=test_problem.max_hv,
             reference_point=test_problem._ref_point,
         )
-
-    @property
-    def maximum_hypervolume(self) -> float:
-        return self.optimal_value
