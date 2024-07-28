@@ -8,7 +8,7 @@
 
 import numpy as np
 from ax.benchmark.benchmark import compute_score_trace
-from ax.benchmark.benchmark_problem import BenchmarkProblemProtocol
+from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import get_moo_surrogate, get_soo_surrogate
 
@@ -19,12 +19,12 @@ class TestSurrogateProblems(TestCase):
         # print max output so errors in 'repr' can be fully shown
         self.maxDiff = None
 
-    def test_conforms_to_protocol(self) -> None:
+    def test_conforms_to_api(self) -> None:
         sbp = get_soo_surrogate()
-        self.assertIsInstance(sbp, BenchmarkProblemProtocol)
+        self.assertIsInstance(sbp, BenchmarkProblem)
 
         mbp = get_moo_surrogate()
-        self.assertIsInstance(mbp, BenchmarkProblemProtocol)
+        self.assertIsInstance(mbp, BenchmarkProblem)
 
     def test_repr(self) -> None:
 
