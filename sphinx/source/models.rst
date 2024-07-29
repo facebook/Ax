@@ -303,14 +303,6 @@ ax.models.torch.fully_bayesian_model_utils module
     :undoc-members:
     :show-inheritance:
 
-ax.models.torch.posterior_mean module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.models.torch.posterior_mean
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 ax.models.torch.utils module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
