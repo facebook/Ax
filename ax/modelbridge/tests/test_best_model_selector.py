@@ -55,7 +55,7 @@ class TestBestModelSelector(TestCase):
             metric_aggregation=ReductionCriterion.MEAN,
         )
         # Min/mean will pick index 1 since it has the lowest mean (0.1 vs 0.2 & 0.55).
-        self.assertEqual(s.best_model(model_specs=self.model_specs), 1)
+        self.assertIs(s.best_model(model_specs=self.model_specs), self.model_specs[1])
 
     def test_SingleDiagnosticBestModelSelector_min_min(self) -> None:
         s = SingleDiagnosticBestModelSelector(
@@ -64,7 +64,7 @@ class TestBestModelSelector(TestCase):
             metric_aggregation=ReductionCriterion.MIN,
         )
         # Min/min will pick index 0 since it has the lowest min (0.0 vs 0.1 & 0.5).
-        self.assertEqual(s.best_model(model_specs=self.model_specs), 0)
+        self.assertIs(s.best_model(model_specs=self.model_specs), self.model_specs[0])
 
     def test_SingleDiagnosticBestModelSelector_max_mean(self) -> None:
         s = SingleDiagnosticBestModelSelector(
@@ -73,7 +73,7 @@ class TestBestModelSelector(TestCase):
             metric_aggregation=ReductionCriterion.MEAN,
         )
         # Max/mean will pick index 2 since it has the largest mean (0.55 vs 0.1 & 0.2).
-        self.assertEqual(s.best_model(model_specs=self.model_specs), 2)
+        self.assertIs(s.best_model(model_specs=self.model_specs), self.model_specs[2])
 
     def test_SingleDiagnosticBestModelSelector_model_cv_kwargs(self) -> None:
         s = SingleDiagnosticBestModelSelector(
@@ -92,7 +92,9 @@ class TestBestModelSelector(TestCase):
             side_effect=self.diagnostics,
         ):
             # Max/mean picks index 2 since it has the largest mean (0.55 vs 0.1 & 0.2).
-            self.assertEqual(s.best_model(model_specs=self.model_specs), 2)
+            self.assertIs(
+                s.best_model(model_specs=self.model_specs), self.model_specs[2]
+            )
         self.assertEqual(mock_cv.call_count, 3)
         for call in mock_cv.call_args_list:
             self.assertEqual(call.kwargs["test"], "a")

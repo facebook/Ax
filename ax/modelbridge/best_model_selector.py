@@ -24,9 +24,13 @@ ARRAYLIKE = Union[np.ndarray, List[float], List[np.ndarray]]
 
 class BestModelSelector(ABC, Base):
     @abstractmethod
-    def best_model(self, model_specs: List[ModelSpec]) -> int:
-        """
-        Return the index of the best ``ModelSpec``.
+    def best_model(self, model_specs: List[ModelSpec]) -> ModelSpec:
+        """Return the best ``ModelSpec`` based on some criteria.
+
+        NOTE: The returned ``ModelSpec`` may be a different object than
+        what was provided in the original list. It may be possible to
+        clone and modify the original ``ModelSpec`` to produce one that
+        performs better.
         """
 
 
@@ -63,7 +67,7 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
             criterion=ReductionCriterion.MIN,
             model_cv_kwargs={"untransform": False},
         )
-        best_diagnostic_index = s.best_diagnostic(diagnostics)
+        best_model = s.best_model(model_specs=model_specs)
 
     Args:
         diagnostic: The name of the diagnostic to use, which should be
@@ -74,9 +78,6 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
             (aggregated) diagnostics is the best.
         model_cv_kwargs: Optional dictionary of kwargs to pass in while computing
             the cross validation diagnostics.
-
-    Returns:
-        int: index of the selected best diagnostic.
     """
 
     def __init__(
@@ -102,7 +103,15 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
         self.criterion = criterion
         self.model_cv_kwargs = model_cv_kwargs
 
-    def best_model(self, model_specs: List[ModelSpec]) -> int:
+    def best_model(self, model_specs: List[ModelSpec]) -> ModelSpec:
+        """Return the best ``ModelSpec`` based on the specified diagnostic.
+
+        Args:
+            model_specs: List of ``ModelSpec`` to choose from.
+
+        Returns:
+            The best ``ModelSpec`` based on the specified diagnostic.
+        """
         for model_spec in model_specs:
             model_spec.cross_validate(model_cv_kwargs=self.model_cv_kwargs)
         aggregated_diagnostic_values = [
@@ -112,4 +121,5 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
             for model_spec in model_specs
         ]
         best_diagnostic = self.criterion(aggregated_diagnostic_values).item()
-        return aggregated_diagnostic_values.index(best_diagnostic)
+        best_index = aggregated_diagnostic_values.index(best_diagnostic)
+        return model_specs[best_index]

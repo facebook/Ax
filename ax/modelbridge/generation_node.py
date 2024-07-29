@@ -361,10 +361,10 @@ class GenerationNode(SerializationMixin, SortableBase):
                 raise NotImplementedError(CANNOT_SELECT_ONE_MODEL_MSG)
             return self.model_specs[0]
 
-        best_model_index = not_none(self.best_model_selector).best_model(
+        best_model = not_none(self.best_model_selector).best_model(
             model_specs=self.model_specs,
         )
-        return self.model_specs[best_model_index]
+        return best_model
 
     # ------------------------- Trial logic helpers. -------------------------
     @property
