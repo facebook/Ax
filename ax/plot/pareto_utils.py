@@ -36,11 +36,11 @@ from ax.modelbridge.modelbridge_utils import (
 from ax.modelbridge.registry import Models
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.search_space_to_float import SearchSpaceToFloat
-from ax.models.torch.posterior_mean import get_PosteriorMean
 from ax.models.torch_base import TorchModel
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.stats.statstools import relativize
+from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.utils.multi_objective import is_non_dominated
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
 
@@ -347,7 +347,6 @@ def compute_posterior_pareto_frontier(
     absolute_metrics: Optional[List[str]] = None,
     num_points: int = 10,
     trial_index: Optional[int] = None,
-    chebyshev: bool = True,
 ) -> ParetoFrontierResults:
     """Compute the Pareto frontier between two objectives. For experiments
     with batch trials, a trial index or data object must be provided.
@@ -368,16 +367,10 @@ def compute_posterior_pareto_frontier(
             will be in % relative to status_quo).
         num_points: The number of points to compute on the
             Pareto frontier.
-        chebyshev: Whether to use augmented_chebyshev_scalarization
-            when computing Pareto Frontier points.
 
     Returns:
         ParetoFrontierResults: A NamedTuple with fields listed in its definition.
     """
-    model_gen_options = {
-        "acquisition_function_kwargs": {"chebyshev_scalarization": chebyshev}
-    }
-
     if (
         trial_index is None
         and data is None
@@ -415,7 +408,7 @@ def compute_posterior_pareto_frontier(
     # The weights here are just dummy weights that we pass in to construct the
     # modelbridge. We set the weight to -1 if `lower_is_better` is `True` and
     # 1 otherwise. This code would benefit from a serious revamp.
-    oc = _build_new_optimization_config(
+    oc = _build_scalarized_optimization_config(
         weights=np.array(
             [
                 -1 if primary_objective.lower_is_better else 1,
@@ -426,11 +419,11 @@ def compute_posterior_pareto_frontier(
         secondary_objective=secondary_objective,
         outcome_constraints=outcome_constraints,
     )
-    model = Models.MOO(
+    model = Models.BOTORCH_MODULAR(
         experiment=experiment,
         data=data,
-        acqf_constructor=get_PosteriorMean,
         optimization_config=oc,
+        botorch_acqf_class=qSimpleRegret,
     )
 
     status_quo = experiment.status_quo
@@ -463,16 +456,13 @@ def compute_posterior_pareto_frontier(
     weights_list = np.stack([primary_weight, secondary_weight]).transpose()
     for weights in weights_list:
         outcome_constraints = outcome_constraints
-        oc = _build_new_optimization_config(
+        oc = _build_scalarized_optimization_config(
             weights=weights,
             primary_objective=primary_objective,
             secondary_objective=secondary_objective,
             outcome_constraints=outcome_constraints,
         )
-        # TODO: (jej) T64002590 Let this serve as a starting point for optimization.
-        # ex. Add global spacing criterion. Implement on BoTorch side.
-        # pyre-fixme [6]: Expected different type for model_gen_options
-        run = model.gen(1, model_gen_options=model_gen_options, optimization_config=oc)
+        run = model.gen(1, optimization_config=oc)
         param_dicts.append(run.arms[0].parameters)
 
     # Call predict on points to get their decomposed metrics.
@@ -554,19 +544,15 @@ def _validate_outcome_constraints(
                 )
 
 
-def _build_new_optimization_config(
-    # pyre-fixme[2]: Parameter must be annotated.
-    weights,
-    # pyre-fixme[2]: Parameter must be annotated.
-    primary_objective,
-    # pyre-fixme[2]: Parameter must be annotated.
-    secondary_objective,
-    # pyre-fixme[2]: Parameter must be annotated.
-    outcome_constraints=None,
+def _build_scalarized_optimization_config(
+    weights: np.ndarray,
+    primary_objective: Metric,
+    secondary_objective: Metric,
+    outcome_constraints: Optional[List[OutcomeConstraint]] = None,
 ) -> MultiObjectiveOptimizationConfig:
     obj = ScalarizedObjective(
         metrics=[primary_objective, secondary_objective],
-        weights=weights,
+        weights=weights.tolist(),
         minimize=False,
     )
     optimization_config = MultiObjectiveOptimizationConfig(
