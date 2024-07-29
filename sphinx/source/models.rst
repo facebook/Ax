@@ -175,14 +175,6 @@ ax.models.torch.botorch_modular.acquisition module
     :undoc-members:
     :show-inheritance:
 
-ax.models.torch.botorch_modular.list_surrogate module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.models.torch.botorch_modular.list_surrogate
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 ax.models.torch.randomforest module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

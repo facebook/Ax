@@ -451,7 +451,7 @@ class BoTorchModelUtilsTest(TestCase):
         self.assertTrue(any(issubclass(w.category, AxWarning)) for w in ws)
         self.assertTrue(
             any(
-                "Forcing converion of data not complying to a block design"
+                "Forcing conversion of data not complying to a block design"
                 in str(w.message)
                 for w in ws
             )
@@ -476,7 +476,7 @@ class BoTorchModelUtilsTest(TestCase):
         self.assertTrue(any(issubclass(w.category, AxWarning) for w in ws))
         self.assertTrue(
             any(
-                "Forcing converion of data not complying to a block design"
+                "Forcing conversion of data not complying to a block design"
                 in str(w.message)
                 for w in ws
             )

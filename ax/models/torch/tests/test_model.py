@@ -117,7 +117,6 @@ class BoTorchModelTest(TestCase):
                 outcome_names=["y2"],
             )
         ]
-        self.metric_names_for_list_surrogate = ["y", "y2"]
         self.search_space_digest = SearchSpaceDigest(
             feature_names=self.feature_names,
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
@@ -280,11 +279,11 @@ class BoTorchModelTest(TestCase):
                 Y=ds.Y,
                 Yvar=ds.Yvar,
                 feature_names=ds.feature_names,
-                outcome_names=self.metric_names_for_list_surrogate[1:],
+                outcome_names=["y2"],
             ),
         ]
         with self.assertWarnsRegex(
-            AxWarning, "Forcing converion of data not complying to a block design"
+            AxWarning, "Forcing conversion of data not complying to a block design"
         ):
             self.model.fit(
                 datasets=datasets,
