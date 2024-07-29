@@ -11,10 +11,6 @@ import warnings
 from pathlib import Path
 from typing import Any, Dict, Type
 
-from ax.benchmark.benchmark_problem import (
-    BenchmarkProblem,
-    MultiObjectiveBenchmarkProblem,
-)
 from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionBenchmarkProblem
 from ax.core import ObservationFeatures
 from ax.core.arm import Arm
@@ -131,32 +127,6 @@ def batch_to_dict(batch: BatchTrial) -> Dict[str, Any]:
         "lifecycle_stage": batch.lifecycle_stage,
         "properties": batch._properties,
     }
-
-
-def benchmark_problem_to_dict(benchmark_problem: BenchmarkProblem) -> Dict[str, Any]:
-    """Convert Ax benchmark problem to a dictionary."""
-    return {
-        "__type": benchmark_problem.__class__.__name__,
-        "name": benchmark_problem.name,
-        "search_space": benchmark_problem.search_space,
-        "optimization_config": benchmark_problem.optimization_config,
-        "runner": benchmark_problem.runner,
-        "num_trials": benchmark_problem.num_trials,
-        "is_noiseless": benchmark_problem.is_noiseless,
-        "observe_noise_stds": benchmark_problem.observe_noise_stds,
-        "has_ground_truth": benchmark_problem.has_ground_truth,
-        "tracking_metrics": benchmark_problem.tracking_metrics,
-        "optimal_value": benchmark_problem.optimal_value,
-    }
-
-
-def multi_objective_benchmark_problem_to_dict(
-    moo_benchmark_problem: MultiObjectiveBenchmarkProblem,
-) -> Dict[str, Any]:
-    """Convert Ax multi-objective benchmark problem to a dictionary."""
-    result = benchmark_problem_to_dict(moo_benchmark_problem)
-    result["reference_point"] = moo_benchmark_problem.reference_point
-    return result
 
 
 def trial_to_dict(trial: Trial) -> Dict[str, Any]:
