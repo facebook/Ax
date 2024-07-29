@@ -63,8 +63,7 @@ def use_model_list(
     ):
         # Use batch models if allowed
         return not allow_batched_models
-    # If there are multiple Xs and they are not all equal, we
-    # use `ListSurrogate` and `ModelListGP`.
+    # If there are multiple Xs and they are not all equal, we use `ModelListGP`.
     return True
 
 
@@ -209,7 +208,7 @@ def convert_to_block_design(
                 "outcomes use `force=True`."
             )
         warnings.warn(
-            "Forcing converion of data not complying to a block design "
+            "Forcing conversion of data not complying to a block design "
             "to block design by dropping observations that are not shared "
             "between outcomes.",
             AxWarning,
