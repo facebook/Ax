@@ -5,6 +5,9 @@
 
 # pyre-strict
 
+from ax.analysis.plotly.parallel_coordinates.parallel_coordinates import (
+    ParallelCoordinatesPlot,
+)
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 
-__all__ = ["PlotlyAnalysis", "PlotlyAnalysisCard"]
+__all__ = ["PlotlyAnalysis", "PlotlyAnalysisCard", "ParallelCoordinatesPlot"]
