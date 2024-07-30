@@ -8,7 +8,7 @@
 
 from itertools import groupby
 from logging import Logger
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -266,7 +266,7 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
 
     def __init__(
         self,
-        objective: Objective,
+        objective: Union[MultiObjective, ScalarizedObjective],
         outcome_constraints: Optional[List[OutcomeConstraint]] = None,
         objective_thresholds: Optional[List[ObjectiveThreshold]] = None,
         risk_measure: Optional[RiskMeasure] = None,
@@ -293,14 +293,15 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             objective_thresholds=objective_thresholds,
             risk_measure=risk_measure,
         )
-        self._objective: Objective = objective
+        self._objective: Union[MultiObjective, ScalarizedObjective] = objective
         self._outcome_constraints: List[OutcomeConstraint] = constraints
         self._objective_thresholds: List[ObjectiveThreshold] = objective_thresholds
         self.risk_measure: Optional[RiskMeasure] = risk_measure
 
+    # pyre-fixme[14]: Inconsistent override.
     def clone_with_args(
         self,
-        objective: Optional[Objective] = None,
+        objective: Optional[Union[MultiObjective, ScalarizedObjective]] = None,
         outcome_constraints: Optional[
             List[OutcomeConstraint]
         ] = _NO_OUTCOME_CONSTRAINTS,
@@ -333,12 +334,12 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         )
 
     @property
-    def objective(self) -> Objective:
+    def objective(self) -> Union[MultiObjective, ScalarizedObjective]:
         """Get objective."""
         return self._objective
 
     @objective.setter
-    def objective(self, objective: Objective) -> None:
+    def objective(self, objective: Union[MultiObjective, ScalarizedObjective]) -> None:
         """Set objective if not present in outcome constraints."""
         self._validate_optimization_config(
             objective=objective,

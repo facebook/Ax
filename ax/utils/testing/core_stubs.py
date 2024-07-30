@@ -1583,7 +1583,7 @@ def get_map_objective(minimize: bool = False) -> Objective:
     return Objective(metric=MapMetric(name="m1"), minimize=minimize)
 
 
-def get_multi_objective() -> Objective:
+def get_multi_objective() -> MultiObjective:
     return MultiObjective(
         objectives=[
             Objective(metric=Metric(name="m1"), minimize=False),
@@ -1592,7 +1592,7 @@ def get_multi_objective() -> Objective:
     )
 
 
-def get_custom_multi_objective() -> Objective:
+def get_custom_multi_objective() -> MultiObjective:
     return MultiObjective(
         objectives=[
             Objective(
@@ -1633,7 +1633,7 @@ def get_branin_objective(name: str = "branin", minimize: bool = False) -> Object
     )
 
 
-def get_branin_multi_objective(num_objectives: int = 2) -> Objective:
+def get_branin_multi_objective(num_objectives: int = 2) -> MultiObjective:
     _validate_num_objectives(num_objectives=num_objectives)
     objectives = [
         Objective(metric=get_branin_metric(name="branin_a"), minimize=True),

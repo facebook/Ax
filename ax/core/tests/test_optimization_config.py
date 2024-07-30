@@ -334,7 +334,12 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             objective=self.multi_objective, outcome_constraints=self.outcome_constraints
         )
         self.assertEqual(str(config1), MOOC_STR)
-        with self.assertRaises(TypeError):
+        with self.assertRaisesRegex(
+            TypeError,
+            "`MultiObjectiveOptimizationConfig` requires an objective of type "
+            "`MultiObjective` or `ScalarizedObjective`.",
+        ):
+            # pyre-fixme [8]: Incompatible attribute type
             config1.objective = self.objective  # Wrong objective type
         # updating constraints is fine.
         config1.outcome_constraints = [self.outcome_constraint]
@@ -428,7 +433,12 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
 
     def test_ConstraintValidation(self) -> None:
         # Cannot build with non-MultiObjective
-        with self.assertRaises(TypeError):
+        with self.assertRaisesRegex(
+            TypeError,
+            "`MultiObjectiveOptimizationConfig` requires an objective of type "
+            "`MultiObjective` or `ScalarizedObjective`.",
+        ):
+            # pyre-fixme [6]: Incompatible parameter type
             MultiObjectiveOptimizationConfig(objective=self.objective)
 
         # Using an outcome constraint for an objective should raise

@@ -164,7 +164,7 @@ class MultiObjective(Objective):
         """Get the objectives and weights."""
         return zip(self.objectives, self.weights)
 
-    def clone(self) -> Objective:
+    def clone(self) -> MultiObjective:
         """Create a copy of the objective."""
         return MultiObjective(objectives=[o.clone() for o in self.objectives])
 
@@ -235,7 +235,7 @@ class ScalarizedObjective(Objective):
         """Get the metrics and weights."""
         return zip(self.metrics, self.weights)
 
-    def clone(self) -> Objective:
+    def clone(self) -> ScalarizedObjective:
         """Create a copy of the objective."""
         return ScalarizedObjective(
             metrics=[m.clone() for m in self.metrics],
