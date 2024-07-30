@@ -171,7 +171,7 @@ from botorch.utils.types import DEFAULT
 from gpytorch.constraints import Interval
 from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
-from gpytorch.priors.torch_priors import GammaPrior
+from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
 
 
 # pyre-fixme[5]: Global annotation cannot contain `Any`.
@@ -206,6 +206,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Interval: botorch_component_to_dict,
     JenattonMetric: metric_to_dict,
     L2NormMetric: metric_to_dict,
+    LogNormalPrior: botorch_component_to_dict,
     MapData: map_data_to_dict,
     MapKeyInfo: map_key_info_to_dict,
     MapMetric: metric_to_dict,
@@ -327,6 +328,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "LifecycleStage": LifecycleStage,
     "ListSurrogate": Surrogate,  # For backwards compatibility
     "L2NormMetric": L2NormMetric,
+    "LogNormalPrior": LogNormalPrior,
     "MapData": MapData,
     "MapMetric": MapMetric,
     "MapKeyInfo": MapKeyInfo,

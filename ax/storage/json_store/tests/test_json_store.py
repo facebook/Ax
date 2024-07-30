@@ -114,6 +114,7 @@ from ax.utils.testing.core_stubs import (
     get_sum_constraint2,
     get_surrogate,
     get_surrogate_spec_with_default,
+    get_surrogate_spec_with_lognormal,
     get_synthetic_runner,
     get_threshold_early_stopping_strategy,
     get_trial,
@@ -238,6 +239,7 @@ TEST_CASES = [
 class JSONStoreTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
+        self.maxDiff = None
         self.experiment = get_experiment_with_batch_and_single_trial()
 
     def test_JSONEncodeFailure(self) -> None:
@@ -526,32 +528,35 @@ class JSONStoreTest(TestCase):
     def test_encode_decode_surrogate_spec(self) -> None:
         # Test SurrogateSpec separately since the GPyTorch components
         # fail simple equality checks.
-        org_object = get_surrogate_spec_with_default()
-        converted_object = object_from_json(
-            object_to_json(
-                org_object,
-                encoder_registry=CORE_ENCODER_REGISTRY,
-                class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
-            ),
-            decoder_registry=CORE_DECODER_REGISTRY,
-            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
-        )
-        org_as_dict = dataclasses.asdict(org_object)
-        converted_as_dict = dataclasses.asdict(converted_object)
-        # Covar module kwargs will fail comparison. Manually compare.
-        org_covar_kwargs = org_as_dict.pop("covar_module_kwargs")
-        converted_covar_kwargs = converted_as_dict.pop("covar_module_kwargs")
-        self.assertEqual(org_covar_kwargs.keys(), converted_covar_kwargs.keys())
-        for k in org_covar_kwargs:
-            org_ = org_covar_kwargs[k]
-            converted_ = converted_covar_kwargs[k]
-            if isinstance(org_, torch.nn.Module):
-                self.assertEqual(org_.__class__, converted_.__class__)
-                self.assertEqual(org_.__dict__, converted_.__dict__)
-            else:
-                self.assertEqual(org_, converted_)
-        # Compare the rest.
-        self.assertEqual(org_as_dict, converted_as_dict)
+        for org_object in (
+            get_surrogate_spec_with_default(),
+            get_surrogate_spec_with_lognormal(),
+        ):
+            converted_object = object_from_json(
+                object_to_json(
+                    org_object,
+                    encoder_registry=CORE_ENCODER_REGISTRY,
+                    class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+                ),
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+            org_as_dict = dataclasses.asdict(org_object)
+            converted_as_dict = dataclasses.asdict(converted_object)
+            # Covar module kwargs will fail comparison. Manually compare.
+            org_covar_kwargs = org_as_dict.pop("covar_module_kwargs")
+            converted_covar_kwargs = converted_as_dict.pop("covar_module_kwargs")
+            self.assertEqual(org_covar_kwargs.keys(), converted_covar_kwargs.keys())
+            for k in org_covar_kwargs:
+                org_ = org_covar_kwargs[k]
+                converted_ = converted_covar_kwargs[k]
+                if isinstance(org_, torch.nn.Module):
+                    self.assertEqual(org_.__class__, converted_.__class__)
+                    self.assertEqual(org_.state_dict(), converted_.state_dict())
+                else:
+                    self.assertEqual(org_, converted_)
+            # Compare the rest.
+            self.assertEqual(org_as_dict, converted_as_dict)
 
     def test_RegistryAdditions(self) -> None:
         class MyRunner(Runner):
