@@ -79,6 +79,7 @@ from botorch.models.transforms.outcome import (
 # Miscellaneous BoTorch imports
 from gpytorch.constraints import Interval
 from gpytorch.kernels.kernel import Kernel
+from gpytorch.kernels.rbf_kernel import RBFKernel
 from gpytorch.likelihoods.gaussian_likelihood import GaussianLikelihood
 from gpytorch.likelihoods.likelihood import Likelihood
 
@@ -156,6 +157,7 @@ MLL_REGISTRY: Dict[Type[MarginalLogLikelihood], str] = {
 
 KERNEL_REGISTRY: Dict[Type[Kernel], str] = {
     ScaleMaternKernel: "ScaleMaternKernel",
+    RBFKernel: "RBFKernel",
 }
 
 LIKELIHOOD_REGISTRY: Dict[Type[GaussianLikelihood], str] = {
@@ -200,6 +202,7 @@ CLASS_TO_REGISTRY: Dict[Any, Dict[Type[Any], str]] = {
     Model: MODEL_REGISTRY,
     Interval: GPYTORCH_COMPONENT_REGISTRY,
     GammaPrior: GPYTORCH_COMPONENT_REGISTRY,
+    LogNormalPrior: GPYTORCH_COMPONENT_REGISTRY,
     InputTransform: INPUT_TRANSFORM_REGISTRY,
     OutcomeTransform: OUTCOME_TRANSFORM_REGISTRY,
 }
@@ -239,12 +242,6 @@ REVERSE_LIKELIHOOD_REGISTRY: Dict[str, Type[Likelihood]] = {
     v: k for k, v in LIKELIHOOD_REGISTRY.items()
 }
 
-
-REVERSE_GPYTORCH_COMPONENT_REGISTRY: Dict[str, Type[torch.nn.Module]] = {
-    v: k for k, v in GPYTORCH_COMPONENT_REGISTRY.items()
-}
-
-
 REVERSE_INPUT_TRANSFORM_REGISTRY: Dict[str, Type[InputTransform]] = {
     v: k for k, v in INPUT_TRANSFORM_REGISTRY.items()
 }
@@ -264,8 +261,6 @@ CLASS_TO_REVERSE_REGISTRY: Dict[Any, Dict[str, Type[Any]]] = {
     Likelihood: REVERSE_LIKELIHOOD_REGISTRY,
     MarginalLogLikelihood: REVERSE_MLL_REGISTRY,
     Model: REVERSE_MODEL_REGISTRY,
-    Interval: REVERSE_GPYTORCH_COMPONENT_REGISTRY,
-    GammaPrior: REVERSE_GPYTORCH_COMPONENT_REGISTRY,
     InputTransform: REVERSE_INPUT_TRANSFORM_REGISTRY,
     OutcomeTransform: REVERSE_OUTCOME_TRANSFORM_REGISTRY,
 }
