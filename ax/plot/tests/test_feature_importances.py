@@ -47,7 +47,10 @@ def get_sensitivity_values(ax_model: ModelBridge) -> Dict:
 
     Returns map {'metric_name': {'parameter_name': sensitivity_value}}
     """
-    ls = ax_model.model.model.covar_module.base_kernel.lengthscale.squeeze()
+    if hasattr(ax_model.model.model.covar_module, "outputscale"):
+        ls = ax_model.model.model.covar_module.base_kernel.lengthscale.squeeze()
+    else:
+        ls = ax_model.model.model.covar_module.lengthscale.squeeze()
     if len(ls.shape) > 1:
         ls = ls.mean(dim=0)
     # pyre-fixme[16]: `float` has no attribute `detach`.

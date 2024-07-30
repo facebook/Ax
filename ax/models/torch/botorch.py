@@ -562,7 +562,12 @@ def get_feature_importances_from_botorch_model(
     lengthscales = []
     for m in models:
         try:
-            ls = m.covar_module.base_kernel.lengthscale
+            # this can be a ModelList of a SAAS and STGP, so this is a necessary way
+            # to get the lengthscale
+            if hasattr(m.covar_module, "base_kernel"):
+                ls = m.covar_module.base_kernel.lengthscale
+            else:
+                ls = m.covar_module.lengthscale
         except AttributeError:
             ls = None
         if ls is None or ls.shape[-1] != m.train_inputs[0].shape[-1]:
@@ -570,7 +575,8 @@ def get_feature_importances_from_botorch_model(
             # case, but this require knowing the batch dimension of this model.
             # Consider supporting in the future.
             raise NotImplementedError(
-                "Failed to extract lengthscales from `m.covar_module.base_kernel`"
+                "Failed to extract lengthscales from `m.covar_module` "
+                "and `m.covar_module.base_kernel`"
             )
         if ls.ndim == 2:
             ls = ls.unsqueeze(0)

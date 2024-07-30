@@ -37,7 +37,12 @@ def get_KxX_dx(gp: Model, x: Tensor, kernel_type: str = "rbf") -> Tensor:
     D = X.shape[1]
     N = X.shape[0]
     n = x.shape[0]
-    lengthscale = gp.covar_module.base_kernel.lengthscale.detach()
+    if hasattr(gp.covar_module, "outputscale"):
+        lengthscale = gp.covar_module.base_kernel.lengthscale.detach()
+        sigma_f = gp.covar_module.outputscale.detach()
+    else:
+        lengthscale = gp.covar_module.lengthscale.detach()
+        sigma_f = 1.0
     if kernel_type == "rbf":
         K_xX = gp.covar_module(x, X).evaluate()
         part1 = -torch.eye(D, device=x.device, dtype=x.dtype) / lengthscale**2
@@ -52,7 +57,6 @@ def get_KxX_dx(gp: Model, x: Tensor, kernel_type: str = "rbf") -> Tensor:
     constant_component = (-5.0 / 3.0) * distance - (5.0 * math.sqrt(5.0) / 3.0) * (
         distance**2
     )
-    sigma_f = gp.covar_module.outputscale.detach()
     part1 = torch.eye(D, device=lengthscale.device) / lengthscale
     part2 = (x1_.view(n, 1, D) - x2_.view(1, N, D)) / distance.unsqueeze(2)
     total_k = sigma_f * constant_component * exp_component
@@ -70,8 +74,12 @@ def get_Kxx_dx2(gp: Model, kernel_type: str = "rbf") -> Tensor:
     """
     X = gp.train_inputs[0]
     D = X.shape[1]
-    lengthscale = gp.covar_module.base_kernel.lengthscale.detach()
-    sigma_f = gp.covar_module.outputscale.detach()
+    if hasattr(gp.covar_module, "outputscale"):
+        lengthscale = gp.covar_module.base_kernel.lengthscale.detach()
+        sigma_f = gp.covar_module.outputscale.detach()
+    else:
+        lengthscale = gp.covar_module.lengthscale.detach()
+        sigma_f = 1.0
     res = (torch.eye(D, device=lengthscale.device) / lengthscale**2) * sigma_f
     if kernel_type == "rbf":
         return res
