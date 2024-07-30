@@ -188,7 +188,6 @@ def get_moo_surrogate(noise_stds: float = 0.0) -> MOOSurrogateBenchmarkProblem:
         num_trials=10,
         observe_noise_stds=True,
         optimal_value=1.0,
-        reference_point=ref_point,
         runner=runner,
         is_noiseless=runner.is_noiseless,
     )
