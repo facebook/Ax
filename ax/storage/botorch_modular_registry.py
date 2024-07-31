@@ -75,6 +75,7 @@ from botorch.models.transforms.outcome import (
     OutcomeTransform,
     Standardize,
 )
+from botorch.sampling.normal import SobolQMCNormalSampler
 
 # Miscellaneous BoTorch imports
 from gpytorch.constraints import Interval
@@ -168,6 +169,7 @@ GPYTORCH_COMPONENT_REGISTRY: Dict[Type[torch.nn.Module], str] = {
     Interval: "Interval",
     GammaPrior: "GammaPrior",
     LogNormalPrior: "LogNormalPrior",
+    SobolQMCNormalSampler: "SobolQMCNormalSampler",
 }
 
 """
@@ -205,6 +207,7 @@ CLASS_TO_REGISTRY: Dict[Any, Dict[Type[Any], str]] = {
     LogNormalPrior: GPYTORCH_COMPONENT_REGISTRY,
     InputTransform: INPUT_TRANSFORM_REGISTRY,
     OutcomeTransform: OUTCOME_TRANSFORM_REGISTRY,
+    SobolQMCNormalSampler: GPYTORCH_COMPONENT_REGISTRY,
 }
 
 

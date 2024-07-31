@@ -63,6 +63,7 @@ from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils import not_none
 from ax.utils.common.typeutils_torch import torch_type_to_str
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
+from botorch.sampling.base import MCSampler
 from botorch.utils.types import _DefaultType
 from torch import Tensor
 
@@ -593,6 +594,11 @@ def botorch_component_to_dict(input_obj: Any) -> Dict[str, Any]:
         state_dict = botorch_input_transform_to_init_args(input_transform=input_obj)
     else:
         state_dict = dict(input_obj.state_dict())
+    if isinstance(input_obj, MCSampler):
+        # The sampler args are not part of the state dict. Manually add them.
+        # Sample shape cannot be added to torch state dict since it is not a tensor.
+        state_dict["sample_shape"] = input_obj.sample_shape
+        state_dict["seed"] = input_obj.seed
     return {
         "__type": f"{class_type.__name__}",
         "index": class_type,

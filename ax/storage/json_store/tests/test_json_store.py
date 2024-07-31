@@ -130,6 +130,7 @@ from ax.utils.testing.modeling_stubs import (
     sobol_gpei_generation_node_gs,
 )
 from ax.utils.testing.utils import generic_equals
+from botorch.sampling.normal import SobolQMCNormalSampler
 
 
 # pyre-fixme[5]: Global expression must be annotated.
@@ -731,3 +732,20 @@ class JSONStoreTest(TestCase):
         generation_step = object_from_json(json)
         self.assertIsInstance(generation_step, GenerationStep)
         self.assertEqual(generation_step.model_kwargs, {"other_kwarg": 5})
+
+    def test_SobolQMCNormalSampler(self) -> None:
+        # This fails default equality checks, so testing it separately.
+        sampler = SobolQMCNormalSampler(sample_shape=torch.Size([2]))
+        sampler_json = object_to_json(
+            sampler,
+            encoder_registry=CORE_ENCODER_REGISTRY,
+            class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+        )
+        sampler_loaded = object_from_json(
+            sampler_json,
+            decoder_registry=CORE_DECODER_REGISTRY,
+            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+        )
+        self.assertIsInstance(sampler_loaded, SobolQMCNormalSampler)
+        self.assertEqual(sampler.sample_shape, sampler_loaded.sample_shape)
+        self.assertEqual(sampler.seed, sampler_loaded.seed)
