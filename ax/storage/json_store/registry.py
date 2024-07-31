@@ -167,6 +167,7 @@ from ax.utils.common.serialization import TDecoderRegistry
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from botorch.models.transforms.input import ChainedInputTransform, Normalize, Round
+from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.types import DEFAULT
 from gpytorch.constraints import Interval
 from gpytorch.likelihoods.likelihood import Likelihood
@@ -252,6 +253,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     SearchSpace: search_space_to_dict,
     SingleDiagnosticBestModelSelector: best_model_selector_to_dict,
     HierarchicalSearchSpace: search_space_to_dict,
+    SobolQMCNormalSampler: botorch_component_to_dict,
     SumConstraint: sum_parameter_constraint_to_dict,
     Surrogate: surrogate_to_dict,
     BenchmarkMetric: metric_to_dict,
@@ -385,6 +387,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "SurrogateMetric": BenchmarkMetric,  # backward-compatiblity
     # NOTE: SurrogateRunners -> SyntheticRunner on load due to complications
     "SurrogateRunner": SyntheticRunner,
+    "SobolQMCNormalSampler": SobolQMCNormalSampler,
     "SyntheticRunner": SyntheticRunner,
     "SurrogateSpec": SurrogateSpec,
     "Trial": Trial,
