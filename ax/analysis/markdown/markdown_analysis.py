@@ -7,21 +7,12 @@
 
 from typing import Optional
 
-import pandas as pd
-from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardLevel
+from ax.analysis.analysis import Analysis, AnalysisCard
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStrategy
 
 
 class MarkdownAnalysisCard(AnalysisCard):
-    name: str
-
-    title: str
-    subtitle: str
-    level: AnalysisCardLevel
-
-    df: pd.DataFrame
-    blob: str
     blob_annotation = "markdown"
 
     def get_markdown(self) -> str:
