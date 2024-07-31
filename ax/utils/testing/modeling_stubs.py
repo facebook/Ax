@@ -31,6 +31,7 @@ from ax.modelbridge.registry import Models
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.modelbridge.transition_criterion import (
+    AutoTransitionAfterGenCriterion,
     MaxGenerationParallelism,
     MaxTrials,
     MinimumPreferenceOccurances,
@@ -212,6 +213,7 @@ def get_generation_strategy(
 
 def sobol_gpei_generation_node_gs(
     with_model_selection: bool = False,
+    with_auto_transition: bool = False,
 ) -> GenerationStrategy:
     """Returns a basic SOBOL+MBM GS using GenerationNodes for testing.
 
@@ -255,6 +257,7 @@ def sobol_gpei_generation_node_gs(
             not_in_statuses=None,
         ),
     ]
+    alt_mbm_criterion = [AutoTransitionAfterGenCriterion(transition_to="MBM_node")]
     step_model_kwargs = {"silently_filter_kwargs": True}
     sobol_model_spec = ModelSpec(
         model_enum=Models.SOBOL,
@@ -284,12 +287,20 @@ def sobol_gpei_generation_node_gs(
     else:
         best_model_selector = None
 
-    mbm_node = GenerationNode(
-        node_name="MBM_node",
-        transition_criteria=mbm_criterion,
-        model_specs=mbm_model_specs,
-        best_model_selector=best_model_selector,
-    )
+    if with_auto_transition:
+        mbm_node = GenerationNode(
+            node_name="MBM_node",
+            transition_criteria=alt_mbm_criterion,
+            model_specs=mbm_model_specs,
+            best_model_selector=best_model_selector,
+        )
+    else:
+        mbm_node = GenerationNode(
+            node_name="MBM_node",
+            transition_criteria=mbm_criterion,
+            model_specs=mbm_model_specs,
+            best_model_selector=best_model_selector,
+        )
 
     sobol_mbm_GS_nodes = GenerationStrategy(
         name="Sobol+MBM_Nodes",
