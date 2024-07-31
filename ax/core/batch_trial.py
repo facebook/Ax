@@ -350,6 +350,7 @@ class BatchTrial(BaseTrial):
     def unset_status_quo(self) -> None:
         """Set the status quo to None."""
         self._status_quo = None
+        self._status_quo_weight_override = None
         self._refresh_arms_by_name()
 
     @immutable_once_run
@@ -362,8 +363,11 @@ class BatchTrial(BaseTrial):
         result in the weight being additive over all generator runs.
         """
         # Assign a name to this arm if none exists
-        if weight is not None and weight <= 0.0:
-            raise ValueError("Status quo weight must be positive.")
+        if weight is not None:
+            if weight <= 0.0:
+                raise ValueError("Status quo weight must be positive.")
+            if status_quo is None:
+                raise ValueError("Cannot set weight because status quo is not defined.")
 
         if status_quo is not None:
             self.experiment.search_space.check_types(
