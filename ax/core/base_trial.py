@@ -168,6 +168,12 @@ DEFAULT_STATUSES_TO_WARM_START: List[TrialStatus] = [
 
 NON_ABANDONED_STATUSES: Set[TrialStatus] = set(TrialStatus) - {TrialStatus.ABANDONED}
 
+STATUSES_EXPECTING_DATA: List[TrialStatus] = [
+    TrialStatus.RUNNING,
+    TrialStatus.COMPLETED,
+    TrialStatus.EARLY_STOPPED,
+]
+
 
 # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def immutable_once_run(func: Callable) -> Callable:
