@@ -634,8 +634,8 @@ class BoTorchModelTest(TestCase):
                 self.assertEqual(importances.shape, (1, 1, 3))
                 saas_model = deepcopy(model.surrogate.model)
             else:
-                model.surrogate.model.covar_module.base_kernel.lengthscale = (
-                    torch.tensor([1, 2, 3], **self.tkwargs)
+                model.surrogate.model.covar_module.lengthscale = torch.tensor(
+                    [1, 2, 3], **self.tkwargs
                 )
                 importances = model.feature_importances()
                 self.assertTrue(
@@ -658,11 +658,12 @@ class BoTorchModelTest(TestCase):
         )
         self.assertEqual(importances.shape, (2, 1, 3))
         # Add model we don't support
-        vanilla_model.covar_module.base_kernel = None
+        vanilla_model.covar_module = None
         model.surrogate._model = vanilla_model  # pyre-ignore
         with self.assertRaisesRegex(
             NotImplementedError,
-            "Failed to extract lengthscales from `m.covar_module.base_kernel`",
+            "Failed to extract lengthscales from `m.covar_module` "
+            "and `m.covar_module.base_kernel`",
         ):
             model.feature_importances()
         # Test model is None

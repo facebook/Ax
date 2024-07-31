@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+import math
 from copy import deepcopy
 from unittest import mock
 from unittest.mock import Mock
@@ -66,9 +67,9 @@ class BotorchDefaultsTest(TestCase):
         self.assertIsInstance(model, SingleTaskGP)
         self.assertIsInstance(model.likelihood, FixedNoiseGaussianLikelihood)
         self.assertEqual(
-            model.covar_module.base_kernel.lengthscale_prior.concentration, 3.0
+            model.covar_module.lengthscale_prior.loc, math.log(2.0) / 2 + 2**0.5
         )
-        self.assertEqual(model.covar_module.base_kernel.lengthscale_prior.rate, 6.0)
+        self.assertEqual(model.covar_module.lengthscale_prior.scale, 3**0.5)
         model = _get_model(X=x, Y=y, Yvar=unknown_var, task_feature=1)
         self.assertIs(type(model), MultiTaskGP)  # Don't accept subclasses.
         self.assertIsInstance(model.likelihood, GaussianLikelihood)

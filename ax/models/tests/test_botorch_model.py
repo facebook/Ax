@@ -36,6 +36,7 @@ from botorch.models import ModelListGP, SingleTaskGP
 from botorch.models.transforms.input import Warp
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.objective import get_objective_weights_transform
+from gpytorch.kernels.constant_kernel import ConstantKernel
 from gpytorch.likelihoods import _GaussianLikelihoodBase
 from gpytorch.likelihoods.gaussian_likelihood import FixedNoiseGaussianLikelihood
 from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
@@ -558,19 +559,12 @@ class BotorchModelTest(TestCase):
 
             # Test loading state dict
             true_state_dict = {
-                "mean_module.raw_constant": 3.5004,
-                "covar_module.raw_outputscale": 2.2438,
-                "covar_module.base_kernel.raw_lengthscale": [
-                    [-0.9274, -0.9274, -0.9274]
-                ],
-                "covar_module.base_kernel.raw_lengthscale_constraint.lower_bound": 0.1,
-                "covar_module.base_kernel.raw_lengthscale_constraint.upper_bound": 2.5,
-                "covar_module.base_kernel.lengthscale_prior.concentration": 3.0,
-                "covar_module.base_kernel.lengthscale_prior.rate": 6.0,
-                "covar_module.raw_outputscale_constraint.lower_bound": 0.2,
-                "covar_module.raw_outputscale_constraint.upper_bound": 2.6,
-                "covar_module.outputscale_prior.concentration": 2.0,
-                "covar_module.outputscale_prior.rate": 0.15,
+                "mean_module.raw_constant": 1.0,
+                "covar_module.raw_lengthscale": [[0.3548, 0.3548, 0.3548]],
+                "covar_module.lengthscale_prior._transformed_loc": 1.9635,
+                "covar_module.lengthscale_prior._transformed_scale": 1.7321,
+                "covar_module.raw_lengthscale_constraint.lower_bound": 0.0250,
+                "covar_module.raw_lengthscale_constraint.upper_bound": float("inf"),
             }
             true_state_dict = {
                 key: torch.tensor(val, **tkwargs)
@@ -591,8 +585,7 @@ class BotorchModelTest(TestCase):
 
             # Test for some change in model parameters & buffer for refit_model=True
             true_state_dict["mean_module.raw_constant"] += 0.1
-            true_state_dict["covar_module.raw_outputscale"] += 0.1
-            true_state_dict["covar_module.base_kernel.raw_lengthscale"] += 0.1
+            true_state_dict["covar_module.raw_lengthscale"] += 0.1
             model = get_and_fit_model(
                 Xs=Xs1,
                 Ys=Ys1,
@@ -774,17 +767,16 @@ class BotorchModelTest(TestCase):
         train_X = torch.rand(5, 3, **tkwargs)
         train_Y = train_X.sum(dim=-1, keepdim=True)
         simple_gp = SingleTaskGP(train_X=train_X, train_Y=train_Y)
-        simple_gp.covar_module.base_kernel.lengthscale = torch.tensor(
-            [1, 3, 5], **tkwargs
-        )
+        simple_gp.covar_module.lengthscale = torch.tensor([1, 3, 5], **tkwargs)
         importances = get_feature_importances_from_botorch_model(simple_gp)
         self.assertTrue(np.allclose(importances, np.array([15 / 23, 5 / 23, 3 / 23])))
         self.assertEqual(importances.shape, (1, 1, 3))
-        # Model with no base kernel
-        simple_gp.covar_module.base_kernel = None
+        # Model with kernel that has no lengthscales
+        simple_gp.covar_module = ConstantKernel()
         with self.assertRaisesRegex(
             NotImplementedError,
-            "Failed to extract lengthscales from `m.covar_module.base_kernel`",
+            "Failed to extract lengthscales from `m.covar_module` and "
+            "`m.covar_module.base_kernel`",
         ):
             get_feature_importances_from_botorch_model(simple_gp)
 
