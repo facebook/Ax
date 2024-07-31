@@ -38,10 +38,6 @@ COPY_DB_IDS_ATTRS_TO_SKIP = {
     "_steps",
     "analysis_scheduler",
     "_nodes",
-    # ``status_quo_weight_override`` is a field on ``BatchTrial`` not in the
-    # "trial_v2" table
-    # TODO(T193258337)
-    "_status_quo_weight_override",
 }
 SKIP_ATTRS_ERROR_SUFFIX = "Consider adding to COPY_DB_IDS_ATTRS_TO_SKIP if appropriate."
 
