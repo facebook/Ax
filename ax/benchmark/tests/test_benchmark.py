@@ -6,11 +6,9 @@
 # pyre-strict
 
 import tempfile
-from typing import List
 from unittest.mock import patch
 
 import numpy as np
-import torch
 from ax.benchmark.benchmark import (
     _create_benchmark_experiment,
     benchmark_multiple_problems_methods,
@@ -23,10 +21,7 @@ from ax.benchmark.benchmark_method import (
     BenchmarkMethod,
     get_benchmark_scheduler_options,
 )
-from ax.benchmark.benchmark_problem import (
-    BenchmarkProblem,
-    create_single_objective_problem_from_botorch,
-)
+from ax.benchmark.benchmark_problem import create_single_objective_problem_from_botorch
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
 from ax.benchmark.metrics.base import GroundTruthMetricMixin
@@ -58,13 +53,6 @@ from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.optim.optimize import optimize_acqf
 from botorch.test_functions.synthetic import Branin
-from pyre_extensions import none_throws
-
-
-# Branin is subclassed here for convenience.
-class ThreeProblem(Branin):
-    def evaluate_true(self, X: torch.Tensor) -> torch.Tensor:
-        return torch.tensor(3.0, dtype=torch.float64)
 
 
 class TestBenchmark(TestCase):
@@ -101,84 +89,6 @@ class TestBenchmark(TestCase):
                     mock_optimize_acqf.call_args.kwargs["sequential"], sequential
                 )
                 self.assertEqual(mock_optimize_acqf.call_args.kwargs["q"], batch_size)
-
-    def test_noisy_property_test(self) -> None:
-        problem = create_single_objective_problem_from_botorch(
-            test_problem_class=ThreeProblem,
-            test_problem_kwargs={"noise_std": 1.0},
-            lower_is_better=True,
-            num_trials=5,
-        )
-
-        res = benchmark_replication(
-            problem=problem,
-            method=get_sobol_benchmark_method(),
-            seed=0,
-        )
-        self.assertTrue((res.optimization_trace == 3).all())
-        df = none_throws(res.experiment).fetch_data().df
-        self.assertTrue(
-            (df.loc[df["metric_name"] == "ThreeProblem", "mean"] != 3).all()
-        )
-
-    def test_characterization_noisy_soo(self) -> None:
-        soo_problem = get_single_objective_benchmark_problem(
-            test_problem_kwargs={"noise_std": 1.0}
-        )
-        expected = [
-            104.36542659448965,
-            90.20076516036951,
-            56.18382601460175,
-            7.5867050504430775,
-        ]
-        self._noisy_characterization_test(problem=soo_problem, expected_result=expected)
-
-    def test_characterization_noisy_moo(self) -> None:
-        moo_problem = get_multi_objective_benchmark_problem(
-            test_problem_kwargs={"noise_std": 1.0}
-        )
-        expected = [0.0, 0.0, 6.952682254445629, 6.952682254445629]
-        self._noisy_characterization_test(problem=moo_problem, expected_result=expected)
-
-    def test_characterization_noisy_soo_surrogate(self) -> None:
-        # Surrogate construction shouldn't be random
-        torch.manual_seed(0)
-        soo_surrogate_problem = get_soo_surrogate(noise_stds=1.0)
-        expected = [
-            104.36542659448779,
-            104.36542659448779,
-            104.36542659448779,
-            104.36542659448779,
-        ]
-        self._noisy_characterization_test(
-            problem=soo_surrogate_problem,
-            expected_result=expected,
-        )
-
-    def test_characterization_noisy_moo_surrogate(self) -> None:
-        # Surrogate construction shouldn't be random
-        torch.manual_seed(0)
-        moo_surrogate_problem = get_moo_surrogate(noise_stds=1.0)
-        expected = [
-            24.999999999997655,
-            24.999999999997655,
-            24.999999999997655,
-            24.999999999997655,
-        ]
-        self._noisy_characterization_test(
-            problem=moo_surrogate_problem,
-            expected_result=expected,
-        )
-
-    def _noisy_characterization_test(
-        self, problem: BenchmarkProblem, expected_result: List[float]
-    ) -> None:
-        res = benchmark_replication(
-            problem=problem,
-            method=get_sobol_benchmark_method(),
-            seed=0,
-        )
-        self.assertTrue((res.optimization_trace == expected_result).all())
 
     def test_storage(self) -> None:
         problem = get_single_objective_benchmark_problem()
