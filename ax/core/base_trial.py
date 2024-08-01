@@ -102,11 +102,7 @@ class TrialStatus(int, Enum):
     @property
     def expecting_data(self) -> bool:
         """True if trial is expecting data."""
-        return (
-            self == TrialStatus.RUNNING
-            or self == TrialStatus.COMPLETED
-            or self == TrialStatus.EARLY_STOPPED
-        )
+        return self in STATUSES_EXPECTING_DATA
 
     @property
     def is_deployed(self) -> bool:
@@ -167,6 +163,12 @@ DEFAULT_STATUSES_TO_WARM_START: List[TrialStatus] = [
 ]
 
 NON_ABANDONED_STATUSES: Set[TrialStatus] = set(TrialStatus) - {TrialStatus.ABANDONED}
+
+STATUSES_EXPECTING_DATA: List[TrialStatus] = [
+    TrialStatus.RUNNING,
+    TrialStatus.COMPLETED,
+    TrialStatus.EARLY_STOPPED,
+]
 
 
 # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
