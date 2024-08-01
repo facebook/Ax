@@ -7,21 +7,14 @@
 # pyre-strict
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Sequence, Union
+from typing import List, Sequence
 from unittest import mock
 
-import numpy as np
 import pandas as pd
-from ax.core.arm import Arm
-from ax.core.base_trial import BaseTrial
-from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
-from ax.core.objective import Objective
-from ax.core.optimization_config import OptimizationConfig
 from ax.metrics.tensorboard import TensorboardMetric
-from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_branin_search_space, get_trial
+from ax.utils.testing.core_stubs import get_trial
 from pyre_extensions import assert_is_instance
 from tensorboard.backend.event_processing import event_multiplexer
 
