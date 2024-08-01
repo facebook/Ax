@@ -7,26 +7,17 @@
 
 from typing import Optional
 
-import pandas as pd
-from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardLevel
+from ax.analysis.analysis import Analysis, AnalysisCard
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from plotly import graph_objects as go
+from plotly import graph_objects as go, io as pio
 
 
 class PlotlyAnalysisCard(AnalysisCard):
-    name: str
-
-    title: str
-    subtitle: str
-    level: AnalysisCardLevel
-
-    df: pd.DataFrame
-    blob: go.Figure
     blob_annotation = "plotly"
 
     def get_figure(self) -> go.Figure:
-        return self.blob
+        return pio.from_json(self.blob)
 
 
 class PlotlyAnalysis(Analysis):

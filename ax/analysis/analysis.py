@@ -6,7 +6,7 @@
 # pyre-strict
 
 from enum import Enum
-from typing import Any, Optional, Protocol
+from typing import Optional, Protocol
 
 import pandas as pd
 from ax.core.experiment import Experiment
@@ -33,9 +33,11 @@ class AnalysisCard:
 
     df: pd.DataFrame  # Raw data produced by the Analysis
 
-    # pyre-ignore[4] We explicitly want to allow any type here, blob is narrowed in
-    # AnalysisCard's subclasses
-    blob: Any  # Data processed and ready for end-user consumption
+    # Blob is the data processed for end-user consumption, encoded as a string,
+    # typically JSON. Subclasses of Analysis can define their own methods for consuming
+    # the blob and presenting it to the user (ex. PlotlyAnalysisCard.get_figure()
+    # decodes the blob into a go.Figure object).
+    blob: str
 
     # How to interpret the blob (ex. "dataframe", "plotly", "markdown")
     blob_annotation = "dataframe"
@@ -47,9 +49,7 @@ class AnalysisCard:
         subtitle: str,
         level: AnalysisCardLevel,
         df: pd.DataFrame,
-        # pyre-ignore[2] We explicitly want to allow any type here, blob is narrowed in
-        # AnalysisCard's subclasses
-        blob: Any,
+        blob: str,
     ) -> None:
         self.name = name
         self.title = title
