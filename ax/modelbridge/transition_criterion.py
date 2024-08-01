@@ -106,7 +106,7 @@ class TransitionCriterion(SortableBase, SerializationMixin):
         return str(self)
 
 
-class AutoTransitionAfterGenCriterion(TransitionCriterion):
+class AutoTransitionAfterGen(TransitionCriterion):
     """A class to designate automatic transition from one GenerationNode to another.
 
     Args:

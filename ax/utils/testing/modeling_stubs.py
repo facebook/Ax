@@ -31,7 +31,7 @@ from ax.modelbridge.registry import Models
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.modelbridge.transition_criterion import (
-    AutoTransitionAfterGenCriterion,
+    AutoTransitionAfterGen,
     MaxGenerationParallelism,
     MaxTrials,
     MinimumPreferenceOccurances,
@@ -257,7 +257,7 @@ def sobol_gpei_generation_node_gs(
             not_in_statuses=None,
         ),
     ]
-    alt_mbm_criterion = [AutoTransitionAfterGenCriterion(transition_to="MBM_node")]
+    alt_mbm_criterion = [AutoTransitionAfterGen(transition_to="MBM_node")]
     step_model_kwargs = {"silently_filter_kwargs": True}
     sobol_model_spec = ModelSpec(
         model_enum=Models.SOBOL,
