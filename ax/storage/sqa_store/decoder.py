@@ -77,6 +77,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 from pandas import read_json
+from pyre_extensions import assert_is_instance
 from sqlalchemy.orm.exc import DetachedInstanceError
 
 logger: Logger = get_logger(__name__)
@@ -585,7 +586,9 @@ class Decoder:
 
         if objective_thresholds or type(objective) is MultiObjective:
             optimization_config = MultiObjectiveOptimizationConfig(
-                objective=objective,
+                objective=assert_is_instance(
+                    objective, Union[MultiObjective, ScalarizedObjective]
+                ),
                 outcome_constraints=outcome_constraints,
                 objective_thresholds=objective_thresholds,
                 risk_measure=risk_measure,
