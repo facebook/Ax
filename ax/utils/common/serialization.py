@@ -129,6 +129,24 @@ def extract_init_args(args: Dict[str, Any], class_: Type) -> Dict[str, Any]:
 
 
 class SerializationMixin:
+    """Base class for Ax objects that define their JSON serialization and
+    deserialization logic at the class level, e.g. most commonly ``Runner``
+    and ``Metric`` subclasses.
+
+    NOTE: Using this class for Ax objects that receive other Ax objects
+    as inputs, is recommended only iff the parent object (that would be
+    inheriting from this base class) is not enrolled into
+    CORE_ENCODER/DECODER_REGISTRY. Inheriting from this mixin with an Ax
+    object that is in CORE_ENCODER/DECODER_REGISTRY, will result in a
+    circular dependency, so such classes should inplement their encoding
+    and decoding logic within the `json_store` module and not on the classes.
+
+    For example, TransitionCriterion take TrialStatus as inputs and are defined
+    on the CORE_ENCODER/DECODER_REGISTRY, so TransitionCriterion should not inherit
+    from SerializationMixin and should define custom encoding/decoding logic within
+    the json_store module.
+    """
+
     @classmethod
     def serialize_init_args(cls, obj: SerializationMixin) -> Dict[str, Any]:
         """Serialize the properties needed to initialize the object.
