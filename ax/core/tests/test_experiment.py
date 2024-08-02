@@ -16,7 +16,7 @@ from ax.core import BatchTrial, Trial
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
-from ax.core.experiment import Experiment
+from ax.core.experiment import AuxiliaryExperiment, Experiment
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
@@ -40,6 +40,7 @@ from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
 from ax.service.utils.instantiation import ObjectiveProperties
+from ax.storage.json_store.encoders import auxiliary_experiment_to_dict
 from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
 from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
@@ -54,6 +55,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_search_space,
     get_data,
     get_experiment,
+    get_experiment_with_data,
     get_experiment_with_map_data_type,
     get_optimization_config,
     get_scalarized_outcome_constraint,
@@ -1472,3 +1474,19 @@ class ExperimentWithMapDataTest(TestCase):
                 generator_run=gr1,
                 generator_runs=[gr2],
             )
+
+
+class AuxiliaryExperimentTest(TestCase):
+    def test_AuxiliaryExperiment(self) -> None:
+        for get_exp_func in [get_experiment, get_experiment_with_data]:
+            exp = get_exp_func()
+            data = exp.lookup_data()
+
+            # Test init
+            aux_exp = AuxiliaryExperiment(experiment=exp)
+            self.assertEqual(aux_exp.experiment, exp)
+            self.assertEqual(aux_exp.data, data)
+
+            aux_exp = AuxiliaryExperiment(experiment=exp, data=exp.lookup_data())
+            self.assertEqual(aux_exp.experiment, exp)
+            self.assertEqual(aux_exp.data, data)
