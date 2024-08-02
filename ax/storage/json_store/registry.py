@@ -35,7 +35,7 @@ from ax.core.batch_trial import (
     LifecycleStage,
 )
 from ax.core.data import Data
-from ax.core.experiment import DataType, Experiment
+from ax.core.experiment import AuxiliaryExperiment, DataType, Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData, MapKeyInfo
 from ax.core.map_metric import MapMetric
@@ -116,6 +116,7 @@ from ax.storage.json_store.decoders import (
 )
 from ax.storage.json_store.encoders import (
     arm_to_dict,
+    auxiliary_experiment_to_dict,
     batch_to_dict,
     best_model_selector_to_dict,
     botorch_component_to_dict,
@@ -181,6 +182,7 @@ from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
 #  avoid runtime subscripting errors.
 CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     Arm: arm_to_dict,
+    AuxiliaryExperiment: auxiliary_experiment_to_dict,
     AndEarlyStoppingStrategy: logical_early_stopping_strategy_to_dict,
     AugmentedBraninMetric: metric_to_dict,
     AugmentedHartmann6Metric: metric_to_dict,
@@ -293,6 +295,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "AugmentedBraninMetric": AugmentedBraninMetric,
     "AugmentedHartmann6Metric": AugmentedHartmann6Metric,
     "AutoTransitionAfterGenCriterion": AutoTransitionAfterGenCriterion,
+    "AuxiliaryExperiment": AuxiliaryExperiment,
     "Arm": Arm,
     "AggregatedBenchmarkResult": AggregatedBenchmarkResult,
     "BatchTrial": BatchTrial,

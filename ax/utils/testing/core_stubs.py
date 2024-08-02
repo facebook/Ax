@@ -33,7 +33,7 @@ from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
-from ax.core.experiment import DataType, Experiment
+from ax.core.experiment import AuxiliaryExperiment, DataType, Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData, MapKeyInfo
@@ -885,6 +885,10 @@ def get_high_dimensional_branin_experiment(with_batch: bool = False) -> Experime
         sobol_run = sobol_generator.gen(n=15)
         exp.new_batch_trial().add_generator_run(sobol_run)
     return exp
+
+
+def get_auxiliary_experiment() -> AuxiliaryExperiment:
+    return AuxiliaryExperiment(experiment=get_experiment_with_data())
 
 
 ##############################

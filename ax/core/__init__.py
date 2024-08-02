@@ -10,7 +10,7 @@
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
-from ax.core.experiment import Experiment
+from ax.core.experiment import AuxiliaryExperiment, Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
@@ -45,6 +45,7 @@ from ax.core.trial import Trial
 
 __all__ = [
     "Arm",
+    "AuxiliaryExperiment",
     "BatchTrial",
     "ChoiceParameter",
     "ComparisonOp",

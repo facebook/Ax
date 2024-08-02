@@ -14,6 +14,7 @@ import warnings
 from collections import defaultdict, OrderedDict
 from datetime import datetime
 from functools import partial, reduce
+
 from typing import (
     Any,
     Dict,
@@ -32,6 +33,7 @@ import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, DEFAULT_STATUSES_TO_WARM_START, TrialStatus
 from ax.core.batch_trial import BatchTrial, LifecycleStage
+
 from ax.core.data import Data
 from ax.core.formatting_utils import DATA_TYPE_LOOKUP, DataType
 from ax.core.generator_run import GeneratorRun
@@ -46,13 +48,14 @@ from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TParameterization
 from ax.exceptions.core import UnsupportedError, UserInputError
-from ax.utils.common.base import Base
+from ax.utils.common.base import Base, SortableBase
 from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.result import Err, Ok
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import checked_cast, not_none
+
 
 logger: logging.Logger = get_logger(__name__)
 
@@ -1734,6 +1737,25 @@ class Experiment(Base):
             ]
         ]
         return df
+
+
+class AuxiliaryExperiment(SortableBase):
+    def __init__(
+        self,
+        experiment: Experiment,
+        data: Optional[Data] = None,
+    ) -> None:
+        """
+        Lightweight container of an experiment, and its data,
+        that will be used as auxiliary information for another experiment.
+        """
+        self.experiment = experiment
+        if data is None:
+            data = experiment.lookup_data()
+        self.data: Data = not_none(data)
+
+    def _unique_id(self) -> str:
+        return self.experiment.name
 
 
 def add_arm_and_prevent_naming_collision(
