@@ -14,6 +14,8 @@ import warnings
 from collections import defaultdict, OrderedDict
 from datetime import datetime
 from functools import partial, reduce
+from types import MappingProxyType
+
 from typing import (
     Any,
     Dict,
@@ -30,6 +32,7 @@ from typing import (
 import ax.core.observation as observation
 import pandas as pd
 from ax.core.arm import Arm
+from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentType
 from ax.core.base_trial import BaseTrial, DEFAULT_STATUSES_TO_WARM_START, TrialStatus
 from ax.core.batch_trial import BatchTrial, LifecycleStage
 from ax.core.data import Data
@@ -89,6 +92,9 @@ class Experiment(Base):
         experiment_type: Optional[str] = None,
         properties: Optional[Dict[str, Any]] = None,
         default_data_type: Optional[DataType] = None,
+        auxiliary_experiments_by_type: Optional[
+            Dict[AuxiliaryExperimentType, List[AuxiliaryExperiment]]
+        ] = None,
     ) -> None:
         """Inits Experiment.
 
@@ -104,6 +110,8 @@ class Experiment(Base):
             experiment_type: The class of experiments this one belongs to.
             properties: Dictionary of this experiment's properties.
             default_data_type: Enum representing the data type this experiment uses.
+            auxiliary_experiments: Dictionary of auxiliary experiments for different
+                use cases (e.g., transfer learning).
         """
         # appease pyre
         self._search_space: SearchSpace
@@ -136,6 +144,17 @@ class Experiment(Base):
         }
         self._arms_by_signature: Dict[str, Arm] = {}
         self._arms_by_name: Dict[str, Arm] = {}
+
+        self._auxiliary_experiments_by_type: Dict[
+            AuxiliaryExperimentType, List[AuxiliaryExperiment]
+        ] = (auxiliary_experiments_by_type or {})
+        for aux_exp_type in self.auxiliary_experiments_by_type.keys():
+            if not isinstance(aux_exp_type, AuxiliaryExperimentType):
+                raise TypeError(
+                    "auxiliary_experiments_by_type must be a dict of "
+                    "AuxiliaryExperimentType keys to lists of AuxiliaryExperiment, "
+                    f"got {type(aux_exp_type)}."
+                )
 
         self.add_tracking_metrics(tracking_metrics or [])
 
@@ -312,6 +331,31 @@ class Experiment(Base):
             for arm in trial.arms:
                 arms_dict.pop(arm.signature, None)
         return arms_dict
+
+    @property
+    def auxiliary_experiments_by_type(
+        self,
+    ) -> MappingProxyType[AuxiliaryExperimentType, List[AuxiliaryExperiment]]:
+        """
+        Return an immutable dict (MappingProxyType) of auxiliary_experiments_by_type
+        """
+        return MappingProxyType(self._auxiliary_experiments_by_type)
+
+    def update_auxiliary_experiments(
+        self,
+        auxiliary_experiment_type: AuxiliaryExperimentType,
+        auxiliary_experiments: List[AuxiliaryExperiment],
+    ) -> None:
+        """Update auxiliary experiments given a type."""
+        if not isinstance(auxiliary_experiment_type, AuxiliaryExperimentType):
+            raise TypeError(
+                f"Expected key to be of type {AuxiliaryExperimentType}, "
+                f"got {type(auxiliary_experiment_type)}"
+            )
+
+        self._auxiliary_experiments_by_type[auxiliary_experiment_type] = (
+            auxiliary_experiments
+        )
 
     @property
     def sum_trial_sizes(self) -> int:

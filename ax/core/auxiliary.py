@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from enum import Enum, unique
 from typing import Optional, TYPE_CHECKING
 
 from ax.core.data import Data
@@ -36,3 +37,8 @@ class AuxiliaryExperiment(SortableBase):
 
     def _unique_id(self) -> str:
         return self.experiment.name
+
+
+@unique
+class AuxiliaryExperimentType(Enum):
+    pass

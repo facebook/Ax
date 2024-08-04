@@ -13,6 +13,7 @@ from logging import Logger
 from typing import Any, Dict, List, Optional, Sequence, Type, Union
 
 from ax.core.arm import Arm
+from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentType
 from ax.core.experiment import DataType, Experiment
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
@@ -783,6 +784,9 @@ class InstantiationBase:
         objective_thresholds: Optional[List[str]] = None,
         support_intermediate_data: bool = False,
         immutable_search_space_and_opt_config: bool = True,
+        auxiliary_experiments_by_type: Optional[
+            Dict[AuxiliaryExperimentType, List[AuxiliaryExperiment]]
+        ] = None,
         is_test: bool = False,
     ) -> Experiment:
         """Instantiation wrapper that allows for Ax `Experiment` creation
@@ -822,6 +826,8 @@ class InstantiationBase:
                 a product in which it is used), if any.
             tracking_metric_names: Names of additional tracking metrics not used for
                 optimization.
+            metric_definitions: A mapping of metric names to extra kwargs to pass
+                to that metric
             objectives: Mapping from an objective name to "minimize" or "maximize"
                 representing the direction for that objective.
             objective_thresholds: A list of objective threshold constraints for multi-
@@ -834,10 +840,11 @@ class InstantiationBase:
                 Defaults to True. If set to True, we won't store or load copies of the
                 search space and optimization config on each generator run, which will
                 improve storage performance.
+            auxiliary_experiments_by_type: Dictionary of auxiliary experiments for
+                different use cases (e.g., transfer learning).
             is_test: Whether this experiment will be a test experiment (useful for
                 marking test experiments in storage etc). Defaults to False.
-            metric_definitions: A mapping of metric names to extra kwargs to pass
-                to that metric
+
         """
         status_quo_arm = None if status_quo is None else Arm(parameters=status_quo)
 
@@ -888,6 +895,7 @@ class InstantiationBase:
             tracking_metrics=tracking_metrics,
             default_data_type=default_data_type,
             properties=properties,
+            auxiliary_experiments_by_type=auxiliary_experiments_by_type,
             is_test=is_test,
         )
 
