@@ -8,7 +8,7 @@
 
 import warnings
 from copy import deepcopy
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 from unittest import mock
 
 import numpy as np
@@ -40,7 +40,10 @@ from ax.modelbridge.transforms.winsorize import (
 )
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_optimization_config
+from ax.utils.testing.core_stubs import (
+    get_observations_with_invalid_value,
+    get_optimization_config,
+)
 from typing_extensions import SupportsIndex
 
 INF = float("inf")
@@ -641,6 +644,19 @@ class WinsorizeTransformTest(TestCase):
             config={"derelativize_with_raw_status_quo": True},
         )
         self.assertDictEqual(t.cutoffs, {"a": (-INF, 3.5), "b": (-INF, 12.0)})
+
+    def test_non_finite_data_raises(self) -> None:
+        for invalid_value in [float("nan"), float("inf")]:
+            observations = get_observations_with_invalid_value(
+                invalid_value=invalid_value
+            )
+            config: Dict[str, Any] = {
+                "winsorization_config": WinsorizationConfig(upper_quantile_margin=0.2)
+            }
+            with self.assertRaisesRegex(
+                ValueError, f"Non-finite data found for metric m1: {invalid_value}"
+            ):
+                Winsorize(search_space=None, observations=observations, config=config)
 
 
 # pyre-fixme[2]: Parameter must be annotated.
