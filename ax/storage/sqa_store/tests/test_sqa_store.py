@@ -656,6 +656,26 @@ class SQAStoreTest(TestCase):
 
         self.assertEqual(gr, gr_decoded_reduced_state)
 
+    def test_load_and_save_generator_run_reduced_state(self) -> None:
+        exp = get_branin_experiment()
+        gs = get_generation_strategy(with_callable_model_kwarg=False)
+        gr = gs.gen(exp)
+        original_gen_metadata = {"foo": "bar"}
+        gr._gen_metadata = original_gen_metadata
+        exp.new_trial(generator_run=gr)
+        save_experiment(exp)
+
+        loaded_reduced_state = load_experiment(
+            experiment_name=exp.name, reduced_state=True
+        )
+        save_experiment(loaded_reduced_state)
+        reloaded_experiment = load_experiment(exp.name, reduced_state=False)
+
+        self.assertEqual(
+            original_gen_metadata,
+            reloaded_experiment.trials[0].generator_runs[0].gen_metadata,
+        )
+
     def test_ExperimentUpdates(self) -> None:
         experiment = get_experiment_with_batch_trial()
         save_experiment(experiment)
