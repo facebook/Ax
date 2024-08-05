@@ -13,6 +13,7 @@ from ax.core.observation import Observation, ObservationData, ObservationFeature
 from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.transforms.percentile_y import PercentileY
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_observations_with_invalid_value
 
 
 class PercentileYTransformTest(TestCase):
@@ -126,3 +127,13 @@ class PercentileYTransformTest(TestCase):
             np.allclose(mean_results, expected),
             msg=f"Unexpected mean Results: {mean_results}. Expected: {expected}.",
         )
+
+    def test_non_finite_data_raises(self) -> None:
+        for invalid_value in [float("nan"), float("inf")]:
+            observations = get_observations_with_invalid_value(
+                invalid_value=invalid_value
+            )
+            with self.assertRaisesRegex(
+                ValueError, f"Non-finite data found for metric m1: {invalid_value}"
+            ):
+                PercentileY(observations=observations, config={"metrics": ["m1"]})

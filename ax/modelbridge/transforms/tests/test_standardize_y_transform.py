@@ -20,6 +20,7 @@ from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.transforms.standardize_y import StandardizeY
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_observations_with_invalid_value
 
 
 class StandardizeYTransformTest(TestCase):
@@ -152,6 +153,16 @@ class StandardizeYTransformTest(TestCase):
         oc = OptimizationConfig(objective=objective, outcome_constraints=[con])
         with self.assertRaises(ValueError):
             oc = self.t.transform_optimization_config(oc, None, None)
+
+    def test_non_finite_data_raises(self) -> None:
+        for invalid_value in [float("nan"), float("inf")]:
+            observations = get_observations_with_invalid_value(
+                invalid_value=invalid_value
+            )
+            with self.assertRaisesRegex(
+                ValueError, f"Non-finite data found for metric m1: {invalid_value}"
+            ):
+                StandardizeY(observations=observations, config={"metrics": ["m1"]})
 
 
 def osd_allclose(osd1: ObservationData, osd2: ObservationData) -> bool:

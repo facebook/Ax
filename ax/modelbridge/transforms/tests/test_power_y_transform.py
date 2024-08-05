@@ -26,6 +26,7 @@ from ax.modelbridge.transforms.power_transform_y import (
 )
 from ax.modelbridge.transforms.utils import get_data, match_ci_width_truncated
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_observations_with_invalid_value
 from sklearn.preprocessing import PowerTransformer
 
 
@@ -328,3 +329,11 @@ class PowerTransformYTest(TestCase):
             "that are part of a ScalarizedOutcomeConstraint.",
             str(cm.exception),
         )
+
+    def test_non_finite_data_raises(self) -> None:
+        for invalid_value in [float("nan"), float("inf")]:
+            observations = get_observations_with_invalid_value(invalid_value)
+            with self.assertRaisesRegex(
+                ValueError, f"Non-finite data found for metric m1: {invalid_value}"
+            ):
+                PowerTransformY(observations=observations, config={"metrics": ["m1"]})
