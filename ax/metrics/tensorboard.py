@@ -13,6 +13,8 @@ import logging
 from logging import Logger
 from typing import Any, Dict, List, Optional
 
+import numpy as np
+
 import pandas as pd
 from ax.core.base_trial import BaseTrial
 from ax.core.map_data import MapData, MapKeyInfo
@@ -165,6 +167,10 @@ try:
                         .mean()
                         .reset_index()
                     )
+
+                    # If there are any NaNs or Infs in the data, raise an Exception
+                    if np.any(~np.isfinite(df["mean"])):
+                        raise ValueError("Found NaNs or Infs in data")
 
                     # Apply per-metric post-processing
                     # Apply cumulative "best" (min if lower_is_better)

@@ -10,8 +10,11 @@ from dataclasses import dataclass
 from typing import List, Sequence
 from unittest import mock
 
+import numpy as np
+
 import pandas as pd
 from ax.core.map_data import MapData
+from ax.core.metric import MetricFetchE
 from ax.metrics.tensorboard import TensorboardMetric
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_trial
@@ -81,6 +84,61 @@ class TensorboardMetricTest(TestCase):
             )
 
             self.assertTrue(df.equals(expected_df))
+
+    def test_fetch_trial_data_with_bad_data(self) -> None:
+        nan_data = [1, 2, np.nan, 4]
+        nan_multiplexer = _get_fake_multiplexer(fake_data=nan_data)
+
+        with mock.patch.object(
+            TensorboardMetric,
+            "_get_event_multiplexer_for_trial",
+            return_value=nan_multiplexer,
+        ):
+            metric = TensorboardMetric(
+                name="loss",
+                tag="loss",
+            )
+
+            trial = get_trial()
+
+            result = metric.fetch_trial_data(trial=trial)
+
+            err = assert_is_instance(result.unwrap_err(), MetricFetchE)
+            self.assertEqual(
+                err.message,
+                "Failed to fetch data for loss",
+            )
+            self.assertEqual(
+                str(err.exception),
+                "Found NaNs or Infs in data",
+            )
+
+        inf_data = [1, 2, np.inf, 4]
+        inf_multiplexer = _get_fake_multiplexer(fake_data=inf_data)
+
+        with mock.patch.object(
+            TensorboardMetric,
+            "_get_event_multiplexer_for_trial",
+            return_value=inf_multiplexer,
+        ):
+            metric = TensorboardMetric(
+                name="loss",
+                tag="loss",
+            )
+
+            trial = get_trial()
+
+            result = metric.fetch_trial_data(trial=trial)
+
+            err = assert_is_instance(result.unwrap_err(), MetricFetchE)
+            self.assertEqual(
+                err.message,
+                "Failed to fetch data for loss",
+            )
+            self.assertEqual(
+                str(err.exception),
+                "Found NaNs or Infs in data",
+            )
 
     def test_smoothing(self) -> None:
         fake_data = [8.0, 4.0, 2.0, 1.0]
