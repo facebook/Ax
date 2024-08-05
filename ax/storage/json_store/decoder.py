@@ -270,6 +270,11 @@ def object_from_json(
             )
         elif isclass(_class) and issubclass(_class, SerializationMixin):
             return _class(
+                # Note: we do not recursively call object_from_json here again as
+                # that would invalidate design principles behind deserialize_init_args.
+                # Any Ax class that needs serialization and who's init args include
+                # another Ax class that needs serialization should implement its own
+                # _to_json and _from_json methods and register them appropriately.
                 **_class.deserialize_init_args(
                     args=object_json,
                     decoder_registry=decoder_registry,
