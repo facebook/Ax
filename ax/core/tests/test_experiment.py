@@ -12,11 +12,10 @@ from typing import Dict, List, Type
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-from ax.core import BatchTrial, Trial
+from ax.core import BatchTrial, Experiment, Trial
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
-from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
