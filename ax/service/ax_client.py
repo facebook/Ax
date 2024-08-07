@@ -1047,6 +1047,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 )
                 return plot_contour(
                     model=not_none(self.generation_strategy.model),
+                    generator_runs_dict=self.experiment.trials,
                     param_x=param_x,
                     param_y=param_y,
                     metric_name=metric_name,
