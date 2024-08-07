@@ -20,7 +20,7 @@ from ax.modelbridge.generation_strategy import (
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
 from ax.modelbridge.transition_criterion import (
-    AutoTransitionAfterGenCriterion,
+    AutoTransitionAfterGen,
     MaxGenerationParallelism,
     MaxTrials,
     MinimumPreferenceOccurances,
@@ -232,7 +232,7 @@ class TestTransitionCriterion(TestCase):
         self.assertTrue(min_criterion.is_met(experiment, gs._steps[0].trials_from_node))
 
     def test_auto_transition(self) -> None:
-        """Very simple test to validate AutoTransitionAfterGenCriterion"""
+        """Very simple test to validate AutoTransitionAfterGen"""
         experiment = self.branin_experiment
         gs = GenerationStrategy(
             name="test",
@@ -241,7 +241,7 @@ class TestTransitionCriterion(TestCase):
                     node_name="sobol_1",
                     model_specs=[self.sobol_model_spec],
                     transition_criteria=[
-                        AutoTransitionAfterGenCriterion(transition_to="sobol_2")
+                        AutoTransitionAfterGen(transition_to="sobol_2")
                     ],
                 ),
                 GenerationNode(
@@ -488,12 +488,10 @@ class TestTransitionCriterion(TestCase):
             + "'use_all_trials_in_exp': False, "
             + "'continue_trial_generation': True})",
         )
-        auto_transition = AutoTransitionAfterGenCriterion(
-            transition_to="GenerationStep_2"
-        )
+        auto_transition = AutoTransitionAfterGen(transition_to="GenerationStep_2")
         self.assertEqual(
             str(auto_transition),
-            "AutoTransitionAfterGenCriterion({'transition_to': 'GenerationStep_2', "
+            "AutoTransitionAfterGen({'transition_to': 'GenerationStep_2', "
             + "'block_transition_if_unmet': True, "
             + "'continue_trial_generation': True})",
         )

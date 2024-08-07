@@ -42,7 +42,7 @@ from ax.modelbridge.registry import (
 )
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transition_criterion import (
-    AutoTransitionAfterGenCriterion,
+    AutoTransitionAfterGen,
     MaxGenerationParallelism,
     MaxTrials,
     MinTrials,
@@ -206,9 +206,7 @@ class TestGenerationStrategy(TestCase):
             only_in_statuses=[TrialStatus.COMPLETED],
             use_all_trials_in_exp=True,
         )
-        self.gpei_to_sobol_auto = AutoTransitionAfterGenCriterion(
-            transition_to="sobol_3"
-        )
+        self.gpei_to_sobol_auto = AutoTransitionAfterGen(transition_to="sobol_3")
         self.competing_tc_gs = GenerationStrategy(
             nodes=[
                 GenerationNode(
@@ -246,7 +244,7 @@ class TestGenerationStrategy(TestCase):
                     node_name="gpei",
                     model_specs=[self.gpei_model_spec],
                     transition_criteria=[
-                        AutoTransitionAfterGenCriterion(
+                        AutoTransitionAfterGen(
                             transition_to="sobol_2",
                         )
                     ],
@@ -255,7 +253,7 @@ class TestGenerationStrategy(TestCase):
                     node_name="sobol_2",
                     model_specs=[self.sobol_model_spec],
                     transition_criteria=[
-                        AutoTransitionAfterGenCriterion(transition_to="sobol_3")
+                        AutoTransitionAfterGen(transition_to="sobol_3")
                     ],
                 ),
                 GenerationNode(
@@ -269,7 +267,7 @@ class TestGenerationStrategy(TestCase):
                             only_in_statuses=[TrialStatus.RUNNING],
                             use_all_trials_in_exp=True,
                         ),
-                        AutoTransitionAfterGenCriterion(
+                        AutoTransitionAfterGen(
                             transition_to="gpei",
                             block_transition_if_unmet=True,
                             continue_trial_generation=False,
@@ -1360,7 +1358,7 @@ class TestGenerationStrategy(TestCase):
         # this gs has a single sobol node which transitions to gpei. If the MaxTrials
         # and MinTrials criterion are met, the transition to sobol_2 should occur,
         # otherwise, should transition back to sobol.
-        gpei_to_sobol_auto = AutoTransitionAfterGenCriterion(transition_to="sobol")
+        gpei_to_sobol_auto = AutoTransitionAfterGen(transition_to="sobol")
         gs = GenerationStrategy(
             nodes=[
                 GenerationNode(
@@ -1481,21 +1479,21 @@ class TestGenerationStrategy(TestCase):
                     node_name="gpei",
                     model_specs=[self.gpei_model_spec],
                     transition_criteria=[
-                        AutoTransitionAfterGenCriterion(transition_to="sobol_2")
+                        AutoTransitionAfterGen(transition_to="sobol_2")
                     ],
                 ),
                 GenerationNode(
                     node_name="sobol_2",
                     model_specs=[self.sobol_model_spec],
                     transition_criteria=[
-                        AutoTransitionAfterGenCriterion(transition_to="sobol_3")
+                        AutoTransitionAfterGen(transition_to="sobol_3")
                     ],
                 ),
                 GenerationNode(
                     node_name="sobol_3",
                     model_specs=[self.sobol_model_spec],
                     transition_criteria=[
-                        AutoTransitionAfterGenCriterion(
+                        AutoTransitionAfterGen(
                             transition_to="gpei",
                             block_transition_if_unmet=True,
                             continue_trial_generation=False,

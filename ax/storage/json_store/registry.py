@@ -92,7 +92,7 @@ from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import ModelRegistryBase
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transition_criterion import (
-    AutoTransitionAfterGenCriterion,
+    AutoTransitionAfterGen,
     MaxGenerationParallelism,
     MaxTrials,
     MinimumPreferenceOccurances,
@@ -184,7 +184,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
     AndEarlyStoppingStrategy: logical_early_stopping_strategy_to_dict,
     AugmentedBraninMetric: metric_to_dict,
     AugmentedHartmann6Metric: metric_to_dict,
-    AutoTransitionAfterGenCriterion: transition_criterion_to_dict,
+    AutoTransitionAfterGen: transition_criterion_to_dict,
     BatchTrial: batch_to_dict,
     BenchmarkMetric: metric_to_dict,
     BoTorchModel: botorch_model_to_dict,
@@ -292,7 +292,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "AndEarlyStoppingStrategy": AndEarlyStoppingStrategy,
     "AugmentedBraninMetric": AugmentedBraninMetric,
     "AugmentedHartmann6Metric": AugmentedHartmann6Metric,
-    "AutoTransitionAfterGenCriterion": AutoTransitionAfterGenCriterion,
+    "AutoTransitionAfterGen": AutoTransitionAfterGen,
     "Arm": Arm,
     "AggregatedBenchmarkResult": AggregatedBenchmarkResult,
     "BatchTrial": BatchTrial,
