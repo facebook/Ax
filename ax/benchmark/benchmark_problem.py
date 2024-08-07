@@ -206,13 +206,12 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
     A `BenchmarkProblem` that supports multiple objectives.
 
     For multi-objective problems, `optimal_value` indicates the maximum
-    hypervolume attainable with the given `reference_point`.
+    hypervolume attainable with the objective thresholds provided on the
+    `optimization_config`.
 
-    For argument descriptions, see `BenchmarkProblem`; it additionally takes a `runner`
-    and a `reference_point`.
+    For argument descriptions, see `BenchmarkProblem`.
     """
 
-    reference_point: List[float]
     optimization_config: MultiObjectiveOptimizationConfig
 
 
@@ -289,5 +288,4 @@ def create_multi_objective_problem_from_botorch(
         observe_noise_stds=observe_noise_sd,
         has_ground_truth=problem.has_ground_truth,
         optimal_value=test_problem.max_hv,
-        reference_point=test_problem._ref_point,
     )

@@ -203,7 +203,11 @@ class TestBenchmarkProblem(TestCase):
 
         # Test hypervolume
         self.assertEqual(branin_currin_problem.optimal_value, test_problem._max_hv)
-        self.assertEqual(branin_currin_problem.reference_point, test_problem._ref_point)
+        opt_config = branin_currin_problem.optimization_config
+        reference_point = [
+            threshold.bound for threshold in opt_config.objective_thresholds
+        ]
+        self.assertEqual(reference_point, test_problem._ref_point)
 
     def test_moo_from_botorch_constrained(self) -> None:
         with self.assertRaisesRegex(
