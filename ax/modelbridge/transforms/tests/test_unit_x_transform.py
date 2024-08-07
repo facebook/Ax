@@ -16,6 +16,7 @@ from ax.core.search_space import RobustSearchSpace, SearchSpace
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.transforms.unit_x import UnitX
 from ax.utils.common.testutils import TestCase
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import get_robust_search_space
 
 
@@ -142,6 +143,94 @@ class UnitXTransformTest(TestCase):
         t.transform_search_space(self.search_space_with_target)
         self.assertEqual(
             self.search_space_with_target.parameters["x"].target_value, 1.0
+        )
+
+    def test_TransformNewSearchSpace(self) -> None:
+        new_ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    "x", lower=1.5, upper=2.0, parameter_type=ParameterType.FLOAT
+                ),
+                RangeParameter(
+                    "y", lower=1.25, upper=2.0, parameter_type=ParameterType.FLOAT
+                ),
+                RangeParameter(
+                    "z",
+                    lower=1.0,
+                    upper=1.5,
+                    parameter_type=ParameterType.FLOAT,
+                    log_scale=True,
+                ),
+                RangeParameter(
+                    "a", lower=0.0, upper=2, parameter_type=ParameterType.INT
+                ),
+                ChoiceParameter(
+                    "b", parameter_type=ParameterType.STRING, values=["a", "b", "c"]
+                ),
+            ],
+            parameter_constraints=[
+                ParameterConstraint(constraint_dict={"x": -0.5, "y": 1}, bound=0.5),
+                ParameterConstraint(constraint_dict={"x": -0.5, "a": 1}, bound=0.5),
+            ],
+        )
+        self.t.transform_search_space(new_ss)
+        # Parameters transformed
+        true_bounds = {
+            "x": [
+                0.25 * self.target_range + self.target_lb,
+                0.5 * self.target_range + self.target_lb,
+            ],
+            "y": [
+                0.25 * self.target_range + self.target_lb,
+                1.0 * self.target_range + self.target_lb,
+            ],
+            "z": [1.0, 1.5],
+            "a": [0, 2],
+        }
+        for p_name, (l, u) in true_bounds.items():
+            p = checked_cast(RangeParameter, new_ss.parameters[p_name])
+            self.assertEqual(p.lower, l)
+            self.assertEqual(p.upper, u)
+        self.assertEqual(
+            checked_cast(ChoiceParameter, new_ss.parameters["b"]).values,
+            ["a", "b", "c"],
+        )
+        self.assertEqual(len(new_ss.parameters), 5)
+        # # Constraints transformed
+        self.assertEqual(
+            new_ss.parameter_constraints[0].constraint_dict, self.expected_c_dicts[0]
+        )
+        self.assertEqual(
+            new_ss.parameter_constraints[0].bound, self.expected_c_bounds[0]
+        )
+        self.assertEqual(
+            new_ss.parameter_constraints[1].constraint_dict, self.expected_c_dicts[1]
+        )
+        self.assertEqual(
+            new_ss.parameter_constraints[1].bound, self.expected_c_bounds[1]
+        )
+
+        # Test transform of target value
+        t = self.transform_class(
+            search_space=self.search_space_with_target,
+            observations=[],
+        )
+        new_search_space_with_target = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    "x",
+                    lower=1,
+                    upper=2,
+                    parameter_type=ParameterType.FLOAT,
+                    is_fidelity=True,
+                    target_value=2,
+                )
+            ]
+        )
+        t.transform_search_space(new_search_space_with_target)
+        self.assertEqual(
+            new_search_space_with_target.parameters["x"].target_value,
+            0.5 * self.target_range + self.target_lb,
         )
 
     def test_w_robust_search_space_univariate(self) -> None:

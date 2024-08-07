@@ -68,14 +68,16 @@ class UnitX(Transform):
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for p_name, p in search_space.parameters.items():
-            if p_name in self.bounds and isinstance(p, RangeParameter):
+            if (p_bounds := self.bounds.get(p_name)) is not None and isinstance(
+                p, RangeParameter
+            ):
                 p.update_range(
-                    lower=self.target_lb,
-                    upper=self.target_lb + self.target_range,
+                    lower=self._normalize_value(value=p.lower, bounds=p_bounds),
+                    upper=self._normalize_value(value=p.upper, bounds=p_bounds),
                 )
                 if p.target_value is not None:
                     p._target_value = self._normalize_value(
-                        p.target_value, self.bounds[p_name]  # pyre-ignore[6]
+                        value=p.target_value, bounds=p_bounds  # pyre-ignore [6]
                     )
         new_constraints: List[ParameterConstraint] = []
         for c in search_space.parameter_constraints:
