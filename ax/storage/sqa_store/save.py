@@ -7,9 +7,12 @@
 # pyre-strict
 
 import os
+from datetime import datetime
 
 from logging import Logger
 from typing import Any, Callable, cast, Dict, List, Optional, Sequence, Type, Union
+
+from ax.analysis.analysis import AnalysisCard
 
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
@@ -47,7 +50,7 @@ def save_experiment(experiment: Experiment, config: Optional[SQAConfig] = None) 
         raise ValueError("Can only save instances of Experiment")
     if not experiment.has_name:
         raise ValueError("Experiment name must be set prior to saving.")
-    config = config or SQAConfig()
+    config = SQAConfig() if config is None else config
     encoder = Encoder(config=config)
     decoder = Decoder(config=config)
     _save_experiment(experiment=experiment, encoder=encoder, decoder=decoder)
@@ -107,7 +110,7 @@ def save_generation_strategy(
         The ID of the saved generation strategy.
     """
     # Start up SQA encoder.
-    config = config or SQAConfig()
+    config = SQAConfig() if config is None else config
     encoder = Encoder(config=config)
     decoder = Decoder(config=config)
 
@@ -150,7 +153,7 @@ def save_or_update_trial(
 ) -> None:
     """Add new trial to the experiment, or update if already exists
     (using default SQAConfig)."""
-    config = config or SQAConfig()
+    config = SQAConfig() if config is None else config
     encoder = Encoder(config=config)
     decoder = Decoder(config=config)
     _save_or_update_trial(
@@ -189,7 +192,7 @@ def save_or_update_trials(
     will also be added to the experiment, but existing data objects in the
     database will *not* be updated or removed.
     """
-    config = config or SQAConfig()
+    config = SQAConfig() if config is None else config
     encoder = Encoder(config=config)
     decoder = Decoder(config=config)
     _save_or_update_trials(
@@ -308,7 +311,7 @@ def update_generation_strategy(
 ) -> None:
     """Update generation strategy's current step and attach generator runs
     (using default SQAConfig)."""
-    config = config or SQAConfig()
+    config = SQAConfig() if config is None else config
     encoder = Encoder(config=config)
     decoder = Decoder(config=config)
     _update_generation_strategy(
@@ -450,7 +453,7 @@ def update_properties_on_experiment(
     experiment_with_updated_properties: Experiment,
     config: Optional[SQAConfig] = None,
 ) -> None:
-    config = config or SQAConfig()
+    config = SQAConfig() if config is None else config
     exp_sqa_class = config.class_to_sqa_class[Experiment]
 
     exp_id = experiment_with_updated_properties.db_id
@@ -469,7 +472,7 @@ def update_properties_on_trial(
     trial_with_updated_properties: BaseTrial,
     config: Optional[SQAConfig] = None,
 ) -> None:
-    config = config or SQAConfig()
+    config = SQAConfig() if config is None else config
     trial_sqa_class = config.class_to_sqa_class[Trial]
 
     trial_id = trial_with_updated_properties.db_id
@@ -482,6 +485,52 @@ def update_properties_on_trial(
                 "properties": trial_with_updated_properties._properties,
             }
         )
+
+
+def save_analysis_cards(
+    analysis_cards: List[AnalysisCard],
+    experiment: Experiment,
+    config: Optional[SQAConfig] = None,
+) -> None:
+    # Start up SQA encoder.
+    config = SQAConfig() if config is None else config
+    encoder = Encoder(config=config)
+    decoder = Decoder(config=config)
+    timestamp = datetime.utcnow()
+    _save_analysis_cards(
+        analysis_cards=analysis_cards,
+        experiment=experiment,
+        timestamp=timestamp,
+        encoder=encoder,
+        decoder=decoder,
+    )
+
+
+def _save_analysis_cards(
+    analysis_cards: List[AnalysisCard],
+    experiment: Experiment,
+    timestamp: datetime,
+    encoder: Encoder,
+    decoder: Decoder,
+) -> None:
+    if any(analysis_card.db_id is not None for analysis_card in analysis_cards):
+        raise ValueError("Analysis cards cannot be updated.")
+    if experiment.db_id is None:
+        raise ValueError(
+            f"Experiment {experiment.name} should be saved before analysis cards."
+        )
+    _bulk_merge_into_session(
+        objs=analysis_cards,
+        encode_func=encoder.analysis_card_to_sqa,
+        decode_func=decoder.analysis_card_from_sqa,
+        encode_args_list=[
+            {
+                "experiment_id": experiment.db_id,
+                "timestamp": timestamp,
+            }
+            for _analysis_card in analysis_cards
+        ],
+    )
 
 
 def _merge_into_session(

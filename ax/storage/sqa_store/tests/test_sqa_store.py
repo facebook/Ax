@@ -14,6 +14,11 @@ from typing import Any
 from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 
+import pandas as pd
+
+from ax.analysis.analysis import AnalysisCard, AnalysisCardLevel
+from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
+from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial, LifecycleStage
 from ax.core.generator_run import GeneratorRun
@@ -48,12 +53,14 @@ from ax.storage.sqa_store.load import (
     _get_experiment_immutable_opt_config_and_search_space,
     _get_experiment_sqa_immutable_opt_config_and_search_space,
     _get_generation_strategy_sqa_immutable_opt_config_and_search_space,
+    load_analysis_cards_by_experiment_name,
     load_experiment,
     load_generation_strategy_by_experiment_name,
     load_generation_strategy_by_id,
 )
 from ax.storage.sqa_store.reduced_state import GR_LARGE_MODEL_ATTRS
 from ax.storage.sqa_store.save import (
+    save_analysis_cards,
     save_experiment,
     save_generation_strategy,
     save_or_update_trial,
@@ -114,6 +121,7 @@ from ax.utils.testing.core_stubs import (
     get_synthetic_runner,
 )
 from ax.utils.testing.modeling_stubs import get_generation_strategy
+from plotly import graph_objects as go, io as pio
 
 logger: Logger = get_logger(__name__)
 
@@ -1926,3 +1934,59 @@ class SQAStoreTest(TestCase):
         engine.dialect.default_schema_name = "ax"
         with self.assertRaises(ValueError):
             create_all_tables(engine)
+
+    def test_AnalysisCard(self) -> None:
+        test_df = pd.DataFrame(
+            columns=["a", "b"],
+            data=[
+                [1, 2],
+                [3, 4],
+            ],
+        )
+        base_analysis_card = AnalysisCard(
+            name="test_base_analysis_card",
+            title="test_title",
+            subtitle="test_subtitle",
+            level=AnalysisCardLevel.DEBUG,
+            df=test_df,
+            blob="test blob",
+        )
+        markdown_analysis_card = MarkdownAnalysisCard(
+            name="test_markdown_analysis_card",
+            title="test_title",
+            subtitle="test_subtitle",
+            level=AnalysisCardLevel.DEBUG,
+            df=test_df,
+            blob="This is some **really cool** markdown",
+        )
+        plotly_analysis_card = PlotlyAnalysisCard(
+            name="test_plotly_analysis_card",
+            title="test_title",
+            subtitle="test_subtitle",
+            level=AnalysisCardLevel.DEBUG,
+            df=test_df,
+            blob=pio.to_json(go.Figure()),
+        )
+        with self.subTest("test_save_analysis_cards"):
+            save_experiment(self.experiment)
+            save_analysis_cards(
+                [base_analysis_card, markdown_analysis_card, plotly_analysis_card],
+                self.experiment,
+            )
+        with self.subTest("test_load_analysis_cards"):
+            loaded_analysis_cards = load_analysis_cards_by_experiment_name(
+                self.experiment.name
+            )
+            self.assertEqual(len(loaded_analysis_cards), 3)
+            self.assertEqual(
+                loaded_analysis_cards[0].blob,
+                base_analysis_card.blob,
+            )
+            self.assertEqual(
+                loaded_analysis_cards[1].blob,
+                markdown_analysis_card.blob,
+            )
+            self.assertEqual(
+                loaded_analysis_cards[2].blob,
+                plotly_analysis_card.blob,
+            )
