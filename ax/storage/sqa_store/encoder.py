@@ -11,12 +11,6 @@ from enum import Enum
 from logging import Logger
 from typing import Any, cast, Dict, List, Optional, Tuple, Type, Union
 
-import plotly
-import plotly.io as pio
-
-from ax.analysis.old.base_analysis import BaseAnalysis
-from ax.analysis.old.base_plotly_visualization import BasePlotlyVisualization
-
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import AbandonedArm, BatchTrial
@@ -51,7 +45,6 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.json_store.encoder import object_to_json
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
-    SQAAnalysis,
     SQAArm,
     SQAData,
     SQAExperiment,
@@ -64,12 +57,7 @@ from ax.storage.sqa_store.sqa_classes import (
     SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
-from ax.storage.utils import (
-    AnalysisType,
-    DomainType,
-    MetricIntent,
-    ParameterConstraintType,
-)
+from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -1062,38 +1050,4 @@ class Encoder:
                     class_encoder_registry=self.config.json_class_encoder_registry,
                 )
             ),
-        )
-
-    def analysis_to_sqa(
-        self,
-        analysis: BaseAnalysis,
-    ) -> SQAAnalysis:
-        """Convert Ax analysis to SQLAlchemy."""
-        # pyre-fixme: Expected `Base` for 1st...ot `typing.Type[BaseAnalysis]`.
-        analysis_class: SQAAnalysis = self.config.class_to_sqa_class[BaseAnalysis]
-
-        is_plotly_visualization: bool = isinstance(analysis, BasePlotlyVisualization)
-
-        # pyre-fixme[29]: `SQAAnalysis` is not a function.
-        return analysis_class(
-            id=-1,
-            analysis_class_name=type(analysis).__name__,
-            time_analysis_start=-1,
-            time_analysis_completed=-1,
-            experiment_analysis_type=(
-                AnalysisType.PLOTLY_VISUALIZATION
-                if is_plotly_visualization
-                else AnalysisType.ANALYSIS
-            ),
-            dataframe_json=analysis.df.to_json(),
-            fig_json=(
-                None
-                if not is_plotly_visualization
-                else pio.to_json(
-                    checked_cast(BasePlotlyVisualization, analysis).fig,
-                    validate=True,
-                    remove_uids=False,
-                )
-            ),
-            plotly_version=plotly.__version__,
         )

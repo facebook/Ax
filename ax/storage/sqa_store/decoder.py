@@ -14,10 +14,6 @@ from logging import Logger
 from typing import Any, cast, Dict, List, Optional, Tuple, Type, Union
 
 import pandas as pd
-import plotly.io as pio
-
-from ax.analysis.old.base_analysis import BaseAnalysis
-from ax.analysis.old.base_plotly_visualization import BasePlotlyVisualization
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -54,7 +50,6 @@ from ax.storage.json_store.decoder import object_from_json
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
-    SQAAnalysis,
     SQAArm,
     SQAData,
     SQAExperiment,
@@ -67,16 +62,10 @@ from ax.storage.sqa_store.sqa_classes import (
     SQATrial,
 )
 from ax.storage.sqa_store.sqa_config import SQAConfig
-from ax.storage.utils import (
-    AnalysisType,
-    DomainType,
-    MetricIntent,
-    ParameterConstraintType,
-)
+from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
-from pandas import read_json
 from pyre_extensions import assert_is_instance
 from sqlalchemy.orm.exc import DetachedInstanceError
 
@@ -992,29 +981,6 @@ class Decoder:
 
         dat.db_id = data_sqa.id
         return dat
-
-    def analysis_from_sqa(
-        self,
-        analysis_sqa: SQAAnalysis,
-        experiment: Experiment,
-    ) -> BaseAnalysis:
-        """Convert SQLAlchemy Analysis to Ax Analysis Object."""
-        # TODO: generalize solution for pd dataframe type casting of "arm_name" column.
-        if analysis_sqa.experiment_analysis_type == AnalysisType.PLOTLY_VISUALIZATION:
-            return BasePlotlyVisualization(
-                experiment=experiment,
-                df_input=read_json(
-                    analysis_sqa.dataframe_json, dtype={"arm_name": "str"}
-                ),
-                fig_input=pio.from_json(analysis_sqa.fig_json, output_type="Figure"),
-            )
-        else:
-            return BaseAnalysis(
-                experiment=experiment,
-                df_input=read_json(
-                    analysis_sqa.dataframe_json, dtype={"arm_name": "str"}
-                ),
-            )
 
     def _metric_from_sqa_util(self, metric_sqa: SQAMetric) -> Metric:
         """Convert SQLAlchemy Metric to Ax Metric"""
