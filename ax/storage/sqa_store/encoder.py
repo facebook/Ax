@@ -6,10 +6,13 @@
 
 # pyre-strict
 
+from datetime import datetime
 from enum import Enum
 
 from logging import Logger
 from typing import Any, cast, Dict, List, Optional, Tuple, Type, Union
+
+from ax.analysis.analysis import AnalysisCard
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
@@ -45,6 +48,7 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.json_store.encoder import object_to_json
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
+    SQAAnalysisCard,
     SQAArm,
     SQAData,
     SQAExperiment,
@@ -1050,4 +1054,30 @@ class Encoder:
                     class_encoder_registry=self.config.json_class_encoder_registry,
                 )
             ),
+        )
+
+    def analysis_card_to_sqa(
+        self,
+        analysis_card: AnalysisCard,
+        experiment_id: int,
+        timestamp: datetime,
+    ) -> SQAAnalysisCard:
+        """Convert Ax analysis to SQLAlchemy."""
+        # pyre-fixme: Expected `Base` for 1st...ot `typing.Type[BaseAnalysis]`.
+        analysis_card_class: SQAAnalysisCard = self.config.class_to_sqa_class[
+            AnalysisCard
+        ]
+
+        # pyre-fixme[29]: `SQAAnalysisCard` is not a function.
+        return analysis_card_class(
+            id=analysis_card.db_id,
+            name=analysis_card.name,
+            title=analysis_card.title,
+            subtitle=analysis_card.subtitle,
+            level=analysis_card.level,
+            dataframe_json=analysis_card.df.to_json(),
+            blob=analysis_card.blob,
+            blob_annotation=analysis_card.blob_annotation,
+            time_created=timestamp,
+            experiment_id=experiment_id,
         )

@@ -14,6 +14,7 @@ from logging import Logger
 from typing import Any, cast, Dict, List, Optional, Tuple, Type, Union
 
 import pandas as pd
+from ax.analysis.analysis import AnalysisCard, AnalysisCardLevel
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -50,6 +51,7 @@ from ax.storage.json_store.decoder import object_from_json
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
+    SQAAnalysisCard,
     SQAArm,
     SQAData,
     SQAExperiment,
@@ -66,6 +68,7 @@ from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
+from pandas import read_json
 from pyre_extensions import assert_is_instance
 from sqlalchemy.orm.exc import DetachedInstanceError
 
@@ -981,6 +984,20 @@ class Decoder:
 
         dat.db_id = data_sqa.id
         return dat
+
+    def analysis_card_from_sqa(
+        self,
+        analysis_card_sqa: SQAAnalysisCard,
+    ) -> AnalysisCard:
+        """Convert SQLAlchemy Analysis to Ax Analysis Object."""
+        return AnalysisCard(
+            name=analysis_card_sqa.name,
+            title=analysis_card_sqa.title,
+            subtitle=analysis_card_sqa.subtitle,
+            level=AnalysisCardLevel(analysis_card_sqa.level),
+            df=read_json(analysis_card_sqa.dataframe_json),
+            blob=analysis_card_sqa.blob,
+        )
 
     def _metric_from_sqa_util(self, metric_sqa: SQAMetric) -> Metric:
         """Convert SQLAlchemy Metric to Ax Metric"""
