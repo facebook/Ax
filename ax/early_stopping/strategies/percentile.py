@@ -6,8 +6,9 @@
 
 # pyre-strict
 
+from collections.abc import Iterable
 from logging import Logger
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -33,7 +34,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         min_progression: Optional[float] = 10,
         max_progression: Optional[float] = None,
         min_curves: Optional[int] = 5,
-        trial_indices_to_ignore: Optional[List[int]] = None,
+        trial_indices_to_ignore: Optional[list[int]] = None,
         normalize_progressions: bool = False,
     ) -> None:
         """Construct a PercentileEarlyStoppingStrategy instance.
@@ -90,9 +91,9 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
     def should_stop_trials_early(
         self,
-        trial_indices: Set[int],
+        trial_indices: set[int],
         experiment: Experiment,
-    ) -> Dict[int, Optional[str]]:
+    ) -> dict[int, Optional[str]]:
         """Stop a trial if its performance is in the bottom `percentile_threshold`
         of the trials at the same step.
 
@@ -164,7 +165,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         df_raw: pd.DataFrame,
         map_key: str,
         minimize: bool,
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> tuple[bool, Optional[str]]:
         """Stop a trial if its performance is in the bottom `percentile_threshold`
         of the trials at the same step.
 

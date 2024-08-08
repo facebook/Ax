@@ -8,7 +8,7 @@
 
 import json
 from json import JSONDecodeError
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from ax.storage.sqa_store.db import JSON_FIELD_LENGTH, LONGTEXT_BYTES, MEDIUMTEXT_BYTES
 from sqlalchemy.ext.mutable import MutableDict, MutableList
@@ -32,8 +32,8 @@ class JSONEncodedObject(TypeDecorator):
         self,
         # pyre-fixme[2]: Parameter annotation cannot be `Any`.
         object_pairs_hook: Any = None,
-        *args: List[Any],
-        **kwargs: Dict[Any, Any],
+        *args: list[Any],
+        **kwargs: dict[Any, Any],
     ) -> None:
         # pyre-fixme[4]: Attribute annotation cannot be `Any`.
         self.object_pairs_hook: Any = object_pairs_hook

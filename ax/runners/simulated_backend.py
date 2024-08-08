@@ -8,7 +8,8 @@
 
 
 from collections import defaultdict
-from typing import Any, Callable, Dict, Iterable, Optional, Set
+from collections.abc import Iterable
+from typing import Any, Callable, Optional
 
 import numpy as np
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -37,7 +38,7 @@ class SimulatedBackendRunner(Runner):
 
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
-    ) -> Dict[TrialStatus, Set[int]]:
+    ) -> dict[TrialStatus, set[int]]:
         """Poll trial status from the ``BackendSimulator``. NOTE: The ``Scheduler``
         currently marks trials as running when they are created, but some of these
         trials may actually be in queued on the ``BackendSimulator``.
@@ -53,7 +54,7 @@ class SimulatedBackendRunner(Runner):
             trial_status[status].add(t_index)
         return dict(trial_status)
 
-    def run(self, trial: BaseTrial) -> Dict[str, Any]:
+    def run(self, trial: BaseTrial) -> dict[str, Any]:
         """Start a trial on the BackendSimulator.
 
         Args:
@@ -66,7 +67,7 @@ class SimulatedBackendRunner(Runner):
         self.simulator.run_trial(trial_index=trial.index, runtime=runtime)
         return {"runtime": runtime}
 
-    def stop(self, trial: BaseTrial, reason: Optional[str] = None) -> Dict[str, Any]:
+    def stop(self, trial: BaseTrial, reason: Optional[str] = None) -> dict[str, Any]:
         """Stop a trial on the BackendSimulator.
 
         Args:

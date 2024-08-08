@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -55,7 +55,7 @@ class OptimizationCreatedRecord:
     num_tracking_metrics: int
     num_outcome_constraints: int
     num_map_metrics: int
-    metric_cls_to_quantity: Dict[str, int]
+    metric_cls_to_quantity: dict[str, int]
     runner_cls: str
 
     # GenerationStrategyCreatedRecord fields
@@ -551,7 +551,7 @@ class OptimizationCompletedRecord:
 
 def _extract_model_fit_dict(
     completed_record: Union[SchedulerCompletedRecord, AxClientCompletedRecord],
-) -> Dict[str, float]:
+) -> dict[str, float]:
     model_fit_names = [
         "model_fit_quality",
         "model_std_quality",

@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Dict, List, Optional, TYPE_CHECKING, Union
+from typing import Optional, TYPE_CHECKING, Union
 
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, RangeParameter
@@ -32,21 +32,21 @@ class RemoveFixed(Transform):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         assert search_space is not None, "RemoveFixed requires search space"
         # Identify parameters that should be transformed
-        self.fixed_parameters: Dict[str, FixedParameter] = {
+        self.fixed_parameters: dict[str, FixedParameter] = {
             p_name: p
             for p_name, p in search_space.parameters.items()
             if isinstance(p, FixedParameter)
         }
 
     def transform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             for p_name, fixed_p in self.fixed_parameters.items():
                 if p_name in obsf.parameters:
@@ -59,7 +59,7 @@ class RemoveFixed(Transform):
         return observation_features
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        tunable_parameters: List[Union[ChoiceParameter, RangeParameter]] = []
+        tunable_parameters: list[Union[ChoiceParameter, RangeParameter]] = []
         for p in search_space.parameters.values():
             if p.name not in self.fixed_parameters:
                 # If it's not in fixed_parameters, it must be a tunable param.
@@ -78,8 +78,8 @@ class RemoveFixed(Transform):
         )
 
     def untransform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             for p_name, p in self.fixed_parameters.items():
                 obsf.parameters[p_name] = p.value

@@ -7,7 +7,8 @@
 # pyre-strict
 
 import logging
-from typing import Dict, List, Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 import numpy as np
 
@@ -52,8 +53,8 @@ class TestAxClient(TestCase):
 
         # Test with HSS & MOO.
         ax_client = AxClient()
-        parameters: List[
-            Dict[str, Union[TParamValue, Sequence[TParamValue], Dict[str, List[str]]]]
+        parameters: list[
+            dict[str, Union[TParamValue, Sequence[TParamValue], dict[str, list[str]]]]
         ] = [
             {
                 "name": "SearchSpace.optimizer",

@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from typing import List
 
 from ax.core import SearchSpace
 from ax.core.parameter import ParameterType, RangeParameter
@@ -24,7 +23,7 @@ class SearchSpaceTest(TestCase):
             name="b", lower=-1.0, upper=2.0, parameter_type=ParameterType.FLOAT
         )
         search_space = SearchSpace(parameters=[parameter_a, parameter_b])
-        parametrizations: List[TParameterization] = [
+        parametrizations: list[TParameterization] = [
             {"a": 0.5, "b": -1.0},
             {"a": 0.0, "b": 2.0},
             {"a": 0.0, "b": 2.0},

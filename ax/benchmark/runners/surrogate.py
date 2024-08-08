@@ -6,7 +6,8 @@
 # pyre-strict
 
 import warnings
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
+from collections.abc import Iterable
+from typing import Any, Callable, Optional, Union
 
 import torch
 from ax.benchmark.runners.base import BenchmarkRunner
@@ -29,12 +30,12 @@ class SurrogateRunner(BenchmarkRunner):
         *,
         name: str,
         search_space: SearchSpace,
-        outcome_names: List[str],
+        outcome_names: list[str],
         surrogate: Optional[TorchModelBridge] = None,
-        datasets: Optional[List[SupervisedDataset]] = None,
-        noise_stds: Union[float, Dict[str, float]] = 0.0,
+        datasets: Optional[list[SupervisedDataset]] = None,
+        noise_stds: Union[float, dict[str, float]] = 0.0,
         get_surrogate_and_datasets: Optional[
-            Callable[[], Tuple[TorchModelBridge, List[SupervisedDataset]]]
+            Callable[[], tuple[TorchModelBridge, list[SupervisedDataset]]]
         ] = None,
     ) -> None:
         """Runner for surrogate benchmark problems.
@@ -71,7 +72,7 @@ class SurrogateRunner(BenchmarkRunner):
         self._datasets = datasets
         self.search_space = search_space
         self.noise_stds = noise_stds
-        self.statuses: Dict[int, TrialStatus] = {}
+        self.statuses: dict[int, TrialStatus] = {}
 
     def set_surrogate_and_datasets(self) -> None:
         self._surrogate, self._datasets = none_throws(self.get_surrogate_and_datasets)()
@@ -83,16 +84,16 @@ class SurrogateRunner(BenchmarkRunner):
         return none_throws(self._surrogate)
 
     @property
-    def datasets(self) -> List[SupervisedDataset]:
+    def datasets(self) -> list[SupervisedDataset]:
         if self.get_surrogate_and_datasets is not None:
             self.set_surrogate_and_datasets()
         return none_throws(self._datasets)
 
     @property
-    def outcome_names(self) -> List[str]:
+    def outcome_names(self) -> list[str]:
         return self._outcome_names
 
-    def get_noise_stds(self) -> Union[None, float, Dict[str, float]]:
+    def get_noise_stds(self) -> Union[None, float, dict[str, float]]:
         return self.noise_stds
 
     def get_Y_true(self, arm: Arm) -> Tensor:
@@ -108,7 +109,7 @@ class SurrogateRunner(BenchmarkRunner):
             dtype=self.surrogate.dtype,
         )
 
-    def run(self, trial: BaseTrial) -> Dict[str, Any]:
+    def run(self, trial: BaseTrial) -> dict[str, Any]:
         """Run the trial by evaluating its parameterization(s) on the surrogate model.
 
         Note: This also sets the status of the trial to COMPLETED.
@@ -136,12 +137,12 @@ class SurrogateRunner(BenchmarkRunner):
 
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
-    ) -> Dict[TrialStatus, Set[int]]:
+    ) -> dict[TrialStatus, set[int]]:
         return {TrialStatus.COMPLETED: {t.index for t in trials}}
 
     @classmethod
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-    def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
+    def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
         """Serialize the properties needed to initialize the runner.
         Used for storage.
 
@@ -160,10 +161,10 @@ class SurrogateRunner(BenchmarkRunner):
     @classmethod
     def deserialize_init_args(
         cls,
-        args: Dict[str, Any],
+        args: dict[str, Any],
         decoder_registry: Optional[TDecoderRegistry] = None,
         class_decoder_registry: Optional[TClassDecoderRegistry] = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         return {}
 
     @property

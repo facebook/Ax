@@ -12,7 +12,7 @@ import json
 import warnings
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Optional
 
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -56,27 +56,27 @@ class ModelSpec(SortableBase, SerializationMixin):
     model_enum: ModelRegistryBase
     # Kwargs to pass into the `Model` + `ModelBridge` constructors in
     # `ModelRegistryBase.__call__`.
-    model_kwargs: Dict[str, Any] = field(default_factory=dict)
+    model_kwargs: dict[str, Any] = field(default_factory=dict)
     # Kwargs to pass to `ModelBridge.gen`.
-    model_gen_kwargs: Dict[str, Any] = field(default_factory=dict)
+    model_gen_kwargs: dict[str, Any] = field(default_factory=dict)
     # Kwargs to pass to `cross_validate`.
-    model_cv_kwargs: Dict[str, Any] = field(default_factory=dict)
+    model_cv_kwargs: dict[str, Any] = field(default_factory=dict)
 
     # Fitted model, constructed using specified `model_kwargs` and `Data`
     # on `ModelSpec.fit`
     _fitted_model: Optional[ModelBridge] = None
 
     # Stored cross validation results set in cross validate.
-    _cv_results: Optional[List[CVResult]] = None
+    _cv_results: Optional[list[CVResult]] = None
 
     # Stored cross validation diagnostics set in cross validate.
     _diagnostics: Optional[CVDiagnostics] = None
 
     # Stored to check if the CV result & diagnostic cache is safe to reuse.
-    _last_cv_kwargs: Optional[Dict[str, Any]] = None
+    _last_cv_kwargs: Optional[dict[str, Any]] = None
 
     # Stored to check if the model can be safely updated in fit.
-    _last_fit_arg_ids: Optional[Dict[str, int]] = None
+    _last_fit_arg_ids: Optional[dict[str, int]] = None
 
     def __post_init__(self) -> None:
         self.model_kwargs = self.model_kwargs or {}
@@ -154,8 +154,8 @@ class ModelSpec(SortableBase, SerializationMixin):
 
     def cross_validate(
         self,
-        model_cv_kwargs: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[Optional[List[CVResult]], Optional[CVDiagnostics]]:
+        model_cv_kwargs: Optional[dict[str, Any]] = None,
+    ) -> tuple[Optional[list[CVResult]], Optional[CVDiagnostics]]:
         """
         Call cross_validate, compute_diagnostics and cache the results.
         If the model cannot be cross validated, warn and return None.
@@ -194,7 +194,7 @@ class ModelSpec(SortableBase, SerializationMixin):
         return self._cv_results, self._diagnostics
 
     @property
-    def cv_results(self) -> Optional[List[CVResult]]:
+    def cv_results(self) -> Optional[list[CVResult]]:
         """
         Cached CV results from `self.cross_validate()`
         if it has been successfully called
@@ -259,7 +259,7 @@ class ModelSpec(SortableBase, SerializationMixin):
     def _safe_to_update(
         self,
         experiment: Experiment,
-        combined_model_kwargs: Dict[str, Any],
+        combined_model_kwargs: dict[str, Any],
     ) -> bool:
         """Checks if the object id of any of the non-data fit arguments has changed.
 
@@ -278,8 +278,8 @@ class ModelSpec(SortableBase, SerializationMixin):
     def _get_fit_arg_ids(
         self,
         experiment: Experiment,
-        combined_model_kwargs: Dict[str, Any],
-    ) -> Dict[str, int]:
+        combined_model_kwargs: dict[str, Any],
+    ) -> dict[str, int]:
         """Construct a dictionary mapping arg name to object id."""
         return {
             "experiment": id(experiment),

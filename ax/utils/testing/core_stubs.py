@@ -10,21 +10,11 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from collections.abc import Iterable, MutableMapping
 from datetime import datetime, timedelta
 from logging import Logger
 from pathlib import Path
-from typing import (
-    Any,
-    cast,
-    Dict,
-    Iterable,
-    List,
-    MutableMapping,
-    Optional,
-    Set,
-    Tuple,
-    Type,
-)
+from typing import Any, cast, Optional
 
 import numpy as np
 import pandas as pd
@@ -163,7 +153,7 @@ def get_experiment_with_map_data_type() -> Experiment:
     )
 
 
-def get_trial_based_criterion() -> List[TrialBasedCriterion]:
+def get_trial_based_criterion() -> list[TrialBasedCriterion]:
     return [
         MaxTrials(
             threshold=3,
@@ -302,7 +292,7 @@ def get_branin_experiment(
 def get_branin_experiment_with_status_quo_trials(
     num_sobol_trials: int = 5,
     multi_objective: bool = False,
-) -> Tuple[Experiment, ObservationFeatures]:
+) -> tuple[Experiment, ObservationFeatures]:
     if multi_objective:
         exp = get_branin_experiment_with_multi_objective(
             with_batch=True,
@@ -410,7 +400,7 @@ def get_branin_experiment_with_timestamp_map_metric(
 def run_branin_experiment_with_generation_strategy(
     generation_strategy: GenerationStrategy,
     num_trials: int = 6,
-    kwargs_for_get_branin_experiment: Optional[Dict[str, Any]] = None,
+    kwargs_for_get_branin_experiment: Optional[dict[str, Any]] = None,
 ) -> Experiment:
     """Gets a Branin experiment using any given kwargs and runs
     num_trials trials using the given generation strategy."""
@@ -738,7 +728,7 @@ def get_hierarchical_search_space_experiment(
 
 
 def get_experiment_with_observations(
-    observations: List[List[float]],
+    observations: list[list[float]],
     minimize: bool = False,
     scalarized: bool = False,
     constrained: bool = False,
@@ -893,7 +883,7 @@ def get_high_dimensional_branin_experiment(with_batch: bool = False) -> Experime
 
 
 def get_search_space(constrain_search_space: bool = True) -> SearchSpace:
-    parameters: List[Parameter] = [
+    parameters: list[Parameter] = [
         get_range_parameter(),
         get_range_parameter2(),
         get_choice_parameter(),
@@ -953,7 +943,7 @@ def get_branin_search_space(
             )
         )
 
-    return SearchSpace(parameters=cast(List[Parameter], parameters))
+    return SearchSpace(parameters=cast(list[Parameter], parameters))
 
 
 def get_factorial_search_space() -> SearchSpace:
@@ -1037,7 +1027,7 @@ def get_hartmann_search_space(with_fidelity_parameter: bool = False) -> SearchSp
             )
         )
 
-    return SearchSpace(parameters=cast(List[Parameter], parameters))
+    return SearchSpace(parameters=cast(list[Parameter], parameters))
 
 
 def get_search_space_for_value(val: float = 3.0) -> SearchSpace:
@@ -1106,7 +1096,7 @@ def get_search_space_with_choice_parameters(
 def get_hierarchical_search_space(
     with_fixed_parameter: bool = False,
 ) -> HierarchicalSearchSpace:
-    parameters: List[Parameter] = [
+    parameters: list[Parameter] = [
         get_model_parameter(with_fixed_parameter=with_fixed_parameter),
         get_lr_parameter(),
         get_l2_reg_weight_parameter(),
@@ -1285,7 +1275,7 @@ def get_trial() -> Trial:
     return trial
 
 
-def get_hss_trials_with_fixed_parameter(exp: Experiment) -> Dict[int, BaseTrial]:
+def get_hss_trials_with_fixed_parameter(exp: Experiment) -> dict[int, BaseTrial]:
     return {
         0: Trial(experiment=exp).add_arm(
             arm=Arm(
@@ -1317,28 +1307,28 @@ def get_hss_trials_with_fixed_parameter(exp: Experiment) -> Dict[int, BaseTrial]
 class TestTrial(BaseTrial):
     "Trial class to test unsupported trial type error"
 
-    _arms: List[Arm] = []
+    _arms: list[Arm] = []
 
     def __repr__(self) -> str:
         return "test"
 
-    def _get_candidate_metadata(self, arm_name: str) -> Optional[Dict[str, Any]]:
+    def _get_candidate_metadata(self, arm_name: str) -> Optional[dict[str, Any]]:
         return None
 
     def _get_candidate_metadata_from_all_generator_runs(
         self,
-    ) -> Dict[str, Optional[Dict[str, Any]]]:
+    ) -> dict[str, Optional[dict[str, Any]]]:
         return {"test": None}
 
     def abandoned_arms(self) -> str:
         return "test"
 
     @property
-    def arms(self) -> List[Arm]:
+    def arms(self) -> list[Arm]:
         return self._arms
 
     @arms.setter
-    def arms(self, val: List[Arm]) -> None:
+    def arms(self, val: list[Arm]) -> None:
         self._arms = val
 
     def arms_by_name(self) -> str:
@@ -1517,7 +1507,7 @@ def get_augmented_hartmann_metric(
 
 
 def get_factorial_metric(name: str = "success_metric") -> FactorialMetric:
-    coefficients: Dict[str, Dict[TParamValue, float]] = {
+    coefficients: dict[str, dict[TParamValue, float]] = {
         "factor1": {"level11": 0.1, "level12": 0.2, "level13": 0.3},
         "factor2": {"level21": 0.1, "level22": 0.2},
         "factor3": {"level31": 0.1, "level32": 0.2, "level33": 0.3, "level34": 0.4},
@@ -1791,7 +1781,7 @@ def get_status_quo() -> Arm:
 
 
 def get_arm_weights1() -> MutableMapping[Arm, float]:
-    parameters_dicts: List[TParameterization] = [
+    parameters_dicts: list[TParameterization] = [
         {"w": 0.85, "x": 1, "y": "baz", "z": False},
         {"w": 0.75, "x": 1, "y": "foo", "z": True},
         {"w": 1.4, "x": 2, "y": "bar", "z": True},
@@ -1802,7 +1792,7 @@ def get_arm_weights1() -> MutableMapping[Arm, float]:
 
 
 def get_arm_weights2() -> MutableMapping[Arm, float]:  # update
-    parameters_dicts: List[TParameterization] = [
+    parameters_dicts: list[TParameterization] = [
         {"w": 0.96, "x": 3, "y": "hello", "z": True},
         {"w": 0.16, "x": 4, "y": "dear", "z": True},
         {"w": 3.1, "x": 5, "y": "world", "z": False},
@@ -1812,23 +1802,23 @@ def get_arm_weights2() -> MutableMapping[Arm, float]:  # update
     return OrderedDict(zip(arms, weights))
 
 
-def get_arms_from_dict(arm_weights_dict: MutableMapping[Arm, float]) -> List[Arm]:
+def get_arms_from_dict(arm_weights_dict: MutableMapping[Arm, float]) -> list[Arm]:
     return list(arm_weights_dict.keys())
 
 
-def get_weights_from_dict(arm_weights_dict: MutableMapping[Arm, float]) -> List[float]:
+def get_weights_from_dict(arm_weights_dict: MutableMapping[Arm, float]) -> list[float]:
     return list(arm_weights_dict.values())
 
 
-def get_arms() -> List[Arm]:
+def get_arms() -> list[Arm]:
     return list(get_arm_weights1().keys())
 
 
-def get_weights() -> List[float]:
+def get_weights() -> list[float]:
     return list(get_arm_weights1().values())
 
 
-def get_branin_arms(n: int, seed: int) -> List[Arm]:
+def get_branin_arms(n: int, seed: int) -> list[Arm]:
     np.random.seed(seed)
     x1_raw = np.random.rand(n)
     x2_raw = np.random.rand(n)
@@ -1987,7 +1977,7 @@ def get_map_data(trial_index: int = 0) -> MapData:
     )
 
 
-def get_observations_with_invalid_value(invalid_value: float) -> List[Observation]:
+def get_observations_with_invalid_value(invalid_value: float) -> list[Observation]:
     obsd_with_non_finite = ObservationData(
         metric_names=["m1"] * 4,
         means=np.array([-100, 4, invalid_value, 2]),
@@ -2132,17 +2122,17 @@ def get_or_early_stopping_strategy() -> OrEarlyStoppingStrategy:
 
 class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     def __init__(
-        self, early_stop_trials: Optional[Dict[int, Optional[str]]] = None
+        self, early_stop_trials: Optional[dict[int, Optional[str]]] = None
     ) -> None:
-        self.early_stop_trials: Dict[int, Optional[str]] = early_stop_trials or {}
+        self.early_stop_trials: dict[int, Optional[str]] = early_stop_trials or {}
         self.seconds_between_polls = 1
 
     def should_stop_trials_early(
         self,
-        trial_indices: Set[int],
+        trial_indices: set[int],
         experiment: Experiment,
-        **kwargs: Dict[str, Any],
-    ) -> Dict[int, Optional[str]]:
+        **kwargs: dict[str, Any],
+    ) -> dict[int, Optional[str]]:
         return self.early_stop_trials
 
 
@@ -2166,8 +2156,8 @@ class DummyGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         self.trial_to_stop = trial_to_stop
 
     def _should_stop_optimization(
-        self, experiment: Experiment, **kwargs: Dict[str, Any]
-    ) -> Tuple[bool, str]:
+        self, experiment: Experiment, **kwargs: dict[str, Any]
+    ) -> tuple[bool, str]:
         num_completed_trials = len(experiment.trials_by_status[TrialStatus.COMPLETED])
 
         if num_completed_trials >= max([self.min_trials, self.trial_to_stop]):
@@ -2199,7 +2189,7 @@ def get_model_predictions() -> TModelPredict:
     return model_predictions
 
 
-def get_model_predictions_per_arm() -> Dict[str, TModelPredictArm]:
+def get_model_predictions_per_arm() -> dict[str, TModelPredictArm]:
     arms = list(get_arm_weights1().keys())
     means = get_model_mean()
     covariances = get_model_covariance()
@@ -2276,23 +2266,23 @@ def get_surrogate_spec_with_lognormal() -> SurrogateSpec:
     )
 
 
-def get_acquisition_type() -> Type[Acquisition]:
+def get_acquisition_type() -> type[Acquisition]:
     return Acquisition
 
 
-def get_model_type() -> Type[Model]:
+def get_model_type() -> type[Model]:
     return SingleTaskGP
 
 
-def get_mll_type() -> Type[MarginalLogLikelihood]:
+def get_mll_type() -> type[MarginalLogLikelihood]:
     return ExactMarginalLogLikelihood
 
 
-def get_acquisition_function_type() -> Type[AcquisitionFunction]:
+def get_acquisition_function_type() -> type[AcquisitionFunction]:
     return qExpectedImprovement
 
 
-def get_sebo_acquisition_class() -> Type[SEBOAcquisition]:
+def get_sebo_acquisition_class() -> type[SEBOAcquisition]:
     return SEBOAcquisition
 
 
@@ -2364,9 +2354,9 @@ def get_dataset(
     d: int = 2,
     m: int = 2,
     has_observation_noise: bool = False,
-    feature_names: Optional[List[str]] = None,
-    outcome_names: Optional[List[str]] = None,
-    tkwargs: Optional[Dict[str, Any]] = None,
+    feature_names: Optional[list[str]] = None,
+    outcome_names: Optional[list[str]] = None,
+    tkwargs: Optional[dict[str, Any]] = None,
     seed: Optional[int] = None,
 ) -> SupervisedDataset:
     """Constructs a SupervisedDataset based on the given arguments.
@@ -2408,7 +2398,7 @@ class CustomTestRunner(Runner):
     def __init__(self, test_attribute: str) -> None:
         self.test_attribute = test_attribute
 
-    def run(self, trial: BaseTrial) -> Dict[str, Any]:
+    def run(self, trial: BaseTrial) -> dict[str, Any]:
         return {"foo": "bar"}
 
 
@@ -2430,7 +2420,7 @@ class SpecialGenerationStrategy(GenerationStrategyInterface):
 
     def __init__(self) -> None:
         self._name = "special"
-        self._generator_runs: List[GeneratorRun] = []
+        self._generator_runs: list[GeneratorRun] = []
 
     def gen_for_multiple_trials_with_multiple_models(
         self,
@@ -2438,7 +2428,7 @@ class SpecialGenerationStrategy(GenerationStrategyInterface):
         num_generator_runs: int,
         data: Optional[Data] = None,
         n: int = 1,
-    ) -> List[List[GeneratorRun]]:
+    ) -> list[list[GeneratorRun]]:
         return []
 
     def clone_reset(self) -> SpecialGenerationStrategy:

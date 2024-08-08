@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import replace as dataclass_replace
 
 from logging import Logger
-from typing import Dict, Optional, Set
+from typing import Optional
 
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -75,8 +75,8 @@ class AsyncSimulatedBackendScheduler(Scheduler):
         return self.runner.simulator  # pyre-ignore[16]
 
     def should_stop_trials_early(
-        self, trial_indices: Set[int]
-    ) -> Dict[int, Optional[str]]:
+        self, trial_indices: set[int]
+    ) -> dict[int, Optional[str]]:
         """Given a set of trial indices, decide whether or not to early-stop
         running trials using the ``early_stopping_strategy``.
 

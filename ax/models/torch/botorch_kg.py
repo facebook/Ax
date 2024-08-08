@@ -7,7 +7,7 @@
 # pyre-strict
 
 import dataclasses
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Optional, Union
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -209,13 +209,13 @@ class KnowledgeGradient(BotorchModel):
         X_observed: Tensor,
         objective_weights: Tensor,
         mc_samples: int = 512,
-        fixed_features: Optional[Dict[int, float]] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+        fixed_features: Optional[dict[int, float]] = None,
+        target_fidelities: Optional[dict[int, float]] = None,
+        outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
         seed_inner: Optional[int] = None,
         qmc: bool = True,
         **kwargs: Any,
-    ) -> Tuple[AcquisitionFunction, Optional[List[int]]]:
+    ) -> tuple[AcquisitionFunction, Optional[list[int]]]:
         return get_out_of_sample_best_point_acqf(
             model=not_none(self.model),
             Xs=self.Xs,
@@ -291,8 +291,8 @@ def _instantiate_KG(
     seed_outer: Optional[int] = None,
     X_pending: Optional[Tensor] = None,
     current_value: Optional[Tensor] = None,
-    target_fidelities: Optional[Dict[int, float]] = None,
-    fidelity_weights: Optional[Dict[int, float]] = None,
+    target_fidelities: Optional[dict[int, float]] = None,
+    fidelity_weights: Optional[dict[int, float]] = None,
     cost_intercept: float = 1.0,
 ) -> qKnowledgeGradient:
     r"""Instantiate either a `qKnowledgeGradient` or `qMultiFidelityKnowledgeGradient`
@@ -366,10 +366,10 @@ def _optimize_and_get_candidates(
     raw_samples: int,
     # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
     #  `typing.Dict` to avoid runtime subscripting errors.
-    optimizer_options: Dict,
+    optimizer_options: dict,
     rounding_func: Optional[Callable[[Tensor], Tensor]],
-    inequality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]],
-    fixed_features: Optional[Dict[int, float]],
+    inequality_constraints: Optional[list[tuple[Tensor, Tensor, float]]],
+    fixed_features: Optional[dict[int, float]],
 ) -> Tensor:
     r"""Generates initial conditions for optimization, optimize the acquisition
     function, and return the candidates.
@@ -389,7 +389,7 @@ def _optimize_and_get_candidates(
 
     botorch_rounding_func = get_rounding_func(rounding_func)
 
-    opt_options: Dict[str, Union[bool, float, int, str]] = {
+    opt_options: dict[str, Union[bool, float, int, str]] = {
         "batch_limit": 8,
         "maxiter": 200,
         "method": "L-BFGS-B",

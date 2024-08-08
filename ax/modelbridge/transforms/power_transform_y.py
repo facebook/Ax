@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from logging import Logger
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -53,7 +53,7 @@ class PowerTransformY(Transform):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
         config: Optional[TConfig] = None,
     ) -> None:
@@ -77,8 +77,8 @@ class PowerTransformY(Transform):
 
     def _transform_observation_data(
         self,
-        observation_data: List[ObservationData],
-    ) -> List[ObservationData]:
+        observation_data: list[ObservationData],
+    ) -> list[ObservationData]:
         """Winsorize observation data in place."""
         for obsd in observation_data:
             for i, m in enumerate(obsd.metric_names):
@@ -95,8 +95,8 @@ class PowerTransformY(Transform):
 
     def _untransform_observation_data(
         self,
-        observation_data: List[ObservationData],
-    ) -> List[ObservationData]:
+        observation_data: list[ObservationData],
+    ) -> list[ObservationData]:
         """Winsorize observation data in place."""
         for obsd in observation_data:
             for i, m in enumerate(obsd.metric_names):
@@ -145,9 +145,9 @@ class PowerTransformY(Transform):
 
     def untransform_outcome_constraints(
         self,
-        outcome_constraints: List[OutcomeConstraint],
+        outcome_constraints: list[OutcomeConstraint],
         fixed_features: Optional[ObservationFeatures] = None,
-    ) -> List[OutcomeConstraint]:
+    ) -> list[OutcomeConstraint]:
         for c in outcome_constraints:
             if isinstance(c, ScalarizedOutcomeConstraint):
                 raise ValueError("ScalarizedOutcomeConstraint not supported here")
@@ -161,8 +161,8 @@ class PowerTransformY(Transform):
 
 
 def _compute_power_transforms(
-    Ys: Dict[str, List[float]]
-) -> Dict[str, PowerTransformer]:
+    Ys: dict[str, list[float]]
+) -> dict[str, PowerTransformer]:
     """Compute power transforms."""
     power_transforms = {}
     for k, ys in Ys.items():
@@ -173,8 +173,8 @@ def _compute_power_transforms(
 
 
 def _compute_inverse_bounds(
-    power_transforms: Dict[str, PowerTransformer], tol: float = 1e-10
-) -> Dict[str, Tuple[float, float]]:
+    power_transforms: dict[str, PowerTransformer], tol: float = 1e-10
+) -> dict[str, tuple[float, float]]:
     """Computes the image of the transform so we can clip when we untransform.
 
     The inverse of the Yeo-Johnson transform is given by:

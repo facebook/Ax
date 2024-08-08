@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import List, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from ax.core.observation import Observation, ObservationData
 from ax.core.search_space import SearchSpace
@@ -36,7 +36,7 @@ class InverseGaussianCdfY(Transform):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional["base_modelbridge.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
@@ -45,8 +45,8 @@ class InverseGaussianCdfY(Transform):
 
     def _transform_observation_data(
         self,
-        observation_data: List[ObservationData],
-    ) -> List[ObservationData]:
+        observation_data: list[ObservationData],
+    ) -> list[ObservationData]:
         """Map to inverse Gaussian CDF in place."""
         # TODO (jej): Transform covariances.
         for obsd in observation_data:

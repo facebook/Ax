@@ -7,7 +7,6 @@
 # pyre-strict
 
 from enum import Enum, unique
-from typing import Tuple
 
 
 # -------------------------- Warnings --------------------------
@@ -85,8 +84,8 @@ class Keys(str, Enum):
     PAIRWISE_PREFERENCE_QUERY = "pairwise_pref_query"
 
 
-DEFAULT_WINSORIZATION_LIMITS_MINIMIZATION: Tuple[float, float] = (0.0, 0.2)
-DEFAULT_WINSORIZATION_LIMITS_MAXIMIZATION: Tuple[float, float] = (0.2, 0.0)
+DEFAULT_WINSORIZATION_LIMITS_MINIMIZATION: tuple[float, float] = (0.0, 0.2)
+DEFAULT_WINSORIZATION_LIMITS_MAXIMIZATION: tuple[float, float] = (0.2, 0.0)
 
 TESTENV_ENV_KEY = "TESTENV"
 TESTENV_ENV_VAL = "True"

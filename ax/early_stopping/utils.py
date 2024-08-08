@@ -8,7 +8,7 @@
 
 from collections import defaultdict
 from logging import Logger
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 import pandas as pd
 from ax.core.base_trial import TrialStatus
@@ -23,11 +23,11 @@ logger: Logger = get_logger(__name__)
 def align_partial_results(
     df: pd.DataFrame,
     progr_key: str,  # progression key
-    metrics: List[str],
+    metrics: list[str],
     interpolation: str = "slinear",
     do_forward_fill: bool = False,
     # TODO: Allow normalizing progr_key (e.g. subtract min time stamp)
-) -> Tuple[Dict[str, pd.DataFrame], Dict[str, pd.DataFrame]]:
+) -> tuple[dict[str, pd.DataFrame], dict[str, pd.DataFrame]]:
     """Helper function to align partial results with heterogeneous index
 
     Args:

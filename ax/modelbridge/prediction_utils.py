@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Optional
 
 import numpy as np
 from ax.core.observation import ObservationFeatures
@@ -18,9 +18,9 @@ from ax.modelbridge import ModelBridge
 def predict_at_point(
     model: ModelBridge,
     obsf: ObservationFeatures,
-    metric_names: Set[str],
-    scalarized_metric_config: Optional[List[Dict[str, Any]]] = None,
-) -> Tuple[Dict[str, float], Dict[str, float]]:
+    metric_names: set[str],
+    scalarized_metric_config: Optional[list[dict[str, Any]]] = None,
+) -> tuple[dict[str, float], dict[str, float]]:
     """Make a prediction at a point.
 
     Returns mean and standard deviation in format expected by plotting.
@@ -72,9 +72,9 @@ def predict_at_point(
 
 def predict_by_features(
     model: ModelBridge,
-    label_to_feature_dict: Dict[int, ObservationFeatures],
-    metric_names: Set[str],
-) -> Dict[int, Dict[str, Tuple[float, float]]]:
+    label_to_feature_dict: dict[int, ObservationFeatures],
+    metric_names: set[str],
+) -> dict[int, dict[str, tuple[float, float]]]:
     """Predict for given data points and model.
 
     Args:
@@ -123,10 +123,10 @@ def predict_by_features(
 
 
 def _compute_scalarized_outcome(
-    mean_dict: Dict[str, float],
-    cov_dict: Dict[str, Dict[str, float]],
-    agg_metric_weight_dict: Dict[str, float],
-) -> Tuple[float, float]:
+    mean_dict: dict[str, float],
+    cov_dict: dict[str, dict[str, float]],
+    agg_metric_weight_dict: dict[str, float],
+) -> tuple[float, float]:
     """Compute the mean and variance of a scalarized outcome.
 
     Args:

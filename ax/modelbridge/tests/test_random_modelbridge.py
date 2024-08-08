@@ -7,7 +7,6 @@
 # pyre-strict
 
 from collections import OrderedDict
-from typing import List
 from unittest import mock
 
 import numpy as np
@@ -35,7 +34,7 @@ class RandomModelBridgeTest(TestCase):
         y = RangeParameter("y", ParameterType.FLOAT, lower=1, upper=2)
         z = RangeParameter("z", ParameterType.FLOAT, lower=0, upper=5)
         self.parameters = [x, y, z]
-        parameter_constraints: List[ParameterConstraint] = [
+        parameter_constraints: list[ParameterConstraint] = [
             OrderConstraint(x, y),
             SumConstraint([x, z], False, 3.5),
         ]

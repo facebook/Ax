@@ -11,7 +11,7 @@ from collections import defaultdict, OrderedDict
 from enum import Enum
 from io import StringIO
 from logging import Logger
-from typing import Any, cast, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, cast, Optional, Union
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCard, AnalysisCardLevel
@@ -89,7 +89,7 @@ class Decoder:
         self.config = config
 
     def get_enum_name(
-        self, value: Optional[int], enum: Optional[Union[Enum, Type[Enum]]]
+        self, value: Optional[int], enum: Optional[Union[Enum, type[Enum]]]
     ) -> Optional[str]:
         """Given an enum value (int) and an enum (of ints), return the
         corresponding enum name. If the value is not present in the enum,
@@ -106,7 +106,7 @@ class Decoder:
     def _init_experiment_from_sqa(
         self,
         experiment_sqa: SQAExperiment,
-        ax_object_field_overrides: Optional[Dict[str, Any]] = None,
+        ax_object_field_overrides: Optional[dict[str, Any]] = None,
     ) -> Experiment:
         """First step of conversion within experiment_from_sqa."""
         opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
@@ -218,7 +218,7 @@ class Decoder:
         self,
         experiment_sqa: SQAExperiment,
         reduced_state: bool = False,
-        ax_object_field_overrides: Optional[Dict[str, Any]] = None,
+        ax_object_field_overrides: Optional[dict[str, Any]] = None,
     ) -> Experiment:
         """Convert SQLAlchemy Experiment to Ax Experiment.
 
@@ -350,7 +350,7 @@ class Decoder:
     def parameter_constraint_from_sqa(
         self,
         parameter_constraint_sqa: SQAParameterConstraint,
-        parameters: List[Parameter],
+        parameters: list[Parameter],
     ) -> ParameterConstraint:
         """Convert SQLAlchemy ParameterConstraint to Ax ParameterConstraint."""
         parameter_map = {p.name: p for p in parameters}
@@ -409,10 +409,10 @@ class Decoder:
 
     def parameter_distributions_from_sqa(
         self,
-        parameter_constraint_sqa_list: List[SQAParameterConstraint],
-    ) -> Tuple[List[ParameterDistribution], Optional[int]]:
+        parameter_constraint_sqa_list: list[SQAParameterConstraint],
+    ) -> tuple[list[ParameterDistribution], Optional[int]]:
         """Convert SQLAlchemy ParameterConstraints to Ax ParameterDistributions."""
-        parameter_distributions: List[ParameterDistribution] = []
+        parameter_distributions: list[ParameterDistribution] = []
         num_samples = None
         for parameter_constraint_sqa in parameter_constraint_sqa_list:
             if parameter_constraint_sqa.type != ParameterConstraintType.DISTRIBUTION:
@@ -459,8 +459,8 @@ class Decoder:
 
     def search_space_from_sqa(
         self,
-        parameters_sqa: List[SQAParameter],
-        parameter_constraints_sqa: List[SQAParameterConstraint],
+        parameters_sqa: list[SQAParameter],
+        parameter_constraints_sqa: list[SQAParameterConstraint],
     ) -> Optional[SearchSpace]:
         """Convert a list of SQLAlchemy Parameters and ParameterConstraints to an
         Ax SearchSpace.
@@ -550,8 +550,8 @@ class Decoder:
             )
 
     def opt_config_and_tracking_metrics_from_sqa(
-        self, metrics_sqa: List[SQAMetric]
-    ) -> Tuple[Optional[OptimizationConfig], List[Metric]]:
+        self, metrics_sqa: list[SQAMetric]
+    ) -> tuple[Optional[OptimizationConfig], list[Metric]]:
         """Convert a list of SQLAlchemy Metrics to a a tuple of Ax OptimizationConfig
         and tracking metrics.
         """
@@ -813,7 +813,7 @@ class Decoder:
         return gs
 
     def runner_from_sqa(
-        self, runner_sqa: SQARunner, runner_kwargs: Optional[Dict[str, Any]] = None
+        self, runner_sqa: SQARunner, runner_kwargs: Optional[dict[str, Any]] = None
     ) -> Runner:
         """Convert SQLAlchemy Runner to Ax Runner."""
         if runner_sqa.runner_type not in self.config.reverse_runner_registry:
@@ -839,7 +839,7 @@ class Decoder:
         trial_sqa: SQATrial,
         experiment: Experiment,
         reduced_state: bool = False,
-        ax_object_field_overrides: Optional[Dict[str, Any]] = None,
+        ax_object_field_overrides: Optional[dict[str, Any]] = None,
     ) -> BaseTrial:
         """Convert SQLAlchemy Trial to Ax Trial.
 
@@ -963,7 +963,7 @@ class Decoder:
     def data_from_sqa(
         self,
         data_sqa: SQAData,
-        data_constructor: Type[Data] = Data,
+        data_constructor: type[Data] = Data,
     ) -> Data:
         """Convert SQLAlchemy Data to AE Data."""
         # TODO: extract data type from SQAData after DataRegistry added.
@@ -1222,10 +1222,10 @@ class Decoder:
 
 def _get_scalarized_objective_children_metrics(
     metric_id: int, decoder: Decoder
-) -> List[SQAMetric]:
+) -> list[SQAMetric]:
     """Given a metric db id, fetch its scalarized objective children metrics."""
     metric_sqa_class = cast(
-        Type[SQAMetric],
+        type[SQAMetric],
         decoder.config.class_to_sqa_class[Metric],
     )
     with session_scope() as session:
@@ -1238,11 +1238,11 @@ def _get_scalarized_objective_children_metrics(
 
 def _get_scalarized_outcome_constraint_children_metrics(
     metric_id: int, decoder: Decoder
-) -> List[SQAMetric]:
+) -> list[SQAMetric]:
     """Given a metric db id, fetch its scalarized outcome constraint
     children metrics."""
     metric_sqa_class = cast(
-        Type[SQAMetric],
+        type[SQAMetric],
         decoder.config.class_to_sqa_class[Metric],
     )
     with session_scope() as session:

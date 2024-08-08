@@ -5,8 +5,9 @@
 
 # pyre-strict
 
+from collections.abc import Mapping
 from logging import Logger
-from typing import Dict, Mapping, Optional, Protocol
+from typing import Optional, Protocol
 
 import numpy as np
 
@@ -38,7 +39,7 @@ def compute_model_fit_metrics(
     y_pred: Mapping[str, np.ndarray],
     se_pred: Mapping[str, np.ndarray],
     fit_metrics_dict: Mapping[str, ModelFitMetricProtocol],
-) -> Dict[str, Dict[str, float]]:
+) -> dict[str, dict[str, float]]:
     """Computes the model fit metrics for each experimental metric in the input dicts.
 
     Args:

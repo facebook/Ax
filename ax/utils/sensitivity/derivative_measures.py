@@ -7,7 +7,7 @@
 
 from copy import deepcopy
 from functools import partial
-from typing import Any, Callable, List, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import torch
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -23,7 +23,7 @@ from gpytorch.distributions import MultivariateNormal
 
 def sample_discrete_parameters(
     input_mc_samples: torch.Tensor,
-    discrete_features: Union[None, List[int]],
+    discrete_features: Union[None, list[int]],
     bounds: torch.Tensor,
     num_mc_samples: int,
 ) -> torch.Tensor:
@@ -53,7 +53,7 @@ class GpDGSMGpMean(object):
 
     mean_gradients: Optional[torch.Tensor] = None
     bootstrap_indices: Optional[torch.Tensor] = None
-    mean_gradients_btsp: Optional[List[torch.Tensor]] = None
+    mean_gradients_btsp: Optional[list[torch.Tensor]] = None
 
     def __init__(
         self,
@@ -66,7 +66,7 @@ class GpDGSMGpMean(object):
         input_qmc: bool = False,
         dtype: torch.dtype = torch.double,
         num_bootstrap_samples: int = 1,
-        discrete_features: Optional[List[int]] = None,
+        discrete_features: Optional[list[int]] = None,
     ) -> None:
         r"""Computes three types of derivative based measures:
         the gradient, the gradient square and the gradient absolute measures.
@@ -238,7 +238,7 @@ class GpDGSMGpMean(object):
 class GpDGSMGpSampling(GpDGSMGpMean):
 
     samples_gradients: Optional[torch.Tensor] = None
-    samples_gradients_btsp: Optional[List[torch.Tensor]] = None
+    samples_gradients_btsp: Optional[list[torch.Tensor]] = None
 
     def __init__(
         self,
@@ -413,9 +413,9 @@ class GpDGSMGpSampling(GpDGSMGpMean):
 
 
 def compute_derivatives_from_model_list(
-    model_list: List[Model],
+    model_list: list[Model],
     bounds: torch.Tensor,
-    discrete_features: Optional[List[int]] = None,
+    discrete_features: Optional[list[int]] = None,
     **kwargs: Any,
 ) -> torch.Tensor:
     """

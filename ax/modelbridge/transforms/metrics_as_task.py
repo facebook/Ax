@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -42,24 +42,24 @@ class MetricsAsTask(Transform):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         # Use config to specify metric task map
         if config is None or "metric_task_map" not in config:
             raise ValueError("config must specify metric_task_map")
-        self.metric_task_map: Dict[str, List[str]] = config[  # pyre-ignore
+        self.metric_task_map: dict[str, list[str]] = config[  # pyre-ignore
             "metric_task_map"
         ]
-        self.task_values: List[str] = list(self.metric_task_map.keys())
+        self.task_values: list[str] = list(self.metric_task_map.keys())
         assert "TARGET" not in self.task_values
         self.task_values.append("TARGET")
 
     def transform_observations(
         self,
-        observations: List[Observation],
-    ) -> List[Observation]:
+        observations: list[Observation],
+    ) -> list[Observation]:
         new_observations = []
         for obs in observations:
             # For the original observation, all the metrics with the new task param
@@ -98,8 +98,8 @@ class MetricsAsTask(Transform):
         return new_observations
 
     def transform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         """
         If transforming features without data, map them to the target.
         """
@@ -108,8 +108,8 @@ class MetricsAsTask(Transform):
         return observation_features
 
     def untransform_observations(
-        self, observations: List[Observation]
-    ) -> List[Observation]:
+        self, observations: list[Observation]
+    ) -> list[Observation]:
         # Drop any observations that are not TARGET, and remove the param.
         new_observations = []
         for obs in observations:
@@ -137,8 +137,8 @@ class MetricsAsTask(Transform):
         return search_space
 
     def untransform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         # This is called during gen. We shouldn't gen for any task other than
         # the target task.
         for obsf in observation_features:

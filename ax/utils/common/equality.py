@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Optional
 
 import numpy as np
 import pandas as pd
@@ -34,7 +34,7 @@ def equality_typechecker(eq_func: Callable) -> Callable:
 
 
 # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-def same_elements(list1: List[Any], list2: List[Any]) -> bool:
+def same_elements(list1: list[Any], list2: list[Any]) -> bool:
     """Compare equality of two lists of core Ax objects.
 
     Assumptions:
@@ -111,7 +111,7 @@ def dataframe_equals(df1: pd.DataFrame, df2: pd.DataFrame) -> bool:
 
 
 def object_attribute_dicts_equal(
-    one_dict: Dict[str, Any], other_dict: Dict[str, Any], skip_db_id_check: bool = False
+    one_dict: dict[str, Any], other_dict: dict[str, Any], skip_db_id_check: bool = False
 ) -> bool:
     """Utility to check if all items in attribute dicts of two Ax objects
     are the same.
@@ -137,11 +137,11 @@ def object_attribute_dicts_equal(
 
 # pyre-fixme[3]: Return annotation cannot contain `Any`.
 def object_attribute_dicts_find_unequal_fields(
-    one_dict: Dict[str, Any],
-    other_dict: Dict[str, Any],
+    one_dict: dict[str, Any],
+    other_dict: dict[str, Any],
     fast_return: bool = True,
     skip_db_id_check: bool = False,
-) -> Tuple[Dict[str, Tuple[Any, Any]], Dict[str, Tuple[Any, Any]]]:
+) -> tuple[dict[str, tuple[Any, Any]], dict[str, tuple[Any, Any]]]:
     """Utility for finding out what attributes of two objects' attribute dicts
     are unequal.
 

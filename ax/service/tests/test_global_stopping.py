@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-from typing import Dict, Tuple
 
 import numpy as np
 from ax.core.types import TParameterization
@@ -46,7 +45,7 @@ class TestGlobalStoppingIntegration(TestCase):
         )
         return ax_client
 
-    def evaluate(self, parameters: TParameterization) -> Dict[str, Tuple[float, float]]:
+    def evaluate(self, parameters: TParameterization) -> dict[str, tuple[float, float]]:
         """Evaluates the parameters for branin experiment."""
         x = np.array([parameters.get(f"x{i+1}") for i in range(2)])
         # pyre-fixme[7]: Expected `Dict[str, Tuple[float, float]]` but got

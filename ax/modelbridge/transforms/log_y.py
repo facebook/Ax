@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from logging import Logger
 
-from typing import Callable, List, Optional, Tuple, TYPE_CHECKING
+from typing import Callable, Optional, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -46,7 +46,7 @@ class LogY(Transform):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional["base_modelbridge.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
@@ -99,9 +99,9 @@ class LogY(Transform):
 
     def _tf_obs_data(
         self,
-        observation_data: List[ObservationData],
-        transform: Callable[[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]],
-    ) -> List[ObservationData]:
+        observation_data: list[ObservationData],
+        transform: Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]],
+    ) -> list[ObservationData]:
         for obsd in observation_data:
             cov = obsd.covariance
             idcs = [
@@ -131,21 +131,21 @@ class LogY(Transform):
 
     def _transform_observation_data(
         self,
-        observation_data: List[ObservationData],
-    ) -> List[ObservationData]:
+        observation_data: list[ObservationData],
+    ) -> list[ObservationData]:
         return self._tf_obs_data(observation_data, self._transform)
 
     def _untransform_observation_data(
         self,
-        observation_data: List[ObservationData],
-    ) -> List[ObservationData]:
+        observation_data: list[ObservationData],
+    ) -> list[ObservationData]:
         return self._tf_obs_data(observation_data, self._untransform)
 
     def untransform_outcome_constraints(
         self,
-        outcome_constraints: List[OutcomeConstraint],
+        outcome_constraints: list[OutcomeConstraint],
         fixed_features: Optional[ObservationFeatures] = None,
-    ) -> List[OutcomeConstraint]:
+    ) -> list[OutcomeConstraint]:
         for c in outcome_constraints:
             if c.metric.name in self.metric_names:
                 if c.relative:
@@ -171,7 +171,7 @@ def match_ci_width(
 
 def lognorm_to_norm(
     mu_ln: np.ndarray, Cov_ln: np.ndarray
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Compute mean and covariance of a MVN from those of the associated log-MVN
 
     If `Y` is log-normal with mean mu_ln and covariance Cov_ln, then
@@ -187,7 +187,7 @@ def lognorm_to_norm(
 
 def norm_to_lognorm(
     mu_n: np.ndarray, Cov_n: np.ndarray
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Compute mean and covariance of a log-MVN from its MVN sufficient statistics
 
     If `X ~ N(mu_n, Cov_n)` and `Y = exp(X)`, then `Y` is log-normal with

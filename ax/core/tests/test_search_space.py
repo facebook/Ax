@@ -9,7 +9,7 @@
 import dataclasses
 import warnings
 from random import choice
-from typing import cast, List
+from typing import cast
 from unittest import mock
 
 import pandas as pd
@@ -80,7 +80,7 @@ class SearchSpaceTest(TestCase):
         self.g = RangeParameter(
             name="g", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
         )
-        self.parameters: List[Parameter] = [
+        self.parameters: list[Parameter] = [
             self.a,
             self.b,
             self.c,
@@ -1067,7 +1067,7 @@ class TestRobustSearchSpace(TestCase):
         self.rss1 = RobustSearchSpace(
             parameters=self.parameters,
             parameter_distributions=[self.ab_dist],
-            parameter_constraints=cast(List[ParameterConstraint], self.constraints),
+            parameter_constraints=cast(list[ParameterConstraint], self.constraints),
             num_samples=4,
         )
 

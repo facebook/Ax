@@ -7,8 +7,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
+
 from logging import Logger
-from typing import Any, Dict, Generic, Iterable, List, Optional, Sequence, Type, TypeVar
+from typing import Any, Generic, Optional, TypeVar
 
 import numpy as np
 
@@ -64,7 +66,7 @@ class MapKeyInfo(Generic[T], SortableBase):
     @property
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
-    def value_type(self) -> Type:
+    def value_type(self) -> type:
         return type(self._default_value)
 
 
@@ -94,7 +96,7 @@ class MapData(Data):
     _memo_df: Optional[pd.DataFrame]
 
     # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
-    _map_key_infos: List[MapKeyInfo]
+    _map_key_infos: list[MapKeyInfo]
 
     def __init__(
         self,
@@ -153,17 +155,17 @@ class MapData(Data):
 
     @property
     # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
-    def map_key_infos(self) -> List[MapKeyInfo]:
+    def map_key_infos(self) -> list[MapKeyInfo]:
         return self._map_key_infos
 
     @property
-    def map_keys(self) -> List[str]:
+    def map_keys(self) -> list[str]:
         return [mki.key for mki in self.map_key_infos]
 
     @property
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
-    def map_key_to_type(self) -> Dict[str, Type]:
+    def map_key_to_type(self) -> dict[str, type]:
         return {mki.key: mki.value_type for mki in self.map_key_infos}
 
     @staticmethod
@@ -200,7 +202,7 @@ class MapData(Data):
 
     @staticmethod
     def from_map_evaluations(
-        evaluations: Dict[str, TMapTrialEvaluation],
+        evaluations: dict[str, TMapTrialEvaluation],
         trial_index: int,
         # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
         map_key_infos: Optional[Iterable[MapKeyInfo]] = None,
@@ -302,7 +304,7 @@ class MapData(Data):
 
     @classmethod
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-    def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
+    def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
         map_data = checked_cast(MapData, obj)
         properties = serialize_init_args(obj=map_data)
         properties["df"] = map_data.map_df
@@ -314,10 +316,10 @@ class MapData(Data):
     @classmethod
     def deserialize_init_args(
         cls,
-        args: Dict[str, Any],
+        args: dict[str, Any],
         decoder_registry: Optional[TDecoderRegistry] = None,
         class_decoder_registry: Optional[TClassDecoderRegistry] = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Given a dictionary, extract the properties needed to initialize the metric.
         Used for storage.
         """

@@ -7,7 +7,6 @@
 # pyre-strict
 
 import json
-from typing import Dict
 
 import torch
 from ax.modelbridge.base import ModelBridge
@@ -41,7 +40,7 @@ def get_modelbridge() -> ModelBridge:
 
 # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use `typing.Dict`
 #  to avoid runtime subscripting errors.
-def get_sensitivity_values(ax_model: ModelBridge) -> Dict:
+def get_sensitivity_values(ax_model: ModelBridge) -> dict:
     """
     Compute lengscale sensitivity value for on an ax model.
 

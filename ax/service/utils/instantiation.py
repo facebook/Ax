@@ -7,10 +7,11 @@
 # pyre-strict
 
 import enum
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from logging import Logger
-from typing import Any, Dict, List, Optional, Sequence, Type, Union
+from typing import Any, Optional, Union
 
 from ax.core.arm import Arm
 from ax.core.experiment import DataType, Experiment
@@ -53,12 +54,12 @@ logger: Logger = get_logger(__name__)
 """Utilities for RESTful-like instantiation of Ax classes needed in AxClient."""
 
 
-TParameterRepresentation = Dict[
-    str, Union[TParamValue, Sequence[TParamValue], Dict[str, List[str]]]
+TParameterRepresentation = dict[
+    str, Union[TParamValue, Sequence[TParamValue], dict[str, list[str]]]
 ]
 PARAM_CLASSES = ["range", "choice", "fixed"]
 PARAM_TYPES = {"int": int, "float": float, "bool": bool, "str": str}
-COMPARISON_OPS: Dict[str, ComparisonOp] = {
+COMPARISON_OPS: dict[str, ComparisonOp] = {
     "<=": ComparisonOp.LEQ,
     ">=": ComparisonOp.GEQ,
 }
@@ -131,10 +132,10 @@ class InstantiationBase:
 
     @staticmethod
     def _get_deserialized_metric_kwargs(
-        metric_class: Type[Metric],
+        metric_class: type[Metric],
         name: str,
-        metric_definitions: Optional[Dict[str, Dict[str, Any]]],
-    ) -> Dict[str, Any]:
+        metric_definitions: Optional[dict[str, dict[str, Any]]],
+    ) -> dict[str, Any]:
         """Get metric kwargs from metric_definitions if available and deserialize
         if so.  Deserialization is necessary because they were serialized on creation"""
         metric_kwargs = (metric_definitions or {}).get(name, {})
@@ -149,9 +150,9 @@ class InstantiationBase:
         cls,
         name: str,
         lower_is_better: Optional[bool] = None,
-        metric_class: Type[Metric] = Metric,
+        metric_class: type[Metric] = Metric,
         for_opt_config: bool = False,
-        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
+        metric_definitions: Optional[dict[str, dict[str, Any]]] = None,
     ) -> Metric:
         if " " in name:
             raise ValueError(
@@ -179,7 +180,7 @@ class InstantiationBase:
     @classmethod
     def _to_parameter_type(
         cls,
-        vals: List[TParamValue],
+        vals: list[TParamValue],
         typ: Optional[str],
         param_name: str,
         field_name: str,
@@ -367,7 +368,7 @@ class InstantiationBase:
 
     @staticmethod
     def constraint_from_str(
-        representation: str, parameters: Dict[str, Parameter]
+        representation: str, parameters: dict[str, Parameter]
     ) -> ParameterConstraint:
         """Parse string representation of a parameter constraint."""
         tokens = representation.split()
@@ -468,7 +469,7 @@ class InstantiationBase:
     def outcome_constraint_from_str(
         cls,
         representation: str,
-        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
+        metric_definitions: Optional[dict[str, dict[str, Any]]] = None,
     ) -> OutcomeConstraint:
         """Parse string representation of an outcome constraint."""
         tokens = representation.split()
@@ -502,7 +503,7 @@ class InstantiationBase:
     def objective_threshold_constraint_from_str(
         cls,
         representation: str,
-        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
+        metric_definitions: Optional[dict[str, dict[str, Any]]] = None,
     ) -> ObjectiveThreshold:
         oc = cls.outcome_constraint_from_str(
             representation, metric_definitions=metric_definitions
@@ -517,9 +518,9 @@ class InstantiationBase:
     @classmethod
     def make_objectives(
         cls,
-        objectives: Dict[str, str],
-        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
-    ) -> List[Objective]:
+        objectives: dict[str, str],
+        metric_definitions: Optional[dict[str, dict[str, Any]]] = None,
+    ) -> list[Objective]:
         try:
             output_objectives = []
             for metric_name, min_or_max in objectives.items():
@@ -548,10 +549,10 @@ class InstantiationBase:
     @classmethod
     def make_outcome_constraints(
         cls,
-        outcome_constraints: List[str],
+        outcome_constraints: list[str],
         status_quo_defined: bool,
-        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
-    ) -> List[OutcomeConstraint]:
+        metric_definitions: Optional[dict[str, dict[str, Any]]] = None,
+    ) -> list[OutcomeConstraint]:
 
         typed_outcome_constraints = [
             cls.outcome_constraint_from_str(c, metric_definitions=metric_definitions)
@@ -570,10 +571,10 @@ class InstantiationBase:
     @classmethod
     def make_objective_thresholds(
         cls,
-        objective_thresholds: List[str],
+        objective_thresholds: list[str],
         status_quo_defined: bool,
-        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
-    ) -> List[ObjectiveThreshold]:
+        metric_definitions: Optional[dict[str, dict[str, Any]]] = None,
+    ) -> list[ObjectiveThreshold]:
 
         typed_objective_thresholds = (
             [
@@ -597,9 +598,9 @@ class InstantiationBase:
 
     @staticmethod
     def optimization_config_from_objectives(
-        objectives: List[Objective],
-        objective_thresholds: List[ObjectiveThreshold],
-        outcome_constraints: List[OutcomeConstraint],
+        objectives: list[Objective],
+        objective_thresholds: list[ObjectiveThreshold],
+        outcome_constraints: list[OutcomeConstraint],
     ) -> OptimizationConfig:
         """Parse objectives and constraints to define optimization config.
 
@@ -636,11 +637,11 @@ class InstantiationBase:
     @classmethod
     def make_optimization_config(
         cls,
-        objectives: Dict[str, str],
-        objective_thresholds: List[str],
-        outcome_constraints: List[str],
+        objectives: dict[str, str],
+        objective_thresholds: list[str],
+        outcome_constraints: list[str],
         status_quo_defined: bool,
-        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
+        metric_definitions: Optional[dict[str, dict[str, Any]]] = None,
     ) -> OptimizationConfig:
 
         return cls.optimization_config_from_objectives(
@@ -660,9 +661,9 @@ class InstantiationBase:
     @classmethod
     def make_optimization_config_from_properties(
         cls,
-        objectives: Optional[Dict[str, ObjectiveProperties]] = None,
-        outcome_constraints: Optional[List[str]] = None,
-        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
+        objectives: Optional[dict[str, ObjectiveProperties]] = None,
+        outcome_constraints: Optional[list[str]] = None,
+        metric_definitions: Optional[dict[str, dict[str, Any]]] = None,
         status_quo_defined: bool = False,
     ) -> Optional[OptimizationConfig]:
         """Makes optimization config based on ObjectiveProperties objects
@@ -699,8 +700,8 @@ class InstantiationBase:
     @classmethod
     def make_search_space(
         cls,
-        parameters: List[TParameterRepresentation],
-        parameter_constraints: Optional[List[str]],
+        parameters: list[TParameterRepresentation],
+        parameter_constraints: Optional[list[str]],
     ) -> SearchSpace:
         parameter_constraints = (
             parameter_constraints if parameter_constraints is not None else []
@@ -758,7 +759,7 @@ class InstantiationBase:
         )
 
     @classmethod
-    def _get_default_objectives(cls) -> Optional[Dict[str, str]]:
+    def _get_default_objectives(cls) -> Optional[dict[str, str]]:
         """Get the default objective and its optimization direction.
 
         The return type is optional since some subclasses may not wish to
@@ -769,18 +770,18 @@ class InstantiationBase:
     @classmethod
     def make_experiment(
         cls,
-        parameters: List[TParameterRepresentation],
+        parameters: list[TParameterRepresentation],
         name: Optional[str] = None,
         description: Optional[str] = None,
-        owners: Optional[List[str]] = None,
-        parameter_constraints: Optional[List[str]] = None,
-        outcome_constraints: Optional[List[str]] = None,
+        owners: Optional[list[str]] = None,
+        parameter_constraints: Optional[list[str]] = None,
+        outcome_constraints: Optional[list[str]] = None,
         status_quo: Optional[TParameterization] = None,
         experiment_type: Optional[str] = None,
-        tracking_metric_names: Optional[List[str]] = None,
-        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
-        objectives: Optional[Dict[str, str]] = None,
-        objective_thresholds: Optional[List[str]] = None,
+        tracking_metric_names: Optional[list[str]] = None,
+        metric_definitions: Optional[dict[str, dict[str, Any]]] = None,
+        objectives: Optional[dict[str, str]] = None,
+        objective_thresholds: Optional[list[str]] = None,
         support_intermediate_data: bool = False,
         immutable_search_space_and_opt_config: bool = True,
         is_test: bool = False,
@@ -868,7 +869,7 @@ class InstantiationBase:
             DataType.MAP_DATA if support_intermediate_data else DataType.DATA
         )
 
-        properties: Dict[str, Any] = {}
+        properties: dict[str, Any] = {}
 
         if immutable_search_space_and_opt_config:
             properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF] = (
@@ -893,8 +894,8 @@ class InstantiationBase:
 
     @classmethod
     def build_objective_thresholds(
-        cls, objectives: Dict[str, ObjectiveProperties]
-    ) -> List[str]:
+        cls, objectives: dict[str, ObjectiveProperties]
+    ) -> list[str]:
         """Construct a list of constraint string for an objective thresholds
         interpretable by `make_experiment()`
 

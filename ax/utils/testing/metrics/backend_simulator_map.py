@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Any, List
+from typing import Any
 
 from ax.core.base_trial import BaseTrial
 from ax.core.map_metric import MapMetricFetchResult
@@ -36,7 +36,7 @@ class BackendSimulatorTimestampMapMetric(NoisyFunctionMapMetric):
             self, trial=trial, noisy=noisy, **kwargs, **timestamp_kwargs
         )
 
-    def convert_to_timestamps(self, start_time: float, end_time: float) -> List[float]:
+    def convert_to_timestamps(self, start_time: float, end_time: float) -> list[float]:
         """Given a starting and current time, get the list of intermediate
         timestamps at which we have observations."""
         raise NotImplementedError

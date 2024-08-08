@@ -7,9 +7,10 @@
 # pyre-strict
 
 import inspect
+from collections.abc import Iterable, Mapping
 
 from logging import Logger
-from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Set
+from typing import Any, Callable, Optional
 
 from ax.core import Trial
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -29,7 +30,7 @@ try:
     TORCHX_TRACKER_BASE: str = "torchx_tracker_base"
 
     # Maps TorchX AppState to Ax's TrialStatus.
-    APP_STATE_TO_TRIAL_STATUS: Dict[AppState, TrialStatus] = {
+    APP_STATE_TO_TRIAL_STATUS: dict[AppState, TrialStatus] = {
         AppState.UNSUBMITTED: TrialStatus.CANDIDATE,
         AppState.SUBMITTED: TrialStatus.STAGED,
         AppState.PENDING: TrialStatus.STAGED,
@@ -116,7 +117,7 @@ try:
             self,
             tracker_base: str,
             component: Callable[..., AppDef],
-            component_const_params: Optional[Dict[str, Any]] = None,
+            component_const_params: Optional[dict[str, Any]] = None,
             scheduler: str = "local",
             cfg: Optional[Mapping[str, CfgVal]] = None,
         ) -> None:
@@ -128,9 +129,9 @@ try:
             # on the same scheduler instance
             self._torchx_runner: torchx_Runner = get_runner()
             self._tracker_base = tracker_base
-            self._component_const_params: Dict[str, Any] = component_const_params or {}
+            self._component_const_params: dict[str, Any] = component_const_params or {}
 
-        def run(self, trial: BaseTrial) -> Dict[str, Any]:
+        def run(self, trial: BaseTrial) -> dict[str, Any]:
             """
             Submits the trial (which maps to an AppDef) as a job
             onto the scheduler using ``torchx.runner``.
@@ -165,8 +166,8 @@ try:
 
         def poll_trial_status(
             self, trials: Iterable[BaseTrial]
-        ) -> Dict[TrialStatus, Set[int]]:
-            trial_statuses: Dict[TrialStatus, Set[int]] = {}
+        ) -> dict[TrialStatus, set[int]]:
+            trial_statuses: dict[TrialStatus, set[int]] = {}
 
             for trial in trials:
                 app_handle: str = trial.run_metadata[TORCHX_APP_HANDLE]
@@ -181,7 +182,7 @@ try:
 
         def stop(
             self, trial: BaseTrial, reason: Optional[str] = None
-        ) -> Dict[str, Any]:
+        ) -> dict[str, Any]:
             """Kill the given trial."""
             app_handle: str = trial.run_metadata[TORCHX_APP_HANDLE]
             self._torchx_runner.stop(app_handle)

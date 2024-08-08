@@ -7,7 +7,7 @@
 # pyre-strict
 
 from itertools import accumulate
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -47,7 +47,7 @@ def load_mnist(
     num_workers: int = 0,
     deterministic_partitions: bool = False,
     downsample_pct_test: Optional[float] = None,
-) -> Tuple[DataLoader, DataLoader, DataLoader]:
+) -> tuple[DataLoader, DataLoader, DataLoader]:
     """
     Load MNIST dataset (download if necessary) and split data into training,
         validation, and test sets.
@@ -103,7 +103,7 @@ def get_partition_data_loaders(
     num_workers: int = 0,
     deterministic_partitions: bool = False,
     downsample_pct_test: Optional[float] = None,
-) -> Tuple[DataLoader, DataLoader, DataLoader]:
+) -> tuple[DataLoader, DataLoader, DataLoader]:
     """
     Helper function for partitioning training data into training and validation sets,
         downsampling data, and initializing DataLoaders for each partition.
@@ -164,8 +164,8 @@ def get_partition_data_loaders(
 
 
 def split_dataset(
-    dataset: Dataset, lengths: List[int], deterministic_partitions: bool = False
-) -> List[Dataset]:
+    dataset: Dataset, lengths: list[int], deterministic_partitions: bool = False
+) -> list[Dataset]:
     """
     Split a dataset either randomly or deterministically.
 
@@ -191,7 +191,7 @@ def split_dataset(
 def train(
     net: torch.nn.Module,
     train_loader: DataLoader,
-    parameters: Dict[str, float],
+    parameters: dict[str, float],
     dtype: torch.dtype,
     device: torch.device,
 ) -> nn.Module:

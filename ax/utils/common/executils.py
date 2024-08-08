@@ -9,9 +9,10 @@
 import asyncio
 import functools
 import time
+from collections.abc import Generator
 from contextlib import contextmanager
 from logging import Logger
-from typing import Any, Generator, List, Optional, Tuple, Type
+from typing import Any, Optional
 
 
 MAX_WAIT_SECONDS: int = 600
@@ -19,9 +20,9 @@ MAX_WAIT_SECONDS: int = 600
 
 # pyre-fixme[3]: Return annotation cannot be `Any`.
 def retry_on_exception(
-    exception_types: Optional[Tuple[Type[Exception], ...]] = None,
-    no_retry_on_exception_types: Optional[Tuple[Type[Exception], ...]] = None,
-    check_message_contains: Optional[List[str]] = None,
+    exception_types: Optional[tuple[type[Exception], ...]] = None,
+    no_retry_on_exception_types: Optional[tuple[type[Exception], ...]] = None,
+    check_message_contains: Optional[list[str]] = None,
     retries: int = 3,
     suppress_all_errors: bool = False,
     logger: Optional[Logger] = None,
@@ -173,8 +174,8 @@ def retry_on_exception(
 
 @contextmanager
 def handle_exceptions_in_retries(
-    no_retry_exceptions: Tuple[Type[Exception], ...],
-    retry_exceptions: Tuple[Type[Exception], ...],
+    no_retry_exceptions: tuple[type[Exception], ...],
+    retry_exceptions: tuple[type[Exception], ...],
     suppress_errors: bool,
     check_message_contains: Optional[str],
     last_retry: bool,
@@ -214,11 +215,11 @@ def handle_exceptions_in_retries(
 
 
 def _validate_and_fill_defaults(
-    retry_on_exception_types: Optional[Tuple[Type[Exception], ...]],
-    no_retry_on_exception_types: Optional[Tuple[Type[Exception], ...]],
+    retry_on_exception_types: Optional[tuple[type[Exception], ...]],
+    no_retry_on_exception_types: Optional[tuple[type[Exception], ...]],
     suppress_errors: bool,
     **kwargs: Any,
-) -> Tuple[Tuple[Type[Exception], ...], Tuple[Type[Exception], ...], bool]:
+) -> tuple[tuple[type[Exception], ...], tuple[type[Exception], ...], bool]:
     if retry_on_exception_types is None:
         # If no exception type provided, we catch all errors.
         retry_on_exception_types = (Exception,)

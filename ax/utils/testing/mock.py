@@ -5,9 +5,10 @@
 
 # pyre-strict
 
+from collections.abc import Generator
 from contextlib import contextmanager, ExitStack
 from functools import wraps
-from typing import Any, Callable, Dict, Generator, Optional
+from typing import Any, Callable, Optional
 from unittest import mock
 
 from botorch.fit import fit_fully_bayesian_model_nuts
@@ -153,7 +154,7 @@ def skip_fit_gpytorch_mll(f: Callable) -> Callable:
     return inner
 
 
-def _get_minimal_mcmc_kwargs(**kwargs: Any) -> Dict[str, Any]:
+def _get_minimal_mcmc_kwargs(**kwargs: Any) -> dict[str, Any]:
     kwargs["warmup_steps"] = 0
     # Just get as many samples as otherwise expected.
     kwargs["num_samples"] = kwargs.get("num_samples", 256) // kwargs.get("thinning", 16)

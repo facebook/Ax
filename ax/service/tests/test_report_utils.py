@@ -10,7 +10,6 @@ import copy
 import itertools
 from collections import namedtuple
 from logging import INFO, WARN
-from typing import Dict, List
 from unittest import mock
 from unittest.mock import patch
 
@@ -67,8 +66,8 @@ from plotly import graph_objects as go
 
 OBJECTIVE_NAME = "branin"
 PARAMETER_COLUMNS = ["x1", "x2"]
-FLOAT_COLUMNS: List[str] = [OBJECTIVE_NAME] + PARAMETER_COLUMNS
-EXPECTED_COLUMNS: List[str] = [
+FLOAT_COLUMNS: list[str] = [OBJECTIVE_NAME] + PARAMETER_COLUMNS
+EXPECTED_COLUMNS: list[str] = [
     "trial_index",
     "arm_name",
     "trial_status",
@@ -156,7 +155,7 @@ class ReportUtilsTest(TestCase):
 
         def compute_maximum_map_values_timestamp(
             experiment: Experiment,
-        ) -> Dict[int, float]:
+        ) -> dict[int, float]:
             return compute_maximum_map_values(
                 experiment=experiment, map_key="timestamp"
             )

@@ -8,7 +8,7 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from logging import INFO
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
@@ -134,7 +134,7 @@ class SchedulerOptions:
     global_stopping_strategy: Optional[BaseGlobalStoppingStrategy] = None
     suppress_storage_errors_after_retries: bool = False
     wait_for_running_trials: bool = True
-    fetch_kwargs: Dict[str, Any] = field(default_factory=dict)
+    fetch_kwargs: dict[str, Any] = field(default_factory=dict)
     validate_metrics: bool = True
     status_quo_weight: float = 0.0
     enforce_immutable_search_space_and_opt_config: bool = True

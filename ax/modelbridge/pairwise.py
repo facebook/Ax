@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import torch
@@ -27,13 +27,13 @@ class PairwiseModelBridge(TorchModelBridge):
 
     def _convert_observations(
         self,
-        observation_data: List[ObservationData],
-        observation_features: List[ObservationFeatures],
-        outcomes: List[str],
-        parameters: List[str],
+        observation_data: list[ObservationData],
+        observation_features: list[ObservationFeatures],
+        outcomes: list[str],
+        parameters: list[str],
         search_space_digest: Optional[SearchSpaceDigest],
-    ) -> Tuple[
-        List[SupervisedDataset], List[str], Optional[List[List[TCandidateMetadata]]]
+    ) -> tuple[
+        list[SupervisedDataset], list[str], Optional[list[list[TCandidateMetadata]]]
     ]:
         """Converts observations to a dictionary of `Dataset` containers and (optional)
         candidate metadata.
@@ -54,7 +54,7 @@ class PairwiseModelBridge(TorchModelBridge):
             observation_data, observation_features, parameters
         )
 
-        datasets: List[SupervisedDataset] = []
+        datasets: list[SupervisedDataset] = []
         candidate_metadata = []
         for outcome in outcomes:
             X = torch.stack(Xs[outcome], dim=0)
@@ -82,8 +82,8 @@ class PairwiseModelBridge(TorchModelBridge):
         return datasets, outcomes, candidate_metadata
 
     def _predict(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationData]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationData]:
         # TODO: Implement `_predict` to enable examining predicted effects
         raise NotImplementedError
 
@@ -92,7 +92,7 @@ def _prep_pairwise_data(
     X: Tensor,
     Y: Tensor,
     outcome: str,
-    parameters: List[str],
+    parameters: list[str],
 ) -> SupervisedDataset:
     """Prep data for pairwise modeling."""
     # Update Xs and Ys shapes for PairwiseGP
@@ -129,7 +129,7 @@ def _binary_pref_to_comp_pair(Y: Tensor) -> Tensor:
     return comparison_pairs
 
 
-def _consolidate_comparisons(X: Tensor, Y: Tensor) -> Tuple[Tensor, Tensor]:
+def _consolidate_comparisons(X: Tensor, Y: Tensor) -> tuple[Tensor, Tensor]:
     """Drop duplicated Xs and update the indices in Ys accordingly"""
     if Y.shape[-1] != 2:
         raise ValueError(

@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import torch
 from ax.models.torch.botorch import BotorchModel
@@ -27,7 +27,7 @@ class LCEMBO(BotorchModel):
         self,
         context_cat_feature: Optional[Tensor] = None,
         context_emb_feature: Optional[Tensor] = None,
-        embs_dim_list: Optional[List[int]] = None,
+        embs_dim_list: Optional[list[int]] = None,
     ) -> None:
         self.context_cat_feature = context_cat_feature
         self.context_emb_feature = context_emb_feature
@@ -36,13 +36,13 @@ class LCEMBO(BotorchModel):
 
     def get_and_fit_model(
         self,
-        Xs: List[Tensor],
-        Ys: List[Tensor],
-        Yvars: List[Tensor],
-        task_features: List[int],
-        fidelity_features: List[int],
-        metric_names: List[str],
-        state_dict: Optional[Dict[str, Tensor]] = None,
+        Xs: list[Tensor],
+        Ys: list[Tensor],
+        Yvars: list[Tensor],
+        task_features: list[int],
+        fidelity_features: list[int],
+        metric_names: list[str],
+        state_dict: Optional[dict[str, Tensor]] = None,
         fidelity_model_id: Optional[int] = None,
         **kwargs: Any,
     ) -> ModelListGP:

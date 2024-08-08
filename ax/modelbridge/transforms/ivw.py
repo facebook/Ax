@@ -7,7 +7,6 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Dict, List
 
 import numpy as np
 from ax.core.observation import ObservationData
@@ -49,8 +48,8 @@ def ivw_metric_merge(
     # weights is a map from metric name to a vector of the weights for each
     # measurement of that metric. indicies gives the corresponding index in
     # obsd.means for each measurement.
-    weights: Dict[str, np.ndarray] = {}
-    indicies: Dict[str, List[int]] = {}
+    weights: dict[str, np.ndarray] = {}
+    indicies: dict[str, list[int]] = {}
     for metric_name in set(obsd.metric_names):
         indcs = [i for i, mn in enumerate(obsd.metric_names) if mn == metric_name]
         indicies[metric_name] = indcs
@@ -114,8 +113,8 @@ class IVW(Transform):
 
     def _transform_observation_data(
         self,
-        observation_data: List[ObservationData],
-    ) -> List[ObservationData]:
+        observation_data: list[ObservationData],
+    ) -> list[ObservationData]:
         # pyre: conflicting_noiseless is declared to have type `str` but is
         # pyre-fixme[9]: used as type `typing.Union[float, int, str]`.
         conflicting_noiseless: str = self.config.get("conflicting_noiseless", "warn")

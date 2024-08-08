@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Optional
 
 import numpy as np
 from ax.core.base_trial import TrialStatus
@@ -310,15 +310,15 @@ def sobol_gpei_generation_node_gs(
     return sobol_mbm_GS_nodes
 
 
-def get_transform_type() -> Type[Transform]:
+def get_transform_type() -> type[Transform]:
     return IntToFloat
 
 
-def get_input_transform_type() -> Type[InputTransform]:
+def get_input_transform_type() -> type[InputTransform]:
     return Normalize
 
 
-def get_outcome_transfrom_type() -> Type[OutcomeTransform]:
+def get_outcome_transfrom_type() -> type[OutcomeTransform]:
     return Standardize
 
 
@@ -326,7 +326,7 @@ def get_experiment_for_value() -> Experiment:
     return Experiment(get_search_space_for_value(), "test")
 
 
-def get_legacy_list_surrogate_generation_step_as_dict() -> Dict[str, Any]:
+def get_legacy_list_surrogate_generation_step_as_dict() -> dict[str, Any]:
     """
     For use ensuring backwards compatibility loading the now deprecated ListSurrogate.
     """
@@ -451,7 +451,7 @@ def get_surrogate_generation_step() -> GenerationStep:
     )
 
 
-def get_surrogate_as_dict() -> Dict[str, Any]:
+def get_surrogate_as_dict() -> dict[str, Any]:
     """
     For use ensuring backwards compatibility when loading Surrogate
     with input_transform and outcome_transform kwargs.
@@ -481,7 +481,7 @@ def get_surrogate_as_dict() -> Dict[str, Any]:
 
 def get_surrogate_spec_as_dict(
     model_class: Optional[str] = None, with_legacy_input_transform: bool = False
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     For use ensuring backwards compatibility when loading SurrogateSpec
     with input_transform and outcome_transform kwargs.
@@ -567,8 +567,8 @@ class transform_1(Transform):
         )
 
     def transform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             for p_name in obsf.parameters:
                 obsf.parameters[p_name] += 1  # pyre-ignore
@@ -576,15 +576,15 @@ class transform_1(Transform):
 
     def _transform_observation_data(
         self,
-        observation_data: List[ObservationData],
-    ) -> List[ObservationData]:
+        observation_data: list[ObservationData],
+    ) -> list[ObservationData]:
         for obsd in observation_data:
             obsd.means += 1
         return observation_data
 
     def untransform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             for p_name in obsf.parameters:
                 obsf.parameters[p_name] -= 1  # pyre-ignore
@@ -592,8 +592,8 @@ class transform_1(Transform):
 
     def _untransform_observation_data(
         self,
-        observation_data: List[ObservationData],
-    ) -> List[ObservationData]:
+        observation_data: list[ObservationData],
+    ) -> list[ObservationData]:
         for obsd in observation_data:
             obsd.means -= 1
         return observation_data
@@ -626,8 +626,8 @@ class transform_2(Transform):
         )
 
     def transform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             for pname in obsf.parameters:
                 obsf.parameters[pname] = obsf.parameters[pname] ** 2  # pyre-ignore
@@ -635,15 +635,15 @@ class transform_2(Transform):
 
     def _transform_observation_data(
         self,
-        observation_data: List[ObservationData],
-    ) -> List[ObservationData]:
+        observation_data: list[ObservationData],
+    ) -> list[ObservationData]:
         for obsd in observation_data:
             obsd.means = obsd.means**2
         return observation_data
 
     def untransform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             for pname in obsf.parameters:
                 obsf.parameters[pname] = np.sqrt(obsf.parameters[pname])
@@ -651,8 +651,8 @@ class transform_2(Transform):
 
     def _untransform_observation_data(
         self,
-        observation_data: List[ObservationData],
-    ) -> List[ObservationData]:
+        observation_data: list[ObservationData],
+    ) -> list[ObservationData]:
         for obsd in observation_data:
             obsd.means = np.sqrt(obsd.means)
         return observation_data

@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 
 from logging import Logger
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import numpy as np
 
@@ -73,8 +73,8 @@ try:
             return True
 
         def bulk_fetch_trial_data(
-            self, trial: BaseTrial, metrics: List[Metric], **kwargs: Any
-        ) -> Dict[str, MetricFetchResult]:
+            self, trial: BaseTrial, metrics: list[Metric], **kwargs: Any
+        ) -> dict[str, MetricFetchResult]:
             """Fetch multiple metrics data for one trial, using instance attributes
             of the metrics.
 

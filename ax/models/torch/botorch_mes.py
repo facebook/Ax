@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -153,7 +153,7 @@ class MaxValueEntropySearch(BotorchModel):
 
         # optimize and get new points
         botorch_rounding_func = get_rounding_func(torch_opt_config.rounding_func)
-        opt_options: Dict[str, Union[bool, float, int, str]] = {
+        opt_options: dict[str, Union[bool, float, int, str]] = {
             "batch_limit": 8,
             "maxiter": 200,
             "method": "L-BFGS-B",
@@ -182,13 +182,13 @@ class MaxValueEntropySearch(BotorchModel):
         X_observed: Tensor,
         objective_weights: Tensor,
         mc_samples: int = 512,
-        fixed_features: Optional[Dict[int, float]] = None,
-        target_fidelities: Optional[Dict[int, float]] = None,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+        fixed_features: Optional[dict[int, float]] = None,
+        target_fidelities: Optional[dict[int, float]] = None,
+        outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
         seed_inner: Optional[int] = None,
         qmc: bool = True,
         **kwargs: Any,
-    ) -> Tuple[AcquisitionFunction, Optional[List[int]]]:
+    ) -> tuple[AcquisitionFunction, Optional[list[int]]]:
         # `outcome_constraints` is validated to be None in `gen`
         if outcome_constraints is not None:
             raise UnsupportedError("Outcome constraints not yet supported.")
@@ -221,8 +221,8 @@ def _instantiate_MES(
     X_pending: Optional[Tensor] = None,
     maximize: bool = True,
     num_trace_observations: int = 0,
-    target_fidelities: Optional[Dict[int, float]] = None,
-    fidelity_weights: Optional[Dict[int, float]] = None,
+    target_fidelities: Optional[dict[int, float]] = None,
+    fidelity_weights: Optional[dict[int, float]] = None,
     cost_intercept: float = 1.0,
 ) -> qMaxValueEntropy:
     if target_fidelities:

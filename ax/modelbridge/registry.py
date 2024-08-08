@@ -22,7 +22,7 @@ import warnings
 from enum import Enum
 from inspect import isfunction, signature
 from logging import Logger
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
+from typing import Any, NamedTuple, Optional
 
 import torch
 from ax.core.data import Data
@@ -81,7 +81,7 @@ from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 
 logger: Logger = get_logger(__name__)
 
-Cont_X_trans: List[Type[Transform]] = [
+Cont_X_trans: list[type[Transform]] = [
     RemoveFixed,
     OrderedChoiceToIntegerRange,
     OneHot,
@@ -91,9 +91,9 @@ Cont_X_trans: List[Type[Transform]] = [
     UnitX,
 ]
 
-Discrete_X_trans: List[Type[Transform]] = [IntRangeToChoice]
+Discrete_X_trans: list[type[Transform]] = [IntRangeToChoice]
 
-Mixed_transforms: List[Type[Transform]] = [
+Mixed_transforms: list[type[Transform]] = [
     RemoveFixed,
     ChoiceToNumericChoice,
     IntToFloat,
@@ -102,16 +102,16 @@ Mixed_transforms: List[Type[Transform]] = [
     UnitX,
 ]
 
-EB_ashr_trans: List[Type[Transform]] = [Relativize, IVW, SearchSpaceToChoice]
+EB_ashr_trans: list[type[Transform]] = [Relativize, IVW, SearchSpaceToChoice]
 
-Y_trans: List[Type[Transform]] = [IVW, Derelativize, StandardizeY]
+Y_trans: list[type[Transform]] = [IVW, Derelativize, StandardizeY]
 
 # Expected `List[Type[Transform]]` for 2nd anonymous parameter to
 # call `list.__add__` but got `List[Type[SearchSpaceToChoice]]`.
-TS_trans: List[Type[Transform]] = Y_trans + [SearchSpaceToChoice]
+TS_trans: list[type[Transform]] = Y_trans + [SearchSpaceToChoice]
 
 # Multi-type MTGP transforms
-MT_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
+MT_MTGP_trans: list[type[Transform]] = Cont_X_trans + [
     Derelativize,
     ConvertMetricNames,
     TrialAsTask,
@@ -120,7 +120,7 @@ MT_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
 ]
 
 # Single-type MTGP transforms
-ST_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
+ST_MTGP_trans: list[type[Transform]] = Cont_X_trans + [
     Derelativize,
     TrialAsTask,
     StratifiedStandardizeY,
@@ -128,13 +128,13 @@ ST_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
 ]
 
 # Single-type MTGP transforms
-Specified_Task_ST_MTGP_trans: List[Type[Transform]] = Cont_X_trans + [
+Specified_Task_ST_MTGP_trans: list[type[Transform]] = Cont_X_trans + [
     Derelativize,
     StratifiedStandardizeY,
     TaskChoiceToIntTaskChoice,
 ]
 
-STANDARD_TORCH_BRIDGE_KWARGS: Dict[str, Any] = {"torch_dtype": torch.double}
+STANDARD_TORCH_BRIDGE_KWARGS: dict[str, Any] = {"torch_dtype": torch.double}
 
 
 class ModelSetup(NamedTuple):
@@ -144,19 +144,19 @@ class ModelSetup(NamedTuple):
     such as BoTorch GP+EI, a Thompson sampler, or a Sobol quasirandom generator.
     """
 
-    bridge_class: Type[ModelBridge]
-    model_class: Type[Model]
-    transforms: List[Type[Transform]]
-    default_model_kwargs: Optional[Dict[str, Any]] = None
-    standard_bridge_kwargs: Optional[Dict[str, Any]] = None
-    not_saved_model_kwargs: Optional[List[str]] = None
+    bridge_class: type[ModelBridge]
+    model_class: type[Model]
+    transforms: list[type[Transform]]
+    default_model_kwargs: Optional[dict[str, Any]] = None
+    standard_bridge_kwargs: Optional[dict[str, Any]] = None
+    not_saved_model_kwargs: Optional[list[str]] = None
 
 
 """A mapping of string keys that indicate a model, to the corresponding
 model setup, which defines which model, model bridge, transforms, and
 standard arguments a given model requires.
 """
-MODEL_KEY_TO_MODEL_SETUP: Dict[str, ModelSetup] = {
+MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
     "BoTorch": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=ModularBoTorchModel,
@@ -265,12 +265,12 @@ class ModelRegistryBase(Enum):
     """
 
     @property
-    def model_class(self) -> Type[Model]:
+    def model_class(self) -> type[Model]:
         """Type of `Model` used for the given model+bridge setup."""
         return MODEL_KEY_TO_MODEL_SETUP[self.value].model_class
 
     @property
-    def model_bridge_class(self) -> Type[ModelBridge]:
+    def model_bridge_class(self) -> type[ModelBridge]:
         """Type of `ModelBridge` used for the given model+bridge setup."""
         return MODEL_KEY_TO_MODEL_SETUP[self.value].bridge_class
 
@@ -343,7 +343,7 @@ class ModelRegistryBase(Enum):
         )
         return model_bridge
 
-    def view_defaults(self) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    def view_defaults(self) -> tuple[dict[str, Any], dict[str, Any]]:
         """Obtains the default keyword arguments for the model and the modelbridge
         specified through the Models enum, for ease of use in notebook environment,
         since models and bridges cannot be inspected directly through the enum.
@@ -357,7 +357,7 @@ class ModelRegistryBase(Enum):
             self._get_bridge_kwargs(info=model_setup_info),
         )
 
-    def view_kwargs(self) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    def view_kwargs(self) -> tuple[dict[str, Any], dict[str, Any]]:
         """Obtains annotated keyword arguments that the model and the modelbridge
         (corresponding to a given member of the Models enum) constructors expect.
 
@@ -373,8 +373,8 @@ class ModelRegistryBase(Enum):
 
     @staticmethod
     def _get_model_kwargs(
-        info: ModelSetup, kwargs: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        info: ModelSetup, kwargs: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
         return consolidate_kwargs(
             [get_function_default_arguments(info.model_class), kwargs],
             keywords=get_function_argument_names(info.model_class),
@@ -382,8 +382,8 @@ class ModelRegistryBase(Enum):
 
     @staticmethod
     def _get_bridge_kwargs(
-        info: ModelSetup, kwargs: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        info: ModelSetup, kwargs: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
         return consolidate_kwargs(
             [
                 get_function_default_arguments(info.bridge_class),
@@ -474,7 +474,7 @@ def get_model_from_generator_run(
     generator_run: GeneratorRun,
     experiment: Experiment,
     data: Data,
-    models_enum: Type[ModelRegistryBase],
+    models_enum: type[ModelRegistryBase],
     after_gen: bool = True,
 ) -> ModelBridge:
     """Reinstantiate a model from model key and kwargs stored on a given generator
@@ -528,9 +528,9 @@ def get_model_from_generator_run(
 
 def _combine_model_kwargs_and_state(
     generator_run: GeneratorRun,
-    model_class: Type[Model],
-    model_kwargs: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    model_class: type[Model],
+    model_kwargs: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     """Produces a combined dict of model kwargs and model state after gen,
     extracted from generator run. If model kwargs are not specified,
     model kwargs from the generator run will be used.
@@ -550,8 +550,8 @@ def _combine_model_kwargs_and_state(
 
 
 def _extract_model_state_after_gen(
-    generator_run: GeneratorRun, model_class: Type[Model]
-) -> Dict[str, Any]:
+    generator_run: GeneratorRun, model_class: type[Model]
+) -> dict[str, Any]:
     """Extracts serialized post-generation model state from a generator run and
     deserializes it. Fails if no post-generation model state was specified on the
     generator run.
@@ -562,7 +562,7 @@ def _extract_model_state_after_gen(
     return model_class.deserialize_state(serialized_model_state)
 
 
-def _encode_callables_as_references(kwarg_dict: Dict[str, Any]) -> Dict[str, Any]:
+def _encode_callables_as_references(kwarg_dict: dict[str, Any]) -> dict[str, Any]:
     """Converts callables to references of form <module>.<qualname>, and returns
     the resulting dictionary.
     """
@@ -576,7 +576,7 @@ def _encode_callables_as_references(kwarg_dict: Dict[str, Any]) -> Dict[str, Any
     }
 
 
-def _decode_callables_from_references(kwarg_dict: Dict[str, Any]) -> Dict[str, Any]:
+def _decode_callables_from_references(kwarg_dict: dict[str, Any]) -> dict[str, Any]:
     """Retrieves callables from references of form <module>.<qualname>, and returns
     the resulting dictionary.
     """

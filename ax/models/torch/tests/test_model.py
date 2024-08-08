@@ -10,7 +10,6 @@ import dataclasses
 from collections import OrderedDict
 from copy import deepcopy
 from itertools import product
-from typing import Dict, Type
 from unittest import mock
 from unittest.mock import Mock
 
@@ -64,7 +63,7 @@ MODEL_PATH: str = BoTorchModel.__module__
 SURROGATE_PATH: str = Surrogate.__module__
 ACQUISITION_PATH: str = Acquisition.__module__
 
-ACQ_OPTIONS: Dict[str, SobolQMCNormalSampler] = {
+ACQ_OPTIONS: dict[str, SobolQMCNormalSampler] = {
     Keys.SAMPLER: SobolQMCNormalSampler(sample_shape=torch.Size([1024]))
 }
 
@@ -469,7 +468,7 @@ class BoTorchModelTest(TestCase):
         mock_choose_botorch_acqf_class: Mock,
         mock_optimize: Mock,
         mock_construct_options: Mock,
-        botorch_model_class: Type[Model],
+        botorch_model_class: type[Model],
         search_space_digest: SearchSpaceDigest,
     ) -> None:
         qLogNEI_input_constructor = get_acqf_input_constructor(

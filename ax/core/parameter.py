@@ -12,7 +12,7 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 from copy import deepcopy
 from enum import Enum
 from math import inf
-from typing import cast, Dict, List, Optional, Tuple, Type, Union
+from typing import cast, Optional, Union
 from warnings import warn
 
 from ax.core.types import TNumeric, TParamValue, TParamValueList
@@ -51,27 +51,27 @@ class ParameterType(Enum):
         return self == ParameterType.INT or self == ParameterType.FLOAT
 
 
-TParameterType = Union[Type[int], Type[float], Type[str], Type[bool]]
+TParameterType = Union[type[int], type[float], type[str], type[bool]]
 
 # pyre: PARAMETER_PYTHON_TYPE_MAP is declared to have type
 # pyre: `Dict[ParameterType, Union[Type[bool], Type[float], Type[int],
 # pyre: Type[str]]]` but is used as type `Dict[ParameterType,
 # pyre-fixme[9]: Type[Union[float, str]]]`.
-PARAMETER_PYTHON_TYPE_MAP: Dict[ParameterType, TParameterType] = {
+PARAMETER_PYTHON_TYPE_MAP: dict[ParameterType, TParameterType] = {
     ParameterType.INT: int,
     ParameterType.FLOAT: float,
     ParameterType.STRING: str,
     ParameterType.BOOL: bool,
 }
 
-SUPPORTED_PARAMETER_TYPES: Tuple[
-    Union[Type[bool], Type[float], Type[int], Type[str]], ...
+SUPPORTED_PARAMETER_TYPES: tuple[
+    Union[type[bool], type[float], type[int], type[str]], ...
 ] = tuple(PARAMETER_PYTHON_TYPE_MAP.values())
 
 
 # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
 #  avoid runtime subscripting errors.
-def _get_parameter_type(python_type: Type) -> ParameterType:
+def _get_parameter_type(python_type: type) -> ParameterType:
     """Given a Python type, retrieve corresponding Ax ``ParameterType``."""
     for param_type, py_type in PARAMETER_PYTHON_TYPE_MAP.items():
         if py_type == python_type:
@@ -138,7 +138,7 @@ class Parameter(SortableBase, metaclass=ABCMeta):
         return self._name
 
     @property
-    def dependents(self) -> Dict[TParamValue, List[str]]:
+    def dependents(self) -> dict[TParamValue, list[str]]:
         raise NotImplementedError(
             "Only choice hierarchical parameters are currently supported."
         )
@@ -182,14 +182,14 @@ class Parameter(SortableBase, metaclass=ABCMeta):
         pass
 
     @property
-    def available_flags(self) -> List[str]:
+    def available_flags(self) -> list[str]:
         """List of boolean attributes that can be set on this parameter."""
         return ["is_fidelity"]
 
     @property
     def summary_dict(
         self,
-    ) -> Dict[str, Union[TParamValueList, TParamValue, str, List[str]]]:
+    ) -> dict[str, Union[TParamValueList, TParamValue, str, list[str]]]:
 
         # Assemble dict.
         summary_dict = {
@@ -495,7 +495,7 @@ class RangeParameter(Parameter):
         return ret_val + ")"
 
     @property
-    def available_flags(self) -> List[str]:
+    def available_flags(self) -> list[str]:
         """List of boolean attributes that can be set on this parameter."""
         return super().available_flags + ["log_scale", "logit_scale"]
 
@@ -531,13 +531,13 @@ class ChoiceParameter(Parameter):
         self,
         name: str,
         parameter_type: ParameterType,
-        values: List[TParamValue],
+        values: list[TParamValue],
         is_ordered: Optional[bool] = None,
         is_task: bool = False,
         is_fidelity: bool = False,
         target_value: TParamValue = None,
         sort_values: Optional[bool] = None,
-        dependents: Optional[Dict[TParamValue, List[str]]] = None,
+        dependents: Optional[dict[TParamValue, list[str]]] = None,
     ) -> None:
         if (is_fidelity or is_task) and (target_value is None):
             ptype = "fidelity" if is_fidelity else "task"
@@ -591,8 +591,8 @@ class ChoiceParameter(Parameter):
             else self._get_default_sort_values_and_warn()
         )
         if self.sort_values:
-            values = cast(List[TParamValue], sorted([not_none(v) for v in values]))
-        self._values: List[TParamValue] = self._cast_values(values)
+            values = cast(list[TParamValue], sorted([not_none(v) for v in values]))
+        self._values: list[TParamValue] = self._cast_values(values)
 
         if dependents:
             for value in dependents:
@@ -653,10 +653,10 @@ class ChoiceParameter(Parameter):
         return self._is_task
 
     @property
-    def values(self) -> List[TParamValue]:
+    def values(self) -> list[TParamValue]:
         return self._values
 
-    def set_values(self, values: List[TParamValue]) -> ChoiceParameter:
+    def set_values(self, values: list[TParamValue]) -> ChoiceParameter:
         """Set the list of allowed values for parameter.
 
         Cast all input values to the parameter type.
@@ -670,7 +670,7 @@ class ChoiceParameter(Parameter):
         self._values = self._cast_values(values)
         return self
 
-    def add_values(self, values: List[TParamValue]) -> ChoiceParameter:
+    def add_values(self, values: list[TParamValue]) -> ChoiceParameter:
         """Add input list to the set of allowed values for parameter.
 
         Cast all input values to the parameter type.
@@ -693,14 +693,14 @@ class ChoiceParameter(Parameter):
         return value in self._values
 
     @property
-    def dependents(self) -> Dict[TParamValue, List[str]]:
+    def dependents(self) -> dict[TParamValue, list[str]]:
         if not self.is_hierarchical:
             raise NotImplementedError(
                 "Only hierarchical parameters support the `dependents` property."
             )
         return not_none(self._dependents)
 
-    def _cast_values(self, values: List[TParamValue]) -> List[TParamValue]:
+    def _cast_values(self, values: list[TParamValue]) -> list[TParamValue]:
         return [self.cast(value) for value in values]
 
     def clone(self) -> ChoiceParameter:
@@ -725,7 +725,7 @@ class ChoiceParameter(Parameter):
         return ret_val + ")"
 
     @property
-    def available_flags(self) -> List[str]:
+    def available_flags(self) -> list[str]:
         """List of boolean attributes that can be set on this parameter."""
         return super().available_flags + [
             "is_ordered",
@@ -750,7 +750,7 @@ class FixedParameter(Parameter):
         value: TParamValue,
         is_fidelity: bool = False,
         target_value: TParamValue = None,
-        dependents: Optional[Dict[TParamValue, List[str]]] = None,
+        dependents: Optional[dict[TParamValue, list[str]]] = None,
     ) -> None:
         """Initialize FixedParameter
 
@@ -808,7 +808,7 @@ class FixedParameter(Parameter):
         return value == self._value
 
     @property
-    def dependents(self) -> Dict[TParamValue, List[str]]:
+    def dependents(self) -> dict[TParamValue, list[str]]:
         if not self.is_hierarchical:
             raise NotImplementedError(
                 "Only hierarchical parameters support the `dependents` property."
@@ -830,7 +830,7 @@ class FixedParameter(Parameter):
         return ret_val + ")"
 
     @property
-    def available_flags(self) -> List[str]:
+    def available_flags(self) -> list[str]:
         """List of boolean attributes that can be set on this parameter."""
         return super().available_flags + ["is_hierarchical"]
 

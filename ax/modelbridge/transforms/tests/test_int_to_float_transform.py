@@ -7,7 +7,6 @@
 # pyre-strict
 
 from copy import deepcopy
-from typing import List
 from unittest import mock
 
 from ax.core.observation import ObservationFeatures
@@ -24,7 +23,7 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 class IntToFloatTransformTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        parameters: List[Parameter] = [
+        parameters: list[Parameter] = [
             RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.FLOAT),
             RangeParameter("a", lower=1, upper=2, parameter_type=ParameterType.INT),
             RangeParameter("d", lower=1, upper=3, parameter_type=ParameterType.INT),

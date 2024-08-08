@@ -11,13 +11,13 @@ from __future__ import annotations
 import inspect
 import pydoc
 from types import FunctionType
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, Callable, Optional, TypeVar, Union
 
 
 T = TypeVar("T")
-TDecoderRegistry = Dict[str, Union[Type[T], Callable[..., T]]]
+TDecoderRegistry = dict[str, Union[type[T], Callable[..., T]]]
 # pyre-fixme[33]: `TClassDecoderRegistry` cannot alias to a type containing `Any`.
-TClassDecoderRegistry = Dict[str, Callable[[Dict[str, Any]], Any]]
+TClassDecoderRegistry = dict[str, Callable[[dict[str, Any]], Any]]
 
 
 # https://stackoverflow.com/a/39235373
@@ -78,8 +78,8 @@ def callable_from_reference(path: str) -> Callable:
 def serialize_init_args(
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     obj: Any,
-    exclude_fields: Optional[List[str]] = None,
-) -> Dict[str, Any]:
+    exclude_fields: Optional[list[str]] = None,
+) -> dict[str, Any]:
     """Given an object, return a dictionary of the arguments that are
     needed by its constructor.
     """
@@ -102,7 +102,7 @@ def serialize_init_args(
 
 # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
 #  avoid runtime subscripting errors.
-def extract_init_args(args: Dict[str, Any], class_: Type) -> Dict[str, Any]:
+def extract_init_args(args: dict[str, Any], class_: type) -> dict[str, Any]:
     """Given a dictionary, extract the arguments required for the
     given class's constructor.
     """
@@ -148,7 +148,7 @@ class SerializationMixin:
     """
 
     @classmethod
-    def serialize_init_args(cls, obj: SerializationMixin) -> Dict[str, Any]:
+    def serialize_init_args(cls, obj: SerializationMixin) -> dict[str, Any]:
         """Serialize the properties needed to initialize the object.
         Used for storage.
         """
@@ -157,10 +157,10 @@ class SerializationMixin:
     @classmethod
     def deserialize_init_args(
         cls,
-        args: Dict[str, Any],
+        args: dict[str, Any],
         decoder_registry: Optional[TDecoderRegistry] = None,
         class_decoder_registry: Optional[TClassDecoderRegistry] = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Given a dictionary, deserialize the properties needed to initialize the
         object. Used for storage.
         """

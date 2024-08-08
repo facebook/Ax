@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Optional
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -55,14 +55,14 @@ logger: Logger = get_logger(__name__)
 # pyre-fixme[33]: Aliased annotation cannot contain `Any`.
 TOptimizerList = Callable[
     [
-        List[AcquisitionFunction],
+        list[AcquisitionFunction],
         Tensor,
-        Optional[List[Tuple[Tensor, Tensor, float]]],
-        Optional[Dict[int, float]],
+        Optional[list[tuple[Tensor, Tensor, float]]],
+        Optional[dict[int, float]],
         Optional[Callable[[Tensor], Tensor]],
         Any,
     ],
-    Tuple[Tensor, Tensor],
+    tuple[Tensor, Tensor],
 ]
 
 
@@ -182,9 +182,9 @@ class MultiObjectiveBotorchModel(BotorchModel):
 
     dtype: Optional[torch.dtype]
     device: Optional[torch.device]
-    Xs: List[Tensor]
-    Ys: List[Tensor]
-    Yvars: List[Tensor]
+    Xs: list[Tensor]
+    Ys: list[Tensor]
+    Yvars: list[Tensor]
 
     def __init__(
         self,
@@ -209,7 +209,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
         warm_start_refitting: bool = False,
         use_input_warping: bool = False,
         use_loocv_pseudo_likelihood: bool = False,
-        prior: Optional[Dict[str, Any]] = None,
+        prior: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         self.model_constructor = model_constructor
@@ -231,9 +231,9 @@ class MultiObjectiveBotorchModel(BotorchModel):
         self.Yvars = []
         self.dtype = None
         self.device = None
-        self.task_features: List[int] = []
-        self.fidelity_features: List[int] = []
-        self.metric_names: List[str] = []
+        self.task_features: list[int] = []
+        self.fidelity_features: list[int] = []
+        self.metric_names: list[str] = []
 
     @copy_doc(TorchModel.gen)
     def gen(

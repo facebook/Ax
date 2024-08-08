@@ -11,7 +11,7 @@ from __future__ import annotations
 import warnings
 from copy import deepcopy
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Optional, Union
 
 import numpy as np
 import torch
@@ -53,18 +53,18 @@ logger: Logger = get_logger(__name__)
 # pyre-fixme[33]: Aliased annotation cannot contain `Any`.
 TModelConstructor = Callable[
     [
-        List[Tensor],
-        List[Tensor],
-        List[Tensor],
-        List[int],
-        List[int],
-        List[str],
-        Optional[Dict[str, Tensor]],
+        list[Tensor],
+        list[Tensor],
+        list[Tensor],
+        list[int],
+        list[int],
+        list[str],
+        Optional[dict[str, Tensor]],
         Any,
     ],
     Model,
 ]
-TModelPredictor = Callable[[Model, Tensor, bool], Tuple[Tensor, Tensor]]
+TModelPredictor = Callable[[Model, Tensor, bool], tuple[Tensor, Tensor]]
 
 
 # pyre-fixme[33]: Aliased annotation cannot contain `Any`.
@@ -73,24 +73,24 @@ TOptimizer = Callable[
         AcquisitionFunction,
         Tensor,
         int,
-        Optional[List[Tuple[Tensor, Tensor, float]]],
-        Optional[List[Tuple[Tensor, Tensor, float]]],
-        Optional[Dict[int, float]],
+        Optional[list[tuple[Tensor, Tensor, float]]],
+        Optional[list[tuple[Tensor, Tensor, float]]],
+        Optional[dict[int, float]],
         Optional[Callable[[Tensor], Tensor]],
         Any,
     ],
-    Tuple[Tensor, Tensor],
+    tuple[Tensor, Tensor],
 ]
 TBestPointRecommender = Callable[
     [
         TorchModel,
-        List[Tuple[float, float]],
+        list[tuple[float, float]],
         Tensor,
-        Optional[Tuple[Tensor, Tensor]],
-        Optional[Tuple[Tensor, Tensor]],
-        Optional[Dict[int, float]],
+        Optional[tuple[Tensor, Tensor]],
+        Optional[tuple[Tensor, Tensor]],
+        Optional[dict[int, float]],
         Optional[TConfig],
-        Optional[Dict[int, float]],
+        Optional[dict[int, float]],
     ],
     Optional[Tensor],
 ]
@@ -234,9 +234,9 @@ class BotorchModel(TorchModel):
 
     dtype: Optional[torch.dtype]
     device: Optional[torch.device]
-    Xs: List[Tensor]
-    Ys: List[Tensor]
-    Yvars: List[Tensor]
+    Xs: list[Tensor]
+    Ys: list[Tensor]
+    Yvars: list[Tensor]
     _model: Optional[Model]
     _search_space_digest: Optional[SearchSpaceDigest] = None
 
@@ -252,7 +252,7 @@ class BotorchModel(TorchModel):
         warm_start_refitting: bool = True,
         use_input_warping: bool = False,
         use_loocv_pseudo_likelihood: bool = False,
-        prior: Optional[Dict[str, Any]] = None,
+        prior: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         warnings.warn(
@@ -283,16 +283,16 @@ class BotorchModel(TorchModel):
         self.Yvars = []
         self.dtype = None
         self.device = None
-        self.task_features: List[int] = []
-        self.fidelity_features: List[int] = []
-        self.metric_names: List[str] = []
+        self.task_features: list[int] = []
+        self.fidelity_features: list[int] = []
+        self.metric_names: list[str] = []
 
     @copy_doc(TorchModel.fit)
     def fit(
         self,
-        datasets: List[SupervisedDataset],
+        datasets: list[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
-        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+        candidate_metadata: Optional[list[list[TCandidateMetadata]]] = None,
     ) -> None:
         if len(datasets) == 0:
             raise DataRequiredError("BotorchModel.fit requires non-empty data sets.")
@@ -323,7 +323,7 @@ class BotorchModel(TorchModel):
         )
 
     @copy_doc(TorchModel.predict)
-    def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
+    def predict(self, X: Tensor) -> tuple[Tensor, Tensor]:
         return self.model_predictor(model=self.model, X=X)  # pyre-ignore [28]
 
     @copy_doc(TorchModel.gen)
@@ -384,7 +384,7 @@ class BotorchModel(TorchModel):
         # pyre-fixme[53]: Captured variable `objective_weights` is not annotated.
         # pyre-fixme[53]: Captured variable `optimizer_options` is not annotated.
         # pyre-fixme[53]: Captured variable `outcome_constraints` is not annotated.
-        def make_and_optimize_acqf(override_qmc: bool = False) -> Tuple[Tensor, Tensor]:
+        def make_and_optimize_acqf(override_qmc: bool = False) -> tuple[Tensor, Tensor]:
             add_kwargs = {"qmc": False} if override_qmc else {}
             acquisition_function = self.acqf_constructor(
                 model=model,
@@ -464,11 +464,11 @@ class BotorchModel(TorchModel):
     @copy_doc(TorchModel.cross_validate)
     def cross_validate(  # pyre-ignore [14]: `search_space_digest` arg not needed here
         self,
-        datasets: List[SupervisedDataset],
+        datasets: list[SupervisedDataset],
         X_test: Tensor,
         use_posterior_predictive: bool = False,
         **kwargs: Any,
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor]:
         if self._model is None:
             raise RuntimeError("Cannot cross-validate model that has not been fitted.")
         if self.refit_on_cv:

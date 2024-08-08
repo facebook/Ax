@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections import defaultdict
 from math import isnan
 from numbers import Number
-from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
+from typing import Any, Callable, Optional, TYPE_CHECKING, Union
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -66,10 +66,10 @@ class ClosestLookupDict(dict):
 
 
 def get_data(
-    observation_data: List[ObservationData],
-    metric_names: Union[List[str], None] = None,
+    observation_data: list[ObservationData],
+    metric_names: Union[list[str], None] = None,
     raise_on_non_finite_data: bool = True,
-) -> Dict[str, List[float]]:
+) -> dict[str, list[float]]:
     """Extract all metrics if `metric_names` is None.
 
     Raises a value error if any data is non-finite.
@@ -102,7 +102,7 @@ def match_ci_width_truncated(
     lower_bound: float = 0.0,
     upper_bound: float = 1.0,
     clip_mean: bool = False,
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """Estimate a transformed variance using the match ci width method.
 
     See log_y transform for the original. Here, bounds are forced to lie
@@ -121,8 +121,8 @@ def match_ci_width_truncated(
 
 def construct_new_search_space(
     search_space: SearchSpace,
-    parameters: List[Parameter],
-    parameter_constraints: Optional[List[ParameterConstraint]] = None,
+    parameters: list[Parameter],
+    parameter_constraints: Optional[list[ParameterConstraint]] = None,
 ) -> SearchSpace:
     """Construct a search space with the transformed arguments.
 
@@ -137,7 +137,7 @@ def construct_new_search_space(
     Returns:
         The new search space instance.
     """
-    new_kwargs: Dict[str, Any] = {
+    new_kwargs: dict[str, Any] = {
         "parameters": parameters,
         "parameter_constraints": parameter_constraints,
     }
@@ -155,7 +155,7 @@ def construct_new_search_space(
 def derelativize_optimization_config_with_raw_status_quo(
     optimization_config: OptimizationConfig,
     modelbridge: "modelbridge_module.base.ModelBridge",
-    observations: Optional[List[Observation]],
+    observations: Optional[list[Observation]],
 ) -> OptimizationConfig:
     """Derelativize optimization_config using raw status-quo values"""
     tf = Derelativize(

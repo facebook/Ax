@@ -9,23 +9,11 @@
 import json
 import logging
 import warnings
+from collections.abc import Iterable, Sequence
 from functools import partial
 
 from logging import Logger
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import Any, Callable, Optional, TypeVar, Union
 
 import ax.service.utils.early_stopping as early_stopping_utils
 import numpy as np
@@ -244,24 +232,24 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
     def create_experiment(
         self,
-        parameters: List[
-            Dict[str, Union[TParamValue, Sequence[TParamValue], Dict[str, List[str]]]]
+        parameters: list[
+            dict[str, Union[TParamValue, Sequence[TParamValue], dict[str, list[str]]]]
         ],
         name: Optional[str] = None,
         description: Optional[str] = None,
-        owners: Optional[List[str]] = None,
-        objectives: Optional[Dict[str, ObjectiveProperties]] = None,
-        parameter_constraints: Optional[List[str]] = None,
-        outcome_constraints: Optional[List[str]] = None,
+        owners: Optional[list[str]] = None,
+        objectives: Optional[dict[str, ObjectiveProperties]] = None,
+        parameter_constraints: Optional[list[str]] = None,
+        outcome_constraints: Optional[list[str]] = None,
         status_quo: Optional[TParameterization] = None,
         overwrite_existing_experiment: bool = False,
         experiment_type: Optional[str] = None,
-        tracking_metric_names: Optional[List[str]] = None,
-        choose_generation_strategy_kwargs: Optional[Dict[str, Any]] = None,
+        tracking_metric_names: Optional[list[str]] = None,
+        choose_generation_strategy_kwargs: Optional[dict[str, Any]] = None,
         support_intermediate_data: bool = False,
         immutable_search_space_and_opt_config: bool = True,
         is_test: bool = False,
-        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
+        metric_definitions: Optional[dict[str, dict[str, Any]]] = None,
     ) -> None:
         """Create a new experiment and save it if DBSettings available.
 
@@ -387,9 +375,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
     def set_optimization_config(
         self,
-        objectives: Optional[Dict[str, ObjectiveProperties]] = None,
-        outcome_constraints: Optional[List[str]] = None,
-        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
+        objectives: Optional[dict[str, ObjectiveProperties]] = None,
+        outcome_constraints: Optional[list[str]] = None,
+        metric_definitions: Optional[dict[str, dict[str, Any]]] = None,
     ) -> None:
         """Overwrite experiment's optimization config
 
@@ -420,8 +408,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
     def add_tracking_metrics(
         self,
-        metric_names: List[str],
-        metric_definitions: Optional[Dict[str, Dict[str, Any]]] = None,
+        metric_names: list[str],
+        metric_definitions: Optional[dict[str, dict[str, Any]]] = None,
     ) -> None:
         """Add a list of new metrics to the experiment.
 
@@ -450,10 +438,10 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
     def set_search_space(
         self,
-        parameters: List[
-            Dict[str, Union[TParamValue, Sequence[TParamValue], Dict[str, List[str]]]]
+        parameters: list[
+            dict[str, Union[TParamValue, Sequence[TParamValue], dict[str, list[str]]]]
         ],
-        parameter_constraints: Optional[List[str]] = None,
+        parameter_constraints: Optional[list[str]] = None,
     ) -> None:
         """Sets the search space on the experiment and saves.
         This is expected to fail on base AxClient as experiment will have
@@ -505,7 +493,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         ttl_seconds: Optional[int] = None,
         force: bool = False,
         fixed_features: Optional[FixedFeatures] = None,
-    ) -> Tuple[TParameterization, int]:
+    ) -> tuple[TParameterization, int]:
         """
         Generate trial with the next set of parameters to try in the iteration process.
 
@@ -571,7 +559,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         )
         return not_none(trial.arm).parameters, trial.index
 
-    def get_current_trial_generation_limit(self) -> Tuple[int, bool]:
+    def get_current_trial_generation_limit(self) -> tuple[int, bool]:
         """How many trials this ``AxClient`` instance can currently produce via
         calls to ``get_next_trial``, before more trials are completed, and whether
         the optimization is complete.
@@ -599,7 +587,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         max_trials: int,
         ttl_seconds: Optional[int] = None,
         fixed_features: Optional[FixedFeatures] = None,
-    ) -> Tuple[Dict[int, TParameterization], bool]:
+    ) -> tuple[dict[int, TParameterization], bool]:
         """Generate as many trials as currently possible.
 
         NOTE: Useful for running multiple trials in parallel: produces multiple trials,
@@ -665,7 +653,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         self,
         trial_index: int,
         raw_data: TEvaluationOutcome,
-        metadata: Optional[Dict[str, Union[str, int]]] = None,
+        metadata: Optional[dict[str, Union[str, int]]] = None,
         sample_size: Optional[int] = None,
     ) -> None:
         """
@@ -735,7 +723,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         self,
         trial_index: int,
         raw_data: TEvaluationOutcome,
-        metadata: Optional[Dict[str, Union[str, int]]] = None,
+        metadata: Optional[dict[str, Union[str, int]]] = None,
         sample_size: Optional[int] = None,
     ) -> None:
         """
@@ -786,7 +774,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         self,
         trial_index: int,
         raw_data: TEvaluationOutcome,
-        metadata: Optional[Dict[str, Union[str, int]]] = None,
+        metadata: Optional[dict[str, Union[str, int]]] = None,
         sample_size: Optional[int] = None,
     ) -> None:
         """
@@ -828,7 +816,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         logger.info(f"Added data: {data_update_repr} to trial {trial.index}.")
 
     def log_trial_failure(
-        self, trial_index: int, metadata: Optional[Dict[str, str]] = None
+        self, trial_index: int, metadata: Optional[dict[str, str]] = None
     ) -> None:
         """Mark that the given trial has failed while running.
 
@@ -849,9 +837,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         self,
         parameters: TParameterization,
         ttl_seconds: Optional[int] = None,
-        run_metadata: Optional[Dict[str, Any]] = None,
+        run_metadata: Optional[dict[str, Any]] = None,
         arm_name: Optional[str] = None,
-    ) -> Tuple[TParameterization, int]:
+    ) -> tuple[TParameterization, int]:
         """Attach a new trial with the given parameterization to the experiment.
 
         Args:
@@ -890,7 +878,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         """
         return exp_to_df(exp=self.experiment)
 
-    def get_max_parallelism(self) -> List[Tuple[int, int]]:
+    def get_max_parallelism(self) -> list[tuple[int, int]]:
         """Retrieves maximum number of trials that can be scheduled in parallel
         at different stages of optimization.
 
@@ -1101,7 +1089,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     def load_experiment_from_database(
         self,
         experiment_name: str,
-        choose_generation_strategy_kwargs: Optional[Dict[str, Any]] = None,
+        choose_generation_strategy_kwargs: Optional[dict[str, Any]] = None,
     ) -> None:
         """Load an existing experiment from database using the `DBSettings`
         passed to this `AxClient` on instantiation.
@@ -1133,9 +1121,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
     def get_model_predictions_for_parameterizations(
         self,
-        parameterizations: List[TParameterization],
-        metric_names: Optional[List[str]] = None,
-    ) -> List[Dict[str, Tuple[float, float]]]:
+        parameterizations: list[TParameterization],
+        metric_names: Optional[list[str]] = None,
+    ) -> list[dict[str, tuple[float, float]]]:
         """Retrieve model-estimated means and covariances for all metrics
         for the provided parameterizations.
 
@@ -1164,10 +1152,10 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
     def get_model_predictions(
         self,
-        metric_names: Optional[List[str]] = None,
+        metric_names: Optional[list[str]] = None,
         include_out_of_sample: Optional[bool] = True,
-        parameterizations: Optional[Dict[int, TParameterization]] = None,
-    ) -> Dict[int, Dict[str, Tuple[float, float]]]:
+        parameterizations: Optional[dict[int, TParameterization]] = None,
+    ) -> dict[int, dict[str, tuple[float, float]]]:
         """Retrieve model-estimated means and covariances for all metrics.
 
         NOTE: This method currently only supports one-arm trials.
@@ -1281,8 +1269,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         return not_none(self.get_trial(trial_index).arm).parameters == parameterization
 
     def should_stop_trials_early(
-        self, trial_indices: Set[int]
-    ) -> Dict[int, Optional[str]]:
+        self, trial_indices: set[int]
+    ) -> dict[int, Optional[str]]:
         """Evaluate whether to early-stop running trials.
 
         Args:
@@ -1361,7 +1349,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
     @classmethod
     def load_from_json_file(
-        cls: Type[AxClientSubclass],
+        cls: type[AxClientSubclass],
         filepath: str = "ax_client_snapshot.json",
         # pyre-fixme[2]: Parameter must be annotated.
         **kwargs,
@@ -1378,14 +1366,14 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
-        encoder_registry: Optional[Dict[Type, Callable[[Any], Dict[str, Any]]]] = None,
+        encoder_registry: Optional[dict[type, Callable[[Any], dict[str, Any]]]] = None,
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
         class_encoder_registry: Optional[
-            Dict[Type, Callable[[Any], Dict[str, Any]]]
+            dict[type, Callable[[Any], dict[str, Any]]]
         ] = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Serialize this `AxClient` to JSON to be able to interrupt and restart
         optimization and save it to file by the provided path.
 
@@ -1415,12 +1403,12 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
     @classmethod
     def from_json_snapshot(
-        cls: Type[AxClientSubclass],
-        serialized: Dict[str, Any],
+        cls: type[AxClientSubclass],
+        serialized: dict[str, Any],
         decoder_registry: Optional[TDecoderRegistry] = None,
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         class_decoder_registry: Optional[
-            Dict[str, Callable[[Dict[str, Any]], Any]]
+            dict[str, Callable[[dict[str, Any]], Any]]
         ] = None,
         # pyre-fixme[2]: Parameter must be annotated.
         **kwargs,
@@ -1497,13 +1485,13 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         return objective.metric.name
 
     @property
-    def objective_names(self) -> List[str]:
+    def objective_names(self) -> list[str]:
         """Returns the name of the objective in this optimization."""
         objective = self.objective
         return [m.name for m in objective.metrics]
 
     @property
-    def metric_definitions(self) -> Dict[str, Dict[str, Any]]:
+    def metric_definitions(self) -> dict[str, dict[str, Any]]:
         """Returns metric definitions for all experiment metrics that can
         be passed into functions requiring metric_definitions
         """
@@ -1516,7 +1504,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         }
 
     @property
-    def metric_names(self) -> Set[str]:
+    def metric_names(self) -> set[str]:
         """Returns the names of all metrics on the attached experiment."""
         return set(self.experiment.metrics)
 
@@ -1546,7 +1534,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         optimization_config: Optional[OptimizationConfig] = None,
         trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
-    ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+    ) -> Optional[tuple[int, TParameterization, Optional[TModelPredictArm]]]:
         return self._get_best_trial(
             experiment=self.experiment,
             generation_strategy=self.generation_strategy,
@@ -1560,7 +1548,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         optimization_config: Optional[OptimizationConfig] = None,
         trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
-    ) -> Dict[int, Tuple[TParameterization, TModelPredictArm]]:
+    ) -> dict[int, tuple[TParameterization, TModelPredictArm]]:
         return self._get_pareto_optimal_parameters(
             experiment=self.experiment,
             generation_strategy=self.generation_strategy,
@@ -1587,7 +1575,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     def get_trace(
         self,
         optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
-    ) -> List[float]:
+    ) -> list[float]:
         return BestPointMixin._get_trace(
             experiment=self.experiment,
             optimization_config=optimization_config,
@@ -1597,9 +1585,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     def get_trace_by_progression(
         self,
         optimization_config: Optional[OptimizationConfig] = None,
-        bins: Optional[List[float]] = None,
+        bins: Optional[list[float]] = None,
         final_progression_only: bool = False,
-    ) -> Tuple[List[float], List[float]]:
+    ) -> tuple[list[float], list[float]]:
         return BestPointMixin._get_trace_by_progression(
             experiment=self.experiment,
             optimization_config=optimization_config,
@@ -1611,7 +1599,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         self,
         trial_index: int,
         raw_data: TEvaluationOutcome,
-        metadata: Optional[Dict[str, Union[str, int]]] = None,
+        metadata: Optional[dict[str, Union[str, int]]] = None,
         sample_size: Optional[int] = None,
         complete_trial: bool = False,
         combine_with_last_data: bool = False,
@@ -1713,7 +1701,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         experiment.runner = None
 
     def _set_generation_strategy(
-        self, choose_generation_strategy_kwargs: Optional[Dict[str, Any]] = None
+        self, choose_generation_strategy_kwargs: Optional[dict[str, Any]] = None
     ) -> None:
         """Selects the generation strategy and applies specified dispatch kwargs,
         if any.
@@ -1826,7 +1814,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     def _get_pending_observation_features(
         cls,
         experiment: Experiment,
-    ) -> Optional[Dict[str, List[ObservationFeatures]]]:
+    ) -> Optional[dict[str, list[ObservationFeatures]]]:
         """Extract pending points for the given experiment.
 
         NOTE: With one-arm `Trial`-s, we use a more performant

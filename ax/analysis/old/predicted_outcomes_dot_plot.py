@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Any, Dict, Set
+from typing import Any
 
 import numpy as np
 
@@ -45,7 +45,7 @@ class PredictedOutcomesDotPlot(BasePlotlyVisualization):
         """
 
         self.model = model
-        self.metrics: Set[str] = model.metric_names
+        self.metrics: set[str] = model.metric_names
         if model.status_quo is None or model.status_quo.arm_name is None:
             raise UnsupportedPlotError(
                 "status quo must be specified for PredictedOutcomesDotPlot"
@@ -82,7 +82,7 @@ class PredictedOutcomesDotPlot(BasePlotlyVisualization):
         For each metric, we plot the predicted values for each arm along with its CI
         These values are relativized with respect to the status quo.
         """
-        name_order_axes: Dict[str, Dict[str, Any]] = {}
+        name_order_axes: dict[str, dict[str, Any]] = {}
 
         in_sample_df = self.get_df()
         traces = []
@@ -90,7 +90,7 @@ class PredictedOutcomesDotPlot(BasePlotlyVisualization):
 
         for i, metric in enumerate(self.metrics):
             filtered_df = in_sample_df.loc[in_sample_df["metric_name"] == metric]
-            data_single: Dict[str, Any] = error_dot_plot_trace_from_df(
+            data_single: dict[str, Any] = error_dot_plot_trace_from_df(
                 df=filtered_df, show_CI=True, visible=(i == 0)
             )
 

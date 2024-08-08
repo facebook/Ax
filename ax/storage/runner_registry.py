@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Any, Callable, Dict, Optional, Tuple, Type
+from typing import Any, Callable, Optional
 
 from ax.core.runner import Runner
 from ax.runners.synthetic import SyntheticRunner
@@ -31,26 +31,26 @@ logger: Logger = get_logger(__name__)
 # up the type field in REVERSE_RUNNER_REGISTRY, and initialize the
 # corresponding runner subclass.
 # """
-CORE_RUNNER_REGISTRY: Dict[Type[Runner], int] = {SyntheticRunner: 0}
+CORE_RUNNER_REGISTRY: dict[type[Runner], int] = {SyntheticRunner: 0}
 
 
 # pyre-fixme[3]: Return annotation cannot contain `Any`.
 def register_runner(
-    runner_cls: Type[Runner],
-    runner_registry: Dict[Type[Runner], int] = CORE_RUNNER_REGISTRY,
+    runner_cls: type[Runner],
+    runner_registry: dict[type[Runner], int] = CORE_RUNNER_REGISTRY,
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
-    encoder_registry: Dict[
-        Type, Callable[[Any], Dict[str, Any]]
+    encoder_registry: dict[
+        type, Callable[[Any], dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     val: Optional[int] = None,
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
     #  avoid runtime subscripting errors.
-) -> Tuple[
-    Dict[Type[Runner], int],
-    Dict[Type, Callable[[Any], Dict[str, Any]]],
+) -> tuple[
+    dict[type[Runner], int],
+    dict[type, Callable[[Any], dict[str, Any]]],
     TDecoderRegistry,
 ]:
     """Add a custom runner class to the SQA and JSON registries.
@@ -67,20 +67,20 @@ def register_runner(
 
 # pyre-fixme[3]: Return annotation cannot contain `Any`.
 def register_runners(
-    runner_clss: Dict[Type[Runner], Optional[int]],
-    runner_registry: Dict[Type[Runner], int] = CORE_RUNNER_REGISTRY,
+    runner_clss: dict[type[Runner], Optional[int]],
+    runner_registry: dict[type[Runner], int] = CORE_RUNNER_REGISTRY,
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
-    encoder_registry: Dict[
-        Type, Callable[[Any], Dict[str, Any]]
+    encoder_registry: dict[
+        type, Callable[[Any], dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
     #  avoid runtime subscripting errors.
-) -> Tuple[
-    Dict[Type[Runner], int],
-    Dict[Type, Callable[[Any], Dict[str, Any]]],
+) -> tuple[
+    dict[type[Runner], int],
+    dict[type, Callable[[Any], dict[str, Any]]],
     TDecoderRegistry,
 ]:
     """Add custom runner classes to the SQA and JSON registries.

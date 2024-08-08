@@ -6,7 +6,7 @@
 # pyre-strict
 
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from ax.benchmark.problems.hpo.pytorch_cnn import (
     PyTorchCNNBenchmarkProblem,
@@ -28,7 +28,7 @@ try:  # We don't require TorchVision by default.
     if os.environ.get("TESTENV"):
         # If we are in the test environment do not download any torchvision datasets.
         # Instead, we use an empty TensorDataset
-        def get_dummy_dataset(**kwargs: Dict[str, Any]) -> TensorDataset:
+        def get_dummy_dataset(**kwargs: dict[str, Any]) -> TensorDataset:
             return TensorDataset()
 
         # pyre-ignore[9] We are replacing a type with a function
@@ -100,7 +100,7 @@ class PyTorchCNNTorchvisionRunner(PyTorchCNNRunner):
 
     @classmethod
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-    def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
+    def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
         pytorch_cnn_runner = checked_cast(PyTorchCNNRunner, obj)
 
         return {"name": pytorch_cnn_runner.name}
@@ -108,10 +108,10 @@ class PyTorchCNNTorchvisionRunner(PyTorchCNNRunner):
     @classmethod
     def deserialize_init_args(
         cls,
-        args: Dict[str, Any],
+        args: dict[str, Any],
         decoder_registry: Optional[TDecoderRegistry] = None,
         class_decoder_registry: Optional[TClassDecoderRegistry] = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         name = args["name"]
 
         dataset_fn = _REGISTRY[name]

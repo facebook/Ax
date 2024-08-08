@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import warnings
 from collections import defaultdict
+from collections.abc import Iterable
 from copy import deepcopy
 from logging import Logger
-from typing import Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
+from typing import Callable, NamedTuple, Optional
 from warnings import warn
 
 import numpy as np
@@ -40,7 +41,7 @@ from botorch.exceptions.warnings import InputDataWarning
 
 logger: Logger = get_logger(__name__)
 
-CVDiagnostics = Dict[str, Dict[str, float]]
+CVDiagnostics = dict[str, dict[str, float]]
 
 MEAN_PREDICTION_CI = "Mean prediction CI"
 MAPE = "MAPE"
@@ -63,8 +64,8 @@ class CVResult(NamedTuple):
 class AssessModelFitResult(NamedTuple):
     """Container for model fit assessment results"""
 
-    good_fit_metrics_to_fisher_score: Dict[str, float]
-    bad_fit_metrics_to_fisher_score: Dict[str, float]
+    good_fit_metrics_to_fisher_score: dict[str, float]
+    bad_fit_metrics_to_fisher_score: dict[str, float]
 
 
 def cross_validate(
@@ -74,7 +75,7 @@ def cross_validate(
     test_selector: Optional[Callable] = None,
     untransform: bool = True,
     use_posterior_predictive: bool = False,
-) -> List[CVResult]:
+) -> list[CVResult]:
     """Cross validation for model predictions.
 
     Splits the model's training data into train/test folds and makes
@@ -204,7 +205,7 @@ def cross_validate(
 
 def cross_validate_by_trial(
     model: ModelBridge, trial: int = -1, use_posterior_predictive: bool = False
-) -> List[CVResult]:
+) -> list[CVResult]:
     """Cross validation for model predictions on a particular trial.
 
     Uses all of the data up until the specified trial to predict each of the
@@ -263,7 +264,7 @@ def cross_validate_by_trial(
     return result
 
 
-def compute_diagnostics(result: List[CVResult]) -> CVDiagnostics:
+def compute_diagnostics(result: list[CVResult]) -> CVDiagnostics:
     """Computes diagnostics for given cross validation results.
 
     It provides a dictionary with values for the following diagnostics, for
@@ -328,7 +329,7 @@ def compute_diagnostics(result: List[CVResult]) -> CVDiagnostics:
     return diagnostics
 
 
-def _arrayify_dict_values(d: Dict[str, List[float]]) -> Dict[str, np.ndarray]:
+def _arrayify_dict_values(d: dict[str, list[float]]) -> dict[str, np.ndarray]:
     """Helper to convert dictionary values to numpy arrays."""
     return {k: np.array(v) for k, v in d.items()}
 
@@ -349,8 +350,8 @@ def assess_model_fit(
         mapping metric name to p-value
     """
 
-    good_fit_metrics_to_fisher_score: Dict[str, float] = {}
-    bad_fit_metrics_to_fisher_score: Dict[str, float] = {}
+    good_fit_metrics_to_fisher_score: dict[str, float] = {}
+    bad_fit_metrics_to_fisher_score: dict[str, float] = {}
 
     for metric, score in diagnostics[FISHER_EXACT_TEST_P].items():
         if score > significance_level:
@@ -403,7 +404,7 @@ def has_good_opt_config_model_fit(
 
 def _gen_train_test_split(
     folds: int, arm_names: np.ndarray
-) -> Iterable[Tuple[Set[str], Set[str]]]:
+) -> Iterable[tuple[set[str], set[str]]]:
     """Return train/test splits of arm names.
 
     Args:
@@ -431,7 +432,7 @@ def _gen_train_test_split(
 
 def get_fit_and_std_quality_and_generalization_dict(
     fitted_model_bridge: ModelBridge,
-) -> Dict[str, Optional[float]]:
+) -> dict[str, Optional[float]]:
     """
     Get stats and gen from a fitted ModelBridge for analytics purposes.
     """
@@ -470,10 +471,10 @@ def get_fit_and_std_quality_and_generalization_dict(
 
 def compute_model_fit_metrics_from_modelbridge(
     model_bridge: ModelBridge,
-    fit_metrics_dict: Optional[Dict[str, ModelFitMetricProtocol]] = None,
+    fit_metrics_dict: Optional[dict[str, ModelFitMetricProtocol]] = None,
     generalization: bool = False,
     untransform: bool = False,
-) -> Dict[str, Dict[str, float]]:
+) -> dict[str, dict[str, float]]:
     """Computes the model fit metrics given a ModelBridge and an Experiment.
 
     Args:
@@ -526,7 +527,7 @@ def compute_model_fit_metrics_from_modelbridge(
     )
 
 
-def _model_fit_metric(metric_dict: Dict[str, Dict[str, float]]) -> float:
+def _model_fit_metric(metric_dict: dict[str, dict[str, float]]) -> float:
     # We'd ideally log the entire `model_fit_dict` as a single model fit metric
     # can't capture the nuances of multiple experimental metrics, but this might
     # lead to database performance issues. So instead, we take the worst
@@ -561,10 +562,10 @@ def _model_std_quality(std: np.ndarray) -> float:
 def _predict_on_training_data(
     model_bridge: ModelBridge,
     untransform: bool = False,
-) -> Tuple[
-    Dict[str, np.ndarray],
-    Dict[str, np.ndarray],
-    Dict[str, np.ndarray],
+) -> tuple[
+    dict[str, np.ndarray],
+    dict[str, np.ndarray],
+    dict[str, np.ndarray],
 ]:
     """Makes predictions on the training data of a given experiment using a ModelBridge
     and returning the observed values, and the corresponding predictive means and
@@ -625,10 +626,10 @@ def _predict_on_training_data(
 def _predict_on_cross_validation_data(
     model_bridge: ModelBridge,
     untransform: bool = False,
-) -> Tuple[
-    Dict[str, np.ndarray],
-    Dict[str, np.ndarray],
-    Dict[str, np.ndarray],
+) -> tuple[
+    dict[str, np.ndarray],
+    dict[str, np.ndarray],
+    dict[str, np.ndarray],
 ]:
     """Makes leave-one-out cross-validation predictions on the training data of the
     ModelBridge and returns the observed values, and the corresponding predictive means
@@ -679,7 +680,7 @@ def _predict_on_cross_validation_data(
 
 
 def _list_of_dicts_to_dict_of_lists(
-    list_of_dicts: List[Dict[str, float]], keys: List[str]
-) -> Dict[str, List[float]]:
+    list_of_dicts: list[dict[str, float]], keys: list[str]
+) -> dict[str, list[float]]:
     """Converts a list of dicts indexed by a string to a dict of lists."""
     return {key: [d[key] for d in list_of_dicts] for key in keys}

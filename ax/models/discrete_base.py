@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 import numpy as np
 from ax.core.types import TGenMetadata, TParamValue, TParamValueList
@@ -23,11 +23,11 @@ class DiscreteModel(Model):
 
     def fit(
         self,
-        Xs: List[List[TParamValueList]],
-        Ys: List[List[float]],
-        Yvars: List[List[float]],
-        parameter_values: List[TParamValueList],
-        outcome_names: List[str],
+        Xs: list[list[TParamValueList]],
+        Ys: list[list[float]],
+        Yvars: list[list[float]],
+        parameter_values: list[TParamValueList],
+        outcome_names: list[str],
     ) -> None:
         """Fit model to m outcomes.
 
@@ -43,7 +43,7 @@ class DiscreteModel(Model):
         """
         pass
 
-    def predict(self, X: List[TParamValueList]) -> Tuple[np.ndarray, np.ndarray]:
+    def predict(self, X: list[TParamValueList]) -> tuple[np.ndarray, np.ndarray]:
         """Predict
 
         Args:
@@ -61,13 +61,13 @@ class DiscreteModel(Model):
     def gen(
         self,
         n: int,
-        parameter_values: List[TParamValueList],
+        parameter_values: list[TParamValueList],
         objective_weights: Optional[np.ndarray],
-        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
-        fixed_features: Optional[Dict[int, TParamValue]] = None,
-        pending_observations: Optional[List[List[TParamValueList]]] = None,
+        outcome_constraints: Optional[tuple[np.ndarray, np.ndarray]] = None,
+        fixed_features: Optional[dict[int, TParamValue]] = None,
+        pending_observations: Optional[list[list[TParamValueList]]] = None,
         model_gen_options: Optional[TConfig] = None,
-    ) -> Tuple[List[TParamValueList], List[float], TGenMetadata]:
+    ) -> tuple[list[TParamValueList], list[float], TGenMetadata]:
         """
         Generate new candidates.
 
@@ -98,12 +98,12 @@ class DiscreteModel(Model):
 
     def cross_validate(
         self,
-        Xs_train: List[List[TParamValueList]],
-        Ys_train: List[List[float]],
-        Yvars_train: List[List[float]],
-        X_test: List[TParamValueList],
+        Xs_train: list[list[TParamValueList]],
+        Ys_train: list[list[float]],
+        Yvars_train: list[list[float]],
+        X_test: list[TParamValueList],
         use_posterior_predictive: bool = False,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Do cross validation with the given training and test sets.
 
         Training set is given in the same format as to fit. Test set is given
@@ -133,11 +133,11 @@ class DiscreteModel(Model):
     def best_point(
         self,
         n: int,
-        parameter_values: List[TParamValueList],
+        parameter_values: list[TParamValueList],
         objective_weights: Optional[np.ndarray],
-        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
-        fixed_features: Optional[Dict[int, TParamValue]] = None,
-        pending_observations: Optional[List[List[TParamValueList]]] = None,
+        outcome_constraints: Optional[tuple[np.ndarray, np.ndarray]] = None,
+        fixed_features: Optional[dict[int, TParamValue]] = None,
+        pending_observations: Optional[list[list[TParamValueList]]] = None,
         model_gen_options: Optional[TConfig] = None,
     ) -> Optional[TParamValueList]:
         """Obtains the point that has the best value according to the model

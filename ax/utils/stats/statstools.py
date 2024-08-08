@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import List, Tuple, Union
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -15,12 +15,12 @@ from ax.core.data import Data
 from ax.utils.common.logger import get_logger
 
 logger: Logger = get_logger(__name__)
-num_mixed = Union[np.ndarray, List[float]]
+num_mixed = Union[np.ndarray, list[float]]
 
 
 def inverse_variance_weight(
     means: np.ndarray, variances: np.ndarray, conflicting_noiseless: str = "warn"
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """Perform inverse variance weighting.
 
     Args:
@@ -70,7 +70,7 @@ def total_variance(
 
 def positive_part_james_stein(
     means: num_mixed, sems: num_mixed
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Estimation method for Positive-part James-Stein estimator.
 
     This method takes a vector of K means (`y_i`) and standard errors
@@ -142,15 +142,15 @@ def positive_part_james_stein(
 
 
 def relativize(
-    means_t: Union[np.ndarray, List[float], float],
-    sems_t: Union[np.ndarray, List[float], float],
+    means_t: Union[np.ndarray, list[float], float],
+    sems_t: Union[np.ndarray, list[float], float],
     mean_c: float,
     sem_c: float,
     bias_correction: bool = True,
-    cov_means: Union[np.ndarray, List[float], float] = 0.0,
+    cov_means: Union[np.ndarray, list[float], float] = 0.0,
     as_percent: bool = False,
     control_as_constant: bool = False,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Ratio estimator based on the delta method.
 
     This uses the delta method (i.e. a Taylor series approximation) to estimate
@@ -243,15 +243,15 @@ def relativize(
 
 
 def unrelativize(
-    means_t: Union[np.ndarray, List[float], float],
-    sems_t: Union[np.ndarray, List[float], float],
+    means_t: Union[np.ndarray, list[float], float],
+    sems_t: Union[np.ndarray, list[float], float],
     mean_c: float,
     sem_c: float,
     bias_correction: bool = True,
-    cov_means: Union[np.ndarray, List[float], float] = 0.0,
+    cov_means: Union[np.ndarray, list[float], float] = 0.0,
     as_percent: bool = False,
     control_as_constant: bool = False,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Reverse operation of ax.utils.stats.statstools.relativize.
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from math import sqrt
-from typing import Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Callable, Optional, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -52,7 +52,7 @@ class BaseRelativize(Transform, ABC):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
         config: Optional[TConfig] = None,
     ) -> None:
@@ -135,24 +135,24 @@ class BaseRelativize(Transform, ABC):
 
     def untransform_outcome_constraints(
         self,
-        outcome_constraints: List[OutcomeConstraint],
+        outcome_constraints: list[OutcomeConstraint],
         fixed_features: Optional[ObservationFeatures] = None,
-    ) -> List[OutcomeConstraint]:
+    ) -> list[OutcomeConstraint]:
         for c in outcome_constraints:
             c.relative = True
         return outcome_constraints
 
     def transform_observations(
         self,
-        observations: List[Observation],
-    ) -> List[Observation]:
+        observations: list[Observation],
+    ) -> list[Observation]:
         return self._rel_op_on_observations(
             observations=observations, rel_op=relativize
         )
 
     def untransform_observations(
-        self, observations: List[Observation]
-    ) -> List[Observation]:
+        self, observations: list[Observation]
+    ) -> list[Observation]:
         """Unrelativize the data"""
         return self._rel_op_on_observations(
             observations=observations, rel_op=unrelativize
@@ -160,11 +160,11 @@ class BaseRelativize(Transform, ABC):
 
     def _rel_op_on_observations(
         self,
-        observations: List[Observation],
-        rel_op: Callable[..., Tuple[np.ndarray, np.ndarray]],
-    ) -> List[Observation]:
+        observations: list[Observation],
+        rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
+    ) -> list[Observation]:
 
-        sq_data_by_trial: Dict[int, ObservationData] = not_none(
+        sq_data_by_trial: dict[int, ObservationData] = not_none(
             self.modelbridge.status_quo_data_by_trial, self.MISSING_STATUS_QUO_ERROR
         )
 
@@ -175,7 +175,7 @@ class BaseRelativize(Transform, ABC):
 
         def _get_relative_data_from_obs(
             obs: Observation,
-            rel_op: Callable[..., Tuple[np.ndarray, np.ndarray]],
+            rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
         ) -> ObservationData:
             idx = (
                 int(obs.features.trial_index)
@@ -203,7 +203,7 @@ class BaseRelativize(Transform, ABC):
         self,
         data: ObservationData,
         status_quo_data: ObservationData,
-        rel_op: Callable[..., Tuple[np.ndarray, np.ndarray]],
+        rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
     ) -> ObservationData:
         r"""
         Relativize or unrelativize `data` based on `status_quo_data` based on `rel_op`

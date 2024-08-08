@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from typing import List
 
 from ax.core.arm import Arm
 from ax.core.observation import ObservationFeatures
@@ -36,8 +35,8 @@ class SearchSpaceToFloat(Transform):
         return SearchSpace(parameters=[parameter])
 
     def transform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             sig = Arm(parameters=obsf.parameters).signature
             val = float(int(sig, 16) % 1_000_000_000_000)

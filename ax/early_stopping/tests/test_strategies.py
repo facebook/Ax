@@ -7,7 +7,7 @@
 # pyre-strict
 
 from copy import deepcopy
-from typing import Any, cast, Dict, Optional, Set
+from typing import Any, cast, Optional
 
 import numpy as np
 from ax.core import OptimizationConfig
@@ -51,10 +51,10 @@ class TestBaseEarlyStoppingStrategy(TestCase):
         class FakeStrategy(BaseEarlyStoppingStrategy):
             def should_stop_trials_early(
                 self,
-                trial_indices: Set[int],
+                trial_indices: set[int],
                 experiment: Experiment,
-                **kwargs: Dict[str, Any],
-            ) -> Dict[int, Optional[str]]:
+                **kwargs: dict[str, Any],
+            ) -> dict[int, Optional[str]]:
                 return {}
 
         test_experiment = get_test_map_data_experiment(
@@ -139,10 +139,10 @@ class TestBaseEarlyStoppingStrategy(TestCase):
         class FakeStrategy(BaseEarlyStoppingStrategy):
             def should_stop_trials_early(
                 self,
-                trial_indices: Set[int],
+                trial_indices: set[int],
                 experiment: Experiment,
-                **kwargs: Dict[str, Any],
-            ) -> Dict[int, Optional[str]]:
+                **kwargs: dict[str, Any],
+            ) -> dict[int, Optional[str]]:
                 return {}
 
         experiment = get_test_map_data_experiment(
@@ -214,10 +214,10 @@ class TestModelBasedEarlyStoppingStrategy(TestCase):
         class FakeStrategy(ModelBasedEarlyStoppingStrategy):
             def should_stop_trials_early(
                 self,
-                trial_indices: Set[int],
+                trial_indices: set[int],
                 experiment: Experiment,
-                **kwargs: Dict[str, Any],
-            ) -> Dict[int, Optional[str]]:
+                **kwargs: dict[str, Any],
+            ) -> dict[int, Optional[str]]:
                 return {}
 
         experiment = get_test_map_data_experiment(
@@ -695,7 +695,7 @@ def _evaluate_early_stopping_with_df(
     early_stopping_strategy: PercentileEarlyStoppingStrategy,
     experiment: Experiment,
     metric_name: str,
-) -> Dict[int, Optional[str]]:
+) -> dict[int, Optional[str]]:
     """Helper function for testing PercentileEarlyStoppingStrategy
     on an arbitrary (MapData) df."""
     data = not_none(

@@ -7,10 +7,11 @@
 # pyre-strict
 
 from collections import OrderedDict
+from collections.abc import Iterable
 from functools import reduce
 
 from logging import Logger
-from typing import Dict, Iterable, List, Optional, Tuple, Type
+from typing import Optional
 
 import pandas as pd
 import torch
@@ -62,7 +63,7 @@ def get_best_raw_objective_point_with_trial_index(
     experiment: Experiment,
     optimization_config: Optional[OptimizationConfig] = None,
     trial_indices: Optional[Iterable[int]] = None,
-) -> Tuple[int, TParameterization, Dict[str, Tuple[float, float]]]:
+) -> tuple[int, TParameterization, dict[str, tuple[float, float]]]:
     """Given an experiment, identifies the arm that had the best raw objective,
     based on the data fetched from the experiment.
 
@@ -140,7 +141,7 @@ def get_best_raw_objective_point(
     experiment: Experiment,
     optimization_config: Optional[OptimizationConfig] = None,
     trial_indices: Optional[Iterable[int]] = None,
-) -> Tuple[TParameterization, Dict[str, Tuple[float, float]]]:
+) -> tuple[TParameterization, dict[str, tuple[float, float]]]:
 
     _, parameterization, vals = get_best_raw_objective_point_with_trial_index(
         experiment=experiment,
@@ -152,7 +153,7 @@ def get_best_raw_objective_point(
 
 def _gr_to_prediction_with_trial_index(
     idx: int, gr: GeneratorRun
-) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+) -> Optional[tuple[int, TParameterization, Optional[TModelPredictArm]]]:
     if gr.best_arm_predictions is None:
         return None
 
@@ -165,7 +166,7 @@ def _gr_to_prediction_with_trial_index(
 
 
 def _raw_values_to_model_predict_arm(
-    values: Dict[str, Tuple[float, float]]
+    values: dict[str, tuple[float, float]]
 ) -> TModelPredictArm:
     return (
         {k: v[0] for k, v in values.items()},  # v[0] is mean
@@ -175,10 +176,10 @@ def _raw_values_to_model_predict_arm(
 
 def get_best_parameters_from_model_predictions_with_trial_index(
     experiment: Experiment,
-    models_enum: Type[ModelRegistryBase],
+    models_enum: type[ModelRegistryBase],
     optimization_config: Optional[OptimizationConfig] = None,
     trial_indices: Optional[Iterable[int]] = None,
-) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+) -> Optional[tuple[int, TParameterization, Optional[TModelPredictArm]]]:
     """Given an experiment, returns the best predicted parameterization and
     corresponding prediction based on the most recent Trial with predictions. If no
     trials have predictions returns None.
@@ -281,9 +282,9 @@ def get_best_parameters_from_model_predictions_with_trial_index(
 
 def get_best_parameters_from_model_predictions(
     experiment: Experiment,
-    models_enum: Type[ModelRegistryBase],
+    models_enum: type[ModelRegistryBase],
     trial_indices: Optional[Iterable[int]] = None,
-) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
+) -> Optional[tuple[TParameterization, Optional[TModelPredictArm]]]:
     """Given an experiment, returns the best predicted parameterization and
     corresponding prediction based on the most recent Trial with predictions. If no
     trials have predictions returns None.
@@ -321,7 +322,7 @@ def get_best_by_raw_objective_with_trial_index(
     experiment: Experiment,
     optimization_config: Optional[OptimizationConfig] = None,
     trial_indices: Optional[Iterable[int]] = None,
-) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+) -> Optional[tuple[int, TParameterization, Optional[TModelPredictArm]]]:
     """Given an experiment, identifies the arm that had the best raw objective,
     based on the data fetched from the experiment.
 
@@ -364,7 +365,7 @@ def get_best_by_raw_objective(
     experiment: Experiment,
     optimization_config: Optional[OptimizationConfig] = None,
     trial_indices: Optional[Iterable[int]] = None,
-) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
+) -> Optional[tuple[TParameterization, Optional[TModelPredictArm]]]:
     """Given an experiment, identifies the arm that had the best raw objective,
     based on the data fetched from the experiment.
 
@@ -396,10 +397,10 @@ def get_best_by_raw_objective(
 
 def get_best_parameters_with_trial_index(
     experiment: Experiment,
-    models_enum: Type[ModelRegistryBase],
+    models_enum: type[ModelRegistryBase],
     optimization_config: Optional[OptimizationConfig] = None,
     trial_indices: Optional[Iterable[int]] = None,
-) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+) -> Optional[tuple[int, TParameterization, Optional[TModelPredictArm]]]:
     """Given an experiment, identifies the best arm.
 
     First attempts according to do so with models used in optimization and
@@ -452,10 +453,10 @@ def get_best_parameters_with_trial_index(
 
 def get_best_parameters(
     experiment: Experiment,
-    models_enum: Type[ModelRegistryBase],
+    models_enum: type[ModelRegistryBase],
     optimization_config: Optional[OptimizationConfig] = None,
     trial_indices: Optional[Iterable[int]] = None,
-) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
+) -> Optional[tuple[TParameterization, Optional[TModelPredictArm]]]:
     """Given an experiment, identifies the best arm.
 
     First attempts according to do so with models used in optimization and
@@ -497,7 +498,7 @@ def get_pareto_optimal_parameters(
     optimization_config: Optional[OptimizationConfig] = None,
     trial_indices: Optional[Iterable[int]] = None,
     use_model_predictions: bool = True,
-) -> Dict[int, Tuple[TParameterization, TModelPredictArm]]:
+) -> dict[int, tuple[TParameterization, TModelPredictArm]]:
     """Identifies the best parameterizations tried in the experiment so far,
     using model predictions if ``use_model_predictions`` is true and using
     observed values from the experiment otherwise. By default, uses model
@@ -594,7 +595,7 @@ def get_pareto_optimal_parameters(
     # Insert observations into OrderedDict in order of descending individual
     # hypervolume, formated as
     # { trial_index --> (parameterization, (means, covariances) }
-    res: Dict[int, Tuple[TParameterization, TModelPredictArm]] = OrderedDict()
+    res: dict[int, tuple[TParameterization, TModelPredictArm]] = OrderedDict()
     for obs in pareto_optimal_observations:
         res[int(not_none(obs.features.trial_index))] = (
             obs.features.parameters,
@@ -742,7 +743,7 @@ def _derel_opt_config_wrapper(
     optimization_config: OptimizationConfig,
     modelbridge: Optional[ModelBridge] = None,
     experiment: Optional[Experiment] = None,
-    observations: Optional[List[Observation]] = None,
+    observations: Optional[list[Observation]] = None,
 ) -> OptimizationConfig:
     """Derelativize optimization_config using raw status-quo values"""
 
@@ -780,9 +781,9 @@ def _derel_opt_config_wrapper(
 
 def extract_Y_from_data(
     experiment: Experiment,
-    metric_names: List[str],
+    metric_names: list[str],
     data: Optional[Data] = None,
-) -> Tuple[Tensor, Tensor]:
+) -> tuple[Tensor, Tensor]:
     r"""Converts the experiment observation data into a tensor.
 
     NOTE: This requires block design for observations. It will
@@ -880,7 +881,7 @@ def _objective_threshold_from_nadir(
 
 def fill_missing_thresholds_from_nadir(
     experiment: Experiment, optimization_config: OptimizationConfig
-) -> List[ObjectiveThreshold]:
+) -> list[ObjectiveThreshold]:
     r"""Get the objective thresholds from the optimization config and
     fill the missing thresholds based on the nadir point.
 

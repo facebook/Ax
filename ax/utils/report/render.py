@@ -8,7 +8,7 @@
 
 import os
 import pkgutil
-from typing import List, Optional
+from typing import Optional
 
 from ax.plot.render import _js_requires, _load_css_resource as _load_plot_css_resource
 from jinja2 import Environment, FunctionLoader
@@ -48,7 +48,7 @@ def list_item_html(text: str) -> str:
     return "<li>{}</li>".format(text)
 
 
-def unordered_list_html(list_items: List[str]) -> str:
+def unordered_list_html(list_items: list[str]) -> str:
     """Embed list of html elements into an unordered list tag."""
     return "<ul>{}</ul>".format("".join(list_items))
 
@@ -71,19 +71,19 @@ def table_heading_cell_html(text: str) -> str:
     return "<th>{}</th>".format(text)
 
 
-def table_row_html(table_cells: List[str]) -> str:
+def table_row_html(table_cells: list[str]) -> str:
     """Embed list of HTML elements into table row tag."""
     return "<tr>{}</tr>".format("".join(table_cells))
 
 
-def table_html(table_rows: List[str]) -> str:
+def table_html(table_rows: list[str]) -> str:
     """Embed list of HTML elements into table tag."""
     return "<table>{}</table>".format("".join(table_rows))
 
 
 def render_report_elements(
     experiment_name: str,
-    html_elements: List[str],
+    html_elements: list[str],
     header: bool = True,
     offline: bool = False,
     notebook_env: bool = False,

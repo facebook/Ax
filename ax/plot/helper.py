@@ -10,7 +10,7 @@ import math
 from collections import Counter
 
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Optional, Union
 
 import numpy as np
 from ax.core.generator_run import GeneratorRun
@@ -30,14 +30,14 @@ from ax.utils.common.typeutils import not_none
 logger: Logger = get_logger(__name__)
 
 # Typing alias
-RawData = List[Dict[str, Union[str, float]]]
+RawData = list[dict[str, Union[str, float]]]
 
-TNullableGeneratorRunsDict = Optional[Dict[str, GeneratorRun]]
+TNullableGeneratorRunsDict = Optional[dict[str, GeneratorRun]]
 
 
 def extend_range(
     lower: float, upper: float, percent: int = 10, log_scale: bool = False
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """Given a range of minimum and maximum values taken by values on a given axis,
     extend it in both directions by a given percentage to have some margin within
     the plot around its meaningful part.
@@ -108,7 +108,7 @@ def _format_CI(estimate: float, sd: float, relative: bool, zval: float = Z) -> s
     )
 
 
-def arm_name_to_tuple(arm_name: str) -> Union[Tuple[int, int], Tuple[int]]:
+def arm_name_to_tuple(arm_name: str) -> Union[tuple[int, int], tuple[int]]:
     tup = arm_name.split("_")
     if len(tup) == 2:
         try:
@@ -118,7 +118,7 @@ def arm_name_to_tuple(arm_name: str) -> Union[Tuple[int, int], Tuple[int]]:
     return (0,)
 
 
-def arm_name_to_sort_key(arm_name: str) -> Tuple[str, int, int]:
+def arm_name_to_sort_key(arm_name: str) -> tuple[str, int, int]:
     """Parses arm name into tuple suitable for reverse sorting by key
 
     Example:
@@ -133,14 +133,14 @@ def arm_name_to_sort_key(arm_name: str) -> Tuple[str, int, int]:
         return (arm_name, 0, 0)
 
 
-def resize_subtitles(figure: Dict[str, Any], size: int) -> Dict[str, Any]:
+def resize_subtitles(figure: dict[str, Any], size: int) -> dict[str, Any]:
     for ant in figure["layout"]["annotations"]:
         ant["font"].update(size=size)
     return figure
 
 
 def _filter_dict(
-    param_dict: TParameterization, subset_keys: List[str]
+    param_dict: TParameterization, subset_keys: list[str]
 ) -> TParameterization:
     """Filter a dictionary to keys present in a given list."""
     return {k: v for k, v in param_dict.items() if k in subset_keys}
@@ -148,11 +148,11 @@ def _filter_dict(
 
 def _get_in_sample_arms(
     model: ModelBridge,
-    metric_names: Set[str],
+    metric_names: set[str],
     fixed_features: Optional[ObservationFeatures] = None,
     data_selector: Optional[Callable[[Observation], bool]] = None,
-    scalarized_metric_config: Optional[List[Dict[str, Dict[str, float]]]] = None,
-) -> Tuple[Dict[str, PlotInSampleArm], RawData, Dict[str, TParameterization]]:
+    scalarized_metric_config: Optional[list[dict[str, dict[str, float]]]] = None,
+) -> tuple[dict[str, PlotInSampleArm], RawData, dict[str, TParameterization]]:
     """Get in-sample arms from a model with observed and predicted values
     for specified metrics.
 
@@ -225,7 +225,7 @@ def _get_in_sample_arms(
     t = IVW(None, [])
     observations = t.transform_observations(observations)
     # Start filling in plot data
-    in_sample_plot: Dict[str, PlotInSampleArm] = {}
+    in_sample_plot: dict[str, PlotInSampleArm] = {}
     for i, obs in enumerate(observations):
         if obs.arm_name is None:
             raise ValueError("Observation must have arm name for plotting.")
@@ -281,11 +281,11 @@ def _get_in_sample_arms(
 
 def _get_out_of_sample_arms(
     model: ModelBridge,
-    generator_runs_dict: Dict[str, GeneratorRun],
-    metric_names: Set[str],
+    generator_runs_dict: dict[str, GeneratorRun],
+    metric_names: set[str],
     fixed_features: Optional[ObservationFeatures] = None,
-    scalarized_metric_config: Optional[List[Dict[str, Dict[str, float]]]] = None,
-) -> Dict[str, Dict[str, PlotOutOfSampleArm]]:
+    scalarized_metric_config: Optional[list[dict[str, dict[str, float]]]] = None,
+) -> dict[str, dict[str, PlotOutOfSampleArm]]:
     """Get out-of-sample predictions from a model given a dict of generator runs.
 
     Fixed features input can be used to override fields of the candidate arms
@@ -300,7 +300,7 @@ def _get_out_of_sample_arms(
         A mapping from name to a mapping from arm name to plot.
 
     """
-    out_of_sample_plot: Dict[str, Dict[str, PlotOutOfSampleArm]] = {}
+    out_of_sample_plot: dict[str, dict[str, PlotOutOfSampleArm]] = {}
     for generator_run_name, generator_run in generator_runs_dict.items():
         out_of_sample_plot[generator_run_name] = {}
         for arm in generator_run.arms:
@@ -335,12 +335,12 @@ def _get_out_of_sample_arms(
 
 def get_plot_data(
     model: ModelBridge,
-    generator_runs_dict: Dict[str, GeneratorRun],
-    metric_names: Optional[Set[str]] = None,
+    generator_runs_dict: dict[str, GeneratorRun],
+    metric_names: Optional[set[str]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
     data_selector: Optional[Callable[[Observation], bool]] = None,
-    scalarized_metric_config: Optional[List[Dict[str, Dict[str, float]]]] = None,
-) -> Tuple[PlotData, RawData, Dict[str, TParameterization]]:
+    scalarized_metric_config: Optional[list[dict[str, dict[str, float]]]] = None,
+) -> tuple[PlotData, RawData, dict[str, TParameterization]]:
     """Format data object with metrics for in-sample and out-of-sample
     arms.
 
@@ -423,8 +423,8 @@ def get_range_parameter(model: ModelBridge, param_name: str) -> RangeParameter:
 
 
 def get_range_parameters_from_list(
-    parameters: List[Parameter], min_num_values: int = 0
-) -> List[RangeParameter]:
+    parameters: list[Parameter], min_num_values: int = 0
+) -> list[RangeParameter]:
     """
     Get a list of range parameters from a model.
 
@@ -444,7 +444,7 @@ def get_range_parameters_from_list(
 
 def get_range_parameters(
     model: ModelBridge, min_num_values: int = 0
-) -> List[RangeParameter]:
+) -> list[RangeParameter]:
     """
     Get a list of range parameters from a model.
 
@@ -482,7 +482,7 @@ def get_grid_for_parameter(parameter: RangeParameter, density: int) -> np.ndarra
 
 def get_fixed_values(
     model: ModelBridge,
-    slice_values: Optional[Dict[str, Any]] = None,
+    slice_values: Optional[dict[str, Any]] = None,
     trial_index: Optional[int] = None,
 ) -> TParameterization:
     """Get fixed values for parameters in a slice plot.
@@ -538,7 +538,7 @@ def get_fixed_values(
 
 # Utility methods ported from JS
 # pyre-fixme[2]: Parameter must be annotated.
-def contour_config_to_trace(config) -> List[Dict[str, Any]]:
+def contour_config_to_trace(config) -> list[dict[str, Any]]:
     # Load from config
     arm_data = config["arm_data"]
     density = config["density"]
@@ -730,27 +730,27 @@ def contour_config_to_trace(config) -> List[Dict[str, Any]]:
     return traces
 
 
-def axis_range(grid: List[float], is_log: bool) -> List[float]:
+def axis_range(grid: list[float], is_log: bool) -> list[float]:
     if is_log:
         return [math.log10(min(grid)), math.log10(max(grid))]
     else:
         return [min(grid), max(grid)]
 
 
-def relativize(m_t: float, sem_t: float, m_c: float, sem_c: float) -> List[float]:
+def relativize(m_t: float, sem_t: float, m_c: float, sem_c: float) -> list[float]:
     r_hat = (m_t - m_c) / abs(m_c) - sem_c**2 * m_t / abs(m_c) ** 3
     variance = (sem_t**2 + (m_t / m_c * sem_c) ** 2) / m_c**2
     return [r_hat, math.sqrt(variance)]
 
 
 def relativize_data(
-    f: List[float],
-    sd: List[float],
+    f: list[float],
+    sd: list[float],
     rel: bool,
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    arm_data: Dict[Any, Any],
+    arm_data: dict[Any, Any],
     metric: str,
-) -> List[List[float]]:
+) -> list[list[float]]:
     # if relative, extract status quo & compute ratio
     f_final = [] if rel else f
     sd_final = [] if rel else sd
@@ -767,13 +767,13 @@ def relativize_data(
     return [f_final, sd_final]
 
 
-def rgb(arr: List[int]) -> str:
+def rgb(arr: list[int]) -> str:
     return "rgb({},{},{})".format(*arr)
 
 
 def infer_is_relative(
-    model: ModelBridge, metrics: List[str], non_constraint_rel: bool
-) -> Dict[str, bool]:
+    model: ModelBridge, metrics: list[str], non_constraint_rel: bool
+) -> dict[str, bool]:
     """Determine whether or not to relativize a metric.
 
     Metrics that are constraints will get this decision from their `relative` flag.
@@ -807,7 +807,7 @@ def slice_config_to_trace(
     arm_data,
     # pyre-fixme[2]: Parameter must be annotated.
     arm_name_to_parameters,
-    f: List[float],
+    f: list[float],
     # pyre-fixme[2]: Parameter must be annotated.
     fit_data,
     # pyre-fixme[2]: Parameter must be annotated.
@@ -818,12 +818,12 @@ def slice_config_to_trace(
     rel: bool,
     # pyre-fixme[2]: Parameter must be annotated.
     setx,
-    sd: List[float],
+    sd: list[float],
     # pyre-fixme[2]: Parameter must be annotated.
     is_log,
     # pyre-fixme[2]: Parameter must be annotated.
     visible,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     # format data
     res = relativize_data(f, sd, rel, arm_data, metric)
     f_final = res[0]
@@ -957,7 +957,7 @@ def slice_config_to_trace(
     return traces
 
 
-def build_filter_trial(keep_trial_indices: List[int]) -> Callable[[Observation], bool]:
+def build_filter_trial(keep_trial_indices: list[int]) -> Callable[[Observation], bool]:
     """Creates a callable that filters observations based on trial_index"""
 
     def trial_filter(obs: Observation) -> bool:
@@ -968,7 +968,7 @@ def build_filter_trial(keep_trial_indices: List[int]) -> Callable[[Observation],
 
 def compose_annotation(
     caption: str, x: float = 0.0, y: float = -0.15
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     if not caption:
         return []
     return [

@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Optional, Union
 
 from ax.benchmark.benchmark_method import (
     BenchmarkMethod,
@@ -29,10 +29,10 @@ from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.model import Model
 
 
-model_names_abbrevations: Dict[str, str] = {
+model_names_abbrevations: dict[str, str] = {
     SaasFullyBayesianSingleTaskGP.__name__: "SAAS",
 }
-acqf_name_abbreviations: Dict[str, str] = {
+acqf_name_abbreviations: dict[str, str] = {
     qLogNoisyExpectedImprovement.__name__: "qLogNEI",
     qNoisyExpectedHypervolumeImprovement.__name__: "qNEHVI",
     qLogNoisyExpectedHypervolumeImprovement.__name__: "qLogNEHVI",
@@ -41,13 +41,13 @@ acqf_name_abbreviations: Dict[str, str] = {
 
 
 def get_sobol_botorch_modular_acquisition(
-    model_cls: Type[Model],
-    acquisition_cls: Type[AcquisitionFunction],
+    model_cls: type[Model],
+    acquisition_cls: type[AcquisitionFunction],
     distribute_replications: bool,
     scheduler_options: Optional[SchedulerOptions] = None,
     name: Optional[str] = None,
     num_sobol_trials: int = 5,
-    model_gen_kwargs: Optional[Dict[str, Any]] = None,
+    model_gen_kwargs: Optional[dict[str, Any]] = None,
 ) -> BenchmarkMethod:
     """Get a `BenchmarkMethod` that uses Sobol followed by MBM.
 
@@ -93,8 +93,8 @@ def get_sobol_botorch_modular_acquisition(
         ...     num_sobol_trials=1,
         ... )
     """
-    model_kwargs: Dict[
-        str, Union[Type[AcquisitionFunction], Dict[str, SurrogateSpec], bool]
+    model_kwargs: dict[
+        str, Union[type[AcquisitionFunction], dict[str, SurrogateSpec], bool]
     ] = {
         "botorch_acqf_class": acquisition_cls,
         "surrogate_specs": {"BoTorch": SurrogateSpec(botorch_model_class=model_cls)},

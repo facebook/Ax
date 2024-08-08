@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import json
 import warnings
+from collections.abc import Iterable
 from copy import deepcopy
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Optional
 
 import ax.core.experiment as experiment
 
@@ -32,7 +33,7 @@ from ax.utils.common.typeutils import checked_cast, not_none
 
 TIME_COLS = {"start_time", "end_time"}
 
-OBS_COLS: Set[str] = {
+OBS_COLS: set[str] = {
     "arm_name",
     "trial_index",
     "random_split",
@@ -40,7 +41,7 @@ OBS_COLS: Set[str] = {
     *TIME_COLS,
 }
 
-OBS_KWARGS: Set[str] = {"trial_index", "random_split", *TIME_COLS}
+OBS_KWARGS: set[str] = {"trial_index", "random_split", *TIME_COLS}
 
 
 class ObservationFeatures(Base):
@@ -186,7 +187,7 @@ class ObservationData(Base):
     """
 
     def __init__(
-        self, metric_names: List[str], means: np.ndarray, covariance: np.ndarray
+        self, metric_names: list[str], means: np.ndarray, covariance: np.ndarray
     ) -> None:
         k = len(metric_names)
         if means.shape != (k,):
@@ -204,14 +205,14 @@ class ObservationData(Base):
         self.covariance = covariance
 
     @property
-    def means_dict(self) -> Dict[str, float]:
+    def means_dict(self) -> dict[str, float]:
         """Extract means from this observation data as mapping from metric name to
         mean.
         """
         return dict(zip(self.metric_names, self.means))
 
     @property
-    def covariance_matrix(self) -> Dict[str, Dict[str, float]]:
+    def covariance_matrix(self) -> dict[str, dict[str, float]]:
         """Extract covariance matric from this observation data as mapping from
         metric name (m1) to mapping of another metric name (m2) to the covariance
         of the two metrics (m1 and m2).
@@ -256,13 +257,13 @@ class Observation(Base):
 def _observations_from_dataframe(
     experiment: experiment.Experiment,
     df: pd.DataFrame,
-    cols: List[str],
+    cols: list[str],
     arm_name_only: bool,
     map_keys: Iterable[str],
-    statuses_to_include: Set[TrialStatus],
-    statuses_to_include_map_metric: Set[TrialStatus],
+    statuses_to_include: set[TrialStatus],
+    statuses_to_include_map_metric: set[TrialStatus],
     map_keys_as_parameters: bool = False,
-) -> List[Observation]:
+) -> list[Observation]:
     """Helper method for extracting observations grouped by `cols` from `df`.
 
     Args:
@@ -374,8 +375,8 @@ def _filter_data_on_status(
     # Data will be filtered out if is_arm_abandoned is True and the corresponding
     # statuses_to_include does not contain TrialStatus.ABANDONED.
     is_arm_abandoned: bool,
-    statuses_to_include: Set[TrialStatus],
-    statuses_to_include_map_metric: Set[TrialStatus],
+    statuses_to_include: set[TrialStatus],
+    statuses_to_include_map_metric: set[TrialStatus],
 ) -> pd.DataFrame:
     if "metric_name" not in df.columns:
         raise ValueError(f"`metric_name` column is missing from {df!r}.")
@@ -407,7 +408,7 @@ def _filter_data_on_status(
     return df
 
 
-def get_feature_cols(data: Data, is_map_data: bool = False) -> List[str]:
+def get_feature_cols(data: Data, is_map_data: bool = False) -> list[str]:
     feature_cols = OBS_COLS.intersection(data.df.columns)
     # note we use this check, rather than isinstance, since
     # only some Modelbridges (e.g. MapTorchModelBridge)
@@ -432,9 +433,9 @@ def get_feature_cols(data: Data, is_map_data: bool = False) -> List[str]:
 def observations_from_data(
     experiment: experiment.Experiment,
     data: Data,
-    statuses_to_include: Optional[Set[TrialStatus]] = None,
-    statuses_to_include_map_metric: Optional[Set[TrialStatus]] = None,
-) -> List[Observation]:
+    statuses_to_include: Optional[set[TrialStatus]] = None,
+    statuses_to_include_map_metric: Optional[set[TrialStatus]] = None,
+) -> list[Observation]:
     """Convert Data to observations.
 
     Converts a Data object to a list of Observation objects. Pulls arm parameters from
@@ -511,12 +512,12 @@ def observations_from_data(
 def observations_from_map_data(
     experiment: experiment.Experiment,
     map_data: MapData,
-    statuses_to_include: Optional[Set[TrialStatus]] = None,
-    statuses_to_include_map_metric: Optional[Set[TrialStatus]] = None,
+    statuses_to_include: Optional[set[TrialStatus]] = None,
+    statuses_to_include_map_metric: Optional[set[TrialStatus]] = None,
     map_keys_as_parameters: bool = False,
     limit_rows_per_metric: Optional[int] = None,
     limit_rows_per_group: Optional[int] = None,
-) -> List[Observation]:
+) -> list[Observation]:
     """Convert MapData to observations.
 
     Converts a MapData object to a list of Observation objects. Pulls arm parameters
@@ -618,8 +619,8 @@ def observations_from_map_data(
 
 
 def separate_observations(
-    observations: List[Observation], copy: bool = False
-) -> Tuple[List[ObservationFeatures], List[ObservationData]]:
+    observations: list[Observation], copy: bool = False
+) -> tuple[list[ObservationFeatures], list[ObservationData]]:
     """Split out observations into features+data.
 
     Args:
@@ -639,10 +640,10 @@ def separate_observations(
 
 
 def recombine_observations(
-    observation_features: List[ObservationFeatures],
-    observation_data: List[ObservationData],
-    arm_names: Optional[List[str]] = None,
-) -> List[Observation]:
+    observation_features: list[ObservationFeatures],
+    observation_data: list[ObservationData],
+    arm_names: Optional[list[str]] = None,
+) -> list[Observation]:
     """
     Construct a list of `Observation`s from the given arguments.
 

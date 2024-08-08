@@ -8,7 +8,7 @@
 
 from collections import defaultdict
 from logging import Logger
-from typing import DefaultDict, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
+from typing import Optional, TYPE_CHECKING, Union
 
 import numpy as np
 from ax.core.observation import Observation, ObservationFeatures, separate_observations
@@ -50,7 +50,7 @@ class StratifiedStandardizeY(Transform):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
@@ -82,7 +82,7 @@ class StratifiedStandardizeY(Transform):
                 raise ValueError(f"{self.p_name} not a ChoiceParameter")
             if "strata_mapping" in config:
                 # pyre-ignore [8]
-                self.strata_mapping: Dict[
+                self.strata_mapping: dict[
                     Union[bool, float, int, str], Union[bool, float, int, str]
                 ] = config["strata_mapping"]
                 if set(strat_p.values) != set(self.strata_mapping.keys()):
@@ -115,7 +115,7 @@ class StratifiedStandardizeY(Transform):
             self.strata_mapping = {v: v for v in strat_p.values}
         # Compute means and SDs
         observation_features, observation_data = separate_observations(observations)
-        Ys: DefaultDict[Tuple[str, TParamValue], List[float]] = defaultdict(list)
+        Ys: defaultdict[tuple[str, TParamValue], list[float]] = defaultdict(list)
         for j, obsd in enumerate(observation_data):
             v = not_none(observation_features[j].parameters[self.p_name])
             strata = self.strata_mapping[v]
@@ -133,8 +133,8 @@ class StratifiedStandardizeY(Transform):
 
     def transform_observations(
         self,
-        observations: List[Observation],
-    ) -> List[Observation]:
+        observations: list[Observation],
+    ) -> list[Observation]:
         # Transform observations
         for obs in observations:
             v = not_none(obs.features.parameters[self.p_name])
@@ -173,8 +173,8 @@ class StratifiedStandardizeY(Transform):
 
     def untransform_observations(
         self,
-        observations: List[Observation],
-    ) -> List[Observation]:
+        observations: list[Observation],
+    ) -> list[Observation]:
         for obs in observations:
             v = not_none(obs.features.parameters[self.p_name])
             strata = self.strata_mapping[v]
@@ -186,9 +186,9 @@ class StratifiedStandardizeY(Transform):
 
     def untransform_outcome_constraints(
         self,
-        outcome_constraints: List[OutcomeConstraint],
+        outcome_constraints: list[OutcomeConstraint],
         fixed_features: Optional[ObservationFeatures] = None,
-    ) -> List[OutcomeConstraint]:
+    ) -> list[OutcomeConstraint]:
         if fixed_features is None or self.p_name not in fixed_features.parameters:
             raise ValueError(
                 f"StratifiedStandardizeY requires {self.p_name} to be fixed here"

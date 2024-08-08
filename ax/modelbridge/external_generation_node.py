@@ -8,8 +8,9 @@
 
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from logging import Logger
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Optional
 
 from ax.core.arm import Arm
 from ax.core.data import Data
@@ -103,7 +104,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
 
     @abstractmethod
     def get_next_candidate(
-        self, pending_parameters: List[TParameterization]
+        self, pending_parameters: list[TParameterization]
     ) -> TParameterization:
         """Get the parameters for the next candidate configuration to evaluate.
 
@@ -164,7 +165,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
     def _gen(
         self,
         n: Optional[int] = None,
-        pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
+        pending_observations: Optional[dict[str, list[ObservationFeatures]]] = None,
         **model_gen_kwargs: Any,
     ) -> GeneratorRun:
         """Generate new candidates for evaluation.
@@ -188,13 +189,13 @@ class ExternalGenerationNode(GenerationNode, ABC):
         """
         t_gen_start = time.monotonic()
         n = 1 if n is None else n
-        pending_parameters: List[TParameterization] = []
+        pending_parameters: list[TParameterization] = []
         if pending_observations:
             for obs in pending_observations.values():
                 for o in obs:
                     if o not in pending_parameters:
                         pending_parameters.append(o.parameters)
-        generated_params: List[TParameterization] = []
+        generated_params: list[TParameterization] = []
         for _ in range(n):
             params = self.get_next_candidate(pending_parameters=pending_parameters)
             generated_params.append(params)

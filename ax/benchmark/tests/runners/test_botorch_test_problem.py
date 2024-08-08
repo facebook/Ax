@@ -8,7 +8,7 @@
 
 
 from itertools import product
-from typing import Dict, Union
+from typing import Union
 from unittest.mock import Mock
 
 import torch
@@ -29,7 +29,7 @@ class TestBotorchTestProblemRunner(TestCase):
             (Hartmann, ConstrainedHartmann), (None, [(0.0, 2.0)] * 6), (None, 0.1)
         ):
             test_problem = test_problem_class(dim=6).to(dtype=torch.double)
-            test_problem_kwargs: Dict[str, Union[int, float]] = {"dim": 6}
+            test_problem_kwargs: dict[str, Union[int, float]] = {"dim": 6}
             if noise_std is not None:
                 test_problem_kwargs["noise_std"] = noise_std
             outcome_names = ["objective"]

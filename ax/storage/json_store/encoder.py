@@ -11,7 +11,7 @@ import datetime
 import enum
 from collections import OrderedDict
 from inspect import isclass
-from typing import Any, Callable, Dict, Type
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -34,14 +34,14 @@ def object_to_json(  # noqa C901
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
-    encoder_registry: Dict[
-        Type, Callable[[Any], Dict[str, Any]]
+    encoder_registry: dict[
+        type, Callable[[Any], dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
-    class_encoder_registry: Dict[
-        Type, Callable[[Any], Dict[str, Any]]
+    class_encoder_registry: dict[
+        type, Callable[[Any], dict[str, Any]]
     ] = CORE_CLASS_ENCODER_REGISTRY,
 ) -> Any:
     """Convert an Ax object to a JSON-serializable dictionary.

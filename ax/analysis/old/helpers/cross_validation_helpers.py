@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -20,9 +20,9 @@ from ax.modelbridge.cross_validation import CVResult
 
 
 def error_scatter_data_from_cv_results(
-    cv_results: List[CVResult],
+    cv_results: list[CVResult],
     metric_name: str,
-) -> Tuple[List[float], List[float], List[float], List[float]]:
+) -> tuple[list[float], list[float], list[float], list[float]]:
     """Extract mean and error from CVResults
 
     Args:
@@ -51,7 +51,7 @@ def error_scatter_data_from_cv_results(
 
 
 def cv_results_to_df(
-    cv_results: List[CVResult],
+    cv_results: list[CVResult],
     metric_name: str,
 ) -> pd.DataFrame:
     """Create a dataframe with error scatterplot data
@@ -95,8 +95,8 @@ def cv_results_to_df(
 
 # Helper functions for plotting model fits
 def get_min_max_with_errors(
-    x: List[float], y: List[float], se_x: List[float], se_y: List[float]
-) -> Tuple[float, float]:
+    x: list[float], y: list[float], se_x: list[float], se_y: list[float]
+) -> tuple[float, float]:
     """Get min and max of a bivariate dataset (across variables).
 
     Args:
@@ -120,8 +120,8 @@ def get_min_max_with_errors(
 
 
 def get_plotting_limit_ignore_outliers(
-    x: List[float], y: List[float], se_x: List[float], se_y: List[float]
-) -> Tuple[List[float], Tuple[float, float]]:
+    x: list[float], y: list[float], se_x: list[float], se_y: list[float]
+) -> tuple[list[float], tuple[float, float]]:
     """Get a range for a bivarite dataset based on the 25th and 75th percentiles
     Used as plotting limit to ignore outliers.
 
@@ -166,7 +166,7 @@ def get_plotting_limit_ignore_outliers(
     return (layout_range, diagonal_trace_range)
 
 
-def diagonal_trace(min_: float, max_: float, visible: bool = True) -> Dict[str, Any]:
+def diagonal_trace(min_: float, max_: float, visible: bool = True) -> dict[str, Any]:
     """Diagonal line trace from (min_, min_) to (max_, max_).
 
     Args:
@@ -185,7 +185,7 @@ def diagonal_trace(min_: float, max_: float, visible: bool = True) -> Dict[str, 
     )
 
 
-def default_value_se_raw(se_raw: Optional[List[float]], out_length: int) -> List[float]:
+def default_value_se_raw(se_raw: Optional[list[float]], out_length: int) -> list[float]:
     """
     Takes a list of standard errors and maps edge cases to default list
     of floats.

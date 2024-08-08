@@ -7,7 +7,7 @@
 # pyre-strict
 
 import pathlib
-from typing import Any, Callable, Dict, Type
+from typing import Any, Callable
 
 import torch
 from ax.benchmark.benchmark_method import BenchmarkMethod
@@ -179,7 +179,7 @@ from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
 # pyre-fixme[5]: Global annotation cannot contain `Any`.
 # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
 #  avoid runtime subscripting errors.
-CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
+CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     Arm: arm_to_dict,
     AndEarlyStoppingStrategy: logical_early_stopping_strategy_to_dict,
     AugmentedBraninMetric: metric_to_dict,
@@ -274,7 +274,7 @@ CORE_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
 # pyre-fixme[5]: Global annotation cannot contain `Any`.
 # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
 #  avoid runtime subscripting errors.
-CORE_CLASS_ENCODER_REGISTRY: Dict[Type, Callable[[Any], Dict[str, Any]]] = {
+CORE_CLASS_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     Acquisition: botorch_modular_to_dict,  # Ax MBM component
     AcquisitionFunction: botorch_modular_to_dict,  # BoTorch component
     Likelihood: botorch_modular_to_dict,  # BoTorch component
@@ -404,7 +404,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
 
 # Registry for class types, not instances.
 # pyre-fixme[5]: Global annotation cannot contain `Any`.
-CORE_CLASS_DECODER_REGISTRY: Dict[str, Callable[[Dict[str, Any]], Any]] = {
+CORE_CLASS_DECODER_REGISTRY: dict[str, Callable[[dict[str, Any]], Any]] = {
     "Type[Acquisition]": class_from_json,
     "Type[AcquisitionFunction]": class_from_json,
     "Type[Kernel]": class_from_json,

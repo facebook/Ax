@@ -8,10 +8,9 @@
 
 
 from numbers import Real
-from typing import Tuple
 
 # type aliases
-TRGB = Tuple[Real, ...]
+TRGB = tuple[Real, ...]
 
 
 def rgba(rgb_tuple: TRGB, alpha: float = 1) -> str:

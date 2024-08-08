@@ -10,7 +10,7 @@ import os
 import tarfile
 import time
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Optional
 
 import nbformat
 import papermill
@@ -66,7 +66,7 @@ function require(deps, fxn) {
 """
 
 
-def _get_paths(repo_dir: str, t_dir: Optional[str], tid: str) -> Dict[str, str]:
+def _get_paths(repo_dir: str, t_dir: Optional[str], tid: str) -> dict[str, str]:
     if t_dir is not None:
         tutorial_dir = os.path.join(repo_dir, "tutorials", t_dir)
         html_dir = os.path.join(repo_dir, "website", "_tutorials", t_dir)
@@ -111,7 +111,7 @@ def _get_paths(repo_dir: str, t_dir: Optional[str], tid: str) -> Dict[str, str]:
 
 
 def run_script(
-    tutorial: Path, timeout_minutes: int, env: Optional[Dict[str, str]] = None
+    tutorial: Path, timeout_minutes: int, env: Optional[dict[str, str]] = None
 ) -> None:
     if env is not None:
         os.environ.update(env)

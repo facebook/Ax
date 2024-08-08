@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod, abstractproperty
 from copy import deepcopy
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TYPE_CHECKING, Union
+from typing import Any, Callable, Optional, TYPE_CHECKING, Union
 
 from ax.core.arm import Arm
 from ax.core.data import Data
@@ -155,16 +155,16 @@ class TrialStatus(int, Enum):
         return f"{self.__class__}.{self.name}"
 
 
-DEFAULT_STATUSES_TO_WARM_START: List[TrialStatus] = [
+DEFAULT_STATUSES_TO_WARM_START: list[TrialStatus] = [
     TrialStatus.RUNNING,
     TrialStatus.COMPLETED,
     TrialStatus.ABANDONED,
     TrialStatus.EARLY_STOPPED,
 ]
 
-NON_ABANDONED_STATUSES: Set[TrialStatus] = set(TrialStatus) - {TrialStatus.ABANDONED}
+NON_ABANDONED_STATUSES: set[TrialStatus] = set(TrialStatus) - {TrialStatus.ABANDONED}
 
-STATUSES_EXPECTING_DATA: List[TrialStatus] = [
+STATUSES_EXPECTING_DATA: list[TrialStatus] = [
     TrialStatus.RUNNING,
     TrialStatus.COMPLETED,
     TrialStatus.EARLY_STOPPED,
@@ -254,8 +254,8 @@ class BaseTrial(ABC, SortableBase):
 
         self._abandoned_reason: Optional[str] = None
         self._failed_reason: Optional[str] = None
-        self._run_metadata: Dict[str, Any] = {}
-        self._stop_metadata: Dict[str, Any] = {}
+        self._run_metadata: dict[str, Any] = {}
+        self._stop_metadata: dict[str, Any] = {}
 
         self._runner: Optional[Runner] = None
 
@@ -338,7 +338,7 @@ class BaseTrial(ABC, SortableBase):
         return self._run_metadata.get("name") if self._run_metadata else None
 
     @property
-    def run_metadata(self) -> Dict[str, Any]:
+    def run_metadata(self) -> dict[str, Any]:
         """Dict containing metadata from the deployment process.
 
         This is set implicitly during `trial.run()`.
@@ -346,7 +346,7 @@ class BaseTrial(ABC, SortableBase):
         return self._run_metadata
 
     @property
-    def stop_metadata(self) -> Dict[str, Any]:
+    def stop_metadata(self) -> dict[str, Any]:
         """Dict containing metadata from the stopping process.
 
         This is set implicitly during `trial.stop()`.
@@ -381,13 +381,13 @@ class BaseTrial(ABC, SortableBase):
             self._runner = runner.clone()
         return self
 
-    def update_run_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
+    def update_run_metadata(self, metadata: dict[str, Any]) -> dict[str, Any]:
         """Updates the run metadata dict stored on this trial and returns the
         updated dict."""
         self._run_metadata.update(metadata)
         return self._run_metadata
 
-    def update_stop_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
+    def update_stop_metadata(self, metadata: dict[str, Any]) -> dict[str, Any]:
         """Updates the stop metadata dict stored on this trial and returns the
         updated dict."""
         self._stop_metadata.update(metadata)
@@ -478,8 +478,8 @@ class BaseTrial(ABC, SortableBase):
         return self
 
     def fetch_data_results(
-        self, metrics: Optional[List[Metric]] = None, **kwargs: Any
-    ) -> Dict[str, MetricFetchResult]:
+        self, metrics: Optional[list[Metric]] = None, **kwargs: Any
+    ) -> dict[str, MetricFetchResult]:
         """Fetch data results for this trial for all metrics on experiment.
 
         Args:
@@ -496,7 +496,7 @@ class BaseTrial(ABC, SortableBase):
             trial_index=self.index, metrics=metrics, **kwargs
         )
 
-    def fetch_data(self, metrics: Optional[List[Metric]] = None, **kwargs: Any) -> Data:
+    def fetch_data(self, metrics: Optional[list[Metric]] = None, **kwargs: Any) -> Data:
         """Fetch data for this trial for all metrics on experiment.
 
         # NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
@@ -563,11 +563,11 @@ class BaseTrial(ABC, SortableBase):
         self._generation_step_index = generation_step_index
 
     @abstractproperty
-    def arms(self) -> List[Arm]:
+    def arms(self) -> list[Arm]:
         pass
 
     @abstractproperty
-    def arms_by_name(self) -> Dict[str, Arm]:
+    def arms_by_name(self) -> dict[str, Arm]:
         pass
 
     @abstractmethod
@@ -575,19 +575,19 @@ class BaseTrial(ABC, SortableBase):
         pass
 
     @abstractproperty
-    def abandoned_arms(self) -> List[Arm]:
+    def abandoned_arms(self) -> list[Arm]:
         """All abandoned arms, associated with this trial."""
         pass
 
     @abstractproperty
-    def generator_runs(self) -> List[GeneratorRun]:
+    def generator_runs(self) -> list[GeneratorRun]:
         """All generator runs associated with this trial."""
         pass
 
     @abstractmethod
     def _get_candidate_metadata_from_all_generator_runs(
         self,
-    ) -> Dict[str, TCandidateMetadata]:
+    ) -> dict[str, TCandidateMetadata]:
         """Retrieves combined candidate metadata from all generator runs associated
         with this trial.
         """
@@ -830,10 +830,10 @@ class BaseTrial(ABC, SortableBase):
 
     def _make_evaluations_and_data(
         self,
-        raw_data: Dict[str, TEvaluationOutcome],
-        metadata: Optional[Dict[str, Union[str, int]]],
-        sample_sizes: Optional[Dict[str, int]] = None,
-    ) -> Tuple[Dict[str, TEvaluationOutcome], Data]:
+        raw_data: dict[str, TEvaluationOutcome],
+        metadata: Optional[dict[str, Union[str, int]]],
+        sample_sizes: Optional[dict[str, int]] = None,
+    ) -> tuple[dict[str, TEvaluationOutcome], Data]:
         """Formats given raw data as Ax evaluations and `Data`.
 
         Args:

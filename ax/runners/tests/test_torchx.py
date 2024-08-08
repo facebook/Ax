@@ -9,7 +9,6 @@
 import os
 import shutil
 import tempfile
-from typing import List
 
 from ax.core import (
     BatchTrial,
@@ -38,7 +37,7 @@ class TorchXRunnerTest(TestCase):
         self.old_cwd = os.getcwd()
         os.chdir(os.path.dirname(os.path.dirname(__file__)))
 
-        self._parameters: List[Parameter] = [
+        self._parameters: list[Parameter] = [
             RangeParameter(
                 name="x1",
                 lower=-10.0,

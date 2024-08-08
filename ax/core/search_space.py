@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import math
 import warnings
+from collections.abc import Hashable, Mapping
 from dataclasses import dataclass, field
 from functools import reduce
 from logging import Logger
 from random import choice, uniform
-from typing import Callable, Dict, Hashable, List, Mapping, Optional, Set, Tuple, Union
+from typing import Callable, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -66,8 +67,8 @@ class SearchSpace(Base):
 
     def __init__(
         self,
-        parameters: List[Parameter],
-        parameter_constraints: Optional[List[ParameterConstraint]] = None,
+        parameters: list[Parameter],
+        parameter_constraints: Optional[list[ParameterConstraint]] = None,
     ) -> None:
         """Initialize SearchSpace
 
@@ -78,7 +79,7 @@ class SearchSpace(Base):
         if len({p.name for p in parameters}) < len(parameters):
             raise ValueError("Parameter names must be unique.")
 
-        self._parameters: Dict[str, Parameter] = {p.name: p for p in parameters}
+        self._parameters: dict[str, Parameter] = {p.name: p for p in parameters}
         self.set_parameter_constraints(parameter_constraints or [])
 
     @property
@@ -90,15 +91,15 @@ class SearchSpace(Base):
         return isinstance(self, RobustSearchSpace)
 
     @property
-    def parameters(self) -> Dict[str, Parameter]:
+    def parameters(self) -> dict[str, Parameter]:
         return self._parameters
 
     @property
-    def parameter_constraints(self) -> List[ParameterConstraint]:
+    def parameter_constraints(self) -> list[ParameterConstraint]:
         return self._parameter_constraints
 
     @property
-    def range_parameters(self) -> Dict[str, RangeParameter]:
+    def range_parameters(self) -> dict[str, RangeParameter]:
         return {
             name: parameter
             for name, parameter in self.parameters.items()
@@ -106,7 +107,7 @@ class SearchSpace(Base):
         }
 
     @property
-    def tunable_parameters(self) -> Dict[str, Parameter]:
+    def tunable_parameters(self) -> dict[str, Parameter]:
         return {
             name: parameter
             for name, parameter in self.parameters.items()
@@ -122,13 +123,13 @@ class SearchSpace(Base):
         )
 
     def add_parameter_constraints(
-        self, parameter_constraints: List[ParameterConstraint]
+        self, parameter_constraints: list[ParameterConstraint]
     ) -> None:
         self._validate_parameter_constraints(parameter_constraints)
         self._parameter_constraints.extend(parameter_constraints)
 
     def set_parameter_constraints(
-        self, parameter_constraints: List[ParameterConstraint]
+        self, parameter_constraints: list[ParameterConstraint]
     ) -> None:
         # Validate that all parameters in constraints are in search
         # space already.
@@ -148,7 +149,7 @@ class SearchSpace(Base):
                 for idx, parameter in enumerate(constraint.parameters):
                     constraint.parameters[idx] = self.parameters[parameter.name]
 
-        self._parameter_constraints: List[ParameterConstraint] = parameter_constraints
+        self._parameter_constraints: list[ParameterConstraint] = parameter_constraints
 
     def add_parameter(self, parameter: Parameter) -> None:
         if parameter.name in self.parameters.keys():
@@ -352,7 +353,7 @@ class SearchSpace(Base):
         )
 
     def _validate_parameter_constraints(
-        self, parameter_constraints: List[ParameterConstraint]
+        self, parameter_constraints: list[ParameterConstraint]
     ) -> None:
         for constraint in parameter_constraints:
             if isinstance(constraint, OrderConstraint) or isinstance(
@@ -438,13 +439,13 @@ class SearchSpace(Base):
 class HierarchicalSearchSpace(SearchSpace):
     def __init__(
         self,
-        parameters: List[Parameter],
-        parameter_constraints: Optional[List[ParameterConstraint]] = None,
+        parameters: list[Parameter],
+        parameter_constraints: Optional[list[ParameterConstraint]] = None,
     ) -> None:
         super().__init__(
             parameters=parameters, parameter_constraints=parameter_constraints
         )
-        self._all_parameter_names: Set[str] = set(self.parameters.keys())
+        self._all_parameter_names: set[str] = set(self.parameters.keys())
         self._root: Parameter = self._find_root()
         self._validate_hierarchical_structure()
         logger.debug(f"Found root: {self.root}.")
@@ -686,7 +687,7 @@ class HierarchicalSearchSpace(SearchSpace):
             f"of the search space: {self.hierarchical_structure_str}."
         )
 
-        def _find_applicable_parameters(root: Parameter) -> Set[str]:
+        def _find_applicable_parameters(root: Parameter) -> set[str]:
             applicable = {root.name}
             if check_all_parameters_present and root.name not in parameters:
                 raise RuntimeError(
@@ -772,7 +773,7 @@ class HierarchicalSearchSpace(SearchSpace):
         are reachable and part of the tree.
         """
 
-        def _check_subtree(root: Parameter) -> Set[str]:
+        def _check_subtree(root: Parameter) -> set[str]:
             logger.debug(f"Verifying subtree with root {root}...")
             visited = {root.name}
             # Base case: validate leaf node.
@@ -810,7 +811,7 @@ class HierarchicalSearchSpace(SearchSpace):
         self,
         observation_features: core.observation.ObservationFeatures,
         use_random_dummy_values: bool,
-    ) -> Dict[str, TParamValue]:
+    ) -> dict[str, TParamValue]:
         dummy_values_to_inject = {}
         for param_name, param in self.parameters.items():
             if param_name in observation_features.parameters:
@@ -858,11 +859,11 @@ class RobustSearchSpace(SearchSpace):
 
     def __init__(
         self,
-        parameters: List[Parameter],
-        parameter_distributions: List[ParameterDistribution],
+        parameters: list[Parameter],
+        parameter_distributions: list[ParameterDistribution],
         num_samples: int,
-        environmental_variables: Optional[List[Parameter]] = None,
-        parameter_constraints: Optional[List[ParameterConstraint]] = None,
+        environmental_variables: Optional[list[Parameter]] = None,
+        parameter_constraints: Optional[list[ParameterConstraint]] = None,
     ) -> None:
         """Initialize the robust search space.
 
@@ -891,10 +892,10 @@ class RobustSearchSpace(SearchSpace):
         self.parameter_distributions = parameter_distributions
         # Make sure that the env var names are unique.
         environmental_variables = environmental_variables or []
-        all_env_vars: Set[str] = {p.name for p in environmental_variables}
+        all_env_vars: set[str] = {p.name for p in environmental_variables}
         if len(all_env_vars) < len(environmental_variables):
             raise UserInputError("Environmental variable names must be unique!")
-        self._environmental_variables: Dict[str, Parameter] = {
+        self._environmental_variables: dict[str, Parameter] = {
             p.name: p for p in environmental_variables
         }
         # Make sure that the environmental variables and parameters are distinct.
@@ -922,7 +923,7 @@ class RobustSearchSpace(SearchSpace):
         """
         distributions = self.parameter_distributions
         # Make sure that there is at most one distribution per parameter.
-        self._distributional_parameters: Set[str] = set()
+        self._distributional_parameters: set[str] = set()
         for dist in distributions:
             duplicates = self._distributional_parameters.intersection(dist.parameters)
             if duplicates:
@@ -939,8 +940,8 @@ class RobustSearchSpace(SearchSpace):
                 "All environmental variables must have a distribution specified."
             )
 
-        self._environmental_distributions: List[ParameterDistribution] = []
-        self._perturbation_distributions: List[ParameterDistribution] = []
+        self._environmental_distributions: list[ParameterDistribution] = []
+        self._perturbation_distributions: list[ParameterDistribution] = []
         if len(all_env_vars) > 0:
             if all_env_vars != self._distributional_parameters:
                 # NOTE: We do not support mixing env var and input noise together
@@ -1000,7 +1001,7 @@ class RobustSearchSpace(SearchSpace):
         return parameter_name in self._environmental_variables
 
     @property
-    def parameters(self) -> Dict[str, Parameter]:
+    def parameters(self) -> dict[str, Parameter]:
         """Get all parameters and environmental variables.
 
         We include environmental variables here to support `transform_search_space`
@@ -1070,16 +1071,16 @@ class SearchSpaceDigest:
             additional attributes if using a `RobustSearchSpace`.
     """
 
-    feature_names: List[str]
-    bounds: List[Tuple[Union[int, float], Union[int, float]]]
-    ordinal_features: List[int] = field(default_factory=list)
-    categorical_features: List[int] = field(default_factory=list)
-    discrete_choices: Mapping[int, List[Union[int, float]]] = field(
+    feature_names: list[str]
+    bounds: list[tuple[Union[int, float], Union[int, float]]]
+    ordinal_features: list[int] = field(default_factory=list)
+    categorical_features: list[int] = field(default_factory=list)
+    discrete_choices: Mapping[int, list[Union[int, float]]] = field(
         default_factory=dict
     )
-    task_features: List[int] = field(default_factory=list)
-    fidelity_features: List[int] = field(default_factory=list)
-    target_values: Dict[int, Union[int, float]] = field(default_factory=dict)
+    task_features: list[int] = field(default_factory=list)
+    fidelity_features: list[int] = field(default_factory=list)
+    target_values: dict[int, Union[int, float]] = field(default_factory=dict)
     robust_digest: Optional[RobustSearchSpaceDigest] = None
 
 
@@ -1106,7 +1107,7 @@ class RobustSearchSpaceDigest:
 
     sample_param_perturbations: Optional[Callable[[], np.ndarray]] = None
     sample_environmental: Optional[Callable[[], np.ndarray]] = None
-    environmental_variables: List[str] = field(default_factory=list)
+    environmental_variables: list[str] = field(default_factory=list)
     multiplicative: bool = False
 
     def __post_init__(self) -> None:
@@ -1120,7 +1121,7 @@ class RobustSearchSpaceDigest:
             )
 
 
-def _disjoint_union(set1: Set[str], set2: Set[str]) -> Set[str]:
+def _disjoint_union(set1: set[str], set2: set[str]) -> set[str]:
     if not set1.isdisjoint(set2):
         raise UserInputError(
             "Two subtrees in the search space contain the same parameters: "

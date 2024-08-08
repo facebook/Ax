@@ -7,7 +7,6 @@
 # pyre-strict
 
 import math
-from typing import Tuple
 
 import pandas as pd
 import plotly.graph_objs as go
@@ -44,7 +43,7 @@ def table_view_plot(
     use_empirical_bayes: bool = True,
     only_data_frame: bool = False,
     arm_noun: str = "arm",
-) -> Tuple[DataFrame]:
+) -> tuple[DataFrame]:
     """Table of means and confidence intervals.
 
     Table is of the form:

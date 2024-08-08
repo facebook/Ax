@@ -19,10 +19,10 @@ Key terms used:
 
 """
 
+from collections.abc import Iterable
 from itertools import product
 from logging import Logger
 from time import time
-from typing import Dict, Iterable, List
 
 import numpy as np
 
@@ -203,7 +203,7 @@ def benchmark_multiple_problems_methods(
     problems: Iterable[BenchmarkProblem],
     methods: Iterable[BenchmarkMethod],
     seeds: Iterable[int],
-) -> List[AggregatedBenchmarkResult]:
+) -> list[AggregatedBenchmarkResult]:
     """
     For each `problem` and `method` in the Cartesian product of `problems` and
     `methods`, run the replication on each seed in `seeds` and get the results
@@ -219,7 +219,7 @@ def benchmark_multiple_problems_methods(
 def make_ground_truth_metrics(
     problem: BenchmarkProblem,
     include_tracking_metrics: bool = True,
-) -> Dict[str, Metric]:
+) -> dict[str, Metric]:
     """Makes a ground truth version for each metric defined on the problem.
 
     Args:
@@ -234,7 +234,7 @@ def make_ground_truth_metrics(
             "Cannot create ground truth metrics for problems that "
             "do not have a ground truth."
         )
-    metrics: List[BenchmarkMetricBase] = [
+    metrics: list[BenchmarkMetricBase] = [
         checked_cast(BenchmarkMetricBase, metric)
         for metric in problem.optimization_config.metrics.values()
     ]
@@ -257,7 +257,7 @@ def make_ground_truth_optimization_config(
         raise NotImplementedError("Support for risk measures is not yet implemented.")
 
     # dict for caching metric lookup
-    gt_metric_dict: Dict[str, BenchmarkMetricBase] = {}
+    gt_metric_dict: dict[str, BenchmarkMetricBase] = {}
 
     def get_gt_metric(metric: Metric) -> BenchmarkMetricBase:
         """Look up corresponding ground truth metric of the experiment. Will error

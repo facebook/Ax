@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 import numpy as np
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -79,15 +79,15 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         )
         self.window_size = window_size
         self.improvement_bar = improvement_bar
-        self.hv_by_trial: Dict[int, float] = {}
-        self._inferred_objective_thresholds: Optional[List[ObjectiveThreshold]] = None
+        self.hv_by_trial: dict[int, float] = {}
+        self._inferred_objective_thresholds: Optional[list[ObjectiveThreshold]] = None
 
     def _should_stop_optimization(
         self,
         experiment: Experiment,
         trial_to_check: Optional[int] = None,
-        objective_thresholds: Optional[List[ObjectiveThreshold]] = None,
-    ) -> Tuple[bool, str]:
+        objective_thresholds: Optional[list[ObjectiveThreshold]] = None,
+    ) -> tuple[bool, str]:
         """
         Check if the objective has improved significantly in the past
         "window_size" iterations.
@@ -171,8 +171,8 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         self,
         experiment: Experiment,
         trial_to_check: int,
-        objective_thresholds: List[ObjectiveThreshold],
-    ) -> Tuple[bool, str]:
+        objective_thresholds: list[ObjectiveThreshold],
+    ) -> tuple[bool, str]:
         """
         This is the "should_stop_optimization" method of this class, specialized
         to MOO experiments.
@@ -242,7 +242,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
 
     def _should_stop_single_objective(
         self, experiment: Experiment, trial_to_check: int
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """
         This is the `_should_stop_optimization` method of this class,
         specialized to single-objective experiments.

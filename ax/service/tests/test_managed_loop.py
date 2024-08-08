@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Dict, Tuple, Union
+from typing import Union
 from unittest.mock import Mock, patch
 
 import numpy as np
@@ -22,7 +22,7 @@ from numpy import ndarray
 
 def _branin_evaluation_function(
     parameterization, weight=None  # pyre-fixme[2]: Parameter must be annotated.
-) -> Dict[str, Tuple[Union[float, ndarray], float]]:
+) -> dict[str, tuple[Union[float, ndarray], float]]:
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
     x1, x2 = parameterization["x1"], parameterization["x2"]
@@ -34,7 +34,7 @@ def _branin_evaluation_function(
 
 def _branin_evaluation_function_v2(
     parameterization, weight=None  # pyre-fixme[2]: Parameter must be annotated.
-) -> Tuple[Union[float, ndarray], float]:
+) -> tuple[Union[float, ndarray], float]:
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
     x1, x2 = parameterization["x1"], parameterization["x2"]
@@ -43,7 +43,7 @@ def _branin_evaluation_function_v2(
 
 def _branin_evaluation_function_with_unknown_sem(
     parameterization, weight=None  # pyre-fixme[2]: Parameter must be annotated.
-) -> Tuple[Union[float, ndarray], None]:
+) -> tuple[Union[float, ndarray], None]:
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
     x1, x2 = parameterization["x1"], parameterization["x2"]

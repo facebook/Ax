@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import Observation, ObservationFeatures
@@ -33,12 +33,12 @@ OH_PARAM_INFIX = "_OH_PARAM_"
 class OneHotEncoder:
     """OneHot encodes a list of labels."""
 
-    def __init__(self, values: List[TParamValue]) -> None:
+    def __init__(self, values: list[TParamValue]) -> None:
         assert len(values) >= 2
-        self.values: List[TParamValue] = values
+        self.values: list[TParamValue] = values
         self.encoded_len: int = 1 if len(values) == 2 else len(values)
 
-    def transform(self, label: TParamValue) -> List[int]:
+    def transform(self, label: TParamValue) -> list[int]:
         """One hot encode a given label."""
         effective_index = self.values.index(label)
         if self.encoded_len == 1:
@@ -48,7 +48,7 @@ class OneHotEncoder:
             encoding[effective_index] = 1
             return encoding
 
-    def inverse_transform(self, encoded_label: List[int]) -> TParamValue:
+    def inverse_transform(self, encoded_label: list[int]) -> TParamValue:
         """Inverse transorm a one hot encoded label."""
         if self.encoded_len == 1:
             return self.values[encoded_label[0]]
@@ -88,7 +88,7 @@ class OneHot(Transform):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
@@ -98,9 +98,9 @@ class OneHot(Transform):
         self.rounding = "strict"
         if config is not None:
             self.rounding = config.get("rounding", "strict")
-        self.encoder: Dict[str, OneHotEncoder] = {}
-        self.encoded_parameters: Dict[str, List[str]] = {}
-        self.encoded_values: Dict[str, List[TParamValue]] = {}
+        self.encoder: dict[str, OneHotEncoder] = {}
+        self.encoded_parameters: dict[str, list[str]] = {}
+        self.encoded_values: dict[str, list[TParamValue]] = {}
         for p in search_space.parameters.values():
             if isinstance(p, ChoiceParameter) and not p.is_ordered and not p.is_task:
                 self.encoded_values[p.name] = p.values
@@ -116,8 +116,8 @@ class OneHot(Transform):
                     ]
 
     def transform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             for p_name, encoder in self.encoder.items():
                 if p_name in obsf.parameters:
@@ -130,7 +130,7 @@ class OneHot(Transform):
         return observation_features
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        transformed_parameters: Dict[str, Parameter] = {}
+        transformed_parameters: dict[str, Parameter] = {}
         for p_name, p in search_space.parameters.items():
             if p_name in self.encoded_parameters:
                 p = checked_cast(ChoiceParameter, p)
@@ -176,8 +176,8 @@ class OneHot(Transform):
         )
 
     def untransform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             for p_name in self.encoder.keys():
                 has_params = [

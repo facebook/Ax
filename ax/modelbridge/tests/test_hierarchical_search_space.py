@@ -9,7 +9,6 @@
 
 from contextlib import ExitStack
 from random import random
-from typing import List
 
 from ax.core.experiment import Experiment
 from ax.core.objective import Objective
@@ -121,7 +120,7 @@ class TestHierarchicalSearchSpace(TestCase):
     def _test_gen_base(
         self,
         hss: HierarchicalSearchSpace,
-        expected_num_candidate_params: List[int],
+        expected_num_candidate_params: list[int],
         num_sobol_trials: int = 5,
         num_bo_trials: int = 5,
     ) -> Experiment:

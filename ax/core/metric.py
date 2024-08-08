@@ -10,23 +10,14 @@ from __future__ import annotations
 
 import traceback
 import warnings
+from collections.abc import Iterable, Mapping
 
 from dataclasses import dataclass
 from datetime import timedelta
 from functools import reduce
 from logging import Logger
 
-from typing import (
-    Any,
-    Dict,
-    Iterable,
-    List,
-    Mapping,
-    Optional,
-    Tuple,
-    Type,
-    TYPE_CHECKING,
-)
+from typing import Any, Optional, TYPE_CHECKING
 
 from ax.core.data import Data
 from ax.utils.common.base import SortableBase
@@ -92,13 +83,13 @@ class Metric(SortableBase, SerializationMixin):
         properties: Properties specific to a particular metric.
     """
 
-    data_constructor: Type[Data] = Data
+    data_constructor: type[Data] = Data
 
     def __init__(
         self,
         name: str,
         lower_is_better: Optional[bool] = None,
-        properties: Optional[Dict[str, Any]] = None,
+        properties: Optional[dict[str, Any]] = None,
     ) -> None:
         """Inits Metric.
 
@@ -109,7 +100,7 @@ class Metric(SortableBase, SerializationMixin):
         """
         self._name = name
         self.lower_is_better = lower_is_better
-        self.properties: Dict[str, Any] = properties or {}
+        self.properties: dict[str, Any] = properties or {}
 
     # ---------- Properties and methods that subclasses often override. ----------
 
@@ -155,7 +146,7 @@ class Metric(SortableBase, SerializationMixin):
     # leverages fetching multiple metrics at once instead of fetching each serially,
     # and that fetching logic is shared across the metric group.
     @property
-    def fetch_multi_group_by_metric(self) -> Type[Metric]:
+    def fetch_multi_group_by_metric(self) -> type[Metric]:
         """Metric class, with which to group this metric in
         `Experiment._metrics_by_class`, which is used to combine metrics on experiment
         into groups and then fetch their data via `Metric.fetch_trial_data_multi` for
@@ -188,7 +179,7 @@ class Metric(SortableBase, SerializationMixin):
         )
 
     @property
-    def summary_dict(self) -> Dict[str, Any]:
+    def summary_dict(self) -> dict[str, Any]:
         """Returns a dictionary containing the metric's name and properties."""
         return {
             "name": self.name,
@@ -207,8 +198,8 @@ class Metric(SortableBase, SerializationMixin):
     # multi` to avoid backward incompatibility. A `DeprecationWarning` is raised if
     # this is not overridden but `fetch_trial_data_multi` is.
     def bulk_fetch_trial_data(
-        self, trial: core.base_trial.BaseTrial, metrics: List[Metric], **kwargs: Any
-    ) -> Dict[str, MetricFetchResult]:
+        self, trial: core.base_trial.BaseTrial, metrics: list[Metric], **kwargs: Any
+    ) -> dict[str, MetricFetchResult]:
         """Fetch multiple metrics data for one trial, using instance attributes
         of the metrics.
 
@@ -236,10 +227,10 @@ class Metric(SortableBase, SerializationMixin):
     def bulk_fetch_experiment_data(
         self,
         experiment: core.experiment.Experiment,
-        metrics: List[Metric],
-        trials: Optional[List[core.base_trial.BaseTrial]] = None,
+        metrics: list[Metric],
+        trials: Optional[list[core.base_trial.BaseTrial]] = None,
         **kwargs: Any,
-    ) -> Dict[int, Dict[str, MetricFetchResult]]:
+    ) -> dict[int, dict[str, MetricFetchResult]]:
         """Fetch multiple metrics data for multiple trials on an experiment, using
         instance attributes of the metrics.
 
@@ -281,10 +272,10 @@ class Metric(SortableBase, SerializationMixin):
     def fetch_data_prefer_lookup(
         self,
         experiment: core.experiment.Experiment,
-        metrics: List[Metric],
-        trials: Optional[List[core.base_trial.BaseTrial]] = None,
+        metrics: list[Metric],
+        trials: Optional[list[core.base_trial.BaseTrial]] = None,
         **kwargs: Any,
-    ) -> Tuple[Dict[int, Dict[str, MetricFetchResult]], bool]:
+    ) -> tuple[dict[int, dict[str, MetricFetchResult]], bool]:
         """Fetch or lookup (with fallback to fetching) data for given metrics,
         depending on whether they are available while running. Return a tuple
         containing the data, along with a boolean that will be True if new
@@ -386,7 +377,7 @@ class Metric(SortableBase, SerializationMixin):
     @classmethod
     def fetch_trial_data_multi(
         cls, trial: core.base_trial.BaseTrial, metrics: Iterable[Metric], **kwargs: Any
-    ) -> Dict[str, MetricFetchResult]:
+    ) -> dict[str, MetricFetchResult]:
         """Fetch multiple metrics data for one trial.
 
         Returns Dict of metric_name => Result
@@ -405,7 +396,7 @@ class Metric(SortableBase, SerializationMixin):
         metrics: Iterable[Metric],
         trials: Optional[Iterable[core.base_trial.BaseTrial]] = None,
         **kwargs: Any,
-    ) -> Dict[int, Dict[str, MetricFetchResult]]:
+    ) -> dict[int, dict[str, MetricFetchResult]]:
         """Fetch multiple metrics data for an experiment.
 
         Returns Dict of trial_index => (metric_name => Result)
@@ -466,11 +457,11 @@ class Metric(SortableBase, SerializationMixin):
         # lose rows)if some MetricFetchResults contain Data not of type
         # `cls.data_constructor`
 
-        oks: List[Ok[Data, MetricFetchE]] = [
+        oks: list[Ok[Data, MetricFetchE]] = [
             result for result in results.values() if isinstance(result, Ok)
         ]
         if len(oks) < len(results):
-            errs: List[Err[Data, MetricFetchE]] = [
+            errs: list[Err[Data, MetricFetchE]] = [
                 result for result in results.values() if isinstance(result, Err)
             ]
 
@@ -500,13 +491,13 @@ class Metric(SortableBase, SerializationMixin):
         cls,
         results: Mapping[str, MetricFetchResult],
         # TODO[mpolson64] Add critical_metric_names to other unwrap methods
-        critical_metric_names: Optional[List[str]] = None,
+        critical_metric_names: Optional[list[str]] = None,
     ) -> Data:
         # NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
         # lose rows)if some MetricFetchResults contain Data not of type
         # `cls.data_constructor`
 
-        oks: List[Ok[Data, MetricFetchE]] = [
+        oks: list[Ok[Data, MetricFetchE]] = [
             result for result in results.values() if isinstance(result, Ok)
         ]
         if len(oks) < len(results):
@@ -516,7 +507,7 @@ class Metric(SortableBase, SerializationMixin):
 
             # Noncritical Errs should be brought to the user's attention via warnings
             # but not raise an Exception
-            noncritical_errs: List[Err[Data, MetricFetchE]] = [
+            noncritical_errs: list[Err[Data, MetricFetchE]] = [
                 result
                 for metric_name, result in results.items()
                 if isinstance(result, Err) and metric_name in critical_metric_names
@@ -528,7 +519,7 @@ class Metric(SortableBase, SerializationMixin):
                     "Metric is not marked critical, ignoring for now."
                 )
 
-            critical_errs: List[Err[Data, MetricFetchE]] = [
+            critical_errs: list[Err[Data, MetricFetchE]] = [
                 result
                 for metric_name, result in results.items()
                 if isinstance(result, Err) and metric_name in critical_metric_names
@@ -568,11 +559,11 @@ class Metric(SortableBase, SerializationMixin):
         flattened = [
             result for sublist in results.values() for result in sublist.values()
         ]
-        oks: List[Ok[Data, MetricFetchE]] = [
+        oks: list[Ok[Data, MetricFetchE]] = [
             result for result in flattened if isinstance(result, Ok)
         ]
         if len(oks) < len(flattened):
-            errs: List[Err[Data, MetricFetchE]] = [
+            errs: list[Err[Data, MetricFetchE]] = [
                 result for result in flattened if isinstance(result, Err)
             ]
 
@@ -597,14 +588,14 @@ class Metric(SortableBase, SerializationMixin):
         )
 
     @classmethod
-    def _wrap_experiment_data(cls, data: Data) -> Dict[int, MetricFetchResult]:
+    def _wrap_experiment_data(cls, data: Data) -> dict[int, MetricFetchResult]:
         return {
             trial_index: Ok(value=data.filter(trial_indices=[trial_index]))
             for trial_index in data.true_df["trial_index"]
         }
 
     @classmethod
-    def _wrap_trial_data_multi(cls, data: Data) -> Dict[str, MetricFetchResult]:
+    def _wrap_trial_data_multi(cls, data: Data) -> dict[str, MetricFetchResult]:
         return {
             metric_name: Ok(value=data.filter(metric_names=[metric_name]))
             for metric_name in data.true_df["metric_name"]
@@ -613,7 +604,7 @@ class Metric(SortableBase, SerializationMixin):
     @classmethod
     def _wrap_experiment_data_multi(
         cls, data: Data
-    ) -> Dict[int, Dict[str, MetricFetchResult]]:
+    ) -> dict[int, dict[str, MetricFetchResult]]:
         # pyre-fixme[7]
         return {
             trial_index: {

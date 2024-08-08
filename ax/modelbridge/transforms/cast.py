@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
@@ -43,7 +43,7 @@ class Cast(Transform):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
@@ -87,8 +87,8 @@ class Cast(Transform):
         return checked_cast(HierarchicalSearchSpace, search_space).flatten()
 
     def transform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         """Transform observation features by adding parameter values that
         were removed during casting of observation features to hierarchical
         search space.
@@ -117,8 +117,8 @@ class Cast(Transform):
         ]
 
     def untransform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         """Untransform observation features by casting parameter values to their
         expected types and removing parameter values that are not applicable given
         the values of other parameters and the hierarchical structure of the search

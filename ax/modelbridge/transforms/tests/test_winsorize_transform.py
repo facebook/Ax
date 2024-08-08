@@ -8,7 +8,7 @@
 
 import warnings
 from copy import deepcopy
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 from unittest import mock
 
 import numpy as np
@@ -650,7 +650,7 @@ class WinsorizeTransformTest(TestCase):
             observations = get_observations_with_invalid_value(
                 invalid_value=invalid_value
             )
-            config: Dict[str, Any] = {
+            config: dict[str, Any] = {
                 "winsorization_config": WinsorizationConfig(upper_quantile_margin=0.2)
             }
             with self.assertRaisesRegex(
@@ -684,9 +684,9 @@ def get_transform(observation_data, config=None, optimization_config=None) -> Wi
 
 def get_default_transform_cutoffs(
     optimization_config: OptimizationConfig,
-    winsorization_config: Optional[Dict[str, WinsorizationConfig]] = None,
+    winsorization_config: Optional[dict[str, WinsorizationConfig]] = None,
     obs_data_len: SupportsIndex = 6,
-) -> Dict[str, Tuple[float, float]]:
+) -> dict[str, tuple[float, float]]:
     obsd = ObservationData(
         metric_names=["m1"] * obs_data_len,
         means=np.array(range(obs_data_len)),

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import dataclasses
 import functools
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 from unittest import mock
 from unittest.mock import Mock
 
@@ -48,7 +48,7 @@ class TestSebo(TestCase):
     @fast_botorch_optimize
     def setUp(self) -> None:
         super().setUp()
-        tkwargs: Dict[str, Any] = {"dtype": torch.double}
+        tkwargs: dict[str, Any] = {"dtype": torch.double}
         self.botorch_model_class = SingleTaskGP
         self.surrogates = Surrogate(botorch_model_class=self.botorch_model_class)
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)
@@ -106,8 +106,8 @@ class TestSebo(TestCase):
 
     def get_acquisition_function(
         self,
-        fixed_features: Optional[Dict[int, float]] = None,
-        options: Optional[Dict[str, Union[str, float]]] = None,
+        fixed_features: Optional[dict[int, float]] = None,
+        options: Optional[dict[str, Union[str, float]]] = None,
     ) -> SEBOAcquisition:
         return SEBOAcquisition(
             botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
@@ -223,7 +223,7 @@ class TestSebo(TestCase):
         mock_homotopy: Mock,
         mock_get_batch_initial_conditions: Mock,
     ) -> None:
-        tkwargs: Dict[str, Any] = {"dtype": torch.double}
+        tkwargs: dict[str, Any] = {"dtype": torch.double}
         acquisition = self.get_acquisition_function(
             fixed_features=self.fixed_features,
             options={"penalty": "L0_norm", "target_point": self.target_point},

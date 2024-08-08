@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Any, Dict, List, Optional, Set, Tuple, Type
+from typing import Any, Optional
 
 import numpy as np
 
@@ -58,8 +58,8 @@ class MapTorchModelBridge(TorchModelBridge):
         search_space: SearchSpace,
         data: Data,
         model: TorchModel,
-        transforms: List[Type[Transform]],
-        transform_configs: Optional[Dict[str, TConfig]] = None,
+        transforms: list[type[Transform]],
+        transform_configs: Optional[dict[str, TConfig]] = None,
         torch_dtype: Optional[torch.dtype] = None,
         torch_device: Optional[torch.device] = None,
         status_quo_name: Optional[str] = None,
@@ -141,16 +141,16 @@ class MapTorchModelBridge(TorchModelBridge):
         )
 
     @property
-    def statuses_to_fit_map_metric(self) -> Set[TrialStatus]:
+    def statuses_to_fit_map_metric(self) -> set[TrialStatus]:
         return self.statuses_to_fit
 
     @property
-    def parameters_with_map_keys(self) -> List[str]:
+    def parameters_with_map_keys(self) -> list[str]:
         return self.parameters + self._map_key_features
 
     def _predict(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationData]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationData]:
         """This method is updated from `TorchModelBridge._predict(...) in that it
         will accept observation features with or without map_keys. If observation
         features do not contain map_keys, it will insert them based on
@@ -182,8 +182,8 @@ class MapTorchModelBridge(TorchModelBridge):
         self,
         model: TorchModel,
         search_space: SearchSpace,
-        observations: List[Observation],
-        parameters: Optional[List[str]] = None,
+        observations: list[Observation],
+        parameters: Optional[list[str]] = None,
         **kwargs: Any,
     ) -> None:
         """The difference from `TorchModelBridge._fit(...)` is that we use
@@ -204,7 +204,7 @@ class MapTorchModelBridge(TorchModelBridge):
         self,
         n: int,
         search_space: SearchSpace,
-        pending_observations: Dict[str, List[ObservationFeatures]],
+        pending_observations: dict[str, list[ObservationFeatures]],
         fixed_features: Optional[ObservationFeatures],
         model_gen_options: Optional[TConfig] = None,
         optimization_config: Optional[OptimizationConfig] = None,
@@ -224,8 +224,8 @@ class MapTorchModelBridge(TorchModelBridge):
         )
 
     def _array_to_observation_features(
-        self, X: np.ndarray, candidate_metadata: Optional[List[TCandidateMetadata]]
-    ) -> List[ObservationFeatures]:
+        self, X: np.ndarray, candidate_metadata: Optional[list[TCandidateMetadata]]
+    ) -> list[ObservationFeatures]:
         """The difference b/t this method and
         TorchModelBridge._array_to_observation_features(...) is
         that this one makes use of `self.parameters_with_map_keys`.
@@ -238,7 +238,7 @@ class MapTorchModelBridge(TorchModelBridge):
 
     def _prepare_observations(
         self, experiment: Optional[Experiment], data: Optional[Data]
-    ) -> List[Observation]:
+    ) -> list[Observation]:
         """The difference b/t this method and ModelBridge._prepare_observations(...)
         is that this one uses `observations_from_map_data`.
         """
@@ -255,8 +255,8 @@ class MapTorchModelBridge(TorchModelBridge):
         )
 
     def _compute_in_design(
-        self, search_space: SearchSpace, observations: List[Observation]
-    ) -> List[bool]:
+        self, search_space: SearchSpace, observations: list[Observation]
+    ) -> list[bool]:
         """The difference b/t this method and ModelBridge._compute_in_design(...)
         is that this one correctly excludes map_keys when checking membership in
         search space (as map_keys are not explicitly in the search space).
@@ -276,12 +276,12 @@ class MapTorchModelBridge(TorchModelBridge):
     def _cross_validate(
         self,
         search_space: SearchSpace,
-        cv_training_data: List[Observation],
-        cv_test_points: List[ObservationFeatures],
-        parameters: Optional[List[str]] = None,
+        cv_training_data: list[Observation],
+        cv_test_points: list[ObservationFeatures],
+        parameters: Optional[list[str]] = None,
         use_posterior_predictive: bool = False,
         **kwargs: Any,
-    ) -> List[ObservationData]:
+    ) -> list[ObservationData]:
         """Make predictions at cv_test_points using only the data in obs_feats
         and obs_data. The difference from `TorchModelBridge._cross_validate`
         is that here we do cross validation on the parameters + map_keys. There
@@ -318,11 +318,11 @@ class MapTorchModelBridge(TorchModelBridge):
 
     def _filter_outcomes_out_of_map_range(
         self,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        observation_features: list[ObservationFeatures],
+        observation_data: list[ObservationData],
         # pyre-fixme[24]: Generic type `tuple` expects at least 1 type parameter.
-        map_key_ranges: Dict[str, Dict[str, Optional[Tuple]]],
-    ) -> List[ObservationData]:
+        map_key_ranges: dict[str, dict[str, Optional[tuple]]],
+    ) -> list[ObservationData]:
         """Uses `map_key_ranges` to detect which `observation_features` have
         out-of-range map_keys and filters out the corresponding outcomes in
         `observation_data`.
@@ -358,10 +358,10 @@ class MapTorchModelBridge(TorchModelBridge):
 
     def _get_map_key_ranges(
         self,
-        observation_features: List[ObservationFeatures],
-        observation_data: List[ObservationData],
+        observation_features: list[ObservationFeatures],
+        observation_data: list[ObservationData],
         # pyre-fixme[24]: Generic type `tuple` expects at least 1 type parameter.
-    ) -> Dict[str, Dict[str, Optional[Tuple]]]:
+    ) -> dict[str, dict[str, Optional[tuple]]]:
         """Get ranges of map_key values in observation features. Returns a dict of the
         form: {"outcome": {"map_key": (min_val, max_val)}}.
         """
@@ -375,7 +375,7 @@ class MapTorchModelBridge(TorchModelBridge):
         # pyre-fixme[3]: Return type must be annotated.
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
-        def get_range(values: List):
+        def get_range(values: list):
             return (min(values), max(values)) if len(values) > 0 else None
 
         return {

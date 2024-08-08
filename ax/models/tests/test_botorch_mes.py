@@ -7,7 +7,7 @@
 # pyre-strict
 
 import dataclasses
-from typing import Any, Dict
+from typing import Any
 from unittest import mock
 
 import torch
@@ -29,7 +29,7 @@ from botorch.utils.datasets import SupervisedDataset
 class MaxValueEntropySearchTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.tkwargs: Dict[str, Any] = {
+        self.tkwargs: dict[str, Any] = {
             "device": torch.device("cpu"),
             "dtype": torch.double,
         }

@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from typing import Dict, List, Type
 
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cap_parameter import CapParameter
@@ -57,7 +56,7 @@ the corresponding type field in the database. When loading, we look
 up the type field in REVERSE_TRANSFORM_REGISTRY, and initialize the
 corresponding transform subclass.
 """
-TRANSFORM_REGISTRY: Dict[Type[Transform], int] = {
+TRANSFORM_REGISTRY: dict[type[Transform], int] = {
     ConvertMetricNames: 0,
     Derelativize: 1,
     IntRangeToChoice: 2,
@@ -101,12 +100,12 @@ These will be present in TRANSFORM_REGISTRY so that old call sites
 can still store properly, but when loading back the new class will
 be used.
 """
-DEPRECATED_TRANSFORMS: List[Type[Transform]] = [
+DEPRECATED_TRANSFORMS: list[type[Transform]] = [
     OrderedChoiceEncode,  # replaced by OrderedChoiceToIntegerRange
     ChoiceEncode,  # replaced by ChoiceToNumericChoice
     TaskEncode,  # replaced by TaskChoiceToIntTaskChoice
 ]
 
-REVERSE_TRANSFORM_REGISTRY: Dict[int, Type[Transform]] = {
+REVERSE_TRANSFORM_REGISTRY: dict[int, type[Transform]] = {
     v: k for k, v in TRANSFORM_REGISTRY.items() if k not in DEPRECATED_TRANSFORMS
 }

@@ -8,7 +8,7 @@
 
 import warnings
 from itertools import product
-from typing import cast, Dict
+from typing import cast
 
 import numpy as np
 from ax.core.experiment import Experiment
@@ -84,14 +84,14 @@ class TestModelBridgeFitMetrics(TestCase):
         )
         r2 = fit_metrics.get("coefficient_of_determination")
         self.assertIsInstance(r2, dict)
-        r2 = cast(Dict[str, float], r2)
+        r2 = cast(dict[str, float], r2)
         self.assertTrue("branin" in r2)
         r2_branin = r2["branin"]
         self.assertIsInstance(r2_branin, float)
 
         std = fit_metrics.get("std_of_the_standardized_error")
         self.assertIsInstance(std, dict)
-        std = cast(Dict[str, float], std)
+        std = cast(dict[str, float], std)
         self.assertTrue("branin" in std)
         std_branin = std["branin"]
         self.assertIsInstance(std_branin, float)
@@ -107,7 +107,7 @@ class TestModelBridgeFitMetrics(TestCase):
                 )
                 entropy = fit_metrics.get("Entropy")
                 self.assertIsInstance(entropy, dict)
-                entropy = cast(Dict[str, float], entropy)
+                entropy = cast(dict[str, float], entropy)
                 self.assertTrue("branin" in entropy)
                 entropy_branin = entropy["branin"]
                 self.assertIsInstance(entropy_branin, float)
@@ -187,10 +187,10 @@ class TestGetFitAndStdQualityAndGeneralizationDict(TestCase):
         )
         # checking fit metrics
         r2 = fit_metrics.get("coefficient_of_determination")
-        r2 = cast(Dict[str, float], r2)
+        r2 = cast(dict[str, float], r2)
 
         std = fit_metrics.get("std_of_the_standardized_error")
-        std = cast(Dict[str, float], std)
+        std = cast(dict[str, float], std)
         std_branin = std["branin"]
 
         model_std_quality = 1 / std_branin
@@ -202,9 +202,9 @@ class TestGetFitAndStdQualityAndGeneralizationDict(TestCase):
             untransform=False,
         )
         r2_gen = gen_metrics.get("coefficient_of_determination")
-        r2_gen = cast(Dict[str, float], r2_gen)
+        r2_gen = cast(dict[str, float], r2_gen)
         gen_std = gen_metrics.get("std_of_the_standardized_error")
-        gen_std = cast(Dict[str, float], gen_std)
+        gen_std = cast(dict[str, float], gen_std)
         gen_std_branin = gen_std["branin"]
         model_std_generalization = 1 / gen_std_branin
 

@@ -7,8 +7,9 @@
 # pyre-strict
 
 import random
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator, Optional
+from typing import Optional
 
 import numpy as np
 import torch

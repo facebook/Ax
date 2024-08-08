@@ -6,8 +6,9 @@
 
 # pyre-strict
 
+from collections.abc import Iterable
 from logging import Logger
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Optional
 
 import pandas as pd
 from ax.core.experiment import Experiment
@@ -30,7 +31,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         min_progression: Optional[float] = 10,
         max_progression: Optional[float] = None,
         min_curves: Optional[int] = 5,
-        trial_indices_to_ignore: Optional[List[int]] = None,
+        trial_indices_to_ignore: Optional[list[int]] = None,
         normalize_progressions: bool = False,
     ) -> None:
         """Construct a ThresholdEarlyStoppingStrategy instance.
@@ -82,9 +83,9 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
     def should_stop_trials_early(
         self,
-        trial_indices: Set[int],
+        trial_indices: set[int],
         experiment: Experiment,
-    ) -> Dict[int, Optional[str]]:
+    ) -> dict[int, Optional[str]]:
         """Stop a trial if its performance doesn't reach a pre-specified threshold
         by `min_progression`.
 
@@ -141,7 +142,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         df: pd.DataFrame,
         map_key: str,
         minimize: bool,
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> tuple[bool, Optional[str]]:
         """Stop a trial if its performance doesn't reach a pre-specified threshold
         by `min_progression`.
 

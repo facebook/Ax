@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Optional, Union
 
 import torch
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
@@ -30,12 +30,12 @@ covar_module_argparse = Dispatcher(
 
 @covar_module_argparse.register(Kernel)
 def _covar_module_argparse_base(
-    covar_module_class: Type[Kernel],
-    botorch_model_class: Optional[Type[Model]] = None,
+    covar_module_class: type[Kernel],
+    botorch_model_class: Optional[type[Model]] = None,
     dataset: Optional[SupervisedDataset] = None,
-    covar_module_options: Optional[Dict[str, Any]] = None,
+    covar_module_options: Optional[dict[str, Any]] = None,
     **kwargs: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Extract the covar module kwargs form the given arguments.
 
@@ -71,16 +71,16 @@ def _covar_module_argparse_base(
 
 @covar_module_argparse.register(ScaleMaternKernel)
 def _covar_module_argparse_scale_matern(
-    covar_module_class: Type[ScaleMaternKernel],
-    botorch_model_class: Type[Model],
+    covar_module_class: type[ScaleMaternKernel],
+    botorch_model_class: type[Model],
     dataset: SupervisedDataset,
     ard_num_dims: Union[int, _DefaultType] = DEFAULT,
     batch_shape: Union[torch.Size, _DefaultType] = DEFAULT,
     lengthscale_prior: Optional[Prior] = None,
     outputscale_prior: Optional[Prior] = None,
-    covar_module_options: Optional[Dict[str, Any]] = None,
+    covar_module_options: Optional[dict[str, Any]] = None,
     **kwargs: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Extract the base covar module kwargs form the given arguments.
 
     NOTE: This setup does not allow for setting multi-dimensional priors,

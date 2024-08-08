@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from warnings import warn
 
 from ax.modelbridge.cross_validation import (
@@ -76,7 +76,7 @@ class SchedulerCreatedRecord:
             ),
         )
 
-    def flatten(self) -> Dict[str, Any]:
+    def flatten(self) -> dict[str, Any]:
         """
         Flatten into an appropriate format for logging to a tabular database.
         """
@@ -152,7 +152,7 @@ class SchedulerCompletedRecord:
             **quality_and_generalizations_dict,
         )
 
-    def flatten(self) -> Dict[str, Any]:
+    def flatten(self) -> dict[str, Any]:
         """
         Flatten into an appropriate format for logging to a tabular database.
         """

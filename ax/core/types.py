@@ -7,48 +7,40 @@
 # pyre-strict
 
 import enum
-from typing import (
-    Any,
-    Callable,
-    DefaultDict,
-    Dict,
-    Hashable,
-    List,
-    Optional,
-    Tuple,
-    Union,
-)
+from collections import defaultdict
+from collections.abc import Hashable
+from typing import Any, Callable, Optional, Union
 
 import numpy as np
 
 
 TNumeric = Union[float, int]
-TParamCounter = DefaultDict[int, int]
+TParamCounter = defaultdict[int, int]
 TParamValue = Union[None, str, bool, float, int]
-TParameterization = Dict[str, TParamValue]
-TParamValueList = List[TParamValue]  # a parameterization without the keys
-TContextStratum = Optional[Dict[str, Union[str, float, int]]]
+TParameterization = dict[str, TParamValue]
+TParamValueList = list[TParamValue]  # a parameterization without the keys
+TContextStratum = Optional[dict[str, Union[str, float, int]]]
 
-TBounds = Optional[Tuple[np.ndarray, np.ndarray]]
-TModelMean = Dict[str, List[float]]
-TModelCov = Dict[str, Dict[str, List[float]]]
-TModelPredict = Tuple[TModelMean, TModelCov]
+TBounds = Optional[tuple[np.ndarray, np.ndarray]]
+TModelMean = dict[str, list[float]]
+TModelCov = dict[str, dict[str, list[float]]]
+TModelPredict = tuple[TModelMean, TModelCov]
 # Model predictions for a single arm:
 # ( { metric -> mean }, { metric -> { other_metric -> covariance } } ).
-TModelPredictArm = Tuple[Dict[str, float], Optional[Dict[str, Dict[str, float]]]]
+TModelPredictArm = tuple[dict[str, float], Optional[dict[str, dict[str, float]]]]
 
 FloatLike = Union[int, float, np.floating, np.integer]
-SingleMetricDataTuple = Tuple[FloatLike, Optional[FloatLike]]
-SingleMetricData = Union[FloatLike, Tuple[FloatLike, Optional[FloatLike]]]
+SingleMetricDataTuple = tuple[FloatLike, Optional[FloatLike]]
+SingleMetricData = Union[FloatLike, tuple[FloatLike, Optional[FloatLike]]]
 # 1-arm `Trial` evaluation data: {metric_name -> (mean, standard error)}}.
-TTrialEvaluation = Dict[str, SingleMetricData]
+TTrialEvaluation = dict[str, SingleMetricData]
 
 # 1-arm evaluation data with trace fidelities
-TFidelityTrialEvaluation = List[Tuple[TParameterization, TTrialEvaluation]]
+TFidelityTrialEvaluation = list[tuple[TParameterization, TTrialEvaluation]]
 
 # 1-arm evaluation data with arbitrary partial results
-TMapDict = Dict[str, Hashable]
-TMapTrialEvaluation = List[Tuple[TMapDict, TTrialEvaluation]]
+TMapDict = dict[str, Hashable]
+TMapTrialEvaluation = list[tuple[TMapDict, TTrialEvaluation]]
 
 # Format for trasmitting evaluation data to Ax is either:
 # 1) {metric_name -> (mean, standard error)} (TTrialEvaluation)
@@ -67,12 +59,12 @@ TEvaluationFunction = Union[
     Callable[[TParameterization, Optional[float]], TEvaluationOutcome],
 ]
 
-TBucket = List[Dict[str, List[str]]]
+TBucket = list[dict[str, list[str]]]
 
-TGenMetadata = Dict[str, Any]
+TGenMetadata = dict[str, Any]
 
 # Model's metadata about a given candidate (or X).
-TCandidateMetadata = Optional[Dict[str, Any]]
+TCandidateMetadata = Optional[dict[str, Any]]
 
 
 class ComparisonOp(enum.Enum):

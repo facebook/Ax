@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import inspect
 import logging
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Type, TYPE_CHECKING, Union
+from typing import Any, Optional, TYPE_CHECKING, Union
 
 import torch
 from ax.core.arm import Arm
@@ -61,10 +62,10 @@ def batch_trial_from_json(
     time_staged: Optional[datetime],
     time_run_started: Optional[datetime],
     abandoned_reason: Optional[str],
-    run_metadata: Optional[Dict[str, Any]],
-    generator_run_structs: List[GeneratorRunStruct],
+    run_metadata: Optional[dict[str, Any]],
+    generator_run_structs: list[GeneratorRunStruct],
     runner: Optional[Runner],
-    abandoned_arms_metadata: Dict[str, AbandonedArm],
+    abandoned_arms_metadata: dict[str, AbandonedArm],
     num_arms_created: int,
     status_quo: Optional[Arm],
     status_quo_weight_override: float,
@@ -74,8 +75,8 @@ def batch_trial_from_json(
     failed_reason: Optional[str] = None,
     ttl_seconds: Optional[int] = None,
     generation_step_index: Optional[int] = None,
-    properties: Optional[Dict[str, Any]] = None,
-    stop_metadata: Optional[Dict[str, Any]] = None,
+    properties: Optional[dict[str, Any]] = None,
+    stop_metadata: Optional[dict[str, Any]] = None,
     lifecycle_stage: Optional[LifecycleStage] = None,
     **kwargs: Any,
 ) -> BatchTrial:
@@ -123,7 +124,7 @@ def trial_from_json(
     time_staged: Optional[datetime],
     time_run_started: Optional[datetime],
     abandoned_reason: Optional[str],
-    run_metadata: Optional[Dict[str, Any]],
+    run_metadata: Optional[dict[str, Any]],
     generator_run: GeneratorRun,
     runner: Optional[Runner],
     num_arms_created: int,
@@ -132,8 +133,8 @@ def trial_from_json(
     failed_reason: Optional[str] = None,
     ttl_seconds: Optional[int] = None,
     generation_step_index: Optional[int] = None,
-    properties: Optional[Dict[str, Any]] = None,
-    stop_metadata: Optional[Dict[str, Any]] = None,
+    properties: Optional[dict[str, Any]] = None,
+    stop_metadata: Optional[dict[str, Any]] = None,
     **kwargs: Any,
 ) -> Trial:
     """Load Ax trial from JSON.
@@ -167,7 +168,7 @@ def trial_from_json(
     return trial
 
 
-def transform_type_from_json(object_json: Dict[str, Any]) -> Type[Transform]:
+def transform_type_from_json(object_json: dict[str, Any]) -> type[Transform]:
     """Load the transform type from JSON."""
     index_in_registry = object_json.pop("index_in_registry")
     if index_in_registry not in REVERSE_TRANSFORM_REGISTRY:
@@ -175,7 +176,7 @@ def transform_type_from_json(object_json: Dict[str, Any]) -> Type[Transform]:
     return REVERSE_TRANSFORM_REGISTRY[index_in_registry]
 
 
-def input_transform_type_from_json(object_json: Dict[str, Any]) -> Type[InputTransform]:
+def input_transform_type_from_json(object_json: dict[str, Any]) -> type[InputTransform]:
     input_transform_type = object_json.pop("index")
     if input_transform_type not in REVERSE_INPUT_TRANSFORM_REGISTRY:
         raise ValueError(f"Unknown transform {input_transform_type}.")
@@ -183,8 +184,8 @@ def input_transform_type_from_json(object_json: Dict[str, Any]) -> Type[InputTra
 
 
 def outcome_transform_type_from_json(
-    object_json: Dict[str, Any]
-) -> Type[OutcomeTransform]:
+    object_json: dict[str, Any]
+) -> type[OutcomeTransform]:
     outcome_transform_type = object_json.pop("index")
     if outcome_transform_type not in REVERSE_OUTCOME_TRANSFORM_REGISTRY:
         raise ValueError(f"Unknown transform {outcome_transform_type}.")
@@ -192,7 +193,7 @@ def outcome_transform_type_from_json(
 
 
 # pyre-fixme[3]: Return annotation cannot contain `Any`.
-def class_from_json(json: Dict[str, Any]) -> Type[Any]:
+def class_from_json(json: dict[str, Any]) -> type[Any]:
     """Load any class registered in `CLASS_DECODER_REGISTRY` from JSON."""
     index_in_registry = json.pop("index")
     class_path = json.pop("class")
@@ -211,7 +212,7 @@ def class_from_json(json: Dict[str, Any]) -> Type[Any]:
     )
 
 
-def tensor_from_json(json: Dict[str, Any]) -> torch.Tensor:
+def tensor_from_json(json: dict[str, Any]) -> torch.Tensor:
     try:
         device = (
             checked_cast(
@@ -240,7 +241,7 @@ def tensor_from_json(json: Dict[str, Any]) -> torch.Tensor:
         )
 
 
-def tensor_or_size_from_json(json: Dict[str, Any]) -> Union[torch.Tensor, torch.Size]:
+def tensor_or_size_from_json(json: dict[str, Any]) -> Union[torch.Tensor, torch.Size]:
     if json["__type"] == "Tensor":
         return tensor_from_json(json)
     elif json["__type"] == "torch_Size":
@@ -256,7 +257,7 @@ def tensor_or_size_from_json(json: Dict[str, Any]) -> Union[torch.Tensor, torch.
 
 # pyre-fixme[3]: Return annotation cannot contain `Any`.
 # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-def botorch_component_from_json(botorch_class: Any, json: Dict[str, Any]) -> Type[Any]:
+def botorch_component_from_json(botorch_class: Any, json: dict[str, Any]) -> type[Any]:
     """Load any instance of `torch.nn.Module` or descendants registered in
     `CLASS_DECODER_REGISTRY` from state dict."""
     state_dict = json.pop("state_dict")
@@ -328,7 +329,7 @@ def pathlib_from_json(pathsegments: Union[str, Iterable[str]]) -> Path:
     return Path(*pathsegments)
 
 
-def default_from_json(json: Dict[str, Any]) -> _DefaultType:
+def default_from_json(json: dict[str, Any]) -> _DefaultType:
     if json != {}:
         raise JSONDecodeError(
             f"Expected empty json object for ``DEFAULT``, got {json=}"

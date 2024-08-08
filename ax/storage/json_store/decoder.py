@@ -12,7 +12,7 @@ from enum import Enum
 from inspect import isclass
 from io import StringIO
 from logging import Logger
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -166,7 +166,7 @@ def object_from_json(
 
         # pyre-fixme[9, 24]: Generic type `type` expects 1 type parameter, use
         # `typing.Type[<base type>]` to avoid runtime subscripting errors.
-        _class: Type = decoder_registry[_type]
+        _class: type = decoder_registry[_type]
 
         if isclass(_class) and issubclass(_class, Enum):
             # to access enum members by name, use item access
@@ -300,8 +300,8 @@ def object_from_json(
 def ax_class_from_json_dict(
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
-    _class: Type,
-    object_json: Dict[str, Any],
+    _class: type,
+    object_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> Any:
@@ -321,7 +321,7 @@ def ax_class_from_json_dict(
 
 
 def generator_run_from_json(
-    object_json: Dict[str, Any],
+    object_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> GeneratorRun:
@@ -360,8 +360,8 @@ def generator_run_from_json(
 def trial_transition_criteria_from_json(
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
     #  avoid runtime subscripting errors.
-    class_: Type,
-    transition_criteria_json: Dict[str, Any],
+    class_: type,
+    transition_criteria_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> Optional[TransitionCriterion]:
@@ -386,7 +386,7 @@ def trial_transition_criteria_from_json(
 
 
 def search_space_from_json(
-    search_space_json: Dict[str, Any],
+    search_space_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> SearchSpace:
@@ -413,11 +413,11 @@ def search_space_from_json(
 
 
 def parameter_constraints_from_json(
-    parameter_constraint_json: List[Dict[str, Any]],
-    parameters: List[Parameter],
+    parameter_constraint_json: list[dict[str, Any]],
+    parameters: list[Parameter],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> List[ParameterConstraint]:
+) -> list[ParameterConstraint]:
     """Load ParameterConstraints from JSON.
 
     Order and SumConstraint are tied to a search space,
@@ -463,10 +463,10 @@ def parameter_constraints_from_json(
 
 def trials_from_json(
     experiment: Experiment,
-    trials_json: Dict[str, Any],
+    trials_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> Dict[int, BaseTrial]:
+) -> dict[int, BaseTrial]:
     """Load Ax Trials from JSON."""
     loaded_trials = {}
     for index, batch_json in trials_json.items():
@@ -489,10 +489,10 @@ def trials_from_json(
 
 
 def data_from_json(
-    data_by_trial_json: Dict[str, Any],
+    data_by_trial_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> Dict[int, "OrderedDict[int, Data]"]:
+) -> dict[int, "OrderedDict[int, Data]"]:
     """Load Ax Data from JSON."""
     data_by_trial = object_from_json(
         data_by_trial_json,
@@ -508,7 +508,7 @@ def data_from_json(
 
 
 def multi_type_experiment_from_json(
-    object_json: Dict[str, Any],
+    object_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> MultiTypeExperiment:
@@ -557,7 +557,7 @@ def multi_type_experiment_from_json(
 
 
 def experiment_from_json(
-    object_json: Dict[str, Any],
+    object_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> Experiment:
@@ -585,7 +585,7 @@ def experiment_from_json(
     return experiment
 
 
-def _get_experiment_info(object_json: Dict[str, Any]) -> Dict[str, Any]:
+def _get_experiment_info(object_json: dict[str, Any]) -> dict[str, Any]:
     """Returns basic information from `Experiment` object_json."""
     return {
         "time_created_json": object_json.pop("time_created"),
@@ -597,7 +597,7 @@ def _get_experiment_info(object_json: Dict[str, Any]) -> Dict[str, Any]:
 
 def _load_experiment_info(
     exp: Experiment,
-    exp_info: Dict[str, Any],
+    exp_info: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> None:
@@ -634,8 +634,8 @@ def _load_experiment_info(
 
 
 def _convert_generation_step_keys_for_backwards_compatibility(
-    object_json: Dict[str, Any]
-) -> Dict[str, Any]:
+    object_json: dict[str, Any]
+) -> dict[str, Any]:
     """If necessary, converts keys in a JSON dict representing a `GenerationStep`
     for backwards compatibility.
     """
@@ -652,7 +652,7 @@ def _convert_generation_step_keys_for_backwards_compatibility(
 
 
 def generation_node_from_json(
-    generation_node_json: Dict[str, Any],
+    generation_node_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> GenerationNode:
@@ -683,7 +683,7 @@ def generation_node_from_json(
 
 
 def generation_step_from_json(
-    generation_step_json: Dict[str, Any],
+    generation_step_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> GenerationStep:
@@ -745,7 +745,7 @@ def generation_step_from_json(
 
 
 def model_spec_from_json(
-    model_spec_json: Dict[str, Any],
+    model_spec_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> ModelSpec:
@@ -785,7 +785,7 @@ def model_spec_from_json(
 
 
 def generation_strategy_from_json(
-    generation_strategy_json: Dict[str, Any],
+    generation_strategy_json: dict[str, Any],
     experiment: Optional[Experiment] = None,
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
@@ -836,7 +836,7 @@ def generation_strategy_from_json(
 
 
 def surrogate_from_list_surrogate_json(
-    list_surrogate_json: Dict[str, Any],
+    list_surrogate_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> Surrogate:
@@ -911,10 +911,10 @@ def surrogate_from_list_surrogate_json(
 
 
 def get_input_transform_json_components(
-    input_transforms_json: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]],
+    input_transforms_json: Optional[Union[list[dict[str, Any]], dict[str, Any]]],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> Tuple[Optional[List[Dict[str, Any]]], Optional[Dict[str, Any]]]:
+) -> tuple[Optional[list[dict[str, Any]]], Optional[dict[str, Any]]]:
     if input_transforms_json is None:
         return None, None
     if isinstance(input_transforms_json, dict):
@@ -939,10 +939,10 @@ def get_input_transform_json_components(
 
 
 def get_outcome_transform_json_components(
-    outcome_transforms_json: Optional[List[Dict[str, Any]]],
+    outcome_transforms_json: Optional[list[dict[str, Any]]],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> Tuple[Optional[List[Dict[str, Any]]], Optional[Dict[str, Any]]]:
+) -> tuple[Optional[list[dict[str, Any]]], Optional[dict[str, Any]]]:
     if outcome_transforms_json is None:
         return None, None
 
@@ -965,7 +965,7 @@ def get_outcome_transform_json_components(
 
 
 def objective_from_json(
-    object_json: Dict[str, Any],
+    object_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> Objective:

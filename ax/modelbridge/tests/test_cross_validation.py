@@ -7,7 +7,6 @@
 # pyre-strict
 
 import warnings
-from typing import List
 from unittest import mock
 
 import numpy as np
@@ -96,7 +95,7 @@ class CrossValidationTest(TestCase):
                 [FixedParameter("x", ParameterType.FLOAT, 8.0)]
             ),
         }
-        self.diagnostics: List[CVDiagnostics] = [
+        self.diagnostics: list[CVDiagnostics] = [
             {"Fisher exact test p": {"y_a": 0.0, "y_b": 0.4}},
             {"Fisher exact test p": {"y_a": 0.1, "y_b": 0.1}},
             {"Fisher exact test p": {"y_a": 0.5, "y_b": 0.6}},

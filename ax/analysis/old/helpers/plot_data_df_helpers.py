@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from typing import List, Set
 
 import numpy as np
 import pandas as pd
@@ -19,7 +18,7 @@ from ax.modelbridge.transforms.ivw import IVW
 
 def get_plot_data_in_sample_arms_df(
     model: ModelBridge,
-    metric_names: Set[str],
+    metric_names: set[str],
 ) -> pd.DataFrame:
     """Get in-sample arms from a model with observed and predicted values
     for specified metrics.
@@ -46,7 +45,7 @@ def get_plot_data_in_sample_arms_df(
             }
     """
     observations = model.get_training_data()
-    training_in_design: List[bool] = model.training_in_design
+    training_in_design: list[bool] = model.training_in_design
 
     # Merge multiple measurements within each Observation with IVW to get
     # un-modeled prediction

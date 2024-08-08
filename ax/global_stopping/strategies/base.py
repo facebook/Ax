@@ -7,7 +7,7 @@
 # pyre-strict
 
 from abc import ABC, abstractmethod
-from typing import Any, Tuple
+from typing import Any
 
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
@@ -41,7 +41,7 @@ class BaseGlobalStoppingStrategy(ABC, Base):
         self.inactive_when_pending_trials = inactive_when_pending_trials
 
     @abstractmethod
-    def _should_stop_optimization(self, experiment: Experiment) -> Tuple[bool, str]:
+    def _should_stop_optimization(self, experiment: Experiment) -> tuple[bool, str]:
         """
         Decide whether to stop optimization.
 
@@ -60,7 +60,7 @@ class BaseGlobalStoppingStrategy(ABC, Base):
         self,
         experiment: Experiment,
         **kwargs: Any,
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """Decide whether to stop optimization.
 
         Args:

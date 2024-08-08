@@ -8,7 +8,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, Optional, Type, Union
+from typing import Any, Callable, Optional, Union
 
 from ax.analysis.analysis import AnalysisCard
 
@@ -64,7 +64,7 @@ class SQAConfig:
             serialization function.
     """
 
-    def _default_class_to_sqa_class(self=None) -> Dict[Type[Base], Type[SQABase]]:
+    def _default_class_to_sqa_class(self=None) -> dict[type[Base], type[SQABase]]:
         # pyre-ignore [7]
         return {
             AbandonedArm: SQAAbandonedArm,
@@ -81,22 +81,22 @@ class SQAConfig:
             AnalysisCard: SQAAnalysisCard,
         }
 
-    class_to_sqa_class: Dict[Type[Base], Type[SQABase]] = field(
+    class_to_sqa_class: dict[type[Base], type[SQABase]] = field(
         default_factory=_default_class_to_sqa_class
     )
-    experiment_type_enum: Optional[Union[Enum, Type[Enum]]] = None
-    generator_run_type_enum: Optional[Union[Enum, Type[Enum]]] = GeneratorRunType
+    experiment_type_enum: Optional[Union[Enum, type[Enum]]] = None
+    generator_run_type_enum: Optional[Union[Enum, type[Enum]]] = GeneratorRunType
 
     # pyre-fixme[4]: Attribute annotation cannot contain `Any`.
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
-    json_encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]] = field(
+    json_encoder_registry: dict[type, Callable[[Any], dict[str, Any]]] = field(
         default_factory=lambda: CORE_ENCODER_REGISTRY
     )
     # pyre-fixme[4]: Attribute annotation cannot contain `Any`.
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
-    json_class_encoder_registry: Dict[Type, Callable[[Any], Dict[str, Any]]] = field(
+    json_class_encoder_registry: dict[type, Callable[[Any], dict[str, Any]]] = field(
         default_factory=lambda: CORE_CLASS_ENCODER_REGISTRY
     )
 
@@ -104,21 +104,21 @@ class SQAConfig:
         default_factory=lambda: CORE_DECODER_REGISTRY
     )
     # pyre-fixme[4]: Attribute annotation cannot contain `Any`.
-    json_class_decoder_registry: Dict[str, Callable[[Dict[str, Any]], Any]] = field(
+    json_class_decoder_registry: dict[str, Callable[[dict[str, Any]], Any]] = field(
         default_factory=lambda: CORE_CLASS_DECODER_REGISTRY
     )
 
-    metric_registry: Dict[Type[Metric], int] = field(
+    metric_registry: dict[type[Metric], int] = field(
         default_factory=lambda: CORE_METRIC_REGISTRY
     )
-    runner_registry: Dict[Type[Runner], int] = field(
+    runner_registry: dict[type[Runner], int] = field(
         default_factory=lambda: CORE_RUNNER_REGISTRY
     )
 
     @property
-    def reverse_metric_registry(self) -> Dict[int, Type[Metric]]:
+    def reverse_metric_registry(self) -> dict[int, type[Metric]]:
         return {v: k for k, v in self.metric_registry.items()}
 
     @property
-    def reverse_runner_registry(self) -> Dict[int, Type[Runner]]:
+    def reverse_runner_registry(self) -> dict[int, type[Runner]]:
         return {v: k for k, v in self.runner_registry.items()}

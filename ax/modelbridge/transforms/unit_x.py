@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import Observation, ObservationFeatures
@@ -39,13 +39,13 @@ class UnitX(Transform):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         assert search_space is not None, "UnitX requires search space"
         # Identify parameters that should be transformed
-        self.bounds: Dict[str, Tuple[float, float]] = {}
+        self.bounds: dict[str, tuple[float, float]] = {}
         for p_name, p in search_space.parameters.items():
             if (
                 isinstance(p, RangeParameter)
@@ -55,8 +55,8 @@ class UnitX(Transform):
                 self.bounds[p_name] = (p.lower, p.upper)
 
     def transform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             for p_name, (l, u) in self.bounds.items():
                 if p_name in obsf.parameters:
@@ -79,9 +79,9 @@ class UnitX(Transform):
                     p._target_value = self._normalize_value(
                         value=p.target_value, bounds=p_bounds  # pyre-ignore [6]
                     )
-        new_constraints: List[ParameterConstraint] = []
+        new_constraints: list[ParameterConstraint] = []
         for c in search_space.parameter_constraints:
-            constraint_dict: Dict[str, float] = {}
+            constraint_dict: dict[str, float] = {}
             bound = float(c.bound)
             for p_name, w in c.constraint_dict.items():
                 # p is RangeParameter, but may not be transformed (Int or log)
@@ -99,8 +99,8 @@ class UnitX(Transform):
         return search_space
 
     def untransform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             for p_name, (l, u) in self.bounds.items():
                 if p_name in obsf.parameters:
@@ -229,7 +229,7 @@ class UnitX(Transform):
                 "and the corresponding distribution."
             )
 
-    def _normalize_value(self, value: float, bounds: Tuple[float, float]) -> float:
+    def _normalize_value(self, value: float, bounds: tuple[float, float]) -> float:
         """Normalize the given value - bounds pair to
         [self.target_lb, self.target_lb + self.target_range].
         """

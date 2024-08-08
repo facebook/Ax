@@ -12,20 +12,10 @@ import logging
 import re
 import warnings
 from collections import defaultdict, OrderedDict
+from collections.abc import Hashable, Iterable, Mapping
 from datetime import datetime
 from functools import partial, reduce
-from typing import (
-    Any,
-    Dict,
-    Hashable,
-    Iterable,
-    List,
-    Mapping,
-    Optional,
-    Set,
-    Tuple,
-    Type,
-)
+from typing import Any, Optional
 
 import ax.core.observation as observation
 import pandas as pd
@@ -81,13 +71,13 @@ class Experiment(Base):
         search_space: SearchSpace,
         name: Optional[str] = None,
         optimization_config: Optional[OptimizationConfig] = None,
-        tracking_metrics: Optional[List[Metric]] = None,
+        tracking_metrics: Optional[list[Metric]] = None,
         runner: Optional[Runner] = None,
         status_quo: Optional[Arm] = None,
         description: Optional[str] = None,
         is_test: bool = False,
         experiment_type: Optional[str] = None,
-        properties: Optional[Dict[str, Any]] = None,
+        properties: Optional[dict[str, Any]] = None,
         default_data_type: Optional[DataType] = None,
     ) -> None:
         """Inits Experiment.
@@ -115,14 +105,14 @@ class Experiment(Base):
         self.runner = runner
         self.is_test = is_test
 
-        self._data_by_trial: Dict[int, OrderedDict[int, Data]] = {}
+        self._data_by_trial: dict[int, OrderedDict[int, Data]] = {}
         self._experiment_type: Optional[str] = experiment_type
         # pyre-fixme[4]: Attribute must be annotated.
         self._optimization_config = None
-        self._tracking_metrics: Dict[str, Metric] = {}
+        self._tracking_metrics: dict[str, Metric] = {}
         self._time_created: datetime = datetime.now()
-        self._trials: Dict[int, BaseTrial] = {}
-        self._properties: Dict[str, Any] = properties or {}
+        self._trials: dict[int, BaseTrial] = {}
+        self._properties: dict[str, Any] = properties or {}
         # pyre-fixme[4]: Attribute must be annotated.
         self._default_data_type = default_data_type or DataType.DATA
         # Used to keep track of whether any trials on the experiment
@@ -131,11 +121,11 @@ class Experiment(Base):
         # TTL checks for experiments that do not use TTL.
         self._trials_have_ttl = False
         # Make sure all statuses appear in this dict, to avoid key errors.
-        self._trial_indices_by_status: Dict[TrialStatus, Set[int]] = {
+        self._trial_indices_by_status: dict[TrialStatus, set[int]] = {
             status: set() for status in TrialStatus
         }
-        self._arms_by_signature: Dict[str, Arm] = {}
-        self._arms_by_name: Dict[str, Arm] = {}
+        self._arms_by_signature: dict[str, Arm] = {}
+        self._arms_by_name: dict[str, Arm] = {}
 
         self.add_tracking_metrics(tracking_metrics or [])
 
@@ -280,22 +270,22 @@ class Experiment(Base):
         self._status_quo = status_quo
 
     @property
-    def parameters(self) -> Dict[str, Parameter]:
+    def parameters(self) -> dict[str, Parameter]:
         """The parameters in the experiment's search space."""
         return self.search_space.parameters
 
     @property
-    def arms_by_name(self) -> Dict[str, Arm]:
+    def arms_by_name(self) -> dict[str, Arm]:
         """The arms belonging to this experiment, by their name."""
         return self._arms_by_name
 
     @property
-    def arms_by_signature(self) -> Dict[str, Arm]:
+    def arms_by_signature(self) -> dict[str, Arm]:
         """The arms belonging to this experiment, by their signature."""
         return self._arms_by_signature
 
     @property
-    def arms_by_signature_for_deduplication(self) -> Dict[str, Arm]:
+    def arms_by_signature_for_deduplication(self) -> dict[str, Arm]:
         """The arms belonging to this experiment that should be used for deduplication
         in ``GenerationStrategy``, by their signature.
 
@@ -363,7 +353,7 @@ class Experiment(Base):
         return not_none(self.optimization_config).is_moo_problem
 
     @property
-    def data_by_trial(self) -> Dict[int, OrderedDict[int, Data]]:
+    def data_by_trial(self) -> dict[int, OrderedDict[int, Data]]:
         """Data stored on the experiment, indexed by trial index and storage time.
 
         First key is trial index and second key is storage time in milliseconds.
@@ -386,7 +376,7 @@ class Experiment(Base):
         return self._properties.get(Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF, False)
 
     @property
-    def tracking_metrics(self) -> List[Metric]:
+    def tracking_metrics(self) -> list[Metric]:
         return list(self._tracking_metrics.values())
 
     def add_tracking_metric(self, metric: Metric) -> Experiment:
@@ -415,7 +405,7 @@ class Experiment(Base):
         self._tracking_metrics[metric.name] = metric
         return self
 
-    def add_tracking_metrics(self, metrics: List[Metric]) -> Experiment:
+    def add_tracking_metrics(self, metrics: list[Metric]) -> Experiment:
         """Add a list of new metrics to the experiment.
 
         If any of the metrics are already defined on the experiment,
@@ -455,17 +445,17 @@ class Experiment(Base):
         return self
 
     @property
-    def metrics(self) -> Dict[str, Metric]:
+    def metrics(self) -> dict[str, Metric]:
         """The metrics attached to the experiment."""
-        optimization_config_metrics: Dict[str, Metric] = {}
+        optimization_config_metrics: dict[str, Metric] = {}
         if self.optimization_config is not None:
             optimization_config_metrics = self.optimization_config.metrics
         return {**self._tracking_metrics, **optimization_config_metrics}
 
     def _metrics_by_class(
-        self, metrics: Optional[List[Metric]] = None
-    ) -> Dict[Type[Metric], List[Metric]]:
-        metrics_by_class: Dict[Type[Metric], List[Metric]] = defaultdict(list)
+        self, metrics: Optional[list[Metric]] = None
+    ) -> dict[type[Metric], list[Metric]]:
+        metrics_by_class: dict[type[Metric], list[Metric]] = defaultdict(list)
         for metric in metrics or list(self.metrics.values()):
             # By default, all metrics are grouped by their class for fetch;
             # however, for some metrics, `fetch_trial_data_multi` of a
@@ -477,11 +467,11 @@ class Experiment(Base):
 
     def fetch_data_results(
         self,
-        metrics: Optional[List[Metric]] = None,
+        metrics: Optional[list[Metric]] = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
         **kwargs: Any,
-    ) -> Dict[int, Dict[str, MetricFetchResult]]:
+    ) -> dict[int, dict[str, MetricFetchResult]]:
         """Fetches data for all trials on this experiment and for either the
         specified metrics or all metrics currently on the experiment, if `metrics`
         argument is not specified.
@@ -515,11 +505,11 @@ class Experiment(Base):
     def fetch_trials_data_results(
         self,
         trial_indices: Iterable[int],
-        metrics: Optional[List[Metric]] = None,
+        metrics: Optional[list[Metric]] = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
         **kwargs: Any,
-    ) -> Dict[int, Dict[str, MetricFetchResult]]:
+    ) -> dict[int, dict[str, MetricFetchResult]]:
         """Fetches data for specific trials on the experiment.
 
         If a metric fetch fails, the Exception will be captured in the
@@ -550,7 +540,7 @@ class Experiment(Base):
 
     def fetch_data(
         self,
-        metrics: Optional[List[Metric]] = None,
+        metrics: Optional[list[Metric]] = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
         **kwargs: Any,
@@ -596,7 +586,7 @@ class Experiment(Base):
     def fetch_trials_data(
         self,
         trial_indices: Iterable[int],
-        metrics: Optional[List[Metric]] = None,
+        metrics: Optional[list[Metric]] = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
         **kwargs: Any,
@@ -639,12 +629,12 @@ class Experiment(Base):
 
     def _lookup_or_fetch_trials_results(
         self,
-        trials: List[BaseTrial],
+        trials: list[BaseTrial],
         metrics: Optional[Iterable[Metric]] = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
         **kwargs: Any,
-    ) -> Dict[int, Dict[str, MetricFetchResult]]:
+    ) -> dict[int, dict[str, MetricFetchResult]]:
         if not self.metrics and not metrics:
             raise ValueError(
                 "No metrics to fetch data for, as no metrics are defined for "
@@ -656,7 +646,7 @@ class Experiment(Base):
         metrics_to_fetch = list(metrics or self.metrics.values())
         metrics_by_class = self._metrics_by_class(metrics=metrics_to_fetch)
 
-        results: Dict[int, Dict[str, MetricFetchResult]] = {}
+        results: dict[int, dict[str, MetricFetchResult]] = {}
         contains_new_data = False
 
         for metric_cls, metrics in metrics_by_class.items():
@@ -703,8 +693,8 @@ class Experiment(Base):
 
     @copy_doc(BaseTrial.fetch_data)
     def _fetch_trial_data(
-        self, trial_index: int, metrics: Optional[List[Metric]] = None, **kwargs: Any
-    ) -> Dict[str, MetricFetchResult]:
+        self, trial_index: int, metrics: Optional[list[Metric]] = None, **kwargs: Any
+    ) -> dict[str, MetricFetchResult]:
         trial = self.trials[trial_index]
 
         trial_data = self._lookup_or_fetch_trials_results(
@@ -819,7 +809,7 @@ class Experiment(Base):
     @staticmethod
     def _get_last_data_without_similar_rows(
         current_trial_data: OrderedDict[int, Data], new_df: pd.DataFrame
-    ) -> Tuple[Type[Data], Data]:
+    ) -> tuple[type[Data], Data]:
         """Get a copy of last data with rows filtered out sharing values for
         "trial_index", "metric_name", and "arm_name" with the new data so we
         can cleanly combine them.
@@ -899,7 +889,7 @@ class Experiment(Base):
             result for sublist in results.values() for result in sublist.values()
         ]
 
-        oks: List[Ok[Data, MetricFetchE]] = [
+        oks: list[Ok[Data, MetricFetchE]] = [
             result for result in flattened if isinstance(result, Ok)
         ]
 
@@ -949,7 +939,7 @@ class Experiment(Base):
     def lookup_data_for_trial(
         self,
         trial_index: int,
-    ) -> Tuple[Data, int]:
+    ) -> tuple[Data, int]:
         """Lookup stored data for a specific trial.
 
         Returns latest data object and its storage timestamp present for this trial.
@@ -1009,7 +999,7 @@ class Experiment(Base):
         return len(self._trials)
 
     @property
-    def trials(self) -> Dict[int, BaseTrial]:
+    def trials(self) -> dict[int, BaseTrial]:
         """The trials associated with the experiment.
 
         NOTE: If some trials on this experiment specify their TTL, `RUNNING` trials
@@ -1020,7 +1010,7 @@ class Experiment(Base):
         return self._trials
 
     @property
-    def trials_by_status(self) -> Dict[TrialStatus, List[BaseTrial]]:
+    def trials_by_status(self) -> dict[TrialStatus, list[BaseTrial]]:
         """Trials associated with the experiment, grouped by trial status."""
         # Make sure all statuses appear in this dict, to avoid key errors.
         return {
@@ -1029,21 +1019,21 @@ class Experiment(Base):
         }
 
     @property
-    def trials_expecting_data(self) -> List[BaseTrial]:
+    def trials_expecting_data(self) -> list[BaseTrial]:
         """List[BaseTrial]: the list of all trials for which data has arrived
         or is expected to arrive.
         """
         return [trial for trial in self.trials.values() if trial.status.expecting_data]
 
     @property
-    def completed_trials(self) -> List[BaseTrial]:
+    def completed_trials(self) -> list[BaseTrial]:
         """List[BaseTrial]: the list of all trials for which data has arrived
         or is expected to arrive.
         """
         return self.trials_by_status[TrialStatus.COMPLETED]
 
     @property
-    def trial_indices_by_status(self) -> Dict[TrialStatus, Set[int]]:
+    def trial_indices_by_status(self) -> dict[TrialStatus, set[int]]:
         """Indices of trials associated with the experiment, grouped by trial
         status.
         """
@@ -1051,7 +1041,7 @@ class Experiment(Base):
         return self._trial_indices_by_status
 
     @property
-    def running_trial_indices(self) -> Set[int]:
+    def running_trial_indices(self) -> set[int]:
         """Indices of running trials, associated with the experiment."""
         return self._trial_indices_by_status[TrialStatus.RUNNING]
 
@@ -1062,7 +1052,7 @@ class Experiment(Base):
     @property
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
-    def default_data_constructor(self) -> Type:
+    def default_data_constructor(self) -> type:
         return DATA_TYPE_LOOKUP[self.default_data_type]
 
     def new_trial(
@@ -1099,7 +1089,7 @@ class Experiment(Base):
     def new_batch_trial(
         self,
         generator_run: Optional[GeneratorRun] = None,
-        generator_runs: Optional[List[GeneratorRun]] = None,
+        generator_runs: Optional[list[GeneratorRun]] = None,
         trial_type: Optional[str] = None,
         optimize_for_power: Optional[bool] = False,
         ttl_seconds: Optional[int] = None,
@@ -1141,7 +1131,7 @@ class Experiment(Base):
             lifecycle_stage=lifecycle_stage,
         )
 
-    def get_trials_by_indices(self, trial_indices: Iterable[int]) -> List[BaseTrial]:
+    def get_trials_by_indices(self, trial_indices: Iterable[int]) -> list[BaseTrial]:
         """Grabs trials on this experiment by their indices."""
         trial_indices = list(trial_indices)
         try:
@@ -1216,10 +1206,10 @@ class Experiment(Base):
     def warm_start_from_old_experiment(
         self,
         old_experiment: Experiment,
-        copy_run_metadata_keys: Optional[List[str]] = None,
-        trial_statuses_to_copy: Optional[List[TrialStatus]] = None,
+        copy_run_metadata_keys: Optional[list[str]] = None,
+        trial_statuses_to_copy: Optional[list[TrialStatus]] = None,
         search_space_check_membership_raise_error: bool = True,
-    ) -> List[Trial]:
+    ) -> list[Trial]:
         """Copy all completed trials with data from an old Ax expeirment to this one.
         This function checks that the parameters of each trial are members of the
         current experiment's search_space.
@@ -1438,12 +1428,12 @@ class Experiment(Base):
 
     def attach_trial(
         self,
-        parameterizations: List[TParameterization],
-        arm_names: Optional[List[str]] = None,
+        parameterizations: list[TParameterization],
+        arm_names: Optional[list[str]] = None,
         ttl_seconds: Optional[int] = None,
-        run_metadata: Optional[Dict[str, Any]] = None,
+        run_metadata: Optional[dict[str, Any]] = None,
         optimize_for_power: bool = False,
-    ) -> Tuple[Dict[str, TParameterization], int]:
+    ) -> tuple[dict[str, TParameterization], int]:
         """Attach a new trial with the given parameterization to the experiment.
 
         Args:
@@ -1551,13 +1541,13 @@ class Experiment(Base):
         search_space: Optional[SearchSpace] = None,
         name: Optional[str] = None,
         optimization_config: Optional[OptimizationConfig] = None,
-        tracking_metrics: Optional[List[Metric]] = None,
+        tracking_metrics: Optional[list[Metric]] = None,
         runner: Optional[Runner] = None,
         status_quo: Optional[Arm] = None,
         description: Optional[str] = None,
         is_test: Optional[bool] = None,
-        properties: Optional[Dict[str, Any]] = None,
-        trial_indices: Optional[List[int]] = None,
+        properties: Optional[dict[str, Any]] = None,
+        trial_indices: Optional[list[int]] = None,
         data: Optional[Data] = None,
     ) -> Experiment:
         r"""

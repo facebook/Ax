@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-import typing  # noqa F401, this is to enable type-checking
 from typing import Optional
 
 from ax.exceptions.core import AxError, OptimizationComplete

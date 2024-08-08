@@ -6,7 +6,6 @@
 # pyre-strict
 
 from copy import deepcopy
-from typing import List, Tuple
 from unittest.mock import Mock
 
 import numpy as np
@@ -162,8 +161,8 @@ class RelativizeDataTest(TestCase):
     def test_relativize_transform_observations(self) -> None:
         def _check_transform_observations(
             tf: Transform,
-            observations: List[Observation],
-            expected_mean_and_covar: List[Tuple[np.ndarray, np.ndarray]],
+            observations: list[Observation],
+            expected_mean_and_covar: list[tuple[np.ndarray, np.ndarray]],
         ) -> None:
             results = tf.transform_observations(observations)
             for i, tsfm_obs in enumerate(results):

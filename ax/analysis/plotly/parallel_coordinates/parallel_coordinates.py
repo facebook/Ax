@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -149,7 +149,7 @@ def _find_mean_by_arm_name(
     return series.item()
 
 
-def _get_parameter_dimension(series: pd.Series) -> Dict[str, Any]:
+def _get_parameter_dimension(series: pd.Series) -> dict[str, Any]:
     # For numeric parameters allow Plotly to infer tick attributes. Note: booleans are
     # considered numeric, but in this case we want to treat them as categorical.
     if pd.api.types.is_numeric_dtype(series) and not pd.api.types.is_bool_dtype(series):

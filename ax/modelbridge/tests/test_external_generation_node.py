@@ -7,7 +7,7 @@
 # pyre-strict
 
 from copy import deepcopy
-from typing import List, Optional
+from typing import Optional
 from unittest.mock import MagicMock
 
 from ax.core.data import Data
@@ -33,14 +33,14 @@ class DummyNode(ExternalGenerationNode):
         self.update_count = 0
         self.gen_count = 0
         self.generator: Optional[RandomModelBridge] = None
-        self.last_pending: List[TParameterization] = []
+        self.last_pending: list[TParameterization] = []
 
     def update_generator_state(self, experiment: Experiment, data: Data) -> None:
         self.update_count += 1
         self.generator = get_sobol(experiment.search_space)
 
     def get_next_candidate(
-        self, pending_parameters: List[TParameterization]
+        self, pending_parameters: list[TParameterization]
     ) -> TParameterization:
         self.gen_count += 1
         self.last_pending = deepcopy(pending_parameters)

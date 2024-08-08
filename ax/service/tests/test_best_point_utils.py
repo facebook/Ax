@@ -7,7 +7,6 @@
 # pyre-strict
 
 import random
-from typing import List
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -551,5 +550,5 @@ class TestBestPointUtils(TestCase):
         )
 
 
-def _repeat_elements(list_to_replicate: List[bool], n_repeats: int) -> pd.Series:
+def _repeat_elements(list_to_replicate: list[bool], n_repeats: int) -> pd.Series:
     return pd.Series([item for item in list_to_replicate for _ in range(n_repeats)])

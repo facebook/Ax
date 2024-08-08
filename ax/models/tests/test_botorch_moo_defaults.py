@@ -7,7 +7,7 @@
 # pyre-strict
 
 from contextlib import ExitStack
-from typing import Any, cast, Dict, Tuple
+from typing import Any, cast
 from unittest import mock
 
 import numpy as np
@@ -42,7 +42,7 @@ FIT_MODEL_MO_PATH = "ax.models.torch.botorch_defaults.fit_gpytorch_mll"
 
 
 # pyre-fixme[2]: Parameter must be annotated.
-def dummy_predict(model, X) -> Tuple[Tensor, Tensor]:
+def dummy_predict(model, X) -> tuple[Tensor, Tensor]:
     # Add column to X that is a product of previous elements.
     mean = torch.cat([X, torch.prod(X, dim=1).reshape(-1, 1)], dim=1)
     cov = torch.zeros(mean.shape[0], mean.shape[1], mean.shape[1])
@@ -330,7 +330,7 @@ class BotorchMOODefaultsTest(TestCase):
     def test_infer_objective_thresholds(self, _, cuda: bool = False) -> None:
         # TODO: refactor this test into smaller test cases
         for dtype in (torch.float, torch.double):
-            tkwargs: Dict[str, Any] = {
+            tkwargs: dict[str, Any] = {
                 "device": torch.device("cuda") if cuda else torch.device("cpu"),
                 "dtype": dtype,
             }

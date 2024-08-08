@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Type
+from typing import Any, Optional
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -32,11 +32,11 @@ input_transform_argparse = Dispatcher(
 
 @input_transform_argparse.register(InputTransform)
 def _input_transform_argparse_base(
-    input_transform_class: Type[InputTransform],
+    input_transform_class: type[InputTransform],
     dataset: Optional[SupervisedDataset] = None,
     search_space_digest: Optional[SearchSpaceDigest] = None,
-    input_transform_options: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    input_transform_options: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     """
     Extract the input transform kwargs from the given arguments.
 
@@ -60,11 +60,11 @@ def _input_transform_argparse_base(
 
 @input_transform_argparse.register(Warp)
 def _input_transform_argparse_warp(
-    input_transform_class: Type[Warp],
+    input_transform_class: type[Warp],
     dataset: SupervisedDataset,
     search_space_digest: SearchSpaceDigest,
-    input_transform_options: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    input_transform_options: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     """Extract the base input transform kwargs form the given arguments.
 
     Args:
@@ -90,13 +90,13 @@ def _input_transform_argparse_warp(
 
 @input_transform_argparse.register(Normalize)
 def _input_transform_argparse_normalize(
-    input_transform_class: Type[Normalize],
+    input_transform_class: type[Normalize],
     dataset: SupervisedDataset,
     search_space_digest: SearchSpaceDigest,
-    input_transform_options: Optional[Dict[str, Any]] = None,
+    input_transform_options: Optional[dict[str, Any]] = None,
     torch_device: Optional[torch.device] = None,
     torch_dtype: Optional[torch.dtype] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Extract the base input transform kwargs form the given arguments.
     NOTE: This input constructor doesn't support the case when there are
@@ -151,13 +151,13 @@ def _input_transform_argparse_normalize(
 
 @input_transform_argparse.register(InputPerturbation)
 def _input_transform_argparse_input_perturbation(
-    input_transform_class: Type[InputPerturbation],
+    input_transform_class: type[InputPerturbation],
     search_space_digest: SearchSpaceDigest,
     dataset: Optional[SupervisedDataset] = None,
-    input_transform_options: Optional[Dict[str, Any]] = None,
+    input_transform_options: Optional[dict[str, Any]] = None,
     torch_device: Optional[torch.device] = None,
     torch_dtype: Optional[torch.dtype] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Extract the base input transform kwargs form the given arguments.
 
     Args:

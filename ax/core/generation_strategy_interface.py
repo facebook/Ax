@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from typing import List, Optional
+from typing import Optional
 
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -45,7 +45,7 @@ class GenerationStrategyInterface(ABC, Base):
         # below as we find the right one.
         num_generator_runs: int = 1,
         n: int = 1,
-    ) -> List[List[GeneratorRun]]:
+    ) -> list[list[GeneratorRun]]:
         """Produce ``GeneratorRun``-s for multiple trials at once with the possibility
         of joining ``GeneratorRun``-s from multiple models into one ``BatchTrial``.
 

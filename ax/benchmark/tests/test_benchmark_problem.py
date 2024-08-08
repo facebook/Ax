@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 from ax.benchmark.benchmark_problem import (
     create_multi_objective_problem_from_botorch,
@@ -132,7 +132,7 @@ class TestBenchmarkProblem(TestCase):
         self,
         observe_noise_sd: bool,
         objective_noise_std: Optional[float],
-        constraint_noise_std: Optional[Union[float, List[float]]],
+        constraint_noise_std: Optional[Union[float, list[float]]],
     ) -> None:
         ax_problem = create_single_objective_problem_from_botorch(
             test_problem_class=ConstrainedGramacy,

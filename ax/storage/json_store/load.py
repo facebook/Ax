@@ -7,7 +7,7 @@
 # pyre-strict
 
 import json
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
 from ax.core.experiment import Experiment
 from ax.storage.json_store.decoder import object_from_json
@@ -22,8 +22,8 @@ def load_experiment(
     filepath: str,
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    class_decoder_registry: Dict[
-        str, Callable[[Dict[str, Any]], Any]
+    class_decoder_registry: dict[
+        str, Callable[[dict[str, Any]], Any]
     ] = CORE_CLASS_DECODER_REGISTRY,
 ) -> Experiment:
     """Load experiment from file.

@@ -7,7 +7,7 @@
 # pyre-strict
 
 import dataclasses
-from typing import Any, Dict
+from typing import Any
 from unittest import mock
 
 import torch
@@ -37,7 +37,7 @@ def dummy_func(X: torch.Tensor) -> torch.Tensor:
 class KnowledgeGradientTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.tkwargs: Dict[str, Any] = {
+        self.tkwargs: dict[str, Any] = {
             "device": torch.device("cpu"),
             "dtype": torch.double,
         }

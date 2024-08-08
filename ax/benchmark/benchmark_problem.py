@@ -6,7 +6,7 @@
 # pyre-strict
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Optional, Union
 
 from ax.benchmark.metrics.base import BenchmarkMetricBase
 
@@ -83,9 +83,9 @@ class BenchmarkProblem(Base):
     name: str
     optimization_config: OptimizationConfig
     num_trials: int
-    observe_noise_stds: Union[bool, Dict[str, bool]] = False
+    observe_noise_stds: Union[bool, dict[str, bool]] = False
     has_ground_truth: bool = True
-    tracking_metrics: List[BenchmarkMetricBase] = field(default_factory=list)
+    tracking_metrics: list[BenchmarkMetricBase] = field(default_factory=list)
     optimal_value: float
 
     search_space: SearchSpace = field(repr=False)
@@ -94,8 +94,8 @@ class BenchmarkProblem(Base):
 
 
 def create_single_objective_problem_from_botorch(
-    test_problem_class: Type[SyntheticTestFunction],
-    test_problem_kwargs: Dict[str, Any],
+    test_problem_class: type[SyntheticTestFunction],
+    test_problem_kwargs: dict[str, Any],
     lower_is_better: bool,
     num_trials: int,
     observe_noise_sd: bool = False,
@@ -216,8 +216,8 @@ class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
 
 
 def create_multi_objective_problem_from_botorch(
-    test_problem_class: Type[MultiObjectiveTestProblem],
-    test_problem_kwargs: Dict[str, Any],
+    test_problem_class: type[MultiObjectiveTestProblem],
+    test_problem_kwargs: dict[str, Any],
     # TODO: Figure out whether we should use `lower_is_better` here.
     num_trials: int,
     observe_noise_sd: bool = False,

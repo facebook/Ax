@@ -8,7 +8,6 @@
 
 import logging
 from collections import OrderedDict
-from typing import Dict, List, Type
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -66,7 +65,7 @@ from ax.utils.testing.mock import fast_botorch_optimize
 
 DUMMY_RUN_METADATA_KEY = "test_run_metadata_key"
 DUMMY_RUN_METADATA_VALUE = "test_run_metadata_value"
-DUMMY_RUN_METADATA: Dict[str, str] = {DUMMY_RUN_METADATA_KEY: DUMMY_RUN_METADATA_VALUE}
+DUMMY_RUN_METADATA: dict[str, str] = {DUMMY_RUN_METADATA_KEY: DUMMY_RUN_METADATA_VALUE}
 DUMMY_ABANDONED_REASON = "test abandoned reason"
 DUMMY_ARM_NAME = "test_arm_name"
 
@@ -81,7 +80,7 @@ class TestMetric(Metric):
 
 class SyntheticRunnerWithMetadataKeys(SyntheticRunner):
     @property
-    def run_metadata_report_keys(self) -> List[str]:
+    def run_metadata_report_keys(self) -> list[str]:
         return [DUMMY_RUN_METADATA_KEY]
 
 
@@ -805,7 +804,7 @@ class ExperimentTest(TestCase):
     def test_fetch_as_class(self) -> None:
         class MyMetric(Metric):
             @property
-            def fetch_multi_group_by_metric(self) -> Type[Metric]:
+            def fetch_multi_group_by_metric(self) -> type[Metric]:
                 return Metric
 
         m = MyMetric(name="test_metric")

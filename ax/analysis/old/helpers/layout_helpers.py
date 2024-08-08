@@ -5,12 +5,12 @@
 
 # pyre-strict
 
-from typing import Any, Dict, List, Tuple, Type
+from typing import Any
 
 import plotly.graph_objs as go
 
 
-def updatemenus_format(metric_dropdown: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def updatemenus_format(metric_dropdown: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
     Formats for use in the cross validation plot
     """
@@ -58,11 +58,11 @@ def updatemenus_format(metric_dropdown: List[Dict[str, Any]]) -> List[Dict[str, 
 
 
 def layout_format(
-    layout_axis_range_value: Tuple[float, float],
+    layout_axis_range_value: tuple[float, float],
     xlabel: str,
     ylabel: str,
-    updatemenus: List[Dict[str, Any]],
-) -> Type[go.Figure]:
+    updatemenus: list[dict[str, Any]],
+) -> type[go.Figure]:
     """
     Constructs a layout object for a CrossValidation figure.
     args:

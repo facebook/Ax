@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import itertools
 import warnings
-from typing import Callable, Dict, List, Mapping, Optional, Protocol, Set, Tuple, Union
+from collections.abc import Mapping
+from typing import Callable, Optional, Protocol, Union
 
 import numpy as np
 import torch
@@ -30,7 +31,7 @@ class TorchModelLike(Protocol):
     have a ``predict`` method.
     """
 
-    def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
+    def predict(self, X: Tensor) -> tuple[Tensor, Tensor]:
         """Predicts outcomes given an input tensor.
 
         Args:
@@ -48,18 +49,18 @@ DEFAULT_MAX_RS_DRAWS = 10000
 
 def rejection_sample(
     gen_unconstrained: Callable[
-        [int, int, np.ndarray, Optional[Dict[int, float]]], np.ndarray
+        [int, int, np.ndarray, Optional[dict[int, float]]], np.ndarray
     ],
     n: int,
     d: int,
     tunable_feature_indices: np.ndarray,
-    linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+    linear_constraints: Optional[tuple[np.ndarray, np.ndarray]] = None,
     deduplicate: bool = False,
     max_draws: Optional[int] = None,
-    fixed_features: Optional[Dict[int, float]] = None,
+    fixed_features: Optional[dict[int, float]] = None,
     rounding_func: Optional[Callable[[np.ndarray], np.ndarray]] = None,
     existing_points: Optional[np.ndarray] = None,
-) -> Tuple[np.ndarray, int]:
+) -> tuple[np.ndarray, int]:
     """Rejection sample in parameter space. Parameter space is typically
     [0, 1] for all tunable parameters.
 
@@ -174,7 +175,7 @@ def check_duplicate(point: np.ndarray, points: np.ndarray) -> bool:
 def add_fixed_features(
     tunable_points: np.ndarray,
     d: int,
-    fixed_features: Optional[Dict[int, float]],
+    fixed_features: Optional[dict[int, float]],
     tunable_feature_indices: np.ndarray,
 ) -> np.ndarray:
     """Add fixed features to points in tunable space.
@@ -200,8 +201,8 @@ def add_fixed_features(
 
 
 def check_param_constraints(
-    linear_constraints: Tuple[np.ndarray, np.ndarray], point: np.ndarray
-) -> Tuple[bool, np.ndarray]:
+    linear_constraints: tuple[np.ndarray, np.ndarray], point: np.ndarray
+) -> tuple[bool, np.ndarray]:
     """Check if a point satisfies parameter constraints.
 
     Args:
@@ -226,7 +227,7 @@ def check_param_constraints(
 
 
 def tunable_feature_indices(
-    bounds: List[Tuple[float, float]], fixed_features: Optional[Dict[int, float]] = None
+    bounds: list[tuple[float, float]], fixed_features: Optional[dict[int, float]] = None
 ) -> np.ndarray:
     """Get the feature indices of tunable features.
 
@@ -244,7 +245,7 @@ def tunable_feature_indices(
 
 
 def validate_bounds(
-    bounds: List[Tuple[float, float]], fixed_feature_indices: np.ndarray
+    bounds: list[tuple[float, float]], fixed_feature_indices: np.ndarray
 ) -> None:
     """Ensure the requested space is [0,1]^d.
 
@@ -268,11 +269,11 @@ def validate_bounds(
 
 def best_observed_point(
     model: TorchModelLike,
-    bounds: List[Tuple[float, float]],
+    bounds: list[tuple[float, float]],
     objective_weights: Optional[Tensoray],
-    outcome_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
-    linear_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
-    fixed_features: Optional[Dict[int, float]] = None,
+    outcome_constraints: Optional[tuple[Tensoray, Tensoray]] = None,
+    linear_constraints: Optional[tuple[Tensoray, Tensoray]] = None,
+    fixed_features: Optional[dict[int, float]] = None,
     risk_measure: Optional[RiskMeasureMCObjective] = None,
     options: Optional[TConfig] = None,
 ) -> Optional[Tensoray]:
@@ -342,16 +343,16 @@ def best_observed_point(
 
 
 def best_in_sample_point(
-    Xs: Union[List[torch.Tensor], List[np.ndarray]],
+    Xs: Union[list[torch.Tensor], list[np.ndarray]],
     model: TorchModelLike,
-    bounds: List[Tuple[float, float]],
+    bounds: list[tuple[float, float]],
     objective_weights: Optional[Tensoray],
-    outcome_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
-    linear_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
-    fixed_features: Optional[Dict[int, float]] = None,
+    outcome_constraints: Optional[tuple[Tensoray, Tensoray]] = None,
+    linear_constraints: Optional[tuple[Tensoray, Tensoray]] = None,
+    fixed_features: Optional[dict[int, float]] = None,
     risk_measure: Optional[RiskMeasureMCObjective] = None,
     options: Optional[TConfig] = None,
-) -> Optional[Tuple[Tensoray, float]]:
+) -> Optional[tuple[Tensoray, float]]:
     """Select the best point that has been observed.
 
     Implements two approaches to selecting the best point.
@@ -468,8 +469,8 @@ def best_in_sample_point(
 
 
 def as_array(
-    x: Union[Tensoray, Tuple[Tensoray, ...]]
-) -> Union[np.ndarray, Tuple[np.ndarray, ...]]:
+    x: Union[Tensoray, tuple[Tensoray, ...]]
+) -> Union[np.ndarray, tuple[np.ndarray, ...]]:
     """Convert every item in a tuple of tensors/arrays into an array.
 
     Args:
@@ -489,9 +490,9 @@ def as_array(
 
 
 def get_observed(
-    Xs: Union[List[torch.Tensor], List[np.ndarray]],
+    Xs: Union[list[torch.Tensor], list[np.ndarray]],
     objective_weights: Tensoray,
-    outcome_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
+    outcome_constraints: Optional[tuple[Tensoray, Tensoray]] = None,
 ) -> Tensoray:
     """Filter points to those that are observed for objective outcomes and outcomes
     that show up in outcome_constraints (if there are any).
@@ -509,7 +510,7 @@ def get_observed(
         Points observed for all objective outcomes and outcome constraints.
     """
     objective_weights_np = as_array(objective_weights)
-    used_outcomes: Set[int] = set(np.where(objective_weights_np != 0)[0])
+    used_outcomes: set[int] = set(np.where(objective_weights_np != 0)[0])
     if len(used_outcomes) == 0:
         raise ValueError("At least one objective weight must be non-zero")
     if outcome_constraints is not None:
@@ -535,9 +536,9 @@ def get_observed(
 
 def filter_constraints_and_fixed_features(
     X: Tensoray,
-    bounds: List[Tuple[float, float]],
-    linear_constraints: Optional[Tuple[Tensoray, Tensoray]] = None,
-    fixed_features: Optional[Dict[int, float]] = None,
+    bounds: list[tuple[float, float]],
+    linear_constraints: Optional[tuple[Tensoray, Tensoray]] = None,
+    fixed_features: Optional[dict[int, float]] = None,
 ) -> Tensoray:
     """Filter points to those that satisfy bounds, linear_constraints, and
     fixed_features.
@@ -577,8 +578,8 @@ def filter_constraints_and_fixed_features(
 
 def mk_discrete_choices(
     ssd: SearchSpaceDigest,
-    fixed_features: Optional[Dict[int, float]] = None,
-) -> Mapping[int, List[Union[int, float]]]:
+    fixed_features: Optional[dict[int, float]] = None,
+) -> Mapping[int, list[Union[int, float]]]:
     discrete_choices = ssd.discrete_choices
     # Add in fixed features.
     if fixed_features is not None:
@@ -591,8 +592,8 @@ def mk_discrete_choices(
 
 
 def enumerate_discrete_combinations(
-    discrete_choices: Mapping[int, List[Union[int, float]]],
-) -> List[Dict[int, Union[float, int]]]:
+    discrete_choices: Mapping[int, list[Union[int, float]]],
+) -> list[dict[int, Union[float, int]]]:
     n_combos = np.prod([len(v) for v in discrete_choices.values()])
     if n_combos > 50:
         warnings.warn(

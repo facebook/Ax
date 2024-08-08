@@ -6,9 +6,9 @@
 
 # pyre-strict
 
+from collections.abc import Generator
 from datetime import datetime, timedelta
 from time import time
-from typing import Generator
 
 import pandas as pd
 

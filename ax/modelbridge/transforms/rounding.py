@@ -9,7 +9,6 @@
 import math
 import random
 from copy import copy
-from typing import Set
 
 import numpy as np
 from ax.core.parameter_constraint import OrderConstraint
@@ -54,7 +53,7 @@ def strict_onehot_round(x: np.ndarray) -> np.ndarray:
 
 
 def contains_constrained_integer(
-    search_space: SearchSpace, transform_parameters: Set[str]
+    search_space: SearchSpace, transform_parameters: set[str]
 ) -> bool:
     """Check if any integer parameters are present in parameter_constraints.
 
@@ -70,7 +69,7 @@ def contains_constrained_integer(
 
 
 def randomized_round_parameters(
-    parameters: TParameterization, transform_parameters: Set[str]
+    parameters: TParameterization, transform_parameters: set[str]
 ) -> TParameterization:
     rounded_parameters = copy(parameters)
     for p_name in transform_parameters:

@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import List, Optional
+from typing import Optional
 
 import pandas as pd
 from ax.core.experiment import Experiment
@@ -17,7 +17,7 @@ from plotly import express as px, graph_objs as go
 
 def prepare_experiment_for_plotting(
     experiment: Experiment,
-    ignored_names: Optional[List[str]] = None,
+    ignored_names: Optional[list[str]] = None,
 ) -> pd.DataFrame:
     """Strip variables not desired in the final plot and truncate names for readability
 
@@ -48,7 +48,7 @@ def prepare_experiment_for_plotting(
 
 
 def plot_parallel_coordinates_plotly(
-    experiment: Experiment, ignored_names: Optional[List[str]] = None
+    experiment: Experiment, ignored_names: Optional[list[str]] = None
 ) -> go.Figure:
     """Plot trials as a parallel coordinates graph
 
@@ -69,7 +69,7 @@ def plot_parallel_coordinates_plotly(
 
 
 def plot_parallel_coordinates(
-    experiment: Experiment, ignored_names: Optional[List[str]] = None
+    experiment: Experiment, ignored_names: Optional[list[str]] = None
 ) -> AxPlotConfig:
     """Plot trials as a parallel coordinates graph
 

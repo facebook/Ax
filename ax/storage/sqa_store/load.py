@@ -7,7 +7,7 @@
 # pyre-strict
 
 from math import ceil
-from typing import Any, cast, Dict, List, Optional, Type
+from typing import Any, cast, Optional
 
 from ax.analysis.analysis import AnalysisCard
 
@@ -82,7 +82,7 @@ def _load_experiment(
     decoder: Decoder,
     reduced_state: bool = False,
     load_trials_in_batches_of_size: Optional[int] = None,
-    ax_object_field_overrides: Optional[Dict[str, Any]] = None,
+    ax_object_field_overrides: Optional[dict[str, Any]] = None,
     skip_runners_and_metrics: bool = False,
 ) -> Experiment:
     """Load experiment by name, using given Decoder instance.
@@ -105,10 +105,10 @@ def _load_experiment(
 
     # pyre-ignore Incompatible variable type [9]: exp_sqa_class is declared to have type
     # `Type[SQAExperiment]` but is used as type `Type[ax.storage.sqa_store.db.SQABase]`
-    exp_sqa_class: Type[SQAExperiment] = decoder.config.class_to_sqa_class[Experiment]
+    exp_sqa_class: type[SQAExperiment] = decoder.config.class_to_sqa_class[Experiment]
     # pyre-ignore Incompatible variable type [9]: trial_sqa_class is decl. to have type
     # `Type[SQATrial]` but is used as type `Type[ax.storage.sqa_store.db.SQABase]`
-    trial_sqa_class: Type[SQATrial] = decoder.config.class_to_sqa_class[Trial]
+    trial_sqa_class: type[SQATrial] = decoder.config.class_to_sqa_class[Trial]
     imm_OC_and_SS = _get_experiment_immutable_opt_config_and_search_space(
         experiment_name=experiment_name, exp_sqa_class=exp_sqa_class
     )
@@ -172,10 +172,10 @@ def _load_experiment(
 
 def _get_experiment_sqa(
     experiment_name: str,
-    exp_sqa_class: Type[SQAExperiment],
-    trial_sqa_class: Type[SQATrial],
+    exp_sqa_class: type[SQAExperiment],
+    trial_sqa_class: type[SQATrial],
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    trials_query_options: Optional[List[Any]] = None,
+    trials_query_options: Optional[list[Any]] = None,
     load_trials_in_batches_of_size: Optional[int] = None,
     skip_runners_and_metrics: bool = False,
 ) -> SQAExperiment:
@@ -210,12 +210,12 @@ def _get_experiment_sqa(
 
 def _get_trials_sqa(
     experiment_id: int,
-    trial_sqa_class: Type[SQATrial],
+    trial_sqa_class: type[SQATrial],
     load_trials_in_batches_of_size: Optional[int] = None,
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    trials_query_options: Optional[List[Any]] = None,
+    trials_query_options: Optional[list[Any]] = None,
     skip_runners_and_metrics: bool = False,
-) -> List[SQATrial]:
+) -> list[SQATrial]:
     """Obtains SQLAlchemy trial objects for given experiment ID from DB,
     optionally in mini-batches and with specified query options.
     """
@@ -269,8 +269,8 @@ def _set_sqa_metric_to_base_type(
 
 def _get_experiment_sqa_reduced_state(
     experiment_name: str,
-    exp_sqa_class: Type[SQAExperiment],
-    trial_sqa_class: Type[SQATrial],
+    exp_sqa_class: type[SQAExperiment],
+    trial_sqa_class: type[SQATrial],
     load_trials_in_batches_of_size: Optional[int] = None,
     skip_runners_and_metrics: bool = False,
 ) -> SQAExperiment:
@@ -294,8 +294,8 @@ def _get_experiment_sqa_reduced_state(
 
 def _get_experiment_sqa_immutable_opt_config_and_search_space(
     experiment_name: str,
-    exp_sqa_class: Type[SQAExperiment],
-    trial_sqa_class: Type[SQATrial],
+    exp_sqa_class: type[SQAExperiment],
+    trial_sqa_class: type[SQATrial],
     load_trials_in_batches_of_size: Optional[int] = None,
     skip_runners_and_metrics: bool = False,
 ) -> SQAExperiment:
@@ -316,7 +316,7 @@ def _get_experiment_sqa_immutable_opt_config_and_search_space(
 
 
 def _get_experiment_immutable_opt_config_and_search_space(
-    experiment_name: str, exp_sqa_class: Type[SQAExperiment]
+    experiment_name: str, exp_sqa_class: type[SQAExperiment]
 ) -> bool:
     """Return true iff the experiment is designated as having an
     immutable optimization config and search space.
@@ -489,11 +489,11 @@ def get_generation_strategy_sqa(
     gs_id: int,
     decoder: Decoder,
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    query_options: Optional[List[Any]] = None,
+    query_options: Optional[list[Any]] = None,
 ) -> SQAGenerationStrategy:
     """Obtains the SQLAlchemy generation strategy object from DB."""
     gs_sqa_class = cast(
-        Type[SQAGenerationStrategy],
+        type[SQAGenerationStrategy],
         decoder.config.class_to_sqa_class[GenerationStrategy],
     )
     with session_scope() as session:
@@ -511,11 +511,11 @@ def get_generation_strategy_sqa_reduced_state(
 ) -> SQAGenerationStrategy:
     """Obtains most of the SQLAlchemy generation strategy object from DB."""
     gs_sqa_class = cast(
-        Type[SQAGenerationStrategy],
+        type[SQAGenerationStrategy],
         decoder.config.class_to_sqa_class[GenerationStrategy],
     )
     gr_sqa_class = cast(
-        Type[SQAGeneratorRun],
+        type[SQAGeneratorRun],
         decoder.config.class_to_sqa_class[GeneratorRun],
     )
 
@@ -552,11 +552,11 @@ def get_generation_strategy_sqa_reduced_state(
 
 
 def get_generator_runs_by_id(
-    generator_run_ids: List[int],
+    generator_run_ids: list[int],
     decoder: Decoder,
     reduced_state: bool = False,
     immutable_search_space_and_opt_config: bool = False,
-) -> List[GeneratorRun]:
+) -> list[GeneratorRun]:
     """Bulk fetches generator runs by id."""
     generator_run_sqa_class = decoder.config.class_to_sqa_class[GeneratorRun]
     with session_scope() as session:
@@ -592,7 +592,7 @@ def _get_generation_strategy_sqa_immutable_opt_config_and_search_space(
 def load_analysis_cards_by_experiment_name(
     experiment_name: str,
     config: Optional[SQAConfig] = None,
-) -> List[AnalysisCard]:
+) -> list[AnalysisCard]:
     """Loads analysis cards for an experiment."""
     config = SQAConfig() if config is None else config
     decoder = Decoder(config=config)

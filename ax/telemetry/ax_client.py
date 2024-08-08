@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from ax.service.ax_client import AxClient
 from ax.telemetry.common import _get_max_transformed_dimensionality
@@ -72,7 +72,7 @@ class AxClientCreatedRecord:
             ),
         )
 
-    def flatten(self) -> Dict[str, Any]:
+    def flatten(self) -> dict[str, Any]:
         """
         Flatten into an appropriate format for logging to a tabular database.
         """
@@ -118,7 +118,7 @@ class AxClientCompletedRecord:
             model_std_generalization=float("nan"),
         )
 
-    def flatten(self) -> Dict[str, Any]:
+    def flatten(self) -> dict[str, Any]:
         """
         Flatten into an appropriate format for logging to a tabular database.
         """

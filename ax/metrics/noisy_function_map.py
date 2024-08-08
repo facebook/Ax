@@ -8,9 +8,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
+
 from logging import Logger
 
-from typing import Any, Iterable, Mapping, Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd

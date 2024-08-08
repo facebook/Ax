@@ -7,7 +7,7 @@
 # pyre-strict
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -24,7 +24,7 @@ FIVE_MINUTES = timedelta(minutes=5)
 
 
 # type aliases
-Traces = List[Dict[str, Any]]
+Traces = list[dict[str, Any]]
 
 
 def map_data_single_trace_scatters(
@@ -35,9 +35,9 @@ def map_data_single_trace_scatters(
     ylabel: str = "Trial performance",
     plot_stopping_marker: bool = False,
     opacity: float = 0.5,
-    trace_color: Tuple[int] = COLORS.STEELBLUE.value,
+    trace_color: tuple[int] = COLORS.STEELBLUE.value,
     visible: bool = True,
-) -> List[go.Scatter]:
+) -> list[go.Scatter]:
     """Plot a single trial's trace from map data.
 
     Args:
@@ -96,13 +96,13 @@ def map_data_single_trace_scatters(
 
 def map_data_multiple_metrics_dropdown_plotly(
     title: str,
-    metric_names: List[str],
-    xs_by_metric: Dict[str, List[np.ndarray]],
-    ys_by_metric: Dict[str, List[np.ndarray]],
-    legend_labels_by_metric: Dict[str, List[str]],
-    stopping_markers_by_metric: Dict[str, List[bool]],
-    xlabels_by_metric: Dict[str, str],
-    lower_is_better_by_metric: Dict[str, Optional[bool]],
+    metric_names: list[str],
+    xs_by_metric: dict[str, list[np.ndarray]],
+    ys_by_metric: dict[str, list[np.ndarray]],
+    legend_labels_by_metric: dict[str, list[str]],
+    stopping_markers_by_metric: dict[str, list[bool]],
+    xlabels_by_metric: dict[str, str],
+    lower_is_better_by_metric: dict[str, Optional[bool]],
     opacity: float = 0.75,
     color_map: str = "viridis",
     autoset_axis_limits: bool = True,
@@ -210,9 +210,9 @@ def map_data_multiple_metrics_dropdown_plotly(
 
 def mean_trace_scatter(
     y: np.ndarray,
-    trace_color: Tuple[int] = COLORS.STEELBLUE.value,
+    trace_color: tuple[int] = COLORS.STEELBLUE.value,
     legend_label: str = "mean",
-    hover_labels: Optional[List[str]] = None,
+    hover_labels: Optional[list[str]] = None,
 ) -> go.Scatter:
     """Creates a graph object for trace of the mean of the given series across
     runs.
@@ -243,9 +243,9 @@ def mean_trace_scatter(
 
 def sem_range_scatter(
     y: np.ndarray,
-    trace_color: Tuple[int] = COLORS.STEELBLUE.value,
+    trace_color: tuple[int] = COLORS.STEELBLUE.value,
     legend_label: str = "",
-) -> Tuple[go.Scatter, go.Scatter]:
+) -> tuple[go.Scatter, go.Scatter]:
     """Creates a graph object for trace of mean +/- 2 SEMs for y, across runs.
 
     Args:
@@ -286,9 +286,9 @@ def sem_range_scatter(
 
 def mean_markers_scatter(
     y: np.ndarray,
-    marker_color: Tuple[int] = COLORS.LIGHT_PURPLE.value,
+    marker_color: tuple[int] = COLORS.LIGHT_PURPLE.value,
     legend_label: str = "",
-    hover_labels: Optional[List[str]] = None,
+    hover_labels: Optional[list[str]] = None,
 ) -> go.Scatter:
     """Creates a graph object for trace of the mean of the given series across
     runs, with errorbars.
@@ -322,7 +322,7 @@ def mean_markers_scatter(
 
 
 def optimum_objective_scatter(
-    optimum: float, num_iterations: int, optimum_color: Tuple[int] = COLORS.ORANGE.value
+    optimum: float, num_iterations: int, optimum_color: tuple[int] = COLORS.ORANGE.value
 ) -> go.Scatter:
     """Creates a graph object for the line representing optimal objective.
 
@@ -348,16 +348,16 @@ def optimum_objective_scatter(
 def optimization_trace_single_method_plotly(
     y: np.ndarray,
     optimum: Optional[float] = None,
-    model_transitions: Optional[List[int]] = None,
+    model_transitions: Optional[list[int]] = None,
     title: str = "",
     ylabel: str = "",
-    hover_labels: Optional[List[str]] = None,
-    trace_color: Tuple[int] = COLORS.STEELBLUE.value,
-    optimum_color: Tuple[int] = COLORS.ORANGE.value,
-    generator_change_color: Tuple[int] = COLORS.TEAL.value,
+    hover_labels: Optional[list[str]] = None,
+    trace_color: tuple[int] = COLORS.STEELBLUE.value,
+    optimum_color: tuple[int] = COLORS.ORANGE.value,
+    generator_change_color: tuple[int] = COLORS.TEAL.value,
     optimization_direction: Optional[str] = "passthrough",
     plot_trial_points: bool = False,
-    trial_points_color: Tuple[int] = COLORS.LIGHT_PURPLE.value,
+    trial_points_color: tuple[int] = COLORS.LIGHT_PURPLE.value,
     autoset_axis_limits: bool = True,
 ) -> go.Figure:
     """Plots an optimization trace with mean and 2 SEMs
@@ -452,7 +452,7 @@ def _autoset_axis_limits(
     y: np.ndarray,
     optimization_direction: str,
     force_include_value: Optional[float] = None,
-) -> List[float]:
+) -> list[float]:
     """Provides automatic axis limits based on the data and optimization direction.
     All best points are included in this range, and by default the worst points are
     truncated at some distance below the median, where that distance is given by
@@ -483,16 +483,16 @@ def _autoset_axis_limits(
 def optimization_trace_single_method(
     y: np.ndarray,
     optimum: Optional[float] = None,
-    model_transitions: Optional[List[int]] = None,
+    model_transitions: Optional[list[int]] = None,
     title: str = "",
     ylabel: str = "",
-    hover_labels: Optional[List[str]] = None,
-    trace_color: Tuple[int] = COLORS.STEELBLUE.value,
-    optimum_color: Tuple[int] = COLORS.ORANGE.value,
-    generator_change_color: Tuple[int] = COLORS.TEAL.value,
+    hover_labels: Optional[list[str]] = None,
+    trace_color: tuple[int] = COLORS.STEELBLUE.value,
+    optimum_color: tuple[int] = COLORS.ORANGE.value,
+    generator_change_color: tuple[int] = COLORS.TEAL.value,
     optimization_direction: Optional[str] = "passthrough",
     plot_trial_points: bool = False,
-    trial_points_color: Tuple[int] = COLORS.LIGHT_PURPLE.value,
+    trial_points_color: tuple[int] = COLORS.LIGHT_PURPLE.value,
     autoset_axis_limits: bool = True,
 ) -> AxPlotConfig:
     """Plots an optimization trace with mean and 2 SEMs
@@ -546,13 +546,13 @@ def optimization_trace_single_method(
 
 
 def optimization_trace_all_methods(
-    y_dict: Dict[str, np.ndarray],
+    y_dict: dict[str, np.ndarray],
     optimum: Optional[float] = None,
     title: str = "",
     ylabel: str = "",
-    hover_labels: Optional[List[str]] = None,
-    trace_colors: List[Tuple[int]] = DISCRETE_COLOR_SCALE,
-    optimum_color: Tuple[int] = COLORS.ORANGE.value,
+    hover_labels: Optional[list[str]] = None,
+    trace_colors: list[tuple[int]] = DISCRETE_COLOR_SCALE,
+    optimum_color: tuple[int] = COLORS.ORANGE.value,
 ) -> AxPlotConfig:
     """Plots a comparison of optimization traces with 2-SEM bands for multiple
     methods on the same problem.
@@ -574,7 +574,7 @@ def optimization_trace_all_methods(
     Returns:
         AxPlotConfig: plot of the comparison of optimization traces with IQR
     """
-    data: List[go.Scatter] = []
+    data: list[go.Scatter] = []
 
     for i, (method, y) in enumerate(y_dict.items()):
         # If there are more traces than colors, start reusing colors.
@@ -607,8 +607,8 @@ def optimization_trace_all_methods(
 
 
 def optimization_times(
-    fit_times: Dict[str, List[float]],
-    gen_times: Dict[str, List[float]],
+    fit_times: dict[str, list[float]],
+    gen_times: dict[str, list[float]],
     title: str = "",
 ) -> AxPlotConfig:
     """Plots wall times for each method as a bar chart.
@@ -622,30 +622,30 @@ def optimization_times(
     """
     # Compute means and SEs
     methods = list(fit_times.keys())
-    fit_res: Dict[str, Union[str, List[float]]] = {"name": "Fitting"}
+    fit_res: dict[str, Union[str, list[float]]] = {"name": "Fitting"}
     fit_res["mean"] = [np.mean(fit_times[m]) for m in methods]
     fit_res["2sems"] = [
         2 * np.std(fit_times[m]) / np.sqrt(len(fit_times[m])) for m in methods
     ]
-    gen_res: Dict[str, Union[str, List[float]]] = {"name": "Generation"}
+    gen_res: dict[str, Union[str, list[float]]] = {"name": "Generation"}
     gen_res["mean"] = [np.mean(gen_times[m]) for m in methods]
     gen_res["2sems"] = [
         2 * np.std(gen_times[m]) / np.sqrt(len(gen_times[m])) for m in methods
     ]
-    total_mean: List[float] = []
-    total_2sems: List[float] = []
+    total_mean: list[float] = []
+    total_2sems: list[float] = []
     for m in methods:
         totals = np.array(fit_times[m]) + np.array(gen_times[m])
         total_mean.append(np.mean(totals))
         total_2sems.append(2 * np.std(totals) / np.sqrt(len(totals)))
-    total_res: Dict[str, Union[str, List[float]]] = {
+    total_res: dict[str, Union[str, list[float]]] = {
         "name": "Total",
         "mean": total_mean,
         "2sems": total_2sems,
     }
 
     # Construct plot
-    data: List[go.Bar] = []
+    data: list[go.Bar] = []
 
     for i, res in enumerate([fit_res, gen_res, total_res]):
         data.append(
@@ -680,7 +680,7 @@ def get_running_trials_per_minute(
     experiment: Experiment,
     show_until_latest_end_plus_timedelta: timedelta = FIVE_MINUTES,
 ) -> AxPlotConfig:
-    trial_runtimes: List[Tuple[int, datetime, Optional[datetime]]] = [
+    trial_runtimes: list[tuple[int, datetime, Optional[datetime]]] = [
         (
             trial.index,
             not_none(trial._time_run_started),
@@ -730,7 +730,7 @@ def plot_objective_value_vs_trial_index(
     metric_colname: str,
     minimize: bool,
     title: Optional[str] = None,
-    hover_data_colnames: Optional[List[str]] = None,
+    hover_data_colnames: Optional[list[str]] = None,
     autoset_axis_limits: bool = True,
 ) -> go.Figure:
     """Returns a plotly figure showing the optimization trace for a single metric.

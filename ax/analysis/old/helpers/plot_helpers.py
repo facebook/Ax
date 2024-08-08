@@ -8,7 +8,7 @@
 
 
 from logging import Logger
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Optional, Union
 
 from ax.analysis.old.helpers.constants import DECIMALS, Z
 
@@ -23,9 +23,9 @@ from plotly import graph_objs as go
 logger: Logger = get_logger(__name__)
 
 # Typing alias
-RawData = List[Dict[str, Union[str, float]]]
+RawData = list[dict[str, Union[str, float]]]
 
-TNullableGeneratorRunsDict = Optional[Dict[str, GeneratorRun]]
+TNullableGeneratorRunsDict = Optional[dict[str, GeneratorRun]]
 
 
 def _format_dict(param_dict: TParameterization, name: str = "Parameterization") -> str:
@@ -76,7 +76,7 @@ def resize_subtitles(figure: go.Figure, size: int) -> go.Figure:
     return figure
 
 
-def arm_name_to_sort_key(arm_name: str) -> Tuple[str, int, int]:
+def arm_name_to_sort_key(arm_name: str) -> tuple[str, int, int]:
     """Parses arm name into tuple suitable for reverse sorting by key
 
     Example:

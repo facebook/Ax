@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import inf
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 from ax.core.base_trial import TrialStatus
 
@@ -25,8 +25,8 @@ from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.utils import get_model_times
 from ax.telemetry.common import INITIALIZATION_MODELS, OTHER_MODELS
 
-INITIALIZATION_MODEL_STRS: List[str] = [enum.value for enum in INITIALIZATION_MODELS]
-OTHER_MODEL_STRS: List[str] = [enum.value for enum in OTHER_MODELS] + [None]
+INITIALIZATION_MODEL_STRS: list[str] = [enum.value for enum in INITIALIZATION_MODELS]
+OTHER_MODEL_STRS: list[str] = [enum.value for enum in OTHER_MODELS] + [None]
 
 
 @dataclass(frozen=True)
@@ -70,7 +70,7 @@ class ExperimentCreatedRecord:
 
     # General Metrics info
     num_map_metrics: int
-    metric_cls_to_quantity: Dict[str, int]
+    metric_cls_to_quantity: dict[str, int]
 
     # Runner info
     runner_cls: str
@@ -148,7 +148,7 @@ class ExperimentCreatedRecord:
     @staticmethod
     def _get_param_counts_from_search_space(
         search_space: SearchSpace,
-    ) -> Tuple[int, int, int, int, int, int, int, int, int]:
+    ) -> tuple[int, int, int, int, int, int, int, int, int]:
         """
         Return counts of different types of parameters.
 

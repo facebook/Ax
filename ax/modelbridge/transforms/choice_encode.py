@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import Observation, ObservationFeatures
@@ -53,14 +53,14 @@ class ChoiceToNumericChoice(Transform):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         assert search_space is not None, "ChoiceToNumericChoice requires search space"
         # Identify parameters that should be transformed
-        self.encoded_parameters: Dict[str, Dict[TParamValue, TParamValue]] = {}
-        self.encoded_parameters_inverse: Dict[str, ClosestLookupDict] = {}
+        self.encoded_parameters: dict[str, dict[TParamValue, TParamValue]] = {}
+        self.encoded_parameters_inverse: dict[str, ClosestLookupDict] = {}
         for p in search_space.parameters.values():
             if isinstance(p, ChoiceParameter) and not p.is_task:
                 transformed_values, _ = transform_choice_values(p)
@@ -72,8 +72,8 @@ class ChoiceToNumericChoice(Transform):
                 )
 
     def transform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             for p_name in self.encoded_parameters:
                 if p_name in obsf.parameters:
@@ -83,7 +83,7 @@ class ChoiceToNumericChoice(Transform):
         return observation_features
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        transformed_parameters: Dict[str, Parameter] = {}
+        transformed_parameters: dict[str, Parameter] = {}
         for p_name, p in search_space.parameters.items():
             if p_name in self.encoded_parameters and isinstance(p, ChoiceParameter):
                 if p.is_fidelity:
@@ -112,8 +112,8 @@ class ChoiceToNumericChoice(Transform):
         )
 
     def untransform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             for p_name, reverse_transform in self.encoded_parameters_inverse.items():
                 if p_name in obsf.parameters:
@@ -149,19 +149,19 @@ class OrderedChoiceToIntegerRange(ChoiceToNumericChoice):
     def __init__(
         self,
         search_space: SearchSpace,
-        observations: List[Observation],
+        observations: list[Observation],
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         # Identify parameters that should be transformed
-        self.encoded_parameters: Dict[str, Dict[TParamValue, int]] = {}
+        self.encoded_parameters: dict[str, dict[TParamValue, int]] = {}
         for p in search_space.parameters.values():
             if isinstance(p, ChoiceParameter) and p.is_ordered and not p.is_task:
                 self.encoded_parameters[p.name] = {
                     original_value: transformed_value
                     for transformed_value, original_value in enumerate(p.values)
                 }
-        self.encoded_parameters_inverse: Dict[str, Dict[int, TParamValue]] = {
+        self.encoded_parameters_inverse: dict[str, dict[int, TParamValue]] = {
             p_name: {
                 transformed_value: original_value
                 for original_value, transformed_value in transforms.items()
@@ -170,7 +170,7 @@ class OrderedChoiceToIntegerRange(ChoiceToNumericChoice):
         }
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        transformed_parameters: Dict[str, Parameter] = {}
+        transformed_parameters: dict[str, Parameter] = {}
         for p_name, p in search_space.parameters.items():
             if p_name in self.encoded_parameters and isinstance(p, ChoiceParameter):
                 if p.is_fidelity:
@@ -205,7 +205,7 @@ class OrderedChoiceEncode(DeprecatedTransformMixin, OrderedChoiceToIntegerRange)
         super().__init__(*args, **kwargs)
 
 
-def transform_choice_values(p: ChoiceParameter) -> Tuple[np.ndarray, ParameterType]:
+def transform_choice_values(p: ChoiceParameter) -> tuple[np.ndarray, ParameterType]:
     """Transforms the choice values and returns the new parameter type.
 
     If the choices were numeric (int or float) and ordered, then they're cast

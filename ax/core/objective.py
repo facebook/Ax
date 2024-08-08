@@ -9,8 +9,9 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Iterable
 from logging import Logger
-from typing import Any, Iterable, List, Optional, Tuple
+from typing import Any, Optional
 
 from ax.core.metric import Metric
 from ax.exceptions.core import UserInputError
@@ -63,12 +64,12 @@ class Objective(SortableBase):
         return self._metric
 
     @property
-    def metrics(self) -> List[Metric]:
+    def metrics(self) -> list[Metric]:
         """Get a list of objective metrics."""
         return [self._metric]
 
     @property
-    def metric_names(self) -> List[str]:
+    def metric_names(self) -> list[str]:
         """Get a list of objective metric names."""
         return [m.name for m in self.metrics]
 
@@ -81,7 +82,7 @@ class Objective(SortableBase):
             self.metric.name, self.minimize
         )
 
-    def get_unconstrainable_metrics(self) -> List[Metric]:
+    def get_unconstrainable_metrics(self) -> list[Metric]:
         """Return a list of metrics that are incompatible with OutcomeConstraints."""
         return self.metrics
 
@@ -99,11 +100,11 @@ class MultiObjective(Objective):
         objectives: List of objectives.
     """
 
-    weights: List[float]
+    weights: list[float]
 
     def __init__(
         self,
-        objectives: Optional[List[Objective]] = None,
+        objectives: Optional[list[Objective]] = None,
         **extra_kwargs: Any,  # Here to satisfy serialization.
     ) -> None:
         """Create a new objective.
@@ -150,17 +151,17 @@ class MultiObjective(Objective):
         )
 
     @property
-    def metrics(self) -> List[Metric]:
+    def metrics(self) -> list[Metric]:
         """Get the objective metrics."""
         return [o.metric for o in self._objectives]
 
     @property
-    def objectives(self) -> List[Objective]:
+    def objectives(self) -> list[Objective]:
         """Get the objectives."""
         return self._objectives
 
     @property
-    def objective_weights(self) -> Iterable[Tuple[Objective, float]]:
+    def objective_weights(self) -> Iterable[tuple[Objective, float]]:
         """Get the objectives and weights."""
         return zip(self.objectives, self.weights)
 
@@ -180,12 +181,12 @@ class ScalarizedObjective(Objective):
         weights: Weights for scalarization; default to 1.
     """
 
-    weights: List[float]
+    weights: list[float]
 
     def __init__(
         self,
-        metrics: List[Metric],
-        weights: Optional[List[float]] = None,
+        metrics: list[Metric],
+        weights: Optional[list[float]] = None,
         minimize: bool = False,
     ) -> None:
         """Create a new objective.
@@ -226,12 +227,12 @@ class ScalarizedObjective(Objective):
         )
 
     @property
-    def metrics(self) -> List[Metric]:
+    def metrics(self) -> list[Metric]:
         """Get the metrics."""
         return self._metrics
 
     @property
-    def metric_weights(self) -> Iterable[Tuple[Metric, float]]:
+    def metric_weights(self) -> Iterable[tuple[Metric, float]]:
         """Get the metrics and weights."""
         return zip(self.metrics, self.weights)
 
