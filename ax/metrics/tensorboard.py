@@ -159,6 +159,8 @@ try:
                                 "the curve empty in the TensorBoard UI?"
                             )
 
+                    self._maybe_clear_multiplexer(mul)
+
                     df = (
                         pd.DataFrame(records)
                         # If a metric has multiple records for the same arm, metric, and
@@ -221,6 +223,15 @@ try:
             mul.Reload()
 
             return mul
+
+        def _maybe_clear_multiplexer(
+            self, mul: event_multiplexer.EventMultiplexer
+        ) -> None:
+            """Clear the multiplexer to avoid memory leaks. This is a no-op on the base
+            class, to be implemented on child classes where more is known about the
+            multiplexer.
+            """
+            pass
 
 except ImportError:
     logger.warning(
