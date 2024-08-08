@@ -424,6 +424,14 @@ class BatchTrial(BaseTrial):
         return [] if arm_weights is None else list(arm_weights.keys())
 
     @property
+    def non_status_quo_arms(self) -> List[Arm]:
+        """List of arms in this trial, excluding the status quo arm.
+        This is frequently useful for getting the count of test arms
+        to be matched by a later trial.
+        """
+        return [arm for arm in self.arms if arm != self.status_quo]
+
+    @property
     def weights(self) -> List[float]:
         """Weights corresponding to arms contained in the trial."""
         arm_weights = self.arm_weights
