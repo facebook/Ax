@@ -156,6 +156,7 @@ class BatchTrialTest(TestCase):
         self.assertEqual(self.batch.status_quo.name, self.batch.arms[0].name)
         self.assertEqual(self.batch.arm_weights[self.batch.arms[0]], self.sq_weight)
         self.assertEqual(sum(self.batch.weights), self.weights[1] + self.sq_weight)
+        self.assertEqual(self.batch.non_status_quo_arms, self.batch.arms[1:])
 
         # Set status quo to new arm, add it
         self.batch.set_status_quo_with_weight(self.new_sq, self.sq_weight)
@@ -165,6 +166,15 @@ class BatchTrialTest(TestCase):
             self.batch.generator_run_structs[1].generator_run.arms[0].name,
             "status_quo_0",
         )
+
+    def test_non_status_quo_arms_with_no_status_quo(self) -> None:
+        self.assertIsNone(self.batch.status_quo)
+        self.assertEqual(self.batch.non_status_quo_arms, self.batch.arms)
+
+    def test_non_status_quo_arms_status_quo(self) -> None:
+        self.batch.set_status_quo_with_weight(self.status_quo, self.sq_weight)
+        self.assertEqual(len(self.batch.non_status_quo_arms), len(self.batch.arms) - 1)
+        self.assertNotIn(self.batch.status_quo, self.batch.non_status_quo_arms)
 
     def test_status_quo_cannot_have_negative_weight(self) -> None:
         with self.assertRaises(ValueError):
