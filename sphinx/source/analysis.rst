@@ -30,3 +30,11 @@ Plotly Analysis
     :members:
     :undoc-members:
     :show-inheritance:
+
+Healthcheck Analysis
+~~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.healthcheck.healthcheck_analysis
+    :members:
+    :undoc-members:
+    :show-inheritance:
