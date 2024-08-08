@@ -9,6 +9,8 @@
 from math import ceil
 from typing import Any, cast, Dict, List, Optional, Type
 
+from ax.analysis.analysis import AnalysisCard
+
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
@@ -22,6 +24,7 @@ from ax.storage.sqa_store.reduced_state import (
     get_query_options_to_defer_large_model_cols,
 )
 from ax.storage.sqa_store.sqa_classes import (
+    SQAAnalysisCard,
     SQAExperiment,
     SQAGenerationStrategy,
     SQAGeneratorRun,
@@ -63,7 +66,7 @@ def load_experiment(
             of metrics, this option converts the loaded metrics into a base
             metric avoiding conversion related to custom properties of the metric.
     """
-    config = config or SQAConfig()
+    config = SQAConfig() if config is None else config
     decoder = Decoder(config=config)
     return _load_experiment(
         experiment_name=experiment_name,
@@ -363,7 +366,7 @@ def load_generation_strategy_by_experiment_name(
     """Finds a generation strategy attached to an experiment specified by a name
     and restores it from its corresponding SQA object.
     """
-    config = config or SQAConfig()
+    config = SQAConfig() if config is None else config
     decoder = Decoder(config=config)
     return _load_generation_strategy_by_experiment_name(
         experiment_name=experiment_name,
@@ -381,7 +384,7 @@ def load_generation_strategy_by_id(
     reduced_state: bool = False,
 ) -> GenerationStrategy:
     """Finds a generation strategy stored by a given ID and restores it."""
-    config = config or SQAConfig()
+    config = SQAConfig() if config is None else config
     decoder = Decoder(config=config)
     return _load_generation_strategy_by_id(
         gs_id=gs_id, decoder=decoder, experiment=experiment, reduced_state=reduced_state
@@ -584,3 +587,28 @@ def _get_generation_strategy_sqa_immutable_opt_config_and_search_space(
             lazyload("generator_runs.metrics"),
         ],
     )
+
+
+def load_analysis_cards_by_experiment_name(
+    experiment_name: str,
+    config: Optional[SQAConfig] = None,
+) -> List[AnalysisCard]:
+    """Loads analysis cards for an experiment."""
+    config = SQAConfig() if config is None else config
+    decoder = Decoder(config=config)
+    analysis_card_sqa_class: SQAAnalysisCard = cast(
+        SQAAnalysisCard, decoder.config.class_to_sqa_class[AnalysisCard]
+    )
+    exp_sqa_class: SQAExperiment = cast(
+        SQAExperiment, decoder.config.class_to_sqa_class[Experiment]
+    )
+    with session_scope() as session:
+        analysis_cards_sqa = (
+            session.query(analysis_card_sqa_class)
+            .join(exp_sqa_class.analysis_cards)
+            .filter(exp_sqa_class.name == experiment_name)
+        )
+    return [
+        decoder.analysis_card_from_sqa(analysis_card_sqa=analysis_card_sqa)
+        for analysis_card_sqa in analysis_cards_sqa
+    ]
