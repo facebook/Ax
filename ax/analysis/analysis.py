@@ -11,6 +11,7 @@ from typing import Optional, Protocol
 import pandas as pd
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.utils.common.base import Base
 
 
 class AnalysisCardLevel(Enum):
@@ -21,7 +22,7 @@ class AnalysisCardLevel(Enum):
     CRITICAL = 4
 
 
-class AnalysisCard:
+class AnalysisCard(Base):
     # Name of the analysis computed, usually the class name of the Analysis which
     # produced the card. Useful for grouping by when querying a large collection of
     # cards.
