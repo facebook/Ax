@@ -358,6 +358,17 @@ class Surrogate(Base):
     ) -> None:
         for input_name, input_class, input_options in inputs:
             if input_class is None:
+                # This is a temporary solution until all BoTorch models use
+                # `Standardize` by default, see TODO [T197435440].
+                # After this, we should update `Surrogate` to use `DEFAULT`
+                # (https://fburl.com/code/22f4397e) for both of these args. This will
+                # allow users to explicitly disable the default transforms by passing
+                # in `None`.
+                if (
+                    input_name in ["outcome_transform"]
+                    and input_name in botorch_model_class_args
+                ):
+                    formatted_model_inputs[input_name] = None
                 continue
             if input_name not in botorch_model_class_args:
                 # TODO: We currently only pass in `covar_module` and `likelihood`

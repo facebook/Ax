@@ -772,7 +772,7 @@ def _get_model(
             train_Yvar=None if all_nan_Yvar else Yvar,
             covar_module=covar_module,
             input_transform=warp_tf,
-            **kwargs,
+            **{"outcome_transform": None, **kwargs},
         )
     else:
         # instantiate multitask GP
