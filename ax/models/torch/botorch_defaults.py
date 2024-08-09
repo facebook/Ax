@@ -772,6 +772,7 @@ def _get_model(
             train_Yvar=None if all_nan_Yvar else Yvar,
             covar_module=covar_module,
             input_transform=warp_tf,
+            outcome_transform=None,  # For backwards compatibility
             **kwargs,
         )
     else:
