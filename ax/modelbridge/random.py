@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Dict, List, Optional
+from typing import Optional
 
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -42,13 +42,13 @@ class RandomModelBridge(ModelBridge):
     """
 
     model: RandomModel
-    parameters: List[str]
+    parameters: list[str]
 
     def _fit(
         self,
         model: RandomModel,
         search_space: SearchSpace,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
     ) -> None:
         self.model = model
         # Extract and fix parameters from initial search space.
@@ -58,7 +58,7 @@ class RandomModelBridge(ModelBridge):
         self,
         n: int,
         search_space: SearchSpace,
-        pending_observations: Dict[str, List[ObservationFeatures]],
+        pending_observations: dict[str, list[ObservationFeatures]],
         fixed_features: Optional[ObservationFeatures],
         optimization_config: Optional[OptimizationConfig],
         model_gen_options: Optional[TConfig],
@@ -88,8 +88,8 @@ class RandomModelBridge(ModelBridge):
         )
 
     def _predict(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationData]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationData]:
         """Apply terminal transform, predict, and reverse terminal transform on
         output.
         """
@@ -98,10 +98,10 @@ class RandomModelBridge(ModelBridge):
     def _cross_validate(
         self,
         search_space: SearchSpace,
-        cv_training_data: List[Observation],
-        cv_test_points: List[ObservationFeatures],
+        cv_training_data: list[Observation],
+        cv_test_points: list[ObservationFeatures],
         use_posterior_predictive: bool = False,
-    ) -> List[ObservationData]:
+    ) -> list[ObservationData]:
         raise NotImplementedError
 
     def _set_status_quo(

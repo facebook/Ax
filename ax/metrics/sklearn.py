@@ -12,7 +12,7 @@ from copy import deepcopy
 from enum import Enum
 from functools import lru_cache
 from math import sqrt
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -41,7 +41,7 @@ class SklearnDataset(Enum):
 
 @lru_cache(maxsize=8)
 # pyre-fixme[2]: Parameter must be annotated.
-def _get_data(dataset) -> Dict[str, np.ndarray]:
+def _get_data(dataset) -> dict[str, np.ndarray]:
     """Return sklearn dataset, loading and caching if necessary."""
     if dataset is SklearnDataset.DIGITS:
         return datasets.load_digits()
@@ -157,7 +157,7 @@ class SklearnMetric(Metric):
                 MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
             )
 
-    def train_eval(self, arm: Arm) -> Tuple[float, float]:
+    def train_eval(self, arm: Arm) -> tuple[float, float]:
         """Train and evaluate model.
 
         Args:
@@ -171,7 +171,7 @@ class SklearnMetric(Metric):
         """
         data = _get_data(self.dataset)  # cached
         X, y = data["data"], data["target"]
-        params: Dict[str, Any] = deepcopy(arm.parameters)
+        params: dict[str, Any] = deepcopy(arm.parameters)
         if self.model_type == SklearnModelType.NN:
             hidden_layer_size = params.pop("hidden_layer_size", None)
             if hidden_layer_size is not None:

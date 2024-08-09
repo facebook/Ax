@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from ax.core.arm import Arm
 from ax.core.observation import Observation, ObservationFeatures
@@ -37,7 +37,7 @@ class SearchSpaceToChoice(Transform):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
@@ -83,8 +83,8 @@ class SearchSpaceToChoice(Transform):
         return SearchSpace(parameters=[parameter])
 
     def transform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             obsf.parameters = {
                 self.parameter_name: Arm(parameters=obsf.parameters).signature
@@ -92,8 +92,8 @@ class SearchSpaceToChoice(Transform):
         return observation_features
 
     def untransform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             signature = obsf.parameters[self.parameter_name]
             obsf.parameters = self.signature_to_parameterization[signature]

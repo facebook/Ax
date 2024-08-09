@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -27,7 +27,7 @@ class FactorialMetric(Metric):
     def __init__(
         self,
         name: str,
-        coefficients: Dict[str, Dict[TParamValue, float]],
+        coefficients: dict[str, dict[TParamValue, float]],
         batch_size: int = 10000,
         noise_var: float = 0.0,
     ) -> None:
@@ -96,11 +96,11 @@ class FactorialMetric(Metric):
 
 def evaluation_function(
     parameterization: TParameterization,
-    coefficients: Dict[str, Dict[TParamValue, float]],
+    coefficients: dict[str, dict[TParamValue, float]],
     weight: float = 1.0,
     batch_size: int = 10000,
     noise_var: float = 0.0,
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     probability = _parameterization_probability(
         parameterization=parameterization,
         coefficients=coefficients,
@@ -116,7 +116,7 @@ def evaluation_function(
 
 def _parameterization_probability(
     parameterization: TParameterization,
-    coefficients: Dict[str, Dict[TParamValue, float]],
+    coefficients: dict[str, dict[TParamValue, float]],
     noise_var: float = 0.0,
 ) -> float:
     z = 0.0

@@ -10,7 +10,7 @@ import re
 import time
 
 from logging import INFO, Logger
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Optional
 
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
@@ -26,7 +26,7 @@ from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import not_none
 
-RETRY_EXCEPTION_TYPES: Tuple[Type[Exception], ...] = ()
+RETRY_EXCEPTION_TYPES: tuple[type[Exception], ...] = ()
 
 
 logger: Logger = get_logger(__name__)
@@ -95,7 +95,7 @@ class WithDBSettingsBase:
     # loaded objects will all be instantiated with fields set to
     # override value
     # current valid object types are: "runner"
-    AX_OBJECT_FIELD_OVERRIDES: Dict[str, Any] = {}
+    AX_OBJECT_FIELD_OVERRIDES: dict[str, Any] = {}
 
     def __init__(
         self,
@@ -139,7 +139,7 @@ class WithDBSettingsBase:
 
     def _get_experiment_and_generation_strategy_db_id(
         self, experiment_name: str
-    ) -> Tuple[Optional[int], Optional[int]]:
+    ) -> tuple[Optional[int], Optional[int]]:
         """Retrieve DB ids of experiment by the given name and the associated
         generation strategy. Each ID is None if corresponding object is not
         found.
@@ -159,7 +159,7 @@ class WithDBSettingsBase:
 
     def _maybe_save_experiment_and_generation_strategy(
         self, experiment: Experiment, generation_strategy: GenerationStrategyInterface
-    ) -> Tuple[bool, bool]:
+    ) -> tuple[bool, bool]:
         """If DB settings are set on this `WithDBSettingsBase` instance, checks
         whether given experiment and generation strategy are already saved and
         saves them, if not.
@@ -218,7 +218,7 @@ class WithDBSettingsBase:
         experiment_name: str,
         reduced_state: bool = False,
         skip_runners_and_metrics: bool = False,
-    ) -> Tuple[Optional[Experiment], Optional[GenerationStrategy]]:
+    ) -> tuple[Optional[Experiment], Optional[GenerationStrategy]]:
         """Loads experiment and its corresponding generation strategy from database
         if DB settings are set on this `WithDBSettingsBase` instance.
 
@@ -308,9 +308,9 @@ class WithDBSettingsBase:
     def _save_or_update_trials_and_generation_strategy_if_possible(
         self,
         experiment: Experiment,
-        trials: List[BaseTrial],
+        trials: list[BaseTrial],
         generation_strategy: GenerationStrategyInterface,
-        new_generator_runs: List[GeneratorRun],
+        new_generator_runs: list[GeneratorRun],
         reduce_state_generator_runs: bool = False,
     ) -> None:
         """Saves new trials (and updates existing ones) on given experiment
@@ -364,7 +364,7 @@ class WithDBSettingsBase:
     def _save_or_update_trials_in_db_if_possible(
         self,
         experiment: Experiment,
-        trials: List[BaseTrial],
+        trials: list[BaseTrial],
         reduce_state_generator_runs: bool = False,
     ) -> bool:
         """Saves new trials or update existing trials on given experiment if DB
@@ -421,7 +421,7 @@ class WithDBSettingsBase:
     def _update_generation_strategy_in_db_if_possible(
         self,
         generation_strategy: GenerationStrategyInterface,
-        new_generator_runs: List[GeneratorRun],
+        new_generator_runs: list[GeneratorRun],
         reduce_state_generator_runs: bool = False,
     ) -> bool:
         """Updates the given generation strategy with new generator runs (and with
@@ -502,7 +502,7 @@ def _save_experiment_to_db_if_possible(
 )
 def _save_or_update_trials_in_db_if_possible(
     experiment: Experiment,
-    trials: List[BaseTrial],
+    trials: list[BaseTrial],
     encoder: Encoder,
     decoder: Decoder,
     suppress_all_errors: bool,  # Used by the decorator.
@@ -554,7 +554,7 @@ def _save_generation_strategy_to_db_if_possible(
 )
 def _update_generation_strategy_in_db_if_possible(
     generation_strategy: GenerationStrategy,
-    new_generator_runs: List[GeneratorRun],
+    new_generator_runs: list[GeneratorRun],
     encoder: Encoder,
     decoder: Decoder,
     suppress_all_errors: bool,  # Used by the decorator.

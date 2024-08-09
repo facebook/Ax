@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 from ax.benchmark.benchmark_method import BenchmarkMethod
@@ -48,7 +48,7 @@ from botorch.test_functions.synthetic import Branin
 def get_single_objective_benchmark_problem(
     observe_noise_sd: bool = False,
     num_trials: int = 4,
-    test_problem_kwargs: Optional[Dict[str, Any]] = None,
+    test_problem_kwargs: Optional[dict[str, Any]] = None,
 ) -> BenchmarkProblem:
     return create_single_objective_problem_from_botorch(
         test_problem_class=Branin,

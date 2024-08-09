@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Dict, List, Optional, Type
+from typing import Optional
 
 import torch
 from ax.core.data import Data
@@ -109,8 +109,8 @@ def get_botorch(
     search_space: Optional[SearchSpace] = None,
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
-    transforms: List[Type[Transform]] = Cont_X_trans + Y_trans,
-    transform_configs: Optional[Dict[str, TConfig]] = None,
+    transforms: list[type[Transform]] = Cont_X_trans + Y_trans,
+    transform_configs: Optional[dict[str, TConfig]] = None,
     model_constructor: TModelConstructor = get_and_fit_model,
     model_predictor: TModelPredictor = predict_from_model,
     acqf_constructor: TAcqfConstructor = get_qLogNEI,

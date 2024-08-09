@@ -7,7 +7,7 @@
 
 import copy
 from dataclasses import dataclass
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
@@ -24,7 +24,7 @@ from botorch.test_functions.multi_objective import BraninCurrin
 @dataclass
 class BenchmarkProblemRegistryEntry:
     factory_fn: Callable[..., BenchmarkProblem]
-    factory_kwargs: Dict[str, Any]
+    factory_kwargs: dict[str, Any]
 
 
 BENCHMARK_PROBLEM_REGISTRY = {

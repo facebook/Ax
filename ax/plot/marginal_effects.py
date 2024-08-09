@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Any, List
+from typing import Any
 
 import pandas as pd
 import plotly.graph_objs as go
@@ -42,7 +42,7 @@ def plot_marginal_effects(model: ModelBridge, metric: str) -> AxPlotConfig:
 
     varnames = effect_table["Name"].unique()
     # pyre-fixme[33]: Given annotation cannot contain `Any`.
-    data: List[Any] = []
+    data: list[Any] = []
     for varname in varnames:
         var_df = effect_table[effect_table["Name"] == varname]
         data += [

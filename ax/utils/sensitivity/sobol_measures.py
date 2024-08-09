@@ -7,7 +7,7 @@
 
 from copy import deepcopy
 
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import numpy as np
 
@@ -39,7 +39,7 @@ class SobolSensitivity(object):
         second_order: bool = False,
         num_bootstrap_samples: int = 1,
         bootstrap_array: bool = False,
-        discrete_features: Optional[List[int]] = None,
+        discrete_features: Optional[list[int]] = None,
     ) -> None:
         r"""Computes three types of Sobol indices:
         first order indices, total indices and second order indices (if specified ).
@@ -106,26 +106,26 @@ class SobolSensitivity(object):
         self.f_B: Optional[torch.Tensor] = None
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
-        self.f_ABis: Optional[List] = None
+        self.f_ABis: Optional[list] = None
         self.f_total_var: Optional[torch.Tensor] = None
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
-        self.f_A_btsp: Optional[List] = None
+        self.f_A_btsp: Optional[list] = None
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
-        self.f_B_btsp: Optional[List] = None
+        self.f_B_btsp: Optional[list] = None
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
-        self.f_ABis_btsp: Optional[List] = None
+        self.f_ABis_btsp: Optional[list] = None
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
-        self.f_total_var_btsp: Optional[List] = None
+        self.f_total_var_btsp: Optional[list] = None
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
-        self.f_BAis: Optional[List] = None
+        self.f_BAis: Optional[list] = None
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
-        self.f_BAis_btsp: Optional[List] = None
+        self.f_BAis_btsp: Optional[list] = None
         self.first_order_idxs: Optional[torch.Tensor] = None
         self.first_order_idxs_btsp: Optional[torch.Tensor] = None
 
@@ -417,7 +417,7 @@ class SobolSensitivityGPMean(object):
             [torch.Tensor, torch.Tensor], torch.Tensor
         ] = GaussianLinkMean,
         mini_batch_size: int = 128,
-        discrete_features: Optional[List[int]] = None,
+        discrete_features: Optional[list[int]] = None,
     ) -> None:
         r"""Computes three types of Sobol indices:
         first order indices, total indices and second order indices (if specified ).
@@ -517,7 +517,7 @@ class SobolSensitivityGPSampling(object):
         input_qmc: bool = False,
         gp_sample_qmc: bool = False,
         num_bootstrap_samples: int = 1,
-        discrete_features: Optional[List[int]] = None,
+        discrete_features: Optional[list[int]] = None,
     ) -> None:
         r"""Computes three types of Sobol indices:
         first order indices, total indices and second order indices (if specified ).
@@ -750,10 +750,10 @@ class SobolSensitivityGPSampling(object):
 
 
 def compute_sobol_indices_from_model_list(
-    model_list: List[Model],
+    model_list: list[Model],
     bounds: Tensor,
     order: str = "first",
-    discrete_features: Optional[List[int]] = None,
+    discrete_features: Optional[list[int]] = None,
     **sobol_kwargs: Any,
 ) -> Tensor:
     """
@@ -788,11 +788,11 @@ def compute_sobol_indices_from_model_list(
 
 def ax_parameter_sens(
     model_bridge: TorchModelBridge,
-    metrics: Optional[List[str]] = None,
+    metrics: Optional[list[str]] = None,
     order: str = "first",
     signed: bool = True,
     **sobol_kwargs: Any,
-) -> Dict[str, Dict[str, np.ndarray]]:
+) -> dict[str, dict[str, np.ndarray]]:
     """
     Compute sensitivity for all metrics on an TorchModelBridge.
 
@@ -875,8 +875,8 @@ def _get_torch_model(
 
 
 def _get_model_per_metric(
-    model: Union[BotorchModel, ModularBoTorchModel], metrics: List[str]
-) -> List[Model]:
+    model: Union[BotorchModel, ModularBoTorchModel], metrics: list[str]
+) -> list[Model]:
     """For a given TorchModel model, returns a list of botorch.models.model.Model
     objects corresponding to - and in the same order as - the given metrics.
     """
@@ -910,8 +910,8 @@ def _get_model_per_metric(
 
 
 def _array_with_string_indices_to_dict(
-    rows: List[str], cols: List[str], A: np.ndarray
-) -> Dict[str, Dict[str, np.ndarray]]:
+    rows: list[str], cols: list[str], A: np.ndarray
+) -> dict[str, dict[str, np.ndarray]]:
     """
     Args:
         - rows: A list of strings with which to index rows of A.

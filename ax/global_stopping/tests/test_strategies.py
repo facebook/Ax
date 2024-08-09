@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -93,7 +92,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         return Arm(parameters={"x": np.random.rand(), "y": np.random.rand()})
 
     def _get_data_for_trial(
-        self, trial: Trial, values: Tuple[float, float, float]
+        self, trial: Trial, values: tuple[float, float, float]
     ) -> Data:
         """
         Generates data for a given trial, from the provided values for
@@ -133,7 +132,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         return Data(df=pd.DataFrame.from_records(df_dicts))
 
     def _create_single_objective_experiment(
-        self, metric_values: List[Tuple[float, float, float]]
+        self, metric_values: list[tuple[float, float, float]]
     ) -> Experiment:
         """
         Creates a synthetic experiments with 2 parameters, one objective and two
@@ -188,7 +187,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         return exp
 
     def _create_multi_objective_experiment(
-        self, metric_values: List[Tuple[float, float, float]]
+        self, metric_values: list[tuple[float, float, float]]
     ) -> Experiment:
         """
         Creates a synthetic experiments with 2 parameters, two objectives and

@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Dict, List, Optional, Set, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import Parameter, ParameterType, RangeParameter
@@ -49,7 +49,7 @@ class IntToFloat(Transform):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
@@ -64,7 +64,7 @@ class IntToFloat(Transform):
         self.min_choices: int = checked_cast(int, config.get("min_choices", 0))
 
         # Identify parameters that should be transformed
-        self.transform_parameters: Set[str] = {
+        self.transform_parameters: set[str] = {
             p_name
             for p_name, p in self.search_space.parameters.items()
             if isinstance(p, RangeParameter)
@@ -78,8 +78,8 @@ class IntToFloat(Transform):
             self.contains_constrained_integer: bool = False
 
     def transform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             for p_name in self.transform_parameters:
                 if p_name in obsf.parameters:
@@ -90,7 +90,7 @@ class IntToFloat(Transform):
         return observation_features
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        transformed_parameters: Dict[str, Parameter] = {}
+        transformed_parameters: dict[str, Parameter] = {}
         for p_name, p in search_space.parameters.items():
             if p_name in self.transform_parameters and isinstance(p, RangeParameter):
                 transformed_parameters[p_name] = RangeParameter(
@@ -122,8 +122,8 @@ class IntToFloat(Transform):
         )
 
     def untransform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             present_params = self.transform_parameters.intersection(
                 obsf.parameters.keys()

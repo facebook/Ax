@@ -6,7 +6,7 @@
 # pyre-strict
 
 from copy import deepcopy
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import pandas as pd
 
@@ -43,7 +43,7 @@ class CrossValidationPlot(BasePlotlyVisualization):
         self,
         experiment: Experiment,
         model: ModelBridge,
-        label_dict: Optional[Dict[str, str]] = None,
+        label_dict: Optional[dict[str, str]] = None,
         caption: str = CROSS_VALIDATION_CAPTION,
     ) -> None:
         """
@@ -54,13 +54,13 @@ class CrossValidationPlot(BasePlotlyVisualization):
         caption: text to display below the plot
         """
         self.model = model
-        self.cv: List[CVResult] = cross_validate(model=model)
+        self.cv: list[CVResult] = cross_validate(model=model)
 
-        self.label_dict: Optional[Dict[str, str]] = label_dict
+        self.label_dict: Optional[dict[str, str]] = label_dict
         if self.label_dict:
             self.cv = self.remap_label(cv_results=self.cv, label_dict=self.label_dict)
 
-        self.metric_names: List[str] = list(
+        self.metric_names: list[str] = list(
             set().union(*(cv_result.predicted.metric_names for cv_result in self.cv))
         )
         self.caption = caption
@@ -100,7 +100,7 @@ class CrossValidationPlot(BasePlotlyVisualization):
     @staticmethod
     def compose_annotation(
         caption: str, x: float = 0.0, y: float = -0.15
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Composes an annotation dict for use in Plotly figure.
         args:
             caption: str to use for dropdown text
@@ -126,8 +126,8 @@ class CrossValidationPlot(BasePlotlyVisualization):
 
     @staticmethod
     def remap_label(
-        cv_results: List[CVResult], label_dict: Dict[str, str]
-    ) -> List[CVResult]:
+        cv_results: list[CVResult], label_dict: dict[str, str]
+    ) -> list[CVResult]:
         """Remaps labels in cv_results according to label_dict.
 
         Args:

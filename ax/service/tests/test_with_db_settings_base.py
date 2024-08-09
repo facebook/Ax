@@ -8,7 +8,6 @@
 
 import random
 import string
-from typing import Tuple
 from unittest.mock import patch
 
 from ax.core.base_trial import TrialStatus
@@ -76,7 +75,7 @@ class TestWithDBSettingsBase(TestCase):
 
     def init_experiment_and_generation_strategy(
         self, save_experiment: bool = True, save_generation_strategy: bool = True
-    ) -> Tuple[Experiment, GenerationStrategy]:
+    ) -> tuple[Experiment, GenerationStrategy]:
         """Generate a random Experiment and associated generation_strategy"""
 
         generation_strategy = self.get_random_generation_strategy()

@@ -8,7 +8,7 @@
 
 import math
 from logging import Logger
-from typing import List, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from ax.core.observation import Observation, ObservationData
 from ax.core.search_space import SearchSpace
@@ -36,7 +36,7 @@ class PercentileY(Transform):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
@@ -57,8 +57,8 @@ class PercentileY(Transform):
 
     def _transform_observation_data(
         self,
-        observation_data: List[ObservationData],
-    ) -> List[ObservationData]:
+        observation_data: list[ObservationData],
+    ) -> list[ObservationData]:
         """Map observation data to empirical CDF quantiles in place."""
         # TODO (jej): Transform covariances.
         if self.winsorize:

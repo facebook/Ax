@@ -10,7 +10,7 @@ import os
 from datetime import datetime
 
 from logging import Logger
-from typing import Any, Callable, cast, Dict, List, Optional, Sequence, Type, Union
+from typing import Any, Callable, cast, Optional, Sequence, Union
 
 from ax.analysis.analysis import AnalysisCard
 
@@ -61,7 +61,7 @@ def _save_experiment(
     encoder: Encoder,
     decoder: Decoder,
     return_sqa: bool = False,
-    validation_kwargs: Optional[Dict[str, Any]] = None,
+    validation_kwargs: Optional[dict[str, Any]] = None,
 ) -> Optional[SQABase]:
     """Save experiment, using given Encoder instance.
 
@@ -180,7 +180,7 @@ def _save_or_update_trial(
 
 def save_or_update_trials(
     experiment: Experiment,
-    trials: List[BaseTrial],
+    trials: list[BaseTrial],
     config: Optional[SQAConfig] = None,
     batch_size: Optional[int] = None,
     reduce_state_generator_runs: bool = False,
@@ -207,7 +207,7 @@ def save_or_update_trials(
 
 def _save_or_update_trials(
     experiment: Experiment,
-    trials: List[BaseTrial],
+    trials: list[BaseTrial],
     encoder: Encoder,
     decoder: Decoder,
     batch_size: Optional[int] = None,
@@ -262,8 +262,8 @@ def _save_or_update_trials(
         )
 
     datas, data_encode_args, datas_to_keep, trial_idcs = [], [], [], []
-    data_sqa_class: Type[SQAData] = cast(
-        Type[SQAData], encoder.config.class_to_sqa_class[Data]
+    data_sqa_class: type[SQAData] = cast(
+        type[SQAData], encoder.config.class_to_sqa_class[Data]
     )
     for trial in trials:
         trial_idcs.append(trial.index)
@@ -304,7 +304,7 @@ def _save_or_update_trials(
 
 def update_generation_strategy(
     generation_strategy: GenerationStrategy,
-    generator_runs: List[GeneratorRun],
+    generator_runs: list[GeneratorRun],
     config: Optional[SQAConfig] = None,
     batch_size: Optional[int] = None,
     reduce_state_generator_runs: bool = False,
@@ -326,7 +326,7 @@ def update_generation_strategy(
 
 def _update_generation_strategy(
     generation_strategy: GenerationStrategy,
-    generator_runs: List[GeneratorRun],
+    generator_runs: list[GeneratorRun],
     encoder: Encoder,
     decoder: Decoder,
     batch_size: Optional[int] = None,
@@ -488,7 +488,7 @@ def update_properties_on_trial(
 
 
 def save_analysis_cards(
-    analysis_cards: List[AnalysisCard],
+    analysis_cards: list[AnalysisCard],
     experiment: Experiment,
     config: Optional[SQAConfig] = None,
 ) -> None:
@@ -507,7 +507,7 @@ def save_analysis_cards(
 
 
 def _save_analysis_cards(
-    analysis_cards: List[AnalysisCard],
+    analysis_cards: list[AnalysisCard],
     experiment: Experiment,
     timestamp: datetime,
     encoder: Encoder,
@@ -539,8 +539,8 @@ def _merge_into_session(
     encode_func: Callable,
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     decode_func: Callable,
-    encode_args: Optional[Dict[str, Any]] = None,
-    decode_args: Optional[Dict[str, Any]] = None,
+    encode_args: Optional[dict[str, Any]] = None,
+    decode_args: Optional[dict[str, Any]] = None,
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     modify_sqa: Optional[Callable] = None,
 ) -> SQABase:
@@ -581,12 +581,12 @@ def _bulk_merge_into_session(
     encode_func: Callable,
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     decode_func: Callable,
-    encode_args_list: Optional[Union[List[None], List[Dict[str, Any]]]] = None,
-    decode_args_list: Optional[Union[List[None], List[Dict[str, Any]]]] = None,
+    encode_args_list: Optional[Union[list[None], list[dict[str, Any]]]] = None,
+    decode_args_list: Optional[Union[list[None], list[dict[str, Any]]]] = None,
     # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     modify_sqa: Optional[Callable] = None,
     batch_size: Optional[int] = None,
-) -> List[SQABase]:
+) -> list[SQABase]:
     """Bulk version of _merge_into_session.
 
     Takes in a list of objects to merge into the session together

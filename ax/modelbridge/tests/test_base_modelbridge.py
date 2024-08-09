@@ -7,7 +7,7 @@
 # pyre-strict
 
 import warnings
-from typing import Any, List
+from typing import Any
 from unittest import mock
 from unittest.mock import Mock
 
@@ -221,7 +221,7 @@ class BaseModelBridgeTest(TestCase):
 
         def warn_and_return_mock_obs(
             *args: Any, **kwargs: Any
-        ) -> List[ObservationData]:
+        ) -> list[ObservationData]:
             nonlocal called
             called = True
             warnings.warn(

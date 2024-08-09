@@ -7,7 +7,7 @@
 # pyre-strict
 
 from contextlib import ExitStack
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from unittest import mock
 from unittest.mock import Mock
 
@@ -94,7 +94,7 @@ class TorchModelBridgeTest(TestCase):
         self.assertEqual(ma.device, device)
         self.assertFalse(mock_init.call_args[-1]["fit_out_of_design"])
         self.assertIsNone(ma._last_observations)
-        tkwargs: Dict[str, Any] = {"dtype": dtype, "device": device}
+        tkwargs: dict[str, Any] = {"dtype": dtype, "device": device}
         # Test `_fit`.
         feature_names = ["x1", "x2", "x3"]
         model = mock.MagicMock(TorchModel, autospec=True, instance=True)

@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 import numpy as np
 from ax.core import Arm, GeneratorRun
@@ -28,9 +28,9 @@ def sum_utility(parameters: TParameterization) -> float:
 
 
 def pairwise_pref_metric_eval(
-    parameters: Dict[str, TParameterization],
+    parameters: dict[str, TParameterization],
     utility_func: Callable[[TParameterization], float] = sum_utility,
-) -> Dict[str, TEvaluationOutcome]:
+) -> dict[str, TEvaluationOutcome]:
     """evaluating pairwise comparisons using utility_func"""
     assert len(parameters.keys()) == 2
     arm1, arm2 = list(parameters.keys())
@@ -43,8 +43,8 @@ def pairwise_pref_metric_eval(
 
 
 def experimental_metric_eval(
-    parameters: Dict[str, Any], metric_names: List[str]
-) -> Dict[str, Any]:
+    parameters: dict[str, Any], metric_names: list[str]
+) -> dict[str, Any]:
     return {
         arm_name: {
             # metric_name: (mean, sem)
@@ -58,7 +58,7 @@ def experimental_metric_eval(
 def get_pbo_experiment(
     num_parameters: int = 2,
     num_experimental_metrics: int = 3,
-    tracking_metric_names: Optional[List[str]] = None,
+    tracking_metric_names: Optional[list[str]] = None,
     num_experimental_trials: int = 3,
     num_preference_trials: int = 3,
     num_preference_trials_w_repeated_arm: int = 5,

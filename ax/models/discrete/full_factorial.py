@@ -10,7 +10,7 @@ import itertools
 import logging
 from functools import reduce
 from operator import mul
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 import numpy as np
 from ax.core.types import TGenMetadata, TParamValue, TParamValueList
@@ -52,13 +52,13 @@ class FullFactorialGenerator(DiscreteModel):
     def gen(
         self,
         n: int,
-        parameter_values: List[TParamValueList],
+        parameter_values: list[TParamValueList],
         objective_weights: Optional[np.ndarray],
-        outcome_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
-        fixed_features: Optional[Dict[int, TParamValue]] = None,
-        pending_observations: Optional[List[List[TParamValueList]]] = None,
+        outcome_constraints: Optional[tuple[np.ndarray, np.ndarray]] = None,
+        fixed_features: Optional[dict[int, TParamValue]] = None,
+        pending_observations: Optional[list[list[TParamValueList]]] = None,
         model_gen_options: Optional[TConfig] = None,
-    ) -> Tuple[List[TParamValueList], List[float], TGenMetadata]:
+    ) -> tuple[list[TParamValueList], list[float], TGenMetadata]:
         if n != -1:
             raise ValueError(
                 "FullFactorialGenerator will ignore the specified value of n. "

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from copy import deepcopy
-from typing import DefaultDict, Dict, List, Optional
+from typing import Optional
 
 import numpy as np
 from ax.core.arm import Arm
@@ -36,15 +36,15 @@ class MergeRepeatedMeasurements(Transform):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional[ModelBridge] = None,
         config: Optional[TConfig] = None,
     ) -> None:
         if observations is None:
             raise RuntimeError("MergeRepeatedMeasurements requires observations")
         # create a mapping of arm_key -> {metric_name: {means: [], vars: []}}
-        arm_to_multi_obs: DefaultDict[
-            str, DefaultDict[str, DefaultDict[str, List[float]]]
+        arm_to_multi_obs: defaultdict[
+            str, defaultdict[str, defaultdict[str, list[float]]]
         ] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
         observation_features, observation_data = separate_observations(observations)
         for j, obsd in enumerate(observation_data):
@@ -63,7 +63,7 @@ class MergeRepeatedMeasurements(Transform):
                 arm_to_multi_obs[key][m]["means"].append(obsd.means[i])
                 arm_to_multi_obs[key][m]["vars"].append(obsd.covariance[i, i])
 
-        self.arm_to_merged: DefaultDict[str, Dict[str, Dict[str, float]]] = defaultdict(
+        self.arm_to_merged: defaultdict[str, dict[str, dict[str, float]]] = defaultdict(
             dict
         )
         for k, metric_dict in arm_to_multi_obs.items():
@@ -96,8 +96,8 @@ class MergeRepeatedMeasurements(Transform):
 
     def transform_observations(
         self,
-        observations: List[Observation],
-    ) -> List[Observation]:
+        observations: list[Observation],
+    ) -> list[Observation]:
         # Transform observations
         new_observations = []
         observation_features, observation_data = separate_observations(observations)

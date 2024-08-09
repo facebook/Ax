@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import List, Optional, Tuple
+from typing import Optional
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -24,7 +24,7 @@ class AnalysisReport:
     set of data from an experiment.
     """
 
-    analyses: List[BaseAnalysis] = []
+    analyses: list[BaseAnalysis] = []
     experiment: Experiment
 
     time_started: Optional[int] = None
@@ -33,7 +33,7 @@ class AnalysisReport:
     def __init__(
         self,
         experiment: Experiment,
-        analyses: List[BaseAnalysis],
+        analyses: list[BaseAnalysis],
         time_started: Optional[int] = None,
         time_completed: Optional[int] = None,
     ) -> None:
@@ -61,8 +61,8 @@ class AnalysisReport:
 
     def run_analysis_report(
         self,
-    ) -> List[
-        Tuple[
+    ) -> list[
+        tuple[
             BaseAnalysis,
             pd.DataFrame,
             Optional[go.Figure],

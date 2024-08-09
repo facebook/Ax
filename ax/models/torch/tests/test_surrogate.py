@@ -10,7 +10,7 @@ import dataclasses
 import math
 from collections import OrderedDict
 from itertools import product
-from typing import Any, Dict, Tuple, Type
+from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
@@ -186,8 +186,8 @@ class SurrogateTest(TestCase):
         )
 
     def _get_surrogate(
-        self, botorch_model_class: Type[Model]
-    ) -> Tuple[Surrogate, Dict[str, Any]]:
+        self, botorch_model_class: type[Model]
+    ) -> tuple[Surrogate, dict[str, Any]]:
         if botorch_model_class is SaasFullyBayesianSingleTaskGP:
             mll_options = {"jit_compile": True}
         else:

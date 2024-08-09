@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Any, Callable, List, TypeVar
+from typing import Any, Callable, TypeVar
 
 from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.reduced_state import GR_LARGE_MODEL_ATTRS
@@ -33,7 +33,7 @@ logger: Logger = get_logger(__name__)
 
 
 def listens_for_multiple(
-    targets: List[InstrumentedAttribute],
+    targets: list[InstrumentedAttribute],
     identifier: str,
     *args: Any,
     **kwargs: Any,
@@ -54,7 +54,7 @@ def listens_for_multiple(
 
 
 # pyre-fixme[3]: Return annotation cannot be `Any`.
-def consistency_exactly_one(instance: SQABase, exactly_one_fields: List[str]) -> Any:
+def consistency_exactly_one(instance: SQABase, exactly_one_fields: list[str]) -> Any:
     """Ensure that exactly one of `exactly_one_fields` has a value set."""
     values = [getattr(instance, field) is not None for field in exactly_one_fields]
     if sum(values) != 1:

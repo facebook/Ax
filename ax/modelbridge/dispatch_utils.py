@@ -9,7 +9,7 @@
 import logging
 import warnings
 from math import ceil
-from typing import Any, cast, Dict, Optional, Type, Union
+from typing import Any, cast, Optional, Union
 
 import torch
 from ax.core.experiment import Experiment
@@ -71,9 +71,9 @@ def _make_botorch_step(
     enforce_num_trials: bool = True,
     max_parallelism: Optional[int] = None,
     model: ModelRegistryBase = Models.BOTORCH_MODULAR,
-    model_kwargs: Optional[Dict[str, Any]] = None,
+    model_kwargs: Optional[dict[str, Any]] = None,
     winsorization_config: Optional[
-        Union[WinsorizationConfig, Dict[str, WinsorizationConfig]]
+        Union[WinsorizationConfig, dict[str, WinsorizationConfig]]
     ] = None,
     no_winsorization: bool = False,
     should_deduplicate: bool = False,
@@ -105,7 +105,7 @@ def _make_botorch_step(
         _, default_bridge_kwargs = model.view_defaults()
         default_transforms = default_bridge_kwargs["transforms"]
         transforms = model_kwargs.get("transforms", default_transforms)
-        model_kwargs["transforms"] = [cast(Type[Transform], Winsorize)] + transforms
+        model_kwargs["transforms"] = [cast(type[Transform], Winsorize)] + transforms
         if winsorization_transform_config is not None:
             model_kwargs["transform_configs"][
                 "Winsorize"
@@ -292,7 +292,7 @@ def choose_generation_strategy(
     torch_device: Optional[torch.device] = None,
     no_winsorization: bool = False,
     winsorization_config: Optional[
-        Union[WinsorizationConfig, Dict[str, WinsorizationConfig]]
+        Union[WinsorizationConfig, dict[str, WinsorizationConfig]]
     ] = None,
     derelativize_with_raw_status_quo: bool = False,
     no_bayesian_optimization: bool = False,
@@ -508,7 +508,7 @@ def choose_generation_strategy(
             )
             jit_compile = None
 
-        model_kwargs: Dict[str, Any] = {
+        model_kwargs: dict[str, Any] = {
             "torch_device": torch_device,
             "fit_out_of_design": fit_out_of_design,
         }
@@ -570,7 +570,7 @@ def choose_generation_strategy(
 
 def _get_winsorization_transform_config(
     winsorization_config: Optional[
-        Union[WinsorizationConfig, Dict[str, WinsorizationConfig]]
+        Union[WinsorizationConfig, dict[str, WinsorizationConfig]]
     ],
     derelativize_with_raw_status_quo: bool,
     no_winsorization: bool,

@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Any, Callable, Dict, Optional, Tuple, Type
+from typing import Any, Callable, Optional
 
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
@@ -36,7 +36,7 @@ All metrics will be stored in the same table in the database. When
 saving, we look up the metric subclass in METRIC_REGISTRY, and store
 the corresponding type field in the database.
 """
-CORE_METRIC_REGISTRY: Dict[Type[Metric], int] = {
+CORE_METRIC_REGISTRY: dict[type[Metric], int] = {
     Metric: 0,
     FactorialMetric: 1,
     BraninMetric: 2,
@@ -51,19 +51,19 @@ CORE_METRIC_REGISTRY: Dict[Type[Metric], int] = {
 
 # pyre-fixme[3]: Return annotation cannot contain `Any`.
 def register_metrics(
-    metric_clss: Dict[Type[Metric], Optional[int]],
+    metric_clss: dict[type[Metric], Optional[int]],
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
-    encoder_registry: Dict[
-        Type, Callable[[Any], Dict[str, Any]]
+    encoder_registry: dict[
+        type, Callable[[Any], dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
     #  avoid runtime subscripting errors.
-) -> Tuple[
-    Dict[Type[Metric], int],
-    Dict[Type, Callable[[Any], Dict[str, Any]]],
+) -> tuple[
+    dict[type[Metric], int],
+    dict[type, Callable[[Any], dict[str, Any]]],
     TDecoderRegistry,
 ]:
     """Add custom metric classes to the SQA and JSON registries.

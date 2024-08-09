@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Type, TypeVar, Union
+from typing import Any, Optional, TypeVar, Union
 
 import torch
 from ax.utils.common.constants import Keys
@@ -19,7 +19,7 @@ from botorch.optim.initializers import gen_one_shot_kg_initial_conditions
 from botorch.utils.dispatcher import Dispatcher
 
 T = TypeVar("T")
-MaybeType = Union[T, Type[T]]  # Annotation for a type or instance thereof
+MaybeType = Union[T, type[T]]  # Annotation for a type or instance thereof
 
 # Acquisition defaults
 NUM_RESTARTS = 20
@@ -43,9 +43,9 @@ def _argparse_base(
     raw_samples: int = RAW_SAMPLES,
     init_batch_limit: int = INIT_BATCH_LIMIT,
     batch_limit: int = BATCH_LIMIT,
-    optimizer_options: Optional[Dict[str, Any]] = None,
+    optimizer_options: Optional[dict[str, Any]] = None,
     **ignore: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Extract the kwargs to be passed to a BoTorch optimizer.
 
     NOTE: Since `optimizer_options` is how the user would typically pass in these
@@ -132,9 +132,9 @@ def _argparse_kg(
     num_restarts: int = NUM_RESTARTS,
     raw_samples: int = RAW_SAMPLES,
     frac_random: float = 0.1,
-    optimizer_options: Optional[Dict[str, Any]] = None,
+    optimizer_options: Optional[dict[str, Any]] = None,
     **kwargs: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Argument constructor for optimization with qKG, differing from the
     base case in that it computes and returns initial conditions.

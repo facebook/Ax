@@ -36,7 +36,7 @@ from dataclasses import dataclass
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 from zipfile import ZipFile
 
 import pandas as pd
@@ -55,8 +55,8 @@ class ChemistryProblemType(Enum):
 
 @dataclass(frozen=True)
 class ChemistryData:
-    param_names: List[str]
-    objective_dict: Dict[Tuple[TParamValue, ...], float]
+    param_names: list[str]
+    objective_dict: dict[tuple[TParamValue, ...], float]
 
     def evaluate(self, params: TParameterization) -> float:
         k = tuple(params[pname] for pname in self.param_names)

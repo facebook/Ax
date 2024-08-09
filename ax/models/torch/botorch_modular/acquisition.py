@@ -12,10 +12,11 @@ import dataclasses
 import functools
 import operator
 import warnings
+from collections.abc import Mapping
 from functools import partial, reduce
 from itertools import product
 from logging import Logger
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Type
+from typing import Any, Callable, Optional
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -84,19 +85,19 @@ class Acquisition(Base):
             Function` in BoTorch.
     """
 
-    surrogates: Dict[str, Surrogate]
+    surrogates: dict[str, Surrogate]
     acqf: AcquisitionFunction
-    options: Dict[str, Any]
+    options: dict[str, Any]
 
     def __init__(
         self,
         # If using multiple Surrogates, must label primary Surrogate (typically the
         # regression Surrogate) Keys.PRIMARY_SURROGATE
-        surrogates: Dict[str, Surrogate],
+        surrogates: dict[str, Surrogate],
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
-        botorch_acqf_class: Type[AcquisitionFunction],
-        options: Optional[Dict[str, Any]] = None,
+        botorch_acqf_class: type[AcquisitionFunction],
+        options: Optional[dict[str, Any]] = None,
     ) -> None:
         self.surrogates = surrogates
         self.options = options or {}
@@ -329,7 +330,7 @@ class Acquisition(Base):
         self.X_observed: Optional[Tensor] = unique_Xs_observed
 
     @property
-    def botorch_acqf_class(self) -> Type[AcquisitionFunction]:
+    def botorch_acqf_class(self) -> type[AcquisitionFunction]:
         """BoTorch ``AcquisitionFunction`` class underlying this ``Acquisition``."""
         return self.acqf.__class__
 
@@ -385,11 +386,11 @@ class Acquisition(Base):
         self,
         n: int,
         search_space_digest: SearchSpaceDigest,
-        inequality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
+        inequality_constraints: Optional[list[tuple[Tensor, Tensor, float]]] = None,
+        fixed_features: Optional[dict[int, float]] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
-        optimizer_options: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[Tensor, Tensor, Tensor]:
+        optimizer_options: Optional[dict[str, Any]] = None,
+    ) -> tuple[Tensor, Tensor, Tensor]:
         """Generate a set of candidates via multi-start optimization. Obtains
         candidates and their associated acquisition function values.
 
@@ -605,8 +606,8 @@ class Acquisition(Base):
         surrogates: Mapping[str, Surrogate],
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
-        options: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        options: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Computes inputs to acquisition function class based on the given
         surrogate model.
 
@@ -635,14 +636,14 @@ class Acquisition(Base):
 
     def get_botorch_objective_and_transform(
         self,
-        botorch_acqf_class: Type[AcquisitionFunction],
+        botorch_acqf_class: type[AcquisitionFunction],
         model: Model,
         objective_weights: Tensor,
         objective_thresholds: Optional[Tensor] = None,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+        outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
         X_observed: Optional[Tensor] = None,
         risk_measure: Optional[RiskMeasureMCObjective] = None,
-    ) -> Tuple[Optional[MCAcquisitionObjective], Optional[PosteriorTransform]]:
+    ) -> tuple[Optional[MCAcquisitionObjective], Optional[PosteriorTransform]]:
         return get_botorch_objective_and_transform(
             botorch_acqf_class=botorch_acqf_class,
             model=model,

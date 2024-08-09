@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 
 from logging import Logger
-from typing import Any, cast, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, cast, Optional, Union
 
 from ax.analysis.analysis import AnalysisCard
 
@@ -115,7 +115,7 @@ class Encoder:
                 )
 
     def get_enum_value(
-        self, value: Optional[str], enum: Optional[Union[Enum, Type[Enum]]]
+        self, value: Optional[str], enum: Optional[Union[Enum, type[Enum]]]
     ) -> Optional[int]:
         """Given an enum name (string) and an enum (of ints), return the
         corresponding enum value. If the name is not present in the enum,
@@ -192,7 +192,7 @@ class Encoder:
             runners.append(self.runner_to_sqa(not_none(experiment.runner)))
 
         # pyre-ignore[9]: Expected `Base` for 1st...yping.Type[Experiment]`.
-        experiment_class: Type[SQAExperiment] = self.config.class_to_sqa_class[
+        experiment_class: type[SQAExperiment] = self.config.class_to_sqa_class[
             Experiment
         ]
         exp_sqa = experiment_class(
@@ -302,7 +302,7 @@ class Encoder:
 
     def search_space_to_sqa(
         self, search_space: Optional[SearchSpace]
-    ) -> Tuple[List[SQAParameter], List[SQAParameterConstraint]]:
+    ) -> tuple[list[SQAParameter], list[SQAParameterConstraint]]:
         """Convert Ax SearchSpace to a list of SQLAlchemy Parameters and
         ParameterConstraints.
         """
@@ -379,7 +379,7 @@ class Encoder:
 
     def robust_search_space_to_sqa(
         self, rss: RobustSearchSpace
-    ) -> Tuple[List[SQAParameter], List[SQAParameterConstraint]]:
+    ) -> tuple[list[SQAParameter], list[SQAParameterConstraint]]:
         parameters, parameter_constraints = [], []
         for parameter in rss._parameters.values():
             parameters.append(self.parameter_to_sqa(parameter=parameter))
@@ -402,7 +402,7 @@ class Encoder:
 
     def get_metric_type_and_properties(
         self, metric: Metric
-    ) -> Tuple[int, Dict[str, Any]]:
+    ) -> tuple[int, dict[str, Any]]:
         """Given an Ax Metric, convert its type into a member of MetricType enum,
         and construct a dictionary to be stored in the database `properties`
         json blob.
@@ -441,8 +441,8 @@ class Encoder:
         )
 
     def get_children_metrics_by_name(
-        self, metrics: List[Metric], weights: List[float]
-    ) -> Dict[str, Tuple[Metric, float, SQAMetric, Tuple[int, Dict[str, Any]]]]:
+        self, metrics: list[Metric], weights: list[float]
+    ) -> dict[str, tuple[Metric, float, SQAMetric, tuple[int, dict[str, Any]]]]:
         return {
             metric.name: (
                 metric,
@@ -681,7 +681,7 @@ class Encoder:
 
     def optimization_config_to_sqa(
         self, optimization_config: Optional[OptimizationConfig]
-    ) -> List[SQAMetric]:
+    ) -> list[SQAMetric]:
         """Convert Ax OptimizationConfig to a list of SQLAlchemy Metrics."""
         if optimization_config is None:
             return []
@@ -851,7 +851,7 @@ class Encoder:
         """
         # pyre-ignore[9]: Expected Base, but redeclared to `SQAGenerationStrategy`.
         gs_class: SQAGenerationStrategy = self.config.class_to_sqa_class[
-            cast(Type[Base], GenerationStrategy)
+            cast(type[Base], GenerationStrategy)
         ]
         generator_runs_sqa = []
         node_based_strategy = generation_strategy.is_node_based
@@ -1024,7 +1024,7 @@ class Encoder:
         )
         return trial_sqa
 
-    def experiment_data_to_sqa(self, experiment: Experiment) -> List[SQAData]:
+    def experiment_data_to_sqa(self, experiment: Experiment) -> list[SQAData]:
         """Convert Ax experiment data to SQLAlchemy."""
         return [
             self.data_to_sqa(data=data, trial_index=trial_index, timestamp=timestamp)

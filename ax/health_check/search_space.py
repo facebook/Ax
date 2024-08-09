@@ -7,7 +7,6 @@
 # pyre-strict
 
 from collections import defaultdict
-from typing import Dict, List, Tuple
 
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
@@ -17,10 +16,10 @@ from ax.utils.common.typeutils import checked_cast
 
 def search_space_update_recommendation(
     search_space: SearchSpace,
-    parametrizations: List[TParameterization],
+    parametrizations: list[TParameterization],
     boundary_prop: float = 0.5,
     tol: float = 1e-6,
-) -> Tuple[Dict[str, Tuple[float, float]], str]:
+) -> tuple[dict[str, tuple[float, float]], str]:
     r"""
     Recommendation to update the search space boundaries depending on the
     generated candidates. If most of them fall on some of the boundaries, we

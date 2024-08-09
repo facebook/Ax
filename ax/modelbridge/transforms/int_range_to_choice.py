@@ -7,7 +7,7 @@
 # pyre-strict
 
 from numbers import Real
-from typing import cast, Dict, List, Optional, Set, TYPE_CHECKING
+from typing import cast, Optional, TYPE_CHECKING
 
 from ax.core.observation import Observation
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
@@ -30,7 +30,7 @@ class IntRangeToChoice(Transform):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
@@ -40,7 +40,7 @@ class IntRangeToChoice(Transform):
             cast(Real, (config.get("max_choices", float("inf"))))
         )
         # Identify parameters that should be transformed
-        self.transform_parameters: Set[str] = {
+        self.transform_parameters: set[str] = {
             p_name
             for p_name, p in search_space.parameters.items()
             if isinstance(p, RangeParameter)
@@ -49,7 +49,7 @@ class IntRangeToChoice(Transform):
         }
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        transformed_parameters: Dict[str, Parameter] = {}
+        transformed_parameters: dict[str, Parameter] = {}
         for p_name, p in search_space.parameters.items():
             if (
                 p_name in self.transform_parameters

@@ -12,7 +12,7 @@ import time
 from dataclasses import dataclass
 
 from logging import Logger
-from typing import Dict, List, Optional
+from typing import Optional
 
 from ax.core.base_trial import TrialStatus
 from ax.utils.common.logger import get_logger
@@ -57,11 +57,11 @@ class SimStatus:
         completed: List of indicies of completed trials.
     """
 
-    queued: List[int]
-    running: List[int]
-    failed: List[int]
-    time_remaining: List[float]
-    completed: List[int]
+    queued: list[int]
+    running: list[int]
+    failed: list[int]
+    time_remaining: list[float]
+    completed: list[int]
 
 
 @dataclass
@@ -106,10 +106,10 @@ class BackendSimulatorState:
 
     options: BackendSimulatorOptions
     verbose_logging: bool
-    queued: List[Dict[str, Optional[float]]]
-    running: List[Dict[str, Optional[float]]]
-    failed: List[Dict[str, Optional[float]]]
-    completed: List[Dict[str, Optional[float]]]
+    queued: list[dict[str, Optional[float]]]
+    running: list[dict[str, Optional[float]]]
+    failed: list[dict[str, Optional[float]]]
+    completed: list[dict[str, Optional[float]]]
 
 
 class BackendSimulator:
@@ -118,10 +118,10 @@ class BackendSimulator:
     def __init__(
         self,
         options: Optional[BackendSimulatorOptions] = None,
-        queued: Optional[List[SimTrial]] = None,
-        running: Optional[List[SimTrial]] = None,
-        failed: Optional[List[SimTrial]] = None,
-        completed: Optional[List[SimTrial]] = None,
+        queued: Optional[list[SimTrial]] = None,
+        running: Optional[list[SimTrial]] = None,
+        failed: Optional[list[SimTrial]] = None,
+        completed: Optional[list[SimTrial]] = None,
         verbose_logging: bool = True,
     ) -> None:
         """A simulator for a concurrent dispatch with a queue.
@@ -153,10 +153,10 @@ class BackendSimulator:
         self.failure_rate = options.failure_rate
         # pyre-fixme[4]: Attribute must be annotated.
         self.use_update_as_start_time = options.use_update_as_start_time
-        self._queued: List[SimTrial] = queued or []
-        self._running: List[SimTrial] = running or []
-        self._failed: List[SimTrial] = failed or []
-        self._completed: List[SimTrial] = completed or []
+        self._queued: list[SimTrial] = queued or []
+        self._running: list[SimTrial] = running or []
+        self._failed: list[SimTrial] = failed or []
+        self._completed: list[SimTrial] = completed or []
         # pyre-fixme[4]: Attribute must be annotated.
         self._internal_clock = options.internal_clock
         self._verbose_logging = verbose_logging
@@ -195,7 +195,7 @@ class BackendSimulator:
         return self._internal_clock if self.use_internal_clock else time.time()
 
     @property
-    def all_trials(self) -> List[SimTrial]:
+    def all_trials(self) -> list[SimTrial]:
         """All trials on the simulator."""
         return self._queued + self._running + self._completed + self._failed
 
@@ -403,7 +403,7 @@ class BackendSimulator:
         """
         return self._index_to_trial_map.get(trial_index)
 
-    def _update_completed(self, timestamp: float) -> List[SimTrial]:
+    def _update_completed(self, timestamp: float) -> list[SimTrial]:
         """Look through running trials and see if any trials have completed
         since the last check. Such trials could have completed naturally (in
         this case, ``sim_completed_time`` is None) or have been given a artificial
@@ -473,7 +473,7 @@ class BackendSimulator:
         self._index_to_trial_map = {t.trial_index: t for t in self.all_trials}
 
 
-def format(trial_list: List[Dict[str, Optional[float]]]) -> str:
+def format(trial_list: list[dict[str, Optional[float]]]) -> str:
     """Helper function for formatting a list."""
     trial_list_str = [str(i) for i in trial_list]
     return "\n".join(trial_list_str)

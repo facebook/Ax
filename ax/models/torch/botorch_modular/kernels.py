@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 import torch
 from ax.exceptions.core import AxError
@@ -69,7 +69,7 @@ class TemporalKernel(ScaleKernel):
     def __init__(
         self,
         dim: int,
-        temporal_features: List[int],
+        temporal_features: list[int],
         matern_ard_num_dims: Optional[int] = None,
         batch_shape: Optional[torch.Size] = None,
         lengthscale_prior: Optional[Prior] = None,

@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import torch
@@ -43,14 +43,14 @@ class RandomForest(TorchModel):
     ) -> None:
         self.max_features = max_features
         self.num_trees = num_trees
-        self.models: List[RandomForestRegressor] = []
+        self.models: list[RandomForestRegressor] = []
 
     @copy_doc(TorchModel.fit)
     def fit(
         self,
-        datasets: List[SupervisedDataset],
+        datasets: list[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
-        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+        candidate_metadata: Optional[list[list[TCandidateMetadata]]] = None,
     ) -> None:
         Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)
         for X, Y, Yvar in zip(Xs, Ys, Yvars):
@@ -65,18 +65,18 @@ class RandomForest(TorchModel):
             )
 
     @copy_doc(TorchModel.predict)
-    def predict(self, X: Tensor) -> Tuple[Tensor, Tensor]:
+    def predict(self, X: Tensor) -> tuple[Tensor, Tensor]:
         return _rf_predict(self.models, X)
 
     @copy_doc(TorchModel.cross_validate)
     def cross_validate(  # pyre-ignore [14]: not using metric_names or ssd
         self,
-        datasets: List[SupervisedDataset],
+        datasets: list[SupervisedDataset],
         X_test: Tensor,
         use_posterior_predictive: bool = False,
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor]:
         Xs, Ys, Yvars = _datasets_to_legacy_inputs(datasets=datasets)
-        cv_models: List[RandomForestRegressor] = []
+        cv_models: list[RandomForestRegressor] = []
         for X, Y, Yvar in zip(Xs, Ys, Yvars):
             cv_models.append(
                 _get_rf(
@@ -121,8 +121,8 @@ def _get_rf(
 
 
 def _rf_predict(
-    models: List[RandomForestRegressor], X: Tensor
-) -> Tuple[Tensor, Tensor]:
+    models: list[RandomForestRegressor], X: Tensor
+) -> tuple[Tensor, Tensor]:
     """Make predictions with Random Forest models.
 
     Args:

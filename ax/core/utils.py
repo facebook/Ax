@@ -6,8 +6,9 @@
 
 # pyre-strict
 
+from collections.abc import Iterable
 from copy import deepcopy
-from typing import Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
+from typing import NamedTuple, Optional
 
 import numpy as np
 from ax.core.arm import Arm
@@ -23,7 +24,7 @@ from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from pyre_extensions import none_throws
 
-TArmTrial = Tuple[str, int]
+TArmTrial = tuple[str, int]
 
 # Threshold for switching to pending points extraction based on trial status.
 MANY_TRIALS_IN_EXPERIMENT = 100
@@ -33,9 +34,9 @@ MANY_TRIALS_IN_EXPERIMENT = 100
 
 
 class MissingMetrics(NamedTuple):
-    objective: Dict[str, Set[TArmTrial]]
-    outcome_constraints: Dict[str, Set[TArmTrial]]
-    tracking_metrics: Dict[str, Set[TArmTrial]]
+    objective: dict[str, set[TArmTrial]]
+    outcome_constraints: dict[str, set[TArmTrial]]
+    tracking_metrics: dict[str, set[TArmTrial]]
 
 
 def get_missing_metrics(
@@ -91,7 +92,7 @@ def get_missing_metrics(
 
 def get_missing_metrics_by_name(
     data: Data, metric_names: Iterable[str]
-) -> Dict[str, Set[TArmTrial]]:
+) -> dict[str, set[TArmTrial]]:
     """Return all arm_name, trial_index pairs missing some observations of
     specified metrics.
 
@@ -109,7 +110,7 @@ def get_missing_metrics_by_name(
     return missing_metrics
 
 
-def _get_missing_arm_trial_pairs(data: Data, metric_name: str) -> Set[TArmTrial]:
+def _get_missing_arm_trial_pairs(data: Data, metric_name: str) -> set[TArmTrial]:
     """Return arm_name and trial_index pairs missing a specified metric."""
     metric_df = data.df[data.df.metric_name == metric_name]
     present_metric_df = metric_df[metric_df["mean"].notnull()]
@@ -125,7 +126,7 @@ def _get_missing_arm_trial_pairs(data: Data, metric_name: str) -> Set[TArmTrial]
 
 
 def best_feasible_objective(
-    optimization_config: OptimizationConfig, values: Dict[str, np.ndarray]
+    optimization_config: OptimizationConfig, values: dict[str, np.ndarray]
 ) -> np.ndarray:
     """Compute the best feasible objective value found by each iteration.
 
@@ -157,7 +158,7 @@ def best_feasible_objective(
     return accumulate(f)
 
 
-def _extract_generator_runs(trial: BaseTrial) -> List[GeneratorRun]:
+def _extract_generator_runs(trial: BaseTrial) -> list[GeneratorRun]:
     if isinstance(trial, BatchTrial):
         return trial.generator_runs
     if isinstance(trial, Trial):
@@ -167,7 +168,7 @@ def _extract_generator_runs(trial: BaseTrial) -> List[GeneratorRun]:
 
 def get_model_trace_of_times(
     experiment: Experiment,
-) -> Tuple[List[Optional[float]], List[Optional[float]]]:
+) -> tuple[list[Optional[float]], list[Optional[float]]]:
     """
     Get time spent fitting the model and generating candidates during each trial.
     Not cumulative.
@@ -185,7 +186,7 @@ def get_model_trace_of_times(
     return fit_times, gen_times
 
 
-def get_model_times(experiment: Experiment) -> Tuple[float, float]:
+def get_model_times(experiment: Experiment) -> tuple[float, float]:
     """Get total times spent fitting the model and generating candidates in the
     course of the experiment.
     """
@@ -201,7 +202,7 @@ def get_model_times(experiment: Experiment) -> Tuple[float, float]:
 def extract_pending_observations(
     experiment: Experiment,
     include_out_of_design_points: bool = False,
-) -> Optional[Dict[str, List[ObservationFeatures]]]:
+) -> Optional[dict[str, list[ObservationFeatures]]]:
     """Computes a list of pending observation features (corresponding to:
     - arms that have been generated and run in the course of the experiment,
     but have not been completed with data,
@@ -239,7 +240,7 @@ def get_pending_observation_features(
     experiment: Experiment,
     *,
     include_out_of_design_points: bool = False,
-) -> Optional[Dict[str, List[ObservationFeatures]]]:
+) -> Optional[dict[str, list[ObservationFeatures]]]:
     """Computes a list of pending observation features (corresponding to:
     - arms that have been generated in the course of the experiment,
     but have not been completed with data,
@@ -330,7 +331,7 @@ def get_pending_observation_features(
 def get_pending_observation_features_based_on_trial_status(
     experiment: Experiment,
     include_out_of_design_points: bool = False,
-) -> Optional[Dict[str, List[ObservationFeatures]]]:
+) -> Optional[dict[str, list[ObservationFeatures]]]:
     """A faster analogue of ``get_pending_observation_features`` that makes
     assumptions about trials in experiment in order to speed up extraction
     of pending points.
@@ -391,7 +392,7 @@ def get_pending_observation_features_based_on_trial_status(
 
 def extend_pending_observations(
     experiment: Experiment,
-    pending_observations: Dict[str, List[ObservationFeatures]],
+    pending_observations: dict[str, list[ObservationFeatures]],
     generator_run: GeneratorRun,
 ) -> None:
     """Extend given pending observations dict (from metric name to observations

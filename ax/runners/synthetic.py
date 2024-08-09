@@ -6,7 +6,8 @@
 
 # pyre-strict
 
-from typing import Any, Dict, Iterable, List, Optional, Set
+from collections.abc import Iterable
+from typing import Any, Optional
 
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.runner import Runner
@@ -21,7 +22,7 @@ class SyntheticRunner(Runner):
     def __init__(self, dummy_metadata: Optional[str] = None) -> None:
         self.dummy_metadata = dummy_metadata
 
-    def run(self, trial: BaseTrial) -> Dict[str, Any]:
+    def run(self, trial: BaseTrial) -> dict[str, Any]:
         deployed_name = (
             trial.experiment.name + "_" + str(trial.index)
             if trial.experiment.has_name
@@ -36,9 +37,9 @@ class SyntheticRunner(Runner):
 
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
-    ) -> Dict[TrialStatus, Set[int]]:
+    ) -> dict[TrialStatus, set[int]]:
         return {TrialStatus.COMPLETED: {t.index for t in trials}}
 
     @property
-    def run_metadata_report_keys(self) -> List[str]:
+    def run_metadata_report_keys(self) -> list[str]:
         return ["name"]

@@ -8,7 +8,7 @@
 
 import dataclasses
 from itertools import chain, product
-from typing import Any, cast, Dict
+from typing import Any, cast
 from unittest import mock
 
 import numpy as np
@@ -121,7 +121,7 @@ class BotorchModelTest(TestCase):
         Xs2, Ys2, Yvars2, _, _, _, _ = get_torch_test_data(
             dtype=dtype, cuda=cuda, constant_noise=True
         )
-        kwargs: Dict[str, Any] = {
+        kwargs: dict[str, Any] = {
             "prior": {
                 "covar_module_prior": {
                     "lengthscale_prior": GammaPrior(6.0, 3.0),
@@ -353,7 +353,7 @@ class BotorchModelTest(TestCase):
                 self.assertIsInstance(m.likelihood, _GaussianLikelihoodBase)
 
             # Check infeasible cost can be computed on the model
-            tkwargs: Dict[str, Any] = {
+            tkwargs: dict[str, Any] = {
                 "device": torch.device("cuda" if cuda else "cpu"),
                 "dtype": dtype,
             }
@@ -763,7 +763,7 @@ class BotorchModelTest(TestCase):
             )
 
     def test_get_feature_importances_from_botorch_model(self) -> None:
-        tkwargs: Dict[str, Any] = {"dtype": torch.double}
+        tkwargs: dict[str, Any] = {"dtype": torch.double}
         train_X = torch.rand(5, 3, **tkwargs)
         train_Y = train_X.sum(dim=-1, keepdim=True)
         simple_gp = SingleTaskGP(train_X=train_X, train_Y=train_Y)

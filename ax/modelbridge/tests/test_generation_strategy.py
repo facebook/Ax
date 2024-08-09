@@ -7,7 +7,7 @@
 # pyre-strict
 
 import logging
-from typing import cast, List
+from typing import cast
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
@@ -720,7 +720,7 @@ class TestGenerationStrategy(TestCase):
             ),
         ]
         tiny_search_space = SearchSpace(
-            parameters=cast(List[Parameter], tiny_parameters)
+            parameters=cast(list[Parameter], tiny_parameters)
         )
         exp = get_branin_experiment(search_space=tiny_search_space)
         sobol = GenerationStrategy(
@@ -1591,7 +1591,7 @@ class TestGenerationStrategy(TestCase):
 
     def _run_GS_for_N_rounds(
         self, gs: GenerationStrategy, exp: Experiment, num_rounds: int
-    ) -> List[int]:
+    ) -> list[int]:
         could_gen = []
         for _ in range(num_rounds):
             (

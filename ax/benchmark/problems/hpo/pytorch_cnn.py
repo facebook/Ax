@@ -5,7 +5,8 @@
 
 # pyre-strict
 
-from typing import Any, Dict, Iterable, Set
+from collections.abc import Iterable
+from typing import Any
 
 import pandas as pd
 import torch
@@ -135,8 +136,8 @@ class PyTorchCNNRunner(Runner):
         self.name = name
         self.train_loader: DataLoader = DataLoader(train_set)
         self.test_loader: DataLoader = DataLoader(test_set)
-        self.results: Dict[int, float] = {}
-        self.statuses: Dict[int, TrialStatus] = {}
+        self.results: dict[int, float] = {}
+        self.statuses: dict[int, TrialStatus] = {}
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     class CNN(nn.Module):
@@ -206,7 +207,7 @@ class PyTorchCNNRunner(Runner):
 
         return correct / total
 
-    def run(self, trial: BaseTrial) -> Dict[str, Any]:
+    def run(self, trial: BaseTrial) -> dict[str, Any]:
         self.statuses[trial.index] = TrialStatus.RUNNING
 
         self.statuses[trial.index] = TrialStatus.COMPLETED
@@ -225,5 +226,5 @@ class PyTorchCNNRunner(Runner):
 
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
-    ) -> Dict[TrialStatus, Set[int]]:
+    ) -> dict[TrialStatus, set[int]]:
         return {TrialStatus.COMPLETED: {t.index for t in trials}}

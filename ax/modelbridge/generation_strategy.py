@@ -11,7 +11,7 @@ from __future__ import annotations
 from copy import deepcopy
 from functools import wraps
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
+from typing import Any, Callable, Optional, TypeVar
 
 import pandas as pd
 from ax.core.data import Data
@@ -59,7 +59,7 @@ def step_based_gs_only(f: Callable[..., T]) -> Callable[..., T]:
 
     @wraps(f)
     def impl(
-        self: "GenerationStrategy", *args: List[Any], **kwargs: Dict[str, Any]
+        self: "GenerationStrategy", *args: list[Any], **kwargs: dict[str, Any]
     ) -> T:
         if self.is_node_based:
             raise UnsupportedError(
@@ -94,13 +94,13 @@ class GenerationStrategy(GenerationStrategyInterface):
             strategy's name will be names of its nodes' models joined with '+'.
     """
 
-    _nodes: List[GenerationNode]
+    _nodes: list[GenerationNode]
     _curr: GenerationNode  # Current node in the strategy.
     # Whether all models in this GS are in Models registry enum.
     _uses_registered_models: bool
     # All generator runs created through this generation strategy, in chronological
     # order.
-    _generator_runs: List[GeneratorRun]
+    _generator_runs: list[GeneratorRun]
     # Experiment, for which this generation strategy has generated trials, if
     # it exists.
     _experiment: Optional[Experiment] = None
@@ -108,9 +108,9 @@ class GenerationStrategy(GenerationStrategyInterface):
 
     def __init__(
         self,
-        steps: Optional[List[GenerationStep]] = None,
+        steps: Optional[list[GenerationStep]] = None,
         name: Optional[str] = None,
-        nodes: Optional[List[GenerationNode]] = None,
+        nodes: Optional[list[GenerationNode]] = None,
     ) -> None:
         # Validate that one and only one of steps or nodes is provided
         if not ((steps is None) ^ (nodes is None)):
@@ -177,7 +177,7 @@ class GenerationStrategy(GenerationStrategyInterface):
 
     @property
     @step_based_gs_only
-    def model_transitions(self) -> List[int]:
+    def model_transitions(self) -> list[int]:
         """[DEPRECATED]List of trial indices where a transition happened from one model
         to another.
         """
@@ -331,7 +331,7 @@ class GenerationStrategy(GenerationStrategyInterface):
 
     @property
     @step_based_gs_only
-    def _steps(self) -> List[GenerationStep]:
+    def _steps(self) -> list[GenerationStep]:
         """List of generation steps."""
         return self._nodes  # pyre-ignore[7]
 
@@ -340,7 +340,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         experiment: Experiment,
         data: Optional[Data] = None,
         n: int = 1,
-        pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
+        pending_observations: Optional[dict[str, list[ObservationFeatures]]] = None,
         **kwargs: Any,
     ) -> GeneratorRun:
         """Produce the next points in the experiment. Additional kwargs passed to
@@ -383,9 +383,9 @@ class GenerationStrategy(GenerationStrategyInterface):
         self,
         experiment: Experiment,
         data: Optional[Data] = None,
-        pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
-        arms_per_node: Optional[Dict[str, int]] = None,
-    ) -> List[GeneratorRun]:
+        pending_observations: Optional[dict[str, list[ObservationFeatures]]] = None,
+        arms_per_node: Optional[dict[str, int]] = None,
+    ) -> list[GeneratorRun]:
         """Produces a List of GeneratorRuns for a single trial, either ``Trial`` or
         ``BatchTrial``, and if producing a ``BatchTrial`` allows for multiple
         models to be used to generate GeneratorRuns for that trial.
@@ -459,7 +459,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         num_generator_runs: int,
         data: Optional[Data] = None,
         n: int = 1,
-    ) -> List[List[GeneratorRun]]:
+    ) -> list[list[GeneratorRun]]:
         """Produce GeneratorRuns for multiple trials at once with the possibility of
         ensembling, or using multiple models per trial, getting multiple
         GeneratorRuns per trial.
@@ -500,7 +500,7 @@ class GenerationStrategy(GenerationStrategyInterface):
 
     def current_generator_run_limit(
         self,
-    ) -> Tuple[int, bool]:
+    ) -> tuple[int, bool]:
         """First check if we can move the generation strategy to the next node, which
         is safe, as the next call to ``gen`` will just pick up from there. Then
         determine how many generator runs this generation strategy can generate right
@@ -547,7 +547,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             s._model_spec_to_gen_from = None
 
     @step_based_gs_only
-    def _validate_and_set_step_sequence(self, steps: List[GenerationStep]) -> None:
+    def _validate_and_set_step_sequence(self, steps: list[GenerationStep]) -> None:
         """Initialize and validate the steps provided to this GenerationStrategy.
 
         Some GenerationStrategies are composed of GenerationStep objects, but we also
@@ -598,7 +598,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             step._generation_strategy = self
         self._curr = steps[0]
 
-    def _validate_and_set_node_graph(self, nodes: List[GenerationNode]) -> None:
+    def _validate_and_set_node_graph(self, nodes: list[GenerationNode]) -> None:
         """Initialize and validate the node graph provided to this GenerationStrategy.
 
         This function validates:
@@ -734,9 +734,9 @@ class GenerationStrategy(GenerationStrategyInterface):
         num_generator_runs: int,
         data: Optional[Data] = None,
         n: int = 1,
-        pending_observations: Optional[Dict[str, List[ObservationFeatures]]] = None,
+        pending_observations: Optional[dict[str, list[ObservationFeatures]]] = None,
         **model_gen_kwargs: Any,
-    ) -> List[GeneratorRun]:
+    ) -> list[GeneratorRun]:
         """Produce multiple generator runs at once, to be made into multiple
         trials on the experiment.
 
@@ -902,7 +902,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                     self._model = None
         return move_to_next_node
 
-    def _get_model_state_from_last_generator_run(self) -> Dict[str, Any]:
+    def _get_model_state_from_last_generator_run(self) -> dict[str, Any]:
         lgr = self.last_generator_run
         model_state_on_lgr = {}
         # Need to check if model_spec_to_gen_from is none to account for

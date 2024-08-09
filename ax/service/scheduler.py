@@ -9,25 +9,13 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Generator, Iterable
 from copy import deepcopy
 from datetime import datetime
 from enum import Enum
 from logging import LoggerAdapter
 from time import sleep
-from typing import (
-    Any,
-    Callable,
-    cast,
-    Dict,
-    Generator,
-    Iterable,
-    List,
-    NamedTuple,
-    Optional,
-    Set,
-    Tuple,
-    Type,
-)
+from typing import Any, Callable, cast, NamedTuple, Optional
 
 import ax.service.utils.early_stopping as early_stopping_utils
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -113,10 +101,10 @@ class FailureRateExceededError(AxError):
     pass
 
 
-NO_RETRY_EXCEPTIONS: Tuple[Type[Exception], ...] = (
-    cast(Type[Exception], SchedulerInternalError),
-    cast(Type[Exception], NotImplementedError),
-    cast(Type[Exception], UnsupportedError),
+NO_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
+    cast(type[Exception], SchedulerInternalError),
+    cast(type[Exception], NotImplementedError),
+    cast(type[Exception], UnsupportedError),
 )
 
 
@@ -170,7 +158,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     # results}. This is a mapping and not a list to allow for changing of
     # some optimization messages throughout the course of the optimization
     # (e.g. progress report of the optimization).
-    markdown_messages: Dict[str, str]
+    markdown_messages: dict[str, str]
 
     # Number of trials that existed on the scheduler's experiment before
     # the scheduler instantiation with that experiment.
@@ -360,7 +348,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self._validate_runner_and_implemented_metrics(experiment=self.experiment)
 
     @property
-    def running_trials(self) -> List[BaseTrial]:
+    def running_trials(self) -> list[BaseTrial]:
         """Currently running trials.
 
         Returns:
@@ -369,7 +357,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         return self.experiment.trials_by_status[TrialStatus.RUNNING]
 
     @property
-    def pending_trials(self) -> List[BaseTrial]:
+    def pending_trials(self) -> list[BaseTrial]:
         """Running or staged trials on the experiment this scheduler is
         running.
 
@@ -381,7 +369,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         )
 
     @property
-    def candidate_trials(self) -> List[BaseTrial]:
+    def candidate_trials(self) -> list[BaseTrial]:
         """Candidate trials on the experiment this scheduler is running.
 
         Returns:
@@ -425,7 +413,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     # ----------------- User-defined, optional. -----------------
 
-    def completion_criterion(self) -> Tuple[bool, str]:
+    def completion_criterion(self) -> tuple[bool, str]:
         """Optional stopping criterion for optimization, which checks whether
         ``total_trials`` trials have been run or the ``global_stopping_strategy``
         suggests stopping the optimization.
@@ -461,7 +449,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         optimization_config: Optional[OptimizationConfig] = None,
         trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
-    ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+    ) -> Optional[tuple[int, TParameterization, Optional[TModelPredictArm]]]:
         return self._get_best_trial(
             experiment=self.experiment,
             generation_strategy=self.standard_generation_strategy,
@@ -476,7 +464,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         optimization_config: Optional[OptimizationConfig] = None,
         trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
-    ) -> Optional[Dict[int, Tuple[TParameterization, TModelPredictArm]]]:
+    ) -> Optional[dict[int, tuple[TParameterization, TModelPredictArm]]]:
         return self._get_pareto_optimal_parameters(
             experiment=self.experiment,
             generation_strategy=self.standard_generation_strategy,
@@ -504,7 +492,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def get_trace(
         self,
         optimization_config: Optional[OptimizationConfig] = None,
-    ) -> List[float]:
+    ) -> list[float]:
         return BestPointMixin._get_trace(
             experiment=self.experiment,
             optimization_config=optimization_config,
@@ -514,9 +502,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def get_trace_by_progression(
         self,
         optimization_config: Optional[OptimizationConfig] = None,
-        bins: Optional[List[float]] = None,
+        bins: Optional[list[float]] = None,
         final_progression_only: bool = False,
-    ) -> Tuple[List[float], List[float]]:
+    ) -> tuple[list[float], list[float]]:
         return BestPointMixin._get_trace_by_progression(
             experiment=self.experiment,
             optimization_config=optimization_config,
@@ -524,7 +512,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             final_progression_only=final_progression_only,
         )
 
-    def report_results(self, force_refit: bool = False) -> Dict[str, Any]:
+    def report_results(self, force_refit: bool = False) -> dict[str, Any]:
         """Optional user-defined function for reporting intermediate
         and final optimization results (e.g. make some API call, write to some
         other db). This function is called whenever new results are available during
@@ -615,7 +603,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     # ---------- Methods below should generally not be modified in subclasses. ---------
 
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
-    def run_trials(self, trials: Iterable[BaseTrial]) -> Dict[int, Dict[str, Any]]:
+    def run_trials(self, trials: Iterable[BaseTrial]) -> dict[int, dict[str, Any]]:
         """Deployment function, runs a single evaluation for each of the
         given trials.
 
@@ -641,7 +629,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
     def poll_trial_status(
         self, poll_all_trial_statuses: bool = False
-    ) -> Dict[TrialStatus, Set[int]]:
+    ) -> dict[TrialStatus, set[int]]:
         """Polling function, checks the status of any non-terminal trials
         and returns their indices as a mapping from TrialStatus to a list of indices.
 
@@ -666,7 +654,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
     def stop_trial_runs(
-        self, trials: List[BaseTrial], reasons: Optional[List[Optional[str]]] = None
+        self, trials: list[BaseTrial], reasons: Optional[list[Optional[str]]] = None
     ) -> None:
         """Stops the jobs that execute given trials.
 
@@ -695,7 +683,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self,
         idle_callback: Optional[Callable[[Scheduler], None]] = None,
         force_refit: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Continuously poll for successful trials, with limited exponential
         backoff, and process the results. Stop once at least one successful
         trial has been found. This function can be overridden to a different
@@ -779,7 +767,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             idle_callback(self)
         return self.report_results(force_refit=force_refit)
 
-    def should_consider_optimization_complete(self) -> Tuple[bool, str]:
+    def should_consider_optimization_complete(self) -> tuple[bool, str]:
         """Whether this scheduler should consider this optimization complete and not
         run more trials (and conclude the optimization via ``_complete_optimization``).
         An optimization is considered complete when a generation strategy signalled
@@ -887,7 +875,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         ignore_global_stopping_strategy: bool = False,
         timeout_hours: Optional[int] = None,
         idle_callback: Optional[Callable[[Scheduler], None]] = None,
-    ) -> Generator[Dict[str, Any], None, None]:
+    ) -> Generator[dict[str, Any], None, None]:
         """Make continuous calls to `run` and `process_results` to run up to
         ``max_trials`` trials, until completion criterion is reached. This is the 'main'
         method of a ``Scheduler``.
@@ -1018,7 +1006,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         n_existing: int,
         idle_callback: Optional[Callable[[Scheduler], None]],
         force_refit: bool,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         if not self.should_wait_for_running_trials:
             return None
         return self.wait_for_completed_trials_and_report_results(
@@ -1202,9 +1190,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     def _update_status_dict(
         self,
-        status_dict: Dict[TrialStatus, Set[int]],
-        updating_status_dict: Dict[TrialStatus, Set[int]],
-    ) -> Dict[TrialStatus, Set[int]]:
+        status_dict: dict[TrialStatus, set[int]],
+        updating_status_dict: dict[TrialStatus, set[int]],
+    ) -> dict[TrialStatus, set[int]]:
         """Helper method to elements of a dict of sets.
 
         Avoids leaving trial_index in sets corresponding to two different
@@ -1306,8 +1294,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         return updated_any_trial_status
 
     def _fetch_data_and_return_trial_indices_with_new_data(
-        self, trial_idcs: Set[int]
-    ) -> Set[int]:
+        self, trial_idcs: set[int]
+    ) -> set[int]:
         """Fetch data for any trials on the experiment that are expecting new data.
 
         Args:
@@ -1331,8 +1319,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         return set()
 
     def _apply_new_trial_statuses(
-        self, new_status_to_trial_idcs: Dict[TrialStatus, Set[int]]
-    ) -> Set[int]:
+        self, new_status_to_trial_idcs: dict[TrialStatus, set[int]]
+    ) -> set[int]:
         """Apply new trial statuses to the experiment according to poll results.
 
         Args:
@@ -1370,8 +1358,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         return updated_trial_indices
 
     def _get_trial_indices_to_fetch(
-        self, new_status_to_trial_idcs: Dict[TrialStatus, Set[int]]
-    ) -> Set[int]:
+        self, new_status_to_trial_idcs: dict[TrialStatus, set[int]]
+    ) -> set[int]:
         """Get trial indices to fetch data for the experiment given
         `new_status_to_trial_idcs` and metric properties.  This should include:
             - newly completed trials (about to be completed)
@@ -1445,7 +1433,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             trial_indices_to_fetch.update(recently_completed_trial_indices)
         return trial_indices_to_fetch
 
-    def _get_recently_completed_trial_indices(self) -> Set[int]:
+    def _get_recently_completed_trial_indices(self) -> set[int]:
         """Get trials that have completed within the max period specified by metrics."""
         if len(self.experiment.metrics) == 0:
             return set()
@@ -1461,7 +1449,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             and datetime.now() - not_none(t.time_completed) < max_period
         }
 
-    def _process_completed_trials(self, newly_completed: Set[int]) -> None:
+    def _process_completed_trials(self, newly_completed: set[int]) -> None:
         # Fetch the data for newly completed trials; this will cache the data
         # for all metrics. By pre-caching the data now, we remove the need to
         # fetch it during candidate generation.
@@ -1472,8 +1460,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         )
 
     def should_stop_trials_early(
-        self, trial_indices: Set[int]
-    ) -> Dict[int, Optional[str]]:
+        self, trial_indices: set[int]
+    ) -> dict[int, Optional[str]]:
         """Evaluate whether to early-stop running trials.
 
         Args:
@@ -1548,7 +1536,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         return 1 - num_trials / (num_trials + self._num_remaining_requested_trials)
 
-    def _abort_optimization(self, num_preexisting_trials: int) -> Dict[str, Any]:
+    def _abort_optimization(self, num_preexisting_trials: int) -> dict[str, Any]:
         """Conclude optimization without waiting for anymore running trials and
         return results so far via `report_results`.
         """
@@ -1564,7 +1552,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         num_preexisting_trials: int,
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         idle_callback: Optional[Callable[[Scheduler], Any]] = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Conclude optimization with waiting for anymore running trials and
         return final results via `wait_for_completed_trials_and_report_results`.
         """
@@ -1604,7 +1592,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     def _prepare_trials(
         self, max_new_trials: int
-    ) -> Tuple[List[BaseTrial], List[BaseTrial]]:
+    ) -> tuple[list[BaseTrial], list[BaseTrial]]:
         """Prepares one trial or multiple trials for deployment, based on
         whether `run_trials_in_batches` is set to `True` in this scheduler's
         options.
@@ -1658,7 +1646,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         )
         return existing_candidate_trials, new_trials
 
-    def _get_next_trials(self, num_trials: int = 1, n: int = 1) -> List[BaseTrial]:
+    def _get_next_trials(self, num_trials: int = 1, n: int = 1) -> list[BaseTrial]:
         """Produce up to `num_trials` new generator runs from the underlying
         generation strategy and create new trials with them. Logs errors
         encountered during generation.
@@ -1741,7 +1729,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self,
         num_trials: int,
         n: int,
-    ) -> List[List[GeneratorRun]]:
+    ) -> list[list[GeneratorRun]]:
         """Generates a list ``GeneratorRun``s of length of ``num_trials`` using the
         ``_gen_multiple`` method of the scheduler's ``generation_strategy``, taking
         into account any ``pending`` observations.
@@ -1754,9 +1742,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     def _update_and_save_trials(
         self,
-        existing_trials: List[BaseTrial],
-        new_trials: List[BaseTrial],
-        metadata: Dict[int, Dict[str, Any]],
+        existing_trials: list[BaseTrial],
+        new_trials: list[BaseTrial],
+        metadata: dict[int, dict[str, Any]],
         reduce_state_generator_runs: bool = False,
     ) -> None:
         """Updates trials with new run metadata and status; saves updates to DB.
@@ -1925,7 +1913,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         """Records status of each call to ``Scheduler.run_trials_and_yield_results``
         in properties of this experiment for monitoring of experiment success.
         """
-        to_append: Dict[str, Any] = {
+        to_append: dict[str, Any] = {
             ExperimentStatusProperties.RUN_TRIALS_STATUS.value: status.value
         }
         if num_preexisting_trials is not None:
@@ -1950,7 +1938,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         else:
             self.markdown_messages["Optimization complete"] = completion_msg
 
-    def _append_to_experiment_properties(self, to_append: Dict[str, Any]) -> None:
+    def _append_to_experiment_properties(self, to_append: dict[str, Any]) -> None:
         """Appends to list fields in experiment properties based on ``to_append``
         input dict of form {property_name: value_to_append}.
         """
@@ -1966,7 +1954,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def _fetch_and_process_trials_data_results(
         self,
         trial_indices: Iterable[int],
-    ) -> Dict[int, Dict[str, MetricFetchResult]]:
+    ) -> dict[int, dict[str, MetricFetchResult]]:
         """
         Fetches results from experiment and modifies trial statuses depending on
         success or failure.

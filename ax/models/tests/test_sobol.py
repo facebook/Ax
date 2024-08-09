@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from typing import List, Tuple
 from unittest import mock
 
 import numpy as np
@@ -22,7 +21,7 @@ class SobolGeneratorTest(TestCase):
         self.tunable_param_bounds = (0.0, 1.0)
         self.fixed_param_bounds = (1.0, 100.0)
 
-    def _create_bounds(self, n_tunable: int, n_fixed: int) -> List[Tuple[float, float]]:
+    def _create_bounds(self, n_tunable: int, n_fixed: int) -> list[tuple[float, float]]:
         tunable_bounds = [self.tunable_param_bounds] * n_tunable
         fixed_bounds = [self.fixed_param_bounds] * n_fixed
         return tunable_bounds + fixed_bounds

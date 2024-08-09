@@ -9,7 +9,7 @@
 import functools
 from copy import deepcopy
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Callable, Optional
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -52,17 +52,17 @@ class SEBOAcquisition(Acquisition):
 
     def __init__(
         self,
-        surrogates: Dict[str, Surrogate],
+        surrogates: dict[str, Surrogate],
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
-        botorch_acqf_class: Type[AcquisitionFunction],
-        options: Optional[Dict[str, Any]] = None,
+        botorch_acqf_class: type[AcquisitionFunction],
+        options: Optional[dict[str, Any]] = None,
     ) -> None:
         if len(surrogates) > 1:
             raise ValueError("SEBO does not support support multiple surrogates.")
         surrogate = surrogates[Keys.ONLY_SURROGATE]
 
-        tkwargs: Dict[str, Any] = {"dtype": surrogate.dtype, "device": surrogate.device}
+        tkwargs: dict[str, Any] = {"dtype": surrogate.dtype, "device": surrogate.device}
         options = {} if options is None else options
         self.penalty_name: str = options.pop("penalty", "L0_norm")
         self.target_point: Tensor = options.pop("target_point", None)
@@ -210,11 +210,11 @@ class SEBOAcquisition(Acquisition):
         self,
         n: int,
         search_space_digest: SearchSpaceDigest,
-        inequality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
+        inequality_constraints: Optional[list[tuple[Tensor, Tensor, float]]] = None,
+        fixed_features: Optional[dict[int, float]] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
-        optimizer_options: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[Tensor, Tensor, Tensor]:
+        optimizer_options: Optional[dict[str, Any]] = None,
+    ) -> tuple[Tensor, Tensor, Tensor]:
         """Generate a set of candidates via multi-start optimization. Obtains
         candidates and their associated acquisition function values.
 
@@ -278,10 +278,10 @@ class SEBOAcquisition(Acquisition):
         self,
         n: int,
         search_space_digest: SearchSpaceDigest,
-        fixed_features: Optional[Dict[int, float]] = None,
+        fixed_features: Optional[dict[int, float]] = None,
         rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
-        optimizer_options: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[Tensor, Tensor, Tensor]:
+        optimizer_options: Optional[dict[str, Any]] = None,
+    ) -> tuple[Tensor, Tensor, Tensor]:
         """Optimize SEBO ACQF with L0 norm using homotopy."""
         # extend to fixed a no homotopy_schedule schedule
         _tensorize = partial(torch.tensor, dtype=self.dtype, device=self.device)

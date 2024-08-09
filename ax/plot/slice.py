@@ -7,7 +7,7 @@
 # pyre-strict
 
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 from ax.core.observation import ObservationFeatures
@@ -28,16 +28,16 @@ from plotly import graph_objs as go
 
 
 # type aliases
-SlicePredictions = Tuple[
+SlicePredictions = tuple[
     PlotData,
-    List[Dict[str, Union[str, float]]],
-    List[float],
+    list[dict[str, Union[str, float]]],
+    list[float],
     np.ndarray,
     np.ndarray,
     str,
     str,
     bool,
-    Dict[str, Optional[Union[str, bool, float, int]]],
+    dict[str, Optional[Union[str, bool, float, int]]],
     np.ndarray,
     bool,
 ]
@@ -50,7 +50,7 @@ def _get_slice_predictions(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
-    slice_values: Optional[Dict[str, Any]] = None,
+    slice_values: Optional[dict[str, Any]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
     trial_index: Optional[int] = None,
 ) -> SlicePredictions:
@@ -132,7 +132,7 @@ def plot_slice_plotly(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
-    slice_values: Optional[Dict[str, Any]] = None,
+    slice_values: Optional[dict[str, Any]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
     trial_index: Optional[int] = None,
 ) -> go.Figure:
@@ -246,7 +246,7 @@ def plot_slice(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
-    slice_values: Optional[Dict[str, Any]] = None,
+    slice_values: Optional[dict[str, Any]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
     trial_index: Optional[int] = None,
 ) -> AxPlotConfig:
@@ -293,7 +293,7 @@ def interact_slice_plotly(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
-    slice_values: Optional[Dict[str, Any]] = None,
+    slice_values: Optional[dict[str, Any]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
     trial_index: Optional[int] = None,
 ) -> go.Figure:
@@ -339,10 +339,10 @@ def interact_slice_plotly(
 
         plot_data_dict = {}
         raw_data_dict = {}
-        sd_plt_dict: Dict[str, Dict[str, np.ndarray]] = {}
+        sd_plt_dict: dict[str, dict[str, np.ndarray]] = {}
 
         cond_name_to_parameters_dict = {}
-        is_log_dict: Dict[str, bool] = {}
+        is_log_dict: dict[str, bool] = {}
 
         if should_replace_slice_values:
             slice_values = not_none(fixed_features).parameters
@@ -543,7 +543,7 @@ def interact_slice(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
-    slice_values: Optional[Dict[str, Any]] = None,
+    slice_values: Optional[dict[str, Any]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
     trial_index: Optional[int] = None,
 ) -> AxPlotConfig:

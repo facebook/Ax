@@ -7,7 +7,7 @@
 # pyre-strict
 
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 import numpy as np
 import plotly.graph_objs as go
@@ -33,13 +33,13 @@ from plotly import subplots
 
 
 # type alias
-FloatList = List[float]
+FloatList = list[float]
 
 
 # Helper functions for plotting model fits
 def _get_min_max_with_errors(
     x: FloatList, y: FloatList, sd_x: FloatList, sd_y: FloatList
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """Get min and max of a bivariate dataset (across variables).
 
     Args:
@@ -62,7 +62,7 @@ def _get_min_max_with_errors(
     return min_, max_
 
 
-def _diagonal_trace(min_: float, max_: float, visible: bool = True) -> Dict[str, Any]:
+def _diagonal_trace(min_: float, max_: float, visible: bool = True) -> dict[str, Any]:
     """Diagonal line trace from (min_, min_) to (max_, max_).
 
     Args:
@@ -274,7 +274,7 @@ def _obs_vs_pred_dropdown_plot(
 
 
 def _get_batch_comparison_plot_data(
-    observations: List[Observation],
+    observations: list[Observation],
     batch_x: int,
     batch_y: int,
     rel: bool = False,
@@ -307,7 +307,7 @@ def _get_batch_comparison_plot_data(
 
     # Assume input is well formed and metric_names are consistent across observations
     metric_names = observations[0].data.metric_names
-    insample_data: Dict[str, PlotInSampleArm] = {}
+    insample_data: dict[str, PlotInSampleArm] = {}
     for arm_name, x_observation in x_observations.items():
         # Restrict to arms present in both trials
         if arm_name not in y_observations:
@@ -353,7 +353,7 @@ def _get_batch_comparison_plot_data(
 
 
 def _get_cv_plot_data(
-    cv_results: List[CVResult], label_dict: Optional[Dict[str, str]]
+    cv_results: list[CVResult], label_dict: Optional[dict[str, str]]
 ) -> PlotData:
     if len(cv_results) == 0:
         return PlotData(
@@ -373,7 +373,7 @@ def _get_cv_plot_data(
         ]
 
     # arm_name -> Arm data
-    insample_data: Dict[str, PlotInSampleArm] = {}
+    insample_data: dict[str, PlotInSampleArm] = {}
 
     # Get the union of all metric_names seen in predictions
     metric_names = list(
@@ -431,7 +431,7 @@ def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AxPlot
     Returns:
         AxPlotConfig for the plot.
     """
-    insample_data: Dict[str, PlotInSampleArm] = {}
+    insample_data: dict[str, PlotInSampleArm] = {}
     metric_names = list(data.df["metric_name"].unique())
     for struct in batch.generator_run_structs:
         generator_run = struct.generator_run
@@ -483,10 +483,10 @@ def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AxPlot
 
 
 def interact_cross_validation_plotly(
-    cv_results: List[CVResult],
+    cv_results: list[CVResult],
     show_context: bool = True,
     caption: str = "",
-    label_dict: Optional[Dict[str, str]] = None,
+    label_dict: Optional[dict[str, str]] = None,
     autoset_axis_limits: bool = True,
 ) -> go.Figure:
     """Interactive cross-validation (CV) plotting; select metric via dropdown.
@@ -520,10 +520,10 @@ def interact_cross_validation_plotly(
 
 
 def interact_cross_validation(
-    cv_results: List[CVResult],
+    cv_results: list[CVResult],
     show_context: bool = True,
     caption: str = "",
-    label_dict: Optional[Dict[str, str]] = None,
+    label_dict: Optional[dict[str, str]] = None,
     autoset_axis_limits: bool = True,
 ) -> AxPlotConfig:
     """Interactive cross-validation (CV) plotting; select metric via dropdown.
@@ -553,10 +553,10 @@ def interact_cross_validation(
 
 
 def tile_cross_validation(
-    cv_results: List[CVResult],
+    cv_results: list[CVResult],
     show_arm_details_on_hover: bool = True,
     show_context: bool = True,
-    label_dict: Optional[Dict[str, str]] = None,
+    label_dict: Optional[dict[str, str]] = None,
 ) -> AxPlotConfig:
     """Tile version of CV plots; sorted by 'best fitting' outcomes.
 
@@ -649,7 +649,7 @@ def tile_cross_validation(
 
 
 def interact_batch_comparison(
-    observations: List[Observation],
+    observations: list[Observation],
     experiment: Experiment,
     batch_x: int,
     batch_y: int,

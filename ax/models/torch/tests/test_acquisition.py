@@ -12,7 +12,7 @@ import dataclasses
 import itertools
 from contextlib import ExitStack
 from itertools import chain
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from unittest import mock
 from unittest.mock import Mock
 
@@ -106,7 +106,7 @@ class AcquisitionTest(TestCase):
             acqf_cls=DummyOneShotAcquisitionFunction,
             input_constructor=self.mock_input_constructor,
         )
-        tkwargs: Dict[str, Any] = {"dtype": torch.double}
+        tkwargs: dict[str, Any] = {"dtype": torch.double}
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)
@@ -172,7 +172,7 @@ class AcquisitionTest(TestCase):
         )
 
     def get_acquisition_function(
-        self, fixed_features: Optional[Dict[int, float]] = None, one_shot: bool = False
+        self, fixed_features: Optional[dict[int, float]] = None, one_shot: bool = False
     ) -> Acquisition:
         return Acquisition(
             botorch_acqf_class=(

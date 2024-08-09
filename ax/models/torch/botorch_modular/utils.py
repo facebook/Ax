@@ -10,7 +10,7 @@ import warnings
 from collections import OrderedDict
 from collections.abc import Sequence
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Callable, Optional
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -44,7 +44,7 @@ logger: Logger = get_logger(__name__)
 
 def use_model_list(
     datasets: Sequence[SupervisedDataset],
-    botorch_model_class: Type[Model],
+    botorch_model_class: type[Model],
     allow_batched_models: bool = True,
 ) -> bool:
 
@@ -70,7 +70,7 @@ def use_model_list(
 def choose_model_class(
     datasets: Sequence[SupervisedDataset],
     search_space_digest: SearchSpaceDigest,
-) -> Type[Model]:
+) -> type[Model]:
     """Chooses a BoTorch `Model` using the given data (currently just Yvars)
     and its properties (information about task and fidelity features).
 
@@ -130,13 +130,13 @@ def choose_model_class(
 
 
 def choose_botorch_acqf_class(
-    pending_observations: Optional[List[Tensor]] = None,
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-    linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-    fixed_features: Optional[Dict[int, float]] = None,
+    pending_observations: Optional[list[Tensor]] = None,
+    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
+    linear_constraints: Optional[tuple[Tensor, Tensor]] = None,
+    fixed_features: Optional[dict[int, float]] = None,
     objective_thresholds: Optional[Tensor] = None,
     objective_weights: Optional[Tensor] = None,
-) -> Type[AcquisitionFunction]:
+) -> type[AcquisitionFunction]:
     """Chooses a BoTorch `AcquisitionFunction` class."""
     if objective_thresholds is not None or (
         # using objective_weights is a less-than-ideal fix given its ambiguity,
@@ -155,7 +155,7 @@ def choose_botorch_acqf_class(
 
 def construct_acquisition_and_optimizer_options(
     acqf_options: TConfig, model_gen_options: Optional[TConfig] = None
-) -> Tuple[TConfig, TConfig]:
+) -> tuple[TConfig, TConfig]:
     """Extract acquisition and optimizer options from `model_gen_options`."""
     acq_options = acqf_options.copy()
     opt_options = {}
@@ -176,7 +176,7 @@ def construct_acquisition_and_optimizer_options(
 def convert_to_block_design(
     datasets: Sequence[SupervisedDataset],
     force: bool = False,
-) -> List[SupervisedDataset]:
+) -> list[SupervisedDataset]:
     # Convert data to "block design". TODO: Figure out a better
     # solution for this using the data containers (pass outcome
     # names as properties of the data containers)
@@ -253,7 +253,7 @@ def convert_to_block_design(
     return datasets
 
 
-def _get_shared_rows(Xs: List[Tensor]) -> Tuple[Tensor, List[Tensor]]:
+def _get_shared_rows(Xs: list[Tensor]) -> tuple[Tensor, list[Tensor]]:
     """Extract shared rows from a list of tensors
 
     Args:
@@ -281,8 +281,8 @@ def _get_shared_rows(Xs: List[Tensor]) -> Tuple[Tensor, List[Tensor]]:
 
 def fit_botorch_model(
     model: Model,
-    mll_class: Type[MarginalLogLikelihood],
-    mll_options: Optional[Dict[str, Any]] = None,
+    mll_class: type[MarginalLogLikelihood],
+    mll_options: Optional[dict[str, Any]] = None,
 ) -> None:
     """Fit a BoTorch model."""
     mll_options = mll_options or {}
@@ -318,7 +318,7 @@ def _tensor_difference(A: Tensor, B: Tensor) -> Tensor:
 
 def get_post_processing_func(
     rounding_func: Optional[Callable[[Tensor], Tensor]],
-    optimizer_options: Dict[str, Any],
+    optimizer_options: dict[str, Any],
 ) -> Optional[Callable[[Tensor], Tensor]]:
     """Get the post processing function by combining the rounding function
     with the post processing function provided as part of the optimizer
@@ -394,7 +394,7 @@ def check_outcome_dataset_match(
 def get_subset_datasets(
     datasets: Sequence[SupervisedDataset],
     subset_outcome_names: Sequence[str],
-) -> List[SupervisedDataset]:
+) -> list[SupervisedDataset]:
     """Get the list of datasets corresponding to the given subset of
     outcome names. This is used to separate out datasets that are
     used by one surrogate.

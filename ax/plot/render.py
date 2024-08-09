@@ -11,7 +11,6 @@ import json
 import os
 import pkgutil
 import uuid
-from typing import Dict
 
 import plotly.offline as plotly_offline
 from ax.plot.base import AxPlotConfig, AxPlotTypes
@@ -38,7 +37,7 @@ class _AxPlotJSResources(enum.Enum):
 
 
 # JS-based plots that are supported in Ax should be registered here
-Ax_PLOT_REGISTRY: Dict[enum.Enum, str] = {AxPlotTypes.GENERIC: "generic_plotly.js"}
+Ax_PLOT_REGISTRY: dict[enum.Enum, str] = {AxPlotTypes.GENERIC: "generic_plotly.js"}
 
 
 def _load_js_resource(resource_type: _AxPlotJSResources) -> str:
@@ -80,7 +79,7 @@ def _js_requires(offline: bool = False) -> str:
 def _get_plot_js(
     config: AxPlotConfig,
     plot_module_name: str,
-    plot_resources: Dict[enum.Enum, str],
+    plot_resources: dict[enum.Enum, str],
     plotdivid: str,
 ) -> str:
     """Convert plot config to corresponding JS code."""
@@ -125,7 +124,7 @@ def _plot_js_to_html(js_script: str, plotdivid: str) -> str:
 def plot_config_to_html(
     plot_config: AxPlotConfig,
     plot_module_name: str = PLOT_MODULE_NAME,
-    plot_resources: Dict[enum.Enum, str] = Ax_PLOT_REGISTRY,
+    plot_resources: dict[enum.Enum, str] = Ax_PLOT_REGISTRY,
     inject_helpers: bool = False,
 ) -> str:
     """Generate HTML + JS corresponding from a plot config."""

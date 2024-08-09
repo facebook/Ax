@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Any, Dict, List
+from typing import Any
 
 import plotly.graph_objs as go
 from ax.core.batch_trial import BatchTrial
@@ -18,8 +18,8 @@ from ax.plot.color import MIXED_SCALE, rgba
 def plot_bandit_rollout(experiment: Experiment) -> AxPlotConfig:
     """Plot bandit rollout from ane experiement."""
 
-    categories: List[str] = []
-    arms: Dict[str, Dict[str, Any]] = {}
+    categories: list[str] = []
+    arms: dict[str, dict[str, Any]] = {}
 
     data = []
 

@@ -9,9 +9,10 @@
 import numbers
 import warnings
 from collections import OrderedDict
+from collections.abc import Iterable, Sequence
 
 from logging import Logger
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Optional, Union
 
 import numpy as np
 import plotly.graph_objs as go
@@ -50,7 +51,7 @@ from plotly import subplots
 logger: Logger = get_logger(__name__)
 
 # type aliases
-Traces = List[Dict[str, Any]]
+Traces = list[dict[str, Any]]
 
 
 def _error_scatter_data(
@@ -58,7 +59,7 @@ def _error_scatter_data(
     y_axis_var: PlotMetric,
     x_axis_var: Optional[PlotMetric] = None,
     status_quo_arm: Optional[PlotInSampleArm] = None,
-) -> Tuple[List[float], Optional[List[float]], List[float], List[float]]:
+) -> tuple[list[float], Optional[list[float]], list[float], list[float]]:
     y_metric_key = "y_hat" if y_axis_var.pred else "y"
     y_sd_key = "se_hat" if y_axis_var.pred else "se"
 
@@ -113,7 +114,7 @@ def _error_scatter_trace(
     status_quo_arm: Optional[PlotInSampleArm] = None,
     show_CI: bool = True,
     name: str = "In-sample",
-    color: Tuple[int] = COLORS.STEELBLUE.value,
+    color: tuple[int] = COLORS.STEELBLUE.value,
     visible: bool = True,
     legendgroup: Optional[str] = None,
     showlegend: bool = True,
@@ -123,7 +124,7 @@ def _error_scatter_trace(
     arm_noun: str = "arm",
     color_parameter: Optional[str] = None,
     color_metric: Optional[str] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Plot scatterplot with error bars.
 
     Args:
@@ -540,7 +541,7 @@ def plot_multiple_metrics(
 def plot_objective_vs_constraints(
     model: ModelBridge,
     objective: str,
-    subset_metrics: Optional[List[str]] = None,
+    subset_metrics: Optional[list[str]] = None,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
     infer_relative_constraints: Optional[bool] = False,
@@ -548,7 +549,7 @@ def plot_objective_vs_constraints(
     data_selector: Optional[Callable[[Observation], bool]] = None,
     color_parameter: Optional[str] = None,
     color_metric: Optional[str] = None,
-    label_dict: Optional[Dict[str, str]] = None,
+    label_dict: Optional[dict[str, str]] = None,
 ) -> AxPlotConfig:
     """Plot the tradeoff between an objective and all other metrics in a model.
 
@@ -774,7 +775,7 @@ def plot_objective_vs_constraints(
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
-def _replace_str(input_str: str, str_dict: Optional[Dict[str, str]] = None) -> str:
+def _replace_str(input_str: str, str_dict: Optional[dict[str, str]] = None) -> str:
     """Utility function to replace a string based on a mapping dictionary.
 
     Args:
@@ -784,7 +785,7 @@ def _replace_str(input_str: str, str_dict: Optional[Dict[str, str]] = None) -> s
     return str_dict[input_str] if (str_dict and input_str in str_dict) else input_str
 
 
-def _check_label_lengths(labels: List[str]) -> None:
+def _check_label_lengths(labels: list[str]) -> None:
     """Utility function to check label length and provide a warning for long
        labels pointing to a mapping that can be used to override them.
 
@@ -1082,7 +1083,7 @@ def _single_metric_traces(
     arm_noun: str = "arm",
     fixed_features: Optional[ObservationFeatures] = None,
     data_selector: Optional[Callable[[Observation], bool]] = None,
-    scalarized_metric_config: Optional[List[Dict[str, Any]]] = None,
+    scalarized_metric_config: Optional[list[dict[str, Any]]] = None,
 ) -> Traces:
     """Plot scatterplots with errors for a single metric (y-axis).
 
@@ -1163,11 +1164,11 @@ def plot_fitted(
     metric: str,
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     rel: bool = True,
-    custom_arm_order: Optional[List[str]] = None,
+    custom_arm_order: Optional[list[str]] = None,
     custom_arm_order_name: str = "Custom",
     show_CI: bool = True,
     data_selector: Optional[Callable[[Observation], bool]] = None,
-    scalarized_metric_config: Optional[List[Dict[str, Any]]] = None,
+    scalarized_metric_config: Optional[list[dict[str, Any]]] = None,
 ) -> AxPlotConfig:
     """Plot fitted metrics.
 
@@ -1300,11 +1301,11 @@ def tile_fitted(
     show_arm_details_on_hover: bool = False,
     show_CI: bool = True,
     arm_noun: str = "arm",
-    metrics: Optional[List[str]] = None,
+    metrics: Optional[list[str]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
     data_selector: Optional[Callable[[Observation], bool]] = None,
-    scalarized_metric_config: Optional[List[Dict[str, Any]]] = None,
-    label_dict: Optional[Dict[str, str]] = None,
+    scalarized_metric_config: Optional[list[dict[str, Any]]] = None,
+    label_dict: Optional[dict[str, str]] = None,
 ) -> AxPlotConfig:
     """Tile version of fitted outcome plots.
 
@@ -1347,9 +1348,9 @@ def tile_fitted(
         vertical_spacing=0.30 / nrows,
     )
 
-    name_order_args: Dict[str, Any] = {}
-    name_order_axes: Dict[str, Dict[str, Any]] = {}
-    effect_order_args: Dict[str, Any] = {}
+    name_order_args: dict[str, Any] = {}
+    name_order_axes: dict[str, dict[str, Any]] = {}
+    effect_order_args: dict[str, Any] = {}
 
     for i, metric in enumerate(metrics):
         data = _single_metric_traces(
@@ -1479,11 +1480,11 @@ def interact_fitted_plotly(
     show_arm_details_on_hover: bool = True,
     show_CI: bool = True,
     arm_noun: str = "arm",
-    metrics: Optional[List[str]] = None,
+    metrics: Optional[list[str]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
     data_selector: Optional[Callable[[Observation], bool]] = None,
-    label_dict: Optional[Dict[str, str]] = None,
-    scalarized_metric_config: Optional[List[Dict[str, Any]]] = None,
+    label_dict: Optional[dict[str, str]] = None,
+    scalarized_metric_config: Optional[list[dict[str, Any]]] = None,
 ) -> go.Figure:
     """Interactive fitted outcome plots for each arm used in fitting the model.
 
@@ -1627,11 +1628,11 @@ def interact_fitted(
     show_arm_details_on_hover: bool = True,
     show_CI: bool = True,
     arm_noun: str = "arm",
-    metrics: Optional[List[str]] = None,
+    metrics: Optional[list[str]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
     data_selector: Optional[Callable[[Observation], bool]] = None,
-    label_dict: Optional[Dict[str, str]] = None,
-    scalarized_metric_config: Optional[List[Dict[str, Any]]] = None,
+    label_dict: Optional[dict[str, str]] = None,
+    scalarized_metric_config: Optional[list[dict[str, Any]]] = None,
 ) -> AxPlotConfig:
     """Interactive fitted outcome plots for each arm used in fitting the model.
 
@@ -1680,10 +1681,10 @@ def tile_observations(
     experiment: Experiment,
     data: Optional[Data] = None,
     rel: bool = True,
-    metrics: Optional[List[str]] = None,
-    arm_names: Optional[List[str]] = None,
+    metrics: Optional[list[str]] = None,
+    arm_names: Optional[list[str]] = None,
     arm_noun: str = "arm",
-    label_dict: Optional[Dict[str, str]] = None,
+    label_dict: Optional[dict[str, str]] = None,
 ) -> AxPlotConfig:
     """
     Tiled plot with all observed outcomes.

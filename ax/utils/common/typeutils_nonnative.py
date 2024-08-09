@@ -7,7 +7,7 @@
 # pyre-strict
 
 from inspect import signature
-from typing import Any, Type, TypeVar
+from typing import Any, TypeVar
 
 import numpy as np
 from typeguard import check_type
@@ -19,7 +19,7 @@ X = TypeVar("X")
 Y = TypeVar("Y")
 
 
-def version_safe_check_type(argname: str, value: T, expected_type: Type[T]) -> None:
+def version_safe_check_type(argname: str, value: T, expected_type: type[T]) -> None:
     """Excecute the check_type function if it has the expected signature, otherwise
     warn.  This is done to support newer versions of typeguard with minimal loss
     of functionality for users that have dependency conflicts"""

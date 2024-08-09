@@ -7,7 +7,7 @@
 
 from abc import ABC, abstractmethod
 from math import sqrt
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import torch
 from ax.core.arm import Arm
@@ -24,7 +24,7 @@ class BenchmarkRunner(Runner, ABC):
 
     @property
     @abstractmethod
-    def outcome_names(self) -> List[str]:
+    def outcome_names(self) -> list[str]:
         """The names of the outcomes of the problem (in the order of the outcomes)."""
         pass  # pragma: no cover
 
@@ -39,7 +39,7 @@ class BenchmarkRunner(Runner, ABC):
             "`get_Y_Ystd()` method."
         )
 
-    def get_noise_stds(self) -> Union[None, float, Dict[str, float]]:
+    def get_noise_stds(self) -> Union[None, float, dict[str, float]]:
         """Function returning the standard errors for the synthetic noise
         to be applied to the observed values. For problems that do not have
         a ground truth, the Runner must implement the `get_Y_Ystd()` method
@@ -50,7 +50,7 @@ class BenchmarkRunner(Runner, ABC):
             "`get_noise_stds()` method."
         )
 
-    def get_Y_Ystd(self, arm: Arm) -> Tuple[Tensor, Optional[Tensor]]:
+    def get_Y_Ystd(self, arm: Arm) -> tuple[Tensor, Optional[Tensor]]:
         """Function returning the observed values and their standard errors
         for a given arm. This function is unused for problems that have a
         ground truth (in this case `get_Y_true()` is used), and is required
@@ -61,7 +61,7 @@ class BenchmarkRunner(Runner, ABC):
             "`get_Y_true()` method."
         )
 
-    def run(self, trial: BaseTrial) -> Dict[str, Any]:
+    def run(self, trial: BaseTrial) -> dict[str, Any]:
         """Run the trial by evaluating its parameterization(s).
 
         Args:

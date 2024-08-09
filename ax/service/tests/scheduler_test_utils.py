@@ -7,12 +7,13 @@
 # pyre-strict
 
 import os
+from collections.abc import Iterable
 from datetime import datetime, timedelta
 from logging import WARNING
 from math import ceil
 from random import randint
 from tempfile import NamedTemporaryFile
-from typing import Any, Callable, cast, Dict, Iterable, Optional, Set, Type
+from typing import Any, Callable, cast, Optional
 from unittest.mock import call, Mock, patch, PropertyMock
 
 import pandas as pd
@@ -90,7 +91,7 @@ class SyntheticRunnerWithStatusPolling(SyntheticRunner):
 
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
-    ) -> Dict[TrialStatus, Set[int]]:
+    ) -> dict[TrialStatus, set[int]]:
         # Pretend that sometimes trials take a few seconds to complete and that they
         # might get completed out of order.
         if randint(0, 3) > 0:
@@ -109,7 +110,7 @@ class SyntheticRunnerWithPredictableStatusPolling(SyntheticRunner):
 
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
-    ) -> Dict[TrialStatus, Set[int]]:
+    ) -> dict[TrialStatus, set[int]]:
         completed = {t.index for t in trials}
         return {TrialStatus.COMPLETED: completed}
 
@@ -119,7 +120,7 @@ class TestScheduler(Scheduler):
     testing.
     """
 
-    def report_results(self, force_refit: bool = False) -> Dict[str, Any]:
+    def report_results(self, force_refit: bool = False) -> dict[str, Any]:
         return {
             # Use `set` constructor to copy the set, else the value
             # will be a pointer and all will be the same.
@@ -136,8 +137,8 @@ class EarlyStopsInsteadOfNormalCompletionScheduler(TestScheduler):
     """Test scheduler that marks all trials as ones that should be early-stopped."""
 
     def should_stop_trials_early(
-        self, trial_indices: Set[int]
-    ) -> Dict[int, Optional[str]]:
+        self, trial_indices: set[int]
+    ) -> dict[int, Optional[str]]:
         return {i: None for i in trial_indices}
 
 
@@ -150,7 +151,7 @@ class RunnerWithFrequentFailedTrials(SyntheticRunner):
 
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
-    ) -> Dict[TrialStatus, Set[int]]:
+    ) -> dict[TrialStatus, set[int]]:
         running = [t.index for t in trials]
         status = (
             TrialStatus.FAILED if self.poll_failed_next_time else TrialStatus.COMPLETED
@@ -167,7 +168,7 @@ class RunnerWithFailedAndAbandonedTrials(SyntheticRunner):
 
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
-    ) -> Dict[TrialStatus, Set[int]]:
+    ) -> dict[TrialStatus, set[int]]:
 
         trial_statuses_dummy = {
             0: TrialStatus.ABANDONED,
@@ -186,7 +187,7 @@ class RunnerWithFailedAndAbandonedTrials(SyntheticRunner):
 class RunnerWithAllFailedTrials(SyntheticRunner):
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
-    ) -> Dict[TrialStatus, Set[int]]:
+    ) -> dict[TrialStatus, set[int]]:
         running = [t.index for t in trials]
         return {TrialStatus.FAILED: {running[randint(0, len(running) - 1)]}}
 
@@ -194,7 +195,7 @@ class RunnerWithAllFailedTrials(SyntheticRunner):
 class NoReportResultsRunner(SyntheticRunner):
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
-    ) -> Dict[TrialStatus, Set[int]]:
+    ) -> dict[TrialStatus, set[int]]:
         if randint(0, 3) > 0:
             running = [t.index for t in trials]
             return {TrialStatus.COMPLETED: {running[randint(0, len(running) - 1)]}}
@@ -204,7 +205,7 @@ class NoReportResultsRunner(SyntheticRunner):
 class InfinitePollRunner(SyntheticRunner):
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
-    ) -> Dict[TrialStatus, Set[int]]:
+    ) -> dict[TrialStatus, set[int]]:
         return {}
 
 
@@ -213,7 +214,7 @@ class RunnerWithEarlyStoppingStrategy(SyntheticRunner):
 
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
-    ) -> Dict[TrialStatus, Set[int]]:
+    ) -> dict[TrialStatus, set[int]]:
         self.poll_trial_status_count += 1
 
         # In the first step, don't complete any trials
@@ -231,7 +232,7 @@ class BrokenRunnerValueError(SyntheticRunnerWithStatusPolling):
 
     run_trial_call_count = 0
 
-    def run_multiple(self, trials: Iterable[BaseTrial]) -> Dict[int, Dict[str, Any]]:
+    def run_multiple(self, trials: Iterable[BaseTrial]) -> dict[int, dict[str, Any]]:
         self.run_trial_call_count += 1
         raise ValueError("Failing for testing purposes.")
 
@@ -240,7 +241,7 @@ class BrokenRunnerRuntimeError(SyntheticRunnerWithStatusPolling):
 
     run_trial_call_count = 0
 
-    def run_multiple(self, trials: Iterable[BaseTrial]) -> Dict[int, Dict[str, Any]]:
+    def run_multiple(self, trials: Iterable[BaseTrial]) -> dict[int, dict[str, Any]]:
         self.run_trial_call_count += 1
         raise RuntimeError("Failing for testing purposes.")
 
@@ -254,7 +255,7 @@ class RunnerToAllowMultipleMapMetricFetches(SyntheticRunnerWithStatusPolling):
 
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
-    ) -> Dict[TrialStatus, Set[int]]:
+    ) -> dict[TrialStatus, set[int]]:
         running_trials = next(iter(trials)).experiment.trials_by_status[
             TrialStatus.RUNNING
         ]
@@ -281,7 +282,7 @@ class AxSchedulerTestCase(TestCase):
     to subclass and change some specific tests that don't apply to
     your specific `GenerationStrategyInterface`."""
 
-    GENERATION_STRATEGY_INTERFACE_CLASS: Type[GenerationStrategyInterface] = (
+    GENERATION_STRATEGY_INTERFACE_CLASS: type[GenerationStrategyInterface] = (
         GenerationStrategy
     )
     PENDING_FEATURES_CALL_LOCATION: str = str(GenerationStrategy.__module__)
@@ -353,7 +354,7 @@ class AxSchedulerTestCase(TestCase):
         return not_none(generation_strategy)
 
     @property
-    def runner_registry(self) -> Dict[Type[Runner], int]:
+    def runner_registry(self) -> dict[type[Runner], int]:
         return {
             SyntheticRunnerWithStatusPolling: 1998,
             InfinitePollRunner: 1999,
@@ -1325,10 +1326,10 @@ class AxSchedulerTestCase(TestCase):
             # Thus, with 3 total trials, trial #1 will be early stopped
             def should_stop_trials_early(
                 self,
-                trial_indices: Set[int],
+                trial_indices: set[int],
                 experiment: Experiment,
-                **kwargs: Dict[str, Any],
-            ) -> Dict[int, Optional[str]]:
+                **kwargs: dict[str, Any],
+            ) -> dict[int, Optional[str]]:
                 # Make sure that we can lookup data for the trial,
                 # even though we won't use it in this dummy strategy
                 data = experiment.lookup_data(trial_indices=trial_indices)
@@ -1933,14 +1934,14 @@ class AxSchedulerTestCase(TestCase):
         )
         r2 = fit_metrics.get("coefficient_of_determination")
         self.assertIsInstance(r2, dict)
-        r2 = cast(Dict[str, float], r2)
+        r2 = cast(dict[str, float], r2)
         self.assertTrue("branin" in r2)
         r2_branin = r2["branin"]
         self.assertIsInstance(r2_branin, float)
 
         std = fit_metrics.get("std_of_the_standardized_error")
         self.assertIsInstance(std, dict)
-        std = cast(Dict[str, float], std)
+        std = cast(dict[str, float], std)
         self.assertTrue("branin" in std)
         std_branin = std["branin"]
         self.assertIsInstance(std_branin, float)

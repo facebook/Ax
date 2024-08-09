@@ -9,7 +9,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, Iterable, List, Optional, Tuple
+from collections.abc import Iterable
+from typing import Optional
 
 from ax.core.metric import Metric
 from ax.core.types import ComparisonOp
@@ -23,15 +24,15 @@ CONSTRAINT_WARNING_MESSAGE: str = (
     "Constraint on {name} appears invalid: {bound} bound on metric "
     + "for which {is_better} values are better."
 )
-LOWER_BOUND_MISMATCH: Dict[str, str] = {"bound": "Lower", "is_better": "lower"}
-UPPER_BOUND_MISMATCH: Dict[str, str] = {"bound": "Upper", "is_better": "higher"}
+LOWER_BOUND_MISMATCH: dict[str, str] = {"bound": "Lower", "is_better": "lower"}
+UPPER_BOUND_MISMATCH: dict[str, str] = {"bound": "Upper", "is_better": "higher"}
 
 CONSTRAINT_THRESHOLD_WARNING_MESSAGE: str = (
     "Constraint threshold on {name} appears invalid: {bound} bound on metric "
     + "for which {is_better} values is better."
 )
-UPPER_BOUND_THRESHOLD: Dict[str, str] = {"bound": "Positive", "is_better": "lower"}
-LOWER_BOUND_THRESHOLD: Dict[str, str] = {"bound": "Negative", "is_better": "higher"}
+UPPER_BOUND_THRESHOLD: dict[str, str] = {"bound": "Positive", "is_better": "lower"}
+LOWER_BOUND_THRESHOLD: dict[str, str] = {"bound": "Negative", "is_better": "higher"}
 
 
 class OutcomeConstraint(SortableBase):
@@ -94,7 +95,7 @@ class OutcomeConstraint(SortableBase):
     @staticmethod
     def _validate_metric_constraint_op(
         metric: Metric, op: ComparisonOp
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """Ensure constraint is compatible with metric definition.
 
         Args:
@@ -124,7 +125,7 @@ class OutcomeConstraint(SortableBase):
             return False, msg
         return True, str()
 
-    def _validate_constraint(self) -> Tuple[bool, str]:
+    def _validate_constraint(self) -> tuple[bool, str]:
         """Ensure constraint is compatible with metric definition.
         In case metric has:
             - lower_is_better=True: op is interpreted as an upper bound
@@ -250,15 +251,15 @@ class ScalarizedOutcomeConstraint(OutcomeConstraint):
             specification of a status-quo arm in ``Experiment``.
     """
 
-    weights: List[float]
+    weights: list[float]
 
     def __init__(
         self,
-        metrics: List[Metric],
+        metrics: list[Metric],
         op: ComparisonOp,
         bound: float,
         relative: bool = True,
-        weights: Optional[List[float]] = None,
+        weights: Optional[list[float]] = None,
     ) -> None:
         for metric in metrics:
             self._validate_metric_constraint_op(metric=metric, op=op)
@@ -274,16 +275,16 @@ class ScalarizedOutcomeConstraint(OutcomeConstraint):
         self.relative = relative
 
     @property
-    def metric_weights(self) -> Iterable[Tuple[Metric, float]]:
+    def metric_weights(self) -> Iterable[tuple[Metric, float]]:
         """Get the objective metrics and weights."""
         return zip(self.metrics, self.weights)
 
     @property
-    def metrics(self) -> List[Metric]:
+    def metrics(self) -> list[Metric]:
         return self._metrics
 
     @metrics.setter
-    def metrics(self, metrics: List[Metric]) -> None:
+    def metrics(self, metrics: list[Metric]) -> None:
         for metric in metrics:
             self._validate_metric_constraint_op(metric=metric, op=self.op)
         self._metrics = metrics

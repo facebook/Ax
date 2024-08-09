@@ -7,7 +7,7 @@
 # pyre-strict
 
 from enum import Enum
-from typing import cast, Dict, List, Optional, Tuple, Type, Union
+from typing import cast, Optional, Union
 
 import numpy as np
 from ax.core.data import Data
@@ -30,7 +30,7 @@ class DataType(Enum):
     MAP_DATA = 3
 
 
-DATA_TYPE_LOOKUP: Dict[DataType, Type[Data]] = {
+DATA_TYPE_LOOKUP: dict[DataType, type[Data]] = {
     DataType.DATA: Data,
     DataType.MAP_DATA: MapData,
 }
@@ -38,7 +38,7 @@ DATA_TYPE_LOOKUP: Dict[DataType, Type[Data]] = {
 
 def raw_data_to_evaluation(
     raw_data: TEvaluationOutcome,
-    metric_names: List[str],
+    metric_names: list[str],
 ) -> TEvaluationOutcome:
     """Format the trial evaluation data to a standard `TTrialEvaluation`
     (mapping from metric names to a tuple of mean and SEM) representation, or
@@ -97,14 +97,14 @@ def raw_data_to_evaluation(
 
 
 def data_and_evaluations_from_raw_data(
-    raw_data: Dict[str, TEvaluationOutcome],
-    metric_names: List[str],
+    raw_data: dict[str, TEvaluationOutcome],
+    metric_names: list[str],
     trial_index: int,
-    sample_sizes: Dict[str, int],
+    sample_sizes: dict[str, int],
     data_type: DataType,
     start_time: Optional[Union[int, str]] = None,
     end_time: Optional[Union[int, str]] = None,
-) -> Tuple[Dict[str, TEvaluationOutcome], Data]:
+) -> tuple[dict[str, TEvaluationOutcome], Data]:
     """Transforms evaluations into Ax Data.
 
     Each evaluation is either a trial evaluation: {metric_name -> (mean, SEM)}
@@ -145,7 +145,7 @@ def data_and_evaluations_from_raw_data(
             )
         # All evaluations are no-fidelity evaluations.
         data = Data.from_evaluations(
-            evaluations=cast(Dict[str, TTrialEvaluation], evaluations),
+            evaluations=cast(dict[str, TTrialEvaluation], evaluations),
             trial_index=trial_index,
             sample_sizes=sample_sizes,
             start_time=start_time,
@@ -161,7 +161,7 @@ def data_and_evaluations_from_raw_data(
             )
         # All evaluations are map evaluations.
         data = MapData.from_map_evaluations(
-            evaluations=cast(Dict[str, TMapTrialEvaluation], evaluations),
+            evaluations=cast(dict[str, TMapTrialEvaluation], evaluations),
             trial_index=trial_index,
         )
     else:

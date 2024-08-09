@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import List, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import ObservationFeatures
@@ -111,9 +111,9 @@ class Derelativize(Transform):
 
     def untransform_outcome_constraints(
         self,
-        outcome_constraints: List[OutcomeConstraint],
+        outcome_constraints: list[OutcomeConstraint],
         fixed_features: Optional[ObservationFeatures] = None,
-    ) -> List[OutcomeConstraint]:
+    ) -> list[OutcomeConstraint]:
         # We intentionally leave outcome constraints derelativized when
         # untransforming.
         return outcome_constraints

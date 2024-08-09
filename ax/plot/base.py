@@ -8,7 +8,7 @@
 
 import enum
 import json
-from typing import Any, Dict, List, NamedTuple, Optional, Union
+from typing import Any, NamedTuple, Optional, Union
 
 from ax.core.types import TParameterization
 from ax.utils.common.serialization import named_tuple_to_dict
@@ -36,14 +36,14 @@ class AxPlotTypes(enum.Enum):
 
 # Configuration for all plots
 class _AxPlotConfigBase(NamedTuple):
-    data: Dict[str, Any]
+    data: dict[str, Any]
     plot_type: enum.Enum
 
 
 class AxPlotConfig(_AxPlotConfigBase):
     """Config for plots"""
 
-    def __new__(cls, data: Dict[str, Any], plot_type: enum.Enum) -> "AxPlotConfig":
+    def __new__(cls, data: dict[str, Any], plot_type: enum.Enum) -> "AxPlotConfig":
         # Convert data to json-encodable form (strips out NamedTuple and numpy
         # array). This is a lossy conversion.
         dict_data = json.loads(
@@ -59,11 +59,11 @@ class PlotInSampleArm(NamedTuple):
 
     name: str
     parameters: TParameterization
-    y: Dict[str, float]
-    y_hat: Dict[str, float]
-    se: Dict[str, float]
-    se_hat: Dict[str, float]
-    context_stratum: Optional[Dict[str, Union[str, float]]]
+    y: dict[str, float]
+    y_hat: dict[str, float]
+    se: dict[str, float]
+    se_hat: dict[str, float]
+    context_stratum: Optional[dict[str, Union[str, float]]]
 
 
 class PlotOutOfSampleArm(NamedTuple):
@@ -71,17 +71,17 @@ class PlotOutOfSampleArm(NamedTuple):
 
     name: str
     parameters: TParameterization
-    y_hat: Dict[str, float]
-    se_hat: Dict[str, float]
-    context_stratum: Optional[Dict[str, Union[str, float]]]
+    y_hat: dict[str, float]
+    se_hat: dict[str, float]
+    context_stratum: Optional[dict[str, Union[str, float]]]
 
 
 class PlotData(NamedTuple):
     """Struct for plot data, including both in-sample and out-of-sample arms"""
 
-    metrics: List[str]
-    in_sample: Dict[str, PlotInSampleArm]
-    out_of_sample: Optional[Dict[str, Dict[str, PlotOutOfSampleArm]]]
+    metrics: list[str]
+    in_sample: dict[str, PlotInSampleArm]
+    out_of_sample: Optional[dict[str, dict[str, PlotOutOfSampleArm]]]
     status_quo_name: Optional[str]
 
 

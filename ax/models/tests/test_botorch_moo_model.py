@@ -8,7 +8,7 @@
 
 import dataclasses
 from contextlib import ExitStack
-from typing import Any, Dict
+from typing import Any
 from unittest import mock
 
 import ax.models.torch.botorch_moo_defaults as botorch_moo_defaults
@@ -138,7 +138,7 @@ class BotorchMOOModelTest(TestCase):
         dtype: torch.dtype = torch.float,
         cuda: bool = False,
     ) -> None:
-        tkwargs: Dict[str, Any] = {
+        tkwargs: dict[str, Any] = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
         }
@@ -268,7 +268,7 @@ class BotorchMOOModelTest(TestCase):
         dtype: torch.dtype = torch.float,
         cuda: bool = False,
     ) -> None:
-        tkwargs: Dict[str, Any] = {
+        tkwargs: dict[str, Any] = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
         }
@@ -374,7 +374,7 @@ class BotorchMOOModelTest(TestCase):
                 acqf_class = moo_monte_carlo.qExpectedHypervolumeImprovement
                 partitioning_path = PARTITIONING_PATH
 
-        tkwargs: Dict[str, Any] = {
+        tkwargs: dict[str, Any] = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
         }
@@ -687,7 +687,7 @@ class BotorchMOOModelTest(TestCase):
         dtype: torch.dtype = torch.float,
         cuda: bool = False,
     ) -> None:
-        tkwargs: Dict[str, Any] = {
+        tkwargs: dict[str, Any] = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
         }
@@ -765,7 +765,7 @@ class BotorchMOOModelTest(TestCase):
         dtype: torch.dtype = torch.float,
         cuda: bool = False,
     ) -> None:
-        tkwargs: Dict[str, Any] = {
+        tkwargs: dict[str, Any] = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": torch.float,
         }
@@ -858,7 +858,7 @@ class BotorchMOOModelTest(TestCase):
                 else botorch_moo_defaults.get_EHVI
             )
 
-        tkwargs: Dict[str, Any] = {
+        tkwargs: dict[str, Any] = {
             "device": torch.device("cuda") if cuda else torch.device("cpu"),
             "dtype": dtype,
         }

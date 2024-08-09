@@ -8,7 +8,7 @@
 
 import re
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 import numpy as np
 import plotly.graph_objs as go
@@ -31,8 +31,8 @@ from ax.plot.helper import (
 
 
 # type aliases
-ContourPredictions = Tuple[
-    PlotData, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Dict[str, bool]
+ContourPredictions = tuple[
+    PlotData, np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict[str, bool]
 ]
 
 
@@ -58,7 +58,7 @@ def _get_contour_predictions(
     metric: str,
     generator_runs_dict: TNullableGeneratorRunsDict,
     density: int,
-    slice_values: Optional[Dict[str, Any]] = None,
+    slice_values: Optional[dict[str, Any]] = None,
     fixed_features: Optional[ObservationFeatures] = None,
 ) -> ContourPredictions:
     """
@@ -114,7 +114,7 @@ def plot_contour_plotly(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
-    slice_values: Optional[Dict[str, Any]] = None,
+    slice_values: Optional[dict[str, Any]] = None,
     lower_is_better: bool = False,
     fixed_features: Optional[ObservationFeatures] = None,
     trial_index: Optional[int] = None,
@@ -287,7 +287,7 @@ def plot_contour(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
-    slice_values: Optional[Dict[str, Any]] = None,
+    slice_values: Optional[dict[str, Any]] = None,
     lower_is_better: bool = False,
     fixed_features: Optional[ObservationFeatures] = None,
     trial_index: Optional[int] = None,
@@ -339,11 +339,11 @@ def interact_contour_plotly(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
-    slice_values: Optional[Dict[str, Any]] = None,
+    slice_values: Optional[dict[str, Any]] = None,
     lower_is_better: bool = False,
     fixed_features: Optional[ObservationFeatures] = None,
     trial_index: Optional[int] = None,
-    parameters_to_use: Optional[List[str]] = None,
+    parameters_to_use: Optional[list[str]] = None,
 ) -> go.Figure:
     """Create interactive plot with predictions for a 2-d slice of the parameter
     space.
@@ -397,8 +397,8 @@ def interact_contour_plotly(
     # TODO T38563759: Sort parameters by feature importances
     param_names = [parameter.name for parameter in range_parameters]
 
-    is_log_dict: Dict[str, bool] = {}
-    grid_dict: Dict[str, np.ndarray] = {}
+    is_log_dict: dict[str, bool] = {}
+    grid_dict: dict[str, np.ndarray] = {}
     for parameter in range_parameters:
         is_log_dict[parameter.name] = parameter.log_scale
         grid_dict[parameter.name] = get_grid_for_parameter(parameter, density)
@@ -409,12 +409,12 @@ def interact_contour_plotly(
 
     # pyre-fixme[9]: f_dict has type `Dict[str, Dict[str, np.ndarray]]`; used as
     #  `Dict[str, Dict[str, typing.List[Variable[_T]]]]`.
-    f_dict: Dict[str, Dict[str, np.ndarray]] = {
+    f_dict: dict[str, dict[str, np.ndarray]] = {
         param1: {param2: [] for param2 in param_names} for param1 in param_names
     }
     # pyre-fixme[9]: sd_dict has type `Dict[str, Dict[str, np.ndarray]]`; used as
     #  `Dict[str, Dict[str, typing.List[Variable[_T]]]]`.
-    sd_dict: Dict[str, Dict[str, np.ndarray]] = {
+    sd_dict: dict[str, dict[str, np.ndarray]] = {
         param1: {param2: [] for param2 in param_names} for param1 in param_names
     }
 
@@ -894,11 +894,11 @@ def interact_contour(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
-    slice_values: Optional[Dict[str, Any]] = None,
+    slice_values: Optional[dict[str, Any]] = None,
     lower_is_better: bool = False,
     fixed_features: Optional[ObservationFeatures] = None,
     trial_index: Optional[int] = None,
-    parameters_to_use: Optional[List[str]] = None,
+    parameters_to_use: Optional[list[str]] = None,
 ) -> AxPlotConfig:
     """Create interactive plot with predictions for a 2-d slice of the parameter
     space.

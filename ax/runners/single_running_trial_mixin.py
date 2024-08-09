@@ -7,7 +7,7 @@
 # pyre-strict
 
 from collections import defaultdict
-from typing import Dict, Iterable, Set
+from collections.abc import Iterable
 
 from ax.core.base_trial import BaseTrial, TrialStatus
 
@@ -23,7 +23,7 @@ class SingleRunningTrialMixin:
 
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
-    ) -> Dict[TrialStatus, Set[int]]:
+    ) -> dict[TrialStatus, set[int]]:
         """Checks the status of any non-terminal trials and returns their
         indices as a mapping from TrialStatus to a list of indices. Required
         for runners used with Ax ``Scheduler``.

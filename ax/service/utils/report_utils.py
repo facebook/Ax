@@ -9,20 +9,10 @@
 import itertools
 import logging
 from collections import defaultdict
+from collections.abc import Iterable
 from datetime import timedelta
 from logging import Logger
-from typing import (
-    Any,
-    Callable,
-    cast,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Tuple,
-    TYPE_CHECKING,
-    Union,
-)
+from typing import Any, Callable, cast, Optional, TYPE_CHECKING, Union
 
 import gpytorch
 import numpy as np
@@ -97,7 +87,7 @@ UNPREDICTABLE_METRICS_MESSAGE = (
 )
 
 
-def _get_cross_validation_plots(model: ModelBridge) -> List[go.Figure]:
+def _get_cross_validation_plots(model: ModelBridge) -> list[go.Figure]:
     cv = cross_validate(model=model)
     return [
         interact_cross_validation_plotly(
@@ -157,13 +147,13 @@ def _get_objective_v_param_plots(
     experiment: Experiment,
     model: ModelBridge,
     importance: Optional[
-        Union[Dict[str, Dict[str, np.ndarray]], Dict[str, Dict[str, float]]]
+        Union[dict[str, dict[str, np.ndarray]], dict[str, dict[str, float]]]
     ] = None,
     # Chosen to take ~1min on local benchmarks.
     max_num_slice_plots: int = 200,
     # Chosen to take ~2min on local benchmarks.
     max_num_contour_plots: int = 20,
-) -> List[go.Figure]:
+) -> list[go.Figure]:
     search_space = experiment.search_space
 
     range_params = [
@@ -259,8 +249,8 @@ def _get_suffix(input_str: str, delim: str = ".", n_chunks: int = 1) -> str:
 
 
 def _get_shortest_unique_suffix_dict(
-    input_str_list: List[str], delim: str = "."
-) -> Dict[str, str]:
+    input_str_list: list[str], delim: str = "."
+) -> dict[str, str]:
     """Maps a list of strings to their shortest unique suffixes
 
     Maps all original strings to the smallest number of chunks, as specified by
@@ -327,7 +317,7 @@ def get_standard_plots(
     early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None,
     limit_points_per_plot: Optional[int] = None,
     global_sensitivity_analysis: bool = True,
-) -> List[go.Figure]:
+) -> list[go.Figure]:
     """Extract standard plots for single-objective optimization.
 
     Extracts a list of plots from an ``Experiment`` and ``ModelBridge`` of general
@@ -655,7 +645,7 @@ def _get_curve_plot_dropdown(
 def _merge_trials_dict_with_df(
     df: pd.DataFrame,
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    trials_dict: Dict[int, Any],
+    trials_dict: dict[int, Any],
     column_name: str,
     always_include_field_column: bool = False,
 ) -> None:
@@ -716,8 +706,8 @@ def _get_generation_method_str(trial: BaseTrial) -> str:
 def _merge_results_if_no_duplicates(
     arms_df: pd.DataFrame,
     results: pd.DataFrame,
-    key_components: List[str],
-    metrics: List[Metric],
+    key_components: list[str],
+    metrics: list[Metric],
 ) -> DataFrame:
     """Formats ``data.df`` and merges it with ``arms_df`` if all of the following are
     True:
@@ -774,12 +764,12 @@ def _merge_results_if_no_duplicates(
 
 def exp_to_df(
     exp: Experiment,
-    metrics: Optional[List[Metric]] = None,
-    run_metadata_fields: Optional[List[str]] = None,
-    trial_properties_fields: Optional[List[str]] = None,
-    trial_attribute_fields: Optional[List[str]] = None,
+    metrics: Optional[list[Metric]] = None,
+    run_metadata_fields: Optional[list[str]] = None,
+    trial_properties_fields: Optional[list[str]] = None,
+    trial_attribute_fields: Optional[list[str]] = None,
     additional_fields_callables: Optional[
-        Dict[str, Callable[[Experiment], Dict[int, Union[str, float]]]]
+        dict[str, Callable[[Experiment], dict[int, Union[str, float]]]]
     ] = None,
     always_include_field_columns: bool = False,
     **kwargs: Any,
@@ -1013,7 +1003,7 @@ def exp_to_df(
 
 def compute_maximum_map_values(
     experiment: Experiment, map_key: Optional[str] = None
-) -> Dict[int, float]:
+) -> dict[int, float]:
     """A function that returns a map from trial_index to the maximum map value
     reached. If map_key is not specified, it uses the first map_key."""
     data = experiment.lookup_data()
@@ -1041,9 +1031,9 @@ def compute_maximum_map_values(
 
 def _pairwise_pareto_plotly_scatter(
     experiment: Experiment,
-    metric_names: Optional[Tuple[str, str]] = None,
-    reference_point: Optional[Tuple[float, float]] = None,
-    minimize: Optional[Union[bool, Tuple[bool, bool]]] = None,
+    metric_names: Optional[tuple[str, str]] = None,
+    reference_point: Optional[tuple[float, float]] = None,
+    minimize: Optional[Union[bool, tuple[bool, bool]]] = None,
 ) -> Iterable[go.Figure]:
     metric_name_pairs = _get_metric_name_pairs(experiment=experiment)
     return [
@@ -1057,7 +1047,7 @@ def _pairwise_pareto_plotly_scatter(
 
 def _get_metric_name_pairs(
     experiment: Experiment, use_first_n_metrics: int = 4
-) -> Iterable[Tuple[str, str]]:
+) -> Iterable[tuple[str, str]]:
     optimization_config = _validate_experiment_and_get_optimization_config(
         experiment=experiment
     )
@@ -1084,9 +1074,9 @@ def _get_metric_name_pairs(
 
 def _pareto_frontier_scatter_2d_plotly(
     experiment: Experiment,
-    metric_names: Optional[Tuple[str, str]] = None,
-    reference_point: Optional[Tuple[float, float]] = None,
-    minimize: Optional[Union[bool, Tuple[bool, bool]]] = None,
+    metric_names: Optional[tuple[str, str]] = None,
+    reference_point: Optional[tuple[float, float]] = None,
+    minimize: Optional[Union[bool, tuple[bool, bool]]] = None,
 ) -> go.Figure:
 
     # Determine defaults for unspecified inputs using `optimization_config`
@@ -1104,9 +1094,9 @@ def _pareto_frontier_scatter_2d_plotly(
 
 def pareto_frontier_scatter_2d_plotly(
     experiment: Experiment,
-    metric_names: Tuple[str, str],
-    reference_point: Optional[Tuple[float, float]] = None,
-    minimize: Optional[Union[bool, Tuple[bool, bool]]] = None,
+    metric_names: tuple[str, str],
+    reference_point: Optional[tuple[float, float]] = None,
+    minimize: Optional[Union[bool, tuple[bool, bool]]] = None,
 ) -> go.Figure:
 
     df = exp_to_df(experiment)
@@ -1157,7 +1147,7 @@ def _objective_vs_true_objective_scatter(
 # that returns a list of plots, such as get_standard_plots
 def get_figure_and_callback(
     plot_fn: Callable[["Scheduler"], go.Figure]
-) -> Tuple[go.Figure, Callable[["Scheduler"], None]]:
+) -> tuple[go.Figure, Callable[["Scheduler"], None]]:
     """
     Produce a figure and a callback for updating the figure in place.
 
@@ -1271,7 +1261,7 @@ def _build_result_tuple(
     baseline_arm_name: str,
     baseline_value: float,
     comparison_row: pd.DataFrame,
-) -> Tuple[str, bool, str, float, str, float]:
+) -> tuple[str, bool, str, float, str, float]:
     """Formats inputs into a tuple for use in creating
     the comparison message.
 
@@ -1299,7 +1289,7 @@ def _build_result_tuple(
 
 def select_baseline_arm(
     experiment: Experiment, arms_df: pd.DataFrame, baseline_arm_name: Optional[str]
-) -> Tuple[str, bool]:
+) -> tuple[str, bool]:
     """
     Choose a baseline arm that is found in arms_df
 
@@ -1344,9 +1334,9 @@ def select_baseline_arm(
 def maybe_extract_baseline_comparison_values(
     experiment: Experiment,
     optimization_config: Optional[OptimizationConfig],
-    comparison_arm_names: Optional[List[str]],
+    comparison_arm_names: Optional[list[str]],
     baseline_arm_name: Optional[str],
-) -> Optional[List[Tuple[str, bool, str, float, str, float]]]:
+) -> Optional[list[tuple[str, bool, str, float, str, float]]]:
     """
     Extracts the baseline values from the experiment, for use in
     comparing the baseline arm to the optimal results.
@@ -1441,7 +1431,7 @@ def maybe_extract_baseline_comparison_values(
 
 
 def compare_to_baseline_impl(
-    comparison_list: List[Tuple[str, bool, str, float, str, float]]
+    comparison_list: list[tuple[str, bool, str, float, str, float]]
 ) -> Optional[str]:
     """Implementation of compare_to_baseline, taking in a
     list of arm comparisons.
@@ -1469,7 +1459,7 @@ def compare_to_baseline_impl(
 def compare_to_baseline(
     experiment: Experiment,
     optimization_config: Optional[OptimizationConfig],
-    comparison_arm_names: Optional[List[str]],
+    comparison_arm_names: Optional[list[str]],
     baseline_arm_name: Optional[str] = None,
 ) -> Optional[str]:
     """Calculate metric improvement of the experiment against baseline.
@@ -1491,7 +1481,7 @@ def warn_if_unpredictable_metrics(
     experiment: Experiment,
     generation_strategy: GenerationStrategy,
     model_fit_threshold: float,
-    metric_names: Optional[List[str]] = None,
+    metric_names: Optional[list[str]] = None,
     model_fit_metric_name: str = "coefficient_of_determination",
 ) -> Optional[str]:
     """Warn if any optimization config metrics are considered unpredictable,

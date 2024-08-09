@@ -8,7 +8,7 @@
 
 import logging
 import warnings
-from typing import Any, Dict
+from typing import Any
 
 import torch
 from ax.core.objective import MultiObjective
@@ -56,7 +56,7 @@ class TestDispatchUtils(TestCase):
             self.assertEqual(sobol_gpei._steps[0].model, Models.SOBOL)
             self.assertEqual(sobol_gpei._steps[0].num_trials, 5)
             self.assertEqual(sobol_gpei._steps[1].model, Models.BOTORCH_MODULAR)
-            expected_model_kwargs: Dict[str, Any] = {
+            expected_model_kwargs: dict[str, Any] = {
                 "torch_device": None,
                 "transforms": expected_transforms,
                 "transform_configs": expected_transform_configs,

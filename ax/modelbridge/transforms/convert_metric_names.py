@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.observation import Observation, ObservationData
@@ -40,7 +40,7 @@ class ConvertMetricNames(Transform):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
@@ -48,13 +48,13 @@ class ConvertMetricNames(Transform):
         if config is None:
             raise ValueError("Config cannot be none.")
 
-        self.metric_name_map: Dict[str, str] = config.get(  # pyre-ignore[8]
+        self.metric_name_map: dict[str, str] = config.get(  # pyre-ignore[8]
             "metric_name_map"
         )
-        self.metric_name_to_trial_type: Dict[str, str] = config.get(  # pyre-ignore[8]
+        self.metric_name_to_trial_type: dict[str, str] = config.get(  # pyre-ignore[8]
             "metric_name_to_trial_type"
         )
-        self.trial_index_to_type: Dict[int, str] = config.get(  # pyre-ignore[8]
+        self.trial_index_to_type: dict[int, str] = config.get(  # pyre-ignore[8]
             "trial_index_to_type"
         )
 
@@ -73,7 +73,7 @@ class ConvertMetricNames(Transform):
 
         # For each trial type, give a map from transformed name back to original
         # Usage: reverse_metric_name_map[trial_type][transformed_name] -> original_name
-        self.reverse_metric_name_map: Dict[str, Dict[str, str]] = {}
+        self.reverse_metric_name_map: dict[str, dict[str, str]] = {}
 
         # For most practical cases we want to skip the untransform
         # pyre-fixme[4]: Attribute must be annotated.
@@ -89,8 +89,8 @@ class ConvertMetricNames(Transform):
     @copy_doc(Transform._transform_observation_data)
     def _transform_observation_data(
         self,
-        observation_data: List[ObservationData],
-    ) -> List[ObservationData]:
+        observation_data: list[ObservationData],
+    ) -> list[ObservationData]:
         for obsd in observation_data:
             for i in range(len(obsd.metric_names)):
                 if obsd.metric_names[i] in self.metric_name_map:
@@ -100,8 +100,8 @@ class ConvertMetricNames(Transform):
     @copy_doc(Transform.untransform_observations)
     def untransform_observations(
         self,
-        observations: List[Observation],
-    ) -> List[Observation]:
+        observations: list[Observation],
+    ) -> list[Observation]:
         if not self.perform_untransform:
             return observations
         for obs in observations:
@@ -137,8 +137,8 @@ def tconfig_from_mt_experiment(experiment: MultiTypeExperiment) -> TConfig:
 
 
 def convert_mt_observations(
-    observations: List[Observation], experiment: MultiTypeExperiment
-) -> List[Observation]:
+    observations: list[Observation], experiment: MultiTypeExperiment
+) -> list[Observation]:
     """Apply ConvertMetricNames transform to observations for a MT experiment."""
     transform = ConvertMetricNames(
         search_space=None,

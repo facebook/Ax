@@ -5,8 +5,9 @@
 
 # pyre-strict
 
+from collections.abc import Sequence
 from functools import reduce
-from typing import Any, Dict, Optional, Sequence, Set
+from typing import Any, Optional
 
 from ax.core.experiment import Experiment
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
@@ -31,10 +32,10 @@ class LogicalEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 class AndEarlyStoppingStrategy(LogicalEarlyStoppingStrategy):
     def should_stop_trials_early(
         self,
-        trial_indices: Set[int],
+        trial_indices: set[int],
         experiment: Experiment,
-        **kwargs: Dict[str, Any],
-    ) -> Dict[int, Optional[str]]:
+        **kwargs: dict[str, Any],
+    ) -> dict[int, Optional[str]]:
 
         left = self.left.should_stop_trials_early(
             trial_indices=trial_indices, experiment=experiment, **kwargs
@@ -64,10 +65,10 @@ class OrEarlyStoppingStrategy(LogicalEarlyStoppingStrategy):
 
     def should_stop_trials_early(
         self,
-        trial_indices: Set[int],
+        trial_indices: set[int],
         experiment: Experiment,
-        **kwargs: Dict[str, Any],
-    ) -> Dict[int, Optional[str]]:
+        **kwargs: dict[str, Any],
+    ) -> dict[int, Optional[str]]:
         return {
             **self.left.should_stop_trials_early(
                 trial_indices=trial_indices, experiment=experiment, **kwargs

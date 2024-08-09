@@ -6,8 +6,8 @@
 
 # pyre-strict
 
+from collections.abc import Sized
 from copy import deepcopy
-from typing import List, Sized
 
 import numpy as np
 from ax.core.observation import ObservationFeatures
@@ -286,7 +286,7 @@ class OrderedChoiceToIntegerRangeTransformTest(ChoiceEncodeTransformTest):
         self.assertEqual(t.__dict__, t_deprecated.__dict__)
 
 
-def normalize_values(values: Sized) -> List[float]:
+def normalize_values(values: Sized) -> list[float]:
     values = np.array(values, dtype=float)
     vmin, vmax = values.min(), values.max()
     if len(values) > 1:

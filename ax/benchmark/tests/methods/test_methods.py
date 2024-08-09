@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-from typing import Dict, Type
 
 import numpy as np
 from ax.benchmark.benchmark import benchmark_replication
@@ -29,7 +28,7 @@ class TestMethods(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.batch_size = 2
-        self.scheduler_options_dict: Dict[str, SchedulerOptions] = {
+        self.scheduler_options_dict: dict[str, SchedulerOptions] = {
             "sequential": get_benchmark_scheduler_options(),
             "batch": get_benchmark_scheduler_options(batch_size=self.batch_size),
         }
@@ -67,7 +66,7 @@ class TestMethods(TestCase):
 
     @fast_botorch_optimize
     def _test_benchmark_replication_runs(
-        self, scheduler_options: SchedulerOptions, acqf_cls: Type[AcquisitionFunction]
+        self, scheduler_options: SchedulerOptions, acqf_cls: type[AcquisitionFunction]
     ) -> None:
         problem = get_problem(problem_name="ackley4")
         method = get_sobol_botorch_modular_acquisition(

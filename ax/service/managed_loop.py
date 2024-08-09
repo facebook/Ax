@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import inspect
 import logging
-from typing import Iterable, List, Optional, Tuple
+from collections.abc import Iterable
+from typing import Optional
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
@@ -88,13 +89,13 @@ class OptimizationLoop:
 
     @staticmethod
     def with_evaluation_function(
-        parameters: List[TParameterRepresentation],
+        parameters: list[TParameterRepresentation],
         evaluation_function: TEvaluationFunction,
         experiment_name: Optional[str] = None,
         objective_name: Optional[str] = None,
         minimize: bool = False,
-        parameter_constraints: Optional[List[str]] = None,
-        outcome_constraints: Optional[List[str]] = None,
+        parameter_constraints: Optional[list[str]] = None,
+        outcome_constraints: Optional[list[str]] = None,
         total_trials: int = 20,
         arms_per_trial: int = 1,
         wait_time: int = 0,
@@ -125,14 +126,14 @@ class OptimizationLoop:
     @classmethod
     def with_runners_and_metrics(
         cls,
-        parameters: List[TParameterRepresentation],
+        parameters: list[TParameterRepresentation],
         path_to_runner: str,
-        paths_to_metrics: List[str],
+        paths_to_metrics: list[str],
         experiment_name: Optional[str] = None,
         objective_name: Optional[str] = None,
         minimize: bool = False,
-        parameter_constraints: Optional[List[str]] = None,
-        outcome_constraints: Optional[List[str]] = None,
+        parameter_constraints: Optional[list[str]] = None,
+        outcome_constraints: Optional[list[str]] = None,
         total_trials: int = 20,
         arms_per_trial: int = 1,
         wait_time: int = 0,
@@ -185,7 +186,7 @@ class OptimizationLoop:
 
     def _get_weights_by_arm(
         self, trial: BaseTrial
-    ) -> Iterable[Tuple[Arm, Optional[float]]]:
+    ) -> Iterable[tuple[Arm, Optional[float]]]:
         if isinstance(trial, Trial):
             if trial.arm is not None:
                 return [(not_none(trial.arm), None)]
@@ -246,7 +247,7 @@ class OptimizationLoop:
                 return self
         return self
 
-    def get_best_point(self) -> Tuple[TParameterization, Optional[TModelPredictArm]]:
+    def get_best_point(self) -> tuple[TParameterization, Optional[TModelPredictArm]]:
         """Obtains the best point encountered in the course
         of this optimization."""
         # Find latest trial which has a generator_run attached and get its predictions
@@ -275,18 +276,18 @@ class OptimizationLoop:
 
 
 def optimize(
-    parameters: List[TParameterRepresentation],
+    parameters: list[TParameterRepresentation],
     evaluation_function: TEvaluationFunction,
     experiment_name: Optional[str] = None,
     objective_name: Optional[str] = None,
     minimize: bool = False,
-    parameter_constraints: Optional[List[str]] = None,
-    outcome_constraints: Optional[List[str]] = None,
+    parameter_constraints: Optional[list[str]] = None,
+    outcome_constraints: Optional[list[str]] = None,
     total_trials: int = 20,
     arms_per_trial: int = 1,
     random_seed: Optional[int] = None,
     generation_strategy: Optional[GenerationStrategy] = None,
-) -> Tuple[
+) -> tuple[
     TParameterization, Optional[TModelPredictArm], Experiment, Optional[ModelBridge]
 ]:
     """Construct and run a full optimization loop."""

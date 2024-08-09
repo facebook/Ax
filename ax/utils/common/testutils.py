@@ -21,22 +21,12 @@ import sys
 import types
 import unittest
 import warnings
+from collections.abc import Generator
+from contextlib import AbstractContextManager
 from logging import Logger
 from pstats import Stats
 from types import FrameType
-from typing import (
-    Any,
-    Callable,
-    ContextManager,
-    Dict,
-    Generator,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import Any, Callable, Optional, TypeVar, Union
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -49,14 +39,14 @@ from botorch.exceptions.warnings import InputDataWarning
 from pyfakefs import fake_filesystem_unittest
 
 
-T_AX_BASE_OR_ATTR_DICT = Union[Base, Dict[str, Any]]
+T_AX_BASE_OR_ATTR_DICT = Union[Base, dict[str, Any]]
 COMPARISON_STR_MAX_LEVEL = 8
 T = TypeVar("T")
 
 logger: Logger = get_logger(__name__)
 
 
-def _get_tb_lines(tb: types.TracebackType) -> List[Tuple[str, int, str]]:
+def _get_tb_lines(tb: types.TracebackType) -> list[tuple[str, int, str]]:
     """Get the filename and line number and line contents of all the lines in the
     traceback with the root at the top.
     """
@@ -87,7 +77,7 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
 
     def __init__(
         self,
-        expected: Type[Exception],
+        expected: type[Exception],
         test_case: unittest.TestCase,
         expected_line: Optional[str] = None,
         expected_regex: Optional[str] = None,
@@ -105,7 +95,7 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
     #  inconsistently.
     def __exit__(
         self,
-        exc_type: Optional[Type[Exception]],
+        exc_type: Optional[type[Exception]],
         exc_value: Optional[Exception],
         tb: Optional[types.TracebackType],
     ) -> bool:
@@ -134,7 +124,7 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
 # deprecated functions are called.
 # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def _deprecate(original_func: Callable) -> Callable:
-    def _deprecated_func(*args: List[Any], **kwargs: Dict[str, Any]) -> None:
+    def _deprecated_func(*args: list[Any], **kwargs: dict[str, Any]) -> None:
         raise RuntimeError(
             f"This function is deprecated please use {original_func.__name__} "
             "instead."
@@ -258,7 +248,7 @@ def _build_comparison_str(
 
 
 def setup_import_mocks(
-    mocked_import_paths: List[str], mock_config_dict: Optional[Dict[str, Any]] = None
+    mocked_import_paths: list[str], mock_config_dict: Optional[dict[str, Any]] = None
 ) -> None:
     # pyre-fixme[3]
     def custom_import(name: str, *args: Any, **kwargs: Any) -> Any:
@@ -417,16 +407,16 @@ class TestCase(fake_filesystem_unittest.TestCase):
 
     def assertRaisesOn(
         self,
-        exc: Type[Exception],
+        exc: type[Exception],
         line: Optional[str] = None,
         regex: Optional[str] = None,
-    ) -> ContextManager[None]:
+    ) -> AbstractContextManager[None]:
         """Assert that an exception is raised on a specific line."""
         context = _AssertRaisesContextOn(exc, self, line, regex)
         return context.handle("assertRaisesOn", [], {})
 
     def assertDictsAlmostEqual(
-        self, a: Dict[str, Any], b: Dict[str, Any], consider_nans_equal: bool = False
+        self, a: dict[str, Any], b: dict[str, Any], consider_nans_equal: bool = False
     ) -> None:
         """Testing utility that checks that
         1) the keys of `a` and `b` are identical, and that

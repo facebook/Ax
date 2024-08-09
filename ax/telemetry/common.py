@@ -7,7 +7,7 @@
 
 import warnings
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Optional
 
 from ax.core.experiment import Experiment
 from ax.exceptions.core import AxWarning
@@ -21,10 +21,10 @@ from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
 
 # Models whose generated trails will count towards initialization_trials
-INITIALIZATION_MODELS: List[Models] = [Models.SOBOL, Models.UNIFORM]
+INITIALIZATION_MODELS: list[Models] = [Models.SOBOL, Models.UNIFORM]
 
 # Models whose generated trails will count towards other_trials
-OTHER_MODELS: List[Models] = []
+OTHER_MODELS: list[Models] = []
 # Product surface to use if none is provided
 DEFAULT_PRODUCT_SURFACE = "unknown"
 
@@ -77,7 +77,7 @@ def _get_max_transformed_dimensionality(
 
 def _extract_transforms_and_configs(
     step: GenerationStep,
-) -> Tuple[List[Type[Transform]], Dict[str, Any]]:
+) -> tuple[list[type[Transform]], dict[str, Any]]:
     """
     Extract Transforms and their configs from the GenerationStep. Prefer kwargs
     provided over the model's defaults.

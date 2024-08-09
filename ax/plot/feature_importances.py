@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -62,7 +62,7 @@ def plot_feature_importance_by_metric_plotly(model: ModelBridge) -> go.Figure:
     importances = []
     for metric_name in sorted(model.metric_names):
         try:
-            vals: Dict[str, Any] = model.feature_importances(metric_name)
+            vals: dict[str, Any] = model.feature_importances(metric_name)
             vals["index"] = metric_name
             importances.append(vals)
         except NotImplementedError:
@@ -97,11 +97,11 @@ def plot_feature_importance_by_metric(model: ModelBridge) -> AxPlotConfig:
 
 def plot_feature_importance_by_feature_plotly(
     model: Optional[ModelBridge] = None,
-    sensitivity_values: Optional[Dict[str, Dict[str, Union[float, np.ndarray]]]] = None,
+    sensitivity_values: Optional[dict[str, dict[str, Union[float, np.ndarray]]]] = None,
     relative: bool = False,
     caption: str = "",
     importance_measure: str = "",
-    label_dict: Optional[Dict[str, str]] = None,
+    label_dict: Optional[dict[str, str]] = None,
 ) -> go.Figure:
     """One plot per metric, showing importances by feature.
 
@@ -273,11 +273,11 @@ def plot_feature_importance_by_feature_plotly(
 
 def plot_feature_importance_by_feature(
     model: Optional[ModelBridge] = None,
-    sensitivity_values: Optional[Dict[str, Dict[str, Union[float, np.ndarray]]]] = None,
+    sensitivity_values: Optional[dict[str, dict[str, Union[float, np.ndarray]]]] = None,
     relative: bool = False,
     caption: str = "",
     importance_measure: str = "",
-    label_dict: Optional[Dict[str, str]] = None,
+    label_dict: Optional[dict[str, str]] = None,
 ) -> AxPlotConfig:
     """Wrapper method to convert `plot_feature_importance_by_feature_plotly` to
     AxPlotConfig"""
@@ -299,7 +299,7 @@ def plot_relative_feature_importance_plotly(model: ModelBridge) -> go.Figure:
     importances = []
     for metric_name in sorted(model.metric_names):
         try:
-            vals: Dict[str, Any] = model.feature_importances(metric_name)
+            vals: dict[str, Any] = model.feature_importances(metric_name)
             vals["index"] = metric_name
             importances.append(vals)
         except Exception:

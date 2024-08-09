@@ -8,7 +8,7 @@
 
 from logging import Logger
 from time import time
-from typing import List, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 import pandas as pd
 
@@ -45,7 +45,7 @@ class TimeAsFeature(Transform):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
@@ -85,8 +85,8 @@ class TimeAsFeature(Transform):
         ) - start_time
 
     def transform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             if obsf.start_time is not None:
                 start_time = obsf.start_time.timestamp()
@@ -135,8 +135,8 @@ class TimeAsFeature(Transform):
         return search_space
 
     def untransform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             start_time = checked_cast(float, obsf.parameters.pop("start_time"))
             obsf.start_time = unixtime_to_pandas_ts(start_time)

@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-from typing import Set, Tuple
 from unittest.mock import MagicMock, Mock, patch
 
 import torch
@@ -54,7 +53,7 @@ class TorchUtilsTest(TestCase):
         self.objective_thresholds = torch.tensor([0.5, 1.5], **tkwargs)
 
     def test_get_X_pending_and_observed(self) -> None:
-        def _to_obs_set(X: torch.Tensor) -> Set[Tuple[float]]:
+        def _to_obs_set(X: torch.Tensor) -> set[tuple[float]]:
             return {tuple(float(x_i) for x_i in x) for x in X}
 
         # Apply filter normally

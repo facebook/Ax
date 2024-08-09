@@ -14,9 +14,10 @@ Typically used to retrieve partial learning curves of ML training jobs.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 
 from logging import Logger
-from typing import Any, Dict, Iterable, Optional, Set, Union
+from typing import Any, Optional, Union
 
 import pandas as pd
 from ax.core.base_trial import BaseTrial
@@ -71,7 +72,7 @@ class AbstractCurveMetric(MapMetric, ABC):
     @abstractmethod
     def get_ids_from_trials(
         self, trials: Iterable[BaseTrial]
-    ) -> Dict[int, Union[int, str]]:
+    ) -> dict[int, Union[int, str]]:
         """Get backend run ids associated with trials.
 
         Args:
@@ -91,8 +92,8 @@ class AbstractCurveMetric(MapMetric, ABC):
     def get_curves_from_ids(
         self,
         ids: Iterable[Union[int, str]],
-        names: Optional[Set[str]] = None,
-    ) -> Dict[Union[int, str], Dict[str, pd.Series]]:
+        names: Optional[set[str]] = None,
+    ) -> dict[Union[int, str], dict[str, pd.Series]]:
         """Get partial result curves from backend ids.
 
         Args:
@@ -117,7 +118,7 @@ class AbstractCurveMetric(MapMetric, ABC):
         ...  # pragma: nocover
 
     @property
-    def curve_names(self) -> Set[str]:
+    def curve_names(self) -> set[str]:
         return {self.curve_name}
 
     def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> MetricFetchResult:
@@ -128,7 +129,7 @@ class AbstractCurveMetric(MapMetric, ABC):
 
     def bulk_fetch_trial_data(
         self, trial: BaseTrial, metrics: Iterable[Metric], **kwargs: Any
-    ) -> Dict[str, MetricFetchResult]:
+    ) -> dict[str, MetricFetchResult]:
         """Fetch multiple metrics data for one trial."""
         return self.bulk_fetch_experiment_data(
             experiment=trial.experiment, metrics=metrics, trials=[trial], **kwargs
@@ -140,7 +141,7 @@ class AbstractCurveMetric(MapMetric, ABC):
         metrics: Iterable[Metric],
         trials: Optional[Iterable[BaseTrial]] = None,
         **kwargs: Any,
-    ) -> Dict[int, Dict[str, MetricFetchResult]]:
+    ) -> dict[int, dict[str, MetricFetchResult]]:
         """Fetch multiple metrics data for an experiment."""
         trials = list(experiment.trials.values() if trials is None else trials)
         trials = [trial for trial in trials if trial.status.expecting_data]
@@ -251,9 +252,9 @@ class AbstractCurveMetric(MapMetric, ABC):
     def get_df_from_curve_series(
         self,
         experiment: Experiment,
-        all_curve_series: Dict[Union[int, str], Dict[str, pd.Series]],
+        all_curve_series: dict[Union[int, str], dict[str, pd.Series]],
         metrics: Iterable[Metric],
-        trial_idx_to_id: Dict[int, Union[int, str]],
+        trial_idx_to_id: dict[int, Union[int, str]],
     ) -> Optional[pd.DataFrame]:
         return get_df_from_curve_series(
             experiment=experiment,
@@ -266,9 +267,9 @@ class AbstractCurveMetric(MapMetric, ABC):
 
 def get_df_from_curve_series(
     experiment: Experiment,
-    all_curve_series: Dict[Union[int, str], Dict[str, pd.Series]],
+    all_curve_series: dict[Union[int, str], dict[str, pd.Series]],
     metrics: Iterable[Metric],
-    trial_idx_to_id: Dict[int, Union[int, str]],
+    trial_idx_to_id: dict[int, Union[int, str]],
     map_key: str,
 ) -> Optional[pd.DataFrame]:
     """Convert a `all_curve_series` dict (from `get_curves_from_ids`) into
@@ -314,7 +315,7 @@ def get_df_from_curve_series(
 
 
 def _get_single_curve(
-    curve_series: Dict[str, pd.Series],
+    curve_series: dict[str, pd.Series],
     curve_name: str,
     map_key: str,
     trial: BaseTrial,

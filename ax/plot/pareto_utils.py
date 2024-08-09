@@ -9,7 +9,7 @@
 from copy import deepcopy
 from itertools import combinations
 from logging import Logger
-from typing import Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import NamedTuple, Optional, Union
 
 import numpy as np
 import torch
@@ -45,8 +45,8 @@ from botorch.utils.multi_objective import is_non_dominated
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
 
 # type aliases
-Mu = Dict[str, List[float]]
-Cov = Dict[str, Dict[str, List[float]]]
+Mu = dict[str, list[float]]
+Cov = dict[str, dict[str, list[float]]]
 
 
 logger: Logger = get_logger(__name__)
@@ -54,8 +54,8 @@ logger: Logger = get_logger(__name__)
 
 def _extract_observed_pareto_2d(
     Y: np.ndarray,
-    reference_point: Optional[Tuple[float, float]],
-    minimize: Union[bool, Tuple[bool, bool]] = True,
+    reference_point: Optional[tuple[float, float]],
+    minimize: Union[bool, tuple[bool, bool]] = True,
 ) -> np.ndarray:
     if Y.shape[1] != 2:
         raise NotImplementedError("Currently only the 2-dim case is handled.")
@@ -107,19 +107,19 @@ class ParetoFrontierResults(NamedTuple):
     - arm_names: Optional list of arm names for each parameterization.
     """
 
-    param_dicts: List[TParameterization]
-    means: Dict[str, List[float]]
-    sems: Dict[str, List[float]]
+    param_dicts: list[TParameterization]
+    means: dict[str, list[float]]
+    sems: dict[str, list[float]]
     primary_metric: str
     secondary_metric: str
-    absolute_metrics: List[str]
-    objective_thresholds: Optional[Dict[str, float]]
-    arm_names: Optional[List[Optional[str]]]
+    absolute_metrics: list[str]
+    objective_thresholds: Optional[dict[str, float]]
+    arm_names: Optional[list[Optional[str]]]
 
 
 def _extract_sq_data(
     experiment: Experiment, data: Data
-) -> Tuple[Dict[str, float], Dict[str, float]]:
+) -> tuple[dict[str, float], dict[str, float]]:
     """
     Returns sq_means and sq_sems, each a mapping from metric name to, respectively, mean
     and sem of the status quo arm. Empty dictionaries if no SQ arm.
@@ -138,8 +138,8 @@ def _extract_sq_data(
 
 
 def _relativize_values(
-    means: List[float], sq_mean: float, sems: List[float], sq_sem: float
-) -> Tuple[List[float], List[float]]:
+    means: list[float], sq_mean: float, sems: list[float], sq_sem: float
+) -> tuple[list[float], list[float]]:
     """
     Relativize values, using delta method if SEMs provided, or just by relativizing
     means if not. Relativization is as percent.
@@ -164,8 +164,8 @@ def get_observed_pareto_frontiers(
     experiment: Experiment,
     data: Optional[Data] = None,
     rel: Optional[bool] = None,
-    arm_names: Optional[List[str]] = None,
-) -> List[ParetoFrontierResults]:
+    arm_names: Optional[list[str]] = None,
+) -> list[ParetoFrontierResults]:
     """
     Find all Pareto points from an experiment.
 
@@ -343,8 +343,8 @@ def compute_posterior_pareto_frontier(
     primary_objective: Metric,
     secondary_objective: Metric,
     data: Optional[Data] = None,
-    outcome_constraints: Optional[List[OutcomeConstraint]] = None,
-    absolute_metrics: Optional[List[str]] = None,
+    outcome_constraints: Optional[list[OutcomeConstraint]] = None,
+    absolute_metrics: Optional[list[str]] = None,
     num_points: int = 10,
     trial_index: Optional[int] = None,
 ) -> ParetoFrontierResults:
@@ -444,7 +444,7 @@ def compute_posterior_pareto_frontier(
     else:
         status_quo_prediction = None
 
-    param_dicts: List[TParameterization] = []
+    param_dicts: list[TParameterization] = []
 
     # Construct weightings with linear angular spacing.
     # TODO: Verify whether 0, 1 weights cause problems because of subset_model.
@@ -483,14 +483,14 @@ def compute_posterior_pareto_frontier(
 
 
 def _extract_pareto_frontier_results(
-    param_dicts: List[TParameterization],
+    param_dicts: list[TParameterization],
     means: Mu,
     variances: Cov,
     primary_metric: str,
     secondary_metric: str,
-    absolute_metrics: List[str],
-    outcome_constraints: Optional[List[OutcomeConstraint]],
-    status_quo_prediction: Optional[Tuple[Mu, Cov]],
+    absolute_metrics: list[str],
+    outcome_constraints: Optional[list[OutcomeConstraint]],
+    status_quo_prediction: Optional[tuple[Mu, Cov]],
 ) -> ParetoFrontierResults:
     """Extract prediction results into ParetoFrontierResults struture."""
     metrics = list(means.keys())
@@ -529,7 +529,7 @@ def _extract_pareto_frontier_results(
 
 
 def _validate_outcome_constraints(
-    outcome_constraints: List[OutcomeConstraint],
+    outcome_constraints: list[OutcomeConstraint],
     primary_objective: Metric,
     secondary_objective: Metric,
 ) -> None:
@@ -548,7 +548,7 @@ def _build_scalarized_optimization_config(
     weights: np.ndarray,
     primary_objective: Metric,
     secondary_objective: Metric,
-    outcome_constraints: Optional[List[OutcomeConstraint]] = None,
+    outcome_constraints: Optional[list[OutcomeConstraint]] = None,
 ) -> MultiObjectiveOptimizationConfig:
     obj = ScalarizedObjective(
         metrics=[primary_objective, secondary_objective],
@@ -563,7 +563,7 @@ def _build_scalarized_optimization_config(
 
 def infer_reference_point_from_experiment(
     experiment: Experiment, data: Data
-) -> List[ObjectiveThreshold]:
+) -> list[ObjectiveThreshold]:
     """This functions is a wrapper around ``infer_reference_point`` to find the nadir
     point from the pareto front of an experiment. Aside from converting experiment
     to tensors, this wrapper transforms back and forth the objectives of the experiment
@@ -702,7 +702,7 @@ def infer_reference_point_from_experiment(
 
 def _get_objective_thresholds(
     optimization_config: MultiObjectiveOptimizationConfig,
-) -> List[ObjectiveThreshold]:
+) -> list[ObjectiveThreshold]:
     """Get objective thresholds for an optimization config.
 
     This will return objective thresholds with dummy values if there are

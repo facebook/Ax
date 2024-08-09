@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from importlib import import_module
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
@@ -31,9 +31,9 @@ class ParameterDistribution(SortableBase):
 
     def __init__(
         self,
-        parameters: List[TParamName],
+        parameters: list[TParamName],
         distribution_class: TDistribution,
-        distribution_parameters: Optional[Dict[str, Any]],
+        distribution_parameters: Optional[dict[str, Any]],
         multiplicative: bool = False,
     ) -> None:
         """Initialize a parameter distribution.
@@ -54,7 +54,7 @@ class ParameterDistribution(SortableBase):
         super().__init__()
         self.parameters = parameters
         self._distribution_class = distribution_class
-        self._distribution_parameters: Dict[str, Any] = distribution_parameters or {}
+        self._distribution_parameters: dict[str, Any] = distribution_parameters or {}
         self.multiplicative = multiplicative
         self._distribution: Optional[rv_frozen] = None  # pyre-ignore [11]
 
@@ -70,12 +70,12 @@ class ParameterDistribution(SortableBase):
         self._distribution_class = new_class
 
     @property
-    def distribution_parameters(self) -> Dict[str, Any]:
+    def distribution_parameters(self) -> dict[str, Any]:
         r"""The parameters of the distribution."""
         return self._distribution_parameters
 
     @distribution_parameters.setter
-    def distribution_parameters(self, new_parameters: Dict[str, Any]) -> None:
+    def distribution_parameters(self, new_parameters: dict[str, Any]) -> None:
         r"""Update the distribution parameters and delete the cached
         distribution object.
         """

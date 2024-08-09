@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from ax.core.observation import Observation
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType
@@ -40,7 +40,7 @@ class TaskChoiceToIntTaskChoice(OrderedChoiceToIntegerRange):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
@@ -48,8 +48,8 @@ class TaskChoiceToIntTaskChoice(OrderedChoiceToIntegerRange):
             search_space is not None
         ), "TaskChoiceToIntTaskChoice requires search space"
         # Identify parameters that should be transformed
-        self.encoded_parameters: Dict[str, Dict[TParamValue, int]] = {}
-        self.target_values: Dict[str, int] = {}
+        self.encoded_parameters: dict[str, dict[TParamValue, int]] = {}
+        self.target_values: dict[str, int] = {}
         for p in search_space.parameters.values():
             if isinstance(p, ChoiceParameter) and p.is_task:
                 if p.is_fidelity:
@@ -64,7 +64,7 @@ class TaskChoiceToIntTaskChoice(OrderedChoiceToIntegerRange):
                 self.target_values[p.name] = self.encoded_parameters[p.name][
                     p.target_value
                 ]
-        self.encoded_parameters_inverse: Dict[str, Dict[int, TParamValue]] = {
+        self.encoded_parameters_inverse: dict[str, dict[int, TParamValue]] = {
             p_name: {
                 transformed_value: original_value
                 for original_value, transformed_value in transforms.items()
@@ -73,7 +73,7 @@ class TaskChoiceToIntTaskChoice(OrderedChoiceToIntegerRange):
         }
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
-        transformed_parameters: Dict[str, Parameter] = {}
+        transformed_parameters: dict[str, Parameter] = {}
         for p_name, p in search_space.parameters.items():
             if p_name in self.encoded_parameters and isinstance(p, ChoiceParameter):
                 if p.is_fidelity:

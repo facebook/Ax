@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Dict, List, Union
+from typing import Union
 
 from ax.utils.common.base import SortableBase
 from ax.utils.common.equality import equality_typechecker
@@ -30,7 +30,7 @@ class RiskMeasure(SortableBase):
     def __init__(
         self,
         risk_measure: str,
-        options: Dict[str, Union[int, float, bool, List[float]]],
+        options: dict[str, Union[int, float, bool, list[float]]],
     ) -> None:
         """Initialize a risk measure.
 

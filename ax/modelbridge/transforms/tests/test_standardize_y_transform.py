@@ -8,7 +8,6 @@
 
 from copy import deepcopy
 from math import sqrt
-from typing import List
 
 import numpy as np
 from ax.core.metric import Metric
@@ -83,7 +82,7 @@ class StandardizeYTransformTest(TestCase):
         m3 = Metric(name="m3")
         m4 = Metric(name="m4")
         objective = Objective(metric=m3, minimize=False)
-        cons: List[OutcomeConstraint] = [
+        cons: list[OutcomeConstraint] = [
             OutcomeConstraint(
                 metric=m4, op=ComparisonOp.GEQ, bound=2.0, relative=False
             ),

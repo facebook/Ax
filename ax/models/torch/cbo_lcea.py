@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Any, cast, Dict, List, Optional, Tuple, Union
+from typing import Any, cast, Optional, Union
 
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
@@ -34,19 +34,19 @@ def get_map_model(
     train_X: Tensor,
     train_Y: Tensor,
     train_Yvar: Tensor,
-    decomposition: Dict[str, List[int]],
+    decomposition: dict[str, list[int]],
     train_embedding: bool = True,
     # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
     #  `typing.Dict` to avoid runtime subscripting errors.
-    cat_feature_dict: Optional[Dict] = None,
+    cat_feature_dict: Optional[dict] = None,
     # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
     #  `typing.Dict` to avoid runtime subscripting errors.
-    embs_feature_dict: Optional[Dict] = None,
-    embs_dim_list: Optional[List[int]] = None,
+    embs_feature_dict: Optional[dict] = None,
+    embs_dim_list: Optional[list[int]] = None,
     # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
     #  `typing.Dict` to avoid runtime subscripting errors.
-    context_weight_dict: Optional[Dict] = None,
-) -> Tuple[LCEAGP, ExactMarginalLogLikelihood]:
+    context_weight_dict: Optional[dict] = None,
+) -> tuple[LCEAGP, ExactMarginalLogLikelihood]:
     """Obtain MAP fitting of Latent Context Embedding Additive (LCE-A) GP."""
     # assert train_X is non-batched
     assert train_X.dim() < 3, "Don't support batch training"
@@ -82,18 +82,18 @@ class LCEABO(BotorchModel):
 
     def __init__(
         self,
-        decomposition: Dict[str, List[str]],
+        decomposition: dict[str, list[str]],
         # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
         #  `typing.Dict` to avoid runtime subscripting errors.
-        cat_feature_dict: Optional[Dict] = None,
+        cat_feature_dict: Optional[dict] = None,
         # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
         #  `typing.Dict` to avoid runtime subscripting errors.
-        embs_feature_dict: Optional[Dict] = None,
+        embs_feature_dict: Optional[dict] = None,
         # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
         #  `typing.Dict` to avoid runtime subscripting errors.
-        context_weight_dict: Optional[Dict] = None,
-        embs_dim_list: Optional[List[int]] = None,
-        gp_model_args: Optional[Dict[str, Any]] = None,
+        context_weight_dict: Optional[dict] = None,
+        embs_dim_list: Optional[list[int]] = None,
+        gp_model_args: Optional[dict[str, Any]] = None,
     ) -> None:
         # add validation for input decomposition
         for param_list in list(decomposition.values()):
@@ -107,7 +107,7 @@ class LCEABO(BotorchModel):
         self.embs_dim_list = embs_dim_list
         # pyre-fixme[4]: Attribute must be annotated.
         self.gp_model_args = gp_model_args if gp_model_args is not None else {}
-        self.feature_names: List[str] = []
+        self.feature_names: list[str] = []
         # pyre-fixme[4]: Attribute must be annotated.
         self.train_embedding = self.gp_model_args.get("train_embedding", True)
         super().__init__(
@@ -117,9 +117,9 @@ class LCEABO(BotorchModel):
     @copy_doc(TorchModel.fit)
     def fit(
         self,
-        datasets: List[SupervisedDataset],
+        datasets: list[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
-        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+        candidate_metadata: Optional[list[list[TCandidateMetadata]]] = None,
     ) -> None:
         if len(search_space_digest.feature_names) == 0:
             raise ValueError("feature names are required for LCEABO")
@@ -139,13 +139,13 @@ class LCEABO(BotorchModel):
 
     def get_and_fit_model(
         self,
-        Xs: List[Tensor],
-        Ys: List[Tensor],
-        Yvars: List[Tensor],
-        task_features: List[int],
-        fidelity_features: List[int],
-        metric_names: List[str],
-        state_dict: Optional[Dict[str, Tensor]] = None,
+        Xs: list[Tensor],
+        Ys: list[Tensor],
+        Yvars: list[Tensor],
+        task_features: list[int],
+        fidelity_features: list[int],
+        metric_names: list[str],
+        state_dict: Optional[dict[str, Tensor]] = None,
         fidelity_model_id: Optional[int] = None,
         **kwargs: Any,
     ) -> GPyTorchModel:

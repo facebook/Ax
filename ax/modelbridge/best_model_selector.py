@@ -11,7 +11,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from enum import Enum
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import numpy as np
 from ax.exceptions.core import UserInputError
@@ -19,12 +19,12 @@ from ax.modelbridge.model_spec import ModelSpec
 from ax.utils.common.base import Base
 from ax.utils.common.typeutils import not_none
 
-ARRAYLIKE = Union[np.ndarray, List[float], List[np.ndarray]]
+ARRAYLIKE = Union[np.ndarray, list[float], list[np.ndarray]]
 
 
 class BestModelSelector(ABC, Base):
     @abstractmethod
-    def best_model(self, model_specs: List[ModelSpec]) -> ModelSpec:
+    def best_model(self, model_specs: list[ModelSpec]) -> ModelSpec:
         """Return the best ``ModelSpec`` based on some criteria.
 
         NOTE: The returned ``ModelSpec`` may be a different object than
@@ -85,7 +85,7 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
         diagnostic: str,
         metric_aggregation: ReductionCriterion,
         criterion: ReductionCriterion,
-        model_cv_kwargs: Optional[Dict[str, Any]] = None,
+        model_cv_kwargs: Optional[dict[str, Any]] = None,
     ) -> None:
         self.diagnostic = diagnostic
         if not isinstance(metric_aggregation, ReductionCriterion) or not isinstance(
@@ -103,7 +103,7 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
         self.criterion = criterion
         self.model_cv_kwargs = model_cv_kwargs
 
-    def best_model(self, model_specs: List[ModelSpec]) -> ModelSpec:
+    def best_model(self, model_specs: list[ModelSpec]) -> ModelSpec:
         """Return the best ``ModelSpec`` based on the specified diagnostic.
 
         Args:

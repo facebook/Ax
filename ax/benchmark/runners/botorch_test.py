@@ -6,7 +6,8 @@
 # pyre-strict
 
 import importlib
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type, Union
+from collections.abc import Iterable
+from typing import Any, Optional, Union
 
 import torch
 from ax.benchmark.runners.base import BenchmarkRunner
@@ -35,15 +36,15 @@ class BotorchTestProblemRunner(BenchmarkRunner):
 
     test_problem: BaseTestProblem
     _is_constrained: bool
-    _test_problem_class: Type[BaseTestProblem]
-    _test_problem_kwargs: Optional[Dict[str, Any]]
+    _test_problem_class: type[BaseTestProblem]
+    _test_problem_kwargs: Optional[dict[str, Any]]
 
     def __init__(
         self,
-        test_problem_class: Type[BaseTestProblem],
-        test_problem_kwargs: Dict[str, Any],
-        outcome_names: List[str],
-        modified_bounds: Optional[List[Tuple[float, float]]] = None,
+        test_problem_class: type[BaseTestProblem],
+        test_problem_kwargs: dict[str, Any],
+        outcome_names: list[str],
+        modified_bounds: Optional[list[tuple[float, float]]] = None,
     ) -> None:
         """Initialize the test problem runner.
 
@@ -78,7 +79,7 @@ class BotorchTestProblemRunner(BenchmarkRunner):
         self._modified_bounds = modified_bounds
 
     @property
-    def outcome_names(self) -> List[str]:
+    def outcome_names(self) -> list[str]:
         return self._outcome_names
 
     @equality_typechecker
@@ -91,9 +92,9 @@ class BotorchTestProblemRunner(BenchmarkRunner):
             == other.test_problem.__class__.__name__
         )
 
-    def get_noise_stds(self) -> Union[None, float, Dict[str, float]]:
+    def get_noise_stds(self) -> Union[None, float, dict[str, float]]:
         noise_std = self.test_problem.noise_std
-        noise_std_dict: Dict[str, float] = {}
+        noise_std_dict: dict[str, float] = {}
         num_obj = 1 if not self._is_moo else self.test_problem.num_objectives
 
         # populate any noise_stds for constraints
@@ -172,12 +173,12 @@ class BotorchTestProblemRunner(BenchmarkRunner):
 
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
-    ) -> Dict[TrialStatus, Set[int]]:
+    ) -> dict[TrialStatus, set[int]]:
         return {TrialStatus.COMPLETED: {t.index for t in trials}}
 
     @classmethod
     # pyre-fixme [2]: Parameter `obj` must have a type other than `Any``
-    def serialize_init_args(cls, obj: Any) -> Dict[str, Any]:
+    def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
         """Serialize the properties needed to initialize the runner.
         Used for storage.
         """
@@ -194,10 +195,10 @@ class BotorchTestProblemRunner(BenchmarkRunner):
     @classmethod
     def deserialize_init_args(
         cls,
-        args: Dict[str, Any],
+        args: dict[str, Any],
         decoder_registry: Optional[TDecoderRegistry] = None,
         class_decoder_registry: Optional[TClassDecoderRegistry] = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Given a dictionary, deserialize the properties needed to initialize the
         runner. Used for storage.
         """

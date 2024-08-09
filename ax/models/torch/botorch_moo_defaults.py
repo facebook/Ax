@@ -27,7 +27,7 @@ References
 
 from __future__ import annotations
 
-from typing import Callable, cast, Dict, List, Optional, Tuple, Union
+from typing import Callable, cast, Optional, Union
 
 import torch
 from ax.exceptions.core import AxError
@@ -74,15 +74,15 @@ TFrontierEvaluator = Callable[
         Optional[Tensor],
         Optional[Tensor],
         Optional[Tensor],
-        Optional[Tuple[Tensor, Tensor]],
+        Optional[tuple[Tensor, Tensor]],
     ],
-    Tuple[Tensor, Tensor, Tensor],
+    tuple[Tensor, Tensor, Tensor],
 ]
 
 
 def get_weighted_mc_objective_and_objective_thresholds(
     objective_weights: Tensor, objective_thresholds: Tensor
-) -> Tuple[WeightedMCMultiOutputObjective, Tensor]:
+) -> tuple[WeightedMCMultiOutputObjective, Tensor]:
     r"""Construct weighted objective and apply the weights to objective thresholds.
 
     Args:
@@ -113,7 +113,7 @@ def get_NEHVI(
     model: Model,
     objective_weights: Tensor,
     objective_thresholds: Tensor,
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
     X_observed: Optional[Tensor] = None,
     X_pending: Optional[Tensor] = None,
     *,
@@ -180,7 +180,7 @@ def get_qLogNEHVI(
     model: Model,
     objective_weights: Tensor,
     objective_thresholds: Tensor,
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
     X_observed: Optional[Tensor] = None,
     X_pending: Optional[Tensor] = None,
     *,
@@ -248,7 +248,7 @@ def _get_NEHVI(
     model: Model,
     objective_weights: Tensor,
     objective_thresholds: Tensor,
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
     X_observed: Optional[Tensor] = None,
     X_pending: Optional[Tensor] = None,
     *,
@@ -311,7 +311,7 @@ def get_EHVI(
     model: Model,
     objective_weights: Tensor,
     objective_thresholds: Tensor,
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
     X_observed: Optional[Tensor] = None,
     X_pending: Optional[Tensor] = None,
     *,
@@ -370,7 +370,7 @@ def get_qLogEHVI(
     model: Model,
     objective_weights: Tensor,
     objective_thresholds: Tensor,
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
     X_observed: Optional[Tensor] = None,
     X_pending: Optional[Tensor] = None,
     *,
@@ -430,7 +430,7 @@ def _get_EHVI(
     model: Model,
     objective_weights: Tensor,
     objective_thresholds: Tensor,
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
     X_observed: Optional[Tensor] = None,
     X_pending: Optional[Tensor] = None,
     *,
@@ -485,15 +485,15 @@ def _get_EHVI(
 
 # TODO (jej): rewrite optimize_acqf wrappers to avoid duplicate code.
 def scipy_optimizer_list(
-    acq_function_list: List[AcquisitionFunction],
+    acq_function_list: list[AcquisitionFunction],
     bounds: Tensor,
-    inequality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]] = None,
-    fixed_features: Optional[Dict[int, float]] = None,
+    inequality_constraints: Optional[list[tuple[Tensor, Tensor, float]]] = None,
+    fixed_features: Optional[dict[int, float]] = None,
     rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
     num_restarts: int = 20,
     raw_samples: Optional[int] = None,
-    options: Optional[Dict[str, Union[bool, float, int, str]]] = None,
-) -> Tuple[Tensor, Tensor]:
+    options: Optional[dict[str, Union[bool, float, int, str]]] = None,
+) -> tuple[Tensor, Tensor]:
     r"""Sequential optimizer using scipy's minimize module on a numpy-adaptor.
 
     The ith acquisition in the sequence uses the ith given acquisition_function.
@@ -521,7 +521,7 @@ def scipy_optimizer_list(
           conditional on having observed candidates `0,1,...,i-1`.
     """
     # Use SLSQP by default for small problems since it yields faster wall times.
-    optimize_options: Dict[str, Union[bool, float, int, str]] = {
+    optimize_options: dict[str, Union[bool, float, int, str]] = {
         "batch_limit": 5,
         "init_batch_limit": 32,
         "method": "SLSQP",
@@ -548,8 +548,8 @@ def pareto_frontier_evaluator(
     X: Optional[Tensor] = None,
     Y: Optional[Tensor] = None,
     Yvar: Optional[Tensor] = None,
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-) -> Tuple[Tensor, Tensor, Tensor]:
+    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
+) -> tuple[Tensor, Tensor, Tensor]:
     """Return outcomes predicted to lie on a pareto frontier.
 
     Given a model and points to evaluate, use the model to predict which points
@@ -654,12 +654,12 @@ def pareto_frontier_evaluator(
 def infer_objective_thresholds(
     model: Model,
     objective_weights: Tensor,  # objective_directions
-    bounds: Optional[List[Tuple[float, float]]] = None,
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-    linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-    fixed_features: Optional[Dict[int, float]] = None,
+    bounds: Optional[list[tuple[float, float]]] = None,
+    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
+    linear_constraints: Optional[tuple[Tensor, Tensor]] = None,
+    fixed_features: Optional[dict[int, float]] = None,
     subset_idcs: Optional[Tensor] = None,
-    Xs: Optional[List[Tensor]] = None,
+    Xs: Optional[list[Tensor]] = None,
     X_observed: Optional[Tensor] = None,
     objective_thresholds: Optional[Tensor] = None,
 ) -> Tensor:

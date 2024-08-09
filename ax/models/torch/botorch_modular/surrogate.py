@@ -13,7 +13,7 @@ from collections import OrderedDict
 from collections.abc import Sequence
 from copy import deepcopy
 from logging import Logger
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Optional, Union
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -80,7 +80,7 @@ logger: Logger = get_logger(__name__)
 
 def _extract_model_kwargs(
     search_space_digest: SearchSpaceDigest,
-) -> Dict[str, Union[List[int], int]]:
+) -> dict[str, Union[list[int], int]]:
     """
     Extracts keyword arguments that are passed to the `construct_inputs`
     method of a BoTorch `Model` class.
@@ -105,7 +105,7 @@ def _extract_model_kwargs(
     if len(task_features) > 1:
         raise NotImplementedError("Multiple task features are not supported.")
 
-    kwargs: Dict[str, Union[List[int], int]] = {}
+    kwargs: dict[str, Union[list[int], int]] = {}
     if len(search_space_digest.categorical_features) > 0:
         kwargs["categorical_features"] = search_space_digest.categorical_features
     if len(fidelity_features) > 0:
@@ -174,51 +174,51 @@ class Surrogate(Base):
 
     def __init__(
         self,
-        botorch_model_class: Optional[Type[Model]] = None,
-        model_options: Optional[Dict[str, Any]] = None,
-        mll_class: Type[MarginalLogLikelihood] = ExactMarginalLogLikelihood,
-        mll_options: Optional[Dict[str, Any]] = None,
-        outcome_transform_classes: Optional[List[Type[OutcomeTransform]]] = None,
-        outcome_transform_options: Optional[Dict[str, Dict[str, Any]]] = None,
-        input_transform_classes: Optional[List[Type[InputTransform]]] = None,
-        input_transform_options: Optional[Dict[str, Dict[str, Any]]] = None,
-        covar_module_class: Optional[Type[Kernel]] = None,
-        covar_module_options: Optional[Dict[str, Any]] = None,
-        likelihood_class: Optional[Type[Likelihood]] = None,
-        likelihood_options: Optional[Dict[str, Any]] = None,
+        botorch_model_class: Optional[type[Model]] = None,
+        model_options: Optional[dict[str, Any]] = None,
+        mll_class: type[MarginalLogLikelihood] = ExactMarginalLogLikelihood,
+        mll_options: Optional[dict[str, Any]] = None,
+        outcome_transform_classes: Optional[list[type[OutcomeTransform]]] = None,
+        outcome_transform_options: Optional[dict[str, dict[str, Any]]] = None,
+        input_transform_classes: Optional[list[type[InputTransform]]] = None,
+        input_transform_options: Optional[dict[str, dict[str, Any]]] = None,
+        covar_module_class: Optional[type[Kernel]] = None,
+        covar_module_options: Optional[dict[str, Any]] = None,
+        likelihood_class: Optional[type[Likelihood]] = None,
+        likelihood_options: Optional[dict[str, Any]] = None,
         allow_batched_models: bool = True,
     ) -> None:
         self.botorch_model_class = botorch_model_class
         # Copying model options to avoid mutating the original dict.
         # We later update it with any additional kwargs passed into `BoTorchModel.fit`.
-        self.model_options: Dict[str, Any] = (model_options or {}).copy()
+        self.model_options: dict[str, Any] = (model_options or {}).copy()
         self.mll_class = mll_class
-        self.mll_options: Dict[str, Any] = mll_options or {}
+        self.mll_options: dict[str, Any] = mll_options or {}
         self.outcome_transform_classes = outcome_transform_classes
-        self.outcome_transform_options: Dict[str, Any] = outcome_transform_options or {}
+        self.outcome_transform_options: dict[str, Any] = outcome_transform_options or {}
         self.input_transform_classes = input_transform_classes
-        self.input_transform_options: Dict[str, Any] = input_transform_options or {}
+        self.input_transform_options: dict[str, Any] = input_transform_options or {}
         self.covar_module_class = covar_module_class
-        self.covar_module_options: Dict[str, Any] = covar_module_options or {}
+        self.covar_module_options: dict[str, Any] = covar_module_options or {}
         self.likelihood_class = likelihood_class
-        self.likelihood_options: Dict[str, Any] = likelihood_options or {}
+        self.likelihood_options: dict[str, Any] = likelihood_options or {}
         self.allow_batched_models = allow_batched_models
         # Store the last dataset used to fit the model for a given metric(s).
         # If the new dataset is identical, we will skip model fitting for that metric.
         # The keys are `tuple(dataset.outcome_names)`.
-        self._last_datasets: Dict[Tuple[str], SupervisedDataset] = {}
+        self._last_datasets: dict[tuple[str], SupervisedDataset] = {}
         # Store a reference from a tuple of metric names to the BoTorch Model
         # corresponding to those metrics. In most cases this will be a one-tuple,
         # though we need n-tuples for LCE-M models. This will be used to skip model
         # construction & fitting if the datasets are identical.
-        self._submodels: Dict[Tuple[str], Model] = {}
+        self._submodels: dict[tuple[str], Model] = {}
         # Store a reference to search space digest used while fitting the cached models.
         # We will re-fit the models if the search space digest changes.
         self._last_search_space_digest: Optional[SearchSpaceDigest] = None
 
         # These are later updated during model fitting.
-        self._training_data: Optional[List[SupervisedDataset]] = None
-        self._outcomes: Optional[List[str]] = None
+        self._training_data: Optional[list[SupervisedDataset]] = None
+        self._outcomes: Optional[list[str]] = None
         self._model: Optional[Model] = None
 
     def __repr__(self) -> str:
@@ -240,13 +240,13 @@ class Surrogate(Base):
         return self._model
 
     @property
-    def training_data(self) -> List[SupervisedDataset]:
+    def training_data(self) -> list[SupervisedDataset]:
         if self._training_data is None:
             raise ValueError(NOT_YET_FIT_MSG)
         return self._training_data
 
     @property
-    def Xs(self) -> List[Tensor]:
+    def Xs(self) -> list[Tensor]:
         # Handles multi-output models. TODO: Improve this!
         training_data = self.training_data
         Xs = []
@@ -278,7 +278,7 @@ class Surrogate(Base):
         self,
         dataset: SupervisedDataset,
         search_space_digest: SearchSpaceDigest,
-        botorch_model_class: Type[Model],
+        botorch_model_class: type[Model],
         state_dict: Optional[OrderedDict[str, Tensor]],
         refit: bool,
     ) -> Model:
@@ -323,7 +323,7 @@ class Surrogate(Base):
         return model
 
     def _should_reuse_last_model(
-        self, dataset: SupervisedDataset, botorch_model_class: Type[Model]
+        self, dataset: SupervisedDataset, botorch_model_class: type[Model]
     ) -> bool:
         """Checks whether the given dataset and model class match the last
         dataset and model class used to train the cached sub-model.
@@ -346,14 +346,14 @@ class Surrogate(Base):
 
     def _set_formatted_inputs(
         self,
-        formatted_model_inputs: Dict[str, Any],
+        formatted_model_inputs: dict[str, Any],
         # pyre-ignore [2] The proper hint for the second arg is Union[None,
         # Type[Kernel], Type[Likelihood], List[Type[OutcomeTransform]],
         # List[Type[InputTransform]]]. Keeping it as Any saves us from a
         # bunch of checked_cast calls within the for loop.
-        inputs: List[Tuple[str, Any, Dict[str, Any]]],
+        inputs: list[tuple[str, Any, dict[str, Any]]],
         dataset: SupervisedDataset,
-        botorch_model_class_args: List[str],
+        botorch_model_class_args: list[str],
         search_space_digest: SearchSpaceDigest,
     ) -> None:
         for input_name, input_class, input_options in inputs:
@@ -403,10 +403,10 @@ class Surrogate(Base):
 
     def _make_botorch_input_transform(
         self,
-        input_classes: List[Type[InputTransform]],
+        input_classes: list[type[InputTransform]],
         dataset: SupervisedDataset,
         search_space_digest: SearchSpaceDigest,
-        input_options: Dict[str, Dict[str, Any]],
+        input_options: dict[str, dict[str, Any]],
     ) -> Optional[InputTransform]:
         """
         Makes a BoTorch input transform from the provided input classes and options.
@@ -451,8 +451,8 @@ class Surrogate(Base):
 
     def _make_botorch_outcome_transform(
         self,
-        input_classes: List[Type[OutcomeTransform]],
-        input_options: Dict[str, Dict[str, Any]],
+        input_classes: list[type[OutcomeTransform]],
+        input_options: dict[str, dict[str, Any]],
         dataset: SupervisedDataset,
     ) -> Optional[OutcomeTransform]:
         """
@@ -496,7 +496,7 @@ class Surrogate(Base):
         self,
         datasets: Sequence[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
-        candidate_metadata: Optional[List[List[TCandidateMetadata]]] = None,
+        candidate_metadata: Optional[list[list[TCandidateMetadata]]] = None,
         state_dict: Optional[OrderedDict[str, Tensor]] = None,
         refit: bool = True,
     ) -> None:
@@ -596,7 +596,7 @@ class Surrogate(Base):
 
     def predict(
         self, X: Tensor, use_posterior_predictive: bool = False
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor]:
         """Predicts outcomes given an input tensor.
 
         Args:
@@ -618,7 +618,7 @@ class Surrogate(Base):
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
         options: Optional[TConfig] = None,
-    ) -> Tuple[Tensor, float]:
+    ) -> tuple[Tensor, float]:
         """Finds the best observed point and the corresponding observed outcome
         values.
         """
@@ -650,7 +650,7 @@ class Surrogate(Base):
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
         options: Optional[TConfig] = None,
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor]:
         """Finds the best predicted point and the corresponding value of the
         appropriate best point acquisition function.
         """
@@ -689,7 +689,7 @@ class Surrogate(Base):
         )
         return candidates[0], acqf_values[0]
 
-    def pareto_frontier(self) -> Tuple[Tensor, Tensor]:
+    def pareto_frontier(self) -> tuple[Tensor, Tensor]:
         """For multi-objective optimization, retrieve Pareto frontier instead
         of best point.
 
@@ -699,11 +699,11 @@ class Surrogate(Base):
         """
         raise NotImplementedError("Pareto frontier not yet implemented.")
 
-    def compute_diagnostics(self) -> Dict[str, Any]:
+    def compute_diagnostics(self) -> dict[str, Any]:
         """Computes model diagnostics like cross-validation measure of fit, etc."""
         return {}
 
-    def _serialize_attributes_as_kwargs(self) -> Dict[str, Any]:
+    def _serialize_attributes_as_kwargs(self) -> dict[str, Any]:
         """Serialize attributes of this surrogate, to be passed back to it
         as kwargs on reinstantiation.
         """
@@ -725,7 +725,7 @@ class Surrogate(Base):
 
     def _extract_construct_input_transform_args(
         self, search_space_digest: SearchSpaceDigest
-    ) -> Tuple[Optional[List[Type[InputTransform]]], Dict[str, Dict[str, Any]]]:
+    ) -> tuple[Optional[list[type[InputTransform]]], dict[str, dict[str, Any]]]:
         """
         Extracts input transform classes and input transform options that will
         be used in `self._set_formatted_inputs` and ultimately passed to
@@ -753,7 +753,7 @@ class Surrogate(Base):
                 )
             }
 
-            submodel_input_transform_classes: List[Type[InputTransform]] = [
+            submodel_input_transform_classes: list[type[InputTransform]] = [
                 InputPerturbation
             ]
 
@@ -773,13 +773,13 @@ class Surrogate(Base):
         )
 
     @property
-    def outcomes(self) -> List[str]:
+    def outcomes(self) -> list[str]:
         if self._outcomes is None:
             raise RuntimeError("outcomes not initialized. Please call `fit` first.")
         return self._outcomes
 
     @outcomes.setter
-    def outcomes(self, value: List[str]) -> None:
+    def outcomes(self, value: list[str]) -> None:
         raise RuntimeError("Setting outcomes manually is disallowed.")
 
 
@@ -790,11 +790,11 @@ submodel_input_constructor = Dispatcher(
 
 @submodel_input_constructor.register(Model)
 def _submodel_input_constructor_base(
-    botorch_model_class: Type[Model],
+    botorch_model_class: type[Model],
     dataset: SupervisedDataset,
     search_space_digest: SearchSpaceDigest,
     surrogate: Surrogate,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Construct the inputs required to initialize a BoTorch model.
 
     Args:
@@ -857,11 +857,11 @@ def _submodel_input_constructor_base(
 
 @submodel_input_constructor.register(MultiTaskGP)
 def _submodel_input_constructor_mtgp(
-    botorch_model_class: Type[Model],
+    botorch_model_class: type[Model],
     dataset: SupervisedDataset,
     search_space_digest: SearchSpaceDigest,
     surrogate: Surrogate,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     if len(dataset.outcome_names) > 1:
         raise NotImplementedError("Multi-output Multi-task GPs are not yet supported.")
     formatted_model_inputs = _submodel_input_constructor_base(

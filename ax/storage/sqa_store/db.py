@@ -8,8 +8,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
+
 from contextlib import contextmanager
-from typing import Any, Callable, Generator, Optional, TypeVar
+from typing import Any, Callable, Optional, TypeVar
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine.base import Engine

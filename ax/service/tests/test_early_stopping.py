@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Dict, Optional
+from typing import Optional
 
 from ax.service.utils import early_stopping as early_stopping_utils
 from ax.utils.common.testutils import TestCase
@@ -24,7 +24,7 @@ class TestEarlyStoppingUtils(TestCase):
         self.branin_experiment = get_branin_experiment()
 
     def test_should_stop_trials_early(self) -> None:
-        expected: Dict[int, Optional[str]] = {
+        expected: dict[int, Optional[str]] = {
             1: "Stopped due to testing.",
             3: "Stopped due to testing.",
         }

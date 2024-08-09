@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, Optional
 
 import numpy as np
 import pandas as pd
@@ -27,7 +27,7 @@ class NoisyFunctionMetric(Metric):
     def __init__(
         self,
         name: str,
-        param_names: List[str],
+        param_names: list[str],
         noise_sd: Optional[float] = 0.0,
         lower_is_better: Optional[bool] = None,
     ) -> None:
@@ -134,7 +134,7 @@ class GenericNoisyFunctionMetric(NoisyFunctionMetric):
         Metric.__init__(self, name=name, lower_is_better=lower_is_better)
 
     @property
-    def param_names(self) -> List[str]:
+    def param_names(self) -> list[str]:
         raise NotImplementedError(
             "GenericNoisyFunctionMetric does not implement a param_names attribute"
         )

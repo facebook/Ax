@@ -11,7 +11,7 @@ import sys
 import time
 from itertools import product
 from math import ceil
-from typing import Dict, List, Optional, Set, Tuple, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 from unittest import mock
 from unittest.mock import Mock, patch
 
@@ -94,7 +94,7 @@ ARM_NAME = "test_arm_name"
 
 def run_trials_using_recommended_parallelism(
     ax_client: AxClient,
-    recommended_parallelism: List[Tuple[int, int]],
+    recommended_parallelism: list[tuple[int, int]],
     total_trials: int,
 ) -> int:
     remaining_trials = total_trials
@@ -129,8 +129,8 @@ def get_branin_currin_optimization_with_N_sobol_trials(
     minimize: bool = False,
     include_objective_thresholds: bool = True,
     random_seed: int = RANDOM_SEED,
-    outcome_constraints: Optional[List[str]] = None,
-) -> Tuple[AxClient, BraninCurrin]:
+    outcome_constraints: Optional[list[str]] = None,
+) -> tuple[AxClient, BraninCurrin]:
     branin_currin = get_branin_currin(minimize=minimize)
     ax_client = AxClient()
     tracking_metric_names = (
@@ -198,7 +198,7 @@ def get_branin_optimization(
     return ax_client
 
 
-y_values_for_simple_discrete_moo_problem: List[List[float]] = [
+y_values_for_simple_discrete_moo_problem: list[list[float]] = [
     [10.0, 12.0, 11.0],
     [11.0, 10.0, 11.0],
     [12.0, 11.0, 10.0],
@@ -2288,7 +2288,7 @@ class TestAxClient(TestCase):
         self,
         mock_observed_pareto: Mock,
         mock_predicted_pareto: Mock,
-        outcome_constraints: Optional[List[str]] = None,
+        outcome_constraints: Optional[list[str]] = None,
     ) -> None:
         ax_client, branin_currin = get_branin_currin_optimization_with_N_sobol_trials(
             num_trials=20, outcome_constraints=outcome_constraints
@@ -2359,7 +2359,7 @@ class TestAxClient(TestCase):
                 )
 
     def helper_test_get_pareto_optimal_points_from_sobol_step(
-        self, minimize: bool, outcome_constraints: Optional[List[str]] = None
+        self, minimize: bool, outcome_constraints: Optional[list[str]] = None
     ) -> None:
         ax_client, _ = get_branin_currin_optimization_with_N_sobol_trials(
             num_trials=20, minimize=minimize, outcome_constraints=outcome_constraints
@@ -2549,12 +2549,12 @@ class TestAxClient(TestCase):
         """
 
         def _get_parameterizations_from_pareto_frontier(
-            pareto: Dict[int, Tuple[TParameterization, TModelPredictArm]]
-        ) -> Set[TParamValue]:
+            pareto: dict[int, tuple[TParameterization, TModelPredictArm]]
+        ) -> set[TParamValue]:
             return {tup[0]["x"] for tup in pareto.values()}
 
         # minimize doesn't affect solution
-        def get_solution(use_y0_threshold: bool, use_y2_constraint: bool) -> Set[int]:
+        def get_solution(use_y0_threshold: bool, use_y2_constraint: bool) -> set[int]:
             if use_y0_threshold:
                 if use_y2_constraint:
                     return {1}
@@ -2702,7 +2702,7 @@ class TestAxClient(TestCase):
             )
 
     def test_should_stop_trials_early(self) -> None:
-        expected: Dict[int, Optional[str]] = {
+        expected: dict[int, Optional[str]] = {
             1: "Stopped due to testing.",
             3: "Stopped due to testing.",
         }
@@ -3005,6 +3005,6 @@ def _attach_not_completed_trials(ax_client) -> None:
 
 # Test metric evaluation method
 # pyre-fixme[2]: Parameter must be annotated.
-def _evaluate_test_metrics(parameters) -> Dict[str, Tuple[float, float]]:
+def _evaluate_test_metrics(parameters) -> dict[str, tuple[float, float]]:
     x = np.array([parameters.get(f"x{i + 1}") for i in range(2)])
     return {"test_metric1": (x[0] / x[1], 0.0), "test_metric2": (x[0] + x[1], 0.0)}

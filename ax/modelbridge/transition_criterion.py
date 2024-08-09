@@ -7,7 +7,7 @@
 
 from abc import abstractmethod
 from logging import Logger
-from typing import List, Optional, Set
+from typing import Optional
 
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
@@ -73,7 +73,7 @@ class TransitionCriterion(SortableBase, SerializationMixin):
     def is_met(
         self,
         experiment: Experiment,
-        trials_from_node: Optional[Set[int]] = None,
+        trials_from_node: Optional[set[int]] = None,
         node_that_generated_last_gr: Optional[str] = None,
         curr_node_name: Optional[str] = None,
     ) -> bool:
@@ -86,7 +86,7 @@ class TransitionCriterion(SortableBase, SerializationMixin):
         node_name: Optional[str],
         model_name: Optional[str],
         experiment: Optional[Experiment],
-        trials_from_node: Optional[Set[int]] = None,
+        trials_from_node: Optional[set[int]] = None,
     ) -> None:
         """Error to be raised if the `block_gen_if_met` flag is set to True."""
         pass
@@ -139,7 +139,7 @@ class AutoTransitionAfterGen(TransitionCriterion):
     def is_met(
         self,
         experiment: Experiment,
-        trials_from_node: Optional[Set[int]] = None,
+        trials_from_node: Optional[set[int]] = None,
         node_that_generated_last_gr: Optional[str] = None,
         curr_node_name: Optional[str] = None,
     ) -> bool:
@@ -153,7 +153,7 @@ class AutoTransitionAfterGen(TransitionCriterion):
         node_name: Optional[str],
         model_name: Optional[str],
         experiment: Optional[Experiment],
-        trials_from_node: Optional[Set[int]] = None,
+        trials_from_node: Optional[set[int]] = None,
     ) -> None:
         """Error to be raised if the `block_gen_if_met` flag is set to True."""
         pass
@@ -196,8 +196,8 @@ class TrialBasedCriterion(TransitionCriterion):
         threshold: int,
         block_transition_if_unmet: Optional[bool] = True,
         block_gen_if_met: Optional[bool] = False,
-        only_in_statuses: Optional[List[TrialStatus]] = None,
-        not_in_statuses: Optional[List[TrialStatus]] = None,
+        only_in_statuses: Optional[list[TrialStatus]] = None,
+        not_in_statuses: Optional[list[TrialStatus]] = None,
         transition_to: Optional[str] = None,
         use_all_trials_in_exp: Optional[bool] = False,
         continue_trial_generation: Optional[bool] = False,
@@ -214,8 +214,8 @@ class TrialBasedCriterion(TransitionCriterion):
         )
 
     def experiment_trials_by_status(
-        self, experiment: Experiment, statuses: List[TrialStatus]
-    ) -> Set[int]:
+        self, experiment: Experiment, statuses: list[TrialStatus]
+    ) -> set[int]:
         """Get the trial indices from the entire experiment with the desired
         statuses.
 
@@ -232,7 +232,7 @@ class TrialBasedCriterion(TransitionCriterion):
             )
         return exp_trials_with_statuses
 
-    def all_trials_to_check(self, experiment: Experiment) -> Set[int]:
+    def all_trials_to_check(self, experiment: Experiment) -> set[int]:
         """All the trials to check from the entire experiment that meet
         all the provided status filters.
 
@@ -252,7 +252,7 @@ class TrialBasedCriterion(TransitionCriterion):
         return trials_to_check
 
     def num_contributing_to_threshold(
-        self, experiment: Experiment, trials_from_node: Optional[Set[int]]
+        self, experiment: Experiment, trials_from_node: Optional[set[int]]
     ) -> int:
         """Returns the number of trials contributing to the threshold.
 
@@ -275,7 +275,7 @@ class TrialBasedCriterion(TransitionCriterion):
         return len(trials_from_node.intersection(all_trials_to_check))
 
     def num_till_threshold(
-        self, experiment: Experiment, trials_from_node: Optional[Set[int]]
+        self, experiment: Experiment, trials_from_node: Optional[set[int]]
     ) -> int:
         """Returns the number of trials needed to meet the threshold.
 
@@ -290,7 +290,7 @@ class TrialBasedCriterion(TransitionCriterion):
     def is_met(
         self,
         experiment: Experiment,
-        trials_from_node: Optional[Set[int]] = None,
+        trials_from_node: Optional[set[int]] = None,
         block_continued_generation: Optional[bool] = False,
         node_that_generated_last_gr: Optional[str] = None,
         curr_node_name: Optional[str] = None,
@@ -356,8 +356,8 @@ class MaxGenerationParallelism(TrialBasedCriterion):
     def __init__(
         self,
         threshold: int,
-        only_in_statuses: Optional[List[TrialStatus]] = None,
-        not_in_statuses: Optional[List[TrialStatus]] = None,
+        only_in_statuses: Optional[list[TrialStatus]] = None,
+        not_in_statuses: Optional[list[TrialStatus]] = None,
         transition_to: Optional[str] = None,
         block_transition_if_unmet: Optional[bool] = False,
         block_gen_if_met: Optional[bool] = True,
@@ -380,7 +380,7 @@ class MaxGenerationParallelism(TrialBasedCriterion):
         node_name: Optional[str],
         model_name: Optional[str],
         experiment: Optional[Experiment],
-        trials_from_node: Optional[Set[int]] = None,
+        trials_from_node: Optional[set[int]] = None,
     ) -> None:
         """If the block_continued_generation flag is set, raises the
         MaxParallelismReachedException error.
@@ -438,8 +438,8 @@ class MaxTrials(TrialBasedCriterion):
     def __init__(
         self,
         threshold: int,
-        only_in_statuses: Optional[List[TrialStatus]] = None,
-        not_in_statuses: Optional[List[TrialStatus]] = None,
+        only_in_statuses: Optional[list[TrialStatus]] = None,
+        not_in_statuses: Optional[list[TrialStatus]] = None,
         transition_to: Optional[str] = None,
         block_transition_if_unmet: Optional[bool] = True,
         block_gen_if_met: Optional[bool] = False,
@@ -462,7 +462,7 @@ class MaxTrials(TrialBasedCriterion):
         node_name: Optional[str],
         model_name: Optional[str],
         experiment: Optional[Experiment],
-        trials_from_node: Optional[Set[int]] = None,
+        trials_from_node: Optional[set[int]] = None,
     ) -> None:
         """If the block_continued_generation flag is set, raises an error because the
         remaining TransitionCriterion cannot be completed in the current state.
@@ -514,8 +514,8 @@ class MinTrials(TrialBasedCriterion):
     def __init__(
         self,
         threshold: int,
-        only_in_statuses: Optional[List[TrialStatus]] = None,
-        not_in_statuses: Optional[List[TrialStatus]] = None,
+        only_in_statuses: Optional[list[TrialStatus]] = None,
+        not_in_statuses: Optional[list[TrialStatus]] = None,
         transition_to: Optional[str] = None,
         block_transition_if_unmet: Optional[bool] = True,
         block_gen_if_met: Optional[bool] = False,
@@ -538,7 +538,7 @@ class MinTrials(TrialBasedCriterion):
         node_name: Optional[str],
         model_name: Optional[str],
         experiment: Optional[Experiment],
-        trials_from_node: Optional[Set[int]] = None,
+        trials_from_node: Optional[set[int]] = None,
     ) -> None:
         """If the enforce flag is set, raises an error because the remaining
         TransitionCriterion cannot be completed in the current state.
@@ -593,7 +593,7 @@ class MinimumPreferenceOccurances(TransitionCriterion):
     def is_met(
         self,
         experiment: Experiment,
-        trials_from_node: Optional[Set[int]] = None,
+        trials_from_node: Optional[set[int]] = None,
         node_that_generated_last_gr: Optional[str] = None,
         curr_node_name: Optional[str] = None,
     ) -> bool:
@@ -610,7 +610,7 @@ class MinimumPreferenceOccurances(TransitionCriterion):
         node_name: Optional[str],
         model_name: Optional[str],
         experiment: Optional[Experiment],
-        trials_from_node: Optional[Set[int]] = None,
+        trials_from_node: Optional[set[int]] = None,
     ) -> None:
         pass
 
@@ -634,7 +634,7 @@ class MinimumTrialsInStatus(TransitionCriterion):
     def is_met(
         self,
         experiment: Experiment,
-        trials_from_node: Optional[Set[int]] = None,
+        trials_from_node: Optional[set[int]] = None,
         node_that_generated_last_gr: Optional[str] = None,
         curr_node_name: Optional[str] = None,
     ) -> bool:
@@ -645,6 +645,6 @@ class MinimumTrialsInStatus(TransitionCriterion):
         node_name: Optional[str],
         model_name: Optional[str],
         experiment: Optional[Experiment],
-        trials_from_node: Optional[Set[int]] = None,
+        trials_from_node: Optional[set[int]] = None,
     ) -> None:
         pass

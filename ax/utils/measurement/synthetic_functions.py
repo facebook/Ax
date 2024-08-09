@@ -7,7 +7,7 @@
 # pyre-strict
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple, TypeVar, Union
+from typing import Optional, TypeVar, Union
 
 import numpy as np
 import torch
@@ -22,9 +22,9 @@ T = TypeVar("T")
 class SyntheticFunction(ABC):
 
     _required_dimensionality: int
-    _domain: List[Tuple[float, float]]
-    _minimums: Optional[List[Tuple[float, ...]]] = None
-    _maximums: Optional[List[Tuple[float, ...]]] = None
+    _domain: list[tuple[float, float]]
+    _minimums: Optional[list[tuple[float, ...]]] = None
+    _maximums: Optional[list[tuple[float, ...]]] = None
     _fmin: Optional[float] = None
     _fmax: Optional[float] = None
 
@@ -107,7 +107,7 @@ class SyntheticFunction(ABC):
         return self._required_dimensionality
 
     @property
-    def domain(self) -> List[Tuple[float, float]]:
+    def domain(self) -> list[tuple[float, float]]:
         """Domain on which function is evaluated.
 
         The list is of the same length as the dimensionality of the inputs,
@@ -117,7 +117,7 @@ class SyntheticFunction(ABC):
         return self._domain
 
     @property
-    def minimums(self) -> List[Tuple[float, ...]]:
+    def minimums(self) -> list[tuple[float, ...]]:
         """List of global minimums.
 
         Each element of the list is a d-tuple, where d is the dimensionality
@@ -126,7 +126,7 @@ class SyntheticFunction(ABC):
         return self.informative_failure_on_none(self._minimums)
 
     @property
-    def maximums(self) -> List[Tuple[float, ...]]:
+    def maximums(self) -> list[tuple[float, ...]]:
         """List of global minimums.
 
         Each element of the list is a d-tuple, where d is the dimensionality
@@ -164,7 +164,7 @@ class FromBotorch(SyntheticFunction):
     ) -> None:
         self._botorch_function = botorch_synthetic_function
         self._required_dimensionality: int = self._botorch_function.dim
-        self._domain: List[Tuple[float, float]] = self._botorch_function._bounds
+        self._domain: list[tuple[float, float]] = self._botorch_function._bounds
         self._fmin: Optional[float] = self._botorch_function._optimal_value
 
     @override
@@ -189,7 +189,7 @@ class Hartmann6(SyntheticFunction):
     """Hartmann6 function (6-dimensional with 1 global minimum)."""
 
     _required_dimensionality = 6
-    _domain: List[Tuple[float, float]] = [(0.0, 1.0) for i in range(6)]
+    _domain: list[tuple[float, float]] = [(0.0, 1.0) for i in range(6)]
     _minimums = [(0.20169, 0.150011, 0.476874, 0.275332, 0.311652, 0.6573)]
     _fmin: float = -3.32237
     _fmax = 0.0
@@ -227,7 +227,7 @@ class Aug_Hartmann6(Hartmann6):
     """Augmented Hartmann6 function (7-dimensional with 1 global minimum)."""
 
     _required_dimensionality = 7
-    _domain: List[Tuple[float, float]] = [(0.0, 1.0) for i in range(7)]
+    _domain: list[tuple[float, float]] = [(0.0, 1.0) for i in range(7)]
     # pyre-fixme[15]: `_minimums` overrides attribute defined in `Hartmann6`
     #  inconsistently.
     _minimums = [(0.20169, 0.150011, 0.476874, 0.275332, 0.311652, 0.6573, 1.0)]
@@ -254,8 +254,8 @@ class Branin(SyntheticFunction):
     """Branin function (2-dimensional with 3 global minima)."""
 
     _required_dimensionality = 2
-    _domain: List[Tuple[float, float]] = [(-5.0, 10.0), (0.0, 15.0)]
-    _minimums: List[Tuple[float, float]] = [
+    _domain: list[tuple[float, float]] = [(-5.0, 10.0), (0.0, 15.0)]
+    _minimums: list[tuple[float, float]] = [
         (-np.pi, 12.275),
         (np.pi, 2.275),
         (9.42478, 2.475),
@@ -279,8 +279,8 @@ class Aug_Branin(SyntheticFunction):
     """Augmented Branin function (3-dimensional with infinitely many global minima)."""
 
     _required_dimensionality = 3
-    _domain: List[Tuple[float, float]] = [(-5.0, 10.0), (0.0, 15.0), (0.0, 1.0)]
-    _minimums: List[Tuple[float, float, float]] = [
+    _domain: list[tuple[float, float]] = [(-5.0, 10.0), (0.0, 15.0), (0.0, 1.0)]
+    _minimums: list[tuple[float, float, float]] = [
         (-np.pi, 12.275, 1.0),
         (np.pi, 2.275, 1.0),
         (9.42478, 2.475, 1.0),

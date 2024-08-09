@@ -6,8 +6,8 @@
 
 # pyre-strict
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import List, Sequence
 from unittest import mock
 
 import numpy as np
@@ -24,7 +24,7 @@ from tensorboard.backend.event_processing import event_multiplexer
 
 @dataclass
 class _TensorProto:
-    double_val: List[float]
+    double_val: list[float]
 
 
 @dataclass

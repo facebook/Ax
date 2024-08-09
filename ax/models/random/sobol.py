@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Optional
 
 import numpy as np
 import torch
@@ -78,12 +78,12 @@ class SobolGenerator(RandomModel):
     def gen(
         self,
         n: int,
-        bounds: List[Tuple[float, float]],
-        linear_constraints: Optional[Tuple[np.ndarray, np.ndarray]] = None,
-        fixed_features: Optional[Dict[int, float]] = None,
+        bounds: list[tuple[float, float]],
+        linear_constraints: Optional[tuple[np.ndarray, np.ndarray]] = None,
+        fixed_features: Optional[dict[int, float]] = None,
         model_gen_options: Optional[TConfig] = None,
         rounding_func: Optional[Callable[[np.ndarray], np.ndarray]] = None,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Generate new candidates.
 
         Args:
@@ -122,7 +122,7 @@ class SobolGenerator(RandomModel):
         return (points, weights)
 
     @copy_doc(Model._get_state)
-    def _get_state(self) -> Dict[str, Any]:
+    def _get_state(self) -> dict[str, Any]:
         state = super()._get_state()
         state.update({"init_position": self.init_position})
         return state

@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -30,8 +30,8 @@ class DictLookupMetric(Metric):
     def __init__(
         self,
         name: str,
-        param_names: List[str],
-        lookup_dict: Dict[Tuple[Union[str, float, int, bool], ...], float],
+        param_names: list[str],
+        lookup_dict: dict[tuple[Union[str, float, int, bool], ...], float],
         noise_sd: Optional[float] = 0.0,
         lower_is_better: Optional[bool] = None,
     ) -> None:

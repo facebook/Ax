@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from ax.core.observation import (
     Observation,
@@ -58,7 +58,7 @@ class Transform:
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
         config: Optional[TConfig] = None,
     ) -> None:
@@ -125,8 +125,8 @@ class Transform:
         return optimization_config
 
     def transform_observations(
-        self, observations: List[Observation]
-    ) -> List[Observation]:
+        self, observations: list[Observation]
+    ) -> list[Observation]:
         """Transform observations.
 
         Typically done in place. By default, the effort is split into separate
@@ -147,8 +147,8 @@ class Transform:
         return trans_obs
 
     def transform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         """Transform observation features.
 
         This is typically done in-place. This class implements the identity
@@ -163,8 +163,8 @@ class Transform:
 
     def _transform_observation_data(
         self,
-        observation_data: List[ObservationData],
-    ) -> List[ObservationData]:
+        observation_data: list[ObservationData],
+    ) -> list[ObservationData]:
         """Transform observation features.
 
         This is typically done in-place. This class implements the identity
@@ -181,8 +181,8 @@ class Transform:
         return observation_data
 
     def untransform_observations(
-        self, observations: List[Observation]
-    ) -> List[Observation]:
+        self, observations: list[Observation]
+    ) -> list[Observation]:
         """Untransform observations.
 
         Typically done in place. By default, the effort is split into separate
@@ -205,8 +205,8 @@ class Transform:
         return untrans_obs
 
     def untransform_observation_features(
-        self, observation_features: List[ObservationFeatures]
-    ) -> List[ObservationFeatures]:
+        self, observation_features: list[ObservationFeatures]
+    ) -> list[ObservationFeatures]:
         """Untransform observation features.
 
         This is typically done in-place. This class implements the identity
@@ -221,8 +221,8 @@ class Transform:
 
     def _untransform_observation_data(
         self,
-        observation_data: List[ObservationData],
-    ) -> List[ObservationData]:
+        observation_data: list[ObservationData],
+    ) -> list[ObservationData]:
         """Untransform observation data.
 
         This is typically done in-place. This class implements the identity
@@ -240,9 +240,9 @@ class Transform:
 
     def untransform_outcome_constraints(
         self,
-        outcome_constraints: List[OutcomeConstraint],
+        outcome_constraints: list[OutcomeConstraint],
         fixed_features: Optional[ObservationFeatures] = None,
-    ) -> List[OutcomeConstraint]:
+    ) -> list[OutcomeConstraint]:
         """Untransform outcome constraints.
 
         If outcome constraints are modified in transform_optimization_config,

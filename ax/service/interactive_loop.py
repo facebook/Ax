@@ -9,7 +9,7 @@ import time
 from logging import Logger
 from queue import Queue
 from threading import Event, Lock, Thread
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Optional, Tuple
 
 from ax.core.types import TEvaluationOutcome, TParameterization
 
@@ -30,9 +30,9 @@ def interactive_optimize(
     data_attacher_function: Callable[..., None],
     # pyre-ignore[2]: Missing parameter annotation
     elicitation_function: Callable[..., Any],
-    candidate_generator_kwargs: Optional[Dict[str, Any]] = None,
-    data_attacher_kwargs: Optional[Dict[str, Any]] = None,
-    elicitation_function_kwargs: Optional[Dict[str, Any]] = None,
+    candidate_generator_kwargs: Optional[dict[str, Any]] = None,
+    data_attacher_kwargs: Optional[dict[str, Any]] = None,
+    elicitation_function_kwargs: Optional[dict[str, Any]] = None,
 ) -> bool:
     """
     Function to facilitate running Ax experiments with candidate pregeneration (the
@@ -126,7 +126,7 @@ def interactive_optimize_with_client(
     ax_client: AxClient,
     num_trials: int,
     candidate_queue_maxsize: int,
-    elicitation_function: Callable[[Tuple[TParameterization, int]], TEvaluationOutcome],
+    elicitation_function: Callable[[tuple[TParameterization, int]], TEvaluationOutcome],
 ) -> bool:
     """
     Implementation of `interactive_loop` using the AxClient. Extract results of the

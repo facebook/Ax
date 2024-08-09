@@ -7,9 +7,10 @@
 # pyre-strict
 
 from abc import ABCMeta, abstractmethod
+from collections.abc import Iterable
 from functools import partial
 from logging import Logger
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import torch
@@ -60,7 +61,7 @@ class BestPointMixin(metaclass=ABCMeta):
         optimization_config: Optional[OptimizationConfig] = None,
         trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
-    ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+    ) -> Optional[tuple[int, TParameterization, Optional[TModelPredictArm]]]:
         """Identifies the best parameterization tried in the experiment so far.
 
         First attempts to do so with the model used in optimization and
@@ -91,7 +92,7 @@ class BestPointMixin(metaclass=ABCMeta):
         optimization_config: Optional[OptimizationConfig] = None,
         trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
-    ) -> Optional[Tuple[TParameterization, Optional[TModelPredictArm]]]:
+    ) -> Optional[tuple[TParameterization, Optional[TModelPredictArm]]]:
         """Identifies the best parameterization tried in the experiment so far.
 
         First attempts to do so with the model used in optimization and
@@ -133,7 +134,7 @@ class BestPointMixin(metaclass=ABCMeta):
         optimization_config: Optional[OptimizationConfig] = None,
         trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
-    ) -> Optional[Dict[int, Tuple[TParameterization, TModelPredictArm]]]:
+    ) -> Optional[dict[int, tuple[TParameterization, TModelPredictArm]]]:
         """Identifies the best parameterizations tried in the experiment so far,
         using model predictions if ``use_model_predictions`` is true and using
         observed values from the experiment otherwise. By default, uses model
@@ -192,7 +193,7 @@ class BestPointMixin(metaclass=ABCMeta):
     @abstractmethod
     def get_trace(
         optimization_config: Optional[OptimizationConfig] = None,
-    ) -> List[float]:
+    ) -> list[float]:
         """Get the optimization trace of the given experiment.
 
         The output is equivalent to calling `_get_hypervolume` or `_get_best_trial`
@@ -213,9 +214,9 @@ class BestPointMixin(metaclass=ABCMeta):
     @abstractmethod
     def get_trace_by_progression(
         optimization_config: Optional[OptimizationConfig] = None,
-        bins: Optional[List[float]] = None,
+        bins: Optional[list[float]] = None,
         final_progression_only: bool = False,
-    ) -> Tuple[List[float], List[float]]:
+    ) -> tuple[list[float], list[float]]:
         """Get the optimization trace with respect to trial progressions instead of
         `trial_indices` (which is the behavior used in `get_trace`). Note that this
         method does not take into account the parallelism of trials and essentially
@@ -256,7 +257,7 @@ class BestPointMixin(metaclass=ABCMeta):
         optimization_config: Optional[OptimizationConfig] = None,
         trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
-    ) -> Optional[Tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+    ) -> Optional[tuple[int, TParameterization, Optional[TModelPredictArm]]]:
         optimization_config = optimization_config or not_none(
             experiment.optimization_config
         )
@@ -350,7 +351,7 @@ class BestPointMixin(metaclass=ABCMeta):
         optimization_config: Optional[OptimizationConfig] = None,
         trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
-    ) -> Dict[int, Tuple[TParameterization, TModelPredictArm]]:
+    ) -> dict[int, tuple[TParameterization, TModelPredictArm]]:
         optimization_config = optimization_config or not_none(
             experiment.optimization_config
         )
@@ -429,7 +430,7 @@ class BestPointMixin(metaclass=ABCMeta):
     def _get_trace(
         experiment: Experiment,
         optimization_config: Optional[OptimizationConfig] = None,
-    ) -> List[float]:
+    ) -> list[float]:
         """Compute the optimization trace at each iteration.
 
         Given an experiment and an optimization config, compute the performance
@@ -569,9 +570,9 @@ class BestPointMixin(metaclass=ABCMeta):
     def _get_trace_by_progression(
         experiment: Experiment,
         optimization_config: Optional[OptimizationConfig] = None,
-        bins: Optional[List[float]] = None,
+        bins: Optional[list[float]] = None,
         final_progression_only: bool = False,
-    ) -> Tuple[List[float], List[float]]:
+    ) -> tuple[list[float], list[float]]:
         optimization_config = optimization_config or not_none(
             experiment.optimization_config
         )

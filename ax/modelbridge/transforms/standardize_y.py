@@ -6,8 +6,9 @@
 
 # pyre-strict
 
+from collections import defaultdict
 from logging import Logger
-from typing import DefaultDict, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
+from typing import Optional, TYPE_CHECKING, Union
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -39,7 +40,7 @@ class StandardizeY(Transform):
     def __init__(
         self,
         search_space: Optional[SearchSpace] = None,
-        observations: Optional[List[Observation]] = None,
+        observations: Optional[list[Observation]] = None,
         modelbridge: Optional["base_modelbridge.ModelBridge"] = None,
         config: Optional[TConfig] = None,
     ) -> None:
@@ -54,8 +55,8 @@ class StandardizeY(Transform):
 
     def _transform_observation_data(
         self,
-        observation_data: List[ObservationData],
-    ) -> List[ObservationData]:
+        observation_data: list[ObservationData],
+    ) -> list[ObservationData]:
         # Transform observation data
         for obsd in observation_data:
             means = np.array([self.Ymean[m] for m in obsd.metric_names])
@@ -118,8 +119,8 @@ class StandardizeY(Transform):
 
     def _untransform_observation_data(
         self,
-        observation_data: List[ObservationData],
-    ) -> List[ObservationData]:
+        observation_data: list[ObservationData],
+    ) -> list[ObservationData]:
         for obsd in observation_data:
             means = np.array([self.Ymean[m] for m in obsd.metric_names])
             stds = np.array([self.Ystd[m] for m in obsd.metric_names])
@@ -129,9 +130,9 @@ class StandardizeY(Transform):
 
     def untransform_outcome_constraints(
         self,
-        outcome_constraints: List[OutcomeConstraint],
+        outcome_constraints: list[OutcomeConstraint],
         fixed_features: Optional[ObservationFeatures] = None,
-    ) -> List[OutcomeConstraint]:
+    ) -> list[OutcomeConstraint]:
         for c in outcome_constraints:
             if c.relative:
                 raise ValueError(
@@ -146,9 +147,9 @@ class StandardizeY(Transform):
 
 
 def compute_standardization_parameters(
-    Ys: DefaultDict[Union[str, Tuple[str, TParamValue]], List[float]]
-) -> Tuple[
-    Dict[Union[str, Tuple[str, str]], float], Dict[Union[str, Tuple[str, str]], float]
+    Ys: defaultdict[Union[str, tuple[str, TParamValue]], list[float]]
+) -> tuple[
+    dict[Union[str, tuple[str, str]], float], dict[Union[str, tuple[str, str]], float]
 ]:
     """Compute mean and std. dev of Ys."""
     Ymean = {k: np.mean(y) for k, y in Ys.items()}

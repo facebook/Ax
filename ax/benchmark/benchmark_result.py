@@ -10,8 +10,9 @@
 # `BenchmarkResult` as return type annotation, used for serialization and rendering
 # in the UI.
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
+from typing import Optional
 
 import numpy as np
 from ax.core.experiment import Experiment
@@ -63,15 +64,15 @@ class AggregatedBenchmarkResult(Base):
     """
 
     name: str
-    results: List[BenchmarkResult]
+    results: list[BenchmarkResult]
 
     # mean, sem, and quartile columns
     optimization_trace: DataFrame
     score_trace: DataFrame
 
     # (mean, sem) pairs
-    fit_time: List[float]
-    gen_time: List[float]
+    fit_time: list[float]
+    gen_time: list[float]
 
     def __str__(self) -> str:
         return f"{self.__class__}(name={self.name})"
@@ -79,7 +80,7 @@ class AggregatedBenchmarkResult(Base):
     @classmethod
     def from_benchmark_results(
         cls,
-        results: List[BenchmarkResult],
+        results: list[BenchmarkResult],
     ) -> "AggregatedBenchmarkResult":
         """Aggregrates a list of BenchmarkResults. For various reasons (timeout, errors,
         etc.) each BenchmarkResult may have a different number of trials; aggregated
@@ -111,8 +112,8 @@ class AggregatedBenchmarkResult(Base):
 
 def _get_stats(
     step_data: Iterable[np.ndarray],
-    percentiles: List[float],
-) -> Dict[str, List[float]]:
+    percentiles: list[float],
+) -> dict[str, list[float]]:
     quantiles = []
     stats = {"mean": [], "sem": []}
     for step_vals in step_data:

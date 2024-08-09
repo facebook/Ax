@@ -7,7 +7,7 @@
 # pyre-strict
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from ax.analysis.analysis import AnalysisCardLevel
 
@@ -92,13 +92,13 @@ class SQAParameter(Base):
     # Attributes for Choice Parameters
     # pyre-fixme[8]: Attribute has type `Optional[List[typing.Union[None, bool,
     #  float, int, str]]]`; used as `Column[typing.Any]`.
-    choice_values: Optional[List[TParamValue]] = Column(JSONEncodedList)
+    choice_values: Optional[list[TParamValue]] = Column(JSONEncodedList)
     # pyre-fixme[8]: Attribute has type `Optional[bool]`; used as `Column[bool]`.
     is_ordered: Optional[bool] = Column(Boolean)
     # pyre-fixme[8]: Attribute has type `Optional[bool]`; used as `Column[bool]`.
     is_task: Optional[bool] = Column(Boolean)
     # pyre-fixme[8]: Attribute has type `Optional[bool]`; used as `Column[bool]`.
-    dependents: Optional[Dict[TParamValue, List[str]]] = Column(JSONEncodedObject)
+    dependents: Optional[dict[TParamValue, list[str]]] = Column(JSONEncodedObject)
 
     # Attributes for Fixed Parameters
     # pyre-fixme[8]: Attribute has type `Union[None, bool, float, int, str]`; used
@@ -113,7 +113,7 @@ class SQAParameterConstraint(Base):
     bound: float = Column(Float, nullable=False)
     # pyre-fixme[8]: Attribute has type `Dict[str, float]`; used as
     #  `Column[typing.Any]`.
-    constraint_dict: Dict[str, float] = Column(JSONEncodedDict, nullable=False)
+    constraint_dict: dict[str, float] = Column(JSONEncodedDict, nullable=False)
     # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
     experiment_id: Optional[int] = Column(Integer, ForeignKey("experiment_v2.id"))
     # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
@@ -143,7 +143,7 @@ class SQAMetric(Base):
     name: str = Column(String(LONG_STRING_FIELD_LENGTH), nullable=False)
     # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
-    properties: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict, default={})
+    properties: Optional[dict[str, Any]] = Column(JSONEncodedTextDict, default={})
 
     # Attributes for Objectives
     # pyre-fixme[8]: Attribute has type `Optional[bool]`; used as `Column[bool]`.
@@ -270,16 +270,16 @@ class SQAGeneratorRun(Base):
     model_key: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
     # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
-    model_kwargs: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
+    model_kwargs: Optional[dict[str, Any]] = Column(JSONEncodedTextDict)
     # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
-    bridge_kwargs: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
+    bridge_kwargs: Optional[dict[str, Any]] = Column(JSONEncodedTextDict)
     # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
-    gen_metadata: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
+    gen_metadata: Optional[dict[str, Any]] = Column(JSONEncodedTextDict)
     # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
-    model_state_after_gen: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
+    model_state_after_gen: Optional[dict[str, Any]] = Column(JSONEncodedTextDict)
     # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
     generation_strategy_id: Optional[int] = Column(
         Integer, ForeignKey("generation_strategy.id")
@@ -288,7 +288,7 @@ class SQAGeneratorRun(Base):
     generation_step_index: Optional[int] = Column(Integer)
     # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
-    candidate_metadata_by_arm_signature: Optional[Dict[str, Any]] = Column(
+    candidate_metadata_by_arm_signature: Optional[dict[str, Any]] = Column(
         JSONEncodedTextDict
     )
     # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
@@ -297,19 +297,19 @@ class SQAGeneratorRun(Base):
     # relationships
     # Use selectin loading for collections to prevent idle timeout errors
     # (https://docs.sqlalchemy.org/en/13/orm/loading_relationships.html#selectin-eager-loading)
-    arms: List[SQAArm] = relationship(
+    arms: list[SQAArm] = relationship(
         "SQAArm",
         cascade="all, delete-orphan",
         lazy="selectin",
         order_by=lambda: SQAArm.id,
     )
-    metrics: List[SQAMetric] = relationship(
+    metrics: list[SQAMetric] = relationship(
         "SQAMetric", cascade="all, delete-orphan", lazy="selectin"
     )
-    parameters: List[SQAParameter] = relationship(
+    parameters: list[SQAParameter] = relationship(
         "SQAParameter", cascade="all, delete-orphan", lazy="selectin"
     )
-    parameter_constraints: List[SQAParameterConstraint] = relationship(
+    parameter_constraints: list[SQAParameterConstraint] = relationship(
         "SQAParameterConstraint", cascade="all, delete-orphan", lazy="selectin"
     )
 
@@ -323,7 +323,7 @@ class SQARunner(Base):
     experiment_id: Optional[int] = Column(Integer, ForeignKey("experiment_v2.id"))
     # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
-    properties: Optional[Dict[str, Any]] = Column(JSONEncodedLongTextDict, default={})
+    properties: Optional[dict[str, Any]] = Column(JSONEncodedLongTextDict, default={})
     # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
     runner_type: int = Column(Integer, nullable=False)
     # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
@@ -366,18 +366,18 @@ class SQAGenerationStrategy(Base):
     name: str = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
     # pyre-fixme[8]: Attribute has type `List[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
-    steps: List[Dict[str, Any]] = Column(JSONEncodedList, nullable=False)
+    steps: list[dict[str, Any]] = Column(JSONEncodedList, nullable=False)
     # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
     curr_index: int = Column(Integer, nullable=False)
     # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
     experiment_id: Optional[int] = Column(Integer, ForeignKey("experiment_v2.id"))
     # pyre-fixme[8]: Attribute has type `List[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
-    nodes: List[Dict[str, Any]] = Column(JSONEncodedList, nullable=True)
+    nodes: list[dict[str, Any]] = Column(JSONEncodedList, nullable=True)
     # pyre-fixme[8]: Attribute has type `str`; used as `Column[str]`.
     curr_node_name: str = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=True)
 
-    generator_runs: List[SQAGeneratorRun] = relationship(
+    generator_runs: list[SQAGeneratorRun] = relationship(
         "SQAGeneratorRun",
         cascade="all, delete-orphan",
         lazy="selectin",
@@ -412,10 +412,10 @@ class SQATrial(Base):
     ttl_seconds: Optional[int] = Column(Integer)
     # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
-    run_metadata: Optional[Dict[str, Any]] = Column(JSONEncodedLongTextDict)
+    run_metadata: Optional[dict[str, Any]] = Column(JSONEncodedLongTextDict)
     # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
-    stop_metadata: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict)
+    stop_metadata: Optional[dict[str, Any]] = Column(JSONEncodedTextDict)
     # pyre-fixme[8]: Attribute has type `TrialStatus`; used as `Column[typing.Any]`.
     status: TrialStatus = Column(
         IntEnum(TrialStatus), nullable=False, default=TrialStatus.CANDIDATE
@@ -439,7 +439,7 @@ class SQATrial(Base):
     generation_step_index: Optional[int] = Column(Integer)
     # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
-    properties: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict, default={})
+    properties: Optional[dict[str, Any]] = Column(JSONEncodedTextDict, default={})
 
     # relationships
     # Trials and experiments are mutable, so the children relationships need
@@ -447,10 +447,10 @@ class SQATrial(Base):
     # a child, the old one will be deleted.
     # Use selectin loading for collections to prevent idle timeout errors
     # (https://docs.sqlalchemy.org/en/13/orm/loading_relationships.html#selectin-eager-loading)
-    abandoned_arms: List[SQAAbandonedArm] = relationship(
+    abandoned_arms: list[SQAAbandonedArm] = relationship(
         "SQAAbandonedArm", cascade="all, delete-orphan", lazy="selectin"
     )
-    generator_runs: List[SQAGeneratorRun] = relationship(
+    generator_runs: list[SQAGeneratorRun] = relationship(
         "SQAGeneratorRun", cascade="all, delete-orphan", lazy="selectin"
     )
     runner: SQARunner = relationship(
@@ -498,7 +498,7 @@ class SQAExperiment(Base):
     name: str = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
     # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
     #  `Column[typing.Any]`.
-    properties: Optional[Dict[str, Any]] = Column(JSONEncodedTextDict, default={})
+    properties: Optional[dict[str, Any]] = Column(JSONEncodedTextDict, default={})
     # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
     status_quo_name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
     # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Union[None, bool,
@@ -517,22 +517,22 @@ class SQAExperiment(Base):
     # a child, the old one will be deleted.
     # Use selectin loading for collections to prevent idle timeout errors
     # (https://docs.sqlalchemy.org/en/13/orm/loading_relationships.html#selectin-eager-loading)
-    data: List[SQAData] = relationship(
+    data: list[SQAData] = relationship(
         "SQAData", cascade="all, delete-orphan", lazy="selectin"
     )
-    metrics: List[SQAMetric] = relationship(
+    metrics: list[SQAMetric] = relationship(
         "SQAMetric", cascade="all, delete-orphan", lazy="selectin"
     )
-    parameters: List[SQAParameter] = relationship(
+    parameters: list[SQAParameter] = relationship(
         "SQAParameter", cascade="all, delete-orphan", lazy="selectin"
     )
-    parameter_constraints: List[SQAParameterConstraint] = relationship(
+    parameter_constraints: list[SQAParameterConstraint] = relationship(
         "SQAParameterConstraint", cascade="all, delete-orphan", lazy="selectin"
     )
-    runners: List[SQARunner] = relationship(
+    runners: list[SQARunner] = relationship(
         "SQARunner", cascade="all, delete-orphan", lazy=False
     )
-    trials: List[SQATrial] = relationship(
+    trials: list[SQATrial] = relationship(
         "SQATrial", cascade="all, delete-orphan", lazy="selectin"
     )
     generation_strategy: Optional[SQAGenerationStrategy] = relationship(
@@ -541,6 +541,6 @@ class SQAExperiment(Base):
         uselist=False,
         lazy=True,
     )
-    analysis_cards: List[SQAAnalysisCard] = relationship(
+    analysis_cards: list[SQAAnalysisCard] = relationship(
         "SQAAnalysisCard", cascade="all, delete-orphan", lazy="selectin"
     )

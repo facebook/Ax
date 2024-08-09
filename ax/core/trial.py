@@ -12,7 +12,7 @@ from functools import partial
 
 from logging import Logger
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import Any, Optional, TYPE_CHECKING, Union
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, immutable_once_run
@@ -90,7 +90,7 @@ class Trial(BaseTrial):
     # pyre-ignore[6]: T77111662.
     @copy_doc(BaseTrial.generator_runs)
     @property
-    def generator_runs(self) -> List[GeneratorRun]:
+    def generator_runs(self) -> list[GeneratorRun]:
         gr = self._generator_run
         return [gr] if gr is not None else []
 
@@ -112,7 +112,7 @@ class Trial(BaseTrial):
 
     @immutable_once_run
     def add_arm(
-        self, arm: Arm, candidate_metadata: Optional[Dict[str, Any]] = None
+        self, arm: Arm, candidate_metadata: Optional[dict[str, Any]] = None
     ) -> Trial:
         """Add arm to the trial.
 
@@ -168,7 +168,7 @@ class Trial(BaseTrial):
         return self
 
     @property
-    def arms(self) -> List[Arm]:
+    def arms(self) -> list[Arm]:
         """All arms attached to this trial.
 
         Returns:
@@ -178,7 +178,7 @@ class Trial(BaseTrial):
         return [self.arm] if self.arm is not None else []
 
     @property
-    def arms_by_name(self) -> Dict[str, Arm]:
+    def arms_by_name(self) -> dict[str, Arm]:
         """Dictionary of all arms attached to this trial with their names
         as keys.
 
@@ -190,7 +190,7 @@ class Trial(BaseTrial):
         return {self.arm.name: self.arm} if self.arm is not None else {}
 
     @property
-    def abandoned_arms(self) -> List[Arm]:
+    def abandoned_arms(self) -> list[Arm]:
         """Abandoned arms attached to this trial."""
         return (
             [not_none(self.arm)]
@@ -242,7 +242,7 @@ class Trial(BaseTrial):
 
     def _get_candidate_metadata_from_all_generator_runs(
         self,
-    ) -> Dict[str, TCandidateMetadata]:
+    ) -> dict[str, TCandidateMetadata]:
         """Retrieves candidate metadata from the generator run on this
         batch trial in the form of { arm name -> candidate metadata} mapping.
         """
@@ -286,7 +286,7 @@ class Trial(BaseTrial):
     def update_trial_data(
         self,
         raw_data: TEvaluationOutcome,
-        metadata: Optional[Dict[str, Union[str, int]]] = None,
+        metadata: Optional[dict[str, Union[str, int]]] = None,
         sample_size: Optional[int] = None,
         combine_with_last_data: bool = False,
     ) -> str:

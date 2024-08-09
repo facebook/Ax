@@ -9,7 +9,7 @@
 import functools
 from copy import deepcopy
 from random import randint
-from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple, Type, Union
+from typing import Any, Callable, Optional, Protocol, Union
 
 import torch
 from ax.models.model_utils import best_observed_point, get_observed
@@ -57,15 +57,15 @@ NO_FEASIBLE_POINTS_MESSAGE = (
 
 def _construct_model(
     task_feature: Optional[int],
-    Xs: List[Tensor],
-    Ys: List[Tensor],
-    Yvars: List[Tensor],
-    fidelity_features: List[int],
-    metric_names: List[str],
+    Xs: list[Tensor],
+    Ys: list[Tensor],
+    Yvars: list[Tensor],
+    fidelity_features: list[int],
+    metric_names: list[str],
     use_input_warping: bool = False,
-    prior: Optional[Dict[str, Any]] = None,
+    prior: Optional[dict[str, Any]] = None,
     *,
-    multitask_gp_ranks: Optional[Dict[str, Union[Prior, float]]] = None,
+    multitask_gp_ranks: Optional[dict[str, Union[Prior, float]]] = None,
     **kwargs: Any,
 ) -> GPyTorchModel:
     """
@@ -140,19 +140,19 @@ def _construct_model(
 
 
 def get_and_fit_model(
-    Xs: List[Tensor],
-    Ys: List[Tensor],
-    Yvars: List[Tensor],
-    task_features: List[int],
-    fidelity_features: List[int],
-    metric_names: List[str],
-    state_dict: Optional[Dict[str, Tensor]] = None,
+    Xs: list[Tensor],
+    Ys: list[Tensor],
+    Yvars: list[Tensor],
+    task_features: list[int],
+    fidelity_features: list[int],
+    metric_names: list[str],
+    state_dict: Optional[dict[str, Tensor]] = None,
     refit_model: bool = True,
     use_input_warping: bool = False,
     use_loocv_pseudo_likelihood: bool = False,
-    prior: Optional[Dict[str, Any]] = None,
+    prior: Optional[dict[str, Any]] = None,
     *,
-    multitask_gp_ranks: Optional[Dict[str, Union[Prior, float]]] = None,
+    multitask_gp_ranks: Optional[dict[str, Union[Prior, float]]] = None,
     **kwargs: Any,
 ) -> GPyTorchModel:
     r"""Instantiates and fits a botorch GPyTorchModel using the given data.
@@ -242,7 +242,7 @@ class TAcqfConstructor(Protocol):
         self,  # making this a static method makes Pyre unhappy, better to keep `self`
         model: Model,
         objective_weights: Tensor,
-        outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+        outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
         X_observed: Optional[Tensor] = None,
         X_pending: Optional[Tensor] = None,
         **kwargs: Any,
@@ -294,7 +294,7 @@ def get_acqf(
         def wrapper(
             model: Model,
             objective_weights: Tensor,
-            outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+            outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
             X_observed: Optional[Tensor] = None,
             X_pending: Optional[Tensor] = None,
             **kwargs: Any,
@@ -342,16 +342,16 @@ def _get_acquisition_func(
     model: Model,
     acquisition_function_name: str,
     objective_weights: Tensor,
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
+    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
     X_observed: Optional[Tensor] = None,
     X_pending: Optional[Tensor] = None,
-    mc_objective: Type[GenericMCObjective] = GenericMCObjective,
+    mc_objective: type[GenericMCObjective] = GenericMCObjective,
     constrained_mc_objective: Optional[
-        Type[ConstrainedMCObjective]
+        type[ConstrainedMCObjective]
     ] = ConstrainedMCObjective,
     # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
     #  `typing.Dict` to avoid runtime subscripting errors.
-    mc_objective_kwargs: Optional[Dict] = None,
+    mc_objective_kwargs: Optional[dict] = None,
     *,
     chebyshev_scalarization: bool = False,
     prune_baseline: bool = True,
@@ -459,16 +459,16 @@ def scipy_optimizer(
     acq_function: AcquisitionFunction,
     bounds: Tensor,
     n: int,
-    inequality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]] = None,
-    equality_constraints: Optional[List[Tuple[Tensor, Tensor, float]]] = None,
-    fixed_features: Optional[Dict[int, float]] = None,
+    inequality_constraints: Optional[list[tuple[Tensor, Tensor, float]]] = None,
+    equality_constraints: Optional[list[tuple[Tensor, Tensor, float]]] = None,
+    fixed_features: Optional[dict[int, float]] = None,
     rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
     *,
     num_restarts: int = 20,
     raw_samples: Optional[int] = None,
     joint_optimization: bool = False,
-    options: Optional[Dict[str, Union[bool, float, int, str]]] = None,
-) -> Tuple[Tensor, Tensor]:
+    options: Optional[dict[str, Union[bool, float, int, str]]] = None,
+) -> tuple[Tensor, Tensor]:
     r"""Optimizer using scipy's minimize module on a numpy-adpator.
 
     Args:
@@ -499,7 +499,7 @@ def scipy_optimizer(
     """
 
     sequential = not joint_optimization
-    optimize_acqf_options: Dict[str, Union[bool, float, int, str]] = {
+    optimize_acqf_options: dict[str, Union[bool, float, int, str]] = {
         "batch_limit": 5,
         "init_batch_limit": 32,
     }
@@ -523,13 +523,13 @@ def scipy_optimizer(
 
 def recommend_best_observed_point(
     model: TorchModel,
-    bounds: List[Tuple[float, float]],
+    bounds: list[tuple[float, float]],
     objective_weights: Tensor,
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-    linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-    fixed_features: Optional[Dict[int, float]] = None,
+    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
+    linear_constraints: Optional[tuple[Tensor, Tensor]] = None,
+    fixed_features: Optional[dict[int, float]] = None,
     model_gen_options: Optional[TConfig] = None,
-    target_fidelities: Optional[Dict[int, float]] = None,
+    target_fidelities: Optional[dict[int, float]] = None,
 ) -> Optional[Tensor]:
     """
     A wrapper around `ax.models.model_utils.best_observed_point` for TorchModel
@@ -579,13 +579,13 @@ def recommend_best_observed_point(
 
 def recommend_best_out_of_sample_point(
     model: TorchModel,
-    bounds: List[Tuple[float, float]],
+    bounds: list[tuple[float, float]],
     objective_weights: Tensor,
-    outcome_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-    linear_constraints: Optional[Tuple[Tensor, Tensor]] = None,
-    fixed_features: Optional[Dict[int, float]] = None,
+    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
+    linear_constraints: Optional[tuple[Tensor, Tensor]] = None,
+    fixed_features: Optional[dict[int, float]] = None,
     model_gen_options: Optional[TConfig] = None,
-    target_fidelities: Optional[Dict[int, float]] = None,
+    target_fidelities: Optional[dict[int, float]] = None,
 ) -> Optional[Tensor]:
     """
     Identify the current best point by optimizing the posterior mean of the model.
@@ -652,7 +652,7 @@ def recommend_best_out_of_sample_point(
     if non_fixed_idcs is not None:
         bounds_ = bounds_[..., non_fixed_idcs]
 
-    opt_options: Dict[str, Union[bool, float, int, str]] = {
+    opt_options: dict[str, Union[bool, float, int, str]] = {
         "batch_limit": 8,
         "maxiter": 200,
         "method": "L-BFGS-B",
@@ -683,10 +683,10 @@ def _get_model(
     Y: Tensor,
     Yvar: Tensor,
     task_feature: Optional[int] = None,
-    fidelity_features: Optional[List[int]] = None,
+    fidelity_features: Optional[list[int]] = None,
     use_input_warping: bool = False,
     covar_module: Optional[Kernel] = None,
-    prior: Optional[Dict[str, Any]] = None,
+    prior: Optional[dict[str, Any]] = None,
     **kwargs: Any,
 ) -> GPyTorchModel:
     """Instantiate a model of type depending on the input data.
@@ -813,7 +813,7 @@ def _get_model(
 
 
 def _get_customized_covar_module(
-    covar_module_prior_dict: Dict[str, Prior],
+    covar_module_prior_dict: dict[str, Prior],
     ard_num_dims: int,
     aug_batch_shape: torch.Size,
     task_feature: Optional[int] = None,

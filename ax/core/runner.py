@@ -9,7 +9,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterable, List, Optional, Set, TYPE_CHECKING
+from collections.abc import Iterable
+from typing import Any, Optional, TYPE_CHECKING
 
 from ax.utils.common.base import Base
 from ax.utils.common.serialization import SerializationMixin
@@ -29,14 +30,14 @@ class Runner(Base, SerializationMixin, ABC):
         return False
 
     @property
-    def run_metadata_report_keys(self) -> List[str]:
+    def run_metadata_report_keys(self) -> list[str]:
         """A list of keys of the metadata dict returned by `run()` that are
         relevant outside the runner-internal impolementation. These can e.g.
         be reported in `Scheduler.report_results()`."""
         return []
 
     @abstractmethod
-    def run(self, trial: core.base_trial.BaseTrial) -> Dict[str, Any]:
+    def run(self, trial: core.base_trial.BaseTrial) -> dict[str, Any]:
         """Deploys a trial based on custom runner subclass implementation.
 
         Args:
@@ -49,7 +50,7 @@ class Runner(Base, SerializationMixin, ABC):
 
     def run_multiple(
         self, trials: Iterable[core.base_trial.BaseTrial]
-    ) -> Dict[int, Dict[str, Any]]:
+    ) -> dict[int, dict[str, Any]]:
         """Runs a single evaluation for each of the given trials. Useful when deploying
         multiple trials at once is more efficient than deploying them one-by-one.
         Used in Ax ``Scheduler``.
@@ -91,7 +92,7 @@ class Runner(Base, SerializationMixin, ABC):
 
     def poll_trial_status(
         self, trials: Iterable[core.base_trial.BaseTrial]
-    ) -> Dict[core.base_trial.TrialStatus, Set[int]]:
+    ) -> dict[core.base_trial.TrialStatus, set[int]]:
         """Checks the status of any non-terminal trials and returns their
         indices as a mapping from TrialStatus to a list of indices. Required
         for runners used with Ax ``Scheduler``.
@@ -129,7 +130,7 @@ class Runner(Base, SerializationMixin, ABC):
 
     def stop(
         self, trial: core.base_trial.BaseTrial, reason: Optional[str] = None
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Stop a trial based on custom runner subclass implementation.
 
         Optional method.

@@ -7,14 +7,14 @@
 import ast
 import itertools
 from pathlib import Path
-from typing import Callable, List, NamedTuple, Type
+from typing import Callable, NamedTuple
 
 
 class Error(NamedTuple):
     lineno: int
     col: int
     message: str
-    type: Type
+    type: type
 
 
 def should_check(filename):
@@ -71,7 +71,7 @@ def is_copy_doc_call(c):
 
 
 class DocstringCheckerVisitor(ast.NodeVisitor):
-    errors: List[Error]
+    errors: list[Error]
 
     def __init__(self) -> None:
         self.errors = []

@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Any, Dict
+from typing import Any
 
 from ax.core.metric import Metric
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
@@ -240,7 +240,7 @@ class TestInstantiationtUtils(TestCase):
 
     def test_single_valued_choice_to_fixed_param_conversion(self) -> None:
         for use_dependents in [True, False]:
-            representation: Dict[str, Any] = {
+            representation: dict[str, Any] = {
                 "name": "test",
                 "type": "choice",
                 "values": [1.0],
@@ -257,7 +257,7 @@ class TestInstantiationtUtils(TestCase):
 
     def test_choice_with_is_sorted(self) -> None:
         for sort_values in [True, False, None]:
-            representation: Dict[str, Any] = {
+            representation: dict[str, Any] = {
                 "name": "foo_or_bar",
                 "type": "choice",
                 "values": ["Foo", "Bar"],
@@ -275,7 +275,7 @@ class TestInstantiationtUtils(TestCase):
                 self.assertEqual(output.sort_values, sort_values)
 
         with self.assertRaisesRegex(ValueError, "Value was not of type <class 'bool'>"):
-            representation: Dict[str, Any] = {
+            representation: dict[str, Any] = {
                 "name": "foo_or_bar",
                 "type": "choice",
                 "values": ["Foo", "Bar"],

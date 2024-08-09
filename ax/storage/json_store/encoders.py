@@ -9,7 +9,7 @@
 import re
 import warnings
 from pathlib import Path
-from typing import Any, Dict, Type
+from typing import Any
 
 from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionBenchmarkProblem
 from ax.core import ObservationFeatures
@@ -68,7 +68,7 @@ from botorch.utils.types import _DefaultType
 from torch import Tensor
 
 
-def experiment_to_dict(experiment: Experiment) -> Dict[str, Any]:
+def experiment_to_dict(experiment: Experiment) -> dict[str, Any]:
     """Convert Ax experiment to a dictionary."""
     return {
         "__type": experiment.__class__.__name__,
@@ -89,7 +89,7 @@ def experiment_to_dict(experiment: Experiment) -> Dict[str, Any]:
     }
 
 
-def multi_type_experiment_to_dict(experiment: MultiTypeExperiment) -> Dict[str, Any]:
+def multi_type_experiment_to_dict(experiment: MultiTypeExperiment) -> dict[str, Any]:
     """Convert AE multitype experiment to a dictionary."""
     multi_type_dict = {
         "default_trial_type": experiment._default_trial_type,
@@ -101,7 +101,7 @@ def multi_type_experiment_to_dict(experiment: MultiTypeExperiment) -> Dict[str, 
     return multi_type_dict
 
 
-def batch_to_dict(batch: BatchTrial) -> Dict[str, Any]:
+def batch_to_dict(batch: BatchTrial) -> dict[str, Any]:
     """Convert Ax batch to a dictionary."""
     return {
         "__type": batch.__class__.__name__,
@@ -130,7 +130,7 @@ def batch_to_dict(batch: BatchTrial) -> Dict[str, Any]:
     }
 
 
-def trial_to_dict(trial: Trial) -> Dict[str, Any]:
+def trial_to_dict(trial: Trial) -> dict[str, Any]:
     """Convert Ax trial to a dictionary."""
     return {
         "__type": trial.__class__.__name__,
@@ -154,7 +154,7 @@ def trial_to_dict(trial: Trial) -> Dict[str, Any]:
     }
 
 
-def range_parameter_to_dict(parameter: RangeParameter) -> Dict[str, Any]:
+def range_parameter_to_dict(parameter: RangeParameter) -> dict[str, Any]:
     """Convert Ax range parameter to a dictionary."""
     return {
         "__type": parameter.__class__.__name__,
@@ -170,7 +170,7 @@ def range_parameter_to_dict(parameter: RangeParameter) -> Dict[str, Any]:
     }
 
 
-def choice_parameter_to_dict(parameter: ChoiceParameter) -> Dict[str, Any]:
+def choice_parameter_to_dict(parameter: ChoiceParameter) -> dict[str, Any]:
     """Convert Ax choice parameter to a dictionary."""
     return {
         "__type": parameter.__class__.__name__,
@@ -185,7 +185,7 @@ def choice_parameter_to_dict(parameter: ChoiceParameter) -> Dict[str, Any]:
     }
 
 
-def fixed_parameter_to_dict(parameter: FixedParameter) -> Dict[str, Any]:
+def fixed_parameter_to_dict(parameter: FixedParameter) -> dict[str, Any]:
     """Convert Ax fixed parameter to a dictionary."""
     return {
         "__type": parameter.__class__.__name__,
@@ -200,7 +200,7 @@ def fixed_parameter_to_dict(parameter: FixedParameter) -> Dict[str, Any]:
 
 def order_parameter_constraint_to_dict(
     parameter_constraint: OrderConstraint,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Convert Ax order parameter constraint to a dictionary."""
     return {
         "__type": parameter_constraint.__class__.__name__,
@@ -211,7 +211,7 @@ def order_parameter_constraint_to_dict(
 
 def sum_parameter_constraint_to_dict(
     parameter_constraint: SumConstraint,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Convert Ax sum parameter constraint to a dictionary."""
     return {
         "__type": parameter_constraint.__class__.__name__,
@@ -225,7 +225,7 @@ def sum_parameter_constraint_to_dict(
 
 def parameter_constraint_to_dict(
     parameter_constraint: ParameterConstraint,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Convert Ax sum parameter constraint to a dictionary."""
     return {
         "__type": parameter_constraint.__class__.__name__,
@@ -234,7 +234,7 @@ def parameter_constraint_to_dict(
     }
 
 
-def arm_to_dict(arm: Arm) -> Dict[str, Any]:
+def arm_to_dict(arm: Arm) -> dict[str, Any]:
     """Convert Ax arm to a dictionary."""
     return {
         "__type": arm.__class__.__name__,
@@ -243,7 +243,7 @@ def arm_to_dict(arm: Arm) -> Dict[str, Any]:
     }
 
 
-def search_space_to_dict(search_space: SearchSpace) -> Dict[str, Any]:
+def search_space_to_dict(search_space: SearchSpace) -> dict[str, Any]:
     """Convert Ax search space to a dictionary."""
     return {
         "__type": search_space.__class__.__name__,
@@ -252,7 +252,7 @@ def search_space_to_dict(search_space: SearchSpace) -> Dict[str, Any]:
     }
 
 
-def robust_search_space_to_dict(rss: RobustSearchSpace) -> Dict[str, Any]:
+def robust_search_space_to_dict(rss: RobustSearchSpace) -> dict[str, Any]:
     """Convert robust search space to a dictionary."""
     return {
         "__type": rss.__class__.__name__,
@@ -264,7 +264,7 @@ def robust_search_space_to_dict(rss: RobustSearchSpace) -> Dict[str, Any]:
     }
 
 
-def parameter_distribution_to_dict(dist: ParameterDistribution) -> Dict[str, Any]:
+def parameter_distribution_to_dict(dist: ParameterDistribution) -> dict[str, Any]:
     """Convert a parameter distribution to a dictionary."""
     return {
         "__type": dist.__class__.__name__,
@@ -275,14 +275,14 @@ def parameter_distribution_to_dict(dist: ParameterDistribution) -> Dict[str, Any
     }
 
 
-def metric_to_dict(metric: Metric) -> Dict[str, Any]:
+def metric_to_dict(metric: Metric) -> dict[str, Any]:
     """Convert Ax metric to a dictionary."""
     properties = metric.serialize_init_args(obj=metric)
     properties["__type"] = metric.__class__.__name__
     return properties
 
 
-def objective_to_dict(objective: Objective) -> Dict[str, Any]:
+def objective_to_dict(objective: Objective) -> dict[str, Any]:
     """Convert Ax objective to a dictionary."""
     return {
         "__type": objective.__class__.__name__,
@@ -291,7 +291,7 @@ def objective_to_dict(objective: Objective) -> Dict[str, Any]:
     }
 
 
-def multi_objective_to_dict(objective: MultiObjective) -> Dict[str, Any]:
+def multi_objective_to_dict(objective: MultiObjective) -> dict[str, Any]:
     """Convert Ax objective to a dictionary."""
     return {
         "__type": objective.__class__.__name__,
@@ -300,7 +300,7 @@ def multi_objective_to_dict(objective: MultiObjective) -> Dict[str, Any]:
     }
 
 
-def scalarized_objective_to_dict(objective: ScalarizedObjective) -> Dict[str, Any]:
+def scalarized_objective_to_dict(objective: ScalarizedObjective) -> dict[str, Any]:
     """Convert Ax objective to a dictionary."""
     return {
         "__type": objective.__class__.__name__,
@@ -310,7 +310,7 @@ def scalarized_objective_to_dict(objective: ScalarizedObjective) -> Dict[str, An
     }
 
 
-def outcome_constraint_to_dict(outcome_constraint: OutcomeConstraint) -> Dict[str, Any]:
+def outcome_constraint_to_dict(outcome_constraint: OutcomeConstraint) -> dict[str, Any]:
     """Convert Ax outcome constraint to a dictionary."""
     return {
         "__type": outcome_constraint.__class__.__name__,
@@ -323,7 +323,7 @@ def outcome_constraint_to_dict(outcome_constraint: OutcomeConstraint) -> Dict[st
 
 def optimization_config_to_dict(
     optimization_config: OptimizationConfig,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Convert Ax optimization config to a dictionary."""
     return {
         "__type": optimization_config.__class__.__name__,
@@ -335,7 +335,7 @@ def optimization_config_to_dict(
 
 def multi_objective_optimization_config_to_dict(
     multi_objective_optimization_config: MultiObjectiveOptimizationConfig,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Convert Ax optimization config to a dictionary."""
     return {
         "__type": multi_objective_optimization_config.__class__.__name__,
@@ -346,7 +346,7 @@ def multi_objective_optimization_config_to_dict(
     }
 
 
-def generator_run_to_dict(generator_run: GeneratorRun) -> Dict[str, Any]:
+def generator_run_to_dict(generator_run: GeneratorRun) -> dict[str, Any]:
     """Convert Ax generator run to a dictionary."""
     gr = generator_run
     cand_metadata = gr.candidate_metadata_by_arm_signature
@@ -374,21 +374,21 @@ def generator_run_to_dict(generator_run: GeneratorRun) -> Dict[str, Any]:
     }
 
 
-def runner_to_dict(runner: Runner) -> Dict[str, Any]:
+def runner_to_dict(runner: Runner) -> dict[str, Any]:
     """Convert Ax runner to a dictionary."""
     properties = runner.serialize_init_args(obj=runner)
     properties["__type"] = runner.__class__.__name__
     return properties
 
 
-def data_to_dict(data: Data) -> Dict[str, Any]:
+def data_to_dict(data: Data) -> dict[str, Any]:
     """Convert Ax data to a dictionary."""
     properties = data.serialize_init_args(obj=data)
     properties["__type"] = data.__class__.__name__
     return properties
 
 
-def map_data_to_dict(map_data: MapData) -> Dict[str, Any]:
+def map_data_to_dict(map_data: MapData) -> dict[str, Any]:
     """Convert Ax map data to a dictionary."""
     properties = map_data.serialize_init_args(obj=map_data)
     properties["__type"] = map_data.__class__.__name__
@@ -396,14 +396,14 @@ def map_data_to_dict(map_data: MapData) -> Dict[str, Any]:
 
 
 # pyre-fixme[24]: Generic type `MapKeyInfo` expects 1 type parameter.
-def map_key_info_to_dict(mki: MapKeyInfo) -> Dict[str, Any]:
+def map_key_info_to_dict(mki: MapKeyInfo) -> dict[str, Any]:
     """Convert Ax map data metadata to a dictionary."""
     properties = serialize_init_args(obj=mki)
     properties["__type"] = mki.__class__.__name__
     return properties
 
 
-def transform_type_to_dict(transform_type: Type[Transform]) -> Dict[str, Any]:
+def transform_type_to_dict(transform_type: type[Transform]) -> dict[str, Any]:
     """Convert a transform class to a dictionary."""
     return {
         "__type": "Type[Transform]",
@@ -412,7 +412,7 @@ def transform_type_to_dict(transform_type: Type[Transform]) -> Dict[str, Any]:
     }
 
 
-def generation_step_to_dict(generation_step: GenerationStep) -> Dict[str, Any]:
+def generation_step_to_dict(generation_step: GenerationStep) -> dict[str, Any]:
     """Converts Ax generation step to a dictionary."""
     return {
         "__type": generation_step.__class__.__name__,
@@ -435,7 +435,7 @@ def generation_step_to_dict(generation_step: GenerationStep) -> Dict[str, Any]:
     }
 
 
-def generation_node_to_dict(generation_node: GenerationNode) -> Dict[str, Any]:
+def generation_node_to_dict(generation_node: GenerationNode) -> dict[str, Any]:
     """Convert Ax generation node to a dictionary."""
     return {
         "__type": generation_node.__class__.__name__,
@@ -450,7 +450,7 @@ def generation_node_to_dict(generation_node: GenerationNode) -> Dict[str, Any]:
 
 def generation_strategy_to_dict(
     generation_strategy: GenerationStrategy,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Converts Ax generation strategy to a dictionary."""
     if generation_strategy.uses_non_registered_models:
         raise ValueError(
@@ -474,14 +474,14 @@ def generation_strategy_to_dict(
     }
 
 
-def transition_criterion_to_dict(criterion: TransitionCriterion) -> Dict[str, Any]:
+def transition_criterion_to_dict(criterion: TransitionCriterion) -> dict[str, Any]:
     """Convert Ax TransitionCriterion to a dictionary."""
     properties = criterion.serialize_init_args(obj=criterion)
     properties["__type"] = criterion.__class__.__name__
     return properties
 
 
-def model_spec_to_dict(model_spec: ModelSpec) -> Dict[str, Any]:
+def model_spec_to_dict(model_spec: ModelSpec) -> dict[str, Any]:
     """Convert Ax model spec to a dictionary."""
     if isinstance(model_spec, FactoryFunctionModelSpec):
         raise NotImplementedError(
@@ -498,7 +498,7 @@ def model_spec_to_dict(model_spec: ModelSpec) -> Dict[str, Any]:
 
 def best_model_selector_to_dict(
     best_model_selector: BestModelSelector,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Convert ``BestModelSelector`` to a dictionary."""
     return {
         "__type": best_model_selector.__class__.__name__,
@@ -506,7 +506,7 @@ def best_model_selector_to_dict(
     }
 
 
-def observation_features_to_dict(obs_features: ObservationFeatures) -> Dict[str, Any]:
+def observation_features_to_dict(obs_features: ObservationFeatures) -> dict[str, Any]:
     """Converts Ax observation features to a dictionary"""
     return {
         "__type": obs_features.__class__.__name__,
@@ -519,7 +519,7 @@ def observation_features_to_dict(obs_features: ObservationFeatures) -> Dict[str,
     }
 
 
-def botorch_model_to_dict(model: BoTorchModel) -> Dict[str, Any]:
+def botorch_model_to_dict(model: BoTorchModel) -> dict[str, Any]:
     """Convert Ax model to a dictionary."""
     return {
         "__type": model.__class__.__name__,
@@ -539,14 +539,14 @@ def botorch_model_to_dict(model: BoTorchModel) -> Dict[str, Any]:
     }
 
 
-def surrogate_to_dict(surrogate: Surrogate) -> Dict[str, Any]:
+def surrogate_to_dict(surrogate: Surrogate) -> dict[str, Any]:
     """Convert Ax surrogate to a dictionary."""
     dict_representation = {"__type": surrogate.__class__.__name__}
     dict_representation.update(surrogate._serialize_attributes_as_kwargs())
     return dict_representation
 
 
-def tensor_to_dict(obj: Tensor) -> Dict[str, Any]:
+def tensor_to_dict(obj: Tensor) -> dict[str, Any]:
     if obj.numel() > 1e4:
         warnings.warn(
             f"Attempting to serialize a tensor with {obj.numel()} elements. "
@@ -563,7 +563,7 @@ def tensor_to_dict(obj: Tensor) -> Dict[str, Any]:
 
 
 # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-def botorch_modular_to_dict(class_type: Type[Any]) -> Dict[str, Any]:
+def botorch_modular_to_dict(class_type: type[Any]) -> dict[str, Any]:
     """Convert any class to a dictionary."""
     for _class in CLASS_TO_REGISTRY:
         if issubclass(class_type, _class):
@@ -586,7 +586,7 @@ def botorch_modular_to_dict(class_type: Type[Any]) -> Dict[str, Any]:
 
 
 # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-def botorch_component_to_dict(input_obj: Any) -> Dict[str, Any]:
+def botorch_component_to_dict(input_obj: Any) -> dict[str, Any]:
     class_type = input_obj.__class__
     if isinstance(input_obj, InputTransform):
         # Input transforms cannot be initialized with their state dicts.
@@ -609,7 +609,7 @@ def botorch_component_to_dict(input_obj: Any) -> Dict[str, Any]:
 
 def botorch_input_transform_to_init_args(
     input_transform: InputTransform,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Extract the init kwargs from an input transform."""
     if isinstance(input_transform, ChainedInputTransform):
         return {k: botorch_component_to_dict(v) for k, v in input_transform.items()}
@@ -625,7 +625,7 @@ def botorch_input_transform_to_init_args(
 
 def percentile_early_stopping_strategy_to_dict(
     strategy: PercentileEarlyStoppingStrategy,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Convert Ax percentile early stopping strategy to a dictionary."""
     return {
         "__type": strategy.__class__.__name__,
@@ -641,7 +641,7 @@ def percentile_early_stopping_strategy_to_dict(
 
 def threshold_early_stopping_strategy_to_dict(
     strategy: ThresholdEarlyStoppingStrategy,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Convert Ax metric-threshold early stopping strategy to a dictionary."""
     return {
         "__type": strategy.__class__.__name__,
@@ -655,7 +655,7 @@ def threshold_early_stopping_strategy_to_dict(
 
 def logical_early_stopping_strategy_to_dict(
     strategy: LogicalEarlyStoppingStrategy,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     return {
         "__type": strategy.__class__.__name__,
         "left": strategy.left,
@@ -665,7 +665,7 @@ def logical_early_stopping_strategy_to_dict(
 
 def improvement_global_stopping_strategy_to_dict(
     gss: ImprovementGlobalStoppingStrategy,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Convert ImprovementGlobalStoppingStrategy to a dictionary."""
     return {
         "__type": gss.__class__.__name__,
@@ -676,7 +676,7 @@ def improvement_global_stopping_strategy_to_dict(
     }
 
 
-def winsorization_config_to_dict(config: WinsorizationConfig) -> Dict[str, Any]:
+def winsorization_config_to_dict(config: WinsorizationConfig) -> dict[str, Any]:
     """Convert Ax winsorization config to a dictionary."""
     return {
         "__type": config.__class__.__name__,
@@ -689,7 +689,7 @@ def winsorization_config_to_dict(config: WinsorizationConfig) -> Dict[str, Any]:
 
 def pytorch_cnn_torchvision_benchmark_problem_to_dict(
     problem: PyTorchCNNTorchvisionBenchmarkProblem,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     # unit tests for this in benchmark suite
     return {
         "__type": problem.__class__.__name__,
@@ -701,7 +701,7 @@ def pytorch_cnn_torchvision_benchmark_problem_to_dict(
 
 def risk_measure_to_dict(
     risk_measure: RiskMeasure,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Convert a RiskMeasure to a dictionary."""
     return {
         "__type": risk_measure.__class__.__name__,
@@ -710,9 +710,9 @@ def risk_measure_to_dict(
     }
 
 
-def pathlib_to_dict(path: Path) -> Dict[str, Any]:
+def pathlib_to_dict(path: Path) -> dict[str, Any]:
     return {"__type": path.__class__.__name__, "pathsegments": [str(path)]}
 
 
-def default_to_dict(default: _DefaultType) -> Dict[str, Any]:
+def default_to_dict(default: _DefaultType) -> dict[str, Any]:
     return {"__type": default.__class__.__name__}

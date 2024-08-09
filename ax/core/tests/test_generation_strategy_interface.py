@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import List, Optional
+from typing import Optional
 
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -25,7 +25,7 @@ class MyGSI(GenerationStrategyInterface):
         # below as we find the right one.
         num_generator_runs: int = 1,
         n: int = 1,
-    ) -> List[List[GeneratorRun]]:
+    ) -> list[list[GeneratorRun]]:
         raise NotImplementedError
 
     def clone_reset(self) -> "MyGSI":

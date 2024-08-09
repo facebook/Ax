@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from copy import deepcopy
 from math import isfinite, isnan
-from typing import List
 
 import numpy as np
 from ax.core.metric import Metric
@@ -32,7 +31,7 @@ from sklearn.preprocessing import PowerTransformer
 
 def get_constraint(
     metric: Metric, bound: float, relative: bool
-) -> List[OutcomeConstraint]:
+) -> list[OutcomeConstraint]:
     return [
         OutcomeConstraint(
             metric=metric, op=ComparisonOp.GEQ, bound=bound, relative=relative

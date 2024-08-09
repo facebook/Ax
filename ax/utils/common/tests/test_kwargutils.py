@@ -8,7 +8,7 @@
 
 
 from logging import Logger
-from typing import Callable, Dict, Optional
+from typing import Callable, Optional
 from unittest.mock import patch
 
 from ax.utils.common.kwargs import validate_kwarg_typing, warn_on_kwargs
@@ -23,7 +23,7 @@ class TestKwargUtils(TestCase):
         def typed_callable(arg1: int, arg2: Optional[str] = None) -> None:
             pass
 
-        def typed_callable_with_dict(arg3: int, arg4: Dict[str, int]) -> None:
+        def typed_callable_with_dict(arg3: int, arg4: dict[str, int]) -> None:
             pass
 
         def typed_callable_valid(arg3: int, arg4: Optional[str] = None) -> None:
@@ -33,7 +33,7 @@ class TestKwargUtils(TestCase):
             pass
 
         def typed_callable_with_callable(
-            arg1: int, arg2: Callable[[int], Dict[str, int]]
+            arg1: int, arg2: Callable[[int], dict[str, int]]
         ) -> None:
             pass
 
@@ -102,7 +102,7 @@ class TestKwargUtils(TestCase):
             validate_kwarg_typing(typed_callables, **kwargs)
             expected_message = (
                 f"`{typed_callable_with_dict}` expected argument `arg4` to be of type"
-                f" typing.Dict[str, int]. Got {str_dic} (type: {type(str_dic)})."
+                f" dict[str, int]. Got {str_dic} (type: {type(str_dic)})."
             )
             mock_warning.assert_called_once_with(expected_message)
 
@@ -113,7 +113,7 @@ class TestKwargUtils(TestCase):
             validate_kwarg_typing(typed_callables, **kwargs)
             expected_message = (
                 f"`{typed_callable_with_callable}` expected argument `arg2` to be of"
-                f" type typing.Callable[[int], typing.Dict[str, int]]. "
+                f" type typing.Callable[[int], dict[str, int]]. "
                 f"Got test_again (type: {type('test_again')})."
             )
             mock_warning.assert_called_once_with(expected_message)

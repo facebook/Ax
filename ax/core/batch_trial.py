@@ -11,20 +11,12 @@ from __future__ import annotations
 import warnings
 
 from collections import defaultdict, OrderedDict
+from collections.abc import MutableMapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from logging import Logger
-from typing import (
-    DefaultDict,
-    Dict,
-    List,
-    MutableMapping,
-    Optional,
-    Set,
-    TYPE_CHECKING,
-    Union,
-)
+from typing import Optional, TYPE_CHECKING, Union
 
 import numpy as np
 from ax.core.arm import Arm
@@ -146,7 +138,7 @@ class BatchTrial(BaseTrial):
         self,
         experiment: core.experiment.Experiment,
         generator_run: Optional[GeneratorRun] = None,
-        generator_runs: Optional[List[GeneratorRun]] = None,
+        generator_runs: Optional[list[GeneratorRun]] = None,
         trial_type: Optional[str] = None,
         optimize_for_power: Optional[bool] = False,
         ttl_seconds: Optional[int] = None,
@@ -159,9 +151,9 @@ class BatchTrial(BaseTrial):
             ttl_seconds=ttl_seconds,
             index=index,
         )
-        self._arms_by_name: Dict[str, Arm] = {}
-        self._generator_run_structs: List[GeneratorRunStruct] = []
-        self._abandoned_arms_metadata: Dict[str, AbandonedArm] = {}
+        self._arms_by_name: dict[str, Arm] = {}
+        self._generator_run_structs: list[GeneratorRunStruct] = []
+        self._abandoned_arms_metadata: dict[str, AbandonedArm] = {}
         self._status_quo: Optional[Arm] = None
         self._status_quo_weight_override: Optional[float] = None
         if generator_run is not None:
@@ -205,7 +197,7 @@ class BatchTrial(BaseTrial):
         return self._index
 
     @property
-    def generator_run_structs(self) -> List[GeneratorRunStruct]:
+    def generator_run_structs(self) -> list[GeneratorRunStruct]:
         """List of generator run structs attached to this trial.
 
         Struct holds generator_run object and the weight with which it was added.
@@ -261,8 +253,8 @@ class BatchTrial(BaseTrial):
     @immutable_once_run
     def add_arms_and_weights(
         self,
-        arms: List[Arm],
-        weights: Optional[List[float]] = None,
+        arms: list[Arm],
+        weights: Optional[list[float]] = None,
         multiplier: float = 1.0,
     ) -> BatchTrial:
         """Add arms and weights to the trial.
@@ -418,19 +410,19 @@ class BatchTrial(BaseTrial):
         return self
 
     @property
-    def arms(self) -> List[Arm]:
+    def arms(self) -> list[Arm]:
         """All arms contained in the trial."""
         arm_weights = self.arm_weights
         return [] if arm_weights is None else list(arm_weights.keys())
 
     @property
-    def weights(self) -> List[float]:
+    def weights(self) -> list[float]:
         """Weights corresponding to arms contained in the trial."""
         arm_weights = self.arm_weights
         return [] if arm_weights is None else list(arm_weights.values())
 
     @property
-    def arms_by_name(self) -> Dict[str, Arm]:
+    def arms_by_name(self) -> dict[str, Arm]:
         """Map from arm name to object for all arms in trial."""
         return self._arms_by_name
 
@@ -442,7 +434,7 @@ class BatchTrial(BaseTrial):
             self._arms_by_name[arm.name] = arm
 
     @property
-    def abandoned_arms(self) -> List[Arm]:
+    def abandoned_arms(self) -> list[Arm]:
         """List of arms that have been abandoned within this trial."""
         return [
             self.arms_by_name[arm.name]
@@ -450,12 +442,12 @@ class BatchTrial(BaseTrial):
         ]
 
     @property
-    def abandoned_arm_names(self) -> Set[str]:
+    def abandoned_arm_names(self) -> set[str]:
         """Set of names of arms that have been abandoned within this trial."""
         return set(self._abandoned_arms_metadata.keys())
 
     @property
-    def in_design_arms(self) -> List[Arm]:
+    def in_design_arms(self) -> list[Arm]:
         return [
             arm
             for arm in self.arms
@@ -465,11 +457,11 @@ class BatchTrial(BaseTrial):
     # pyre-ignore[6]: T77111662.
     @copy_doc(BaseTrial.generator_runs)
     @property
-    def generator_runs(self) -> List[GeneratorRun]:
+    def generator_runs(self) -> list[GeneratorRun]:
         return [grs.generator_run for grs in self.generator_run_structs]
 
     @property
-    def abandoned_arms_metadata(self) -> List[AbandonedArm]:
+    def abandoned_arms_metadata(self) -> list[AbandonedArm]:
         return list(self._abandoned_arms_metadata.values())
 
     @property
@@ -483,7 +475,7 @@ class BatchTrial(BaseTrial):
         sufficient_factors = all(len(arm.parameters or []) >= 2 for arm in self.arms)
         if not sufficient_factors:
             return False
-        param_levels: DefaultDict[str, Dict[Union[str, float], int]] = defaultdict(dict)
+        param_levels: defaultdict[str, dict[Union[str, float], int]] = defaultdict(dict)
         for arm in self.arms:
             for param_name, param_value in arm.parameters.items():
                 param_levels[param_name][not_none(param_value)] = 1
@@ -608,9 +600,9 @@ class BatchTrial(BaseTrial):
 
     def attach_batch_trial_data(
         self,
-        raw_data: Dict[str, TEvaluationOutcome],
-        sample_sizes: Optional[Dict[str, int]] = None,
-        metadata: Optional[Dict[str, Union[str, int]]] = None,
+        raw_data: dict[str, TEvaluationOutcome],
+        sample_sizes: Optional[dict[str, int]] = None,
+        metadata: Optional[dict[str, Union[str, int]]] = None,
     ) -> None:
         """Attaches data to the trial
 
@@ -667,7 +659,7 @@ class BatchTrial(BaseTrial):
 
     def _get_candidate_metadata_from_all_generator_runs(
         self,
-    ) -> Dict[str, TCandidateMetadata]:
+    ) -> dict[str, TCandidateMetadata]:
         """Retrieves combined candidate metadata from all generator runs on this
         batch trial in the form of { arm name -> candidate metadata} mapping.
 

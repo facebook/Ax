@@ -9,8 +9,9 @@
 import logging
 import os
 import re
+from collections.abc import Iterable
 from functools import wraps
-from typing import Any, Callable, Iterable, List, TypeVar
+from typing import Any, Callable, TypeVar
 
 from ax.utils.common.decorator import ClassDecorator
 
@@ -173,7 +174,7 @@ class disable_logger(ClassDecorator):
 
 
 class disable_loggers(ClassDecorator):
-    def __init__(self, names: List[str], level: int = logging.ERROR) -> None:
+    def __init__(self, names: list[str], level: int = logging.ERROR) -> None:
         """Disables a specific logger by name (e.g. module path) by setting the
         log level at the given one for the duration of the decorated function's call
         """

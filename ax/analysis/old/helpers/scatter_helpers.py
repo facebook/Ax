@@ -8,7 +8,7 @@
 
 import numbers
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -98,7 +98,7 @@ def relativize_dataframe(df: pd.DataFrame, status_quo_name: str) -> pd.DataFrame
 
 def extract_mean_and_error_from_df(
     df: pd.DataFrame,
-) -> Tuple[List[float], List[float], List[float], List[float]]:
+) -> tuple[list[float], list[float], list[float], list[float]]:
     """Extract mean and error from dataframe.
 
     Args:
@@ -119,8 +119,8 @@ def extract_mean_and_error_from_df(
 
 def make_label(
     arm_name: str,
-    x_axis_values: Optional[Tuple[str, float, float]],
-    y_axis_values: Tuple[str, float, float],
+    x_axis_values: Optional[tuple[str, float, float]],
+    y_axis_values: tuple[str, float, float],
     param_blob: TParameterization,
     rel: bool,
 ) -> str:
@@ -179,7 +179,7 @@ def error_dot_plot_trace_from_df(
     df: pd.DataFrame,
     show_CI: bool = True,
     visible: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Creates trace for dot plot with confidence intervals.
     Categorizes by arm name.
 
@@ -241,7 +241,7 @@ def error_scatter_trace_from_df(
     visible: bool = True,
     y_axis_label: Optional[str] = None,
     x_axis_label: Optional[str] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Plot scatterplot with error bars.
 
     Args:

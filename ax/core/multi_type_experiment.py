@@ -7,7 +7,7 @@
 # pyre-strict
 
 import logging
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
@@ -51,7 +51,7 @@ class MultiTypeExperiment(Experiment):
         description: Optional[str] = None,
         is_test: bool = False,
         experiment_type: Optional[str] = None,
-        properties: Optional[Dict[str, Any]] = None,
+        properties: Optional[dict[str, Any]] = None,
         default_data_type: Optional[DataType] = None,
     ) -> None:
         """Inits Experiment.
@@ -75,17 +75,17 @@ class MultiTypeExperiment(Experiment):
         self._default_trial_type = default_trial_type
 
         # Map from trial type to default runner of that type
-        self._trial_type_to_runner: Dict[str, Runner] = {
+        self._trial_type_to_runner: dict[str, Runner] = {
             default_trial_type: default_runner
         }
 
         # Specifies which trial type each metric belongs to
-        self._metric_to_trial_type: Dict[str, str] = {}
+        self._metric_to_trial_type: dict[str, str] = {}
 
         # Maps certain metric names to a canonical name. Useful for ancillary trial
         # types' metrics, to specify which primary metrics they correspond to
         # (e.g. 'comment_prediction' => 'comment')
-        self._metric_to_canonical_name: Dict[str, str] = {}
+        self._metric_to_canonical_name: dict[str, str] = {}
 
         # call super.__init__() after defining fields above, because we need
         # them to be populated before optimization config is set
@@ -193,7 +193,7 @@ class MultiTypeExperiment(Experiment):
     @copy_doc(Experiment.fetch_data)
     def fetch_data(
         self,
-        metrics: Optional[List[Metric]] = None,
+        metrics: Optional[list[Metric]] = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
         **kwargs: Any,
@@ -211,8 +211,8 @@ class MultiTypeExperiment(Experiment):
 
     @copy_doc(Experiment._fetch_trial_data)
     def _fetch_trial_data(
-        self, trial_index: int, metrics: Optional[List[Metric]] = None, **kwargs: Any
-    ) -> Dict[str, MetricFetchResult]:
+        self, trial_index: int, metrics: Optional[list[Metric]] = None, **kwargs: Any
+    ) -> dict[str, MetricFetchResult]:
         trial = self.trials[trial_index]
         metrics = [
             metric
@@ -223,7 +223,7 @@ class MultiTypeExperiment(Experiment):
         return super()._fetch_trial_data(trial.index, metrics=metrics, **kwargs)
 
     @property
-    def default_trials(self) -> Set[int]:
+    def default_trials(self) -> set[int]:
         """Return the indicies for trials of the default type."""
         return {
             idx
@@ -232,7 +232,7 @@ class MultiTypeExperiment(Experiment):
         }
 
     @property
-    def metric_to_trial_type(self) -> Dict[str, str]:
+    def metric_to_trial_type(self) -> dict[str, str]:
         """Map metrics to trial types.
 
         Adds in default trial type for OC metrics to custom defined trial types..
