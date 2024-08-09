@@ -37,8 +37,14 @@ from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.modelbridge.cross_validation import compute_model_fit_metrics_from_modelbridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.generation_strategy import (
+    GenerationNode,
+    GenerationStep,
+    GenerationStrategy,
+)
+from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models, ST_MTGP_trans
+from ax.modelbridge.transition_criterion import MaxTrials, MinTrials
 from ax.runners.single_running_trial_mixin import SingleRunningTrialMixin
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.scheduler import (
@@ -53,6 +59,7 @@ from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.service.utils.with_db_settings_base import WithDBSettingsBase
 from ax.storage.json_store.encoders import runner_to_dict
 from ax.storage.json_store.registry import CORE_DECODER_REGISTRY, CORE_ENCODER_REGISTRY
+from ax.storage.metric_registry import CORE_METRIC_REGISTRY
 from ax.storage.runner_registry import CORE_RUNNER_REGISTRY
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.decoder import Decoder
@@ -65,14 +72,20 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.core_stubs import (
+    CustomTestMetric,
+    CustomTestRunner,
     DummyEarlyStoppingStrategy,
     DummyGlobalStoppingStrategy,
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
     get_branin_experiment_with_timestamp_map_metric,
+    get_branin_metric,
     get_branin_multi_objective_optimization_config,
     get_branin_search_space,
+    get_experiment_with_custom_runner_and_metric,
     get_generator_run,
+    get_online_sobol_gpei_generation_strategy,
+    get_outcome_constraint,
     get_sobol,
     SpecialGenerationStrategy,
 )
@@ -368,6 +381,7 @@ class AxSchedulerTestCase(TestCase):
             SyntheticRunnerWithSingleRunningTrial: 2007,
             SyntheticRunnerWithPredictableStatusPolling: 2008,
             RunnerToAllowMultipleMapMetricFetches: 2009,
+            CustomTestRunner: 2010,
             **CORE_RUNNER_REGISTRY,
         }
 
@@ -386,10 +400,18 @@ class AxSchedulerTestCase(TestCase):
             json_encoder_registry=encoder_registry,
             json_decoder_registry=decoder_registry,
             runner_registry=self.runner_registry,
+            metric_registry={
+                CustomTestMetric: 3000,
+                **CORE_METRIC_REGISTRY,
+            },
         )
 
     @property
     def db_settings(self) -> DBSettings:
+        """If db_settings in used on scheduler, it is expected that the
+        test calls `init_test_engine_and_session_factory(force_init=True)`
+        prior to instantiating the scheduler.
+        """
         config = self.db_config
         encoder = Encoder(config=config)
         decoder = Decoder(config=config)
@@ -2239,3 +2261,248 @@ class AxSchedulerTestCase(TestCase):
             ".*Metrics {'branin'} do not implement fetching logic.",
         ):
             scheduler.options = SchedulerOptions(total_trials=10, validate_metrics=True)
+
+    def test_generate_candidates_works_for_sobol(self) -> None:
+        init_test_engine_and_session_factory(force_init=True)
+        # GIVEN a scheduler using a GS with GPEI
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=get_online_sobol_gpei_generation_strategy(),
+        )
+        # this is a HITL experiment, so we don't want trials completing on their own.
+        self.branin_experiment.runner = InfinitePollRunner()
+        options = SchedulerOptions(
+            init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+            batch_size=10,
+            trial_type=TrialType.BATCH_TRIAL,
+        )
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=options,
+            db_settings=self.db_settings,
+        )
+
+        # WHEN generating candidates on a new experiment
+        scheduler.generate_candidates(num_trials=1)
+
+        # THEN the experiment should have a Sobol generated trial in the database
+        scheduler = Scheduler.from_stored_experiment(
+            experiment_name=self.branin_experiment.name,
+            options=options,
+            db_settings=self.db_settings,
+        )
+        self.assertEqual(len(scheduler.experiment.trials), 1)
+        self.assertEqual(
+            len(scheduler.experiment.trial_indices_by_status[TrialStatus.CANDIDATE]), 1
+        )
+        candidate_trial = scheduler.experiment.trials[0]
+        self.assertEqual(len(candidate_trial.generator_runs), 1)
+        self.assertEqual(
+            candidate_trial.generator_runs[0]._model_key,
+            Models.SOBOL.value,
+        )
+        self.assertEqual(
+            len(candidate_trial.arms),
+            options.batch_size,
+        )
+
+    def test_generate_candidates_works_with_status_quo(self) -> None:
+        # GIVEN a scheduler with an experiment that has a status quo
+        self.branin_experiment.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=get_online_sobol_gpei_generation_strategy(),
+        )
+        # this is a HITL experiment, so we don't want trials completing on their own.
+        self.branin_experiment.runner = InfinitePollRunner()
+        options = SchedulerOptions(
+            init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+            batch_size=10,
+            trial_type=TrialType.BATCH_TRIAL,
+            status_quo_weight=1,
+        )
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=options,
+            db_settings=self.db_settings_if_always_needed,
+        )
+
+        # WHEN generating candidates on a new experiment
+        scheduler.generate_candidates(num_trials=1)
+
+        # THEN the experiment should have a Sobol generated trial with a status quo arm
+        self.assertEqual(len(scheduler.experiment.trials), 1)
+        self.assertEqual(
+            len(scheduler.experiment.trial_indices_by_status[TrialStatus.CANDIDATE]), 1
+        )
+        candidate_trial = scheduler.experiment.trials[0]
+        self.assertEqual(
+            len(candidate_trial.arms),
+            none_throws(options.batch_size) + 1,
+        )
+        self.assertIn(self.branin_experiment.status_quo, candidate_trial.arms)
+        self.assertIsNotNone(checked_cast(BatchTrial, candidate_trial).status_quo)
+
+    @fast_botorch_optimize
+    def test_generate_candidates_works_for_iteration(self) -> None:
+        # GIVEN a scheduler using a GS with GPEI
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=get_online_sobol_gpei_generation_strategy(),
+        )
+        # this is a HITL experiment, so we don't want trials completing on their own.
+        self.branin_experiment.runner = InfinitePollRunner()
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=SchedulerOptions(
+                init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+                batch_size=10,
+                trial_type=TrialType.BATCH_TRIAL,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        # AND GIVEN a sobol trial is running
+        scheduler.run(max_new_trials=1)
+        # if there is already data, the test doesn't prove that
+        # `generate_candidates()` fetches
+        self.assertTrue(scheduler.experiment.lookup_data().df.empty)
+
+        # WHEN generating candidates
+        scheduler.generate_candidates(num_trials=1)
+
+        # THEN the experiment should have a GPEI generated trial
+        self.assertFalse(scheduler.experiment.lookup_data().df.empty)
+        self.assertEqual(
+            len(scheduler.experiment.trials), 2, str(scheduler.experiment.trials)
+        )
+        self.assertEqual(
+            len(scheduler.experiment.running_trial_indices),
+            1,
+            str(scheduler.experiment.trials),
+        )
+        self.assertEqual(
+            len(scheduler.experiment.trial_indices_by_status[TrialStatus.CANDIDATE]), 1
+        )
+        candidate_trial = scheduler.experiment.trials[1]
+        self.assertEqual(candidate_trial.status, TrialStatus.CANDIDATE)
+        self.assertEqual(len(candidate_trial.generator_runs), 1)
+        self.assertEqual(
+            candidate_trial.generator_runs[0]._model_key,
+            Models.GPEI.value,
+        )
+        # GPEI may generate less than the requested batch size
+        self.assertLessEqual(
+            len(candidate_trial.arms), none_throws(scheduler.options.batch_size)
+        )
+
+    def test_generate_candidates_does_not_generate_if_missing_data(self) -> None:
+        # GIVEN a scheduler that can't fetch data
+        experiment = get_experiment_with_custom_runner_and_metric(num_trials=0)
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=experiment,
+            generation_strategy=get_online_sobol_gpei_generation_strategy(),
+        )
+        experiment.runner = InfinitePollRunner()
+        scheduler = Scheduler(
+            experiment=experiment,
+            generation_strategy=gs,
+            options=SchedulerOptions(
+                init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+                batch_size=10,
+                trial_type=TrialType.BATCH_TRIAL,
+                validate_metrics=False,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        # AND GIVEN a sobol trial is running
+        scheduler.run(max_new_trials=1)
+        # assert `run()` worked without fetching data
+        self.assertEqual(len(scheduler.experiment.running_trial_indices), 1)
+        self.assertTrue(scheduler.experiment.lookup_data().df.empty)
+
+        # WHEN generating candidates
+        scheduler.generate_candidates(num_trials=1)
+
+        # THEN the experiment should have no new trials
+        self.assertTrue(scheduler.experiment.lookup_data().df.empty)
+        self.assertEqual(len(scheduler.experiment.trials), 1)
+
+    def test_generate_candidates_does_not_generate_if_missing_opt_config(self) -> None:
+        # GIVEN a scheduler using a GS with GPEI
+        experiment = get_branin_experiment(has_optimization_config=False)
+        # this is a HITL experiment, so we don't want trials completing on their own.
+        experiment.runner = InfinitePollRunner()
+        experiment.add_tracking_metric(get_branin_metric())
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=experiment,
+            generation_strategy=get_online_sobol_gpei_generation_strategy(),
+        )
+        scheduler = Scheduler(
+            experiment=experiment,
+            generation_strategy=gs,
+            options=SchedulerOptions(
+                init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+                batch_size=10,
+                trial_type=TrialType.BATCH_TRIAL,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        # AND GIVEN a sobol trial is running
+        scheduler.run(max_new_trials=1)
+        # assert `run()` worked
+        self.assertEqual(len(scheduler.experiment.running_trial_indices), 1)
+
+        # WHEN generating candidates
+        scheduler.generate_candidates(num_trials=1)
+
+        # THEN the experiment should have not generated candidates
+        self.assertEqual(len(scheduler.experiment.trials), 1)
+
+    def test_generate_candidates_does_not_generate_if_overconstrained(self) -> None:
+        # GIVEN a scheduler using a GS with GPEI
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=get_online_sobol_gpei_generation_strategy(),
+        )
+        # this is a HITL experiment, so we don't want trials completing on their own.
+        self.branin_experiment.runner = InfinitePollRunner()
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=SchedulerOptions(
+                init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+                batch_size=10,
+                trial_type=TrialType.BATCH_TRIAL,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        # AND GIVEN a sobol trial is running
+        scheduler.run(max_new_trials=1)
+        # assert `run()` worked
+        self.assertEqual(len(scheduler.experiment.running_trial_indices), 1)
+        # AND GIVEN the optimization config is overconstrained
+        self.branin_experiment.optimization_config.outcome_constraints = [
+            get_outcome_constraint(
+                metric=get_branin_metric(name="branin_constraint"),
+                bound=20,
+                relative=True,
+            )
+        ]
+        self.assertTrue(scheduler.experiment.lookup_data().df.empty)
+
+        # WHEN generating candidates
+        scheduler.generate_candidates(num_trials=1)
+
+        # THEN the experiment should have a GPEI generated trial
+        self.assertFalse(scheduler.experiment.lookup_data().df.empty)
+        self.assertEqual(
+            len(scheduler.experiment.trials), 1, str(scheduler.experiment.trials)
+        )
+        self.assertEqual(
+            len(scheduler.experiment.running_trial_indices),
+            1,
+            str(scheduler.experiment.trials),
+        )

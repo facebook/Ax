@@ -73,3 +73,10 @@ class GenerationStrategyMisconfiguredException(AxGenerationException):
             + "check the documentation, and adjust the configuration accordingly. "
             + f"{error_info}"
         )
+
+
+class OptimizationConfigRequired(ValueError):
+    """Error indicating that candidate generation cannot be completed
+    because an optimization config was not provided."""
+
+    pass
