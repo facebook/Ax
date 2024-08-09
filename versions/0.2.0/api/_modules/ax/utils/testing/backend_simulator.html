@@ -1,0 +1,542 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.0/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.0/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.0/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.0/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.0/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.0/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.0/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.0/css/main.css"/><script src="/versions/0.2.0/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.0/"><img class="logo" src="/versions/0.2.0/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.0/versions.html"><h3>0.2.0</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.0/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.0/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.0/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.utils.testing.backend_simulator</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.base_trial</span> <span class="kn">import</span> <span class="n">TrialStatus</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="SimTrial"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_simulator.SimTrial">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">SimTrial</span><span class="p">:</span>
+    <span class="sd">"""Container for the simulation tasks.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        trial_index: The index of the trial (should match Ax trial index).</span>
+<span class="sd">        sim_runtime: The runtime of the trial (sampled at creation).</span>
+<span class="sd">        sim_start_time: When the trial started running (or exits queued state).</span>
+<span class="sd">        sim_queued_time: When the trial was initially queued.</span>
+<span class="sd">        sim_completed_time: When the trial was marked as completed. Currently,</span>
+<span class="sd">            this is used by an early-stopper via ``stop_trial``.</span>
+<span class="sd">    """</span>
+
+    <span class="c1"># The (Ax) trial index</span>
+    <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="c1"># The simulation runtime in seconds</span>
+    <span class="n">sim_runtime</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="c1"># the start time in seconds</span>
+    <span class="n">sim_start_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># the queued time in seconds</span>
+    <span class="n">sim_queued_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># the completed time (used for early stopping)</span>
+    <span class="n">sim_completed_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="SimStatus"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_simulator.SimStatus">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">SimStatus</span><span class="p">:</span>
+    <span class="sd">"""Container for status of the simulation.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        queued: List of indices of queued trials.</span>
+<span class="sd">        running: List of indices of running trials.</span>
+<span class="sd">        failed: List of indices of failed trials.</span>
+<span class="sd">        time_remaining: List of sim time remaining for running trials.</span>
+<span class="sd">        completed: List of indicies of completed trials.</span>
+<span class="sd">    """</span>
+
+    <span class="n">queued</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">running</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">failed</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">time_remaining</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
+    <span class="n">completed</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="BackendSimulatorOptions"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_simulator.BackendSimulatorOptions">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">BackendSimulatorOptions</span><span class="p">:</span>
+    <span class="sd">"""Settings for the BackendSimulator.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        max_concurrency: The maximum number of trials that can be run</span>
+<span class="sd">            in parallel.</span>
+<span class="sd">        time_scaling: The factor to scale down the runtime of the tasks by.</span>
+<span class="sd">            If ``runtime`` is the actual runtime of a trial, the simulation</span>
+<span class="sd">            time will be ``runtime / time_scaling``.</span>
+<span class="sd">        failure_rate: The rate at which the trials are failing. For now, trials</span>
+<span class="sd">            fail independently with at coin flip based on that rate.</span>
+<span class="sd">        internal_clock: The initial state of the internal clock. If `None`,</span>
+<span class="sd">            the simulator uses ``time.time()`` as the clock.</span>
+<span class="sd">        use_update_as_start_time: Whether the start time of a new trial should be logged</span>
+<span class="sd">            as the current time (at time of update) or end time of previous trial.</span>
+<span class="sd">            This makes sense when using the internal clock and the BackendSimulator</span>
+<span class="sd">            is simulated forward by an external process (such as Scheduler).</span>
+<span class="sd">    """</span>
+
+    <span class="n">max_concurrency</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">time_scaling</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="n">failure_rate</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">internal_clock</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">use_update_as_start_time</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="BackendSimulatorState"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_simulator.BackendSimulatorState">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">BackendSimulatorState</span><span class="p">:</span>
+    <span class="sd">"""State of the BackendSimulator.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        options: The BackendSimulatorOptions associated with this simulator.</span>
+<span class="sd">        verbose_logging: Whether the simulator is using verbose logging.</span>
+<span class="sd">        queued: Currently queued trials.</span>
+<span class="sd">        running: Currently running trials.</span>
+<span class="sd">        failed: Currently failed trials.</span>
+<span class="sd">        completed: Currently completed trials.</span>
+<span class="sd">    """</span>
+
+    <span class="n">options</span><span class="p">:</span> <span class="n">BackendSimulatorOptions</span>
+    <span class="n">verbose_logging</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">queued</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]</span>
+    <span class="n">running</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]</span>
+    <span class="n">failed</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]</span>
+    <span class="n">completed</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]</span></div>
+
+
+<div class="viewcode-block" id="BackendSimulator"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_simulator.BackendSimulator">[docs]</a><span class="k">class</span> <span class="nc">BackendSimulator</span><span class="p">:</span>
+    <span class="sd">"""Simulator for a backend deployment with concurrent dispatch and a queue."""</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BackendSimulatorOptions</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">queued</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">SimTrial</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">running</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">SimTrial</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">failed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">SimTrial</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">completed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">SimTrial</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">verbose_logging</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""A simulator for a concurrent dispatch with a queue.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            options: A ``BackendSimulatorOptions`` object with various settings</span>
+<span class="sd">                of the backend simulator.</span>
+<span class="sd">            queued: A list of SimTrial objects representing the queued trials</span>
+<span class="sd">                (only used for testing particular initialization cases)</span>
+<span class="sd">            running: A list of SimTrial objects representing the running trials</span>
+<span class="sd">                (only used for testing particular initialization cases)</span>
+<span class="sd">            failed: A list of SimTrial objects representing the failed trials</span>
+<span class="sd">                (only used for testing particular initialization cases)</span>
+<span class="sd">            completed: A list of SimTrial objects representing the completed trials</span>
+<span class="sd">                (only used for testing particular initialization cases)</span>
+<span class="sd">            verbose_logging: If False, sets the logging level to WARNING.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">verbose_logging</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">)</span>  <span class="c1"># pragma: no cover</span>
+
+        <span class="k">if</span> <span class="n">options</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">options</span> <span class="o">=</span> <span class="n">BackendSimulatorOptions</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_concurrency</span> <span class="o">=</span> <span class="n">options</span><span class="o">.</span><span class="n">max_concurrency</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_scaling</span> <span class="o">=</span> <span class="n">options</span><span class="o">.</span><span class="n">time_scaling</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">failure_rate</span> <span class="o">=</span> <span class="n">options</span><span class="o">.</span><span class="n">failure_rate</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">use_update_as_start_time</span> <span class="o">=</span> <span class="n">options</span><span class="o">.</span><span class="n">use_update_as_start_time</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_queued</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">SimTrial</span><span class="p">]</span> <span class="o">=</span> <span class="n">queued</span> <span class="ow">or</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_running</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">SimTrial</span><span class="p">]</span> <span class="o">=</span> <span class="n">running</span> <span class="ow">or</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_failed</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">SimTrial</span><span class="p">]</span> <span class="o">=</span> <span class="n">failed</span> <span class="ow">or</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_completed</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">SimTrial</span><span class="p">]</span> <span class="o">=</span> <span class="n">completed</span> <span class="ow">or</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_internal_clock</span> <span class="o">=</span> <span class="n">options</span><span class="o">.</span><span class="n">internal_clock</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_verbose_logging</span> <span class="o">=</span> <span class="n">verbose_logging</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_init_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_create_index_to_trial_map</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_queued</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">"""The number of queued trials (to run as soon as capacity is available)."""</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_queued</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_running</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">"""The number of currently running trials."""</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_running</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_failed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">"""The number of failed trials."""</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_failed</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_completed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">"""The number of completed trials."""</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_completed</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">use_internal_clock</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Whether or not we are using the internal clock."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_internal_clock</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">time</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">"""The current time."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_internal_clock</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_internal_clock</span> <span class="k">else</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">all_trials</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">SimTrial</span><span class="p">]:</span>
+        <span class="sd">"""All trials on the simulator."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_queued</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_running</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_completed</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_failed</span>
+
+<div class="viewcode-block" id="BackendSimulator.update"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_simulator.BackendSimulator.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Update the state of the simulator."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_internal_clock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_internal_clock</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="p">)</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">()</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">"</span><span class="se">\n</span><span class="s2">-----------</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="sa">f</span><span class="s2">"Updated backend simulator state (time = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="si">}</span><span class="s2">):</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="sa">f</span><span class="s2">"** Queued:</span><span class="se">\n</span><span class="si">{</span><span class="nb">format</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">queued</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="sa">f</span><span class="s2">"** Running:</span><span class="se">\n</span><span class="si">{</span><span class="nb">format</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">running</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="sa">f</span><span class="s2">"** Failed:</span><span class="se">\n</span><span class="si">{</span><span class="nb">format</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">failed</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="sa">f</span><span class="s2">"** Completed:</span><span class="se">\n</span><span class="si">{</span><span class="nb">format</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">completed</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="sa">f</span><span class="s2">"-----------</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="BackendSimulator.reset"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_simulator.BackendSimulator.reset">[docs]</a>    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Reset the simulator."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_concurrency</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_state</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">max_concurrency</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_scaling</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_state</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">time_scaling</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_internal_clock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_state</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">internal_clock</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_queued</span> <span class="o">=</span> <span class="p">[</span><span class="n">SimTrial</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span> <span class="k">for</span> <span class="n">args</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_state</span><span class="o">.</span><span class="n">queued</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_running</span> <span class="o">=</span> <span class="p">[</span><span class="n">SimTrial</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span> <span class="k">for</span> <span class="n">args</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_state</span><span class="o">.</span><span class="n">running</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_failed</span> <span class="o">=</span> <span class="p">[</span><span class="n">SimTrial</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span> <span class="k">for</span> <span class="n">args</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_state</span><span class="o">.</span><span class="n">failed</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_completed</span> <span class="o">=</span> <span class="p">[</span><span class="n">SimTrial</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span> <span class="k">for</span> <span class="n">args</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_state</span><span class="o">.</span><span class="n">completed</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_create_index_to_trial_map</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="BackendSimulator.state"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_simulator.BackendSimulator.state">[docs]</a>    <span class="k">def</span> <span class="nf">state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BackendSimulatorState</span><span class="p">:</span>
+        <span class="sd">"""Return a ``BackendSimulatorState`` containing the state of the simulator."""</span>
+
+        <span class="n">options</span> <span class="o">=</span> <span class="n">BackendSimulatorOptions</span><span class="p">(</span>
+            <span class="n">max_concurrency</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">max_concurrency</span><span class="p">,</span>
+            <span class="n">time_scaling</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time_scaling</span><span class="p">,</span>
+            <span class="n">failure_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">failure_rate</span><span class="p">,</span>
+            <span class="n">internal_clock</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_internal_clock</span><span class="p">,</span>
+            <span class="n">use_update_as_start_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">use_update_as_start_time</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">BackendSimulatorState</span><span class="p">(</span>
+            <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">,</span>
+            <span class="n">verbose_logging</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_verbose_logging</span><span class="p">,</span>
+            <span class="n">queued</span><span class="o">=</span><span class="p">[</span><span class="n">q</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_queued</span><span class="p">],</span>
+            <span class="n">running</span><span class="o">=</span><span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_running</span><span class="p">],</span>
+            <span class="n">failed</span><span class="o">=</span><span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_failed</span><span class="p">],</span>
+            <span class="n">completed</span><span class="o">=</span><span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_completed</span><span class="p">],</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="BackendSimulator.from_state"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_simulator.BackendSimulator.from_state">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_state</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">BackendSimulatorState</span><span class="p">):</span>
+        <span class="sd">"""Construct a simulator from a state.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            state: A ``BackendSimulatorState`` to set the simulator to.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A ``BackendSimulator`` with the desired state.</span>
+<span class="sd">        """</span>
+        <span class="n">trial_types</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"queued"</span><span class="p">:</span> <span class="n">state</span><span class="o">.</span><span class="n">queued</span><span class="p">,</span>
+            <span class="s2">"running"</span><span class="p">:</span> <span class="n">state</span><span class="o">.</span><span class="n">running</span><span class="p">,</span>
+            <span class="s2">"failed"</span><span class="p">:</span> <span class="n">state</span><span class="o">.</span><span class="n">failed</span><span class="p">,</span>
+            <span class="s2">"completed"</span><span class="p">:</span> <span class="n">state</span><span class="o">.</span><span class="n">completed</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">trial_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">key</span><span class="p">:</span> <span class="p">[</span><span class="n">SimTrial</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="k">for</span> <span class="n">kwargs</span> <span class="ow">in</span> <span class="n">trial_types</span><span class="p">[</span><span class="n">key</span><span class="p">]]</span>  <span class="c1"># pyre-ignore [6]</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"queued"</span><span class="p">,</span> <span class="s2">"running"</span><span class="p">,</span> <span class="s2">"failed"</span><span class="p">,</span> <span class="s2">"completed"</span><span class="p">)</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">options</span><span class="o">=</span><span class="n">state</span><span class="o">.</span><span class="n">options</span><span class="p">,</span> <span class="n">verbose_logging</span><span class="o">=</span><span class="n">state</span><span class="o">.</span><span class="n">verbose_logging</span><span class="p">,</span> <span class="o">**</span><span class="n">trial_kwargs</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="BackendSimulator.run_trial"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_simulator.BackendSimulator.run_trial">[docs]</a>    <span class="k">def</span> <span class="nf">run_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">runtime</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Run a simulated trial.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial_index: The index of the trial (usually the Ax trial index)</span>
+<span class="sd">            runtime: The runtime of the simulation. Typically sampled from the</span>
+<span class="sd">                runtime model of a simulation model.</span>
+
+<span class="sd">        Internally, the runtime is scaled by the `time_scaling` factor, so that</span>
+<span class="sd">        the simulation can run arbitrarily faster than the underlying evaluation.</span>
+<span class="sd">        """</span>
+        <span class="c1"># scale runtime to simulation</span>
+        <span class="n">sim_runtime</span> <span class="o">=</span> <span class="n">runtime</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_scaling</span>
+
+        <span class="c1"># flip a coin to see if the trial fails (for now fail instantly)</span>
+        <span class="c1"># TODO: Allow failure behavior based on a survival rate</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">failure_rate</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">failure_rate</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_failed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">SimTrial</span><span class="p">(</span>
+                        <span class="n">trial_index</span><span class="o">=</span><span class="n">trial_index</span><span class="p">,</span>
+                        <span class="n">sim_runtime</span><span class="o">=</span><span class="n">sim_runtime</span><span class="p">,</span>
+                        <span class="n">sim_start_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+                <span class="k">return</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_running</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_concurrency</span><span class="p">:</span>
+            <span class="c1"># note that though these are running for simulation purposes,</span>
+            <span class="c1"># the trial status does not yet get updated (this is also how it</span>
+            <span class="c1"># works in the real world, this requires updating the trial status manually)</span>
+            <span class="n">curr_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span>
+            <span class="n">new_trial</span> <span class="o">=</span> <span class="n">SimTrial</span><span class="p">(</span>
+                <span class="n">trial_index</span><span class="o">=</span><span class="n">trial_index</span><span class="p">,</span>
+                <span class="n">sim_runtime</span><span class="o">=</span><span class="n">sim_runtime</span><span class="p">,</span>
+                <span class="n">sim_start_time</span><span class="o">=</span><span class="n">curr_time</span><span class="p">,</span>
+                <span class="n">sim_queued_time</span><span class="o">=</span><span class="n">curr_time</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">new_trial</span><span class="p">(</span><span class="n">trial</span><span class="o">=</span><span class="n">new_trial</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">new_trial</span> <span class="o">=</span> <span class="n">SimTrial</span><span class="p">(</span>
+                <span class="n">trial_index</span><span class="o">=</span><span class="n">trial_index</span><span class="p">,</span>
+                <span class="n">sim_runtime</span><span class="o">=</span><span class="n">sim_runtime</span><span class="p">,</span>
+                <span class="n">sim_queued_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">new_trial</span><span class="p">(</span><span class="n">trial</span><span class="o">=</span><span class="n">new_trial</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">STAGED</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BackendSimulator.new_trial"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_simulator.BackendSimulator.new_trial">[docs]</a>    <span class="k">def</span> <span class="nf">new_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial</span><span class="p">:</span> <span class="n">SimTrial</span><span class="p">,</span> <span class="n">status</span><span class="p">:</span> <span class="n">TrialStatus</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Register a trial into the simulator.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial: A new trial to add.</span>
+<span class="sd">            status: The status of the new trial, either STAGED (add to ``self._queued``)</span>
+<span class="sd">                or RUNNING (add to ``self._running``).</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">status</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">STAGED</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_queued</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">trial</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">status</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_running</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">trial</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"New trials must be either staged or running."</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_index_to_trial_map</span><span class="p">[</span><span class="n">trial</span><span class="o">.</span><span class="n">trial_index</span><span class="p">]</span> <span class="o">=</span> <span class="n">trial</span></div>
+
+<div class="viewcode-block" id="BackendSimulator.stop_trial"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_simulator.BackendSimulator.stop_trial">[docs]</a>    <span class="k">def</span> <span class="nf">stop_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Stop a simulated trial by setting the completed time to the current time.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial_index: The index of the trial to stop.</span>
+<span class="sd">        """</span>
+        <span class="n">trial_status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lookup_trial_index_status</span><span class="p">(</span><span class="n">trial_index</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">trial_status</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Trial </span><span class="si">{</span><span class="n">trial_index</span><span class="si">}</span><span class="s2"> is not currently running (has status "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">trial_status</span><span class="si">}</span><span class="s2">) and cannot be stopped."</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">trial</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index_to_trial_map</span><span class="p">[</span><span class="n">trial_index</span><span class="p">]</span>
+            <span class="n">trial</span><span class="o">.</span><span class="n">sim_completed_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Trial </span><span class="si">{</span><span class="n">trial_index</span><span class="si">}</span><span class="s2"> stopped at time </span><span class="si">{</span><span class="n">trial</span><span class="o">.</span><span class="n">sim_completed_time</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="BackendSimulator.status"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_simulator.BackendSimulator.status">[docs]</a>    <span class="k">def</span> <span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SimStatus</span><span class="p">:</span>
+        <span class="sd">"""Return the internal status of the simulator.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A ``SimStatus`` object representing the current simulator state.</span>
+<span class="sd">        """</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span>
+        <span class="k">return</span> <span class="n">SimStatus</span><span class="p">(</span>
+            <span class="n">queued</span><span class="o">=</span><span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">trial_index</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_queued</span><span class="p">],</span>
+            <span class="n">running</span><span class="o">=</span><span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">trial_index</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_running</span><span class="p">],</span>
+            <span class="n">failed</span><span class="o">=</span><span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">trial_index</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_failed</span><span class="p">],</span>
+            <span class="n">time_remaining</span><span class="o">=</span><span class="p">[</span>
+                <span class="c1"># pyre-fixme[58]: `+` is not supported for operand types</span>
+                <span class="c1">#  `Optional[float]` and `float`.</span>
+                <span class="n">t</span><span class="o">.</span><span class="n">sim_start_time</span> <span class="o">+</span> <span class="n">t</span><span class="o">.</span><span class="n">sim_runtime</span> <span class="o">-</span> <span class="n">now</span>
+                <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_running</span>
+            <span class="p">],</span>
+            <span class="n">completed</span><span class="o">=</span><span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">trial_index</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_completed</span><span class="p">],</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="BackendSimulator.lookup_trial_index_status"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_simulator.BackendSimulator.lookup_trial_index_status">[docs]</a>    <span class="k">def</span> <span class="nf">lookup_trial_index_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TrialStatus</span><span class="p">]:</span>
+        <span class="sd">"""Lookup the trial status of a ``trial_index``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial_index: The index of the trial to check.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A ``TrialStatus``.</span>
+<span class="sd">        """</span>
+        <span class="n">sim_status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">status</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">trial_index</span> <span class="ow">in</span> <span class="n">sim_status</span><span class="o">.</span><span class="n">queued</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">STAGED</span>
+        <span class="k">elif</span> <span class="n">trial_index</span> <span class="ow">in</span> <span class="n">sim_status</span><span class="o">.</span><span class="n">running</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span>
+        <span class="k">elif</span> <span class="n">trial_index</span> <span class="ow">in</span> <span class="n">sim_status</span><span class="o">.</span><span class="n">completed</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">COMPLETED</span>
+        <span class="k">elif</span> <span class="n">trial_index</span> <span class="ow">in</span> <span class="n">sim_status</span><span class="o">.</span><span class="n">failed</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">FAILED</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="BackendSimulator.get_sim_trial_by_index"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_simulator.BackendSimulator.get_sim_trial_by_index">[docs]</a>    <span class="k">def</span> <span class="nf">get_sim_trial_by_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SimTrial</span><span class="p">]:</span>
+        <span class="sd">"""Get a ``SimTrial`` by ``trial_index``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial_index: The index of the trial to return.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A ``SimTrial`` with the index ``trial_index`` or None if not found.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index_to_trial_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">trial_index</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_update_completed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">SimTrial</span><span class="p">]:</span>
+        <span class="sd">"""Look through running trials and see if any trials have completed</span>
+<span class="sd">        since the last check. Such trials could have completed naturally (in</span>
+<span class="sd">        this case, ``sim_completed_time`` is None) or have been given a artificial</span>
+<span class="sd">        completion time (``sim_completed_time`` is not None) via early stopping.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            timestamp: The current timestamp.</span>
+<span class="sd">        """</span>
+        <span class="n">completed_since_last</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">new_running</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_running</span><span class="p">:</span>
+            <span class="c1"># pyre-fixme[58]: `+` is not supported for operand types</span>
+            <span class="c1">#  `Optional[float]` and `float`.</span>
+            <span class="k">if</span> <span class="n">timestamp</span> <span class="o">&gt;=</span> <span class="n">trial</span><span class="o">.</span><span class="n">sim_start_time</span> <span class="o">+</span> <span class="n">trial</span><span class="o">.</span><span class="n">sim_runtime</span><span class="p">:</span>
+                <span class="n">completed_since_last</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">trial</span><span class="p">)</span>
+                <span class="n">trial</span><span class="o">.</span><span class="n">sim_completed_time</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">trial</span><span class="o">.</span><span class="n">sim_start_time</span> <span class="o">+</span> <span class="n">trial</span><span class="o">.</span><span class="n">sim_runtime</span>  <span class="c1"># pyre-ignore[58]</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="p">(</span>
+                <span class="n">trial</span><span class="o">.</span><span class="n">sim_completed_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="ow">and</span> <span class="n">timestamp</span> <span class="o">&gt;=</span> <span class="n">trial</span><span class="o">.</span><span class="n">sim_completed_time</span>  <span class="c1"># pyre-ignore[58]</span>
+            <span class="p">):</span>
+                <span class="n">completed_since_last</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">trial</span><span class="p">)</span>  <span class="c1"># was early stopped</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">new_running</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">trial</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_running</span> <span class="o">=</span> <span class="n">new_running</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_completed</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">completed_since_last</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">completed_since_last</span>
+
+    <span class="k">def</span> <span class="nf">_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Check if trials have completed (or stopped) and update the simulator.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            timestamp: The current timestamp.</span>
+<span class="sd">        """</span>
+
+        <span class="n">completed_since_last</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_update_completed</span><span class="p">(</span><span class="n">timestamp</span><span class="p">)</span>
+
+        <span class="c1"># if no trial has finished since the last call we're done</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">completed_since_last</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># if at least one trial has finished, we need to graduate queued trials to</span>
+        <span class="c1"># running trials. Since all we need to keep track of is the start_time, we can</span>
+        <span class="c1"># do this retroactively.</span>
+        <span class="c1"># TODO: Improve performance / make less ad hoc by using a priority queue</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">completed_since_last</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_queued</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">new_running_trial</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_queued</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">sim_start_time</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="c1"># pyre-fixme[58]: `+` is not supported for operand types</span>
+                    <span class="c1">#  `Optional[float]` and `float`.</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">sim_start_time</span> <span class="o">+</span> <span class="n">c</span><span class="o">.</span><span class="n">sim_runtime</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_update_as_start_time</span>
+                    <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span>
+                <span class="p">)</span>
+                <span class="n">new_running_trial</span><span class="o">.</span><span class="n">sim_start_time</span> <span class="o">=</span> <span class="n">sim_start_time</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_running</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_running_trial</span><span class="p">)</span>
+
+        <span class="c1"># since these graduated trials could both have started and finished in between</span>
+        <span class="c1"># the simulation updates, we need to re-run the update with the new state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update</span><span class="p">(</span><span class="n">timestamp</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_create_index_to_trial_map</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Create the index to trial map, which is useful for getting</span>
+<span class="sd">        the ``SimTrial`` objects, as in ``get_sim_trial_by_index``."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_index_to_trial_map</span> <span class="o">=</span> <span class="p">{</span><span class="n">t</span><span class="o">.</span><span class="n">trial_index</span><span class="p">:</span> <span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_trials</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="format"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_simulator.format">[docs]</a><span class="k">def</span> <span class="nf">format</span><span class="p">(</span><span class="n">trial_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]]])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="sd">"""Helper function for formatting a list."""</span>
+    <span class="n">trial_list_str</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">trial_list</span><span class="p">]</span>
+    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">trial_list_str</span><span class="p">)</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.0/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2021 Facebook Inc.</section></footer></div></body></html>
