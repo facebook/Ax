@@ -38,6 +38,7 @@ from ax.core.outcome_constraint import (
 from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TModelPredictArm
 from ax.exceptions.core import DataRequiredError, UnsupportedError
+from ax.exceptions.generation_strategy import OptimizationConfigRequired
 from ax.modelbridge.base import gen_arms, GenResults, ModelBridge
 from ax.modelbridge.modelbridge_utils import (
     array_to_observation_data,
@@ -804,7 +805,7 @@ class TorchModelBridge(ModelBridge):
             search_space=search_space, param_names=self.parameters
         )
         if optimization_config is None:
-            raise ValueError(
+            raise OptimizationConfigRequired(
                 f"{self.__class__.__name__} requires an OptimizationConfig "
                 "to be specified"
             )
