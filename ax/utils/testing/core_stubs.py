@@ -84,11 +84,13 @@ from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.dict_lookup import DictLookupMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
-from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol, Models
+from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
+from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.transition_criterion import (
     MaxGenerationParallelism,
     MaxTrials,
+    MinTrials,
     TrialBasedCriterion,
 )
 from ax.models.torch.botorch_modular.acquisition import Acquisition
@@ -1541,9 +1543,13 @@ def get_objective_threshold(
     )
 
 
-def get_outcome_constraint(relative: bool = True) -> OutcomeConstraint:
+def get_outcome_constraint(
+    metric: Optional[Metric] = None, relative: bool = True, bound: float = -0.25
+) -> OutcomeConstraint:
+    if metric is None:
+        metric = Metric(name="m2")
     return OutcomeConstraint(
-        metric=Metric(name="m2"), op=ComparisonOp.GEQ, bound=-0.25, relative=relative
+        metric=metric, op=ComparisonOp.GEQ, bound=bound, relative=relative
     )
 
 
@@ -2386,6 +2392,59 @@ def get_dataset(
         ),
         feature_names=feature_names,
         outcome_names=outcome_names,
+    )
+
+
+def get_online_sobol_gpei_generation_strategy(
+    sobol_steps: int = 1,
+) -> GenerationStrategy:
+    """Constructs a GenerationStrategy with Sobol and GPEI nodes for simulating
+    online optimization.
+    """
+    # Set up the node-based generation strategy for testing.
+    step_model_kwargs = {"silently_filter_kwargs": True}
+    sobol_criterion = [
+        MaxTrials(
+            threshold=1,
+            transition_to="GPEI_node",
+            block_gen_if_met=True,
+            only_in_statuses=None,
+            not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
+        ),
+        MinTrials(
+            threshold=1,
+            transition_to="GPEI_node",
+            block_gen_if_met=True,
+            only_in_statuses=[
+                TrialStatus.RUNNING,
+                TrialStatus.COMPLETED,
+                TrialStatus.EARLY_STOPPED,
+            ],
+        ),
+    ]
+    sobol_model_spec = ModelSpec(
+        model_enum=Models.SOBOL,
+        model_kwargs=step_model_kwargs,
+        model_gen_kwargs={},
+    )
+    gpei_model_spec = ModelSpec(
+        model_enum=Models.GPEI,
+        model_kwargs=step_model_kwargs,
+        model_gen_kwargs={},
+    )
+    sobol_node = GenerationNode(
+        node_name="sobol_node",
+        transition_criteria=sobol_criterion,
+        model_specs=[sobol_model_spec],
+    )
+    gpei_node = GenerationNode(
+        node_name="GPEI_node",
+        transition_criteria=[],
+        model_specs=[gpei_model_spec],
+    )
+    return GenerationStrategy(
+        name="Sobol+GPEI_Nodes",
+        nodes=[sobol_node, gpei_node],
     )
 
 

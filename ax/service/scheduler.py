@@ -15,7 +15,7 @@ from datetime import datetime
 from enum import Enum
 from logging import LoggerAdapter
 from time import sleep
-from typing import Any, Callable, cast, NamedTuple, Optional
+from typing import Any, Callable, cast, List, NamedTuple, Optional
 
 import ax.service.utils.early_stopping as early_stopping_utils
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -43,6 +43,7 @@ from ax.exceptions.core import (
 from ax.exceptions.generation_strategy import (
     AxGenerationException,
     MaxParallelismReachedException,
+    OptimizationConfigRequired,
 )
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -1696,6 +1697,15 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 )
             self.logger.debug(f"Message from generation strategy: {err}")
             return []
+        except OptimizationConfigRequired as err:
+            if self._log_next_no_trials_reason:
+                self.logger.info(
+                    "Generated all trials that can be generated currently. "
+                    "`generation_strategy` requires an optimization config "
+                    "to be set before generating more trials."
+                )
+            self.logger.debug(f"Message from generation strategy: {err}")
+            return []
 
         if self.options.trial_type == TrialType.TRIAL and any(
             len(generator_run_list[0].arms) > 1 or len(generator_run_list) > 1
@@ -1724,6 +1734,39 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
             trials.append(trial)
         return trials
+
+    def generate_candidates(
+        self,
+        num_trials: int = 1,
+        reduce_state_generator_runs: bool = False,
+    ) -> List[BaseTrial]:
+        """Fetch the latest data and generate new candidate trials.
+
+        Args:
+            num_trials: Number of candidate trials to generate.
+            reduce_state_generator_runs: Flag to determine
+                whether to save model state for every generator run (default)
+                or to only save model state on the final generator run of each
+                batch.
+
+        Returns:
+            List of trials, empty if generation is not possible.
+        """
+        self.poll_and_process_results()
+        new_trials = self._get_next_trials(
+            num_trials=num_trials,
+            n=self.options.batch_size or 1,
+        )
+        if len(new_trials) > 0:
+            new_generator_runs = [gr for t in new_trials for gr in t.generator_runs]
+            self._save_or_update_trials_and_generation_strategy_if_possible(
+                experiment=self.experiment,
+                trials=new_trials,
+                generation_strategy=self.generation_strategy,
+                new_generator_runs=new_generator_runs,
+                reduce_state_generator_runs=reduce_state_generator_runs,
+            )
+        return new_trials
 
     def _gen_new_trials_from_generation_strategy(
         self,
