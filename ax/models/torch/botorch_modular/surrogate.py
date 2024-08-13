@@ -178,9 +178,9 @@ class Surrogate(Base):
         model_options: Optional[dict[str, Any]] = None,
         mll_class: type[MarginalLogLikelihood] = ExactMarginalLogLikelihood,
         mll_options: Optional[dict[str, Any]] = None,
-        outcome_transform_classes: Optional[list[type[OutcomeTransform]]] = None,
+        outcome_transform_classes: Optional[Sequence[type[OutcomeTransform]]] = None,
         outcome_transform_options: Optional[dict[str, dict[str, Any]]] = None,
-        input_transform_classes: Optional[list[type[InputTransform]]] = None,
+        input_transform_classes: Optional[Sequence[type[InputTransform]]] = None,
         input_transform_options: Optional[dict[str, dict[str, Any]]] = None,
         covar_module_class: Optional[type[Kernel]] = None,
         covar_module_options: Optional[dict[str, Any]] = None,
@@ -355,7 +355,9 @@ class Surrogate(Base):
         dataset: SupervisedDataset,
         botorch_model_class_args: list[str],
         search_space_digest: SearchSpaceDigest,
+        botorch_model_class: type[Model],
     ) -> None:
+        """Modifies `formatted_model_inputs` in place."""
         for input_name, input_class, input_options in inputs:
             if input_class is None:
                 # This is a temporary solution until all BoTorch models use
@@ -376,7 +378,7 @@ class Surrogate(Base):
                 # to be expanded to a ModelFactory, see D22457664, to accommodate
                 # different models in the future.
                 raise UserInputError(
-                    f"The BoTorch model class {self.botorch_model_class} does not "
+                    f"The BoTorch model class {botorch_model_class.__name__} does not "
                     f"support the input {input_name}."
                 )
             input_options = deepcopy(input_options) or {}
@@ -385,7 +387,7 @@ class Surrogate(Base):
                 covar_module_with_defaults = covar_module_argparse(
                     input_class,
                     dataset=dataset,
-                    botorch_model_class=self.botorch_model_class,
+                    botorch_model_class=botorch_model_class,
                     **input_options,
                 )
 
@@ -736,7 +738,7 @@ class Surrogate(Base):
 
     def _extract_construct_input_transform_args(
         self, search_space_digest: SearchSpaceDigest
-    ) -> tuple[Optional[list[type[InputTransform]]], dict[str, dict[str, Any]]]:
+    ) -> tuple[Optional[Sequence[type[InputTransform]]], dict[str, dict[str, Any]]]:
         """
         Extracts input transform classes and input transform options that will
         be used in `self._set_formatted_inputs` and ultimately passed to
@@ -764,7 +766,7 @@ class Surrogate(Base):
                 )
             }
 
-            submodel_input_transform_classes: list[type[InputTransform]] = [
+            submodel_input_transform_classes: Sequence[type[InputTransform]] = [
                 InputPerturbation
             ]
 
@@ -862,6 +864,8 @@ def _submodel_input_constructor_base(
         search_space_digest=search_space_digest,
         # This is used to check if the arguments are supported.
         botorch_model_class_args=botorch_model_class_args,
+        # Used to raise the appropriate error if arguments are not supported
+        botorch_model_class=botorch_model_class,
     )
     return formatted_model_inputs
 

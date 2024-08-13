@@ -1016,7 +1016,10 @@ class SurrogateWithModelListTest(TestCase):
             outcome_transform_classes=[Standardize],
             outcome_transform_options={"Standardize": {"m": 1}},
         )
-        with self.assertRaisesRegex(UserInputError, "The BoTorch model class"):
+        with self.assertRaisesRegex(
+            UserInputError,
+            "The BoTorch model class SingleTaskGPWithDifferentConstructor",
+        ):
             surrogate.fit(
                 datasets=self.supervised_training_data,
                 search_space_digest=SearchSpaceDigest(
