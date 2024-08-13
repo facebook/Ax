@@ -37,14 +37,8 @@ from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.modelbridge.cross_validation import compute_model_fit_metrics_from_modelbridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
-from ax.modelbridge.generation_strategy import (
-    GenerationNode,
-    GenerationStep,
-    GenerationStrategy,
-)
-from ax.modelbridge.model_spec import ModelSpec
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models, ST_MTGP_trans
-from ax.modelbridge.transition_criterion import MaxTrials, MinTrials
 from ax.runners.single_running_trial_mixin import SingleRunningTrialMixin
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.scheduler import (
