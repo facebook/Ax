@@ -666,6 +666,19 @@ class Surrogate(Base):
     ) -> tuple[Tensor, Tensor]:
         """Finds the best predicted point and the corresponding value of the
         appropriate best point acquisition function.
+
+        Args:
+            search_space_digest: A `SearchSpaceDigest`.
+            torch_opt_config: A `TorchOptConfig`; none-None `fixed_features` is
+                not supported.
+            options: Optional. If present, `seed_inner` (default None) and `qmc`
+                (default True) will be parsed from `options`; any other keys
+                will be ignored.
+
+        Returns:
+            A two-tuple (`candidate`, `acqf_value`), where `candidate` is a 1d
+            Tensor of the best predicted point and `acqf_value` is a scalar (0d)
+            Tensor of the acquisition function value at the best point.
         """
         if torch_opt_config.fixed_features:
             # When have fixed features, need `FixedFeatureAcquisitionFunction`
@@ -692,7 +705,7 @@ class Surrogate(Base):
             torch_opt_config=torch_opt_config,
             options=acqf_options,
         )
-        candidates, acqf_values, _ = acqf.optimize(
+        candidates, acqf_value, _ = acqf.optimize(
             n=1,
             search_space_digest=search_space_digest,
             inequality_constraints=_to_inequality_constraints(
@@ -700,7 +713,7 @@ class Surrogate(Base):
             ),
             fixed_features=torch_opt_config.fixed_features,
         )
-        return candidates[0], acqf_values[0]
+        return candidates[0], acqf_value
 
     def pareto_frontier(self) -> tuple[Tensor, Tensor]:
         """For multi-objective optimization, retrieve Pareto frontier instead
