@@ -21,13 +21,11 @@ from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.surrogate import _extract_model_kwargs, Surrogate
 from ax.models.torch.botorch_modular.utils import choose_model_class, fit_botorch_model
 from ax.models.torch_base import TorchOptConfig
-from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
 from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from ax.utils.testing.utils import generic_equals
-from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.models import ModelListGP, SaasFullyBayesianSingleTaskGP, SingleTaskGP
 from botorch.models.deterministic import GenericDeterministicModel
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
@@ -37,12 +35,12 @@ from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP, PairwiseLaplaceMarginalLogLikelihood
 from botorch.models.transforms.input import InputPerturbation, Normalize
 from botorch.models.transforms.outcome import Standardize
-from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.datasets import SupervisedDataset
 from gpytorch.constraints import GreaterThan, Interval
 from gpytorch.kernels import Kernel, MaternKernel, RBFKernel, ScaleKernel
 from gpytorch.likelihoods import FixedNoiseGaussianLikelihood, GaussianLikelihood
 from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
+from pyre_extensions import assert_is_instance
 from torch import Tensor
 from torch.nn import ModuleList  # @manual -- autodeps can't figure it out.
 
@@ -150,6 +148,7 @@ class SurrogateTest(TestCase):
         self.training_data = [
             SupervisedDataset(
                 X=self.Xs[0],
+                # Note: using 1d Y does not match the 2d TorchOptConfig
                 Y=self.Ys[0],
                 feature_names=self.feature_names,
                 outcome_names=self.metric_names,
@@ -186,16 +185,26 @@ class SurrogateTest(TestCase):
         )
 
     def _get_surrogate(
-        self, botorch_model_class: type[Model]
+        self, botorch_model_class: type[Model], use_outcome_transform: bool = True
     ) -> tuple[Surrogate, dict[str, Any]]:
         if botorch_model_class is SaasFullyBayesianSingleTaskGP:
             mll_options = {"jit_compile": True}
         else:
             mll_options = None
+
+        if use_outcome_transform:
+            outcome_transform_classes = [Standardize]
+            outcome_transform_options = {"Standardize": {"m": 1}}
+        else:
+            outcome_transform_classes = None
+            outcome_transform_options = None
+
         surrogate = Surrogate(
             botorch_model_class=botorch_model_class,
             mll_class=self.mll_class,
             mll_options=mll_options,
+            outcome_transform_classes=outcome_transform_classes,
+            outcome_transform_options=outcome_transform_options,
         )
         surrogate_kwargs = botorch_model_class.construct_inputs(self.training_data[0])
         return surrogate, surrogate_kwargs
@@ -357,7 +366,9 @@ class SurrogateTest(TestCase):
     @patch.object(SingleTaskGP, "__init__", return_value=None)
     @patch(f"{SURROGATE_PATH}.fit_botorch_model")
     def test_fit_model_reuse(self, mock_fit: Mock, mock_init: Mock) -> None:
-        surrogate, _ = self._get_surrogate(botorch_model_class=SingleTaskGP)
+        surrogate, _ = self._get_surrogate(
+            botorch_model_class=SingleTaskGP, use_outcome_transform=False
+        )
         search_space_digest = SearchSpaceDigest(
             feature_names=self.feature_names,
             bounds=self.bounds,
@@ -405,7 +416,12 @@ class SurrogateTest(TestCase):
 
     def test_construct_model(self) -> None:
         for botorch_model_class in (SaasFullyBayesianSingleTaskGP, SingleTaskGP):
-            surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
+            # Don't use an outcome transform here because the
+            # botorch_model_class will change to one that is not compatible with
+            # outcome transforms below
+            surrogate, _ = self._get_surrogate(
+                botorch_model_class=botorch_model_class, use_outcome_transform=False
+            )
             with self.assertRaisesRegex(TypeError, "posterior"):
                 # Base `Model` does not implement `posterior`, so instantiating it here
                 # will fail.
@@ -582,25 +598,8 @@ class SurrogateTest(TestCase):
                     self.assertTrue(generic_equals(ckwargs[attr], getattr(self, attr)))
 
     @fast_botorch_optimize
-    @patch(f"{ACQUISITION_PATH}.Acquisition.__init__", return_value=None)
-    @patch(
-        f"{ACQUISITION_PATH}.Acquisition.optimize",
-        return_value=(
-            torch.tensor([[0.0]]),
-            torch.tensor([1.0]),
-            torch.tensor([1.0]),
-        ),
-    )
-    @patch(
-        f"{SURROGATE_PATH}.pick_best_out_of_sample_point_acqf_class",
-        return_value=(qSimpleRegret, {Keys.SAMPLER: SobolQMCNormalSampler}),
-    )
-    def test_best_out_of_sample_point(
-        self,
-        mock_best_point_util: Mock,
-        mock_acqf_optimize: Mock,
-        mock_acqf_init: Mock,
-    ) -> None:
+    def test_best_out_of_sample_point(self) -> None:
+        torch.manual_seed(0)
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
             surrogate.fit(
@@ -613,24 +612,34 @@ class SurrogateTest(TestCase):
                     search_space_digest=self.search_space_digest,
                     torch_opt_config=self.torch_opt_config,
                 )
-            torch_opt_config = dataclasses.replace(
-                self.torch_opt_config,
-                fixed_features=None,
+
+            surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
+            surrogate.fit(
+                datasets=self.training_data,
+                search_space_digest=self.search_space_digest,
             )
+            torch_opt_config = TorchOptConfig(objective_weights=torch.tensor([1.0]))
             candidate, acqf_value = surrogate.best_out_of_sample_point(
                 search_space_digest=self.search_space_digest,
                 torch_opt_config=torch_opt_config,
                 options=self.options,
             )
-            mock_acqf_init.assert_called_with(
-                surrogates={"self": surrogate},
-                botorch_acqf_class=qSimpleRegret,
-                search_space_digest=self.search_space_digest,
-                torch_opt_config=torch_opt_config,
-                options={Keys.SAMPLER: SobolQMCNormalSampler},
+            candidate_in_bounds = all(
+                ((x >= b[0]) & (x <= b[1]) for x, b in zip(candidate, self.bounds))
             )
-            self.assertTrue(torch.equal(candidate, torch.tensor([0.0])))
-            self.assertTrue(torch.equal(acqf_value, torch.tensor(1.0)))
+            self.assertTrue(candidate_in_bounds)
+            self.assertEqual(candidate.shape, torch.Size([3]))
+
+            # self.training_data has length 1
+            sample_mean = self.training_data[0].Y.mean().item()
+            self.assertEqual(acqf_value.shape, torch.Size([]))
+            # In realistic cases the maximum posterior mean would exceed the
+            # sample mean (because the data is standardized), but that might not
+            # be true when using `fast_botorch_optimize`
+            eps = 1
+            self.assertGreaterEqual(
+                acqf_value.item(), assert_is_instance(sample_mean, float) - eps
+            )
 
     def test_serialize_attributes_as_kwargs(self) -> None:
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
