@@ -159,8 +159,6 @@ try:
                                 "the curve empty in the TensorBoard UI?"
                             )
 
-                    self._maybe_clear_multiplexer(mul)
-
                     df = (
                         pd.DataFrame(records)
                         # If a metric has multiple records for the same arm, metric, and
@@ -202,6 +200,8 @@ try:
                         )
                     )
 
+            self._clear_multiplexer_if_possible(multiplexer=mul)
+
             return res
 
         def fetch_trial_data(
@@ -224,12 +224,13 @@ try:
 
             return mul
 
-        def _maybe_clear_multiplexer(
-            self, mul: event_multiplexer.EventMultiplexer
+        def _clear_multiplexer_if_possible(
+            self, multiplexer: event_multiplexer.EventMultiplexer
         ) -> None:
-            """Clear the multiplexer to avoid memory leaks. This is a no-op on the base
-            class, to be implemented on child classes where more is known about the
-            multiplexer.
+            """
+            Clear the multiplexer of all data. This is a no-op here, but for some
+            Multiplexers which may implement a clearing method this method can be
+            important for managing memory consumption.
             """
             pass
 
