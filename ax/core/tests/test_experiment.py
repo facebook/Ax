@@ -8,11 +8,13 @@
 
 import logging
 from collections import OrderedDict
+from enum import unique
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 from ax.core import BatchTrial, Experiment, Trial
 from ax.core.arm import Arm
+from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.map_data import MapData
@@ -52,6 +54,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_search_space,
     get_data,
     get_experiment,
+    get_experiment_with_data,
     get_experiment_with_map_data_type,
     get_optimization_config,
     get_scalarized_outcome_constraint,
@@ -1469,4 +1472,57 @@ class ExperimentWithMapDataTest(TestCase):
             exp.new_batch_trial(
                 generator_run=gr1,
                 generator_runs=[gr2],
+            )
+
+    def test_experiment_with_aux_experiments(self) -> None:
+        @unique
+        class TestAuxiliaryExperimentPurpose(AuxiliaryExperimentPurpose):
+            MyAuxExpPurpose = "my_auxiliary_experiment_purpose"
+            MyOtherAuxExpPurpose = "my_other_auxiliary_experiment_purpose"
+
+        for get_exp_func in [get_experiment, get_experiment_with_data]:
+            exp = get_exp_func()
+            data = exp.lookup_data()
+
+            aux_exp = AuxiliaryExperiment(experiment=exp)
+            another_aux_exp = AuxiliaryExperiment(experiment=exp, data=data)
+
+            # init experiment with auxiliary experiments
+            exp_w_aux_exp = Experiment(
+                name="test",
+                search_space=get_search_space(),
+                auxiliary_experiments_by_purpose={
+                    TestAuxiliaryExperimentPurpose.MyAuxExpPurpose: [aux_exp],
+                },
+            )
+
+            # in-place modification of auxiliary experiments
+            exp_w_aux_exp.auxiliary_experiments_by_purpose[
+                TestAuxiliaryExperimentPurpose.MyOtherAuxExpPurpose
+            ] = [aux_exp]
+            self.assertEqual(
+                exp_w_aux_exp.auxiliary_experiments_by_purpose,
+                {
+                    TestAuxiliaryExperimentPurpose.MyAuxExpPurpose: [aux_exp],
+                    TestAuxiliaryExperimentPurpose.MyOtherAuxExpPurpose: [aux_exp],
+                },
+            )
+
+            # test setter
+            exp_w_aux_exp.auxiliary_experiments_by_purpose = {
+                TestAuxiliaryExperimentPurpose.MyAuxExpPurpose: [aux_exp],
+                TestAuxiliaryExperimentPurpose.MyOtherAuxExpPurpose: [
+                    aux_exp,
+                    another_aux_exp,
+                ],
+            }
+            self.assertEqual(
+                exp_w_aux_exp.auxiliary_experiments_by_purpose,
+                {
+                    TestAuxiliaryExperimentPurpose.MyAuxExpPurpose: [aux_exp],
+                    TestAuxiliaryExperimentPurpose.MyOtherAuxExpPurpose: [
+                        aux_exp,
+                        another_aux_exp,
+                    ],
+                },
             )
