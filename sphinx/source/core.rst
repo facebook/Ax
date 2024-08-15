@@ -52,6 +52,15 @@ Core Classes
     :undoc-members:
     :show-inheritance:
 
+
+`AuxiliaryExperiment`
+~~~~~~~~~~~~
+
+.. automodule:: ax.core.auxiliary
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 `GenerationStrategyInterface`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
