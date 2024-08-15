@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from enum import Enum, unique
 from typing import Optional, TYPE_CHECKING
 
 from ax.core.data import Data
@@ -39,3 +40,8 @@ class AuxiliaryExperiment(SortableBase):
         # here is only needed w.r.t. parent object ("main experiment", for which
         # this will be an auxiliary source for).
         return self.experiment.name
+
+
+@unique
+class AuxiliaryExperimentPurpose(Enum):
+    pass
