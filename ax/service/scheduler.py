@@ -15,7 +15,7 @@ from datetime import datetime
 from enum import Enum
 from logging import LoggerAdapter
 from time import sleep
-from typing import Any, Callable, cast, List, NamedTuple, Optional
+from typing import Any, Callable, cast, NamedTuple, Optional
 
 import ax.service.utils.early_stopping as early_stopping_utils
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -1739,7 +1739,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self,
         num_trials: int = 1,
         reduce_state_generator_runs: bool = False,
-    ) -> List[BaseTrial]:
+    ) -> list[BaseTrial]:
         """Fetch the latest data and generate new candidate trials.
 
         Args:

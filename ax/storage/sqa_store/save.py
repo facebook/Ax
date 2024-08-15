@@ -7,10 +7,11 @@
 # pyre-strict
 
 import os
+from collections.abc import Sequence
 from datetime import datetime
 
 from logging import Logger
-from typing import Any, Callable, cast, Optional, Sequence, Union
+from typing import Any, Callable, cast, Optional, Union
 
 from ax.analysis.analysis import AnalysisCard
 
