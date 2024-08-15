@@ -49,7 +49,6 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import backref, relationship
 
-
 ONLY_ONE_FIELDS = ["experiment_id", "generator_run_id"]
 
 
@@ -510,6 +509,12 @@ class SQAExperiment(Base):
     default_trial_type: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
     # pyre-fixme[8]: Attribute has type `DataType`; used as `Column[typing.Any]`.
     default_data_type: DataType = Column(IntEnum(DataType), nullable=True)
+    # pyre-fixme[8]: Incompatible attribute type [8]: Attribute
+    # `auxiliary_experiments_by_purpose` declared in class `SQAExperiment` has
+    # type `Optional[Dict[str, List[str]]]` but is used as type `Column[typing.Any]`
+    auxiliary_experiments_by_purpose: Optional[dict[str, list[str]]] = Column(
+        JSONEncodedTextDict, nullable=True, default={}
+    )
 
     # relationships
     # Trials and experiments are mutable, so the children relationships need

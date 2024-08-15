@@ -8,7 +8,7 @@
 
 import logging
 from datetime import datetime
-from enum import Enum
+from enum import Enum, unique
 from logging import Logger
 from typing import Any
 from unittest import mock
@@ -20,7 +20,9 @@ from ax.analysis.analysis import AnalysisCard, AnalysisCardLevel
 from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.core.arm import Arm
+from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.batch_trial import BatchTrial, LifecycleStage
+from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
@@ -207,6 +209,46 @@ class SQAStoreTest(TestCase):
             self.assertIsNotNone(exp.db_id)
             loaded_experiment = load_experiment(exp.name)
             self.assertEqual(loaded_experiment, exp)
+
+    def test_saving_and_loading_experiment_with_aux_exp(self) -> None:
+        @unique
+        class TestAuxiliaryExperimentPurpose(AuxiliaryExperimentPurpose):
+            MyAuxExpPurpose = "my_auxiliary_experiment_purpose"
+
+        self.config.auxiliary_experiment_purpose_enum = TestAuxiliaryExperimentPurpose
+
+        aux_experiment = Experiment(
+            name="test_aux_exp_in_SQAStoreTest",
+            search_space=get_search_space(),
+            optimization_config=get_optimization_config(),
+            description="test description",
+            tracking_metrics=[Metric(name="tracking")],
+            is_test=True,
+        )
+        save_experiment(aux_experiment, config=self.config)
+
+        experiment_w_aux_exp = Experiment(
+            name="test_experiment_w_aux_exp_in_SQAStoreTest",
+            search_space=get_search_space(),
+            optimization_config=get_optimization_config(),
+            description="test description",
+            tracking_metrics=[Metric(name="tracking")],
+            is_test=True,
+            auxiliary_experiments_by_purpose={
+                # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
+                self.config.auxiliary_experiment_purpose_enum.MyAuxExpPurpose: [
+                    AuxiliaryExperiment(experiment=aux_experiment)
+                ]
+            },
+        )
+        self.assertIsNone(experiment_w_aux_exp.db_id)
+        save_experiment(experiment_w_aux_exp, config=self.config)
+        self.assertIsNotNone(experiment_w_aux_exp.db_id)
+        loaded_experiment = load_experiment(
+            experiment_w_aux_exp.name, config=self.config
+        )
+        self.assertEqual(experiment_w_aux_exp, loaded_experiment)
+        self.assertEqual(len(loaded_experiment.auxiliary_experiments_by_purpose), 1)
 
     def test_saving_an_experiment_with_type_requires_an_enum(self) -> None:
         self.experiment.experiment_type = "TEST"
