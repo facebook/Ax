@@ -29,7 +29,7 @@ from ax.core.formatting_utils import DATA_TYPE_LOOKUP, DataType
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
-from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
+from ax.core.metric import Metric, MetricFetchResult
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import ObjectiveThreshold, OptimizationConfig
 from ax.core.parameter import Parameter
@@ -42,7 +42,7 @@ from ax.utils.common.base import Base
 from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.result import Err, Ok
+from ax.utils.common.result import Err
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import checked_cast, not_none
 
@@ -756,14 +756,14 @@ class Experiment(Base):
         """
         if combine_with_last_data and overwrite_existing_data:
             raise UnsupportedError(
-                "Cannot set both combine_with_last_data=True and "
-                "overwrite_existing_data=True. Data can either be "
+                "Cannot set both `combine_with_last_data=True` and "
+                "`overwrite_existing_data=True`. Data can either be "
                 "combined, or overwritten, or neither."
             )
         data_type = type(data)
         data_init_args = data.deserialize_init_args(data.serialize_init_args(data))
         if data.df.empty:
-            raise ValueError("Data to attach is empty.")
+            raise UnsupportedError("Data to attach is empty.")
         metrics_not_on_exp = set(data.true_df["metric_name"].values) - set(
             self.metrics.keys()
         )
@@ -896,13 +896,8 @@ class Experiment(Base):
         MUST resolve your results first and use attach_data directly instead.
         """
 
-        flattened = [
-            result for sublist in results.values() for result in sublist.values()
-        ]
-
-        oks: list[Ok[Data, MetricFetchE]] = [
-            result for result in flattened if isinstance(result, Ok)
-        ]
+        flattened = [res for sublist in results.values() for res in sublist.values()]
+        data_list = [res.ok for res in flattened if res.is_ok()]
 
         for result in flattened:
             if isinstance(result, Err):
@@ -912,12 +907,10 @@ class Experiment(Base):
                     "Ignoring for now -- will retry query on next call to fetch."
                 )
 
-        if len(oks) < 1:
+        if len(data_list) < 1:
             return None
 
-        data = self.default_data_constructor.from_multiple_data(
-            data=[ok.ok for ok in oks]
-        )
+        data = self.default_data_constructor.from_multiple_data(data=data_list)
 
         return self.attach_data(
             data=data,
