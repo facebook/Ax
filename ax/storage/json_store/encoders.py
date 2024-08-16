@@ -12,11 +12,11 @@ from pathlib import Path
 from typing import Any
 
 from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionBenchmarkProblem
-from ax.core import ObservationFeatures
+from ax.core import Experiment, ObservationFeatures
 from ax.core.arm import Arm
+from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
-from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData, MapKeyInfo
 from ax.core.metric import Metric
@@ -707,6 +707,16 @@ def risk_measure_to_dict(
         "__type": risk_measure.__class__.__name__,
         "risk_measure": risk_measure.risk_measure,
         "options": risk_measure.options,
+    }
+
+
+def auxiliary_experiment_to_dict(
+    auxiliary_experiment: AuxiliaryExperiment,
+) -> dict[str, Any]:
+    return {
+        "__type": auxiliary_experiment.__class__.__name__,
+        "experiment": auxiliary_experiment.experiment,
+        "data": auxiliary_experiment.data,
     }
 
 

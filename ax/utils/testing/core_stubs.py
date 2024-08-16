@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 import torch
 from ax.core.arm import Arm
+from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
@@ -877,6 +878,10 @@ def get_high_dimensional_branin_experiment(with_batch: bool = False) -> Experime
         sobol_run = sobol_generator.gen(n=15)
         exp.new_batch_trial().add_generator_run(sobol_run)
     return exp
+
+
+def get_auxiliary_experiment() -> AuxiliaryExperiment:
+    return AuxiliaryExperiment(experiment=get_experiment_with_data())
 
 
 ##############################
