@@ -19,6 +19,8 @@ class AuxiliaryExperimentTest(TestCase):
             self.assertEqual(aux_exp.experiment, exp)
             self.assertEqual(aux_exp.data, data)
 
-            aux_exp = AuxiliaryExperiment(experiment=exp, data=exp.lookup_data())
-            self.assertEqual(aux_exp.experiment, exp)
-            self.assertEqual(aux_exp.data, data)
+            another_aux_exp = AuxiliaryExperiment(
+                experiment=exp, data=exp.lookup_data()
+            )
+            self.assertEqual(another_aux_exp.experiment, exp)
+            self.assertEqual(another_aux_exp.data, data)

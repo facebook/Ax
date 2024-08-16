@@ -15,11 +15,13 @@ from collections import defaultdict, OrderedDict
 from collections.abc import Hashable, Iterable, Mapping
 from datetime import datetime
 from functools import partial, reduce
+
 from typing import Any, Optional
 
 import ax.core.observation as observation
 import pandas as pd
 from ax.core.arm import Arm
+from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, DEFAULT_STATUSES_TO_WARM_START, TrialStatus
 from ax.core.batch_trial import BatchTrial, LifecycleStage
 from ax.core.data import Data
@@ -79,6 +81,9 @@ class Experiment(Base):
         experiment_type: Optional[str] = None,
         properties: Optional[dict[str, Any]] = None,
         default_data_type: Optional[DataType] = None,
+        auxiliary_experiments_by_purpose: Optional[
+            dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]
+        ] = None,
     ) -> None:
         """Inits Experiment.
 
@@ -94,6 +99,8 @@ class Experiment(Base):
             experiment_type: The class of experiments this one belongs to.
             properties: Dictionary of this experiment's properties.
             default_data_type: Enum representing the data type this experiment uses.
+            auxiliary_experiments_by_purpose: Dictionary of auxiliary experiments
+                for different purposes (e.g., transfer learning).
         """
         # appease pyre
         self._search_space: SearchSpace
@@ -126,6 +133,10 @@ class Experiment(Base):
         }
         self._arms_by_signature: dict[str, Arm] = {}
         self._arms_by_name: dict[str, Arm] = {}
+
+        self.auxiliary_experiments_by_purpose: dict[
+            AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]
+        ] = (auxiliary_experiments_by_purpose or {})
 
         self.add_tracking_metrics(tracking_metrics or [])
 
@@ -1020,14 +1031,14 @@ class Experiment(Base):
 
     @property
     def trials_expecting_data(self) -> list[BaseTrial]:
-        """List[BaseTrial]: the list of all trials for which data has arrived
+        """list[BaseTrial]: the list of all trials for which data has arrived
         or is expected to arrive.
         """
         return [trial for trial in self.trials.values() if trial.status.expecting_data]
 
     @property
     def completed_trials(self) -> list[BaseTrial]:
-        """List[BaseTrial]: the list of all trials for which data has arrived
+        """list[BaseTrial]: the list of all trials for which data has arrived
         or is expected to arrive.
         """
         return self.trials_by_status[TrialStatus.COMPLETED]
