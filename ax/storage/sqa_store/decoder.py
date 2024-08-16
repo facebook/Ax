@@ -17,6 +17,7 @@ import pandas as pd
 from ax.analysis.analysis import AnalysisCard, AnalysisCardLevel
 
 from ax.core.arm import Arm
+from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import AbandonedArm, BatchTrial, GeneratorRunStruct
 from ax.core.data import Data
@@ -103,6 +104,32 @@ class Decoder:
         except ValueError:
             raise SQADecodeError(f"Value {value} is invalid for enum {enum}.")
 
+    def _auxiliary_experiments_by_purpose_from_experiment_sqa(
+        self, experiment_sqa: SQAExperiment
+    ) -> Optional[dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]]:
+        auxiliary_experiments_by_purpose = None
+        if experiment_sqa.auxiliary_experiments_by_purpose:
+            from ax.storage.sqa_store.load import load_experiment
+
+            auxiliary_experiments_by_purpose = {}
+            aux_exp_name_dict = not_none(
+                experiment_sqa.auxiliary_experiments_by_purpose
+            )
+            for aux_exp_purpose_str, aux_exp_names in aux_exp_name_dict.items():
+                aux_exp_purpose = next(
+                    member
+                    for member in self.config.auxiliary_experiment_purpose_enum
+                    if member.value == aux_exp_purpose_str
+                )
+                auxiliary_experiments_by_purpose[aux_exp_purpose] = []
+                for aux_exp_name in aux_exp_names:
+                    auxiliary_experiments_by_purpose[aux_exp_purpose].append(
+                        AuxiliaryExperiment(
+                            experiment=load_experiment(aux_exp_name, config=self.config)
+                        )
+                    )
+        return auxiliary_experiments_by_purpose
+
     def _init_experiment_from_sqa(
         self,
         experiment_sqa: SQAExperiment,
@@ -147,6 +174,13 @@ class Decoder:
         # so need to convert it to regular dict.
         properties = dict(experiment_sqa.properties or {})
         default_data_type = experiment_sqa.default_data_type
+
+        auxiliary_experiments_by_purpose = (
+            self._auxiliary_experiments_by_purpose_from_experiment_sqa(
+                experiment_sqa=experiment_sqa
+            )
+        )
+
         return Experiment(
             name=experiment_sqa.name,
             description=experiment_sqa.description,
@@ -158,6 +192,7 @@ class Decoder:
             is_test=experiment_sqa.is_test,
             properties=properties,
             default_data_type=default_data_type,
+            auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
         )
 
     def _init_mt_experiment_from_sqa(

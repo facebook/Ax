@@ -174,6 +174,15 @@ class Encoder:
             value=experiment.experiment_type, enum=self.config.experiment_type_enum
         )
 
+        auxiliary_experiments_by_purpose = {}
+        for (
+            aux_exp_type_enum,
+            aux_exps,
+        ) in experiment.auxiliary_experiments_by_purpose.items():
+            aux_exp_type = aux_exp_type_enum.value
+            aux_exp_jsons = [aux_exp.experiment.name for aux_exp in aux_exps]
+            auxiliary_experiments_by_purpose[aux_exp_type] = aux_exp_jsons
+
         properties = experiment._properties
         runners = []
         if isinstance(experiment, MultiTypeExperiment):
@@ -213,6 +222,7 @@ class Encoder:
             properties=properties,
             default_trial_type=experiment.default_trial_type,
             default_data_type=experiment.default_data_type,
+            auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
         )
         return exp_sqa
 

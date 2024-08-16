@@ -13,6 +13,7 @@ from typing import Any, Callable, Optional, Union
 from ax.analysis.analysis import AnalysisCard
 
 from ax.core.arm import Arm
+from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.batch_trial import AbandonedArm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -86,6 +87,7 @@ class SQAConfig:
     )
     experiment_type_enum: Optional[Union[Enum, type[Enum]]] = None
     generator_run_type_enum: Optional[Union[Enum, type[Enum]]] = GeneratorRunType
+    auxiliary_experiment_purpose_enum: type[Enum] = AuxiliaryExperimentPurpose
 
     # pyre-fixme[4]: Attribute annotation cannot contain `Any`.
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
