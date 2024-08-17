@@ -125,7 +125,7 @@ class TestBotorchTestProblemRunner(TestCase):
                         "test_problem_module": runner._test_problem_class.__module__,
                         "test_problem_class_name": runner._test_problem_class.__name__,
                         "test_problem_kwargs": runner._test_problem_kwargs,
-                        "outcome_names": runner._outcome_names,
+                        "outcome_names": runner.outcome_names,
                         "modified_bounds": runner._modified_bounds,
                     },
                 )

@@ -21,46 +21,9 @@ from torch import Tensor
 
 
 class BenchmarkRunner(Runner, ABC):
+    outcome_names: list[str]
 
-    @property
     @abstractmethod
-    def outcome_names(self) -> list[str]:
-        """The names of the outcomes of the problem (in the order of the outcomes)."""
-        pass  # pragma: no cover
-
-    def get_Y_true(self, arm: Arm) -> Tensor:
-        """Function returning the ground truth values for a given arm. The
-        synthetic noise is added as part of the Runner's `run()` method.
-        For problems that do not have a ground truth, the Runner must
-        implement the `get_Y_Ystd()` method instead."""
-        raise NotImplementedError(
-            "Must implement method `get_Y_true()` for Runner "
-            f"{self.__class__.__name__} as it does not implement a "
-            "`get_Y_Ystd()` method."
-        )
-
-    def get_noise_stds(self) -> Union[None, float, dict[str, float]]:
-        """Function returning the standard errors for the synthetic noise
-        to be applied to the observed values. For problems that do not have
-        a ground truth, the Runner must implement the `get_Y_Ystd()` method
-        instead."""
-        raise NotImplementedError(
-            "Must implement method `get_Y_Ystd()` for Runner "
-            f"{self.__class__.__name__} as it does not implement a "
-            "`get_noise_stds()` method."
-        )
-
-    def get_Y_Ystd(self, arm: Arm) -> tuple[Tensor, Optional[Tensor]]:
-        """Function returning the observed values and their standard errors
-        for a given arm. This function is unused for problems that have a
-        ground truth (in this case `get_Y_true()` is used), and is required
-        for problems that do not have a ground truth."""
-        raise NotImplementedError(
-            "Must implement method `get_Y_Ystd()` for Runner "
-            f"{self.__class__.__name__} as it does not implement a "
-            "`get_Y_true()` method."
-        )
-
     def run(self, trial: BaseTrial) -> dict[str, Any]:
         """Run the trial by evaluating its parameterization(s).
 
@@ -82,9 +45,45 @@ class BenchmarkRunner(Runner, ABC):
                     by this function.
                 - "outcome_names": A list of metric names.
         """
+
+
+class BenchmarkWithGroundTruthRunner(BenchmarkRunner, ABC):
+    """A Runner for problems that have a ground truth."""
+
+    @abstractmethod
+    def get_Y_true(self, arm: Arm) -> Tensor:
+        """Function returning the ground truth values for a given arm. The
+        synthetic noise is added as part of the Runner's `run()` method."""
+
+    @abstractmethod
+    def get_noise_stds(self) -> Union[None, float, dict[str, float]]:
+        """
+        Function returning the standard errors for the synthetic noise
+        to be applied to the observed values.
+
+        Can be None if noise is present but unobserved."""
+
+    def run(self, trial: BaseTrial) -> dict[str, Any]:
+        """Run the trial by evaluating its parameterization(s).
+
+        Args:
+            trial: The trial to evaluate.
+
+        Returns:
+            A dictionary with the following keys:
+                - Ys: A dict mapping arm names to lists of corresponding outcomes,
+                    where the order of the outcomes is the same as in `outcome_names`.
+                - Ystds: A dict mapping arm names to lists of corresponding outcome
+                    noise standard deviations (possibly nan if the noise level is
+                    unobserved), where the order of the outcomes is the same as in
+                    `outcome_names`.
+                - Ys_true: A dict mapping arm names to lists of corresponding ground
+                    truth outcomes, where the order of the outcomes is the same as
+                    in `outcome_names`.
+                - "outcome_names": A list of metric names.
+        """
         Ys, Ys_true, Ystds = {}, {}, {}
         noise_stds = self.get_noise_stds()
-
         if noise_stds is not None:
             # extract arm weights to adjust noise levels accordingly
             if isinstance(trial, BatchTrial):
@@ -109,34 +108,62 @@ class BenchmarkRunner(Runner, ABC):
                     dtype=torch.double,
                 )
 
-        for arm in trial.arms:
-            try:
-                # Case where we do have a ground truth
+            for arm in trial.arms:
                 Y_true = self.get_Y_true(arm)
                 Ys_true[arm.name] = Y_true.tolist()
-                if noise_stds is None:
-                    # No noise, so just return the true outcome.
-                    Ystds[arm.name] = [0.0] * len(Y_true)
-                    Ys[arm.name] = Y_true.tolist()
-                else:
-                    # We can scale the noise std by the inverse of the relative sample
-                    # budget allocation to each arm. This works b/c (i) we assume that
-                    # observations per unit sample budget are i.i.d. and (ii) the
-                    # normalized weights sum to one.
-                    std = noise_stds_tsr.to(Y_true) / sqrt(nlzd_arm_weights[arm])
-                    Ystds[arm.name] = std.tolist()
-                    Ys[arm.name] = (Y_true + std * torch.randn_like(Y_true)).tolist()
-            except NotImplementedError:
-                # Case where we don't have a ground truth.
-                Y, Ystd = self.get_Y_Ystd(arm)
-                Ys[arm.name] = Y.tolist()
-                Ystds[arm.name] = Ystd.tolist() if Ystd is not None else None
+                # We can scale the noise std by the inverse of the relative sample
+                # budget allocation to each arm. This works b/c (i) we assume that
+                # observations per unit sample budget are i.i.d. and (ii) the
+                # normalized weights sum to one.
+                std = noise_stds_tsr.to(Y_true) / sqrt(nlzd_arm_weights[arm])
+                Ystds[arm.name] = std.tolist()
+                Ys[arm.name] = (Y_true + std * torch.randn_like(Y_true)).tolist()
+        else:
+            for arm in trial.arms:
+                Y_true = self.get_Y_true(arm)
+                Ys_true[arm.name] = Y_true.tolist()
+                # No noise, so just return the true outcome.
+                Ystds[arm.name] = [0.0] * len(Y_true)
+                Ys[arm.name] = Y_true.tolist()
 
-        run_metadata = {
+        return {
             "Ys": Ys,
             "Ystds": Ystds,
+            "Ys_true": Ys_true,
             "outcome_names": self.outcome_names,
         }
-        if Ys_true:  # only add key if we actually have a ground truth
-            run_metadata["Ys_true"] = Ys_true
-        return run_metadata
+
+
+class BenchmarkWithoutGroundTruthRunner(BenchmarkRunner, ABC):
+    """A Runner for problems that do not have a ground truth."""
+
+    @abstractmethod
+    def get_Y_Ystd(self, arm: Arm) -> tuple[Tensor, Optional[Tensor]]:
+        """Function returning the observed values and their standard errors
+        for a given arm."""
+
+    def run(self, trial: BaseTrial) -> dict[str, Any]:
+        """Run the trial by evaluating its parameterization(s).
+
+        Args:
+            trial: The trial to evaluate.
+
+        Returns:
+            A dictionary with the following keys:
+                - Ys: A dict mapping arm names to lists of corresponding outcomes,
+                    where the order of the outcomes is the same as in `outcome_names`.
+                - Ystds: A dict mapping arm names to lists of corresponding outcome
+                    noise standard deviations (possibly nan if the noise level is
+                    unobserved), where the order of the outcomes is the same as in
+                    `outcome_names`.
+                - "outcome_names": A list of metric names.
+        """
+        Ys, Ystds = {}, {}
+        for arm in trial.arms:
+            Y, Ystd = self.get_Y_Ystd(arm)
+            Ys[arm.name] = Y.tolist()
+            Ystds[arm.name] = Ystd.tolist() if Ystd is not None else None
+        return {
+            "Ys": Ys,
+            "Ystds": Ystds,
+        }

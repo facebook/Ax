@@ -10,7 +10,7 @@ from collections.abc import Iterable
 from typing import Any, Optional, Union
 
 import torch
-from ax.benchmark.runners.base import BenchmarkRunner
+from ax.benchmark.runners.base import BenchmarkWithGroundTruthRunner
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.utils.common.base import Base
@@ -23,7 +23,7 @@ from botorch.utils.transforms import normalize, unnormalize
 from torch import Tensor
 
 
-class BotorchTestProblemRunner(BenchmarkRunner):
+class BotorchTestProblemRunner(BenchmarkWithGroundTruthRunner):
     """A Runner for evaluating Botorch BaseTestProblems.
 
     Given a trial the Runner will evaluate the BaseTestProblem.forward method for each
@@ -75,12 +75,8 @@ class BotorchTestProblemRunner(BenchmarkRunner):
             self.test_problem, ConstrainedBaseTestProblem
         )
         self._is_moo: bool = isinstance(self.test_problem, MultiObjectiveTestProblem)
-        self._outcome_names = outcome_names
+        self.outcome_names = outcome_names
         self._modified_bounds = modified_bounds
-
-    @property
-    def outcome_names(self) -> list[str]:
-        return self._outcome_names
 
     @equality_typechecker
     def __eq__(self, other: Base) -> bool:
@@ -188,7 +184,7 @@ class BotorchTestProblemRunner(BenchmarkRunner):
             "test_problem_module": runner._test_problem_class.__module__,
             "test_problem_class_name": runner._test_problem_class.__name__,
             "test_problem_kwargs": runner._test_problem_kwargs,
-            "outcome_names": runner._outcome_names,
+            "outcome_names": runner.outcome_names,
             "modified_bounds": runner._modified_bounds,
         }
 
