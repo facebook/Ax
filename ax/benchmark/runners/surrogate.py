@@ -10,7 +10,7 @@ from collections.abc import Iterable
 from typing import Any, Callable, Optional, Union
 
 import torch
-from ax.benchmark.runners.base import BenchmarkRunner
+from ax.benchmark.runners.base import BenchmarkWithGroundTruthRunner
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.observation import ObservationFeatures
@@ -24,7 +24,7 @@ from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 
-class SurrogateRunner(BenchmarkRunner):
+class SurrogateRunner(BenchmarkWithGroundTruthRunner):
     def __init__(
         self,
         *,
@@ -68,7 +68,7 @@ class SurrogateRunner(BenchmarkRunner):
         self.get_surrogate_and_datasets = get_surrogate_and_datasets
         self.name = name
         self._surrogate = surrogate
-        self._outcome_names = outcome_names
+        self.outcome_names = outcome_names
         self._datasets = datasets
         self.search_space = search_space
         self.noise_stds = noise_stds
@@ -88,10 +88,6 @@ class SurrogateRunner(BenchmarkRunner):
         if self.get_surrogate_and_datasets is not None:
             self.set_surrogate_and_datasets()
         return none_throws(self._datasets)
-
-    @property
-    def outcome_names(self) -> list[str]:
-        return self._outcome_names
 
     def get_noise_stds(self) -> Union[None, float, dict[str, float]]:
         return self.noise_stds
