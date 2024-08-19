@@ -1568,7 +1568,7 @@ def get_scalarized_outcome_constraint() -> ScalarizedOutcomeConstraint:
 
 
 def get_branin_outcome_constraint() -> OutcomeConstraint:
-    return OutcomeConstraint(metric=get_branin_metric(), op=ComparisonOp.LEQ, bound=0)
+    return OutcomeConstraint(metric=get_branin_metric(), op=ComparisonOp.LEQ, bound=0.0)
 
 
 ##############################
@@ -1729,13 +1729,13 @@ def get_branin_multi_objective_optimization_config(
         objective_thresholds = [
             ObjectiveThreshold(
                 metric=get_branin_metric(name="branin_a"),
-                bound=10,
+                bound=10.0,
                 op=ComparisonOp.LEQ,
                 relative=False,
             ),
             ObjectiveThreshold(
                 metric=get_branin_metric(name="branin_b"),
-                bound=20,
+                bound=20.0,
                 op=ComparisonOp.LEQ,
                 relative=False,
             ),

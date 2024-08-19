@@ -238,7 +238,7 @@ def _get_trials_sqa(
         mini_batch_db_ids = trial_db_ids[batch_size * i : batch_size * (i + 1)]
         with session_scope() as session:
             query = session.query(trial_sqa_class).filter(
-                trial_sqa_class.id.in_(mini_batch_db_ids)  # pyre-ignore[16]
+                trial_sqa_class.id.in_(mini_batch_db_ids)
             )
 
             if trials_query_options is not None:

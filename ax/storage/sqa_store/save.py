@@ -282,11 +282,9 @@ def _save_or_update_trials(
         # saved data if it's no longer on the experiment.
         with session_scope() as session:
             session.query(data_sqa_class).filter_by(experiment_id=experiment_id).filter(
-                data_sqa_class.trial_index.isnot(None)  # pyre-ignore[16]
-            ).filter(
-                data_sqa_class.trial_index.in_(trial_idcs)  # pyre-ignore[16]
-            ).filter(
-                data_sqa_class.id.not_in(datas_to_keep)  # pyre-ignore[16]
+                data_sqa_class.trial_index.isnot(None)
+            ).filter(data_sqa_class.trial_index.in_(trial_idcs)).filter(
+                data_sqa_class.id not in datas_to_keep
             ).delete()
 
     _bulk_merge_into_session(
@@ -422,7 +420,7 @@ def update_outcome_constraint_on_experiment(
 ) -> None:
     oc_sqa_class = encoder.config.class_to_sqa_class[Metric]
 
-    exp_id = experiment.db_id
+    exp_id: Optional[int] = experiment.db_id
     if exp_id is None:
         raise UserInputError("Experiment must be saved before being updated.")
     oc_id = outcome_constraint.db_id
@@ -432,9 +430,7 @@ def update_outcome_constraint_on_experiment(
                 id=oc_id
             ).delete()
 
-    # pyre-fixme[53]: Captured variable `exp_id` is not annotated.
-    # pyre-fixme[3]: Return type must be annotated.
-    def add_experiment_id(sqa: SQAMetric):
+    def add_experiment_id(sqa: SQAMetric) -> None:
         sqa.experiment_id = exp_id
 
     encode_func = (
