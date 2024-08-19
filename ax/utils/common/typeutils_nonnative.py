@@ -6,31 +6,9 @@
 
 # pyre-strict
 
-from inspect import signature
-from typing import Any, TypeVar
+from typing import Any
 
 import numpy as np
-from typeguard import check_type
-
-T = TypeVar("T")
-V = TypeVar("V")
-K = TypeVar("K")
-X = TypeVar("X")
-Y = TypeVar("Y")
-
-
-def version_safe_check_type(argname: str, value: T, expected_type: type[T]) -> None:
-    """Excecute the check_type function if it has the expected signature, otherwise
-    warn.  This is done to support newer versions of typeguard with minimal loss
-    of functionality for users that have dependency conflicts"""
-    # Get the signature of the check_type function
-    sig = signature(check_type)
-    # Get the parameters of the check_type function
-    params = sig.parameters
-    # Check if the check_type function has the expected signature
-    params = set(params.keys())
-    if all(arg in params for arg in ["argname", "value", "expected_type"]):
-        check_type(argname, value, expected_type)
 
 
 # pyre-fixme[3]: Return annotation cannot be `Any`.

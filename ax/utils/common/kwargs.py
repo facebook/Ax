@@ -13,7 +13,6 @@ from logging import Logger
 from typing import Any, Callable, Optional
 
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils_nonnative import version_safe_check_type
 
 logger: Logger = get_logger(__name__)
 
@@ -59,47 +58,6 @@ def get_function_default_arguments(function: Callable) -> dict[str, Any]:
     return {
         kw: p.default for kw, p in params.items() if p.default is not Parameter.empty
     }
-
-
-# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
-def validate_kwarg_typing(typed_callables: list[Callable], **kwargs: Any) -> None:
-    """Check if keywords in kwargs exist in any of the typed_callables and
-    if the type of each keyword value matches the type of corresponding arg in one of
-    the callables
-
-    Note: this function expects the typed callables to have unique keywords for
-    the arguments and will raise an error if repeat keywords are found.
-    """
-    checked_kwargs = set()
-    for typed_callable in typed_callables:
-        params = signature(typed_callable).parameters
-        for kw, param in params.items():
-            if kw in kwargs:
-                if kw in checked_kwargs:
-                    logger.debug(
-                        f"`{typed_callables}` have duplicate keyword argument: {kw}."
-                    )
-                else:
-                    checked_kwargs.add(kw)
-                    kw_val = kwargs.get(kw)
-                    # if the keyword is a callable, we only do shallow checks
-                    if not (callable(kw_val) and callable(param.annotation)):
-                        try:
-                            version_safe_check_type(kw, kw_val, param.annotation)
-                        except TypeError:
-                            message = (
-                                f"`{typed_callable}` expected argument `{kw}` to be of"
-                                f" type {param.annotation}. Got {kw_val}"
-                                f" (type: {type(kw_val)})."
-                            )
-                            logger.warning(message)
-
-    # check if kwargs contains keywords not exist in any callables
-    extra_keywords = [kw for kw in kwargs.keys() if kw not in checked_kwargs]
-    if len(extra_keywords) != 0:
-        raise ValueError(
-            f"Arguments {extra_keywords} are not expected by any of {typed_callables}."
-        )
 
 
 # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.

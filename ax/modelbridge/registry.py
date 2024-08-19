@@ -71,7 +71,6 @@ from ax.utils.common.kwargs import (
     consolidate_kwargs,
     get_function_argument_names,
     get_function_default_arguments,
-    validate_kwarg_typing,
 )
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import callable_from_reference, callable_to_reference
@@ -289,14 +288,34 @@ class ModelRegistryBase(Enum):
         model_setup_info = MODEL_KEY_TO_MODEL_SETUP[self.value]
         model_class = model_setup_info.model_class
         bridge_class = model_setup_info.bridge_class
+
         if not silently_filter_kwargs:
-            validate_kwarg_typing(
-                typed_callables=[model_class, bridge_class],
-                search_space=search_space,
-                experiment=experiment,
-                data=data,
+            # Check correct kwargs are present
+            callables = (model_class, bridge_class)
+            kwargs_to_check = {
+                "search_space": search_space,
+                "experiment": experiment,
+                "data": data,
                 **kwargs,
-            )
+            }
+            checked_kwargs = set()
+            for fn in callables:
+                params = signature(fn).parameters
+                for kw in params.keys():
+                    if kw in kwargs_to_check:
+                        if kw in checked_kwargs:
+                            logger.debug(
+                                f"`{callables}` have duplicate keyword argument: {kw}."
+                            )
+                        else:
+                            checked_kwargs.add(kw)
+
+            # Check if kwargs contains keywords not exist in any callables
+            extra_keywords = [kw for kw in kwargs.keys() if kw not in checked_kwargs]
+            if len(extra_keywords) != 0:
+                raise ValueError(
+                    f"Arguments {extra_keywords} are not expected by any of {callables}"
+                )
 
         # Create model with consolidated arguments: defaults + passed in kwargs.
         model_kwargs = consolidate_kwargs(
