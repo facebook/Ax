@@ -15,6 +15,12 @@ from typing import Any, Callable, Optional
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils_nonnative import version_safe_check_type
 
+try:
+    # pyre-fixme[21]: Could not find name `TypeCheckError` in `typeguard`.
+    from typeguard import TypeCheckError
+except ImportError:
+    TypeCheckError = TypeError
+
 logger: Logger = get_logger(__name__)
 
 TKwargs = dict[str, Any]
@@ -86,7 +92,9 @@ def validate_kwarg_typing(typed_callables: list[Callable], **kwargs: Any) -> Non
                     if not (callable(kw_val) and callable(param.annotation)):
                         try:
                             version_safe_check_type(kw, kw_val, param.annotation)
-                        except TypeError:
+                        # pyre-fixme[16]: Module `typeguard` has no attribute
+                        #  `TypeCheckError`.
+                        except TypeCheckError:
                             message = (
                                 f"`{typed_callable}` expected argument `{kw}` to be of"
                                 f" type {param.annotation}. Got {kw_val}"
