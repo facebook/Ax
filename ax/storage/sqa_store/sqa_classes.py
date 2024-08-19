@@ -6,7 +6,10 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Optional
 
 from ax.analysis.analysis import AnalysisCardLevel
@@ -58,121 +61,92 @@ ONLY_ONE_METRIC_FIELDS = ["scalarized_objective_id", "scalarized_outcome_constra
 class SQAParameter(Base):
     __tablename__: str = "parameter_v2"
 
-    # pyre-fixme[8]: Attribute has type `DomainType`; used as `Column[typing.Any]`.
-    domain_type: DomainType = Column(IntEnum(DomainType), nullable=False)
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    experiment_id: Optional[int] = Column(Integer, ForeignKey("experiment_v2.id"))
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    id: int = Column(Integer, primary_key=True)
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    generator_run_id: Optional[int] = Column(Integer, ForeignKey("generator_run_v2.id"))
-    # pyre-fixme[8]: Attribute has type `str`; used as `Column[str]`.
-    name: str = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
-    # pyre-fixme[8]: Attribute has type `ParameterType`; used as `Column[typing.Any]`.
-    parameter_type: ParameterType = Column(IntEnum(ParameterType), nullable=False)
-    # pyre-fixme[8]: Attribute has type `Optional[bool]`; used as `Column[bool]`.
-    is_fidelity: Optional[bool] = Column(Boolean)
-    # pyre-fixme[8]: Attribute has type `Union[None, bool, float, int, str]`; used
-    #  as `Column[typing.Any]`.
-    target_value: Optional[TParamValue] = Column(JSONEncodedObject)
+    domain_type: Column[DomainType] = Column(IntEnum(DomainType), nullable=False)
+    experiment_id: Column[Optional[int]] = Column(
+        Integer, ForeignKey("experiment_v2.id")
+    )
+    id: Column[int] = Column(Integer, primary_key=True)
+    generator_run_id: Column[Optional[int]] = Column(
+        Integer, ForeignKey("generator_run_v2.id")
+    )
+    name: Column[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
+    parameter_type: Column[ParameterType] = Column(
+        IntEnum(ParameterType), nullable=False
+    )
+    is_fidelity: Column[Optional[bool]] = Column(Boolean)
+    target_value: Column[Optional[TParamValue]] = Column(JSONEncodedObject)
 
     # Attributes for Range Parameters
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    digits: Optional[int] = Column(Integer)
-    # pyre-fixme[8]: Attribute has type `Optional[bool]`; used as `Column[bool]`.
-    log_scale: Optional[bool] = Column(Boolean)
-    # pyre-fixme[8]: Attribute has type `Optional[float]`; used as
-    #  `Column[decimal.Decimal]`.
-    lower: Optional[float] = Column(Float)
-    # pyre-fixme[8]: Attribute has type `Optional[float]`; used as
-    #  `Column[decimal.Decimal]`.
-    upper: Optional[float] = Column(Float)
+    digits: Column[Optional[int]] = Column(Integer)
+    log_scale: Column[Optional[bool]] = Column(Boolean)
+    lower: Column[Optional[Decimal]] = Column(Float)
+    upper: Column[Optional[Decimal]] = Column(Float)
 
     # Attributes for Choice Parameters
-    # pyre-fixme[8]: Attribute has type `Optional[List[typing.Union[None, bool,
-    #  float, int, str]]]`; used as `Column[typing.Any]`.
-    choice_values: Optional[list[TParamValue]] = Column(JSONEncodedList)
-    # pyre-fixme[8]: Attribute has type `Optional[bool]`; used as `Column[bool]`.
-    is_ordered: Optional[bool] = Column(Boolean)
-    # pyre-fixme[8]: Attribute has type `Optional[bool]`; used as `Column[bool]`.
-    is_task: Optional[bool] = Column(Boolean)
-    # pyre-fixme[8]: Attribute has type `Optional[bool]`; used as `Column[bool]`.
-    dependents: Optional[dict[TParamValue, list[str]]] = Column(JSONEncodedObject)
+    choice_values: Column[Optional[list[TParamValue]]] = Column(JSONEncodedList)
+    is_ordered: Column[Optional[bool]] = Column(Boolean)
+    is_task: Column[Optional[bool]] = Column(Boolean)
+    dependents: Column[Optional[dict[TParamValue, list[str]]]] = Column(
+        JSONEncodedObject
+    )
 
     # Attributes for Fixed Parameters
-    # pyre-fixme[8]: Attribute has type `Union[None, bool, float, int, str]`; used
-    #  as `Column[typing.Any]`.
-    fixed_value: Optional[TParamValue] = Column(JSONEncodedObject)
+    fixed_value: Column[Optional[TParamValue]] = Column(JSONEncodedObject)
 
 
 class SQAParameterConstraint(Base):
     __tablename__: str = "parameter_constraint_v2"
 
-    # pyre-fixme[8]: Attribute has type `float`; used as `Column[decimal.Decimal]`.
-    bound: float = Column(Float, nullable=False)
-    # pyre-fixme[8]: Attribute has type `Dict[str, float]`; used as
-    #  `Column[typing.Any]`.
-    constraint_dict: dict[str, float] = Column(JSONEncodedDict, nullable=False)
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    experiment_id: Optional[int] = Column(Integer, ForeignKey("experiment_v2.id"))
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    id: int = Column(Integer, primary_key=True)
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    generator_run_id: Optional[int] = Column(Integer, ForeignKey("generator_run_v2.id"))
-    # pyre-fixme[8]: Attribute has type `IntEnum`; used as `Column[typing.Any]`.
-    type: IntEnum = Column(IntEnum(ParameterConstraintType), nullable=False)
+    bound: Column[Decimal] = Column(Float, nullable=False)
+    constraint_dict: Column[dict[str, float]] = Column(JSONEncodedDict, nullable=False)
+    experiment_id: Column[Optional[int]] = Column(
+        Integer, ForeignKey("experiment_v2.id")
+    )
+    id: Column[int] = Column(Integer, primary_key=True)
+    generator_run_id: Column[Optional[int]] = Column(
+        Integer, ForeignKey("generator_run_v2.id")
+    )
+    type: Column[IntEnum] = Column(IntEnum(ParameterConstraintType), nullable=False)
 
 
 class SQAMetric(Base):
     __tablename__: str = "metric_v2"
 
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    experiment_id: Optional[int] = Column(Integer, ForeignKey("experiment_v2.id"))
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    generator_run_id: Optional[int] = Column(Integer, ForeignKey("generator_run_v2.id"))
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    id: int = Column(Integer, primary_key=True)
-    # pyre-fixme[8]: Attribute has type `Optional[bool]`; used as `Column[bool]`.
-    lower_is_better: Optional[bool] = Column(Boolean)
-    # pyre-fixme[8]: Attribute has type `MetricIntent`; used as `Column[typing.Any]`.
-    intent: MetricIntent = Column(StringEnum(MetricIntent), nullable=False)
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    metric_type: int = Column(Integer, nullable=False)
-    # pyre-fixme[8]: Attribute has type `str`; used as `Column[str]`.
-    name: str = Column(String(LONG_STRING_FIELD_LENGTH), nullable=False)
-    # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
-    #  `Column[typing.Any]`.
-    properties: Optional[dict[str, Any]] = Column(JSONEncodedTextDict, default={})
+    experiment_id: Column[Optional[int]] = Column(
+        Integer, ForeignKey("experiment_v2.id")
+    )
+    generator_run_id: Column[Optional[int]] = Column(
+        Integer, ForeignKey("generator_run_v2.id")
+    )
+    id: Column[int] = Column(Integer, primary_key=True)
+    lower_is_better: Column[Optional[bool]] = Column(Boolean)
+    intent: Column[MetricIntent] = Column(StringEnum(MetricIntent), nullable=False)
+    metric_type: Column[int] = Column(Integer, nullable=False)
+    name: Column[str] = Column(String(LONG_STRING_FIELD_LENGTH), nullable=False)
+    properties: Column[Optional[dict[str, Any]]] = Column(
+        JSONEncodedTextDict, default={}
+    )
 
     # Attributes for Objectives
-    # pyre-fixme[8]: Attribute has type `Optional[bool]`; used as `Column[bool]`.
-    minimize: Optional[bool] = Column(Boolean)
+    minimize: Column[Optional[bool]] = Column(Boolean)
 
     # Attributes for Outcome Constraints
-    # pyre-fixme[8]: Attribute has type `Optional[ComparisonOp]`; used as
-    #  `Column[typing.Any]`.
-    op: Optional[ComparisonOp] = Column(IntEnum(ComparisonOp))
-    # pyre-fixme[8]: Attribute has type `Optional[float]`; used as
-    #  `Column[decimal.Decimal]`.
-    bound: Optional[float] = Column(Float)
-    # pyre-fixme[8]: Attribute has type `Optional[bool]`; used as `Column[bool]`.
-    relative: Optional[bool] = Column(Boolean)
+    op: Column[Optional[ComparisonOp]] = Column(IntEnum(ComparisonOp))
+    bound: Column[Optional[Decimal]] = Column(Float)
+    relative: Column[Optional[bool]] = Column(Boolean)
 
     # Multi-type Experiment attributes
-    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
-    trial_type: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
-    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
-    canonical_name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
-
-    # pyre-fixme[4]: Attribute must be annotated.
-    scalarized_objective_id = Column(Integer, ForeignKey("metric_v2.id"))
+    trial_type: Column[Optional[str]] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    canonical_name: Column[Optional[str]] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    scalarized_objective_id: Column[Optional[int]] = Column(
+        Integer, ForeignKey("metric_v2.id")
+    )
 
     # Relationship containing SQAMetric(s) only defined for the parent metric
     # of Multi/Scalarized Objective contains all children of the parent metric
     # join_depth argument: used for loading self-referential relationships
     # https://docs.sqlalchemy.org/en/13/orm/self_referential.html#configuring-self-referential-eager-loading
-    # pyre-fixme[4]: Attribute must be annotated.
-    scalarized_objective_children_metrics = relationship(
+    scalarized_objective_children_metrics: list[SQAMetric] = relationship(
         "SQAMetric",
         cascade="all, delete-orphan",
         lazy=True,
@@ -180,118 +154,79 @@ class SQAMetric(Base):
     )
 
     # Attribute only defined for the children of Scalarized Objective
-    # pyre-fixme[8]: Attribute has type `Optional[float]`; used as
-    #  `Column[decimal.Decimal]`.
-    scalarized_objective_weight: Optional[float] = Column(Float)
-
-    # pyre-fixme[4]: Attribute must be annotated.
-    scalarized_outcome_constraint_id = Column(Integer, ForeignKey("metric_v2.id"))
-    # pyre-fixme[4]: Attribute must be annotated.
-    scalarized_outcome_constraint_children_metrics = relationship(
+    scalarized_objective_weight: Column[Optional[Decimal]] = Column(Float)
+    scalarized_outcome_constraint_id: Column[Optional[int]] = Column(
+        Integer, ForeignKey("metric_v2.id")
+    )
+    scalarized_outcome_constraint_children_metrics: list[SQAMetric] = relationship(
         "SQAMetric",
         cascade="all, delete-orphan",
         lazy=True,
         foreign_keys=[scalarized_outcome_constraint_id],
     )
-    # pyre-fixme[8]: Attribute has type `Optional[float]`; used as
-    #  `Column[decimal.Decimal]`.
-    scalarized_outcome_constraint_weight: Optional[float] = Column(Float)
+    scalarized_outcome_constraint_weight: Column[Optional[Decimal]] = Column(Float)
 
 
 class SQAArm(Base):
     __tablename__: str = "arm_v2"
 
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    generator_run_id: int = Column(Integer, ForeignKey("generator_run_v2.id"))
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    id: int = Column(Integer, primary_key=True)
-    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
-    name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
-    # pyre-fixme[8]: Attribute has type `Dict[str, typing.Union[None, bool, float,
-    #  int, str]]`; used as `Column[typing.Any]`.
-    parameters: TParameterization = Column(JSONEncodedTextDict, nullable=False)
-    # pyre-fixme[8]: Attribute has type `float`; used as `Column[decimal.Decimal]`.
-    weight: float = Column(Float, nullable=False, default=1.0)
+    generator_run_id: Column[int] = Column(
+        Integer, ForeignKey("generator_run_v2.id"), nullable=False
+    )
+    id: Column[int] = Column(Integer, primary_key=True)
+    name: Column[Optional[str]] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    parameters: Column[TParameterization] = Column(JSONEncodedTextDict, nullable=False)
+    weight: Column[Decimal] = Column(Float, nullable=False, default=1.0)
 
 
 class SQAAbandonedArm(Base):
     __tablename__: str = "abandoned_arm_v2"
 
-    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
-    abandoned_reason: Optional[str] = Column(String(LONG_STRING_FIELD_LENGTH))
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    id: int = Column(Integer, primary_key=True)
-    # pyre-fixme[8]: Attribute has type `str`; used as `Column[str]`.
-    name: str = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
-    # pyre-fixme[8]: Attribute has type `datetime`; used as `Column[typing.Any]`.
-    time_abandoned: datetime = Column(
+    abandoned_reason: Column[Optional[str]] = Column(String(LONG_STRING_FIELD_LENGTH))
+    id: Column[int] = Column(Integer, primary_key=True)
+    name: Column[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
+    time_abandoned: Column[datetime] = Column(
         IntTimestamp, nullable=False, default=datetime.now
     )
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    trial_id: int = Column(Integer, ForeignKey("trial_v2.id"))
+    trial_id: Column[int] = Column(Integer, ForeignKey("trial_v2.id"), nullable=False)
 
 
 class SQAGeneratorRun(Base):
     __tablename__: str = "generator_run_v2"
 
-    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
-    best_arm_name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
-    # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Union[None, bool,
-    #  float, int, str]]]`; used as `Column[typing.Any]`.
-    best_arm_parameters: Optional[TParameterization] = Column(JSONEncodedTextDict)
-    # pyre-fixme[8]: Attribute has type `Optional[typing.Tuple[Dict[str, float],
-    #  Optional[Dict[str, Dict[str, float]]]]]`; used as `Column[typing.Any]`.
-    best_arm_predictions: Optional[TModelPredictArm] = Column(JSONEncodedList)
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    generator_run_type: Optional[int] = Column(Integer)
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    id: int = Column(Integer, primary_key=True)
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    index: Optional[int] = Column(Integer)
-    # pyre-fixme[8]: Attribute has type `Optional[typing.Tuple[Dict[str,
-    #  List[float]], Dict[str, Dict[str, List[float]]]]]`; used as
-    #  `Column[typing.Any]`.
-    model_predictions: Optional[TModelPredict] = Column(JSONEncodedList)
-    # pyre-fixme[8]: Attribute has type `datetime`; used as `Column[typing.Any]`.
-    time_created: datetime = Column(IntTimestamp, nullable=False, default=datetime.now)
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    trial_id: Optional[int] = Column(Integer, ForeignKey("trial_v2.id"))
-    # pyre-fixme[8]: Attribute has type `Optional[float]`; used as
-    #  `Column[decimal.Decimal]`.
-    weight: Optional[float] = Column(Float)
-    # pyre-fixme[8]: Attribute has type `Optional[float]`; used as
-    #  `Column[decimal.Decimal]`.
-    fit_time: Optional[float] = Column(Float)
-    # pyre-fixme[8]: Attribute has type `Optional[float]`; used as
-    #  `Column[decimal.Decimal]`.
-    gen_time: Optional[float] = Column(Float)
-    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
-    model_key: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
-    # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
-    #  `Column[typing.Any]`.
-    model_kwargs: Optional[dict[str, Any]] = Column(JSONEncodedTextDict)
-    # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
-    #  `Column[typing.Any]`.
-    bridge_kwargs: Optional[dict[str, Any]] = Column(JSONEncodedTextDict)
-    # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
-    #  `Column[typing.Any]`.
-    gen_metadata: Optional[dict[str, Any]] = Column(JSONEncodedTextDict)
-    # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
-    #  `Column[typing.Any]`.
-    model_state_after_gen: Optional[dict[str, Any]] = Column(JSONEncodedTextDict)
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    generation_strategy_id: Optional[int] = Column(
-        Integer, ForeignKey("generation_strategy.id")
-    )
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    generation_step_index: Optional[int] = Column(Integer)
-    # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
-    #  `Column[typing.Any]`.
-    candidate_metadata_by_arm_signature: Optional[dict[str, Any]] = Column(
+    best_arm_name: Column[Optional[str]] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    best_arm_parameters: Column[Optional[TParameterization]] = Column(
         JSONEncodedTextDict
     )
-    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
-    generation_node_name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    best_arm_predictions: Column[Optional[TModelPredictArm]] = Column(JSONEncodedList)
+    generator_run_type: Column[Optional[int]] = Column(Integer)
+    id: Column[int] = Column(Integer, primary_key=True)
+    index: Column[Optional[int]] = Column(Integer)
+    model_predictions: Column[Optional[TModelPredict]] = Column(JSONEncodedList)
+    time_created: Column[datetime] = Column(
+        IntTimestamp, nullable=False, default=datetime.now
+    )
+    trial_id: Column[Optional[int]] = Column(Integer, ForeignKey("trial_v2.id"))
+    weight: Column[Optional[Decimal]] = Column(Float)
+    fit_time: Column[Optional[Decimal]] = Column(Float)
+    gen_time: Column[Optional[Decimal]] = Column(Float)
+    model_key: Column[Optional[str]] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    model_kwargs: Column[Optional[dict[str, Any]]] = Column(JSONEncodedTextDict)
+    bridge_kwargs: Column[Optional[dict[str, Any]]] = Column(JSONEncodedTextDict)
+    gen_metadata: Column[Optional[dict[str, Any]]] = Column(JSONEncodedTextDict)
+    model_state_after_gen: Column[Optional[dict[str, Any]]] = Column(
+        JSONEncodedTextDict
+    )
+    generation_strategy_id: Column[Optional[int]] = Column(
+        Integer, ForeignKey("generation_strategy.id")
+    )
+    generation_step_index: Column[Optional[int]] = Column(Integer)
+    candidate_metadata_by_arm_signature: Column[Optional[dict[str, Any]]] = Column(
+        JSONEncodedTextDict
+    )
+    generation_node_name: Column[Optional[str]] = Column(
+        String(NAME_OR_TYPE_FIELD_LENGTH)
+    )
 
     # relationships
     # Use selectin loading for collections to prevent idle timeout errors
@@ -316,65 +251,53 @@ class SQAGeneratorRun(Base):
 class SQARunner(Base):
     __tablename__: str = "runner"
 
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    id: int = Column(Integer, primary_key=True)
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    experiment_id: Optional[int] = Column(Integer, ForeignKey("experiment_v2.id"))
-    # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
-    #  `Column[typing.Any]`.
-    properties: Optional[dict[str, Any]] = Column(JSONEncodedLongTextDict, default={})
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    runner_type: int = Column(Integer, nullable=False)
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    trial_id: Optional[int] = Column(Integer, ForeignKey("trial_v2.id"))
+    id: Column[int] = Column(Integer, primary_key=True)
+    experiment_id: Column[Optional[int]] = Column(
+        Integer, ForeignKey("experiment_v2.id")
+    )
+    properties: Column[Optional[dict[str, Any]]] = Column(
+        JSONEncodedLongTextDict, default={}
+    )
+    runner_type: Column[int] = Column(Integer, nullable=False)
+    trial_id: Column[Optional[int]] = Column(Integer, ForeignKey("trial_v2.id"))
 
     # Multi-type Experiment attributes
-    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
-    trial_type: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    trial_type: Column[Optional[str]] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
 
 
 class SQAData(Base):
     __tablename__: str = "data_v2"
 
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    id: int = Column(Integer, primary_key=True)
-    # pyre-fixme[8]: Attribute has type `str`; used as `Column[str]`.
-    data_json: str = Column(Text(LONGTEXT_BYTES), nullable=False)
-    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
-    description: Optional[str] = Column(String(LONG_STRING_FIELD_LENGTH))
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    experiment_id: int = Column(Integer, ForeignKey("experiment_v2.id"))
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    time_created: int = Column(BigInteger, nullable=False)
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    trial_index: Optional[int] = Column(Integer)
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    generation_strategy_id: Optional[int] = Column(
+    id: Column[int] = Column(Integer, primary_key=True)
+    data_json: Column[str] = Column(Text(LONGTEXT_BYTES), nullable=False)
+    description: Column[Optional[str]] = Column(String(LONG_STRING_FIELD_LENGTH))
+    experiment_id: Column[Optional[int]] = Column(
+        Integer, ForeignKey("experiment_v2.id")
+    )
+    time_created: Column[int] = Column(BigInteger, nullable=False)
+    trial_index: Column[Optional[int]] = Column(Integer)
+    generation_strategy_id: Column[Optional[int]] = Column(
         Integer, ForeignKey("generation_strategy.id")
     )
-    # pyre-fixme[8]: Attribute has type `str`; used as `Column[str]`.
-    structure_metadata_json: str = Column(Text(LONGTEXT_BYTES), nullable=True)
+    structure_metadata_json: Column[Optional[str]] = Column(
+        Text(LONGTEXT_BYTES), nullable=True
+    )
 
 
 class SQAGenerationStrategy(Base):
     __tablename__: str = "generation_strategy"
 
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    id: int = Column(Integer, primary_key=True)
-    # pyre-fixme[8]: Attribute has type `str`; used as `Column[str]`.
-    name: str = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
-    # pyre-fixme[8]: Attribute has type `List[Dict[str, typing.Any]]`; used as
-    #  `Column[typing.Any]`.
-    steps: list[dict[str, Any]] = Column(JSONEncodedList, nullable=False)
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    curr_index: int = Column(Integer, nullable=False)
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    experiment_id: Optional[int] = Column(Integer, ForeignKey("experiment_v2.id"))
-    # pyre-fixme[8]: Attribute has type `List[Dict[str, typing.Any]]`; used as
-    #  `Column[typing.Any]`.
-    nodes: list[dict[str, Any]] = Column(JSONEncodedList, nullable=True)
-    # pyre-fixme[8]: Attribute has type `str`; used as `Column[str]`.
-    curr_node_name: str = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=True)
+    id: Column[int] = Column(Integer, primary_key=True)
+    name: Column[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
+    steps: Column[list[dict[str, Any]]] = Column(JSONEncodedList, nullable=False)
+    curr_index: Column[int] = Column(Integer, nullable=False)
+    experiment_id: Column[Optional[int]] = Column(
+        Integer, ForeignKey("experiment_v2.id")
+    )
+    nodes: Column[list[dict[str, Any]]] = Column(JSONEncodedList, nullable=True)
+    curr_node_name: Column[Optional[str]] = Column(
+        String(NAME_OR_TYPE_FIELD_LENGTH), nullable=True
+    )
 
     generator_runs: list[SQAGeneratorRun] = relationship(
         "SQAGeneratorRun",
@@ -387,58 +310,36 @@ class SQAGenerationStrategy(Base):
 class SQATrial(Base):
     __tablename__: str = "trial_v2"
 
-    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
-    abandoned_reason: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
-    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
-    failed_reason: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
-    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
-    deployed_name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    experiment_id: int = Column(Integer, ForeignKey("experiment_v2.id"))
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    id: int = Column(Integer, primary_key=True)
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    index: int = Column(Integer, index=True, nullable=False)
-    # pyre-fixme[8]: Attribute has type `bool`; used as `Column[bool]`.
-    is_batch: bool = Column("is_batched", Boolean, nullable=False, default=True)
-    # pyre-fixme[8]: Attribute has type `LifecycleStage`; used as `Column[DataType]`.
-    lifecycle_stage: LifecycleStage = Column(IntEnum(LifecycleStage), nullable=True)
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    num_arms_created: int = Column(Integer, nullable=False, default=0)
-    # pyre-fixme[8]: Attribute has type `Optional[bool]`; used as `Column[bool]`.
-    optimize_for_power: Optional[bool] = Column(Boolean)
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    ttl_seconds: Optional[int] = Column(Integer)
-    # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
-    #  `Column[typing.Any]`.
-    run_metadata: Optional[dict[str, Any]] = Column(JSONEncodedLongTextDict)
-    # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
-    #  `Column[typing.Any]`.
-    stop_metadata: Optional[dict[str, Any]] = Column(JSONEncodedTextDict)
-    # pyre-fixme[8]: Attribute has type `TrialStatus`; used as `Column[typing.Any]`.
-    status: TrialStatus = Column(
+    abandoned_reason: Column[Optional[str]] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    failed_reason: Column[Optional[str]] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    deployed_name: Column[Optional[str]] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    experiment_id: Column[int] = Column(
+        Integer, ForeignKey("experiment_v2.id"), nullable=False
+    )
+    id: Column[int] = Column(Integer, primary_key=True)
+    index: Column[int] = Column(Integer, index=True, nullable=False)
+    is_batch: Column[bool] = Column("is_batched", Boolean, nullable=False, default=True)
+    lifecycle_stage: Column[Optional[LifecycleStage]] = Column(
+        IntEnum(LifecycleStage), nullable=True
+    )
+    num_arms_created: Column[int] = Column(Integer, nullable=False, default=0)
+    optimize_for_power: Column[Optional[bool]] = Column(Boolean)
+    ttl_seconds: Column[Optional[int]] = Column(Integer)
+    run_metadata: Column[Optional[dict[str, Any]]] = Column(JSONEncodedLongTextDict)
+    stop_metadata: Column[Optional[dict[str, Any]]] = Column(JSONEncodedTextDict)
+    status: Column[TrialStatus] = Column(
         IntEnum(TrialStatus), nullable=False, default=TrialStatus.CANDIDATE
     )
-    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
-    status_quo_name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
-    # pyre-fixme[8]: Attribute has type `Optional[datetime]`; used as
-    #  `Column[typing.Any]`.
-    time_completed: Optional[datetime] = Column(IntTimestamp)
-    # pyre-fixme[8]: Attribute has type `datetime`; used as `Column[typing.Any]`.
-    time_created: datetime = Column(IntTimestamp, nullable=False)
-    # pyre-fixme[8]: Attribute has type `Optional[datetime]`; used as
-    #  `Column[typing.Any]`.
-    time_staged: Optional[datetime] = Column(IntTimestamp)
-    # pyre-fixme[8]: Attribute has type `Optional[datetime]`; used as
-    #  `Column[typing.Any]`.
-    time_run_started: Optional[datetime] = Column(IntTimestamp)
-    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
-    trial_type: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    generation_step_index: Optional[int] = Column(Integer)
-    # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
-    #  `Column[typing.Any]`.
-    properties: Optional[dict[str, Any]] = Column(JSONEncodedTextDict, default={})
+    status_quo_name: Column[Optional[str]] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    time_completed: Column[Optional[datetime]] = Column(IntTimestamp)
+    time_created: Column[datetime] = Column(IntTimestamp, nullable=False)
+    time_staged: Column[Optional[datetime]] = Column(IntTimestamp)
+    time_run_started: Column[Optional[datetime]] = Column(IntTimestamp)
+    trial_type: Column[Optional[str]] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    generation_step_index: Column[Optional[int]] = Column(Integer)
+    properties: Column[Optional[dict[str, Any]]] = Column(
+        JSONEncodedTextDict, default={}
+    )
 
     # relationships
     # Trials and experiments are mutable, so the children relationships need
@@ -460,55 +361,44 @@ class SQATrial(Base):
 class SQAAnalysisCard(Base):
     __tablename__: str = "analysis_card"
 
-    # pyre-fixme[8]: Attribute has type `int` but is used as type `Column[int]`.
-    id: int = Column(Integer, primary_key=True)
-    # pyre-fixme[8]: Attribute has type `str` but is used as type `Column[str]`.
-    name: str = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
-    # pyre-fixme[8]: Attribute has type `str` but is used as type `Column[str]`.
-    title: str = Column(String(LONG_STRING_FIELD_LENGTH), nullable=False)
-    # pyre-fixme[8]: Attribute has type `str` but is used as type `Column[str]`.
-    subtitle: str = Column(Text, nullable=False)
-    # pyre-fixme[8]: Attribute has type `int` but is used as type `Column[int]`.
-    level: AnalysisCardLevel = Column(IntEnum(AnalysisCardLevel), nullable=False)
-    # pyre-fixme[8]: Attribute has type `str` but is used as type `Column[str]`.
-    dataframe_json: str = Column(Text(LONGTEXT_BYTES), nullable=False)
-    # pyre-fixme[8]: Attribute has type `str` but is used as type `Column[str]`.
-    blob: str = Column(Text(LONGTEXT_BYTES), nullable=False)
-    # pyre-fixme[8]: Attribute has type `str` but is used as type `Column[str]`.
-    blob_annotation: str = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
-    # pyre-fixme[8]: Attribute has type `int` but is used as type `Column[int]`.
-    time_created: datetime = Column(IntTimestamp, nullable=False)
-    # pyre-fixme[8]: Attribute has type `int` but is used as type `Column[int]`.
-    experiment_id: int = Column(Integer, ForeignKey("experiment_v2.id"), nullable=False)
+    id: Column[int] = Column(Integer, primary_key=True)
+    name: Column[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
+    title: Column[str] = Column(String(LONG_STRING_FIELD_LENGTH), nullable=False)
+    subtitle: Column[str] = Column(Text, nullable=False)
+    level: Column[AnalysisCardLevel] = Column(
+        IntEnum(AnalysisCardLevel), nullable=False
+    )
+    dataframe_json: Column[str] = Column(Text(LONGTEXT_BYTES), nullable=False)
+    blob: Column[str] = Column(Text(LONGTEXT_BYTES), nullable=False)
+    blob_annotation: Column[str] = Column(
+        String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False
+    )
+    time_created: Column[datetime] = Column(IntTimestamp, nullable=False)
+    experiment_id: Column[int] = Column(
+        Integer, ForeignKey("experiment_v2.id"), nullable=False
+    )
 
 
 class SQAExperiment(Base):
     __tablename__: str = "experiment_v2"
 
-    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
-    description: Optional[str] = Column(String(LONG_STRING_FIELD_LENGTH))
-    # pyre-fixme[8]: Attribute has type `Optional[int]`; used as `Column[int]`.
-    experiment_type: Optional[int] = Column(Integer)
-    # pyre-fixme[8]: Attribute has type `int`; used as `Column[int]`.
-    id: int = Column(Integer, primary_key=True)
-    # pyre-fixme[8]: Attribute has type `bool`; used as `Column[bool]`.
-    is_test: bool = Column(Boolean, nullable=False, default=False)
-    # pyre-fixme[8]: Attribute has type `str`; used as `Column[str]`.
-    name: str = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
-    # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Any]]`; used as
-    #  `Column[typing.Any]`.
-    properties: Optional[dict[str, Any]] = Column(JSONEncodedTextDict, default={})
-    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
-    status_quo_name: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
-    # pyre-fixme[8]: Attribute has type `Optional[Dict[str, typing.Union[None, bool,
-    #  float, int, str]]]`; used as `Column[typing.Any]`.
-    status_quo_parameters: Optional[TParameterization] = Column(JSONEncodedTextDict)
-    # pyre-fixme[8]: Attribute has type `datetime`; used as `Column[typing.Any]`.
-    time_created: datetime = Column(IntTimestamp, nullable=False)
-    # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Column[str]`.
-    default_trial_type: Optional[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
-    # pyre-fixme[8]: Attribute has type `DataType`; used as `Column[typing.Any]`.
-    default_data_type: DataType = Column(IntEnum(DataType), nullable=True)
+    description: Column[Optional[str]] = Column(String(LONG_STRING_FIELD_LENGTH))
+    experiment_type: Column[Optional[int]] = Column(Integer)
+    id: Column[int] = Column(Integer, primary_key=True)
+    is_test: Column[bool] = Column(Boolean, nullable=False, default=False)
+    name: Column[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
+    properties: Column[Optional[dict[str, Any]]] = Column(
+        JSONEncodedTextDict, default={}
+    )
+    status_quo_name: Column[Optional[str]] = Column(String(NAME_OR_TYPE_FIELD_LENGTH))
+    status_quo_parameters: Column[Optional[TParameterization]] = Column(
+        JSONEncodedTextDict
+    )
+    time_created: Column[datetime] = Column(IntTimestamp, nullable=False)
+    default_trial_type: Column[Optional[str]] = Column(
+        String(NAME_OR_TYPE_FIELD_LENGTH)
+    )
+    default_data_type: Column[DataType] = Column(IntEnum(DataType), nullable=True)
     # pyre-fixme[8]: Incompatible attribute type [8]: Attribute
     # `auxiliary_experiments_by_purpose` declared in class `SQAExperiment` has
     # type `Optional[Dict[str, List[str]]]` but is used as type `Column[typing.Any]`

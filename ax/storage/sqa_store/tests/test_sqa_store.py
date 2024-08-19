@@ -8,6 +8,7 @@
 
 import logging
 from datetime import datetime
+from decimal import Decimal
 from enum import Enum, unique
 from logging import Logger
 from typing import Any
@@ -563,7 +564,9 @@ class SQAStoreTest(TestCase):
         self.assertEqual(self.experiment, loaded_experiment)
 
         # Update a trial by attaching data again
-        self.experiment.attach_data(get_data(trial_index=trial.index))
+        self.experiment.attach_data(
+            get_data(trial_index=trial.index), combine_with_last_data=True
+        )
         save_or_update_trial(experiment=self.experiment, trial=trial)
 
         loaded_experiment = load_experiment(self.experiment.name)
@@ -1157,7 +1160,7 @@ class SQAStoreTest(TestCase):
 
     def test_ParameterConstraintValidation(self) -> None:
         sqa_parameter_constraint = SQAParameterConstraint(
-            bound=0,
+            bound=Decimal(0),
             constraint_dict={},
             # pyre-fixme[6]: For 3rd param expected `IntEnum` but got
             #  `ParameterConstraintType`.
@@ -1176,7 +1179,7 @@ class SQAStoreTest(TestCase):
                 session.add(sqa_parameter_constraint)
 
         sqa_parameter_constraint = SQAParameterConstraint(
-            bound=0,
+            bound=Decimal(0),
             constraint_dict={},
             # pyre-fixme[6]: For 3rd param expected `IntEnum` but got
             #  `ParameterConstraintType`.
@@ -1196,7 +1199,7 @@ class SQAStoreTest(TestCase):
             #  `ParameterConstraintType`.
             type=ParameterConstraintType.ORDER,
             constraint_dict={},
-            bound=0,
+            bound=Decimal(0),
         )
         with self.assertRaises(SQADecodeError):
             self.decoder.parameter_constraint_from_sqa(
@@ -1209,7 +1212,7 @@ class SQAStoreTest(TestCase):
             #  `ParameterConstraintType`.
             type=ParameterConstraintType.SUM,
             constraint_dict={},
-            bound=0,
+            bound=Decimal(0),
         )
         with self.assertRaises(SQADecodeError):
             self.decoder.parameter_constraint_from_sqa(

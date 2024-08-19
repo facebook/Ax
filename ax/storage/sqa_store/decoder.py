@@ -332,8 +332,8 @@ class Decoder:
             parameter = RangeParameter(
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
-                lower=parameter_sqa.lower,
-                upper=parameter_sqa.upper,
+                lower=float(not_none(parameter_sqa.lower)),
+                upper=float(not_none(parameter_sqa.upper)),
                 log_scale=parameter_sqa.log_scale or False,
                 digits=parameter_sqa.digits,
                 is_fidelity=parameter_sqa.is_fidelity or False,
@@ -427,7 +427,7 @@ class Decoder:
                 )
             a = a_values[0]
             is_upper_bound = a == 1
-            bound = parameter_constraint_sqa.bound * a
+            bound = float(parameter_constraint_sqa.bound) * a
             constraint = SumConstraint(
                 parameters=constraint_parameters,
                 is_upper_bound=is_upper_bound,
@@ -436,7 +436,7 @@ class Decoder:
         else:
             constraint = ParameterConstraint(
                 constraint_dict=dict(parameter_constraint_sqa.constraint_dict),
-                bound=parameter_constraint_sqa.bound,
+                bound=float(parameter_constraint_sqa.bound),
             )
 
         constraint.db_id = parameter_constraint_sqa.id
@@ -476,8 +476,8 @@ class Decoder:
             parameter = RangeParameter(
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
-                lower=parameter_sqa.lower,
-                upper=parameter_sqa.upper,
+                lower=float(not_none(parameter_sqa.lower)),
+                upper=float(not_none(parameter_sqa.upper)),
                 log_scale=parameter_sqa.log_scale or False,
                 digits=parameter_sqa.digits,
                 is_fidelity=parameter_sqa.is_fidelity or False,
@@ -710,8 +710,16 @@ class Decoder:
             weights=weights,
             optimization_config=opt_config,
             search_space=search_space,
-            fit_time=generator_run_sqa.fit_time,
-            gen_time=generator_run_sqa.gen_time,
+            fit_time=(
+                None
+                if generator_run_sqa.fit_time is None
+                else float(generator_run_sqa.fit_time)
+            ),
+            gen_time=(
+                None
+                if generator_run_sqa.gen_time is None
+                else float(generator_run_sqa.gen_time)
+            ),
             best_arm_predictions=best_arm_predictions,  # pyre-ignore[6]
             # pyre-fixme[6]: Expected `Optional[Tuple[typing.Dict[str, List[float]],
             #  typing.Dict[str, typing.Dict[str, List[float]]]]]` for 8th param but got
@@ -900,7 +908,7 @@ class Decoder:
                         reduced_state=reduced_state,
                         immutable_search_space_and_opt_config=immutable_ss_and_oc,
                     ),
-                    weight=generator_run_sqa.weight or 1.0,
+                    weight=float(generator_run_sqa.weight or 1.0),
                 )
                 for generator_run_sqa in trial_sqa.generator_runs
             ]
@@ -1169,9 +1177,9 @@ class Decoder:
             )
         return OutcomeConstraint(
             metric=metric,
-            bound=metric_sqa.bound,
-            op=metric_sqa.op,
-            relative=metric_sqa.relative,
+            bound=float(not_none(metric_sqa.bound)),
+            op=not_none(metric_sqa.op),
+            relative=not_none(metric_sqa.relative),
         )
 
     def _scalarized_outcome_constraint_from_sqa(
@@ -1215,7 +1223,7 @@ class Decoder:
         scalarized_outcome_constraint = ScalarizedOutcomeConstraint(
             metrics=list(metrics),
             weights=list(weights),
-            bound=not_none(metric_sqa.bound),
+            bound=float(not_none(metric_sqa.bound)),
             op=not_none(metric_sqa.op),
             relative=not_none(metric_sqa.relative),
         )
@@ -1232,8 +1240,8 @@ class Decoder:
             )
         ot = ObjectiveThreshold(
             metric=metric,
-            bound=metric_sqa.bound,
-            relative=metric_sqa.relative,
+            bound=float(not_none(metric_sqa.bound)),
+            relative=not_none(metric_sqa.relative),
             op=metric_sqa.op,
         )
         # ObjectiveThreshold constructor clones the passed-in metric, which means
