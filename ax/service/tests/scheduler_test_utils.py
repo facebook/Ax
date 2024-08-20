@@ -2481,10 +2481,12 @@ class AxSchedulerTestCase(TestCase):
         self.branin_experiment.optimization_config.outcome_constraints = [
             get_outcome_constraint(
                 metric=get_branin_metric(name="branin_constraint"),
-                bound=20,
+                bound=20.0,
                 relative=True,
             )
         ]
+        if self.ALWAYS_USE_DB:
+            save_experiment(self.branin_experiment, config=self.db_config)
         self.assertTrue(scheduler.experiment.lookup_data().df.empty)
 
         # WHEN generating candidates
