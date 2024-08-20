@@ -11,7 +11,7 @@ from typing import Optional, Protocol
 
 import pandas as pd
 from ax.core.experiment import Experiment
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, ExceptionE, Ok, Result
@@ -87,7 +87,7 @@ class Analysis(Protocol):
     def compute(
         self,
         experiment: Optional[Experiment] = None,
-        generation_strategy: Optional[GenerationStrategy] = None,
+        generation_strategy: Optional[GenerationStrategyInterface] = None,
     ) -> AnalysisCard:
         # Note: when implementing compute always prefer experiment.lookup_data() to
         # experiment.fetch_data() to avoid unintential data fetching within the report
@@ -97,7 +97,7 @@ class Analysis(Protocol):
     def compute_result(
         self,
         experiment: Optional[Experiment] = None,
-        generation_strategy: Optional[GenerationStrategy] = None,
+        generation_strategy: Optional[GenerationStrategyInterface] = None,
     ) -> Result[AnalysisCard, ExceptionE]:
         """
         Utility method to compute an AnalysisCard as a Result. This can be useful for

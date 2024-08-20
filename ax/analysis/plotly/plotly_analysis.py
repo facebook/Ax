@@ -9,7 +9,7 @@ from typing import Optional
 
 from ax.analysis.analysis import Analysis, AnalysisCard
 from ax.core.experiment import Experiment
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from plotly import graph_objects as go, io as pio
 
 
@@ -28,5 +28,5 @@ class PlotlyAnalysis(Analysis):
     def compute(
         self,
         experiment: Optional[Experiment] = None,
-        generation_strategy: Optional[GenerationStrategy] = None,
+        generation_strategy: Optional[GenerationStrategyInterface] = None,
     ) -> PlotlyAnalysisCard: ...
