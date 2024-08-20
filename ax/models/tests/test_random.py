@@ -25,6 +25,12 @@ class RandomModelTest(TestCase):
         # With no seed.
         self.assertIsInstance(self.random_model.seed, int)
 
+    def test_state(self) -> None:
+        for model in (self.random_model, RandomModel(seed=5)):
+            state = model._get_state()
+            self.assertEqual(state["seed"], model.seed)
+            self.assertEqual(state["generated_points"], model.generated_points)
+
     def test_RandomModelGenSamples(self) -> None:
         with self.assertRaises(NotImplementedError):
             self.random_model._gen_samples(n=1, tunable_d=1)

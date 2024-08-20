@@ -180,9 +180,7 @@ class RandomModel(Model):
     @copy_doc(Model._get_state)
     def _get_state(self) -> dict[str, Any]:
         state = super()._get_state()
-        if not self.deduplicate:
-            return state
-        state.update({"generated_points": self.generated_points})
+        state.update({"seed": self.seed, "generated_points": self.generated_points})
         return state
 
     def _gen_unconstrained(

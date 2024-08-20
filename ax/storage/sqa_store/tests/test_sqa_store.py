@@ -456,9 +456,10 @@ class SQAStoreTest(TestCase):
             bkw = gr._bridge_kwargs
             self.assertIsNotNone(bkw)
             self.assertEqual(len(bkw), 9)
+            # This has seed, generated points and init position.
             ms = gr._model_state_after_gen
             self.assertIsNotNone(ms)
-            self.assertEqual(len(ms), 2)
+            self.assertEqual(len(ms), 3)
             gm = gr._gen_metadata
             self.assertIsNotNone(gm)
             self.assertEqual(len(gm), 0)

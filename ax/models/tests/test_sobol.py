@@ -37,7 +37,15 @@ class SobolGeneratorTest(TestCase):
         self.assertTrue(np.all(generated_points >= np_bounds[:, 0]))
         self.assertTrue(np.all(generated_points <= np_bounds[:, 1]))
         self.assertTrue(np.all(weights == 1.0))
-        self.assertEqual(generator._get_state().get("init_position"), 3)
+        state = generator._get_state()
+        self.assertEqual(state.get("init_position"), 3)
+        self.assertEqual(state.get("seed"), generator.seed)
+        self.assertTrue(
+            np.array_equal(
+                state.get("generated_points"),
+                generator.generated_points,
+            )
+        )
 
     def test_SobolGeneratorFixedSpace(self) -> None:
         generator = SobolGenerator(seed=0, deduplicate=False)
@@ -308,4 +316,9 @@ class SobolGeneratorTest(TestCase):
             rounding_func=lambda x: x,
         )
         self.assertEqual(len(generated_points), 1)
-        self.assertIsNotNone(generator._get_state().get("generated_points"))
+        self.assertTrue(
+            np.array_equal(
+                generator._get_state().get("generated_points"),
+                generator.generated_points,
+            )
+        )

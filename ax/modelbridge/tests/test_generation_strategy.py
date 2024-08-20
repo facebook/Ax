@@ -11,6 +11,7 @@ from typing import cast
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
@@ -448,6 +449,7 @@ class TestGenerationStrategy(TestCase):
     def test_sobol_GPEI_strategy(self) -> None:
         exp = get_branin_experiment()
         self.assertEqual(self.sobol_GPEI_GS.name, "Sobol+GPEI")
+        expected_seed = None
         for i in range(7):
             g = self.sobol_GPEI_GS.gen(exp)
             exp.new_trial(generator_run=g).run()
@@ -470,7 +472,7 @@ class TestGenerationStrategy(TestCase):
                 self.assertEqual(
                     mkw,
                     {
-                        "seed": None,
+                        "seed": expected_seed,
                         "deduplicate": True,
                         "init_position": i,
                         "scramble": True,
@@ -491,14 +493,17 @@ class TestGenerationStrategy(TestCase):
                         "fit_on_init": True,
                     },
                 )
-                ms = g._model_state_after_gen
-                self.assertIsNotNone(ms)
-                # Generated points are randomized, so just checking that they are there.
-                self.assertIn("generated_points", ms)
-                # Remove the randomized generated points to compare the rest.
-                ms = ms.copy()
-                del ms["generated_points"]
-                self.assertEqual(ms, {"init_position": i + 1})
+                ms = not_none(g._model_state_after_gen).copy()
+                # Compare the model state to Sobol state.
+                sobol_model = not_none(self.sobol_GPEI_GS.model).model
+                self.assertTrue(
+                    np.array_equal(
+                        ms.pop("generated_points"), sobol_model.generated_points
+                    )
+                )
+                # Replace expected seed with the one generated in __init__.
+                expected_seed = sobol_model.seed
+                self.assertEqual(ms, {"init_position": i + 1, "seed": expected_seed})
         # Check completeness error message when GS should be done.
         with self.assertRaises(GenerationStrategyCompleted):
             g = self.sobol_GPEI_GS.gen(exp)
@@ -1212,6 +1217,7 @@ class TestGenerationStrategy(TestCase):
         "Simple test of a SOBOL + GPEI GenerationStrategy composed of GenerationNodes"
         exp = get_branin_experiment()
         self.assertEqual(self.sobol_GPEI_GS_nodes.name, "Sobol+GPEI_Nodes")
+        expected_seed = None
 
         for i in range(7):
             g = self.sobol_GPEI_GS_nodes.gen(exp)
@@ -1235,7 +1241,7 @@ class TestGenerationStrategy(TestCase):
                 self.assertEqual(
                     mkw,
                     {
-                        "seed": None,
+                        "seed": expected_seed,
                         "deduplicate": True,
                         "init_position": i,
                         "scramble": True,
@@ -1256,14 +1262,17 @@ class TestGenerationStrategy(TestCase):
                         "fit_on_init": True,
                     },
                 )
-                ms = g._model_state_after_gen
-                self.assertIsNotNone(ms)
-                # Generated points are randomized, so just checking that they are there.
-                self.assertIn("generated_points", ms)
-                # Remove the randomized generated points to compare the rest.
-                ms = ms.copy()
-                del ms["generated_points"]
-                self.assertEqual(ms, {"init_position": i + 1})
+                ms = not_none(g._model_state_after_gen).copy()
+                # Compare the model state to Sobol state.
+                sobol_model = not_none(self.sobol_GPEI_GS_nodes.model).model
+                self.assertTrue(
+                    np.array_equal(
+                        ms.pop("generated_points"), sobol_model.generated_points
+                    )
+                )
+                # Replace expected seed with the one generated in __init__.
+                expected_seed = sobol_model.seed
+                self.assertEqual(ms, {"init_position": i + 1, "seed": expected_seed})
 
     def test_clone_reset_nodes(self) -> None:
         """Test that node-based generation strategy is appropriately reset
