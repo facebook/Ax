@@ -56,7 +56,7 @@ class ParallelCoordinatesPlot(PlotlyAnalysis):
         fig = _prepare_plot(df=df, metric_name=metric_name)
 
         return PlotlyAnalysisCard(
-            name=self.__class__.__name__,
+            name=str(self),
             title=f"Parallel Coordinates for {metric_name}",
             subtitle="View arm parameterizations with their respective metric values",
             level=AnalysisCardLevel.HIGH,

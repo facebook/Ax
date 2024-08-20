@@ -6,12 +6,17 @@
 # pyre-strict
 
 from enum import Enum
+from logging import Logger
 from typing import Optional, Protocol
 
 import pandas as pd
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.utils.common.base import Base
+from ax.utils.common.logger import get_logger
+from ax.utils.common.result import Err, ExceptionE, Ok, Result
+
+logger: Logger = get_logger(__name__)
 
 
 class AnalysisCardLevel(Enum):
@@ -88,3 +93,33 @@ class Analysis(Protocol):
         # experiment.fetch_data() to avoid unintential data fetching within the report
         # generation.
         ...
+
+    def compute_result(
+        self,
+        experiment: Optional[Experiment] = None,
+        generation_strategy: Optional[GenerationStrategy] = None,
+    ) -> Result[AnalysisCard, ExceptionE]:
+        """
+        Utility method to compute an AnalysisCard as a Result. This can be useful for
+        computing many Analyses at once and handling Exceptions later.
+        """
+
+        try:
+            card = self.compute(
+                experiment=experiment, generation_strategy=generation_strategy
+            )
+            return Ok(value=card)
+        except Exception as e:
+            logger.error(f"Failed to compute {self}: {e}")
+
+            return Err(
+                value=ExceptionE(
+                    message=f"Failed to compute {self}",
+                    exception=e,
+                )
+            )
+
+    def __str__(self) -> str:
+        args = ", ".join([f"{key}={value}" for key, value in self.__dict__.items()])
+
+        return f"{self.__class__.__name__}({args})"
