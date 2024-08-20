@@ -7,7 +7,7 @@
 # pyre-strict
 
 import json
-from unittest.mock import Mock, PropertyMock
+from unittest.mock import Mock, patch, PropertyMock
 
 import numpy as np
 import pandas as pd
@@ -30,7 +30,6 @@ from ax.core.observation import (
 )
 from ax.core.trial import Trial
 from ax.core.types import TParameterization
-from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
 
@@ -615,8 +614,11 @@ class ObservationsTest(TestCase):
         data = Data(df=df)
 
         # Data includes metric "c" not attached to the experiment.
-        with self.assertRaisesRegex(UserInputError, "Data contains metric"):
+        with patch("ax.core.observation.logger.exception") as mock_logger:
             observations_from_data(experiment, data)
+        mock_logger.assert_called_once()
+        call_str = mock_logger.call_args.args[0]
+        self.assertIn("Data contains metric c that has not been", call_str)
 
         # Add "c" to the experiment
         type(experiment).metrics = PropertyMock(

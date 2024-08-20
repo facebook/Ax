@@ -12,10 +12,10 @@ import json
 import warnings
 from collections.abc import Iterable
 from copy import deepcopy
+from logging import Logger
 from typing import Optional
 
 import ax.core.experiment as experiment
-
 import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
@@ -25,11 +25,12 @@ from ax.core.data import Data
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.types import TCandidateMetadata, TParameterization
-from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
 
+logger: Logger = get_logger(__name__)
 
 TIME_COLS = {"start_time", "end_time"}
 
@@ -385,12 +386,14 @@ def _filter_data_on_status(
         metric_name = g
         if metric_name not in experiment.metrics:
             # Observations can only be made for metrics attached to the experiment.
-            raise UserInputError(
+            logger.exception(
                 f"Data contains metric {metric_name} that has not been added to the "
                 "experiment. You can either update the `optimization_config` or attach "
                 "it as a tracking metric using `Experiment.add_tracking_metrics` "
-                "or `AxClient.add_tracking_metrics`."
+                "or `AxClient.add_tracking_metrics`. Ignoring all data for "
+                f"metric {metric_name}."
             )
+            continue
         metric = experiment.metrics[metric_name]
         statuses_to_include_metric = (
             statuses_to_include_map_metric
