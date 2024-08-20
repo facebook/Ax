@@ -7,7 +7,10 @@
 
 from __future__ import annotations
 
+import traceback
+
 from abc import ABC, abstractmethod, abstractproperty
+from functools import reduce
 
 from typing import Any, Callable, cast, Generic, NoReturn, Optional, TypeVar, Union
 
@@ -256,5 +259,37 @@ class UnwrapError(Exception):
     This should not happen in real world use and indicates a user has impropperly
     or unsafely used the Result abstraction.
     """
+
+    pass
+
+
+class ExceptionE:
+    """
+    A class that holds an Exception and can be used as the E type in Result[T, E].
+    """
+
+    message: str
+    exception: Exception
+
+    def __init__(self, message: str, exception: Exception) -> None:
+        self.message = message
+        self.exception = exception
+
+    def __repr__(self) -> str:
+        return (
+            f'ExceptionE(message="{self.message}", exception={self.exception})\n'
+            f"with Traceback:\n {self.tb_str()}"
+        )
+
+    def tb_str(self) -> Optional[str]:
+        if self.exception is None:
+            return None
+
+        return reduce(
+            lambda left, right: left + right,
+            traceback.format_exception(
+                None, self.exception, self.exception.__traceback__
+            ),
+        )
 
     pass
