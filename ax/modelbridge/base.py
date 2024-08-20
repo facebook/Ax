@@ -336,36 +336,6 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
             observations=observations,
         )
 
-    def _extend_training_data(
-        self, observations: list[Observation]
-    ) -> list[Observation]:
-        """Extend and return training data, not-transformed.
-
-        If the modelbridge specifies _fit_out_of_design, all training data is
-        returned. Otherwise, only in design points are returned.
-
-        Args:
-            observations: New observations.
-
-        Returns: New + old observations.
-        """
-        observations = self._prepare_training_data(observations=observations)
-        for obs in observations:
-            for metric_name in obs.data.metric_names:
-                if metric_name not in self._metric_names:
-                    raise ValueError(
-                        f"Unrecognised metric {metric_name}; cannot update "
-                        "training data with metrics that were not in the original "
-                        "training data."
-                    )
-        # Initialize with all points in design.
-        self._training_data.extend(deepcopy(observations))
-        all_observations = self.get_training_data()
-        return self._process_in_design(
-            search_space=self._model_space,
-            observations=all_observations,
-        )
-
     def _process_in_design(
         self,
         search_space: SearchSpace,
