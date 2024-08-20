@@ -13,9 +13,9 @@ from ax.analysis.analysis import AnalysisCardLevel
 
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.core.experiment import Experiment
+from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.exceptions.core import UnsupportedError, UserInputError
-from ax.modelbridge.generation_strategy import GenerationStrategy
 from plotly import graph_objects as go, io as pio
 
 
@@ -45,7 +45,7 @@ class ParallelCoordinatesPlot(PlotlyAnalysis):
     def compute(
         self,
         experiment: Optional[Experiment] = None,
-        generation_strategy: Optional[GenerationStrategy] = None,
+        generation_strategy: Optional[GenerationStrategyInterface] = None,
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("ParallelCoordinatesPlot requires an Experiment")
