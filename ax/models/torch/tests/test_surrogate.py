@@ -938,18 +938,38 @@ class SurrogateWithModelListTest(TestCase):
             self.assertIsNone(surrogate._model)
             # Should instantiate mll and `fit_gpytorch_mll` when `state_dict`
             # is `None`.
+            # pyre-ignore[6]: Incompatible parameter type: In call
+            # `issubclass`, for 1st positional argument, expected
+            # `Type[typing.Any]` but got `Optional[Type[Model]]`.
+            is_mtgp = issubclass(surrogate.botorch_model_class, MultiTaskGP)
             search_space_digest = (
                 self.multi_task_search_space_digest
-                # pyre-ignore[6]: Incompatible parameter type: In call
-                # `issubclass`, for 1st positional argument, expected
-                # `Type[typing.Any]` but got `Optional[Type[Model]]`.
-                if issubclass(surrogate.botorch_model_class, MultiTaskGP)
+                if is_mtgp
                 else self.single_task_search_space_digest
             )
+            if is_mtgp:
+                # test error is raised without output_tasks or target_values
+                msg = (
+                    "output_tasks or target task value must be provided for"
+                    " MultiTaskGP."
+                )
+                with self.assertRaisesRegex(
+                    UserInputError,
+                    msg,
+                ):
+                    surrogate.fit(
+                        datasets=[self.ds1, self.ds3],
+                        search_space_digest=search_space_digest,
+                    )
+                # add target values
+                search_space_digest = dataclasses.replace(
+                    search_space_digest, target_values={0: 2}
+                )
             surrogate.fit(
                 datasets=[self.ds1, self.ds3],
                 search_space_digest=search_space_digest,
             )
+
             mock_state_dict.assert_not_called()
             if i == 0:
                 self.assertEqual(mock_MLL.call_count, 2)
@@ -981,6 +1001,7 @@ class SurrogateWithModelListTest(TestCase):
                 refit=False,
                 state_dict=state_dict,
             )
+
             if i == 1:
                 self.assertEqual(mock_state_dict_saas.call_count, 2)
                 mock_state_dict_saas.reset_mock()
