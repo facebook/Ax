@@ -19,9 +19,7 @@ from typing import Any, Callable, cast, NamedTuple, Optional
 
 import ax.service.utils.early_stopping as early_stopping_utils
 from ax.analysis.analysis import Analysis, AnalysisCard
-from ax.analysis.plotly.parallel_coordinates.parallel_coordinates import (
-    ParallelCoordinatesPlot,
-)
+from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface

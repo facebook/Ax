@@ -17,9 +17,7 @@ from typing import Any, Callable, cast, Optional
 from unittest.mock import call, Mock, patch, PropertyMock
 
 import pandas as pd
-from ax.analysis.plotly.parallel_coordinates.parallel_coordinates import (
-    ParallelCoordinatesPlot,
-)
+from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
