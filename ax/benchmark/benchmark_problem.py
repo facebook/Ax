@@ -93,6 +93,54 @@ class BenchmarkProblem(Base):
     is_noiseless: bool
 
 
+# TODO: Support constrained MOO problems.
+def get_soo_config_and_outcome_names(
+    *,
+    num_constraints: int,
+    lower_is_better: bool,
+    observe_noise_sd: bool,
+    objective_name: str,
+) -> tuple[OptimizationConfig, list[str]]:
+
+    objective = Objective(
+        metric=BenchmarkMetric(
+            name=objective_name,
+            lower_is_better=lower_is_better,
+            observe_noise_sd=observe_noise_sd,
+            outcome_index=0,
+        ),
+        minimize=lower_is_better,
+    )
+
+    outcome_names = [objective_name]
+    outcome_constraints = []
+
+    # NOTE: Currently we don't support the case where only some of the
+    # outcomes have noise levels observed.
+
+    for i in range(num_constraints):
+        outcome_name = f"constraint_slack_{i}"
+        outcome_constraints.append(
+            OutcomeConstraint(
+                metric=BenchmarkMetric(
+                    name=outcome_name,
+                    lower_is_better=False,  # positive slack = feasible
+                    observe_noise_sd=observe_noise_sd,
+                    outcome_index=i,
+                ),
+                op=ComparisonOp.GEQ,
+                bound=0.0,
+                relative=False,
+            )
+        )
+        outcome_names.append(outcome_name)
+
+    opt_config = OptimizationConfig(
+        objective=objective, outcome_constraints=outcome_constraints
+    )
+    return opt_config, outcome_names
+
+
 def create_single_objective_problem_from_botorch(
     test_problem_class: type[SyntheticTestFunction],
     test_problem_kwargs: dict[str, Any],
@@ -138,46 +186,13 @@ def create_single_objective_problem_from_botorch(
         test_problem=test_problem, observe_noise_sd=observe_noise_sd, dim=dim
     )
 
-    # TODO: Support constrained MOO problems.
-
-    objective = Objective(
-        metric=BenchmarkMetric(
-            name=name,
-            lower_is_better=lower_is_better,
-            observe_noise_sd=observe_noise_sd,
-            outcome_index=0,
-        ),
-        minimize=lower_is_better,
+    optimization_config, outcome_names = get_soo_config_and_outcome_names(
+        num_constraints=test_problem.num_constraints if is_constrained else 0,
+        lower_is_better=lower_is_better,
+        observe_noise_sd=observe_noise_sd,
+        objective_name=name,
     )
 
-    outcome_names = [name]
-    outcome_constraints = []
-
-    # NOTE: Currently we don't support the case where only some of the
-    # outcomes have noise levels observed.
-
-    if is_constrained:
-        for i in range(test_problem.num_constraints):
-            outcome_name = f"constraint_slack_{i}"
-            outcome_constraints.append(
-                OutcomeConstraint(
-                    metric=BenchmarkMetric(
-                        name=outcome_name,
-                        lower_is_better=False,  # positive slack = feasible
-                        observe_noise_sd=observe_noise_sd,
-                        outcome_index=i,
-                    ),
-                    op=ComparisonOp.GEQ,
-                    bound=0.0,
-                    relative=False,
-                )
-            )
-            outcome_names.append(outcome_name)
-
-    optimization_config = OptimizationConfig(
-        objective=objective,
-        outcome_constraints=outcome_constraints,
-    )
     optimal_value = (
         test_problem.max_hv
         if isinstance(test_problem, MultiObjectiveTestProblem)
