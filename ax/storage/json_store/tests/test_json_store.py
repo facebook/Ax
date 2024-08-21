@@ -13,7 +13,7 @@ from functools import partial
 
 import numpy as np
 import torch
-from ax.benchmark.metrics.jenatton import JenattonMetric
+from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_benchmark_problem
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.runner import Runner
@@ -192,7 +192,6 @@ TEST_CASES = [
     ("HierarchicalSearchSpace", get_hierarchical_search_space),
     ("ImprovementGlobalStoppingStrategy", get_improvement_global_stopping_strategy),
     ("Interval", get_interval),
-    ("JenattonMetric", JenattonMetric),
     ("MapData", get_map_data),
     ("MapData", get_map_data),
     ("MapKeyInfo", get_map_key_info),
@@ -209,6 +208,7 @@ TEST_CASES = [
     ("OrderConstraint", get_order_constraint),
     ("OutcomeConstraint", get_outcome_constraint),
     ("Path", get_pathlib_path),
+    ("Jenatton", get_jenatton_benchmark_problem),
     ("PercentileEarlyStoppingStrategy", get_percentile_early_stopping_strategy),
     (
         "PercentileEarlyStoppingStrategy",
