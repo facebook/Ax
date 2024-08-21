@@ -895,5 +895,13 @@ def _submodel_input_constructor_mtgp(
         return formatted_model_inputs
     # specify output tasks so that model.num_outputs = 1
     # since the model only models a single outcome
-    formatted_model_inputs["output_tasks"] = dataset.X[:1, task_feature].tolist()
+    if formatted_model_inputs.get("output_tasks") is None:
+        if (search_space_digest.target_values is not None) and (
+            target_value := search_space_digest.target_values.get(task_feature)
+        ) is not None:
+            formatted_model_inputs["output_tasks"] = [int(target_value)]
+        else:
+            raise UserInputError(
+                "output_tasks or target task value must be provided for MultiTaskGP."
+            )
     return formatted_model_inputs
