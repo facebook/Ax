@@ -278,16 +278,22 @@ class TestBenchmark(TestCase):
 
     def test_replication_sobol_synthetic(self) -> None:
         method = get_sobol_benchmark_method()
-        problem = get_single_objective_benchmark_problem()
-        res = benchmark_replication(problem=problem, method=method, seed=0)
+        problems = [
+            get_single_objective_benchmark_problem(),
+            get_problem("jenatton", num_trials=6),
+        ]
+        for problem in problems:
+            res = benchmark_replication(problem=problem, method=method, seed=0)
 
-        self.assertEqual(
-            min(problem.num_trials, not_none(method.scheduler_options.total_trials)),
-            len(not_none(res.experiment).trials),
-        )
+            self.assertEqual(
+                min(
+                    problem.num_trials, not_none(method.scheduler_options.total_trials)
+                ),
+                len(not_none(res.experiment).trials),
+            )
 
-        self.assertTrue(np.isfinite(res.score_trace).all())
-        self.assertTrue(np.all(res.score_trace <= 100))
+            self.assertTrue(np.isfinite(res.score_trace).all())
+            self.assertTrue(np.all(res.score_trace <= 100))
 
     def test_replication_sobol_surrogate(self) -> None:
         method = get_sobol_benchmark_method()

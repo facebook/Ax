@@ -5,76 +5,9 @@
 
 # pyre-strict
 
-from __future__ import annotations
+from typing import Optional
 
-from typing import Any, Optional
-
-import numpy as np
-import pandas as pd
-from ax.benchmark.metrics.base import BenchmarkMetricBase, GroundTruthMetricMixin
-from ax.core.base_trial import BaseTrial
-from ax.core.data import Data
-from ax.core.metric import MetricFetchE, MetricFetchResult
-from ax.utils.common.result import Err, Ok
 from ax.utils.common.typeutils import not_none
-
-
-class JenattonMetric(BenchmarkMetricBase):
-    """Jenatton metric for hierarchical search spaces."""
-
-    has_ground_truth: bool = True
-
-    def __init__(
-        self,
-        name: str = "jenatton",
-        noise_std: float = 0.0,
-        observe_noise_sd: bool = False,
-    ) -> None:
-        super().__init__(name=name)
-        self.noise_std = noise_std
-        self.observe_noise_sd = observe_noise_sd
-        self.lower_is_better = True
-
-    def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> MetricFetchResult:
-        try:
-            mean = [
-                jenatton_test_function(**arm.parameters)  # pyre-ignore [6]
-                for _, arm in trial.arms_by_name.items()
-            ]
-            if self.noise_std != 0:
-                mean = [m + self.noise_std * np.random.randn() for m in mean]
-            df = pd.DataFrame(
-                {
-                    "arm_name": [name for name, _ in trial.arms_by_name.items()],
-                    "metric_name": self.name,
-                    "mean": mean,
-                    "sem": self.noise_std if self.observe_noise_sd else None,
-                    "trial_index": trial.index,
-                }
-            )
-            return Ok(value=Data(df=df))
-
-        except Exception as e:
-            return Err(
-                MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
-            )
-
-    def make_ground_truth_metric(self) -> GroundTruthJenattonMetric:
-        return GroundTruthJenattonMetric(original_metric=self)
-
-
-class GroundTruthJenattonMetric(JenattonMetric, GroundTruthMetricMixin):
-    def __init__(self, original_metric: JenattonMetric) -> None:
-        """
-        Args:
-            original_metric: The original JenattonMetric to which this metric
-                corresponds.
-        """
-        super().__init__(
-            name=self.get_ground_truth_name(original_metric),
-            noise_std=0.0,
-            observe_noise_sd=False,
-        )
 
 
 def jenatton_test_function(
