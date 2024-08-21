@@ -10,8 +10,10 @@ from random import random
 
 from ax.benchmark.metrics.benchmark import BenchmarkMetric, GroundTruthBenchmarkMetric
 
-from ax.benchmark.metrics.jenatton import jenatton_test_function
-from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_benchmark_problem
+from ax.benchmark.problems.synthetic.hss.jenatton import (
+    get_jenatton_benchmark_problem,
+    jenatton_test_function,
+)
 from ax.benchmark.runners.base import BenchmarkRunner
 from ax.benchmark.runners.botorch_test import ParamBasedTestProblemRunner
 from ax.core.arm import Arm
