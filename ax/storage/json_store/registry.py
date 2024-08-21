@@ -78,7 +78,6 @@ from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingS
 from ax.metrics.branin import AugmentedBraninMetric, BraninMetric, NegativeBraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.chemistry import ChemistryMetric, ChemistryProblemType
-from ax.metrics.dict_lookup import DictLookupMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
 from ax.metrics.l2norm import L2NormMetric
@@ -199,7 +198,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     ChainedInputTransform: botorch_component_to_dict,
     ChoiceParameter: choice_parameter_to_dict,
     Data: data_to_dict,
-    DictLookupMetric: metric_to_dict,
     Experiment: experiment_to_dict,
     FactorialMetric: metric_to_dict,
     FixedParameter: fixed_parameter_to_dict,
@@ -318,7 +316,6 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "ComparisonOp": ComparisonOp,
     "Data": Data,
     "DataType": DataType,
-    "DictLookupMetric": DictLookupMetric,
     "DomainType": DomainType,
     "Experiment": Experiment,
     "FactorialMetric": FactorialMetric,
