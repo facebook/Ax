@@ -202,8 +202,8 @@ def class_from_json(json: dict[str, Any]) -> type[Any]:
             reverse_registry = CLASS_TO_REVERSE_REGISTRY[_class]
             if index_in_registry not in reverse_registry:
                 raise ValueError(
-                    f"Index '{index_in_registry}'"
-                    " is not registered in the reverse registry."
+                    f"Index '{index_in_registry}' is not registered in the reverse "
+                    f"registry."
                 )
             return reverse_registry[index_in_registry]
     raise ValueError(
