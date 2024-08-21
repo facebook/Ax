@@ -23,7 +23,10 @@ from ax.benchmark.problems.hpo.torchvision import (
     PyTorchCNNTorchvisionBenchmarkProblem,
     PyTorchCNNTorchvisionRunner,
 )
-from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
+from ax.benchmark.runners.botorch_test import (
+    BotorchTestProblemRunner,
+    ParamBasedTestProblemRunner,
+)
 from ax.benchmark.runners.surrogate import SurrogateRunner
 from ax.core import Experiment, ObservationFeatures
 from ax.core.arm import Arm
@@ -238,6 +241,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     OrEarlyStoppingStrategy: logical_early_stopping_strategy_to_dict,
     OrderConstraint: order_parameter_constraint_to_dict,
     OutcomeConstraint: outcome_constraint_to_dict,
+    ParamBasedTestProblemRunner: runner_to_dict,
     ParameterConstraint: parameter_constraint_to_dict,
     ParameterDistribution: parameter_distribution_to_dict,
     pathlib.Path: pathlib_to_dict,
@@ -363,6 +367,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "OrEarlyStoppingStrategy": OrEarlyStoppingStrategy,
     "OrderConstraint": OrderConstraint,
     "OutcomeConstraint": OutcomeConstraint,
+    "ParamBasedTestProblemRunner": ParamBasedTestProblemRunner,
     "ParameterConstraint": ParameterConstraint,
     "ParameterConstraintType": ParameterConstraintType,
     "ParameterDistribution": ParameterDistribution,
