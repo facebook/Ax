@@ -11,7 +11,6 @@ from typing import Optional
 import torch
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.metrics.benchmark import BenchmarkMetric
-from ax.benchmark.metrics.jenatton import jenatton_test_function
 from ax.benchmark.runners.botorch_test import (
     ParamBasedTestProblem,
     ParamBasedTestProblemRunner,
@@ -21,17 +20,39 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import HierarchicalSearchSpace
 from ax.core.types import TParameterization
+from pyre_extensions import none_throws
 
 
-@dataclass(kw_only=True)
-class Jenatton(ParamBasedTestProblem):
-    r"""Jenatton test function for hierarchical search spaces.
+def jenatton_test_function(
+    x1: Optional[int] = None,
+    x2: Optional[int] = None,
+    x3: Optional[int] = None,
+    x4: Optional[float] = None,
+    x5: Optional[float] = None,
+    x6: Optional[float] = None,
+    x7: Optional[float] = None,
+    r8: Optional[float] = None,
+    r9: Optional[float] = None,
+) -> float:
+    """Jenatton test function for hierarchical search spaces.
 
     This function is taken from:
 
     R. Jenatton, C. Archambeau, J. González, and M. Seeger. Bayesian
     optimization with tree-structured dependencies. ICML 2017.
     """
+    if x1 == 0:
+        if x2 == 0:
+            return none_throws(x4) ** 2 + 0.1 + none_throws(r8)
+        return none_throws(x5) ** 2 + 0.2 + none_throws(r8)
+    if x3 == 0:
+        return none_throws(x6) ** 2 + 0.3 + none_throws(r9)
+    return none_throws(x7) ** 2 + 0.4 + none_throws(r9)
+
+
+@dataclass(kw_only=True)
+class Jenatton(ParamBasedTestProblem):
+    """Jenatton test function for hierarchical search spaces."""
 
     noise_std: Optional[float] = None
     negate: bool = False
