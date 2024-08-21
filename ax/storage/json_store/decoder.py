@@ -33,7 +33,7 @@ from ax.core.parameter_constraint import (
     SumConstraint,
 )
 from ax.core.search_space import SearchSpace
-from ax.exceptions.storage import JSONDecodeError
+from ax.exceptions.storage import JSONDecodeError, STORAGE_DOCS_SUFFIX
 from ax.modelbridge.generation_strategy import (
     GenerationNode,
     GenerationStep,
@@ -160,7 +160,7 @@ def object_from_json(
             err = (
                 f"The JSON dictionary passed to `object_from_json` has a type "
                 f"{_type} that is not registered with a corresponding class in "
-                f"DECODER_REGISTRY."
+                f"DECODER_REGISTRY. {STORAGE_DOCS_SUFFIX}"
             )
             raise JSONDecodeError(err)
 
