@@ -38,3 +38,11 @@ Healthcheck Analysis
     :members:
     :undoc-members:
     :show-inheritance:
+
+Parallel Coordinates Analysis
+~~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.plotly.parallel_coordinates
+    :members:
+    :undoc-members:
+    :show-inheritance:

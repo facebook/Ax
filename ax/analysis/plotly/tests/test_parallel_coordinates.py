@@ -7,7 +7,7 @@
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardLevel
-from ax.analysis.plotly.parallel_coordinates.parallel_coordinates import (
+from ax.analysis.plotly.parallel_coordinates import (
     _get_parameter_dimension,
     _select_metric,
     ParallelCoordinatesPlot,
