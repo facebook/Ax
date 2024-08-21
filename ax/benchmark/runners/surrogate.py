@@ -6,7 +6,6 @@
 # pyre-strict
 
 import warnings
-from collections.abc import Iterable
 from typing import Any, Callable, Optional, Union
 
 import torch
@@ -68,7 +67,7 @@ class SurrogateRunner(BenchmarkRunner):
         self.get_surrogate_and_datasets = get_surrogate_and_datasets
         self.name = name
         self._surrogate = surrogate
-        self._outcome_names = outcome_names
+        self.outcome_names = outcome_names
         self._datasets = datasets
         self.search_space = search_space
         self.noise_stds = noise_stds
@@ -88,10 +87,6 @@ class SurrogateRunner(BenchmarkRunner):
         if self.get_surrogate_and_datasets is not None:
             self.set_surrogate_and_datasets()
         return none_throws(self._datasets)
-
-    @property
-    def outcome_names(self) -> list[str]:
-        return self._outcome_names
 
     def get_noise_stds(self) -> Union[None, float, dict[str, float]]:
         return self.noise_stds
@@ -134,11 +129,6 @@ class SurrogateRunner(BenchmarkRunner):
         run_metadata = super().run(trial=trial)
         run_metadata["outcome_names"] = self.outcome_names
         return run_metadata
-
-    def poll_trial_status(
-        self, trials: Iterable[BaseTrial]
-    ) -> dict[TrialStatus, set[int]]:
-        return {TrialStatus.COMPLETED: {t.index for t in trials}}
 
     @classmethod
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.

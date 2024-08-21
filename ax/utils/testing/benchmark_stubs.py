@@ -6,9 +6,10 @@
 
 # pyre-strict
 
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import numpy as np
+import torch
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
@@ -21,6 +22,7 @@ from ax.benchmark.problems.surrogate import (
     MOOSurrogateBenchmarkProblem,
     SOOSurrogateBenchmarkProblem,
 )
+from ax.benchmark.runners.botorch_test import ParamBasedTestProblem
 from ax.benchmark.runners.surrogate import SurrogateRunner
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import (
@@ -218,3 +220,23 @@ def get_benchmark_result() -> BenchmarkResult:
 def get_aggregated_benchmark_result() -> AggregatedBenchmarkResult:
     result = get_benchmark_result()
     return AggregatedBenchmarkResult.from_benchmark_results([result, result])
+
+
+class TestParamBasedTestProblem(ParamBasedTestProblem):
+    optimal_value: float = 0.0
+
+    def __init__(
+        self,
+        num_objectives: int,
+        noise_std: Optional[Union[float, list[float]]] = None,
+        dim: int = 6,
+    ) -> None:
+        self.num_objectives = num_objectives
+        self.noise_std = noise_std
+        self.dim = dim
+
+    # pyre-fixme[14]: Inconsistent override, as dict[str, float] is not a
+    # `TParameterization`
+    def evaluate_true(self, params: dict[str, float]) -> torch.Tensor:
+        value = sum(elt**2 for elt in params.values())
+        return value * torch.ones(self.num_objectives, dtype=torch.double)
