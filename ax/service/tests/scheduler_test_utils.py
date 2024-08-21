@@ -17,6 +17,9 @@ from typing import Any, Callable, cast, Optional
 from unittest.mock import call, Mock, patch, PropertyMock
 
 import pandas as pd
+from ax.analysis.plotly.parallel_coordinates.parallel_coordinates import (
+    ParallelCoordinatesPlot,
+)
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -84,6 +87,7 @@ from ax.utils.testing.core_stubs import (
     SpecialGenerationStrategy,
 )
 from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.modeling_stubs import get_generation_strategy
 from pyre_extensions import none_throws
 
 from sqlalchemy.orm.exc import StaleDataError
@@ -2502,3 +2506,45 @@ class AxSchedulerTestCase(TestCase):
             1,
             str(scheduler.experiment.trials),
         )
+
+    def test_compute_analyses(self) -> None:
+        scheduler = Scheduler(
+            experiment=get_branin_experiment(with_completed_trial=True),
+            generation_strategy=get_generation_strategy(),
+            options=SchedulerOptions(
+                total_trials=0,
+                tolerated_trial_failure_rate=0.2,
+                init_seconds_between_polls=10,
+            ),
+        )
+
+        cards = scheduler.compute_analyses(analyses=[ParallelCoordinatesPlot()])
+
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0].name, "ParallelCoordinatesPlot(metric_name=None)")
+
+        scheduler = Scheduler(
+            experiment=get_branin_experiment(with_completed_trial=False),
+            generation_strategy=get_generation_strategy(),
+            options=SchedulerOptions(
+                total_trials=0,
+                tolerated_trial_failure_rate=0.2,
+                init_seconds_between_polls=10,
+            ),
+        )
+
+        with self.assertLogs(logger="ax.analysis", level="ERROR") as lg:
+
+            cards = scheduler.compute_analyses(analyses=[ParallelCoordinatesPlot()])
+
+            self.assertEqual(len(cards), 0)
+            self.assertTrue(
+                any(
+                    (
+                        "Failed to compute ParallelCoordinatesPlot(metric_name=None): "
+                        "No data found for metric branin"
+                    )
+                    in msg
+                    for msg in lg.output
+                )
+            )

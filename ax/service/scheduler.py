@@ -18,6 +18,10 @@ from time import sleep
 from typing import Any, Callable, cast, NamedTuple, Optional
 
 import ax.service.utils.early_stopping as early_stopping_utils
+from ax.analysis.analysis import Analysis, AnalysisCard
+from ax.analysis.plotly.parallel_coordinates.parallel_coordinates import (
+    ParallelCoordinatesPlot,
+)
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
@@ -1767,6 +1771,36 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 reduce_state_generator_runs=reduce_state_generator_runs,
             )
         return new_trials
+
+    def compute_analyses(
+        self, analyses: Optional[Iterable[Analysis]] = None
+    ) -> list[AnalysisCard]:
+        analyses = analyses if analyses is not None else self._choose_analyses()
+
+        results = [
+            analysis.compute_result(
+                experiment=self.experiment, generation_strategy=self.generation_strategy
+            )
+            for analysis in analyses
+        ]
+
+        # TODO Accumulate Es into their own card, perhaps via unwrap_or_else
+        cards = [result.unwrap() for result in results if result.is_ok()]
+
+        self._save_analysis_cards_to_db_if_possible(
+            analysis_cards=cards,
+            experiment=self.experiment,
+        )
+
+        return cards
+
+    def _choose_analyses(self) -> list[Analysis]:
+        """
+        Choose Analyses to compute based on the Experiment, GenerationStrategy, etc.
+        """
+
+        # TODO Create a useful heuristic for choosing analyses
+        return [ParallelCoordinatesPlot()]
 
     def _gen_new_trials_from_generation_strategy(
         self,

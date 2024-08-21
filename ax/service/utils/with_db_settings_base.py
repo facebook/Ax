@@ -10,7 +10,9 @@ import re
 import time
 
 from logging import INFO, Logger
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
+
+from ax.analysis.analysis import AnalysisCard
 
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
@@ -22,6 +24,7 @@ from ax.exceptions.core import (
     UnsupportedError,
 )
 from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.storage.sqa_store.save import save_analysis_cards
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import not_none
@@ -468,6 +471,21 @@ class WithDBSettingsBase:
             return True
         return False
 
+    def _save_analysis_cards_to_db_if_possible(
+        self,
+        experiment: Experiment,
+        analysis_cards: Iterable[AnalysisCard],
+    ) -> bool:
+        if self.db_settings_set:
+            _save_analysis_cards_to_db_if_possible(
+                experiment=experiment,
+                analysis_cards=analysis_cards,
+                config=self.db_settings.encoder.config,
+            )
+            return True
+
+        return False
+
 
 # ------------- Utils for storage that assume `DBSettings` are provided --------
 
@@ -588,5 +606,23 @@ def _update_experiment_properties_in_db(
 ) -> None:
     update_properties_on_experiment(
         experiment_with_updated_properties=experiment_with_updated_properties,
+        config=sqa_config,
+    )
+
+
+@retry_on_exception(
+    retries=3,
+    default_return_on_suppression=False,
+    exception_types=RETRY_EXCEPTION_TYPES,
+)
+def _save_analysis_cards_to_db_if_possible(
+    experiment: Experiment,
+    analysis_cards: Iterable[AnalysisCard],
+    sqa_config: SQAConfig,
+    suppress_all_errors: bool,  # Used by the decorator.
+) -> None:
+    save_analysis_cards(
+        experiment=experiment,
+        analysis_cards=[*analysis_cards],
         config=sqa_config,
     )
