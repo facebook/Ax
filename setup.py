@@ -20,6 +20,7 @@ else:
 
 REQUIRES = [
     botorch_req,
+    "sqlalchemy",  # for storage
     "jinja2",  # also a Plotly dep
     "pandas",
     "scipy",
