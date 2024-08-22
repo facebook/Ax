@@ -798,10 +798,11 @@ class AxSchedulerTestCase(TestCase):
         # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
         #  int, str]]` but got `Dict[str, int]`.
         trial.add_arm(Arm(parameters=parameter_dict))
-        with self.assertRaisesRegex(
-            UserInputError, "number of pre-attached candidate trials .* is greater than"
-        ):
-            scheduler.run_n_trials(max_trials=0)
+
+        # check no new trials are run, when max_trials = 0
+        scheduler.run_n_trials(max_trials=0)
+        self.assertEqual(trial.status, TrialStatus.CANDIDATE)
+        # check that candidate trial is run, when max_trials = 1
         scheduler.run_n_trials(max_trials=1)
         self.assertEqual(len(scheduler.experiment.trials), 1)
         self.assertDictEqual(
@@ -809,6 +810,43 @@ class AxSchedulerTestCase(TestCase):
             scheduler.experiment.trials[0].arm.parameters,
             parameter_dict,
         )
+        self.assertTrue(  # Make sure all trials got to complete.
+            all(t.completed_successfully for t in scheduler.experiment.trials.values())
+        )
+
+    def test_run_multiple_preattached_trials_only(self) -> None:
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=self.two_sobol_steps_GS,
+        )
+        # assert that pre-attached trials run when max_trials = number of
+        # pre-attached trials
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,  # Has runner and metrics.
+            generation_strategy=gs,
+            options=SchedulerOptions(
+                init_seconds_between_polls=0,  # Short between polls so test is fast.
+                trial_type=TrialType.BATCH_TRIAL,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        trial1 = scheduler.experiment.new_trial()
+        trial1.add_arm(Arm(parameters={"x1": 5, "x2": 5}))
+        trial2 = scheduler.experiment.new_trial()
+        trial2.add_arm(Arm(parameters={"x1": 6, "x2": 3}))
+
+        # check that first candidate trial is run when called with max_trials = 1
+        with self.assertLogs(logger="ax.service.scheduler") as lg:
+            scheduler.run_n_trials(max_trials=1)
+            self.assertIn(
+                "Found 1 non-terminal trials on branin_test_experiment: [1]",
+                lg.output[-1],
+            )
+        self.assertIn(trial1.status, [TrialStatus.RUNNING, TrialStatus.COMPLETED])
+        self.assertEqual(trial2.status, TrialStatus.CANDIDATE)
+        # check that next candidate trial is run, when max_trials = 1
+        scheduler.run_n_trials(max_trials=1)
+        self.assertEqual(len(scheduler.experiment.trials), 2)
         self.assertTrue(  # Make sure all trials got to complete.
             all(t.completed_successfully for t in scheduler.experiment.trials.values())
         )

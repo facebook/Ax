@@ -920,13 +920,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         n_initial_candidate_trials = len(self.candidate_trials)
         if n_initial_candidate_trials == 0 and max_trials < 0:
             raise UserInputError(f"Expected `max_trials` >= 0, got {max_trials}.")
-        elif max_trials < n_initial_candidate_trials:
-            raise UserInputError(
-                "The number of pre-attached candidate trials "
-                f"({n_initial_candidate_trials}) is greater than `max_trials = "
-                f"{max_trials}`. Increase `max_trials` or reduce the number of "
-                "pre-attached candidate trials."
-            )
 
         # trials are pre-existing only if they do not still require running
         n_existing = len(self.experiment.trials) - n_initial_candidate_trials
@@ -1570,6 +1563,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             num_preexisting_trials=num_preexisting_trials,
             status=RunTrialsStatus.SUCCESS,
         )
+        self.warn_if_non_terminal_trials()
         return res
 
     def _validate_options(self, options: SchedulerOptions) -> None:
@@ -2150,6 +2144,17 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 min_failed=self.options.min_failed_trials_for_failure_rate_check,
             )
         )
+
+    def warn_if_non_terminal_trials(self) -> None:
+        """Warns if there are any non-terminal trials on the experiment."""
+        non_terminal_trials = [
+            t.index for t in self.experiment.trials.values() if not t.status.is_terminal
+        ]
+        if len(non_terminal_trials) > 0:
+            self.logger.warning(
+                f"Found {len(non_terminal_trials)} non-terminal trials on "
+                f"{self.experiment.name}: {non_terminal_trials}."
+            )
 
 
 def get_fitted_model_bridge(
