@@ -5,13 +5,15 @@
 
 # pyre-strict
 
-from abc import ABC, abstractmethod, abstractproperty
+from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from math import sqrt
 from typing import Any, Union
 
 import torch
 from ax.core.arm import Arm
-from ax.core.base_trial import BaseTrial
+
+from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.runner import Runner
 from ax.core.trial import Trial
@@ -39,10 +41,7 @@ class BenchmarkRunner(Runner, ABC):
           not over-engineer for that before such a use case arrives.
     """
 
-    @abstractproperty
-    def outcome_names(self) -> list[str]:
-        """The names of the outcomes of the problem (in the order of the outcomes)."""
-        pass  # pragma: no cover
+    outcome_names: list[str]
 
     def get_Y_true(self, arm: Arm) -> Tensor:
         """
@@ -132,3 +131,9 @@ class BenchmarkRunner(Runner, ABC):
             "Ys_true": Ys_true,
         }
         return run_metadata
+
+    # This will need to be udpated once asynchronous benchmarks are supported.
+    def poll_trial_status(
+        self, trials: Iterable[BaseTrial]
+    ) -> dict[TrialStatus, set[int]]:
+        return {TrialStatus.COMPLETED: {t.index for t in trials}}
