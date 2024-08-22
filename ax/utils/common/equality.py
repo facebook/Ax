@@ -67,6 +67,8 @@ def is_ax_equal(one_val: Any, other_val: Any) -> bool:
     dates, and numpy arrays.  This method and ``same_elements`` function
     as a recursive unit.
     """
+    if type(one_val) is not type(other_val):
+        return False
     if isinstance(one_val, list) and isinstance(other_val, list):
         return same_elements(one_val, other_val)
     elif isinstance(one_val, dict) and isinstance(other_val, dict):
