@@ -24,7 +24,6 @@ from ax.exceptions.core import (
     UnsupportedError,
 )
 from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.storage.sqa_store.save import save_analysis_cards
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import not_none
@@ -67,6 +66,7 @@ try:  # We don't require SQLAlchemy by default.
         _save_generation_strategy,
         _save_or_update_trials,
         _update_generation_strategy,
+        save_analysis_cards,
         update_properties_on_experiment,
     )
     from ax.storage.sqa_store.sqa_config import SQAConfig
