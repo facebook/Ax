@@ -20,7 +20,7 @@ else:
 
 REQUIRES = [
     botorch_req,
-    "sqlalchemy",  # for storage
+    "SQLAlchemy==1.4.17",  # for storage
     "jinja2",  # also a Plotly dep
     "pandas",
     "scipy",
@@ -51,8 +51,6 @@ DEV_REQUIRES = [
     "numpy<2.0",
 ]
 
-MYSQL_REQUIRES = ["SQLAlchemy==1.4.17"]
-
 NOTEBOOK_REQUIRES = ["jupyter"]
 
 UNITTEST_MINIMAL_REQUIRES = [
@@ -62,7 +60,7 @@ UNITTEST_MINIMAL_REQUIRES = [
 ]
 
 UNITTEST_REQUIRES = (
-    DEV_REQUIRES + MYSQL_REQUIRES + NOTEBOOK_REQUIRES + UNITTEST_MINIMAL_REQUIRES
+    DEV_REQUIRES + NOTEBOOK_REQUIRES + UNITTEST_MINIMAL_REQUIRES
 )
 
 TUTORIAL_REQUIRES = UNITTEST_REQUIRES + [
@@ -115,7 +113,6 @@ def setup_package() -> None:
         },
         extras_require={
             "dev": DEV_REQUIRES,
-            "mysql": MYSQL_REQUIRES,
             "notebook": NOTEBOOK_REQUIRES,
             "unittest": UNITTEST_REQUIRES,
             "unittest_minimal": UNITTEST_MINIMAL_REQUIRES,
