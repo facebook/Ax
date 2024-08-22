@@ -6,15 +6,13 @@
 
 # pyre-strict
 
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 import numpy as np
 import torch
-from ax.models.base import Model
 from ax.models.model_utils import tunable_feature_indices
 from ax.models.random.base import RandomModel
 from ax.models.types import TConfig
-from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import not_none
 from torch.quasirandom import SobolEngine
 
@@ -26,8 +24,6 @@ class SobolGenerator(RandomModel):
     the fit or predict methods.
 
     Attributes:
-        init_position: The initial state of the Sobol generator.
-            Starts at 0 by default.
         scramble: If True, permutes the parameter values among
             the elements of the Sobol sequence. Default is True.
         See base `RandomModel` for a description of remaining attributes.
@@ -35,8 +31,8 @@ class SobolGenerator(RandomModel):
 
     def __init__(
         self,
-        seed: Optional[int] = None,
         deduplicate: bool = True,
+        seed: Optional[int] = None,
         init_position: int = 0,
         scramble: bool = True,
         generated_points: Optional[np.ndarray] = None,
@@ -45,10 +41,10 @@ class SobolGenerator(RandomModel):
         super().__init__(
             deduplicate=deduplicate,
             seed=seed,
+            init_position=init_position,
             generated_points=generated_points,
             fallback_to_sample_polytope=fallback_to_sample_polytope,
         )
-        self.init_position = init_position
         self.scramble = scramble
         # Initialize engine on gen.
         self._engine: Optional[SobolEngine] = None
@@ -120,12 +116,6 @@ class SobolGenerator(RandomModel):
         if self.engine:
             self.init_position = not_none(self.engine).num_generated
         return (points, weights)
-
-    @copy_doc(Model._get_state)
-    def _get_state(self) -> dict[str, Any]:
-        state = super()._get_state()
-        state.update({"init_position": self.init_position})
-        return state
 
     def _gen_samples(self, n: int, tunable_d: int) -> np.ndarray:
         """Generate n samples.
