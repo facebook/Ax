@@ -90,10 +90,12 @@ class DataTest(TestCase):
 
         df = data.df
         self.assertEqual(
-            float(df[df["arm_name"] == "0_0"][df["metric_name"] == "a"]["mean"]), 2.0
+            float(df[df["arm_name"] == "0_0"][df["metric_name"] == "a"]["mean"].item()),
+            2.0,
         )
         self.assertEqual(
-            float(df[df["arm_name"] == "0_1"][df["metric_name"] == "b"]["sem"]), 0.5
+            float(df[df["arm_name"] == "0_1"][df["metric_name"] == "b"]["sem"].item()),
+            0.5,
         )
 
     def test_BadData(self) -> None:
