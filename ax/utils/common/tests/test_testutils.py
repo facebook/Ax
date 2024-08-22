@@ -102,3 +102,14 @@ class TestTestUtils(TestCase):
         self.assertEqual(1, 1)
         with self.assertRaises(RuntimeError):
             self.assertEquals(1, 1)
+
+    def test_ax_long_test_decorator(self) -> None:
+        testReason: str = "testReason"
+
+        @TestCase.ax_long_test(testReason)
+        def decorated_test() -> None:
+            self.assertEqual(testReason, self._long_test_active_reason)
+
+        self.assertEqual(None, self._long_test_active_reason)
+        decorated_test()
+        self.assertEqual(None, self._long_test_active_reason)

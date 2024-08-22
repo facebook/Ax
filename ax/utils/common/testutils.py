@@ -279,9 +279,10 @@ def setup_import_mocks(
 class TestCase(fake_filesystem_unittest.TestCase):
     """The base Ax test case, contains various helper functions to write unittests."""
 
-    MAX_TEST_SECONDS = 480
+    MAX_TEST_SECONDS = 60
     NUMBER_OF_PROFILER_LINES_TO_OUTPUT = 20
     PROFILE_TESTS = False
+    _long_test_active_reason: Optional[str] = None
 
     def __init__(self, methodName: str = "runTest") -> None:
         def signal_handler(signum: int, frame: Optional[FrameType]) -> None:
@@ -292,7 +293,20 @@ class TestCase(fake_filesystem_unittest.TestCase):
                 message += (
                     " To see a profiler output, set `TestCase.PROFILE_TESTS` to `True`."
                 )
-            logger.warning(message)
+
+            if self._long_test_active_reason is None:
+                message += (
+                    " To specify a reason for a long running test,"
+                    + " utilize the @ax_long_test decorator. If your test "
+                    + "is long because it's doing modeling, please use the "
+                    + "@fast_botorch_optimize decorator and see if that helps."
+                )
+                raise TimeoutError(message)
+            else:
+                message += (
+                    " Reason for long running test: " + self._long_test_active_reason
+                )
+                logger.warning(message)
 
         super().__init__(methodName=methodName)
         signal.signal(signal.SIGALRM, signal_handler)
@@ -483,6 +497,13 @@ class TestCase(fake_filesystem_unittest.TestCase):
         # Print the longest running functions
         for line in output[-self.NUMBER_OF_PROFILER_LINES_TO_OUTPUT :]:
             print(line)
+
+    @classmethod
+    @contextlib.contextmanager
+    def ax_long_test(cls, reason: Optional[str]) -> Generator[None, None, None]:
+        cls._long_test_active_reason = reason
+        yield
+        cls._long_test_active_reason = None
 
     # This list is taken from the python standard library
     # pyre-fixme[4]: Attribute must be annotated.
