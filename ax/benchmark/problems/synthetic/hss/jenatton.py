@@ -5,18 +5,52 @@
 
 # pyre-strict
 
+from dataclasses import dataclass
+from typing import Optional
+
+import torch
 from ax.benchmark.benchmark_problem import BenchmarkProblem
-from ax.benchmark.metrics.jenatton import JenattonMetric
+from ax.benchmark.metrics.benchmark import BenchmarkMetric
+from ax.benchmark.metrics.jenatton import jenatton_test_function
+from ax.benchmark.runners.botorch_test import (
+    ParamBasedTestProblem,
+    ParamBasedTestProblemRunner,
+)
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import HierarchicalSearchSpace
-from ax.runners.synthetic import SyntheticRunner
+from ax.core.types import TParameterization
+
+
+@dataclass(kw_only=True)
+class Jenatton(ParamBasedTestProblem):
+    r"""Jenatton test function for hierarchical search spaces.
+
+    This function is taken from:
+
+    R. Jenatton, C. Archambeau, J. González, and M. Seeger. Bayesian
+    optimization with tree-structured dependencies. ICML 2017.
+    """
+
+    noise_std: Optional[float] = None
+    negate: bool = False
+    num_objectives: int = 1
+    optimal_value: float = 0.1
+    _is_constrained: bool = False
+
+    def evaluate_true(self, params: TParameterization) -> torch.Tensor:
+        # pyre-fixme: Incompatible parameter type [6]: In call
+        # `jenatton_test_function`, for 1st positional argument, expected
+        # `Optional[float]` but got `Union[None, bool, float, int, str]`.
+        value = jenatton_test_function(**params)
+        return torch.tensor(value)
 
 
 def get_jenatton_benchmark_problem(
     num_trials: int = 50,
     observe_noise_sd: bool = False,
+    noise_std: float = 0.0,
 ) -> BenchmarkProblem:
     search_space = HierarchicalSearchSpace(
         parameters=[
@@ -55,24 +89,28 @@ def get_jenatton_benchmark_problem(
             ),
         ]
     )
+    name = "Jenatton" + ("_observed_noise" if observe_noise_sd else "")
 
     optimization_config = OptimizationConfig(
         objective=Objective(
-            metric=JenattonMetric(observe_noise_sd=observe_noise_sd),
+            metric=BenchmarkMetric(
+                name=name, observe_noise_sd=observe_noise_sd, lower_is_better=True
+            ),
             minimize=True,
         )
     )
-
-    name = "Jenatton" + ("_observed_noise" if observe_noise_sd else "")
-
     return BenchmarkProblem(
         name=name,
         search_space=search_space,
         optimization_config=optimization_config,
-        runner=SyntheticRunner(),
+        runner=ParamBasedTestProblemRunner(
+            test_problem_class=Jenatton,
+            test_problem_kwargs={"noise_std": noise_std},
+            outcome_names=[name],
+        ),
         num_trials=num_trials,
-        is_noiseless=True,
+        is_noiseless=noise_std == 0.0,
         observe_noise_stds=observe_noise_sd,
         has_ground_truth=True,
-        optimal_value=0.1,
+        optimal_value=Jenatton.optimal_value,
     )

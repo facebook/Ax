@@ -17,7 +17,6 @@ from ax.benchmark.benchmark_problem import (
 )
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.metrics.benchmark import BenchmarkMetric, GroundTruthBenchmarkMetric
-from ax.benchmark.metrics.jenatton import JenattonMetric
 from ax.benchmark.problems.hpo.pytorch_cnn import PyTorchCNNMetric
 from ax.benchmark.problems.hpo.torchvision import (
     PyTorchCNNTorchvisionBenchmarkProblem,
@@ -213,7 +212,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     Hartmann6Metric: metric_to_dict,
     ImprovementGlobalStoppingStrategy: improvement_global_stopping_strategy_to_dict,
     Interval: botorch_component_to_dict,
-    JenattonMetric: metric_to_dict,
     L2NormMetric: metric_to_dict,
     LogNormalPrior: botorch_component_to_dict,
     MapData: map_data_to_dict,
@@ -337,7 +335,6 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "HierarchicalSearchSpace": HierarchicalSearchSpace,
     "ImprovementGlobalStoppingStrategy": ImprovementGlobalStoppingStrategy,
     "Interval": Interval,
-    "JenattonMetric": JenattonMetric,
     "LifecycleStage": LifecycleStage,
     "ListSurrogate": Surrogate,  # For backwards compatibility
     "L2NormMetric": L2NormMetric,
