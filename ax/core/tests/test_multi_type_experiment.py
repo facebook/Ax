@@ -48,8 +48,8 @@ class MultiTypeExperimentTest(TestCase):
 
         arm_0_slice = df.loc[df["arm_name"] == "0_0"]
         self.assertNotEqual(
-            float(arm_0_slice[df["trial_index"] == 0]["mean"]),
-            float(arm_0_slice[df["trial_index"] == 1]["mean"]),
+            float(arm_0_slice[df["trial_index"] == 0]["mean"].item()),
+            float(arm_0_slice[df["trial_index"] == 1]["mean"].item()),
         )
         self.assertEqual(len(df), 2 * n)
         self.assertEqual(self.experiment.default_trials, {0})
@@ -60,8 +60,8 @@ class MultiTypeExperimentTest(TestCase):
         df = self.experiment.fetch_data().df
         arm_0_slice = df.loc[df["arm_name"] == "0_0"]
         self.assertAlmostEqual(
-            float(arm_0_slice[df["trial_index"] == 0]["mean"]),
-            float(arm_0_slice[df["trial_index"] == 1]["mean"]),
+            float(arm_0_slice[df["trial_index"] == 0]["mean"].item()),
+            float(arm_0_slice[df["trial_index"] == 1]["mean"].item()),
             places=10,
         )
 
