@@ -68,7 +68,7 @@ const siteConfig = {
     `${baseUrl}js/plotUtils.js`,
     'https://buttons.github.io/buttons.js',
     `${baseUrl}js/mathjax.js`,
-    'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML',
+    'https://cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS_SVG',
   ],
 
   // On page navigation for the current documentation page.
