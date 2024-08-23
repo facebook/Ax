@@ -383,6 +383,25 @@ class JSONStoreTest(TestCase):
                 else:
                     raise e
 
+    def test_EncodeDecode_dataclass_with_initvar(self) -> None:
+        @dataclasses.dataclass
+        class TestDataclass:
+            a_field: int
+            not_a_field: dataclasses.InitVar[int | None] = None
+
+            def __post_init__(self, doesnt_serialize: None) -> None:
+                self.not_a_field = 1
+
+        obj = TestDataclass(a_field=-1)
+        as_json = object_to_json(obj=obj)
+        self.assertEqual(as_json, {"__type": "TestDataclass", "a_field": -1})
+        recovered = object_from_json(
+            object_json=as_json, decoder_registry={"TestDataclass": TestDataclass}
+        )
+        self.assertEqual(recovered.a_field, -1)
+        self.assertEqual(recovered.not_a_field, 1)
+        self.assertEqual(obj, recovered)
+
     def test_EncodeDecodeTorchTensor(self) -> None:
         x = torch.tensor(
             [[1.0, 2.0], [3.0, 4.0]], dtype=torch.float64, device=torch.device("cpu")

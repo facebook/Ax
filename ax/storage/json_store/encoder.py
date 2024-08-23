@@ -135,6 +135,7 @@ def object_to_json(  # noqa C901
             },
         }
     elif dataclasses.is_dataclass(obj):
+        field_names = [f.name for f in dataclasses.fields(obj)]
         return {
             "__type": _type.__name__,
             **{
@@ -144,6 +145,7 @@ def object_to_json(  # noqa C901
                     class_encoder_registry=class_encoder_registry,
                 )
                 for k, v in obj.__dict__.items()
+                if k in field_names
             },
         }
 
