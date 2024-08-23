@@ -35,6 +35,14 @@ Decorator
     :undoc-members:
     :show-inheritance:
 
+Deprecation
+~~~~~~~~~~~
+
+.. automodule:: ax.utils.common.deprecation
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Docutils
 ~~~~~~~~
 
