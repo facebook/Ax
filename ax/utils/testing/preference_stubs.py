@@ -42,57 +42,92 @@ def pairwise_pref_metric_eval(
     }
 
 
+def _metric_name_to_value(metric_name: str, metric_names: list[str]) -> float:
+    i = sorted(metric_names).index(metric_name)
+    return (i + 1) * 1000.0 + np.random.standard_normal()
+
+
 def experimental_metric_eval(
     parameters: dict[str, Any], metric_names: list[str]
-) -> dict[str, Any]:
-    return {
-        arm_name: {
-            # metric_name: (mean, sem)
-            metric_name: (np.random.random() + 1.0, 0.05)
+) -> dict[str, TEvaluationOutcome]:
+    """evaluating experimental metrics
+
+    Args:
+        parameters: Dict of arm name to parameterization
+        metric_names: List of metric names
+
+    Returns:
+        Dict of arm name to metric name to (mean, sem)
+    """
+    result_dict = {}
+    for arm_name in parameters.keys():
+        result_dict[arm_name] = {
+            metric_name: (
+                _metric_name_to_value(metric_name, metric_names),
+                10.0,
+            )
             for metric_name in metric_names
         }
-        for arm_name, _ in parameters.items()
-    }
+    return result_dict
 
 
 def get_pbo_experiment(
     num_parameters: int = 2,
     num_experimental_metrics: int = 3,
+    parameter_names: Optional[list[str]] = None,
     tracking_metric_names: Optional[list[str]] = None,
     num_experimental_trials: int = 3,
     num_preference_trials: int = 3,
     num_preference_trials_w_repeated_arm: int = 5,
     include_sq: bool = True,
     partial_data: bool = False,
+    unbounded_search_space: bool = False,
+    experiment_name: str = "pref_experiment",
 ) -> Experiment:
-    """Create synthetic preferential BO (not preference exploration) experiment"""
-    tracking_metric_names = [
-        f"metric{i}" for i in range(1, num_experimental_metrics + 1)
-    ]
+    """Create synthetic preferential BO experiment"""
+    if tracking_metric_names is None:
+        tracking_metric_names = [
+            f"metric{i}" for i in range(1, num_experimental_metrics + 1)
+        ]
+    else:
+        assert len(tracking_metric_names) == num_experimental_metrics
 
-    sq = {f"x{i}": 0.0 for i in range(1, num_parameters + 1)} if include_sq else None
+    if parameter_names is None:
+        parameter_names = [f"x{i}" for i in range(1, num_parameters + 1)]
+    else:
+        assert len(parameter_names) == num_parameters
+
+    sq = {param_name: 0.0 for param_name in parameter_names} if include_sq else None
 
     parameters = [
         {
-            "name": f"x{i}",
+            "name": param_name,
             "type": "range",
-            "bounds": [0.0, 1.0],
+            # make the default search space non-unit for better clarity in testing
+            "bounds": [10.0, 30.0] if not unbounded_search_space else [-1e9, 1e9],
         }
-        for i in range(1, num_parameters + 1)
+        for param_name in parameter_names
     ]
 
     has_preference_query = (
         num_preference_trials > 0 or num_preference_trials_w_repeated_arm > 0
     )
+
+    if has_preference_query:
+        objectives = {Keys.PAIRWISE_PREFERENCE_QUERY.value: "maximize"}
+    elif len(tracking_metric_names) > 0:
+        objectives = {tracking_metric_names[0]: "maximize"}
+    else:
+        objectives = None
+
     experiment = InstantiationBase.make_experiment(
-        name="pref_experiment",
+        name=experiment_name,
+        description="This is a test exp",
+        experiment_type="NOTEBOOK",
+        owners=["test_owner"],
         # pyre-ignore: Incompatible parameter type [6]
         parameters=parameters,
-        objectives=(
-            {Keys.PAIRWISE_PREFERENCE_QUERY.value: "maximize"}
-            if has_preference_query
-            else {tracking_metric_names[0]: "maximize"}
-        ),
+        objectives=objectives,
         tracking_metric_names=tracking_metric_names,
         is_test=True,
         # pyre-ignore: Incompatible parameter type [6]
@@ -120,27 +155,30 @@ def get_pbo_experiment(
         # create incomplete data by dropping the first metric
         if partial_data:
             for v in raw_data.values():
-                del v[tracking_metric_names[-1]]
+                del checked_cast(dict, v)[tracking_metric_names[-1]]
         trial.attach_batch_trial_data(raw_data=raw_data)
         trial.mark_running(no_runner_required=True)
         trial.mark_completed()
 
     # Adding arms with preferential queries
     for _ in range(num_preference_trials):
-        gr = GeneratorRun(
-            [
-                Arm(
-                    {
-                        pn: np.random.uniform(
-                            low=checked_cast(RangeParameter, p).lower,
-                            high=checked_cast(RangeParameter, p).upper,
-                        )
-                        for pn, p in experiment.search_space.parameters.items()
-                    }
-                )
-                for _ in range(2)
-            ]
-        )
+        arms = []
+        for _ in range(2):
+            param_dict = {}
+            for param_name, p in experiment.search_space.parameters.items():
+                lb = checked_cast(RangeParameter, p).lower
+                ub = checked_cast(RangeParameter, p).upper
+                # if this experiment used as PE experiment
+                if unbounded_search_space:
+                    # matching how metrics are generated in experimental_metric_eval
+                    param_dict[param_name] = _metric_name_to_value(
+                        metric_name=param_name, metric_names=parameter_names
+                    )
+                else:
+                    param_dict[param_name] = np.random.uniform(low=lb, high=ub)
+            arms.append(Arm(parameters=param_dict))
+        gr = GeneratorRun(arms)
+
         trial = experiment.new_batch_trial(generator_run=gr)
         trial.attach_batch_trial_data(
             raw_data=pairwise_pref_metric_eval(
