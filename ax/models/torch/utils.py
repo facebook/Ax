@@ -26,10 +26,8 @@ from botorch.acquisition.monte_carlo import (
     qSimpleRegret,
     SampleReducingMCAcquisitionFunction,
 )
-from botorch.acquisition.multi_objective.analytic import (
+from botorch.acquisition.multi_objective.base import (
     MultiObjectiveAnalyticAcquisitionFunction,
-)
-from botorch.acquisition.multi_objective.monte_carlo import (
     MultiObjectiveMCAcquisitionFunction,
 )
 from botorch.acquisition.multi_objective.multi_output_risk_measures import (
