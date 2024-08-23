@@ -23,6 +23,7 @@ from ax.modelbridge.transforms.winsorize import Winsorize
 from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
 from ax.models.types import TConfig
 from ax.models.winsorization_config import WinsorizationConfig
+from ax.utils.common.deprecation import _validate_force_random_search
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 
@@ -295,7 +296,8 @@ def choose_generation_strategy(
         Union[WinsorizationConfig, dict[str, WinsorizationConfig]]
     ] = None,
     derelativize_with_raw_status_quo: bool = False,
-    no_bayesian_optimization: bool = False,
+    no_bayesian_optimization: Optional[bool] = None,
+    force_random_search: bool = False,
     num_trials: Optional[int] = None,
     num_initialization_trials: Optional[int] = None,
     num_completed_initialization_trials: int = 0,
@@ -347,8 +349,9 @@ def choose_generation_strategy(
             Winsorization when relative constraints are present. Note: automatic
             Winsorization will fail if this is set to `False` (or unset) and there
             are relative constraints present.
-        no_bayesian_optimization: If True, Bayesian optimization generation
-            strategy will not be suggested and quasi-random strategy will be used.
+        no_bayesian_optimization: Deprecated. Use `force_random_search`.
+        force_random_search: If True, quasi-random generation strategy will be used
+            rather than Bayesian optimization.
         num_trials: Total number of trials in the optimization, if
             known in advance.
         num_initialization_trials: Specific number of initialization trials, if wanted.
@@ -441,7 +444,10 @@ def choose_generation_strategy(
         sobol_parallelism = None  # No restriction on Sobol phase
         bo_parallelism = DEFAULT_BAYESIAN_PARALLELISM
 
-    if not no_bayesian_optimization and suggested_model is not None:
+    # TODO[T199632397] Remove
+    _validate_force_random_search(no_bayesian_optimization, force_random_search)
+
+    if not force_random_search and suggested_model is not None:
         if not enforce_sequential_optimization and (
             max_parallelism_override or max_parallelism_cap
         ):
@@ -546,7 +552,7 @@ def choose_generation_strategy(
             f" {num_remaining_initialization_trials} will take longer to generate due"
             " to model-fitting."
         )
-    else:  # `no_bayesian_optimization` is True or we could not suggest BO model
+    else:  # `force_random_search` is True or we could not suggest BO model
         if verbose is not None:
             logger.warning(
                 f"Ignoring `verbose = {verbose}` for `generation_strategy` "
