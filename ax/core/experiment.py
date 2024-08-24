@@ -1499,15 +1499,6 @@ class Experiment(Base):
         # Create the trial and add arm(s)
         trial = None
         if is_batch:
-            # TODO: HSS support for batch trials.
-            if self.search_space.is_hierarchical:
-                raise NotImplementedError(
-                    "Support for batch trials "
-                    "in hierarchical search space coming soon. Let "
-                    "the Ax developers know if you have a use "
-                    "case for it."
-                )
-
             trial = self.new_batch_trial(
                 ttl_seconds=ttl_seconds, optimize_for_power=optimize_for_power
             ).add_arms_and_weights(arms=arms)
