@@ -17,9 +17,6 @@ from typing import Any, Optional, Union
 import numpy as np
 import pandas as pd
 import torch
-from ax.benchmark.problems.hpo.torchvision import (
-    PyTorchCNNTorchvisionBenchmarkProblem as TorchvisionBenchmarkProblem,
-)
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -226,11 +223,6 @@ def object_from_json(
                 object_json=object_json,
                 decoder_registry=decoder_registry,
                 class_decoder_registry=class_decoder_registry,
-            )
-        elif _class == TorchvisionBenchmarkProblem:
-            return TorchvisionBenchmarkProblem.from_dataset_name(
-                name=object_json["name"],
-                num_trials=object_json["num_trials"],
             )
         elif _class in (SurrogateSpec, Surrogate):
             if "input_transform" in object_json:

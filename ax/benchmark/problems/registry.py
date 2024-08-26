@@ -15,7 +15,9 @@ from ax.benchmark.benchmark_problem import (
     create_single_objective_problem_from_botorch,
 )
 from ax.benchmark.problems.hd_embedding import embed_higher_dimension
-from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionBenchmarkProblem
+from ax.benchmark.problems.hpo.torchvision import (
+    get_pytorch_cnn_torchvision_benchmark_problem,
+)
 from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_benchmark_problem
 from botorch.test_functions import synthetic
 from botorch.test_functions.multi_objective import BraninCurrin
@@ -113,14 +115,14 @@ BENCHMARK_PROBLEM_REGISTRY = {
         factory_kwargs={"n": 30, "num_trials": 25},
     ),
     "hpo_pytorch_cnn_MNIST": BenchmarkProblemRegistryEntry(
-        factory_fn=PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name,
+        factory_fn=get_pytorch_cnn_torchvision_benchmark_problem,
         factory_kwargs={
             "name": "MNIST",
             "num_trials": 20,
         },
     ),
     "hpo_pytorch_cnn_FashionMNIST": BenchmarkProblemRegistryEntry(
-        factory_fn=PyTorchCNNTorchvisionBenchmarkProblem.from_dataset_name,
+        factory_fn=get_pytorch_cnn_torchvision_benchmark_problem,
         factory_kwargs={
             "name": "FashionMNIST",
             "num_trials": 50,
