@@ -232,6 +232,7 @@ def error_dot_plot_trace_from_df(
 
     trace.update(visible=visible)
     trace.update(showlegend=False)
+    # pyre-fixme[7]: Expected `Dict[str, typing.Any]` but got `Scatter`.
     return trace
 
 
@@ -309,4 +310,5 @@ def error_scatter_trace_from_df(
 
     trace.update(visible=visible)
     trace.update(showlegend=True)
+    # pyre-fixme[7]: Expected `Dict[str, typing.Any]` but got `Scatter`.
     return trace

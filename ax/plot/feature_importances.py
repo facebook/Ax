@@ -40,7 +40,7 @@ def plot_feature_importance_plotly(df: pd.DataFrame, title: str) -> go.Figure:
     )
 
     for idx, item in enumerate(data):
-        fig.append_trace(item, idx + 1, 1)  # pyre-ignore[16]
+        fig.append_trace(item, idx + 1, 1)
     fig.layout.showlegend = False
     fig.layout.margin = go.layout.Margin(
         l=8 * min(max(len(idx) for idx in df.index), 75)  # noqa E741
@@ -53,7 +53,10 @@ def plot_feature_importance(df: pd.DataFrame, title: str) -> AxPlotConfig:
     """Wrapper method to convert plot_feature_importance_plotly to
     AxPlotConfig"""
     return AxPlotConfig(
-        data=plot_feature_importance_plotly(df, title), plot_type=AxPlotTypes.GENERIC
+        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
+        #  `Figure`.
+        data=plot_feature_importance_plotly(df, title),
+        plot_type=AxPlotTypes.GENERIC,
     )
 
 
@@ -90,6 +93,8 @@ def plot_feature_importance_by_metric(model: ModelBridge) -> AxPlotConfig:
     """Wrapper method to convert plot_feature_importance_by_metric_plotly to
     AxPlotConfig"""
     return AxPlotConfig(
+        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
+        #  `Figure`.
         data=plot_feature_importance_by_metric_plotly(model),
         plot_type=AxPlotTypes.GENERIC,
     )
@@ -282,6 +287,8 @@ def plot_feature_importance_by_feature(
     """Wrapper method to convert `plot_feature_importance_by_feature_plotly` to
     AxPlotConfig"""
     return AxPlotConfig(
+        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
+        #  `Figure`.
         data=plot_feature_importance_by_feature_plotly(
             model=model,
             sensitivity_values=sensitivity_values,
@@ -328,6 +335,8 @@ def plot_relative_feature_importance(model: ModelBridge) -> AxPlotConfig:
     """Wrapper method to convert plot_relative_feature_importance_plotly to
     AxPlotConfig"""
     return AxPlotConfig(
+        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
+        #  `Figure`.
         data=plot_relative_feature_importance_plotly(model),
         plot_type=AxPlotTypes.GENERIC,
     )

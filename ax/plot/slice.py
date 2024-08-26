@@ -273,6 +273,8 @@ def plot_slice(
         AxPlotConfig: plot of objective vs. parameter value
     """
     return AxPlotConfig(
+        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
+        #  `Figure`.
         data=plot_slice_plotly(
             model=model,
             param_name=param_name,
@@ -570,6 +572,8 @@ def interact_slice(
     """
 
     return AxPlotConfig(
+        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
+        #  `Figure`.
         data=interact_slice_plotly(
             model=model,
             generator_runs_dict=generator_runs_dict,

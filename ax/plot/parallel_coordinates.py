@@ -86,4 +86,5 @@ def plot_parallel_coordinates(
         experiment=experiment, ignored_names=ignored_names
     )
 
+    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)

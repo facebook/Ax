@@ -27,7 +27,6 @@ class TestCrossValidationPlot(TestCase):
 
     def test_cross_validation_plot(self) -> None:
         plot = CrossValidationPlot(experiment=self.exp, model=self.model).get_fig()
-        # pyre-ignore [16]
         x_range = plot.layout.updatemenus[0].buttons[0].args[1]["xaxis.range"]
         y_range = plot.layout.updatemenus[0].buttons[0].args[1]["yaxis.range"]
         self.assertTrue((len(x_range) == 2) and (x_range[0] < x_range[1]))

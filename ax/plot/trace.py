@@ -526,6 +526,8 @@ def optimization_trace_single_method(
         AxPlotConfig: plot of the optimization trace with IQR
     """
     return AxPlotConfig(
+        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
+        #  `Figure`.
         data=optimization_trace_single_method_plotly(
             y=y,
             optimum=optimum,
@@ -602,7 +604,10 @@ def optimization_trace_all_methods(
     )
 
     return AxPlotConfig(
-        data=go.Figure(layout=layout, data=data), plot_type=AxPlotTypes.GENERIC
+        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
+        #  `Figure`.
+        data=go.Figure(layout=layout, data=data),
+        plot_type=AxPlotTypes.GENERIC,
     )
 
 
@@ -672,7 +677,10 @@ def optimization_times(
     )
 
     return AxPlotConfig(
-        data=go.Figure(layout=layout, data=data), plot_type=AxPlotTypes.GENERIC
+        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
+        #  `Figure`.
+        data=go.Figure(layout=layout, data=data),
+        plot_type=AxPlotTypes.GENERIC,
     )
 
 
@@ -717,6 +725,8 @@ def get_running_trials_per_minute(
     )
 
     return AxPlotConfig(
+        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
+        #  `Figure`.
         data=go.Figure(
             layout=go.Layout(title="Number of running trials during experiment"),
             data=[scatter],
@@ -791,7 +801,6 @@ def plot_objective_value_vs_trial_index(
         color="Legend",
         line_shape="hv",
     )
-    # pyre-ignore[16]: `go.graph_objs.Figure` has no attribute add_trace.
     fig = scatter.add_trace(line.data[0])
     if autoset_axis_limits:
         layout_yaxis_range = _autoset_axis_limits(

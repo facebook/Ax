@@ -75,4 +75,5 @@ def plot_bandit_rollout(experiment: Experiment) -> AxPlotConfig:
         del bandit["index"]  # Have to delete index or figure creation causes error
     fig = go.Figure(data=bandits, layout=layout)
 
+    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)

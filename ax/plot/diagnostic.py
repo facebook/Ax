@@ -71,6 +71,7 @@ def _diagonal_trace(min_: float, max_: float, visible: bool = True) -> dict[str,
         visible: if True, trace is set to visible.
 
     """
+    # pyre-fixme[7]: Expected `Dict[str, typing.Any]` but got `Scatter`.
     return go.Scatter(
         x=[min_, max_],
         y=[min_, max_],
@@ -479,6 +480,7 @@ def interact_empirical_model_validation(batch: BatchTrial, data: Data) -> AxPlot
 
     fig = _obs_vs_pred_dropdown_plot(data=plot_data, rel=False)
     fig["layout"]["title"] = "Cross-validation"
+    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -541,6 +543,8 @@ def interact_cross_validation(
     Returns an AxPlotConfig
     """
     return AxPlotConfig(
+        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
+        #  `Figure`.
         data=interact_cross_validation_plotly(
             cv_results=cv_results,
             show_context=show_context,
@@ -601,7 +605,7 @@ def tile_cross_validation(
             y_raw.append(arm.y[metric])
             se_raw.append(arm.se[metric])
         min_, max_ = _get_min_max_with_errors(y_raw, y_hat, se_raw, se_hat)
-        fig.append_trace(  # pyre-ignore[16]
+        fig.append_trace(
             _diagonal_trace(min_, max_), int(np.floor(i / 2)) + 1, i % 2 + 1
         )
         fig.append_trace(
@@ -645,6 +649,7 @@ def tile_cross_validation(
             title="Predicted Outcome", mirror=True, linecolor="black", linewidth=0.5
         )
 
+    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -687,4 +692,5 @@ def interact_batch_comparison(
         ylabel=y_label,
     )
     fig["layout"]["title"] = "Repeated arms across trials"
+    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)

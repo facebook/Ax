@@ -107,4 +107,5 @@ def layout_format(
         width=530,
         height=500,
     )
+    # pyre-fixme[7]: Expected `Type[Figure]` but got `Layout`.
     return layout

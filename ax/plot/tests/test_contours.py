@@ -78,6 +78,4 @@ class ContoursTest(TestCase):
             plot = interact_contour_plotly(
                 model, list(model.metric_names)[0], parameters_to_use=parameters_to_use
             )
-            # pyre-ignore[16]: `plotly.graph_objs.graph_objs.Figure`
-            # has no attribute `layout`.
             self.assertEqual(len(plot.layout.updatemenus[0].buttons), i)

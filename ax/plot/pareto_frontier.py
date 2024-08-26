@@ -247,6 +247,8 @@ def scatter_plot_with_pareto_frontier(
     minimize: bool = True,
 ) -> AxPlotConfig:
     return AxPlotConfig(
+        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
+        #  `Figure`.
         data=scatter_plot_with_pareto_frontier_plotly(
             Y=Y,
             Y_pareto=Y_pareto,
@@ -411,6 +413,7 @@ def plot_pareto_frontier(
     )
 
     fig = go.Figure(data=[trace], layout=layout)
+    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -519,6 +522,7 @@ def plot_multiple_pareto_frontiers(
     )
 
     fig = go.Figure(data=traces, layout=layout)
+    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -625,6 +629,7 @@ def interact_pareto_frontier(
     )
 
     fig = go.Figure(data=traces, layout=layout)
+    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -767,6 +772,7 @@ def interact_multiple_pareto_frontier(
     )
 
     fig = go.Figure(data=traces, layout=layout)
+    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 

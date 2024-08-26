@@ -294,6 +294,7 @@ def _error_scatter_trace(
         trace.update(legendgroup=legendgroup)
     if showlegend is not None:
         trace.update(showlegend=showlegend)
+    # pyre-fixme[7]: Expected `Dict[str, typing.Any]` but got `Scatter`.
     return trace
 
 
@@ -535,6 +536,7 @@ def plot_multiple_metrics(
         legend={"x": 1 + layout_offset_x},
     )
     fig = go.Figure(data=traces, layout=layout)
+    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -772,6 +774,7 @@ def plot_objective_vs_constraints(
     )
 
     fig = go.Figure(data=plot_data, layout=layout)
+    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -867,7 +870,7 @@ def lattice_multiple_metrics(
                     visible=True,
                     show_arm_details_on_hover=show_arm_details_on_hover,
                 )
-                fig.append_trace(obs_insample_trace, j, i)  # pyre-ignore[16]
+                fig.append_trace(obs_insample_trace, j, i)
                 fig.append_trace(predicted_insample_trace, j, i)
 
                 # iterate over models here
@@ -1068,6 +1071,7 @@ def lattice_multiple_metrics(
     for xaxis in boxplot_xaxes:
         fig["layout"][xaxis]["showticklabels"] = False
 
+    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -1291,6 +1295,7 @@ def plot_fitted(
     )
 
     fig = go.Figure(data=traces, layout=layout)
+    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -1403,9 +1408,7 @@ def tile_fitted(
             "zerolinecolor": "red",
         }
         for d in data:
-            fig.append_trace(  # pyre-ignore[16]
-                d, int(np.floor(i / ncols)) + 1, i % ncols + 1
-            )
+            fig.append_trace(d, int(np.floor(i / ncols)) + 1, i % ncols + 1)
 
     order_options = [
         {"args": [name_order_args], "label": "Name", "method": "relayout"},
@@ -1469,6 +1472,7 @@ def tile_fitted(
         },
     )
 
+    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     fig = resize_subtitles(figure=fig, size=10)
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
@@ -1660,6 +1664,8 @@ def interact_fitted(
     """
 
     return AxPlotConfig(
+        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
+        #  `Figure`.
         data=interact_fitted_plotly(
             model=model,
             generator_runs_dict=generator_runs_dict,
