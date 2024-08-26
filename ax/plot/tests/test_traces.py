@@ -58,7 +58,7 @@ class TracesTest(TestCase):
                 optimization_direction=optimization_direction,
                 autoset_axis_limits=True,
             )
-            self.assertIsNone(plot.layout.xaxis.range)  # pyre-ignore
+            self.assertIsNone(plot.layout.xaxis.range)
             if optimization_direction == "minimize":
                 self.assertAlmostEqual(plot.layout.yaxis.range[0], 0.525)
                 self.assertAlmostEqual(plot.layout.yaxis.range[1], 6.225)

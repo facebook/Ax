@@ -39,7 +39,6 @@ class DiagnosticTest(TestCase):
             plot = interact_cross_validation_plotly(
                 cv, label_dict=label_dict, autoset_axis_limits=autoset_axis_limits
             )
-            # pyre-ignore [16]
             x_range = plot.layout.updatemenus[0].buttons[0].args[1]["xaxis.range"]
             y_range = plot.layout.updatemenus[0].buttons[0].args[1]["yaxis.range"]
             if autoset_axis_limits:

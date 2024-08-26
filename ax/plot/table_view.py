@@ -161,4 +161,5 @@ def table_view_plot(
     )
     fig = go.Figure(data=[trace], layout=layout)
     # pyre-fixme[7]: Expected `Tuple[DataFrame]` but got `AxPlotConfig`.
+    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)

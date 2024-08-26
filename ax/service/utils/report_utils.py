@@ -481,7 +481,6 @@ def get_standard_plots(
             )
             logger.debug("Finished feature importance plot.")
             feature_importance_plot.layout.title = "[ADVANCED] " + str(
-                # pyre-fixme[16]: go.Figure has no attribute `layout`
                 feature_importance_plot.layout.title.text
             )
             output_plot_list.append(feature_importance_plot)
@@ -1182,8 +1181,8 @@ def get_figure_and_callback(
             )
             return
         fig.update(
-            data=new_fig._data,  # pyre-ignore[16]
-            layout=new_fig._layout,  # pyre-ignore[16]
+            data=new_fig._data,
+            layout=new_fig._layout,
             overwrite=True,
         )
 
@@ -1193,7 +1192,7 @@ def get_figure_and_callback(
 def _warn_and_create_warning_plot(warning_msg: str) -> go.Figure:
     logger.warning(warning_msg)
     return (
-        go.Figure()  # pyre-ignore[16]
+        go.Figure()
         .add_annotation(text=warning_msg, showarrow=False, font={"size": 20})
         .update_xaxes(showgrid=False, showticklabels=False, zeroline=False)
         .update_yaxes(showgrid=False, showticklabels=False, zeroline=False)

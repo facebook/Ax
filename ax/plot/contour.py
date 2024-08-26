@@ -316,6 +316,8 @@ def plot_contour(
         AxPlotConfig: contour plot of objective vs. parameter values
     """
     return AxPlotConfig(
+        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
+        #  `Figure`.
         data=plot_contour_plotly(
             model=model,
             param_x=param_x,
@@ -925,6 +927,8 @@ def interact_contour(
         AxPlotConfig: interactive plot of objective vs. parameters
     """
     return AxPlotConfig(
+        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
+        #  `Figure`.
         data=interact_contour_plotly(
             model=model,
             metric_name=metric_name,

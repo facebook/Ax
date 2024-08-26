@@ -74,7 +74,6 @@ class FeatureImportancesTest(TestCase):
             model=model, caption=DUMMY_CAPTION
         )
         self.assertIsInstance(plot, go.Figure)
-        # pyre-fixme[16]: `Figure` has no attribute `layout`.
         self.assertEqual(len(plot.layout.annotations), 1)
         self.assertEqual(plot.layout.annotations[0].text, DUMMY_CAPTION)
         plot = plot_feature_importance_by_feature(model=model)

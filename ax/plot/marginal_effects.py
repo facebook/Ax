@@ -61,7 +61,7 @@ def plot_marginal_effects(model: ModelBridge, metric: str) -> AxPlotConfig:
         shared_yaxes=True,
     )
     for idx, item in enumerate(data):
-        fig.append_trace(item, 1, idx + 1)  # pyre-ignore[16]
+        fig.append_trace(item, 1, idx + 1)
     fig.layout.showlegend = False
     # fig.layout.margin = go.layout.Margin(l=2, r=2)
     fig.layout.title = "Marginal Effects by Factor"
@@ -69,4 +69,5 @@ def plot_marginal_effects(model: ModelBridge, metric: str) -> AxPlotConfig:
         "title": "% higher than experiment average",
         "hoverformat": ".{}f".format(DECIMALS),
     }
+    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)

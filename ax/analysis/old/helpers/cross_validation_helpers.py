@@ -174,6 +174,7 @@ def diagonal_trace(min_: float, max_: float, visible: bool = True) -> dict[str, 
         max_: maximum to be used for ending point of line.
         visible: if True, trace is set to visible.
     """
+    # pyre-fixme[7]: Expected `Dict[str, typing.Any]` but got `Scatter`.
     return go.Scatter(
         x=[min_, max_],
         y=[min_, max_],
