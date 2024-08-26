@@ -150,6 +150,8 @@ class TestSyntheticRunner(TestCase):
                         torch.Size([2]), X.pow(2).sum().item(), dtype=torch.double
                     )
                 self.assertTrue(torch.allclose(Y, expected_Y))
+                oracle = runner.evaluate_oracle(arm=arm)
+                self.assertTrue(torch.equal(Y, oracle))
 
             with self.subTest(f"test `run()`, {test_description}"):
                 trial = Mock(spec=Trial)

@@ -51,6 +51,22 @@ class BenchmarkRunner(Runner, ABC):
         """
         ...
 
+    def evaluate_oracle(self, arm: Arm) -> Tensor:
+        """
+        Evaluate oracle metric values at a parameterization. In the base class,
+        oracle=ground truth.
+
+        This method can be customized for more complex setups based on different
+        notions of what the "oracle" value should be. For example, in a
+        multi-task or multi-fidelity problem, it might be appropriate to
+        evaluate at the target task or fidelity. In a simple single-task
+        single-fidelity problem, this could the ground truth if available or the
+        "Y" value if the ground truth is not available. With a
+        preference-learned objective, the values might be true metrics evaluated
+        at the true utility function (which would be unobserved in reality).
+        """
+        return self.get_Y_true(arm=arm)
+
     @abstractmethod
     def get_noise_stds(self) -> Union[None, float, dict[str, float]]:
         """
