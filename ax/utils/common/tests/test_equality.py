@@ -14,6 +14,7 @@ from ax.utils.common.equality import (
     dataframe_equals,
     datetime_equals,
     equality_typechecker,
+    is_ax_equal,
     object_attribute_dicts_find_unequal_fields,
     same_elements,
 )
@@ -81,3 +82,8 @@ class EqualityTest(TestCase):
         self.assertEqual(
             object_attribute_dicts_find_unequal_fields(np_0, np_1), ({}, {})
         )
+
+    def test_is_ax_equal_with_different_types(self) -> None:
+        self.assertTrue(is_ax_equal(1, 1.0))
+        self.assertTrue(is_ax_equal(1, np.ones(1)))
+        self.assertFalse(is_ax_equal(1, np.ones(5)))

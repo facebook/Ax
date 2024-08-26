@@ -64,8 +64,20 @@ def same_elements(list1: list[Any], list2: list[Any]) -> bool:
 # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
 def is_ax_equal(one_val: Any, other_val: Any) -> bool:
     """Check for equality of two values, handling lists, dicts, dfs, floats,
-    dates, and numpy arrays.  This method and ``same_elements`` function
+    dates, and numpy arrays. This method and ``same_elements`` function
     as a recursive unit.
+
+    Some special cases:
+    - For datetime objects, the equality is checked up to the second.
+      Microseconds are ignored.
+    - For floats, ``np.isclose`` is used to check for almost-equality.
+    - For lists (and dict values), ``same_elements`` is used. This ignores
+      the ordering of the elements, and checks that the two lists are subsets
+      of each other (under the assumption that there are no duplicates).
+    - If the objects don't fall into any of the special cases, we use simple
+      equality check and cast the output to a boolean. If the comparison
+      or cast fails, we return False. Example: the comparison of a float with
+      a numpy array (with multiple elements) will return False.
     """
     if isinstance(one_val, list) and isinstance(other_val, list):
         return same_elements(one_val, other_val)
@@ -82,7 +94,10 @@ def is_ax_equal(one_val: Any, other_val: Any) -> bool:
     elif isinstance(one_val, pd.DataFrame) and isinstance(other_val, pd.DataFrame):
         return dataframe_equals(one_val, other_val)
     else:
-        return one_val == other_val
+        try:
+            return bool(one_val == other_val)
+        except Exception:
+            return False
 
 
 def datetime_equals(dt1: Optional[datetime], dt2: Optional[datetime]) -> bool:
