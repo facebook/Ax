@@ -218,7 +218,7 @@ class MapDataTest(TestCase):
 
         self.assertEqual(
             fresh.df.columns.size,
-            fresh.map_df.columns.size - len(self.mmd.map_key_infos),
+            fresh.map_df.columns.size,
         )
 
         self.assertIsNotNone(fresh._memo_df)  # Assert df is cached after first call

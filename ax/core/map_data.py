@@ -277,13 +277,11 @@ class MapData(Data):
         if self._memo_df is not None:
             return self._memo_df
 
-        if not any(True for _ in self.map_keys):
+        if len(self.map_keys) == 0:
             return self.map_df
 
-        self._memo_df = (
-            self.map_df.sort_values(list(self.map_keys))
-            .drop_duplicates(MapData.DEDUPLICATE_BY_COLUMNS, keep="last")
-            .loc[:, ~self.map_df.columns.isin(self.map_keys)]
+        self._memo_df = self.map_df.sort_values(self.map_keys).drop_duplicates(
+            MapData.DEDUPLICATE_BY_COLUMNS, keep="last"
         )
 
         return self._memo_df

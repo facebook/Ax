@@ -1422,7 +1422,10 @@ class ExperimentWithMapDataTest(TestCase):
             i_old_trial += 1
 
         # Check that the data was attached for correct trials
-        old_df = old_experiment.fetch_data().df
+
+        # Old experiment has already been fetched, and re-fetching will add readings to
+        # still-running map metrics.
+        old_df = old_experiment.lookup_data().df
         new_df = new_experiment.fetch_data().df
 
         old_df = old_df.sort_values(by=["arm_name", "metric_name"], ignore_index=True)
