@@ -265,26 +265,12 @@ class WithDBSettingsBase:
             f"Loaded experiment {experiment_name} & {num_trials} trials in "
             f"{_round_floats_for_logging(time.time() - start_time)} seconds."
         )
-
-        try:
-            start_time = time.time()
-            generation_strategy = _load_generation_strategy_by_experiment_name(
-                experiment_name=experiment_name,
-                decoder=self.db_settings.decoder,
-                experiment=experiment,
-                reduced_state=reduced_state,
-            )
-            logger.info(
-                f"Loaded generation strategy for experiment {experiment_name} in "
-                f"{_round_floats_for_logging(time.time() - start_time)} seconds."
-            )
-        except ObjectNotFoundError:
-            logger.info(
-                "There is no generation strategy associated with experiment "
-                f"{experiment_name}."
-            )
-
-            return experiment, None
+        generation_strategy = try_load_generation_strategy(
+            experiment_name=experiment_name,
+            decoder=self.db_settings.decoder,
+            experiment=experiment,
+            reduced_state=reduced_state,
+        )
 
         return experiment, generation_strategy
 
@@ -626,3 +612,31 @@ def _save_analysis_cards_to_db_if_possible(
         analysis_cards=[*analysis_cards],
         config=sqa_config,
     )
+
+
+def try_load_generation_strategy(
+    experiment_name: str,
+    decoder: Decoder,
+    experiment: Optional[Experiment] = None,
+    reduced_state: bool = False,
+) -> Optional[GenerationStrategy]:
+    """Load generation strategy by experiment name, if it exists."""
+    try:
+        start_time = time.time()
+        generation_strategy = _load_generation_strategy_by_experiment_name(
+            experiment_name=experiment_name,
+            decoder=decoder,
+            experiment=experiment,
+            reduced_state=reduced_state,
+        )
+        logger.info(
+            f"Loaded generation strategy for experiment {experiment_name} in "
+            f"{_round_floats_for_logging(time.time() - start_time)} seconds."
+        )
+    except ObjectNotFoundError:
+        logger.info(
+            "There is no generation strategy associated with experiment "
+            f"{experiment_name}."
+        )
+        return None
+    return generation_strategy
