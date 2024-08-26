@@ -42,12 +42,13 @@ from ax.utils.testing.benchmark_stubs import (
     get_single_objective_benchmark_problem,
     get_sobol_benchmark_method,
     get_soo_surrogate,
+    TestDataset,
 )
 from ax.utils.testing.core_stubs import get_experiment
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
-from botorch.acquisition.multi_objective.monte_carlo import (
-    qNoisyExpectedHypervolumeImprovement,
+from botorch.acquisition.multi_objective.logei import (
+    qLogNoisyExpectedHypervolumeImprovement,
 )
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
@@ -322,6 +323,13 @@ class TestBenchmark(TestCase):
 
     @fast_botorch_optimize
     def test_replication_mbm(self) -> None:
+        with patch.dict(
+            "ax.benchmark.problems.hpo.torchvision._REGISTRY",
+            {"MNIST": TestDataset},
+        ):
+            mnist_problem = get_problem(
+                problem_name="hpo_pytorch_cnn_MNIST", name="MNIST", num_trials=6
+            )
         for method, problem, expected_name in [
             (
                 get_sobol_botorch_modular_acquisition(
@@ -358,13 +366,13 @@ class TestBenchmark(TestCase):
             (
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,
-                    acquisition_cls=qNoisyExpectedHypervolumeImprovement,
+                    acquisition_cls=qLogNoisyExpectedHypervolumeImprovement,
                     distribute_replications=False,
                 ),
                 get_multi_objective_benchmark_problem(
                     observe_noise_sd=True, num_trials=6
                 ),
-                "MBM::SingleTaskGP_qNEHVI",
+                "MBM::SingleTaskGP_qLogNEHVI",
             ),
             (
                 get_sobol_botorch_modular_acquisition(
@@ -374,6 +382,15 @@ class TestBenchmark(TestCase):
                 ),
                 get_multi_objective_benchmark_problem(num_trials=6),
                 "MBM::SAAS_qLogNEI",
+            ),
+            (
+                get_sobol_botorch_modular_acquisition(
+                    model_cls=SingleTaskGP,
+                    acquisition_cls=qLogNoisyExpectedImprovement,
+                    distribute_replications=False,
+                ),
+                mnist_problem,
+                "MBM::SingleTaskGP_qLogNEI",
             ),
         ]:
             with self.subTest(method=method, problem=problem):

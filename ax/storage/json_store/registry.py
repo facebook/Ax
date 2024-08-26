@@ -17,11 +17,7 @@ from ax.benchmark.benchmark_problem import (
 )
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.metrics.benchmark import BenchmarkMetric, GroundTruthBenchmarkMetric
-from ax.benchmark.problems.hpo.pytorch_cnn import PyTorchCNNMetric
-from ax.benchmark.problems.hpo.torchvision import (
-    PyTorchCNNTorchvisionBenchmarkProblem,
-    PyTorchCNNTorchvisionRunner,
-)
+from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionParamBasedProblem
 from ax.benchmark.runners.botorch_test import (
     BotorchTestProblemRunner,
     ParamBasedTestProblemRunner,
@@ -151,7 +147,6 @@ from ax.storage.json_store.encoders import (
     parameter_distribution_to_dict,
     pathlib_to_dict,
     percentile_early_stopping_strategy_to_dict,
-    pytorch_cnn_torchvision_benchmark_problem_to_dict,
     range_parameter_to_dict,
     risk_measure_to_dict,
     robust_search_space_to_dict,
@@ -246,9 +241,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     pathlib.WindowsPath: pathlib_to_dict,
     pathlib.PurePosixPath: pathlib_to_dict,
     pathlib.PureWindowsPath: pathlib_to_dict,
-    PyTorchCNNTorchvisionBenchmarkProblem: pytorch_cnn_torchvision_benchmark_problem_to_dict,  # noqa
-    PyTorchCNNMetric: metric_to_dict,
-    PyTorchCNNTorchvisionRunner: runner_to_dict,
     RangeParameter: range_parameter_to_dict,
     RiskMeasure: risk_measure_to_dict,
     RobustSearchSpace: robust_search_space_to_dict,
@@ -373,9 +365,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "PurePosixPath": pathlib_from_json,
     "PureWindowsPath": pathlib_from_json,
     "PercentileEarlyStoppingStrategy": PercentileEarlyStoppingStrategy,
-    "PyTorchCNNTorchvisionBenchmarkProblem": PyTorchCNNTorchvisionBenchmarkProblem,
-    "PyTorchCNNMetric": PyTorchCNNMetric,
-    "PyTorchCNNTorchvisionRunner": PyTorchCNNTorchvisionRunner,
+    "PyTorchCNNTorchvisionParamBasedProblem": PyTorchCNNTorchvisionParamBasedProblem,
     "RangeParameter": RangeParameter,
     "ReductionCriterion": ReductionCriterion,
     "RiskMeasure": RiskMeasure,

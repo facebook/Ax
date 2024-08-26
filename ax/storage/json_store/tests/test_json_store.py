@@ -13,6 +13,7 @@ from functools import partial
 
 import numpy as np
 import torch
+from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionParamBasedProblem
 from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_benchmark_problem
 from ax.core.metric import Metric
 from ax.core.objective import Objective
@@ -401,6 +402,16 @@ class JSONStoreTest(TestCase):
         self.assertEqual(recovered.a_field, -1)
         self.assertEqual(recovered.not_a_field, 1)
         self.assertEqual(obj, recovered)
+
+    def test_EncodeDecode_torchvision_problem(self) -> None:
+        test_problem = PyTorchCNNTorchvisionParamBasedProblem(name="MNIST")
+        self.assertIsNotNone(test_problem.train_loader)
+        self.assertIsNotNone(test_problem.test_loader)
+        as_json = object_to_json(obj=test_problem)
+        self.assertNotIn("train_loader", as_json)
+        recovered = object_from_json(as_json)
+        self.assertIsNotNone(recovered.train_loader)
+        self.assertEqual(test_problem, recovered)
 
     def test_EncodeDecodeTorchTensor(self) -> None:
         x = torch.tensor(

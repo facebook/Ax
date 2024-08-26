@@ -6,12 +6,10 @@
 
 # pyre-strict
 
-import re
 import warnings
 from pathlib import Path
 from typing import Any
 
-from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionBenchmarkProblem
 from ax.core import Experiment, ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment
@@ -60,7 +58,6 @@ from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
 from ax.storage.transform_registry import TRANSFORM_REGISTRY
 from ax.utils.common.constants import Keys
 from ax.utils.common.serialization import serialize_init_args
-from ax.utils.common.typeutils import not_none
 from ax.utils.common.typeutils_torch import torch_type_to_str
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
 from botorch.sampling.base import MCSampler
@@ -685,18 +682,6 @@ def winsorization_config_to_dict(config: WinsorizationConfig) -> dict[str, Any]:
         "upper_quantile_margin": config.upper_quantile_margin,
         "lower_boundary": config.lower_boundary,
         "upper_boundary": config.upper_boundary,
-    }
-
-
-def pytorch_cnn_torchvision_benchmark_problem_to_dict(
-    problem: PyTorchCNNTorchvisionBenchmarkProblem,
-) -> dict[str, Any]:
-    # unit tests for this in benchmark suite
-    return {
-        "__type": problem.__class__.__name__,
-        "name": not_none(re.compile("(?<=::).*").search(problem.name)).group(),
-        "num_trials": problem.num_trials,
-        "observe_noise_stds": problem.observe_noise_stds,
     }
 
 
