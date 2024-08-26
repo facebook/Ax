@@ -10,7 +10,6 @@ from typing import Optional
 
 import numpy as np
 from ax.models.random.base import RandomModel
-from scipy.stats import uniform
 
 
 class UniformGenerator(RandomModel):
@@ -26,16 +25,21 @@ class UniformGenerator(RandomModel):
         self,
         deduplicate: bool = True,
         seed: Optional[int] = None,
+        init_position: int = 0,
         generated_points: Optional[np.ndarray] = None,
         fallback_to_sample_polytope: bool = False,
     ) -> None:
         super().__init__(
             deduplicate=deduplicate,
             seed=seed,
+            init_position=init_position,
             generated_points=generated_points,
             fallback_to_sample_polytope=fallback_to_sample_polytope,
         )
         self._rs = np.random.RandomState(seed=self.seed)
+        if self.init_position > 0:
+            # Fast-forward the random state by generating & discarding samples.
+            self._rs.uniform(size=(self.init_position))
 
     def _gen_samples(self, n: int, tunable_d: int) -> np.ndarray:
         """Generate samples from the scipy uniform distribution.
@@ -48,4 +52,5 @@ class UniformGenerator(RandomModel):
             samples: An (n x d) array of random points.
 
         """
-        return uniform.rvs(size=(n, tunable_d), random_state=self._rs)  # pyre-ignore
+        self.init_position += n * tunable_d
+        return self._rs.uniform(size=(n, tunable_d))

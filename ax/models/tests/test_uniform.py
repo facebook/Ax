@@ -16,36 +16,34 @@ from ax.utils.common.testutils import TestCase
 class UniformGeneratorTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.tunable_param_bounds = (0, 1)
-        self.fixed_param_bounds = (1, 100)
-
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def _create_bounds(self, n_tunable, n_fixed):
-        tunable_bounds = [self.tunable_param_bounds] * n_tunable
-        fixed_bounds = [self.fixed_param_bounds] * n_fixed
-        return tunable_bounds + fixed_bounds
-
-    def test_UniformGeneratorAllTunable(self) -> None:
-        generator = UniformGenerator(seed=0)
-        bounds = self._create_bounds(n_tunable=3, n_fixed=0)
-        generated_points, weights = generator.gen(
-            n=3, bounds=bounds, rounding_func=lambda x: x
-        )
-
-        expected_points = np.array(
+        self.tunable_param_bounds = (0.0, 1.0)
+        self.fixed_param_bounds = (1.0, 100.0)
+        self.seed = 0
+        self.expected_points = np.array(
             [
                 [0.5488135, 0.71518937, 0.60276338],
                 [0.54488318, 0.4236548, 0.64589411],
                 [0.43758721, 0.891773, 0.96366276],
             ]
         )
-        self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
-        self.assertTrue(np.allclose(expected_points, generated_points))
+
+    def _create_bounds(self, n_tunable: int, n_fixed: int) -> list[tuple[float, float]]:
+        tunable_bounds = [self.tunable_param_bounds] * n_tunable
+        fixed_bounds = [self.fixed_param_bounds] * n_fixed
+        return tunable_bounds + fixed_bounds
+
+    def test_with_all_tunable(self) -> None:
+        generator = UniformGenerator(seed=self.seed)
+        bounds = self._create_bounds(n_tunable=3, n_fixed=0)
+        generated_points, weights = generator.gen(
+            n=3, bounds=bounds, rounding_func=lambda x: x
+        )
+        self.assertTrue(np.shape(self.expected_points) == np.shape(generated_points))
+        self.assertTrue(np.allclose(self.expected_points, generated_points))
         self.assertTrue(np.all(weights == 1.0))
 
-    def test_UniformGeneratorFixedSpace(self) -> None:
-        generator = UniformGenerator(seed=0)
+    def test_with_fixed_space(self) -> None:
+        generator = UniformGenerator(seed=self.seed)
         bounds = self._create_bounds(n_tunable=0, n_fixed=2)
         n = 3
         with self.assertRaises(SearchSpaceExhausted):
@@ -55,7 +53,7 @@ class UniformGeneratorTest(TestCase):
                 fixed_features={0: 1, 1: 2},
                 rounding_func=lambda x: x,
             )
-        generator = UniformGenerator(seed=0, deduplicate=False)
+        generator = UniformGenerator(seed=self.seed, deduplicate=False)
         generated_points, _ = generator.gen(
             n=3,
             bounds=bounds,
@@ -66,22 +64,14 @@ class UniformGeneratorTest(TestCase):
         self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
         self.assertTrue(np.allclose(expected_points, generated_points))
 
-    def test_UniformGeneratorOnline(self) -> None:
+    def test_generating_one_by_one(self, init_position: int = 0) -> None:
         # Verify that the generator will return the expected arms if called
         # one at a time.
-        generator = UniformGenerator(seed=0)
+        generator = UniformGenerator(seed=self.seed, init_position=init_position)
         n_tunable = fixed_param_index = 3
         bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
 
-        n = 3
-        expected_points = np.array(
-            [
-                [0.5488135, 0.71518937, 0.60276338, 1],
-                [0.54488318, 0.4236548, 0.64589411, 1],
-                [0.43758721, 0.891773, 0.96366276, 1],
-            ]
-        )
-        for i in range(n):
+        for i in range(init_position, 3):
             generated_points, weights = generator.gen(
                 n=1,
                 bounds=bounds,
@@ -89,34 +79,35 @@ class UniformGeneratorTest(TestCase):
                 rounding_func=lambda x: x,
             )
             self.assertEqual(weights, [1])
-            self.assertTrue(np.allclose(generated_points, expected_points[i, :]))
-
-    def test_UniformGeneratorReseed(self) -> None:
-        # Verify that the generator will return the expected arms if called
-        # one at a time.
-        generator = UniformGenerator(seed=0)
-        n_tunable = fixed_param_index = 3
-        bounds = self._create_bounds(n_tunable=n_tunable, n_fixed=1)
-
-        n = 3
-        expected_points = np.array(
-            [
-                [0.5488135, 0.71518937, 0.60276338, 1],
-                [0.54488318, 0.4236548, 0.64589411, 1],
-                [0.43758721, 0.891773, 0.96366276, 1],
-            ]
-        )
-        for i in range(n):
-            generated_points, weights = generator.gen(
-                n=1,
-                bounds=bounds,
-                fixed_features={fixed_param_index: 1},
-                rounding_func=lambda x: x,
+            self.assertTrue(
+                np.allclose(generated_points[..., :-1], self.expected_points[i, :])
             )
-            self.assertEqual(weights, [1])
-            self.assertTrue(np.allclose(generated_points, expected_points[i, :]))
+            self.assertEqual(generated_points[..., -1], 1)
+            self.assertEqual(generator.init_position, (i + 1) * n_tunable)
 
-    def test_UniformGeneratorWithOrderConstraints(self) -> None:
+    def test_with_init_position(self) -> None:
+        # These are multiples of 3 since there are 3 tunable parameters.
+        self.test_generating_one_by_one(init_position=3)
+        self.test_generating_one_by_one(init_position=6)
+
+    def test_with_reloaded_state(self) -> None:
+        # Check that a reloaded generator will produce the same samples.
+        org_generator = UniformGenerator()
+        bounds = self._create_bounds(n_tunable=3, n_fixed=0)
+        # Generate some to advance the state.
+        org_generator.gen(n=3, bounds=bounds, rounding_func=lambda x: x)
+        # Construct a new generator with the state.
+        new_generator = UniformGenerator(**org_generator._get_state())
+        # Compare the generated samples.
+        org_samples, _ = org_generator.gen(
+            n=3, bounds=bounds, rounding_func=lambda x: x
+        )
+        new_samples, _ = new_generator.gen(
+            n=3, bounds=bounds, rounding_func=lambda x: x
+        )
+        self.assertTrue(np.allclose(org_samples, new_samples))
+
+    def test_with_order_constraints(self) -> None:
         # Enforce dim_0 <= dim_1 <= dim_2 <= dim_3.
         # Enforce both fixed and tunable constraints.
         generator = UniformGenerator(seed=0)
@@ -143,7 +134,7 @@ class UniformGeneratorTest(TestCase):
         self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
         self.assertTrue(np.allclose(expected_points, generated_points))
 
-    def test_UniformGeneratorWithLinearConstraints(self) -> None:
+    def test_with_linear_constraints(self) -> None:
         # Enforce dim_0 <= dim_1 <= dim_2 <= dim_3.
         # Enforce both fixed and tunable constraints.
         generator = UniformGenerator(seed=0)
@@ -169,7 +160,7 @@ class UniformGeneratorTest(TestCase):
         self.assertTrue(np.shape(expected_points) == np.shape(generated_points))
         self.assertTrue(np.allclose(expected_points, generated_points))
 
-    def test_UniformGeneratorBadBounds(self) -> None:
+    def test_with_bad_bounds(self) -> None:
         generator = UniformGenerator()
         with self.assertRaises(ValueError):
             generated_points, weights = generator.gen(

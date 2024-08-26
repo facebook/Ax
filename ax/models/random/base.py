@@ -48,6 +48,10 @@ class RandomModel(Model):
             of the model will not return the same point twice. This flag
             is used in rejection sampling.
         seed: An optional seed value for scrambling.
+        init_position: The initial state of the generator. This is the number
+            of samples to fast-forward before generating new samples.
+            Used to ensure that the re-loaded generator will continue generating
+            from the same sequence rather than starting from scratch.
         generated_points: A set of previously generated points to use
             for deduplication. These should be provided in the raw transformed
             space the model operates in.
@@ -59,6 +63,7 @@ class RandomModel(Model):
         self,
         deduplicate: bool = True,
         seed: Optional[int] = None,
+        init_position: int = 0,
         generated_points: Optional[np.ndarray] = None,
         fallback_to_sample_polytope: bool = False,
     ) -> None:
@@ -69,6 +74,7 @@ class RandomModel(Model):
             if seed is not None
             else checked_cast(int, torch.randint(high=100_000, size=(1,)).item())
         )
+        self.init_position = init_position
         # Used for deduplication.
         self.generated_points = generated_points
         self.fallback_to_sample_polytope = fallback_to_sample_polytope
@@ -180,7 +186,13 @@ class RandomModel(Model):
     @copy_doc(Model._get_state)
     def _get_state(self) -> dict[str, Any]:
         state = super()._get_state()
-        state.update({"seed": self.seed, "generated_points": self.generated_points})
+        state.update(
+            {
+                "seed": self.seed,
+                "init_position": self.init_position,
+                "generated_points": self.generated_points,
+            }
+        )
         return state
 
     def _gen_unconstrained(
