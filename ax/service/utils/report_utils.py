@@ -219,7 +219,7 @@ def _get_objective_v_param_plots(
                     # sort the params by their sensitivity
                     params_to_use = sorted(
                         range_params_sens_for_metric,
-                        key=lambda x: range_params_sens_for_metric[x],
+                        key=lambda x: abs(range_params_sens_for_metric[x]),
                         reverse=True,
                     )[:num_params_per_metric]
                 # if sens is not available, just use the first num_features_per_metric.
@@ -1186,6 +1186,9 @@ def get_figure_and_callback(
             overwrite=True,
         )
 
+    # pyre-fixme[7]: Expected `Tuple[Figure, typing.Callable[[Scheduler], None]]` but
+    # got `Tuple[FigureWidget, typing.Callable($local_ax?service?utils?report_utils?get_
+    # figure_and_callback$_update_fig_in_place)[[Named(scheduler, Scheduler)], None]]`.
     return fig, _update_fig_in_place
 
 
