@@ -36,8 +36,8 @@ class TestSurrogateProblems(TestCase):
             '"branin", '
             "minimize=True), "
             "outcome_constraints=[]), num_trials=6, "
-            "observe_noise_stds=True, has_ground_truth=True, "
-            "tracking_metrics=[], optimal_value=0.0, is_noiseless=True)"
+            "observe_noise_stds=True, "
+            "optimal_value=0.0)"
         )
         self.assertEqual(repr(sbp), expected_repr)
 

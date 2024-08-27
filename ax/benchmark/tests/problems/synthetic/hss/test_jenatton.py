@@ -8,7 +8,7 @@
 import math
 from random import random
 
-from ax.benchmark.metrics.benchmark import BenchmarkMetric, GroundTruthBenchmarkMetric
+from ax.benchmark.metrics.benchmark import BenchmarkMetric
 
 from ax.benchmark.problems.synthetic.hss.jenatton import (
     get_jenatton_benchmark_problem,
@@ -114,7 +114,6 @@ class JenattonTest(TestCase):
             ).test_problem.noise_std,
             0.0,
         )
-        self.assertTrue(problem.is_noiseless)
         self.assertFalse(assert_is_instance(metric, BenchmarkMetric).observe_noise_sd)
 
         problem = get_jenatton_benchmark_problem(
@@ -129,7 +128,6 @@ class JenattonTest(TestCase):
             ).test_problem.noise_std,
             0.1,
         )
-        self.assertFalse(problem.is_noiseless)
         self.assertTrue(assert_is_instance(metric, BenchmarkMetric).observe_noise_sd)
 
     def test_fetch_trial_data(self) -> None:
@@ -151,7 +149,6 @@ class JenattonTest(TestCase):
             "Ys": {"0_0": [4.25]},
             "Ystds": {"0_0": [0.0]},
             "outcome_names": ["Jenatton"],
-            "Ys_true": {"0_0": [4.25]},
         }
         self.assertEqual(metadata, expected_metadata)
 
@@ -186,36 +183,3 @@ class JenattonTest(TestCase):
         self.assertNotEqual(res_dict["mean"], 4.25)
         self.assertAlmostEqual(res_dict["sem"], 0.1)
         self.assertEqual(res_dict["trial_index"], 0)
-
-    def test_make_ground_truth_metric(self) -> None:
-        problem = get_jenatton_benchmark_problem()
-
-        arm = Arm(parameters={"x1": 0, "x2": 1, "x5": 2.0, "r8": 0.05}, name="0_0")
-
-        experiment = Experiment(
-            search_space=problem.search_space,
-            name="Jenatton",
-            optimization_config=problem.optimization_config,
-        )
-
-        trial = Trial(experiment=experiment)
-        trial.add_arm(arm)
-        problem.runner.run(trial=trial)
-        metadata = problem.runner.run(trial=trial)
-        trial.update_run_metadata(metadata)
-
-        metric = assert_is_instance(
-            problem.optimization_config.objective.metric, BenchmarkMetric
-        )
-        gt_metric = metric.make_ground_truth_metric()
-        self.assertIsInstance(gt_metric, GroundTruthBenchmarkMetric)
-        runner = assert_is_instance(problem.runner, ParamBasedTestProblemRunner)
-        self.assertEqual(runner.test_problem.noise_std, 0.0)
-        self.assertFalse(
-            assert_is_instance(gt_metric, BenchmarkMetric).observe_noise_sd
-        )
-
-        self.assertIsInstance(metric, BenchmarkMetric)
-        self.assertNotIsInstance(metric, GroundTruthBenchmarkMetric)
-        self.assertEqual(runner.test_problem.noise_std, 0.0)
-        self.assertFalse(metric.observe_noise_sd)
