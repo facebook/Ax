@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import torch
 from ax.benchmark.runners.surrogate import SurrogateRunner
@@ -55,7 +55,7 @@ class TestSurrogateRunner(TestCase):
         self.assertIsNone(runner._surrogate)
         self.assertIsNone(runner._datasets)
 
-        # Accessing `surrogat` sets datasets and surrogate
+        # Accessing `surrogate` sets datasets and surrogate
         self.assertIsInstance(runner.surrogate, TorchModelBridge)
         self.assertIsInstance(runner._surrogate, TorchModelBridge)
         self.assertIsInstance(runner._datasets, list)
@@ -65,6 +65,14 @@ class TestSurrogateRunner(TestCase):
         self.assertIsInstance(runner.datasets, list)
         self.assertIsInstance(runner._surrogate, TorchModelBridge)
         self.assertIsInstance(runner._datasets, list)
+
+        with patch.object(
+            runner,
+            "get_surrogate_and_datasets",
+            wraps=runner.get_surrogate_and_datasets,
+        ) as mock_get_surrogate_and_datasets:
+            runner.surrogate
+        mock_get_surrogate_and_datasets.assert_not_called()
 
     def test_instantiation_raises_with_missing_args(self) -> None:
         with self.assertRaisesRegex(

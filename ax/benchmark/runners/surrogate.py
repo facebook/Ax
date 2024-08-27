@@ -78,13 +78,13 @@ class SurrogateRunner(BenchmarkRunner):
 
     @property
     def surrogate(self) -> TorchModelBridge:
-        if self.get_surrogate_and_datasets is not None:
+        if self._surrogate is None:
             self.set_surrogate_and_datasets()
         return none_throws(self._surrogate)
 
     @property
     def datasets(self) -> list[SupervisedDataset]:
-        if self.get_surrogate_and_datasets is not None:
+        if self._datasets is None:
             self.set_surrogate_and_datasets()
         return none_throws(self._datasets)
 
