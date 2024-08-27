@@ -7,11 +7,12 @@
 
 from typing import Optional, Union
 
+from ax.benchmark.benchmark_metric import BenchmarkMetric
+
 from ax.benchmark.benchmark_problem import (
     create_multi_objective_problem_from_botorch,
     create_single_objective_problem_from_botorch,
 )
-from ax.benchmark.metrics.benchmark import BenchmarkMetric
 from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
 from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase

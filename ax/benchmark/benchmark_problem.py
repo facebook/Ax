@@ -11,7 +11,7 @@ from typing import Any, Optional, Union
 import numpy as np
 import pandas as pd
 
-from ax.benchmark.metrics.benchmark import BenchmarkMetric
+from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.runners.base import BenchmarkRunner
 from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
 from ax.core.data import Data

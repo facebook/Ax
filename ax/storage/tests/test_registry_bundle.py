@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from ax.benchmark.metrics.benchmark import BenchmarkMetric
+from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner

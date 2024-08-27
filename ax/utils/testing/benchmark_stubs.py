@@ -11,6 +11,7 @@ from typing import Any, Optional, Union
 import numpy as np
 import torch
 from ax.benchmark.benchmark_method import BenchmarkMethod
+from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     create_multi_objective_problem_from_botorch,
@@ -18,7 +19,6 @@ from ax.benchmark.benchmark_problem import (
     MultiObjectiveBenchmarkProblem,
 )
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
-from ax.benchmark.metrics.benchmark import BenchmarkMetric
 from ax.benchmark.problems.surrogate import (
     MOOSurrogateBenchmarkProblem,
     SOOSurrogateBenchmarkProblem,

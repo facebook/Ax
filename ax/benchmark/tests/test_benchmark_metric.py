@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from ax.benchmark.metrics.benchmark import BenchmarkMetric
+from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.trial import Trial

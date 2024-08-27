@@ -8,7 +8,7 @@
 import math
 from random import random
 
-from ax.benchmark.metrics.benchmark import BenchmarkMetric
+from ax.benchmark.benchmark_metric import BenchmarkMetric
 
 from ax.benchmark.problems.synthetic.hss.jenatton import (
     get_jenatton_benchmark_problem,
