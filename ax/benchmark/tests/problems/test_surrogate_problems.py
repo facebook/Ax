@@ -34,7 +34,7 @@ class TestSurrogateProblems(TestCase):
             "SOOSurrogateBenchmarkProblem(name='test', "
             "optimization_config=OptimizationConfig(objective=Objective(metric_name="
             '"branin", '
-            "minimize=False), "
+            "minimize=True), "
             "outcome_constraints=[]), num_trials=6, "
             "observe_noise_stds=True, has_ground_truth=True, "
             "tracking_metrics=[], optimal_value=0.0, is_noiseless=True)"

@@ -14,7 +14,6 @@ from ax.benchmark.problems.synthetic.hss.jenatton import (
     get_jenatton_benchmark_problem,
     jenatton_test_function,
 )
-from ax.benchmark.runners.base import BenchmarkRunner
 from ax.benchmark.runners.botorch_test import ParamBasedTestProblemRunner
 from ax.core.arm import Arm
 from ax.core.data import Data
@@ -96,9 +95,7 @@ class JenattonTest(TestCase):
                 value,
             )
             self.assertAlmostEqual(
-                assert_is_instance(benchmark_problem.runner, BenchmarkRunner)
-                .get_Y_true(arm)
-                .item(),
+                benchmark_problem.runner.evaluate_oracle(arm).item(),
                 value,
                 places=6,
             )

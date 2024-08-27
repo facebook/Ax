@@ -8,10 +8,16 @@
 from dataclasses import dataclass, field
 from typing import Any, Optional, Union
 
+import numpy as np
+import pandas as pd
+
 from ax.benchmark.metrics.base import BenchmarkMetricBase
 
 from ax.benchmark.metrics.benchmark import BenchmarkMetric
+from ax.benchmark.runners.base import BenchmarkRunner
 from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
+from ax.core.data import Data
+from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -20,9 +26,9 @@ from ax.core.optimization_config import (
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
-from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
+from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.base import Base
 from ax.utils.common.typeutils import checked_cast
 from botorch.test_functions.base import (
@@ -31,6 +37,7 @@ from botorch.test_functions.base import (
     MultiObjectiveTestProblem,
 )
 from botorch.test_functions.synthetic import SyntheticTestFunction
+from pyre_extensions import assert_is_instance
 
 
 def _get_name(
@@ -89,8 +96,51 @@ class BenchmarkProblem(Base):
     optimal_value: float
 
     search_space: SearchSpace = field(repr=False)
-    runner: Runner = field(repr=False)
+    runner: BenchmarkRunner = field(repr=False)
     is_noiseless: bool
+
+    def get_oracle_experiment(self, experiment: Experiment) -> Experiment:
+        records = []
+
+        new_experiment = Experiment(
+            search_space=self.search_space, optimization_config=self.optimization_config
+        )
+        for trial_index, trial in experiment.trials.items():
+            for arm in trial.arms:
+                for metric_name, metric_value in zip(
+                    self.runner.outcome_names, self.runner.evaluate_oracle(arm=arm)
+                ):
+                    records.append(
+                        {
+                            "arm_name": arm.name,
+                            "metric_name": metric_name,
+                            "mean": metric_value.item(),
+                            "sem": 0.0,
+                            "trial_index": trial_index,
+                        }
+                    )
+
+            new_experiment.attach_trial(
+                parameterizations=[arm.parameters for arm in trial.arms],
+                arm_names=[arm.name for arm in trial.arms],
+            )
+        for trial in new_experiment.trials.values():
+            trial.mark_completed()
+
+        data = Data(df=pd.DataFrame.from_records(records))
+        new_experiment.attach_data(data=data, overwrite_existing_data=True)
+        return new_experiment
+
+    def get_opt_trace(self, experiment: Experiment) -> np.ndarray:
+        """Evaluate the optimization trace of a list of Trials."""
+        oracle_experiment = self.get_oracle_experiment(experiment=experiment)
+
+        return np.array(
+            BestPointMixin._get_trace(
+                experiment=oracle_experiment,
+                optimization_config=self.optimization_config,
+            )
+        )
 
 
 # TODO: Support constrained MOO problems.
@@ -141,6 +191,20 @@ def get_soo_config_and_outcome_names(
     return opt_config, outcome_names
 
 
+def get_continuous_search_space(bounds: list[tuple[float, float]]) -> SearchSpace:
+    return SearchSpace(
+        parameters=[
+            RangeParameter(
+                name=f"x{i}",
+                parameter_type=ParameterType.FLOAT,
+                lower=lower,
+                upper=upper,
+            )
+            for i, (lower, upper) in enumerate(bounds)
+        ]
+    )
+
+
 def create_single_objective_problem_from_botorch(
     test_problem_class: type[SyntheticTestFunction],
     test_problem_kwargs: dict[str, Any],
@@ -169,17 +233,7 @@ def create_single_objective_problem_from_botorch(
     test_problem = test_problem_class(**test_problem_kwargs)
     is_constrained = isinstance(test_problem, ConstrainedBaseTestProblem)
 
-    search_space = SearchSpace(
-        parameters=[
-            RangeParameter(
-                name=f"x{i}",
-                parameter_type=ParameterType.FLOAT,
-                lower=lower,
-                upper=upper,
-            )
-            for i, (lower, upper) in enumerate(test_problem._bounds)
-        ]
-    )
+    search_space = get_continuous_search_space(test_problem._bounds)
 
     dim = test_problem_kwargs.get("dim", None)
     name = _get_name(
@@ -249,17 +303,10 @@ def create_multi_objective_problem_from_botorch(
     # pyre-fixme [45]: Invalid class instantiation
     test_problem = test_problem_class(**test_problem_kwargs)
 
-    problem = create_single_objective_problem_from_botorch(
-        # pyre-fixme [6]: Passing a multi-objective problem where a
-        # single-objective problem is expected.
-        test_problem_class=test_problem_class,
-        test_problem_kwargs=test_problem_kwargs,
-        lower_is_better=True,  # Seems like we always assume minimization for MOO?
-        num_trials=num_trials,
-        observe_noise_sd=observe_noise_sd,
+    dim = test_problem_kwargs.get("dim", None)
+    name = _get_name(
+        test_problem=test_problem, observe_noise_sd=observe_noise_sd, dim=dim
     )
-
-    name = problem.name
 
     n_obj = test_problem.num_objectives
     if not observe_noise_sd:
@@ -292,15 +339,25 @@ def create_multi_objective_problem_from_botorch(
             for i, metric in enumerate(metrics)
         ],
     )
+    runner = BotorchTestProblemRunner(
+        test_problem_class=test_problem_class,
+        test_problem_kwargs=test_problem_kwargs,
+        outcome_names=[
+            objective.metric.name
+            for objective in assert_is_instance(
+                optimization_config.objective, MultiObjective
+            ).objectives
+        ],
+    )
 
     return MultiObjectiveBenchmarkProblem(
         name=name,
-        search_space=problem.search_space,
+        search_space=get_continuous_search_space(test_problem._bounds),
         optimization_config=optimization_config,
-        runner=problem.runner,
+        runner=runner,
         num_trials=num_trials,
-        is_noiseless=problem.is_noiseless,
+        is_noiseless=test_problem.noise_std in (None, 0.0),
         observe_noise_stds=observe_noise_sd,
-        has_ground_truth=problem.has_ground_truth,
+        has_ground_truth=True,
         optimal_value=test_problem.max_hv,
     )

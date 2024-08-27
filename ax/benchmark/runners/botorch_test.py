@@ -17,10 +17,7 @@ from ax.core.types import TParameterization
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
-from botorch.test_functions.synthetic import (
-    ConstrainedSyntheticTestFunction,
-    SyntheticTestFunction,
-)
+from botorch.test_functions.synthetic import BaseTestProblem, ConstrainedBaseTestProblem
 from botorch.utils.transforms import normalize, unnormalize
 from pyre_extensions import assert_is_instance
 from torch import Tensor
@@ -60,22 +57,22 @@ class ParamBasedTestProblem(ABC):
 
 class SyntheticProblemRunner(BenchmarkRunner, ABC):
     """A Runner for evaluating synthetic problems, either BoTorch
-    `SyntheticTestFunction`s or Ax benchmarking `ParamBasedTestProblem`s.
+    `BaseTestProblem`s or Ax benchmarking `ParamBasedTestProblem`s.
 
     Given a trial, the Runner will evaluate the problem noiselessly for each
     arm in the trial, as well as return some metadata about the underlying
     problem such as the noise_std.
     """
 
-    test_problem: Union[SyntheticTestFunction, ParamBasedTestProblem]
+    test_problem: Union[BaseTestProblem, ParamBasedTestProblem]
     _is_constrained: bool
-    _test_problem_class: type[Union[SyntheticTestFunction, ParamBasedTestProblem]]
+    _test_problem_class: type[Union[BaseTestProblem, ParamBasedTestProblem]]
     _test_problem_kwargs: Optional[dict[str, Any]]
 
     def __init__(
         self,
         *,
-        test_problem_class: type[Union[SyntheticTestFunction, ParamBasedTestProblem]],
+        test_problem_class: type[Union[BaseTestProblem, ParamBasedTestProblem]],
         test_problem_kwargs: dict[str, Any],
         outcome_names: list[str],
         modified_bounds: Optional[list[tuple[float, float]]] = None,
@@ -83,7 +80,7 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
         """Initialize the test problem runner.
 
         Args:
-            test_problem_class: A BoTorch `SyntheticTestFunction` class or Ax
+            test_problem_class: A BoTorch `BaseTestProblem` class or Ax
                 `ParamBasedTestProblem` class.
             test_problem_kwargs: The keyword arguments used for initializing the
                 test problem.
@@ -105,12 +102,12 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
             # abstract class with abstract method `evaluate_true`.
             test_problem_class(**test_problem_kwargs)
         )
-        if isinstance(self.test_problem, SyntheticTestFunction):
+        if isinstance(self.test_problem, BaseTestProblem):
             self.test_problem = self.test_problem.to(dtype=torch.double)
-        # A `ConstrainedSyntheticTestFunction` is a type of `SyntheticTestFunction`; a
+        # A `ConstrainedBaseTestProblem` is a type of `BaseTestProblem`; a
         # `ParamBasedTestProblem` is never constrained.
         self._is_constrained: bool = isinstance(
-            self.test_problem, ConstrainedSyntheticTestFunction
+            self.test_problem, ConstrainedBaseTestProblem
         )
         self._is_moo: bool = self.test_problem.num_objectives > 1
         self.outcome_names = outcome_names
@@ -202,10 +199,10 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
 
 class BotorchTestProblemRunner(SyntheticProblemRunner):
     """
-    A `SyntheticProblemRunner` for BoTorch `SyntheticTestFunction`s.
+    A `SyntheticProblemRunner` for BoTorch `BaseTestProblem`s.
 
     Args:
-        test_problem_class: A BoTorch `SyntheticTestFunction` class.
+        test_problem_class: A BoTorch `BaseTestProblem` class.
         test_problem_kwargs: The keyword arguments used for initializing the
             test problem.
         outcome_names: The names of the outcomes returned by the problem.
@@ -223,7 +220,7 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
     def __init__(
         self,
         *,
-        test_problem_class: type[SyntheticTestFunction],
+        test_problem_class: type[BaseTestProblem],
         test_problem_kwargs: dict[str, Any],
         outcome_names: list[str],
         modified_bounds: Optional[list[tuple[float, float]]] = None,
@@ -234,11 +231,9 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
             outcome_names=outcome_names,
             modified_bounds=modified_bounds,
         )
-        self.test_problem: SyntheticTestFunction = self.test_problem.to(
-            dtype=torch.double
-        )
+        self.test_problem: BaseTestProblem = self.test_problem.to(dtype=torch.double)
         self._is_constrained: bool = isinstance(
-            self.test_problem, ConstrainedSyntheticTestFunction
+            self.test_problem, ConstrainedBaseTestProblem
         )
 
     def get_Y_true(self, arm: Arm) -> Tensor:
@@ -274,7 +269,7 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
             X = unnormalize(unit_X, self.test_problem.bounds)
 
         Y_true = self.test_problem.evaluate_true(X).view(-1)
-        # `SyntheticTestFunction.evaluate_true()` does not negate the outcome
+        # `BaseTestProblem.evaluate_true()` does not negate the outcome
         if self.test_problem.negate:
             Y_true = -Y_true
 
