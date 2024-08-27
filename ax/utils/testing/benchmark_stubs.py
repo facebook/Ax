@@ -18,6 +18,7 @@ from ax.benchmark.benchmark_problem import (
     MultiObjectiveBenchmarkProblem,
 )
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
+from ax.benchmark.metrics.benchmark import BenchmarkMetric
 from ax.benchmark.problems.surrogate import (
     MOOSurrogateBenchmarkProblem,
     SOOSurrogateBenchmarkProblem,
@@ -25,6 +26,7 @@ from ax.benchmark.problems.surrogate import (
 from ax.benchmark.runners.botorch_test import ParamBasedTestProblem
 from ax.benchmark.runners.surrogate import SurrogateRunner
 from ax.core.experiment import Experiment
+from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -36,7 +38,6 @@ from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.service.scheduler import SchedulerOptions
 from ax.utils.common.constants import Keys
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
@@ -113,14 +114,21 @@ def get_soo_surrogate() -> SOOSurrogateBenchmarkProblem:
         outcome_names=["branin"],
         get_surrogate_and_datasets=lambda: (surrogate, []),
     )
+
+    observe_noise_sd = True
+    objective = Objective(
+        metric=BenchmarkMetric(
+            name="branin", lower_is_better=True, observe_noise_sd=observe_noise_sd
+        ),
+    )
+    optimization_config = OptimizationConfig(objective=objective)
+
     return SOOSurrogateBenchmarkProblem(
         name="test",
         search_space=experiment.search_space,
-        optimization_config=checked_cast(
-            OptimizationConfig, experiment.optimization_config
-        ),
+        optimization_config=optimization_config,
         num_trials=6,
-        observe_noise_stds=True,
+        observe_noise_stds=observe_noise_sd,
         optimal_value=0.0,
         runner=runner,
         is_noiseless=runner.is_noiseless,
@@ -143,12 +151,31 @@ def get_moo_surrogate() -> MOOSurrogateBenchmarkProblem:
         outcome_names=["branin_a", "branin_b"],
         get_surrogate_and_datasets=lambda: (surrogate, []),
     )
+    observe_noise_sd = True
+    optimization_config = MultiObjectiveOptimizationConfig(
+        objective=MultiObjective(
+            objectives=[
+                Objective(
+                    metric=BenchmarkMetric(
+                        name="branin_a",
+                        lower_is_better=True,
+                        observe_noise_sd=observe_noise_sd,
+                    ),
+                ),
+                Objective(
+                    metric=BenchmarkMetric(
+                        name="branin_b",
+                        lower_is_better=True,
+                        observe_noise_sd=observe_noise_sd,
+                    ),
+                ),
+            ],
+        )
+    )
     return MOOSurrogateBenchmarkProblem(
         name="test",
         search_space=experiment.search_space,
-        optimization_config=checked_cast(
-            MultiObjectiveOptimizationConfig, experiment.optimization_config
-        ),
+        optimization_config=optimization_config,
         num_trials=10,
         observe_noise_stds=True,
         optimal_value=1.0,
