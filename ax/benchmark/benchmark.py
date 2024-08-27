@@ -151,6 +151,9 @@ def benchmark_replication(
         scheduler.get_trace(optimization_config=analysis_opt_config)
     )
 
+    new_optimization_trace = problem.get_opt_trace(experiment=experiment)
+    np.testing.assert_allclose(optimization_trace, new_optimization_trace)
+
     try:
         # Catch any errors that may occur during score computation, such as errors
         # while accessing "steps" in node based generation strategies. The error
