@@ -159,11 +159,8 @@ class TestSyntheticRunner(TestCase):
                 trial.arm = arm
                 trial.index = 0
                 res = runner.run(trial=trial)
-                self.assertSetEqual(
-                    set(res.keys()), {"Ys", "Ys_true", "Ystds", "outcome_names"}
-                )
-                self.assertSetEqual(set(res["Ys"].keys()), {"0_0"})
-                self.assertEqual(res["Ys_true"]["0_0"], Y.tolist())
+                self.assertEqual({"Ys", "Ystds", "outcome_names"}, res.keys())
+                self.assertEqual({"0_0"}, res["Ys"].keys())
                 if noise_std is not None:
                     self.assertEqual(res["Ystds"]["0_0"], [noise_std] * len(Y))
                 else:
@@ -227,9 +224,7 @@ class TestSyntheticRunner(TestCase):
         trial.arm = arm
         trial.index = 0
         res = runner.run(trial=trial)
-        self.assertSetEqual(
-            set(res.keys()), {"Ys", "Ys_true", "Ystds", "outcome_names"}
-        )
+        self.assertSetEqual(set(res.keys()), {"Ys", "Ystds", "outcome_names"})
         self.assertSetEqual(set(res["Ys"].keys()), {"0_0"})
         self.assertEqual(res["Ystds"]["0_0"], [0.1, 0.05])
         self.assertEqual(res["outcome_names"], ["objective", "constraint"])

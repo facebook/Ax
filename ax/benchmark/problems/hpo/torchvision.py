@@ -224,8 +224,6 @@ def get_pytorch_cnn_torchvision_benchmark_problem(
         optimization_config=optimization_config,
         num_trials=num_trials,
         observe_noise_stds=False,
-        is_noiseless=True,
-        has_ground_truth=True,
         optimal_value=base_problem.optimal_value,
         runner=runner,
     )

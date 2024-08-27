@@ -130,8 +130,6 @@ def get_jenatton_benchmark_problem(
             outcome_names=[name],
         ),
         num_trials=num_trials,
-        is_noiseless=noise_std == 0.0,
         observe_noise_stds=observe_noise_sd,
-        has_ground_truth=True,
         optimal_value=Jenatton.optimal_value,
     )
