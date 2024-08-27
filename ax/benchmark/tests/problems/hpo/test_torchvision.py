@@ -54,9 +54,7 @@ class TestPyTorchCNNTorchvision(TestCase):
         )
         self.assertFalse(problem.optimization_config.objective.minimize)
         self.assertEqual(problem.num_trials, num_trials)
-        self.assertTrue(problem.is_noiseless)
         self.assertFalse(problem.observe_noise_stds)
-        self.assertTrue(problem.has_ground_truth)
 
     def test_deterministic(self) -> None:
         problem_name = choice(["MNIST", "FashionMNIST"])
@@ -77,7 +75,6 @@ class TestPyTorchCNNTorchvision(TestCase):
             {
                 "Ys": {"0": [expected]},
                 "Ystds": {"0": [0.0]},
-                "Ys_true": {"0": [expected]},
                 "outcome_names": ["accuracy"],
             },
         )

@@ -11,8 +11,6 @@ from typing import Any, Optional, Union
 import numpy as np
 import pandas as pd
 
-from ax.benchmark.metrics.base import BenchmarkMetricBase
-
 from ax.benchmark.metrics.benchmark import BenchmarkMetric
 from ax.benchmark.runners.base import BenchmarkRunner
 from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
@@ -72,12 +70,6 @@ class BenchmarkProblem(Base):
         observe_noise_stds: If boolean, whether the standard deviation of the
             observation noise is observed for all metrics. If a dictionary,
             whether noise levels are observed on a per-metric basis.
-        has_ground_truth: Whether the Runner produces underlying ground truth
-            values, which are not observed in real noisy problems but may be
-            known in benchmarks.
-        tracking_metrics: Tracking metrics are not optimized, and for the
-            purpose of benchmarking, they will not be fit. The ground truth may
-            be provided as `tracking_metrics`.
         optimal_value: The best ground-truth objective value. Hypervolume for
             multi-objective problems. If the best value is not known, it is
             conventional to set it to a value that is almost certainly better
@@ -91,13 +83,10 @@ class BenchmarkProblem(Base):
     optimization_config: OptimizationConfig
     num_trials: int
     observe_noise_stds: Union[bool, dict[str, bool]] = False
-    has_ground_truth: bool = True
-    tracking_metrics: list[BenchmarkMetricBase] = field(default_factory=list)
     optimal_value: float
 
     search_space: SearchSpace = field(repr=False)
     runner: BenchmarkRunner = field(repr=False)
-    is_noiseless: bool
 
     def get_oracle_experiment(self, experiment: Experiment) -> Experiment:
         records = []
@@ -263,8 +252,6 @@ def create_single_objective_problem_from_botorch(
         ),
         num_trials=num_trials,
         observe_noise_stds=observe_noise_sd,
-        is_noiseless=test_problem.noise_std in (None, 0.0),
-        has_ground_truth=True,  # all synthetic problems have ground truth
         optimal_value=optimal_value,
     )
 
@@ -356,8 +343,6 @@ def create_multi_objective_problem_from_botorch(
         optimization_config=optimization_config,
         runner=runner,
         num_trials=num_trials,
-        is_noiseless=test_problem.noise_std in (None, 0.0),
         observe_noise_stds=observe_noise_sd,
-        has_ground_truth=True,
         optimal_value=test_problem.max_hv,
     )

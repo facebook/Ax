@@ -131,7 +131,6 @@ def get_soo_surrogate() -> SOOSurrogateBenchmarkProblem:
         observe_noise_stds=observe_noise_sd,
         optimal_value=0.0,
         runner=runner,
-        is_noiseless=runner.is_noiseless,
     )
 
 
@@ -180,7 +179,6 @@ def get_moo_surrogate() -> MOOSurrogateBenchmarkProblem:
         observe_noise_stds=True,
         optimal_value=1.0,
         runner=runner,
-        is_noiseless=runner.is_noiseless,
     )
 
 

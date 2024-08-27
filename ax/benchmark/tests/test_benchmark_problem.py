@@ -91,10 +91,7 @@ class TestBenchmarkProblem(TestCase):
                     "minimize=True), outcome_constraints=[]), "
                     "num_trials=1, "
                     "observe_noise_stds=False, "
-                    "has_ground_truth=True, "
-                    "tracking_metrics=[], "
-                    "optimal_value=0.0, "
-                    "is_noiseless=True)"
+                    "optimal_value=0.0)"
                 )
             else:
                 outcome_constraint = (
@@ -112,10 +109,7 @@ class TestBenchmarkProblem(TestCase):
                     " >= 0.0)]), "
                     "num_trials=1, "
                     "observe_noise_stds=False, "
-                    "has_ground_truth=True, "
-                    "tracking_metrics=[], "
-                    "optimal_value=-3.32237, "
-                    "is_noiseless=True)"
+                    "optimal_value=-3.32237)"
                 )
 
             self.assertEqual(repr(test_problem), expected_repr)

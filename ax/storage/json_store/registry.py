@@ -16,7 +16,7 @@ from ax.benchmark.benchmark_problem import (
     MultiObjectiveBenchmarkProblem,
 )
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
-from ax.benchmark.metrics.benchmark import BenchmarkMetric, GroundTruthBenchmarkMetric
+from ax.benchmark.metrics.benchmark import BenchmarkMetric
 from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionParamBasedProblem
 from ax.benchmark.runners.botorch_test import (
     BotorchTestProblemRunner,
@@ -201,7 +201,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     GenerationNode: generation_node_to_dict,
     GenerationStrategy: generation_strategy_to_dict,
     GeneratorRun: generator_run_to_dict,
-    GroundTruthBenchmarkMetric: metric_to_dict,
     Hartmann6Metric: metric_to_dict,
     ImprovementGlobalStoppingStrategy: improvement_global_stopping_strategy_to_dict,
     Interval: botorch_component_to_dict,
@@ -318,8 +317,6 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "GenerationStep": GenerationStep,
     "GeneratorRun": GeneratorRun,
     "GeneratorRunStruct": GeneratorRunStruct,
-    "GroundTruthBenchmarkMetric": GroundTruthBenchmarkMetric,
-    "GroundTruthBotorchTestProblemMetric": GroundTruthBenchmarkMetric,  # for BC
     "Hartmann6Metric": Hartmann6Metric,
     "HierarchicalSearchSpace": HierarchicalSearchSpace,
     "ImprovementGlobalStoppingStrategy": ImprovementGlobalStoppingStrategy,

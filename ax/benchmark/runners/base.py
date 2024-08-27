@@ -89,14 +89,9 @@ class BenchmarkRunner(Runner, ABC):
                     noise standard deviations (possibly nan if the noise level is
                     unobserved), where the order of the outcomes is the same as in
                     `outcome_names`.
-                - Ys_true: A dict mapping arm names to lists of corresponding ground
-                    truth outcomes, where the order of the outcomes is the same as
-                    in `outcome_names`. If the benchmark problem does not provide a
-                    ground truth, this key will not be present in the dict returned
-                    by this function.
                 - "outcome_names": A list of metric names.
         """
-        Ys, Ys_true, Ystds = {}, {}, {}
+        Ys, Ystds = {}, {}
         noise_stds = self.get_noise_stds()
 
         if noise_stds is not None:
@@ -126,7 +121,6 @@ class BenchmarkRunner(Runner, ABC):
         for arm in trial.arms:
             # Case where we do have a ground truth
             Y_true = self.get_Y_true(arm)
-            Ys_true[arm.name] = Y_true.tolist()
             if noise_stds is None:
                 # No noise, so just return the true outcome.
                 Ystds[arm.name] = [0.0] * len(Y_true)
@@ -144,7 +138,6 @@ class BenchmarkRunner(Runner, ABC):
             "Ys": Ys,
             "Ystds": Ystds,
             "outcome_names": self.outcome_names,
-            "Ys_true": Ys_true,
         }
         return run_metadata
 

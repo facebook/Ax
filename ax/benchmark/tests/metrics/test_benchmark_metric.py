@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from ax.benchmark.metrics.benchmark import BenchmarkMetric, GroundTruthBenchmarkMetric
+from ax.benchmark.metrics.benchmark import BenchmarkMetric
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.trial import Trial
@@ -110,38 +110,3 @@ class BenchmarkMetricTest(TestCase):
                 "trial_index": {0: 0, 1: 0},
             },
         )
-
-    def test_make_ground_truth_metric(self) -> None:
-        metric = BenchmarkMetric(name="test_metric1", lower_is_better=True)
-        gt_metric = metric.make_ground_truth_metric()
-        self.assertIsInstance(gt_metric, GroundTruthBenchmarkMetric)
-        self.assertEqual(gt_metric.name, "test_metric1__GROUND_TRUTH")
-        self.assertEqual(gt_metric.lower_is_better, metric.lower_is_better)
-        self.assertFalse(gt_metric.observe_noise_sd)  # pyre-ignore [16]
-        self.assertEqual(
-            gt_metric.outcome_index, metric.outcome_index  # pyre-ignore [16]
-        )
-        self.assertIs(gt_metric.original_metric, metric)  # pyre-ignore [16]
-
-        trial = get_test_trial()
-
-        with self.assertRaisesRegex(
-            NotImplementedError,
-            "Arguments {'foo'} are not supported in GroundTruthBenchmarkMetric",
-        ):
-            gt_metric.fetch_trial_data(trial, foo="bar")
-
-        df = gt_metric.fetch_trial_data(trial=trial).value.df  # pyre-ignore [16]
-        self.assertEqual(len(df), 1)
-        self.assertDictEqual(
-            df.iloc[0].to_dict(),
-            {
-                "arm_name": "0_0",
-                "metric_name": "test_metric1__GROUND_TRUTH",
-                "mean": 1.1,
-                "sem": 0.0,
-                "trial_index": 0,
-            },
-        )
-
-        self.assertIs(gt_metric.make_ground_truth_metric(), gt_metric)
