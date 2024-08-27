@@ -1648,13 +1648,15 @@ class Experiment(Base):
             if isinstance(trial, BatchTrial) or isinstance(trial, Trial):
                 trial.clone_to(cloned_experiment)
                 trial_data, timestamp = self.lookup_data_for_trial(trial_index)
+                # Clone the data to avoid overwriting the original in the DB.
+                trial_data = trial_data.clone()
                 if timestamp != -1:
                     data_by_trial[trial_index] = OrderedDict([(timestamp, trial_data)])
             else:
                 raise NotImplementedError(f"Cloning of {type(trial)} is not supported.")
         if data is not None:
             # If user passed in data, use it.
-            cloned_experiment.attach_data(data)
+            cloned_experiment.attach_data(data.clone())
         else:
             # Otherwise, attach the data extracted from the original experiment.
             cloned_experiment._data_by_trial = data_by_trial

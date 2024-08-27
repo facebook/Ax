@@ -96,6 +96,19 @@ class MapDataTest(TestCase):
         self.assertEqual(self.mmd.map_keys, ["epoch"])
         self.assertEqual(self.mmd.map_key_to_type, {"epoch": int})
 
+    def test_clone(self) -> None:
+        self.mmd._db_id = 1234
+        clone = self.mmd.clone()
+        # Make sure the two objects are equal.
+        self.assertTrue(clone.map_df.equals(self.mmd.map_df))
+        self.assertTrue(clone.df.equals(self.mmd.df))
+        self.assertEqual(clone.map_key_infos, self.mmd.map_key_infos)
+        self.assertEqual(clone.description, self.mmd.description)
+        # Make sure it's not the original object or df.
+        self.assertIsNot(clone, self.mmd)
+        self.assertIsNot(clone.map_df, self.mmd.map_df)
+        self.assertIsNone(clone._db_id)
+
     def test_combine(self) -> None:
         data = MapData.from_multiple_map_data([])
         self.assertEqual(data.map_df.size, 0)

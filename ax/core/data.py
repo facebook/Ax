@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from abc import abstractmethod
 from collections.abc import Iterable
+from copy import deepcopy
 from functools import reduce
 from hashlib import md5
 from io import StringIO
@@ -538,6 +539,10 @@ class Data(BaseData):
             ]
 
         return data_out
+
+    def clone(self) -> Data:
+        """Returns a new Data object with the same underlying dataframe."""
+        return Data(df=deepcopy(self.df), description=self.description)
 
 
 def set_single_trial(data: Data) -> Data:
