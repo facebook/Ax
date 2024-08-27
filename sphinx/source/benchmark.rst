@@ -10,11 +10,18 @@ ax.benchmark
 Benchmark
 ---------
 
-
 Benchmark Method
 ~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.benchmark.benchmark_method
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Benchmark Metric
+~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.benchmark_metric
     :members:
     :undoc-members:
     :show-inheritance:
@@ -56,38 +63,6 @@ Benchmark Methods Sobol
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.benchmark.methods.sobol
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Benchmark Metrics Base
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.benchmark.metrics.base
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Benchmark Metrics Benchmark
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.benchmark.metrics.benchmark
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Benchmark Metrics Jenatton
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.benchmark.metrics.jenatton
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Benchmark Metrics Utils
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.benchmark.metrics.utils
     :members:
     :undoc-members:
     :show-inheritance:
