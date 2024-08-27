@@ -20,8 +20,9 @@ References
 
 from typing import Optional, Union
 
+from ax.benchmark.benchmark_metric import BenchmarkMetric
+
 from ax.benchmark.benchmark_problem import BenchmarkProblem
-from ax.benchmark.metrics.benchmark import BenchmarkMetric
 from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
