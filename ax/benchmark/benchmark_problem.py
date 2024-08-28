@@ -256,28 +256,13 @@ def create_single_objective_problem_from_botorch(
     )
 
 
-@dataclass(kw_only=True, repr=True)
-class MultiObjectiveBenchmarkProblem(BenchmarkProblem):
-    """
-    A `BenchmarkProblem` that supports multiple objectives.
-
-    For multi-objective problems, `optimal_value` indicates the maximum
-    hypervolume attainable with the objective thresholds provided on the
-    `optimization_config`.
-
-    For argument descriptions, see `BenchmarkProblem`.
-    """
-
-    optimization_config: MultiObjectiveOptimizationConfig
-
-
 def create_multi_objective_problem_from_botorch(
     test_problem_class: type[MultiObjectiveTestProblem],
     test_problem_kwargs: dict[str, Any],
     # TODO: Figure out whether we should use `lower_is_better` here.
     num_trials: int,
     observe_noise_sd: bool = False,
-) -> MultiObjectiveBenchmarkProblem:
+) -> BenchmarkProblem:
     """Create a BenchmarkProblem from a BoTorch BaseTestProblem using specialized
     Metrics and Runners. The test problem's result will be computed on the Runner
     once per trial and each Metric will retrieve its own result by index.
@@ -337,7 +322,7 @@ def create_multi_objective_problem_from_botorch(
         ],
     )
 
-    return MultiObjectiveBenchmarkProblem(
+    return BenchmarkProblem(
         name=name,
         search_space=get_continuous_search_space(test_problem._bounds),
         optimization_config=optimization_config,

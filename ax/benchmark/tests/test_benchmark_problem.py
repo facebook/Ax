@@ -14,6 +14,7 @@ from ax.benchmark.benchmark_problem import (
     create_single_objective_problem_from_botorch,
 )
 from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
+from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
@@ -28,6 +29,7 @@ from botorch.test_functions.synthetic import (
     Cosine8,
 )
 from hypothesis import given, strategies as st
+from pyre_extensions import assert_is_instance
 
 
 class TestBenchmarkProblem(TestCase):
@@ -198,7 +200,9 @@ class TestBenchmarkProblem(TestCase):
 
         # Test hypervolume
         self.assertEqual(branin_currin_problem.optimal_value, test_problem._max_hv)
-        opt_config = branin_currin_problem.optimization_config
+        opt_config = assert_is_instance(
+            branin_currin_problem.optimization_config, MultiObjectiveOptimizationConfig
+        )
         reference_point = [
             threshold.bound for threshold in opt_config.objective_thresholds
         ]

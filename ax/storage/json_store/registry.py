@@ -12,10 +12,7 @@ from typing import Any, Callable
 import torch
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_metric import BenchmarkMetric
-from ax.benchmark.benchmark_problem import (
-    BenchmarkProblem,
-    MultiObjectiveBenchmarkProblem,
-)
+from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionParamBasedProblem
 from ax.benchmark.runners.botorch_test import (
@@ -338,7 +335,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "ModelRegistryBase": ModelRegistryBase,
     "ModelSpec": ModelSpec,
     "MultiObjective": MultiObjective,
-    "MultiObjectiveBenchmarkProblem": MultiObjectiveBenchmarkProblem,
+    "MultiObjectiveBenchmarkProblem": BenchmarkProblem,  # backward compatibility
     "MultiObjectiveOptimizationConfig": MultiObjectiveOptimizationConfig,
     "MultiTypeExperiment": MultiTypeExperiment,
     "NegativeBraninMetric": NegativeBraninMetric,
