@@ -5,48 +5,29 @@
 
 # pyre-strict
 """
-Benchmark problems based on surrogates.
+Benchmark problem based on surrogate.
 
-These problems might appear to function identically to their non-surrogate
-counterparts, `BenchmarkProblem` and `MultiObjectiveBenchmarkProblem`, aside
-from the restriction that their runners are of type `SurrogateRunner`. However,
-they are treated specially within JSON storage because surrogates cannot be
-easily serialized.
+This problem class might appear to function identically to its non-surrogate
+counterpart, `BenchmarkProblem`, aside from the restriction that its runners is
+of type `SurrogateRunner`. However, it is treated specially within JSON storage
+because surrogates cannot be easily serialized.
 """
 
 from dataclasses import dataclass, field
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.runners.surrogate import SurrogateRunner
-from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 
 
 @dataclass(kw_only=True)
-class SurrogateBenchmarkProblemBase(BenchmarkProblem):
+class SurrogateBenchmarkProblem(BenchmarkProblem):
     """
-    Base class for SOOSurrogateBenchmarkProblem and MOOSurrogateBenchmarkProblem.
+    Benchmark problem whose `runner` is a `SurrogateRunner`.
 
-    Its `runner` is a `SurrogateRunner`, which allows for the surrogate to be
-    constructed lazily and datasets to be downloaded lazily.
+    `SurrogateRunner` allows for the surrogate to be constructed lazily and for
+    datasets to be downloaded lazily.
 
     For argument descriptions, see `BenchmarkProblem`.
     """
 
     runner: SurrogateRunner = field(repr=False)
-
-
-class SOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
-    pass
-
-
-@dataclass(kw_only=True)
-class MOOSurrogateBenchmarkProblem(SurrogateBenchmarkProblemBase):
-    """
-    Has the same attributes/properties as a `MultiObjectiveBenchmarkProblem`,
-    but its `runner` is a `SurrogateRunner`, which allows for the surrogate to be
-    constructed lazily and datasets to be downloaded lazily.
-
-    For argument descriptions, see `BenchmarkProblem`.
-    """
-
-    optimization_config: MultiObjectiveOptimizationConfig

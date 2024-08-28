@@ -16,13 +16,9 @@ from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     create_multi_objective_problem_from_botorch,
     create_single_objective_problem_from_botorch,
-    MultiObjectiveBenchmarkProblem,
 )
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
-from ax.benchmark.problems.surrogate import (
-    MOOSurrogateBenchmarkProblem,
-    SOOSurrogateBenchmarkProblem,
-)
+from ax.benchmark.problems.surrogate import SurrogateBenchmarkProblem
 from ax.benchmark.runners.botorch_test import ParamBasedTestProblem
 from ax.benchmark.runners.surrogate import SurrogateRunner
 from ax.core.experiment import Experiment
@@ -65,10 +61,12 @@ def get_single_objective_benchmark_problem(
 
 
 def get_multi_objective_benchmark_problem(
-    observe_noise_sd: bool = False, num_trials: int = 4
-) -> MultiObjectiveBenchmarkProblem:
+    observe_noise_sd: bool = False,
+    num_trials: int = 4,
+    test_problem_class: type[BraninCurrin] = BraninCurrin,
+) -> BenchmarkProblem:
     return create_multi_objective_problem_from_botorch(
-        test_problem_class=BraninCurrin,
+        test_problem_class=test_problem_class,
         test_problem_kwargs={},
         num_trials=num_trials,
         observe_noise_sd=observe_noise_sd,
@@ -77,12 +75,11 @@ def get_multi_objective_benchmark_problem(
 
 def get_constrained_multi_objective_benchmark_problem(
     observe_noise_sd: bool = False, num_trials: int = 4
-) -> MultiObjectiveBenchmarkProblem:
-    return create_multi_objective_problem_from_botorch(
-        test_problem_class=ConstrainedBraninCurrin,
-        test_problem_kwargs={},
-        num_trials=num_trials,
+) -> BenchmarkProblem:
+    return get_multi_objective_benchmark_problem(
         observe_noise_sd=observe_noise_sd,
+        num_trials=num_trials,
+        test_problem_class=ConstrainedBraninCurrin,
     )
 
 
@@ -99,7 +96,7 @@ def get_sobol_benchmark_method() -> BenchmarkMethod:
     )
 
 
-def get_soo_surrogate() -> SOOSurrogateBenchmarkProblem:
+def get_soo_surrogate() -> SurrogateBenchmarkProblem:
     experiment = get_branin_experiment(with_completed_trial=True)
     surrogate = TorchModelBridge(
         experiment=experiment,
@@ -123,7 +120,7 @@ def get_soo_surrogate() -> SOOSurrogateBenchmarkProblem:
     )
     optimization_config = OptimizationConfig(objective=objective)
 
-    return SOOSurrogateBenchmarkProblem(
+    return SurrogateBenchmarkProblem(
         name="test",
         search_space=experiment.search_space,
         optimization_config=optimization_config,
@@ -134,7 +131,7 @@ def get_soo_surrogate() -> SOOSurrogateBenchmarkProblem:
     )
 
 
-def get_moo_surrogate() -> MOOSurrogateBenchmarkProblem:
+def get_moo_surrogate() -> SurrogateBenchmarkProblem:
     experiment = get_branin_experiment_with_multi_objective(with_completed_trial=True)
     surrogate = TorchModelBridge(
         experiment=experiment,
@@ -171,7 +168,7 @@ def get_moo_surrogate() -> MOOSurrogateBenchmarkProblem:
             ],
         )
     )
-    return MOOSurrogateBenchmarkProblem(
+    return SurrogateBenchmarkProblem(
         name="test",
         search_space=experiment.search_space,
         optimization_config=optimization_config,

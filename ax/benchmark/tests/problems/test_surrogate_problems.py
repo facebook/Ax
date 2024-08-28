@@ -31,7 +31,7 @@ class TestSurrogateProblems(TestCase):
         sbp = get_soo_surrogate()
 
         expected_repr = (
-            "SOOSurrogateBenchmarkProblem(name='test', "
+            "SurrogateBenchmarkProblem(name='test', "
             "optimization_config=OptimizationConfig(objective=Objective(metric_name="
             '"branin", '
             "minimize=True), "
