@@ -8,14 +8,17 @@
 
 import asyncio
 import functools
+import threading
 import time
 from collections.abc import Generator
 from contextlib import contextmanager
+from functools import partial
 from logging import Logger
-from typing import Any, Optional
+from typing import Any, Callable, Optional, TypeVar
 
 
 MAX_WAIT_SECONDS: int = 600
+T = TypeVar("T")
 
 
 # pyre-fixme[3]: Return annotation cannot be `Any`.
@@ -239,3 +242,40 @@ def _validate_and_fill_defaults(
     # when used on instance methods.
     suppress_errors = suppress_errors or kwargs.get("suppress_all_errors", False)
     return retry_on_exception_types, no_retry_on_exception_types or (), suppress_errors
+
+
+def execute_with_timeout(partial_func: Callable[..., T], timeout: float) -> T:
+    """Execute a function in a thread that we can abandon if it takes too long.
+    The thread cannot actually be terminated, so the process will keep executing
+    after timeout, but not on the main thread.
+
+    Args:
+        partial_func: A partial function to execute.  This should either be a
+            function that takes no arguments, or a functools.partial function
+            with all arguments bound.
+        timeout: The timeout in seconds.
+
+    Returns:
+        The return value of the partial function when called.
+    """
+    # since threads cannot return values or raise exceptions in the main thread,
+    # we pass it a context dict and have it update it with the return value or
+    # exception.
+    context_dict = {}
+
+    def execute_partial_with_context(context: dict[str, Any]) -> None:
+        try:
+            context["return_value"] = partial_func()
+        except Exception as e:
+            context["exception"] = e
+
+    thread = threading.Thread(
+        target=partial(execute_partial_with_context, context_dict)
+    )
+    thread.start()
+    thread.join(timeout)
+    if thread.is_alive():
+        raise TimeoutError("Function timed out")
+    if "exception" in context_dict:
+        raise context_dict["exception"]
+    return context_dict["return_value"]

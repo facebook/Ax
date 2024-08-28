@@ -9,9 +9,11 @@
 import logging
 import time
 from asyncio import iscoroutinefunction
+from functools import partial
+from typing import Any
 from unittest.mock import Mock
 
-from ax.utils.common.executils import retry_on_exception
+from ax.utils.common.executils import execute_with_timeout, retry_on_exception
 from ax.utils.common.testutils import TestCase
 
 
@@ -274,3 +276,42 @@ class TestRetryDecorator(TestCase):
             error_throwing_function()
 
         self.assertEqual(mock.call_count, 3)
+
+
+class TestExecuteWithTimeout(TestCase):
+    def test_execute_with_timeout_returns_with_sufficient_time(self) -> None:
+        def foo() -> int:
+            return 1
+
+        self.assertEqual(1, execute_with_timeout(foo, timeout=1))
+
+    def test_it_times_out(self) -> None:
+        def foo() -> int:
+            time.sleep(1)
+            return 1
+
+        with self.assertRaises(TimeoutError):
+            execute_with_timeout(foo, timeout=0.1)
+
+    def test_it_raises_exceptions(self) -> None:
+        def foo() -> int:
+            raise ValueError("foo error")
+
+        with self.assertRaisesRegex(ValueError, "foo error"):
+            execute_with_timeout(foo, timeout=1)
+
+    def test_it_does_not_actually_halt_execution(self) -> None:
+        # This is not necessarily desired behavior, but it is the current behavior
+        # so this is just to document it.
+        _foo = {}
+
+        def foo(foo_dict: dict[str, Any]) -> None:
+            time.sleep(1)
+            foo_dict["foo"] = 1
+
+        partial_foo = partial(foo, foo_dict=_foo)
+        with self.assertRaises(TimeoutError):
+            execute_with_timeout(partial_foo, timeout=0.1)
+        self.assertEqual(_foo, {})
+        time.sleep(1)
+        self.assertEqual(_foo, {"foo": 1})
