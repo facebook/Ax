@@ -8,12 +8,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-
+from copy import deepcopy
 from logging import Logger
 from typing import Any, Generic, Optional, TypeVar
 
 import numpy as np
-
 import pandas as pd
 from ax.core.data import Data
 from ax.core.types import TMapTrialEvaluation
@@ -68,6 +67,10 @@ class MapKeyInfo(Generic[T], SortableBase):
     #  `typing.Type` to avoid runtime subscripting errors.
     def value_type(self) -> type:
         return type(self._default_value)
+
+    def clone(self) -> MapKeyInfo[T]:
+        """Return a copy of this MapKeyInfo."""
+        return MapKeyInfo(key=self.key, default_value=deepcopy(self.default_value))
 
 
 class MapData(Data):
@@ -325,6 +328,16 @@ class MapData(Data):
             MapKeyInfo(d["key"], d["default_value"]) for d in args["map_key_infos"]
         ]
         return super().deserialize_init_args(args=args)
+
+    def clone(self) -> MapData:
+        """Returns a new ``MapData`` object with the same underlying dataframe
+        and map key infos.
+        """
+        return MapData(
+            df=deepcopy(self.map_df),
+            map_key_infos=[mki.clone() for mki in self.map_key_infos],
+            description=self.description,
+        )
 
     def subsample(
         self,

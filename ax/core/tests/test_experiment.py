@@ -40,6 +40,9 @@ from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
 from ax.service.utils.instantiation import ObjectiveProperties
+from ax.storage.sqa_store.db import init_test_engine_and_session_factory
+from ax.storage.sqa_store.load import load_experiment
+from ax.storage.sqa_store.save import save_experiment
 from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
 from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
@@ -1018,12 +1021,15 @@ class ExperimentTest(TestCase):
                 )
 
     def test_clone_with(self) -> None:
+        init_test_engine_and_session_factory(force_init=True)
         experiment = get_branin_experiment(
             with_batch=True,
             with_completed_trial=True,
             with_status_quo=True,
             with_choice_parameter=True,
         )
+        # Save the experiment to set db_ids.
+        save_experiment(experiment)
 
         larger_search_space = SearchSpace(
             parameters=[
@@ -1085,6 +1091,12 @@ class ExperimentTest(TestCase):
         self.assertEqual(
             checked_cast(Arm, experiment.status_quo).parameters, {"x1": 0.0, "x2": 0.0}
         )
+
+        # Save the cloned experiment to db and make sure the original
+        # experiment is unchanged in the db.
+        save_experiment(cloned_experiment)
+        reloaded_experiment = load_experiment(experiment.name)
+        self.assertEqual(experiment, reloaded_experiment)
 
         # clone specific trials and new data only
         df = pd.DataFrame(

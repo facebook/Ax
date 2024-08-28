@@ -98,6 +98,18 @@ class DataTest(TestCase):
             0.5,
         )
 
+    def test_clone(self) -> None:
+        data = Data(df=self.df, description="test")
+        data._db_id = 1234
+        data_clone = data.clone()
+        # Check equality of the objects.
+        self.assertTrue(data.df.equals(data_clone.df))
+        self.assertEqual(data.description, data_clone.description)
+        # Make sure it's not the original object or df.
+        self.assertIsNot(data, data_clone)
+        self.assertIsNot(data.df, data_clone.df)
+        self.assertIsNone(data_clone._db_id)
+
     def test_BadData(self) -> None:
         df = pd.DataFrame([{"bad_field": "0_0", "bad_field_2": {"x": 0, "y": "a"}}])
         with self.assertRaises(ValueError):
