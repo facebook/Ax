@@ -12,11 +12,7 @@ import numpy as np
 import torch
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_metric import BenchmarkMetric
-from ax.benchmark.benchmark_problem import (
-    BenchmarkProblem,
-    create_multi_objective_problem_from_botorch,
-    create_single_objective_problem_from_botorch,
-)
+from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.problems.surrogate import SurrogateBenchmarkProblem
 from ax.benchmark.runners.botorch_test import ParamBasedTestProblem
@@ -40,7 +36,7 @@ from ax.utils.testing.core_stubs import (
 )
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.gp_regression import SingleTaskGP
-from botorch.test_functions.multi_objective import BraninCurrin, ConstrainedBraninCurrin
+from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.test_functions.synthetic import Branin
 from pyre_extensions import assert_is_instance
 from torch.utils.data import Dataset
@@ -51,10 +47,9 @@ def get_single_objective_benchmark_problem(
     num_trials: int = 4,
     test_problem_kwargs: Optional[dict[str, Any]] = None,
 ) -> BenchmarkProblem:
-    return create_single_objective_problem_from_botorch(
+    return create_problem_from_botorch(
         test_problem_class=Branin,
         test_problem_kwargs=test_problem_kwargs or {},
-        lower_is_better=True,
         num_trials=num_trials,
         observe_noise_sd=observe_noise_sd,
     )
@@ -65,21 +60,11 @@ def get_multi_objective_benchmark_problem(
     num_trials: int = 4,
     test_problem_class: type[BraninCurrin] = BraninCurrin,
 ) -> BenchmarkProblem:
-    return create_multi_objective_problem_from_botorch(
+    return create_problem_from_botorch(
         test_problem_class=test_problem_class,
         test_problem_kwargs={},
         num_trials=num_trials,
         observe_noise_sd=observe_noise_sd,
-    )
-
-
-def get_constrained_multi_objective_benchmark_problem(
-    observe_noise_sd: bool = False, num_trials: int = 4
-) -> BenchmarkProblem:
-    return get_multi_objective_benchmark_problem(
-        observe_noise_sd=observe_noise_sd,
-        num_trials=num_trials,
-        test_problem_class=ConstrainedBraninCurrin,
     )
 
 
