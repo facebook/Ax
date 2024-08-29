@@ -9,19 +9,15 @@ from typing import Optional, Union
 
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 
-from ax.benchmark.benchmark_problem import (
-    create_multi_objective_problem_from_botorch,
-    create_single_objective_problem_from_botorch,
-)
+from ax.benchmark.benchmark_problem import create_problem_from_botorch
 from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
+from ax.core.objective import MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
-from ax.utils.testing.benchmark_stubs import (
-    get_constrained_multi_objective_benchmark_problem,
-)
-from botorch.test_functions.multi_objective import BraninCurrin
+from botorch.test_functions.base import ConstrainedBaseTestProblem
+from botorch.test_functions.multi_objective import BraninCurrin, ConstrainedBraninCurrin
 from botorch.test_functions.synthetic import (
     Ackley,
     ConstrainedGramacy,
@@ -40,10 +36,9 @@ class TestBenchmarkProblem(TestCase):
 
     def test_single_objective_from_botorch(self) -> None:
         for botorch_test_problem in [Ackley(), ConstrainedHartmann(dim=6)]:
-            test_problem = create_single_objective_problem_from_botorch(
+            test_problem = create_problem_from_botorch(
                 test_problem_class=botorch_test_problem.__class__,
                 test_problem_kwargs={},
-                lower_is_better=True,
                 num_trials=1,
             )
 
@@ -117,22 +112,15 @@ class TestBenchmarkProblem(TestCase):
 
             self.assertEqual(repr(test_problem), expected_repr)
 
-    # pyre-fixme[56]: Invalid decoration. Pyre was not able to infer the type of
-    # argument `hypothesis.strategies.booleans()` to decorator factory
-    # `hypothesis.given`.
-    @given(
-        st.booleans(),
-        st.one_of(st.none(), st.just(0.1)),
-        st.one_of(st.none(), st.just(0.2), st.just([0.3, 0.4])),
-    )
-    def test_constrained_from_botorch(
+    def _test_constrained_from_botorch(
         self,
         observe_noise_sd: bool,
         objective_noise_std: Optional[float],
         constraint_noise_std: Optional[Union[float, list[float]]],
+        test_problem_class: type[ConstrainedBaseTestProblem],
     ) -> None:
-        ax_problem = create_single_objective_problem_from_botorch(
-            test_problem_class=ConstrainedGramacy,
+        ax_problem = create_problem_from_botorch(
+            test_problem_class=test_problem_class,
             test_problem_kwargs={
                 "noise_std": objective_noise_std,
                 "constraint_noise_std": constraint_noise_std,
@@ -143,7 +131,7 @@ class TestBenchmarkProblem(TestCase):
         )
         runner = checked_cast(BotorchTestProblemRunner, ax_problem.runner)
         self.assertTrue(runner._is_constrained)
-        botorch_problem = checked_cast(ConstrainedGramacy, runner.test_problem)
+        botorch_problem = checked_cast(ConstrainedBaseTestProblem, runner.test_problem)
         self.assertEqual(botorch_problem.noise_std, objective_noise_std)
         self.assertEqual(botorch_problem.constraint_noise_std, constraint_noise_std)
         opt_config = ax_problem.optimization_config
@@ -152,9 +140,15 @@ class TestBenchmarkProblem(TestCase):
             [constraint.metric.name for constraint in outcome_constraints],
             [f"constraint_slack_{i}" for i in range(botorch_problem.num_constraints)],
         )
+        objective = opt_config.objective
+        metric = (
+            objective.metrics[0]
+            if isinstance(objective, MultiObjective)
+            else objective.metric
+        )
 
         self.assertEqual(
-            checked_cast(BenchmarkMetric, opt_config.objective.metric).observe_noise_sd,
+            checked_cast(BenchmarkMetric, metric).observe_noise_sd,
             observe_noise_sd,
         )
 
@@ -165,12 +159,42 @@ class TestBenchmarkProblem(TestCase):
                 observe_noise_sd,
             )
 
-    def test_moo_from_botorch(self) -> None:
+    # pyre-fixme[56]: Invalid decoration. Pyre was not able to infer the type of
+    # argument `hypothesis.strategies.booleans()` to decorator factory
+    # `hypothesis.given`.
+    @given(
+        st.booleans(),
+        st.one_of(st.none(), st.just(0.1)),
+        st.one_of(st.none(), st.just(0.2), st.just([0.3, 0.4])),
+    )
+    def test_constrained_soo_from_botorch(
+        self,
+        observe_noise_sd: bool,
+        objective_noise_std: Optional[float],
+        constraint_noise_std: Optional[Union[float, list[float]]],
+    ) -> None:
+        self._test_constrained_from_botorch(
+            observe_noise_sd=observe_noise_sd,
+            objective_noise_std=objective_noise_std,
+            constraint_noise_std=constraint_noise_std,
+            test_problem_class=ConstrainedGramacy,
+        )
+
+    def test_constrained_moo_from_botorch(self) -> None:
+        self._test_constrained_from_botorch(
+            observe_noise_sd=False,
+            objective_noise_std=None,
+            constraint_noise_std=None,
+            test_problem_class=ConstrainedBraninCurrin,
+        )
+
+    def _test_moo_from_botorch(self, lower_is_better: bool) -> None:
         test_problem = BraninCurrin()
-        branin_currin_problem = create_multi_objective_problem_from_botorch(
+        branin_currin_problem = create_problem_from_botorch(
             test_problem_class=test_problem.__class__,
             test_problem_kwargs={},
             num_trials=1,
+            lower_is_better=lower_is_better,
         )
 
         # Test search space
@@ -208,15 +232,25 @@ class TestBenchmarkProblem(TestCase):
         ]
         self.assertEqual(reference_point, test_problem._ref_point)
 
-    def test_moo_from_botorch_constrained(self) -> None:
-        with self.assertRaisesRegex(
-            NotImplementedError,
-            "Constrained multi-objective problems are not supported.",
-        ):
-            get_constrained_multi_objective_benchmark_problem()
+        self.assertTrue(
+            all(
+                t.op is (ComparisonOp.LEQ if lower_is_better else ComparisonOp.GEQ)
+                for t in opt_config.objective_thresholds
+            )
+        )
+        self.assertTrue(
+            all(
+                metric.lower_is_better is lower_is_better
+                for metric in opt_config.metrics.values()
+            )
+        )
+
+    def test_moo_from_botorch(self) -> None:
+        self._test_moo_from_botorch(lower_is_better=True)
+        self._test_moo_from_botorch(lower_is_better=False)
 
     def test_maximization_problem(self) -> None:
-        test_problem = create_single_objective_problem_from_botorch(
+        test_problem = create_problem_from_botorch(
             test_problem_class=Cosine8,
             lower_is_better=False,
             num_trials=1,
