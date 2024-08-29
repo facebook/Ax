@@ -10,6 +10,7 @@ import dataclasses
 import os
 import tempfile
 from functools import partial
+from unittest.mock import patch
 
 import numpy as np
 import torch
@@ -51,6 +52,7 @@ from ax.utils.testing.benchmark_stubs import (
     get_multi_objective_benchmark_problem,
     get_single_objective_benchmark_problem,
     get_sobol_gpei_benchmark_method,
+    TestDataset,
 )
 from ax.utils.testing.core_stubs import (
     get_abandoned_arm,
@@ -404,12 +406,20 @@ class JSONStoreTest(TestCase):
         self.assertEqual(obj, recovered)
 
     def test_EncodeDecode_torchvision_problem(self) -> None:
-        test_problem = PyTorchCNNTorchvisionParamBasedProblem(name="MNIST")
+        registry_path = "ax.benchmark.problems.hpo.torchvision._REGISTRY"
+        mock_registry = {"MNIST": TestDataset}
+        with patch.dict(registry_path, mock_registry):
+            test_problem = PyTorchCNNTorchvisionParamBasedProblem(name="MNIST")
+
         self.assertIsNotNone(test_problem.train_loader)
         self.assertIsNotNone(test_problem.test_loader)
+
         as_json = object_to_json(obj=test_problem)
         self.assertNotIn("train_loader", as_json)
-        recovered = object_from_json(as_json)
+
+        with patch.dict(registry_path, mock_registry):
+            recovered = object_from_json(as_json)
+
         self.assertIsNotNone(recovered.train_loader)
         self.assertEqual(test_problem, recovered)
 
