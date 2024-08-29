@@ -26,6 +26,7 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
+from ax.modelbridge.modelbridge_utils import extract_search_space_digest
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.base import Base
 from botorch.test_functions.base import (
@@ -248,6 +249,7 @@ def create_problem_from_botorch(
     num_trials: int,
     lower_is_better: bool = True,
     observe_noise_sd: bool = False,
+    search_space: SearchSpace | None = None,
 ) -> BenchmarkProblem:
     """
     Create a `BenchmarkProblem` from a BoTorch `BaseTestProblem`.
@@ -268,12 +270,19 @@ def create_problem_from_botorch(
             observed or not (in which case it must be inferred by the model).
             This is separate from whether synthetic noise is added to the
             problem, which is controlled by the `noise_std` of the test problem.
+        search_space: If provided, the `search_space` of the `BenchmarkProblem`.
+            Otherwise, a `SearchSpace` with all `RangeParameter`s is created
+            from the bounds of the test problem.
     """
     # pyre-fixme [45]: Invalid class instantiation
     test_problem = test_problem_class(**test_problem_kwargs)
     is_constrained = isinstance(test_problem, ConstrainedBaseTestProblem)
 
-    search_space = get_continuous_search_space(test_problem._bounds)
+    search_space = (
+        get_continuous_search_space(test_problem._bounds)
+        if search_space is None
+        else search_space
+    )
 
     dim = test_problem_kwargs.get("dim", None)
 
@@ -312,6 +321,10 @@ def create_problem_from_botorch(
             test_problem_class=test_problem_class,
             test_problem_kwargs=test_problem_kwargs,
             outcome_names=outcome_names,
+            search_space_digest=extract_search_space_digest(
+                search_space=search_space,
+                param_names=list(search_space.parameters.keys()),
+            ),
         ),
         num_trials=num_trials,
         observe_noise_stds=observe_noise_sd,

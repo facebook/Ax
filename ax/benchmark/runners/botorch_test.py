@@ -13,6 +13,7 @@ from typing import Any, Optional, Union
 import torch
 from ax.benchmark.runners.base import BenchmarkRunner
 from ax.core.arm import Arm
+from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TParameterization
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
@@ -76,6 +77,7 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
         test_problem_kwargs: dict[str, Any],
         outcome_names: list[str],
         modified_bounds: Optional[list[tuple[float, float]]] = None,
+        search_space_digest: SearchSpaceDigest | None = None,
     ) -> None:
         """Initialize the test problem runner.
 
@@ -94,7 +96,9 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
                 5 will correspond to 0.5 while evaluating the test problem.
                 If modified bounds are not provided, the test problem will be
                 evaluated using the raw parameter values.
+            search_space_digest: Used to extract target fidelity and task.
         """
+        super().__init__(search_space_digest=search_space_digest)
         self._test_problem_class = test_problem_class
         self._test_problem_kwargs = test_problem_kwargs
         self.test_problem = (
@@ -215,6 +219,7 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
             5 will correspond to 0.5 while evaluating the test problem.
             If modified bounds are not provided, the test problem will be
             evaluated using the raw parameter values.
+        search_space_digest: Used to extract target fidelity and task.
     """
 
     def __init__(
@@ -224,12 +229,14 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
         test_problem_kwargs: dict[str, Any],
         outcome_names: list[str],
         modified_bounds: Optional[list[tuple[float, float]]] = None,
+        search_space_digest: SearchSpaceDigest | None = None,
     ) -> None:
         super().__init__(
             test_problem_class=test_problem_class,
             test_problem_kwargs=test_problem_kwargs,
             outcome_names=outcome_names,
             modified_bounds=modified_bounds,
+            search_space_digest=search_space_digest,
         )
         self.test_problem: BaseTestProblem = self.test_problem.to(dtype=torch.double)
         self._is_constrained: bool = isinstance(
@@ -300,6 +307,7 @@ class ParamBasedTestProblemRunner(SyntheticProblemRunner):
         test_problem_kwargs: dict[str, Any],
         outcome_names: list[str],
         modified_bounds: Optional[list[tuple[float, float]]] = None,
+        search_space_digest: SearchSpaceDigest | None = None,
     ) -> None:
         if modified_bounds is not None:
             raise NotImplementedError(
@@ -310,6 +318,7 @@ class ParamBasedTestProblemRunner(SyntheticProblemRunner):
             test_problem_kwargs=test_problem_kwargs,
             outcome_names=outcome_names,
             modified_bounds=modified_bounds,
+            search_space_digest=search_space_digest,
         )
         self.test_problem: ParamBasedTestProblem = self.test_problem
 
