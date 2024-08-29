@@ -8,13 +8,14 @@
 from typing import Any, Callable, Optional
 
 import numpy as np
+import torch
 from ax.core import Arm, GeneratorRun
 from ax.core.experiment import Experiment
-from ax.core.parameter import RangeParameter
 from ax.core.types import TEvaluationOutcome, TParameterization
 from ax.service.utils.instantiation import InstantiationBase
 from ax.utils.common.constants import Keys
-from ax.utils.common.typeutils import checked_cast
+from ax.utils.common.typeutils import checked_cast, not_none
+from botorch.utils.sampling import draw_sobol_samples
 
 # from ExperimentType in ae/lazarus/fb/utils/if/ae.thrift
 PBO_EXPERIMENT_TYPE: str = "PREFERENCE_LEARNING"
@@ -97,14 +98,18 @@ def get_pbo_experiment(
     else:
         assert len(parameter_names) == num_parameters
 
-    sq = {param_name: 0.0 for param_name in parameter_names} if include_sq else None
-
+    param_bounds = [10.0, 30.0] if not unbounded_search_space else [-1e9, 1e9]
+    sq = (
+        {param_name: np.mean(param_bounds) for param_name in parameter_names}
+        if include_sq
+        else None
+    )
     parameters = [
         {
             "name": param_name,
             "type": "range",
             # make the default search space non-unit for better clarity in testing
-            "bounds": [10.0, 30.0] if not unbounded_search_space else [-1e9, 1e9],
+            "bounds": param_bounds,
         }
         for param_name in parameter_names
     ]
@@ -130,17 +135,23 @@ def get_pbo_experiment(
         objectives=objectives,
         tracking_metric_names=tracking_metric_names,
         is_test=True,
-        # pyre-ignore: Incompatible parameter type [6]
         status_quo=sq,
     )
 
     # Adding arms with experimental metrics
-    for _ in range(num_experimental_trials):
+    t_bounds = torch.full(
+        (2, len(parameter_names)), param_bounds[0], dtype=torch.double
+    )
+    t_bounds[1] = param_bounds[1]
+    X = None
+    if num_experimental_trials > 0:
+        X = draw_sobol_samples(
+            bounds=t_bounds, n=num_experimental_trials, q=1, seed=0
+        ).squeeze(1)
+    for t in range(num_experimental_trials):
         arm = {}
-        for param_name, param in experiment.search_space.parameters.items():
-            lb = checked_cast(RangeParameter, param).lower
-            ub = checked_cast(RangeParameter, param).upper
-            arm[param_name] = np.random.uniform(low=lb, high=ub)
+        for i, param_name in enumerate(experiment.search_space.parameters.keys()):
+            arm[param_name] = not_none(X)[t, i].item()
         gr = (
             # pyre-ignore: Incompatible parameter type [6]
             GeneratorRun([Arm(arm), Arm(sq)])
@@ -161,13 +172,15 @@ def get_pbo_experiment(
         trial.mark_completed()
 
     # Adding arms with preferential queries
-    for _ in range(num_preference_trials):
+    if not unbounded_search_space and num_preference_trials > 0:
+        X = draw_sobol_samples(
+            bounds=t_bounds, n=2 * num_preference_trials, q=1, seed=0
+        ).squeeze(1)
+    for t in range(num_preference_trials):
         arms = []
-        for _ in range(2):
+        for j in range(2):
             param_dict = {}
-            for param_name, p in experiment.search_space.parameters.items():
-                lb = checked_cast(RangeParameter, p).lower
-                ub = checked_cast(RangeParameter, p).upper
+            for i, param_name in enumerate(experiment.search_space.parameters.keys()):
                 # if this experiment used as PE experiment
                 if unbounded_search_space:
                     # matching how metrics are generated in experimental_metric_eval
@@ -175,7 +188,7 @@ def get_pbo_experiment(
                         metric_name=param_name, metric_names=parameter_names
                     )
                 else:
-                    param_dict[param_name] = np.random.uniform(low=lb, high=ub)
+                    param_dict[param_name] = not_none(X)[t * 2 + j, i].item()
             arms.append(Arm(parameters=param_dict))
         gr = GeneratorRun(arms)
 
