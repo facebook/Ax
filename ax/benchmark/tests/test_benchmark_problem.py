@@ -5,21 +5,29 @@
 
 # pyre-strict
 
+import math
 from typing import Optional, Union
+
+import torch
 
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 
 from ax.benchmark.benchmark_problem import create_problem_from_botorch
 from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
+from ax.core.arm import Arm
 from ax.core.objective import MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
 from botorch.test_functions.base import ConstrainedBaseTestProblem
+from botorch.test_functions.multi_fidelity import AugmentedBranin
 from botorch.test_functions.multi_objective import BraninCurrin, ConstrainedBraninCurrin
 from botorch.test_functions.synthetic import (
     Ackley,
+    Branin,
     ConstrainedGramacy,
     ConstrainedHartmann,
     Cosine8,
@@ -33,6 +41,62 @@ class TestBenchmarkProblem(TestCase):
         # Print full output, so that any differences in 'repr' output are shown
         self.maxDiff = None
         super().setUp()
+
+    def _test_multi_fidelity_or_multi_task(self, fidelity_or_task: str) -> None:
+        """
+        Args:
+            fidelity_or_task: "fidelity" or "task"
+        """
+        parameters = [
+            RangeParameter(
+                name=f"x{i}",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            for i in range(2)
+        ] + [
+            ChoiceParameter(
+                name="x2",
+                parameter_type=ParameterType.FLOAT,
+                values=[0, 1],
+                is_fidelity=fidelity_or_task == "fidelity",
+                is_task=fidelity_or_task == "task",
+                target_value=1,
+            )
+        ]
+        problem = create_problem_from_botorch(
+            test_problem_class=AugmentedBranin,
+            test_problem_kwargs={},
+            # pyre-fixme: Incompatible parameter type [6]: In call
+            # `SearchSpace.__init__`, for 1st positional argument, expected
+            # `List[Parameter]` but got `List[RangeParameter]`.
+            search_space=SearchSpace(parameters),
+            num_trials=3,
+        )
+        arm = Arm(parameters={"x0": 1.0, "x1": 0.0, "x2": 0.0})
+        at_target = assert_is_instance(
+            Branin()
+            .evaluate_true(torch.tensor([1.0, 0.0], dtype=torch.double).unsqueeze(0))
+            .item(),
+            float,
+        )
+        self.assertAlmostEqual(
+            problem.runner.evaluate_oracle(arm=arm).item(), at_target
+        )
+        # first term: (-(b - 0.1) * (1 - x3)  + c - r)^2
+        # low-fidelity: (-b - 0.1 + c - r)^2
+        # high-fidelity: (-b + c - r)^2
+        t = -5.1 / (4 * math.pi**2) + 5 / math.pi - 6
+        expected_change = (t + 0.1) ** 2 - t**2
+        self.assertAlmostEqual(
+            problem.runner.get_Y_true(arm=arm).item(),
+            at_target + expected_change,
+        )
+
+    def test_multi_fidelity_or_multi_task(self) -> None:
+        self._test_multi_fidelity_or_multi_task(fidelity_or_task="fidelity")
+        self._test_multi_fidelity_or_multi_task(fidelity_or_task="task")
 
     def test_single_objective_from_botorch(self) -> None:
         for botorch_test_problem in [Ackley(), ConstrainedHartmann(dim=6)]:

@@ -13,7 +13,7 @@ from ax.benchmark.runners.base import BenchmarkRunner
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.observation import ObservationFeatures
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.modelbridge.torch import TorchModelBridge
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
@@ -36,6 +36,7 @@ class SurrogateRunner(BenchmarkRunner):
         get_surrogate_and_datasets: Optional[
             Callable[[], tuple[TorchModelBridge, list[SupervisedDataset]]]
         ] = None,
+        search_space_digest: SearchSpaceDigest | None = None,
     ) -> None:
         """Runner for surrogate benchmark problems.
 
@@ -56,6 +57,8 @@ class SurrogateRunner(BenchmarkRunner):
                 datasets, to allow for lazy construction. If
                 `get_surrogate_and_datasets` is not provided, `surrogate` and
                 `datasets` must be provided, and vice versa.
+            search_space_digest: Used to get the target task and fidelity at
+                which the oracle is evaluated.
         """
         if get_surrogate_and_datasets is None and (
             surrogate is None or datasets is None
@@ -64,6 +67,7 @@ class SurrogateRunner(BenchmarkRunner):
                 "If get_surrogate_and_datasets is not provided, surrogate and "
                 "datasets must be provided, and vice versa."
             )
+        super().__init__(search_space_digest=search_space_digest)
         self.get_surrogate_and_datasets = get_surrogate_and_datasets
         self.name = name
         self._surrogate = surrogate

@@ -16,6 +16,7 @@ from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.runner import Runner
+from ax.core.search_space import SearchSpaceDigest
 from ax.core.trial import Trial
 
 from ax.utils.common.typeutils import checked_cast
@@ -43,6 +44,19 @@ class BenchmarkRunner(Runner, ABC):
 
     outcome_names: list[str]
 
+    def __init__(self, search_space_digest: SearchSpaceDigest | None = None) -> None:
+        """
+        Args:
+            search_space_digest: Used to extract target fidelity and task.
+        """
+        if search_space_digest is not None:
+            self.target_fidelity_and_task: dict[str, float | int] = {
+                search_space_digest.feature_names[i]: target
+                for i, target in search_space_digest.target_values.items()
+            }
+        else:
+            self.target_fidelity_and_task = {}
+
     def get_Y_true(self, arm: Arm) -> Tensor:
         """
         Return the ground truth values for a given arm.
@@ -54,18 +68,16 @@ class BenchmarkRunner(Runner, ABC):
     def evaluate_oracle(self, arm: Arm) -> Tensor:
         """
         Evaluate oracle metric values at a parameterization. In the base class,
-        oracle=ground truth.
+        oracle values are underlying noiseless function values evaluated at the
+        target task and fidelity (if applicable).
 
         This method can be customized for more complex setups based on different
-        notions of what the "oracle" value should be. For example, in a
-        multi-task or multi-fidelity problem, it might be appropriate to
-        evaluate at the target task or fidelity. In a simple single-task
-        single-fidelity problem, this could the ground truth if available or the
-        "Y" value if the ground truth is not available. With a
+        notions of what the "oracle" value should be. For example, with a
         preference-learned objective, the values might be true metrics evaluated
         at the true utility function (which would be unobserved in reality).
         """
-        return self.get_Y_true(arm=arm)
+        params = {**arm.parameters, **self.target_fidelity_and_task}
+        return self.get_Y_true(arm=Arm(parameters=params))
 
     @abstractmethod
     def get_noise_stds(self) -> Union[None, float, dict[str, float]]:
