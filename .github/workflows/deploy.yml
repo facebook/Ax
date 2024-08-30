@@ -4,6 +4,8 @@
 name: Deploy
 
 on:
+  # TODO: Temporarily allow running manually while making changes on fork. Disable before merging back into facebook/Ax
+  workflow_dispatch:
   release:
     types: [created]
 
