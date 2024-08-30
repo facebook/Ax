@@ -74,7 +74,8 @@ function Versions(props) {
                 </td>
                 <td>
                   <code>
-                    pip3 install git+ssh://git@github.com/facebook/Ax.git
+                    {/* # TODO: Temporarily changed while making changes on fork. Revert before merging back into facebook/Ax */}
+                    pip3 install git+ssh://git@github.com/CristianLara/Ax.git
                   </code>
                 </td>
                 <td>

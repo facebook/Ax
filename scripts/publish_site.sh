@@ -58,11 +58,13 @@ if [[ $DOCUSAURUS_BOT == true ]]; then
   echo "machine github.com login docusaurus-bot password ${DOCUSAURUS_PUBLISH_TOKEN}" > ~/.netrc
 
   # Clone both main & gh-pages branches
-  git clone https://docusaurus-bot@github.com/facebook/Ax.git Ax-main
-  git clone --branch gh-pages https://docusaurus-bot@github.com/facebook/Ax.git Ax-gh-pages
+  # TODO: Temporarily changed while making changes on fork. Revert before merging back into facebook/Ax
+  git clone https://docusaurus-bot@github.com/CristianLara/Ax.git Ax-main
+  git clone --branch gh-pages https://docusaurus-bot@github.com/CristianLara/Ax.git Ax-gh-pages
 else
-  git clone https://github.com/facebook/Ax.git Ax-main
-  git clone --branch gh-pages https://github.com/facebook/Ax.git Ax-gh-pages
+# TODO: Temporarily changed while making changes on fork. Revert before merging back into facebook/Ax
+  git clone https://github.com/CristianLara/Ax.git Ax-main
+  git clone --branch gh-pages https://github.com/CristianLara/Ax.git Ax-gh-pages
 fi
 
 # A few notes about the script below:
@@ -143,7 +145,8 @@ if [[ $VERSION == false ]]; then
   git init -b main
   git add --all
   git commit -m 'Update latest version of site'
-  git push --force https://github.com/facebook/Ax.git main:gh-pages
+  # TODO: Temporarily changed while making changes on fork. Revert before merging back into facebook/Ax
+  git push --force https://github.com/CristianLara/Ax.git main:gh-pages
 
 else
   echo "-----------------------------------------"
@@ -220,7 +223,8 @@ else
   git init -b main
   git add --all
   git commit -m "Publish version ${VERSION} of site"
-  git push --force https://github.com/facebook/Ax.git main:gh-pages
+  # TODO: Temporarily changed while making changes on fork. Revert before merging back into facebook/Ax
+  git push --force https://github.com/CristianLara/Ax.git main:gh-pages
 
 fi
 
