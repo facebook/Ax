@@ -38,6 +38,9 @@ class PairwiseModelBridgeTest(TestCase):
         self.experiment = experiment
         self.data = experiment.lookup_data()
 
+    @TestCase.ax_long_test(
+        reason="TODO[T199510629] Fix: break up test into one test per case"
+    )
     def test_PairwiseModelBridge(self) -> None:
         surrogate = Surrogate(
             botorch_model_class=PairwiseGP,
