@@ -61,36 +61,37 @@ jobs:
       run: |
         bash scripts/publish_site.sh -d
 
-  deploy-test-pypi:
+  # TODO: Temporarily disabled while making changes on fork. Re-enable before merging back into facebook/Ax
+  # deploy-test-pypi:
 
-    runs-on: ubuntu-latest
+  #   runs-on: ubuntu-latest
 
-    steps:
-    - uses: actions/checkout@v4
-    - name: Fetch all history for all tags and branches
-      run: git fetch --prune --unshallow
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.10"
-    - name: Install dependencies
-      env:
-        ALLOW_BOTORCH_LATEST: true
-        ALLOW_LATEST_GPYTORCH_LINOP: true
-      run: |
-        # use latest BoTorch
-        pip install git+https://github.com/cornellius-gp/gpytorch.git
-        pip install git+https://github.com/pytorch/botorch.git
-        pip install -e ".[dev,mysql,notebook]"
-        pip install wheel
-    - name: Build wheel
-      run: |
-        python setup.py sdist bdist_wheel
-    - name: Deploy to Test PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        user: __token__
-        password: ${{ secrets.TEST_PYPI_TOKEN }}
-        repository_url: https://test.pypi.org/legacy/
-        skip_existing: true
-        verbose: true
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #   - name: Fetch all history for all tags and branches
+  #     run: git fetch --prune --unshallow
+  #   - name: Set up Python
+  #     uses: actions/setup-python@v5
+  #     with:
+  #       python-version: "3.10"
+  #   - name: Install dependencies
+  #     env:
+  #       ALLOW_BOTORCH_LATEST: true
+  #       ALLOW_LATEST_GPYTORCH_LINOP: true
+  #     run: |
+  #       # use latest BoTorch
+  #       pip install git+https://github.com/cornellius-gp/gpytorch.git
+  #       pip install git+https://github.com/pytorch/botorch.git
+  #       pip install -e ".[dev,mysql,notebook]"
+  #       pip install wheel
+  #   - name: Build wheel
+  #     run: |
+  #       python setup.py sdist bdist_wheel
+  #   - name: Deploy to Test PyPI
+  #     uses: pypa/gh-action-pypi-publish@release/v1
+  #     with:
+  #       user: __token__
+  #       password: ${{ secrets.TEST_PYPI_TOKEN }}
+  #       repository_url: https://test.pypi.org/legacy/
+  #       skip_existing: true
+  #       verbose: true
