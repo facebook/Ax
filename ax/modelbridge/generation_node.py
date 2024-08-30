@@ -666,6 +666,8 @@ class GenerationStep(GenerationNode, SortableBase):
                 )
             model_spec = FactoryFunctionModelSpec(
                 factory_function=self.model,
+                # Only pass down the model name if it is not empty.
+                model_key_override=self.model_name if self.model_name else None,
                 model_kwargs=self.model_kwargs,
                 model_gen_kwargs=self.model_gen_kwargs,
             )

@@ -252,6 +252,17 @@ class TestGenerationStep(TestCase):
             generation_step.model_specs,
             [FactoryFunctionModelSpec(factory_function=get_sobol)],
         )
+        generation_step = GenerationStep(
+            model=get_sobol, num_trials=-1, model_name="test"
+        )
+        self.assertEqual(
+            generation_step.model_specs,
+            [
+                FactoryFunctionModelSpec(
+                    factory_function=get_sobol, model_key_override="test"
+                )
+            ],
+        )
 
     def test_properties(self) -> None:
         self.assertEqual(self.sobol_generation_step.model_spec, self.model_spec)
