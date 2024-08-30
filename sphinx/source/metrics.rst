@@ -8,14 +8,6 @@ ax.metrics
 .. currentmodule:: ax.metrics
 
 
-BoTorch Test Problem
-~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.metrics.botorch_test_problem
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Branin
 ~~~~~~
 
@@ -48,14 +40,6 @@ Curve
     :undoc-members:
     :show-inheritance:
 
-Dictionary Lookup
-~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.metrics.dict_lookup
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Factorial
 ~~~~~~~~~
 
@@ -71,15 +55,6 @@ Hartmann6
     :members:
     :undoc-members:
     :show-inheritance:
-
-Jenatton
-~~~~~~~~
-
-.. automodule:: ax.metrics.jenatton
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 
 L2 Norm
 ~~~~~~~
