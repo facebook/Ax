@@ -80,10 +80,10 @@ from ax.early_stopping.strategies.logical import (
 from ax.exceptions.core import UserInputError
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
-from ax.metrics.branin import AugmentedBraninMetric, BraninMetric
+from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.factorial import FactorialMetric
-from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
+from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol, Models
 from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
@@ -1494,22 +1494,9 @@ def get_branin_metric(
     )
 
 
-def get_augmented_branin_metric(name: str = "aug_branin") -> AugmentedBraninMetric:
-    param_names = ["x1", "x2", "fidelity"]
-    return AugmentedBraninMetric(name=name, param_names=param_names, noise_sd=0.01)
-
-
 def get_hartmann_metric(name: str = "hartmann") -> Hartmann6Metric:
     param_names = [f"x{idx + 1}" for idx in range(6)]
     return Hartmann6Metric(name=name, param_names=param_names, noise_sd=0.01)
-
-
-def get_augmented_hartmann_metric(
-    name: str = "aug_hartmann",
-) -> AugmentedHartmann6Metric:
-    param_names = [f"x{idx + 1}" for idx in range(6)]
-    param_names.append("fidelity")
-    return AugmentedHartmann6Metric(name=name, param_names=param_names, noise_sd=0.01)
 
 
 def get_factorial_metric(name: str = "success_metric") -> FactorialMetric:
@@ -1635,18 +1622,6 @@ def get_branin_multi_objective(num_objectives: int = 2) -> MultiObjective:
     return MultiObjective(objectives=objectives)
 
 
-def get_augmented_branin_objective() -> Objective:
-    return Objective(metric=get_augmented_branin_metric(), minimize=False)
-
-
-def get_hartmann_objective() -> Objective:
-    return Objective(metric=get_hartmann_metric(), minimize=False)
-
-
-def get_augmented_hartmann_objective() -> Objective:
-    return Objective(metric=get_augmented_hartmann_metric(), minimize=False)
-
-
 ##############################
 # Optimization Configs
 ##############################
@@ -1743,18 +1718,6 @@ def get_branin_multi_objective_optimization_config(
         objective=get_branin_multi_objective(num_objectives=num_objectives),
         objective_thresholds=objective_thresholds,
     )
-
-
-def get_augmented_branin_optimization_config() -> OptimizationConfig:
-    return OptimizationConfig(objective=get_augmented_branin_objective())
-
-
-def get_hartmann_optimization_config() -> OptimizationConfig:
-    return OptimizationConfig(objective=get_hartmann_objective())
-
-
-def get_augmented_hartmann_optimization_config() -> OptimizationConfig:
-    return OptimizationConfig(objective=get_augmented_hartmann_objective())
 
 
 ##############################

@@ -68,11 +68,11 @@ from ax.early_stopping.strategies.logical import (
     OrEarlyStoppingStrategy,
 )
 from ax.global_stopping.strategies.improvement import ImprovementGlobalStoppingStrategy
-from ax.metrics.branin import AugmentedBraninMetric, BraninMetric, NegativeBraninMetric
+from ax.metrics.branin import BraninMetric, NegativeBraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.chemistry import ChemistryMetric, ChemistryProblemType
 from ax.metrics.factorial import FactorialMetric
-from ax.metrics.hartmann6 import AugmentedHartmann6Metric, Hartmann6Metric
+from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.metrics.l2norm import L2NormMetric
 from ax.metrics.noisy_function import NoisyFunctionMetric
 from ax.metrics.sklearn import SklearnDataset, SklearnMetric, SklearnModelType
@@ -178,8 +178,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     Arm: arm_to_dict,
     AuxiliaryExperiment: auxiliary_experiment_to_dict,
     AndEarlyStoppingStrategy: logical_early_stopping_strategy_to_dict,
-    AugmentedBraninMetric: metric_to_dict,
-    AugmentedHartmann6Metric: metric_to_dict,
     AutoTransitionAfterGen: transition_criterion_to_dict,
     BatchTrial: batch_to_dict,
     BenchmarkMetric: metric_to_dict,
@@ -281,8 +279,6 @@ CORE_CLASS_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
 CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "AbandonedArm": AbandonedArm,
     "AndEarlyStoppingStrategy": AndEarlyStoppingStrategy,
-    "AugmentedBraninMetric": AugmentedBraninMetric,
-    "AugmentedHartmann6Metric": AugmentedHartmann6Metric,
     "AutoTransitionAfterGen": AutoTransitionAfterGen,
     "AuxiliaryExperiment": AuxiliaryExperiment,
     "Arm": Arm,
@@ -293,7 +289,6 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "BenchmarkProblem": BenchmarkProblem,
     "BenchmarkResult": BenchmarkResult,
     "BoTorchModel": BoTorchModel,
-    "BotorchTestProblemMetric": BenchmarkMetric,  # backward-compatibility
     "BotorchTestProblemRunner": BotorchTestProblemRunner,
     "BraninMetric": BraninMetric,
     "BraninTimestampMapMetric": BraninTimestampMapMetric,
