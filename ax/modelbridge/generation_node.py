@@ -47,12 +47,12 @@ from ax.utils.common.typeutils import not_none
 logger: Logger = get_logger(__name__)
 
 TModelFactory = Callable[..., ModelBridge]
-CANNOT_SELECT_ONE_MODEL_MSG = """\
-Base `GenerationNode` does not implement selection among fitted \
-models, so exactly one `ModelSpec` must be specified when using \
-`GenerationNode._pick_fitted_model_to_gen_from` (usually called \
-by `GenerationNode.gen`.
-"""
+MISSING_MODEL_SELECTOR_MESSAGE = (
+    "A `BestModelSelector` must be provided when using multiple "
+    "`ModelSpec`s in a `GenerationNode`. After fitting all `ModelSpec`s, "
+    "the `BestModelSelector` will be used to select the `ModelSpec` to "
+    "use for candidate generation."
+)
 MAX_GEN_DRAWS = 5
 MAX_GEN_DRAWS_EXCEEDED_MESSAGE = (
     f"GenerationStrategy exceeded `MAX_GEN_DRAWS` of {MAX_GEN_DRAWS} while trying to "
@@ -116,11 +116,14 @@ class GenerationNode(SerializationMixin, SortableBase):
         transition_criteria: Optional[Sequence[TransitionCriterion]] = None,
     ) -> None:
         self._node_name = node_name
-        # While `GenerationNode` only handles a single `ModelSpec` in the `gen`
-        # and `_pick_fitted_model_to_gen_from` methods, we validate the
-        # length of `model_specs` in `_pick_fitted_model_to_gen_from` in order
-        # to not require all `GenerationNode` subclasses to override an `__init__`
-        # method to bypass that validation.
+        # Check that the model specs have unique model keys.
+        model_keys = {model_spec.model_key for model_spec in model_specs}
+        if len(model_keys) != len(model_specs):
+            raise UserInputError(
+                "Model keys must be unique across all model specs in a GenerationNode."
+            )
+        if len(model_specs) > 1 and best_model_selector is None:
+            raise UserInputError(MISSING_MODEL_SELECTOR_MESSAGE)
         self.model_specs = model_specs
         self.best_model_selector = best_model_selector
         self.should_deduplicate = should_deduplicate
@@ -358,8 +361,8 @@ class GenerationNode(SerializationMixin, SortableBase):
              `ModelSpec` and select it.
         """
         if self.best_model_selector is None:
-            if len(self.model_specs) != 1:
-                raise NotImplementedError(CANNOT_SELECT_ONE_MODEL_MSG)
+            if len(self.model_specs) != 1:  # pragma: no cover -- raised in __init__.
+                raise UserInputError(MISSING_MODEL_SELECTOR_MESSAGE)
             return self.model_specs[0]
 
         best_model = not_none(self.best_model_selector).best_model(
@@ -678,11 +681,7 @@ class GenerationStep(GenerationNode, SortableBase):
                 model_gen_kwargs=self.model_gen_kwargs,
             )
         if self.model_name == "":
-            try:
-                self.model_name = model_spec.model_key
-            except TypeError:
-                # Factory functions may not always have a model key defined.
-                self.model_name = f"Unknown {model_spec.__class__.__name__}"
+            self.model_name = model_spec.model_key
 
         # Create transition criteria for this step. MaximumTrialsInStatus can be used
         # to ensure that requirements related to num_trials and unlimited trials
