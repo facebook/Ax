@@ -67,8 +67,12 @@ class ModelSpecTest(BaseModelSpecTest):
         wrapped_extract_ssd.assert_called_once()
 
     def test_model_key(self) -> None:
-        ms = ModelSpec(model_enum=Models.GPEI)
-        self.assertEqual(ms.model_key, "GPEI")
+        ms = ModelSpec(model_enum=Models.BOTORCH_MODULAR)
+        self.assertEqual(ms.model_key, "BoTorch")
+        ms = ModelSpec(
+            model_enum=Models.BOTORCH_MODULAR, model_key_override="MBM with defaults"
+        )
+        self.assertEqual(ms.model_key, "MBM with defaults")
 
     @patch(f"{ModelSpec.__module__}.compute_diagnostics")
     @patch(f"{ModelSpec.__module__}.cross_validate", return_value=["fake-cv-result"])
@@ -194,3 +198,10 @@ class FactoryFunctionModelSpecTest(BaseModelSpecTest):
     def test_model_key(self) -> None:
         ms = FactoryFunctionModelSpec(factory_function=get_sobol)
         self.assertEqual(ms.model_key, "get_sobol")
+        with self.assertRaisesRegex(TypeError, "cannot extract name"):
+            # pyre-ignore[6] - Invalid factory function for testing.
+            FactoryFunctionModelSpec(factory_function="test")
+        ms = FactoryFunctionModelSpec(
+            factory_function=get_sobol, model_key_override="fancy sobol"
+        )
+        self.assertEqual(ms.model_key, "fancy sobol")

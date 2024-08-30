@@ -20,7 +20,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import AxWarning, UserInputError
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.cross_validation import (
     compute_diagnostics,
@@ -61,6 +61,9 @@ class ModelSpec(SortableBase, SerializationMixin):
     model_gen_kwargs: dict[str, Any] = field(default_factory=dict)
     # Kwargs to pass to `cross_validate`.
     model_cv_kwargs: dict[str, Any] = field(default_factory=dict)
+    # An optional override for the model key. Each `ModelSpec` in a
+    # `GenerationNode` must have a unique key to ensure identifiability.
+    model_key_override: Optional[str] = None
 
     # Fitted model, constructed using specified `model_kwargs` and `Data`
     # on `ModelSpec.fit`
@@ -106,12 +109,10 @@ class ModelSpec(SortableBase, SerializationMixin):
     @property
     def model_key(self) -> str:
         """Key string to identify the model used by this ``ModelSpec``."""
-        # NOTE: In the future, might need to add more to model key to make
-        # model specs with the same model (but different kwargs) easier to
-        # distinguish from their key. Could also add separate property, just
-        # `key` (for `ModelSpec.key`, which will be unique even between model
-        # specs with same model type).
-        return self.model_enum.value
+        if self.model_key_override is not None:
+            return self.model_key_override
+        else:
+            return self.model_enum.value
 
     def fit(
         self,
@@ -342,22 +343,23 @@ class FactoryFunctionModelSpec(ModelSpec):
                 "as the required `factory_function` argument to "
                 "`FactoryFunctionModelSpec`."
             )
+        if self.model_key_override is None:
+            try:
+                # `model` is defined via a factory function.
+                # pyre-ignore[16]: Anonymous callable has no attribute `__name__`.
+                self.model_key_override = not_none(self.factory_function).__name__
+            except Exception:
+                raise TypeError(
+                    f"{self.factory_function} is not a valid function, cannot extract "
+                    "name. Please provide the model name using `model_key_override`."
+                )
+
         warnings.warn(
             "Using a factory function to describe the model, so optimization state "
             "cannot be stored and optimization is not resumable if interrupted.",
+            AxWarning,
             stacklevel=3,
         )
-
-    @property
-    def model_key(self) -> str:
-        """Key string to identify the model used by this ``ModelSpec``."""
-        try:
-            # `model` is defined via a factory function.
-            return not_none(self.factory_function).__name__  # pyre-ignore[16]
-        except Exception:
-            raise TypeError(
-                f"{self.factory_function} is not a valid function, cannot extract name."
-            )
 
     def fit(
         self,
