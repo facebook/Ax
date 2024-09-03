@@ -522,7 +522,7 @@ class ReportUtilsTest(TestCase):
         sobol = Models.SOBOL(search_space=exp.search_space)
         for _ in range(1):
             exp.new_trial(sobol.gen(1)).run()
-        model = Models.GPEI(
+        model = Models.BOTORCH_MODULAR(
             experiment=exp,
             data=exp.fetch_data(),
         )
@@ -1206,7 +1206,7 @@ class ReportUtilsTest(TestCase):
                 experiment=experiment,
                 arms_df=arms_df,
                 baseline_arm_name=wrong_baseline_name,
-            ),
+            )
 
         # status quo baseline arm
         experiment_with_status_quo = copy.deepcopy(experiment)
@@ -1272,7 +1272,9 @@ class ReportUtilsTest(TestCase):
                     min_trials_observed=3,
                     max_parallelism=3,
                 ),
-                GenerationStep(model=Models.GPEI, num_trials=-1, max_parallelism=3),
+                GenerationStep(
+                    model=Models.BOTORCH_MODULAR, num_trials=-1, max_parallelism=3
+                ),
             ]
         )
         gs.experiment = exp
