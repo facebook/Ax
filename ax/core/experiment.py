@@ -37,7 +37,7 @@ from ax.core.runner import Runner
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TParameterization
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import AxError, UnsupportedError, UserInputError
 from ax.utils.common.base import Base
 from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
 from ax.utils.common.docutils import copy_doc
@@ -1350,7 +1350,9 @@ class Experiment(Base):
 
         return copied_trials
 
-    def _name_and_store_arm_if_not_exists(self, arm: Arm, proposed_name: str) -> None:
+    def _name_and_store_arm_if_not_exists(
+        self, arm: Arm, proposed_name: str, replace: bool = False
+    ) -> None:
         """Tries to lookup arm with same signature, otherwise names and stores it.
 
         - Looks up if arm already exists on experiment
@@ -1360,6 +1362,8 @@ class Experiment(Base):
         Args:
             arm: The arm object to name.
             proposed_name: The name to assign if it doesn't have one already.
+            replace: If true, override arm w/ same name and different signature.
+                If false, raise an error if this conflict occurs.
         """
 
         # If arm is identical to an existing arm, return that
@@ -1377,6 +1381,22 @@ class Experiment(Base):
         else:
             if not arm.has_name:
                 arm.name = proposed_name
+
+            # Check for signature conflict by arm name/proposed name
+            if (
+                arm.name in self.arms_by_name
+                and arm.signature != self.arms_by_name[arm.name].signature
+            ):
+                error_msg = (
+                    f"Arm with name {arm.name} already exists on experiment "
+                    + "with different signature."
+                )
+                if replace:
+                    logger.warning(f"{error_msg} Replacing the existing arm. ")
+                else:
+                    raise AxError(error_msg)
+
+            # Add the new arm
             self._register_arm(arm)
 
     def _register_arm(self, arm: Arm) -> None:
