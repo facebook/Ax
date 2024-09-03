@@ -77,7 +77,7 @@ class TracesTest(TestCase):
         for _ in range(2):
             t = exp.new_trial(sobol.gen(1)).run()
             t.mark_completed()
-        model = Models.GPEI(
+        model = Models.BOTORCH_MODULAR(
             experiment=exp,
             data=exp.fetch_data(),
         )

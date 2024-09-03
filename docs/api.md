@@ -155,7 +155,7 @@ for i in range(5):
 
 best_arm = None
 for i in range(15):
-    gpei = Models.GPEI(experiment=exp, data=exp.fetch_data())
+    gpei = Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data())
     generator_run = gpei.gen(1)
     best_arm, _ = generator_run.best_arm_predictions
     trial = exp.new_trial(generator_run=generator_run)

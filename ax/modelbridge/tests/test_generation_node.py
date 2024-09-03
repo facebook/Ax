@@ -116,7 +116,7 @@ class TestGenerationNode(TestCase):
             node_name="test",
             model_specs=[
                 ModelSpec(
-                    model_enum=Models.GPEI,
+                    model_enum=Models.BOTORCH_MODULAR,
                     model_kwargs={},
                     model_gen_kwargs={
                         "n": 1,
@@ -140,7 +140,7 @@ class TestGenerationNode(TestCase):
         self.assertEqual(
             node.model_spec_to_gen_from.model_kwargs, node.model_specs[0].model_kwargs
         )
-        self.assertEqual(node.model_to_gen_from_name, "GPEI")
+        self.assertEqual(node.model_to_gen_from_name, "BoTorch")
         self.assertEqual(
             node.model_spec_to_gen_from.model_gen_kwargs,
             node.model_specs[0].model_gen_kwargs,
@@ -167,7 +167,7 @@ class TestGenerationNode(TestCase):
             node_name="test",
             model_specs=[
                 ModelSpec(
-                    model_enum=Models.GPEI,
+                    model_enum=Models.BOTORCH_MODULAR,
                     model_kwargs={},
                     model_gen_kwargs={},
                 ),
@@ -180,7 +180,7 @@ class TestGenerationNode(TestCase):
         self.assertEqual(
             string_rep,
             (
-                "GenerationNode(model_specs=[ModelSpec(model_enum=GPEI,"
+                "GenerationNode(model_specs=[ModelSpec(model_enum=BoTorch,"
                 " model_kwargs={}, model_gen_kwargs={}, model_cv_kwargs={},"
                 " )], node_name=test, "
                 "transition_criteria=[MaxTrials({'threshold': 5, "
@@ -197,7 +197,7 @@ class TestGenerationNode(TestCase):
             node_name="test",
             model_specs=[
                 ModelSpec(
-                    model_enum=Models.GPEI,
+                    model_enum=Models.BOTORCH_MODULAR,
                     model_kwargs={},
                     model_gen_kwargs={
                         "n": 2,
