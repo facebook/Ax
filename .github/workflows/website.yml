@@ -26,5 +26,7 @@ jobs:
         pip install git+https://github.com/pytorch/botorch.git
         pip install -e ".[tutorial]"
     - name: Publish latest website
+      env:
+        GH_TOKEN: ${{ github.token }}
       run: |
         bash scripts/publish_site.sh
