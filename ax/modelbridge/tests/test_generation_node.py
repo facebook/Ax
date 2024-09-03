@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 from ax.core.base_trial import TrialStatus
 from ax.core.observation import ObservationFeatures
@@ -17,7 +17,11 @@ from ax.modelbridge.best_model_selector import (
     SingleDiagnosticBestModelSelector,
 )
 from ax.modelbridge.factory import get_sobol
-from ax.modelbridge.generation_node import GenerationNode, GenerationStep
+from ax.modelbridge.generation_node import (
+    GenerationNode,
+    GenerationStep,
+    MISSING_MODEL_SELECTOR_MESSAGE,
+)
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import Models
 from ax.modelbridge.transition_criterion import MaxTrials
@@ -46,6 +50,32 @@ class TestGenerationNode(TestCase):
         self.assertEqual(
             self.sobol_generation_node.model_specs, [self.sobol_model_spec]
         )
+        with self.assertRaisesRegex(UserInputError, "Model keys must be unique"):
+            GenerationNode(
+                node_name="test",
+                model_specs=[self.sobol_model_spec, self.sobol_model_spec],
+            )
+        mbm_specs = [
+            ModelSpec(model_enum=Models.BOTORCH_MODULAR),
+            ModelSpec(model_enum=Models.BOTORCH_MODULAR, model_key_override="MBM v2"),
+        ]
+        with self.assertRaisesRegex(UserInputError, MISSING_MODEL_SELECTOR_MESSAGE):
+            GenerationNode(
+                node_name="test",
+                model_specs=mbm_specs,
+            )
+        model_selector = SingleDiagnosticBestModelSelector(
+            diagnostic="Fisher exact test p",
+            metric_aggregation=ReductionCriterion.MEAN,
+            criterion=ReductionCriterion.MIN,
+        )
+        node = GenerationNode(
+            node_name="test",
+            model_specs=mbm_specs,
+            best_model_selector=model_selector,
+        )
+        self.assertEqual(node.model_specs, mbm_specs)
+        self.assertIs(node.best_model_selector, model_selector)
 
     def test_fit(self) -> None:
         dat = self.branin_experiment.lookup_data()
@@ -79,20 +109,6 @@ class TestGenerationNode(TestCase):
         self.assertEqual(gr._model_key, self.sobol_model_spec.model_key)
         # pyre-fixme[16]: Optional type has no attribute `get`.
         self.assertEqual(gr._model_kwargs.get("init_position"), 3)
-
-    def test_gen_validates_one_model_spec(self) -> None:
-        generation_node = GenerationNode(
-            node_name="test",
-            model_specs=[self.sobol_model_spec, self.sobol_model_spec],
-        )
-        # Base generation node can only handle one model spec at the moment
-        # (this might change in the future), so it should raise a `NotImplemented
-        # Error` if we attempt to generate from a generation node that has
-        # more than one model spec. Note that the check is done in `gen` and
-        # not in the constructor to make `GenerationNode` mode convenient to
-        # subclass.
-        with self.assertRaises(NotImplementedError):
-            generation_node.gen()
 
     @fast_botorch_optimize
     def test_properties(self) -> None:
@@ -226,16 +242,6 @@ class TestGenerationStep(TestCase):
             model_name="Custom Sobol",
         )
         self.assertEqual(named_generation_step.model_name, "Custom Sobol")
-
-        with patch.object(
-            ModelSpec, "model_key", new=PropertyMock(side_effect=TypeError)
-        ):
-            unknown_generation_step = GenerationStep(
-                model=Models.SOBOL,
-                num_trials=5,
-                model_kwargs=self.model_kwargs,
-            )
-        self.assertEqual(unknown_generation_step.model_name, "Unknown ModelSpec")
 
     def test_min_trials_observed(self) -> None:
         with self.assertRaisesRegex(UserInputError, "min_trials_observed > num_trials"):
