@@ -18,7 +18,9 @@ jobs:
         python-version: "3.10"
     - name: Install dependencies
       run: |
-        # use stable Botorch
+        # use latest BoTorch
+        pip install git+https://github.com/cornellius-gp/gpytorch.git
+        pip install git+https://github.com/pytorch/botorch.git
         pip install -e ".[tutorial]"
     - name: Publish latest website
       run: |
