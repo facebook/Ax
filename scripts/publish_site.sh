@@ -63,8 +63,8 @@ if [[ $DOCUSAURUS_BOT == true ]]; then
   git clone --branch gh-pages https://docusaurus-bot@github.com/CristianLara/Ax.git Ax-gh-pages
 else
 # TODO: Temporarily changed while making changes on fork. Revert before merging back into facebook/Ax
-  git config --global user.name "Cristian Lara"
-  git config --global user.email "cristianlara@meta.com"
+  git config --global user.name "github-actions"
+  git config --global user.email "github-actions@github.com"
   git clone https://github.com/CristianLara/Ax.git Ax-main
   git clone --branch gh-pages https://github.com/CristianLara/Ax.git Ax-gh-pages
 fi
