@@ -1,0 +1,25 @@
+name: Publish Website
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+
+jobs:
+
+  publish-stable-website:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+    - name: Install dependencies
+      run: |
+        # use stable Botorch
+        pip install -e ".[tutorial]"
+    - name: Publish latest website
+      run: |
+        bash scripts/publish_site.sh
