@@ -69,7 +69,7 @@ class TestGenerationStrategy(TestCase):
         super().setUp()
         self.gr = GeneratorRun(arms=[Arm(parameters={"x1": 1, "x2": 2})])
 
-        # Mock out slow GPEI.
+        # Mock out slow model fitting.
         self.torch_model_bridge_patcher = patch(
             f"{TorchModelBridge.__module__}.TorchModelBridge", spec=True
         )
@@ -85,7 +85,7 @@ class TestGenerationStrategy(TestCase):
         self.mock_discrete_model_bridge = self.discrete_model_bridge_patcher.start()
         self.mock_discrete_model_bridge.return_value.gen.return_value = self.gr
 
-        # Mock in `Models` registry
+        # Mock in `Models` registry.
         self.registry_setup_dict_patcher = patch.dict(
             f"{Models.__module__}.MODEL_KEY_TO_MODEL_SETUP",
             {
@@ -95,7 +95,7 @@ class TestGenerationStrategy(TestCase):
                 "Thompson": MODEL_KEY_TO_MODEL_SETUP["Thompson"]._replace(
                     bridge_class=self.mock_discrete_model_bridge
                 ),
-                "GPEI": MODEL_KEY_TO_MODEL_SETUP["GPEI"]._replace(
+                "BoTorch": MODEL_KEY_TO_MODEL_SETUP["BoTorch"]._replace(
                     bridge_class=self.mock_torch_model_bridge
                 ),
             },
@@ -109,19 +109,6 @@ class TestGenerationStrategy(TestCase):
         # versions kwarg validation on mocks does not really work.
         self.step_model_kwargs = {"silently_filter_kwargs": True}
         self.hss_experiment = get_hierarchical_search_space_experiment()
-        self.sobol_GPEI_GS = GenerationStrategy(
-            name="Sobol+GPEI",
-            steps=[
-                GenerationStep(
-                    model=Models.SOBOL,
-                    num_trials=5,
-                    model_kwargs=self.step_model_kwargs,
-                ),
-                GenerationStep(
-                    model=Models.GPEI, num_trials=2, model_kwargs=self.step_model_kwargs
-                ),
-            ],
-        )
         self.sobol_GS = GenerationStrategy(
             steps=[
                 GenerationStep(
@@ -131,31 +118,24 @@ class TestGenerationStrategy(TestCase):
                 )
             ]
         )
-
-        self.basic_sobol_gpei_gs = GenerationStrategy(
-            name="Sobol+GPEI",
-            steps=[
-                GenerationStep(model=Models.SOBOL, num_trials=5),
-                GenerationStep(model=Models.GPEI, num_trials=-1),
-            ],
-        )
+        self.sobol_MBM_step_GS = self._get_sobol_mbm_step_gs()
 
         # Set up the node-based generation strategy for testing.
         self.sobol_criterion = [
             MaxTrials(
                 threshold=5,
-                transition_to="GPEI_node",
+                transition_to="MBM_node",
                 block_gen_if_met=True,
                 only_in_statuses=None,
                 not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
             )
         ]
-        self.gpei_criterion = [
+        self.mbm_criterion = [
             MaxTrials(
                 threshold=2,
                 # this self-pointing isn't representative of real-world, but is
                 # useful for testing attributes likes repr etc
-                transition_to="GPEI_node",
+                transition_to="MBM_node",
                 block_gen_if_met=True,
                 only_in_statuses=None,
                 not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
@@ -164,7 +144,7 @@ class TestGenerationStrategy(TestCase):
         self.single_running_trial_criterion = [
             MaxTrials(
                 threshold=1,
-                transition_to="gpei",
+                transition_to="mbm",
                 block_transition_if_unmet=True,
                 only_in_statuses=[TrialStatus.RUNNING],
             )
@@ -174,8 +154,8 @@ class TestGenerationStrategy(TestCase):
             model_kwargs=self.step_model_kwargs,
             model_gen_kwargs={},
         )
-        self.gpei_model_spec = ModelSpec(
-            model_enum=Models.GPEI,
+        self.mbm_model_spec = ModelSpec(
+            model_enum=Models.BOTORCH_MODULAR,
             model_kwargs=self.step_model_kwargs,
             model_gen_kwargs={},
         )
@@ -184,30 +164,30 @@ class TestGenerationStrategy(TestCase):
             transition_criteria=self.sobol_criterion,
             model_specs=[self.sobol_model_spec],
         )
-        self.gpei_node = GenerationNode(
-            node_name="GPEI_node",
-            transition_criteria=self.gpei_criterion,
-            model_specs=[self.gpei_model_spec],
+        self.mbm_node = GenerationNode(
+            node_name="MBM_node",
+            transition_criteria=self.mbm_criterion,
+            model_specs=[self.mbm_model_spec],
         )
-        self.sobol_GPEI_GS_nodes = GenerationStrategy(
-            name="Sobol+GPEI_Nodes",
-            nodes=[self.sobol_node, self.gpei_node],
+        self.sobol_MBM_GS_nodes = GenerationStrategy(
+            name="Sobol+MBM_Nodes",
+            nodes=[self.sobol_node, self.mbm_node],
         )
-        self.gpei_to_sobol2_max = MaxTrials(
+        self.mbm_to_sobol2_max = MaxTrials(
             threshold=1,
             transition_to="sobol_2",
             block_transition_if_unmet=True,
             only_in_statuses=[TrialStatus.RUNNING],
             use_all_trials_in_exp=True,
         )
-        self.gpei_to_sobol2_min = MinTrials(
+        self.mbm_to_sobol2_min = MinTrials(
             threshold=1,
             transition_to="sobol_2",
             block_transition_if_unmet=True,
             only_in_statuses=[TrialStatus.COMPLETED],
             use_all_trials_in_exp=True,
         )
-        self.gpei_to_sobol_auto = AutoTransitionAfterGen(transition_to="sobol_3")
+        self.mbm_to_sobol_auto = AutoTransitionAfterGen(transition_to="sobol_3")
         self.competing_tc_gs = GenerationStrategy(
             nodes=[
                 GenerationNode(
@@ -216,12 +196,12 @@ class TestGenerationStrategy(TestCase):
                     transition_criteria=self.single_running_trial_criterion,
                 ),
                 GenerationNode(
-                    node_name="gpei",
-                    model_specs=[self.gpei_model_spec],
+                    node_name="mbm",
+                    model_specs=[self.mbm_model_spec],
                     transition_criteria=[
-                        self.gpei_to_sobol2_max,
-                        self.gpei_to_sobol2_min,
-                        self.gpei_to_sobol_auto,
+                        self.mbm_to_sobol2_max,
+                        self.mbm_to_sobol2_min,
+                        self.mbm_to_sobol_auto,
                     ],
                 ),
                 GenerationNode(
@@ -242,8 +222,8 @@ class TestGenerationStrategy(TestCase):
                     transition_criteria=self.single_running_trial_criterion,
                 ),
                 GenerationNode(
-                    node_name="gpei",
-                    model_specs=[self.gpei_model_spec],
+                    node_name="mbm",
+                    model_specs=[self.mbm_model_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(
                             transition_to="sobol_2",
@@ -269,7 +249,7 @@ class TestGenerationStrategy(TestCase):
                             use_all_trials_in_exp=True,
                         ),
                         AutoTransitionAfterGen(
-                            transition_to="gpei",
+                            transition_to="mbm",
                             block_transition_if_unmet=True,
                             continue_trial_generation=False,
                         ),
@@ -287,20 +267,39 @@ class TestGenerationStrategy(TestCase):
         self.discrete_model_bridge_patcher.stop()
         self.registry_setup_dict_patcher.stop()
 
+    def _get_sobol_mbm_step_gs(
+        self, num_sobol_trials: int = 5, num_mbm_trials: int = -1
+    ) -> GenerationStrategy:
+        return GenerationStrategy(
+            name="Sobol+MBM",
+            steps=[
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=num_sobol_trials,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+                GenerationStep(
+                    model=Models.BOTORCH_MODULAR,
+                    num_trials=num_mbm_trials,
+                    model_kwargs=self.step_model_kwargs,
+                ),
+            ],
+        )
+
     def test_unique_step_names(self) -> None:
         """This tests the name of the steps on generation strategy. The name is
         inherited from the GenerationNode class, and for GenerationSteps the
         name should follow the format "GenerationNode"+Stepidx.
         """
-        gs = self.basic_sobol_gpei_gs
+        gs = self.sobol_MBM_step_GS
         self.assertEqual(gs._steps[0].node_name, "GenerationStep_0")
         self.assertEqual(gs._steps[1].node_name, "GenerationStep_1")
 
     def test_name(self) -> None:
         self.assertEqual(self.sobol_GS._name, "Sobol")
         self.assertEqual(
-            self.basic_sobol_gpei_gs.name,
-            "Sobol+GPEI",
+            self.sobol_MBM_step_GS.name,
+            "Sobol+MBM",
         )
         self.sobol_GS._name = "SomeGSName"
         self.assertEqual(self.sobol_GS.name, "SomeGSName")
@@ -311,7 +310,7 @@ class TestGenerationStrategy(TestCase):
             GenerationStrategy(
                 steps=[
                     GenerationStep(model=Models.SOBOL, num_trials=5),
-                    GenerationStep(model=Models.GPEI, num_trials=-10),
+                    GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=-10),
                 ]
             )
 
@@ -320,7 +319,7 @@ class TestGenerationStrategy(TestCase):
             GenerationStrategy(
                 steps=[
                     GenerationStep(model=Models.SOBOL, num_trials=-1),
-                    GenerationStep(model=Models.GPEI, num_trials=10),
+                    GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=10),
                 ]
             )
 
@@ -346,7 +345,7 @@ class TestGenerationStrategy(TestCase):
                     GenerationStep(
                         model=Models.SOBOL, num_trials=5, max_parallelism=-1
                     ),
-                    GenerationStep(model=Models.GPEI, num_trials=-1),
+                    GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=-1),
                 ]
             )
 
@@ -361,12 +360,12 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(len(gr.arms), 1)
 
     def test_string_representation(self) -> None:
-        gs1 = self.basic_sobol_gpei_gs
+        gs1 = self.sobol_MBM_step_GS
         self.assertEqual(
             str(gs1),
             (
-                "GenerationStrategy(name='Sobol+GPEI', steps=[Sobol for 5 trials,"
-                " GPEI for subsequent trials])"
+                "GenerationStrategy(name='Sobol+MBM', steps=[Sobol for 5 trials,"
+                " BoTorch for subsequent trials])"
             ),
         )
         gs2 = GenerationStrategy(
@@ -400,8 +399,8 @@ class TestGenerationStrategy(TestCase):
         )
 
     def test_equality(self) -> None:
-        gs1 = self.basic_sobol_gpei_gs
-        gs2 = self.basic_sobol_gpei_gs
+        gs1 = self.sobol_MBM_step_GS
+        gs2 = self.sobol_MBM_step_GS
         self.assertEqual(gs1, gs2)
 
         # Clone_reset() doesn't clone exactly, so they won't be equal.
@@ -416,7 +415,7 @@ class TestGenerationStrategy(TestCase):
         gs = GenerationStrategy(
             steps=[
                 GenerationStep(model=Models.SOBOL, num_trials=5, min_trials_observed=5),
-                GenerationStep(model=Models.GPEI, num_trials=1),
+                GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=1),
             ]
         )
         self.assertFalse(gs.uses_non_registered_models)
@@ -438,7 +437,7 @@ class TestGenerationStrategy(TestCase):
                     min_trials_observed=5,
                     enforce_num_trials=False,
                 ),
-                GenerationStep(model=Models.GPEI, num_trials=1),
+                GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=1),
             ]
         )
         for _ in range(2):
@@ -446,14 +445,15 @@ class TestGenerationStrategy(TestCase):
         # Make sure Sobol is used to generate the 6th point.
         self.assertIsInstance(gs._model, RandomModelBridge)
 
-    def test_sobol_GPEI_strategy(self) -> None:
+    def test_sobol_MBM_strategy(self) -> None:
         exp = get_branin_experiment()
-        self.assertEqual(self.sobol_GPEI_GS.name, "Sobol+GPEI")
+        # New GS to test for GS completed error below.
+        gs = self._get_sobol_mbm_step_gs(num_mbm_trials=2)
         expected_seed = None
         for i in range(7):
-            g = self.sobol_GPEI_GS.gen(exp)
+            g = gs.gen(exp)
             exp.new_trial(generator_run=g).run()
-            self.assertEqual(len(self.sobol_GPEI_GS._generator_runs), i + 1)
+            self.assertEqual(len(gs._generator_runs), i + 1)
             if i > 4:
                 self.mock_torch_model_bridge.assert_called()
             else:
@@ -495,7 +495,7 @@ class TestGenerationStrategy(TestCase):
                 )
                 ms = not_none(g._model_state_after_gen).copy()
                 # Compare the model state to Sobol state.
-                sobol_model = not_none(self.sobol_GPEI_GS.model).model
+                sobol_model = not_none(gs.model).model
                 self.assertTrue(
                     np.array_equal(
                         ms.pop("generated_points"), sobol_model.generated_points
@@ -506,33 +506,16 @@ class TestGenerationStrategy(TestCase):
                 self.assertEqual(ms, {"init_position": i + 1, "seed": expected_seed})
         # Check completeness error message when GS should be done.
         with self.assertRaises(GenerationStrategyCompleted):
-            g = self.sobol_GPEI_GS.gen(exp)
+            g = gs.gen(exp)
 
-    def test_sobol_GPEI_strategy_keep_generating(self) -> None:
+    def test_sobol_MBM_strategy_keep_generating(self) -> None:
         exp = get_branin_experiment()
-        sobol_GPEI_generation_strategy = GenerationStrategy(
-            steps=[
-                GenerationStep(
-                    model=Models.SOBOL,
-                    num_trials=5,
-                    model_kwargs=self.step_model_kwargs,
-                ),
-                GenerationStep(
-                    model=Models.GPEI,
-                    num_trials=-1,
-                    model_kwargs=self.step_model_kwargs,
-                ),
-            ]
-        )
-        self.assertEqual(sobol_GPEI_generation_strategy.name, "Sobol+GPEI")
-        exp.new_trial(generator_run=sobol_GPEI_generation_strategy.gen(exp)).run()
+        exp.new_trial(generator_run=self.sobol_MBM_step_GS.gen(exp)).run()
         for i in range(1, 15):
-            g = sobol_GPEI_generation_strategy.gen(exp)
+            g = self.sobol_MBM_step_GS.gen(exp)
             exp.new_trial(generator_run=g).run()
             if i > 4:
-                self.assertIsInstance(
-                    sobol_GPEI_generation_strategy.model, TorchModelBridge
-                )
+                self.assertIsInstance(self.sobol_MBM_step_GS.model, TorchModelBridge)
 
     def test_sobol_strategy(self) -> None:
         exp = get_branin_experiment()
@@ -608,40 +591,29 @@ class TestGenerationStrategy(TestCase):
         # pyre-fixme[16]: Optional type has no attribute `model`.
         self.assertFalse(gs._model.model.scramble)
 
-    def test_sobol_GPEI_strategy_batches(self) -> None:
-        mock_GPEI_gen = self.mock_torch_model_bridge.return_value.gen
-        mock_GPEI_gen.return_value = GeneratorRun(
+    def test_sobol_MBM_strategy_batches(self) -> None:
+        mock_MBM_gen = self.mock_torch_model_bridge.return_value.gen
+        mock_MBM_gen.return_value = GeneratorRun(
             arms=[
                 Arm(parameters={"x1": 1, "x2": 2}),
                 Arm(parameters={"x1": 3, "x2": 4}),
             ]
         )
         exp = get_branin_experiment()
-        sobol_GPEI_generation_strategy = GenerationStrategy(
-            name="Sobol+GPEI",
-            steps=[
-                GenerationStep(
-                    model=Models.SOBOL,
-                    num_trials=1,
-                    model_kwargs=self.step_model_kwargs,
-                ),
-                GenerationStep(
-                    model=Models.GPEI, num_trials=6, model_kwargs=self.step_model_kwargs
-                ),
-            ],
+        sobol_MBM_generation_strategy = self._get_sobol_mbm_step_gs(
+            num_sobol_trials=1, num_mbm_trials=6
         )
-        self.assertEqual(sobol_GPEI_generation_strategy.name, "Sobol+GPEI")
-        gr = sobol_GPEI_generation_strategy.gen(exp, n=2)
+        gr = sobol_MBM_generation_strategy.gen(exp, n=2)
         exp.new_batch_trial(generator_run=gr).run()
         for i in range(1, 8):
             if i == 7:
                 # Check completeness error message.
                 with self.assertRaises(GenerationStrategyCompleted):
-                    g = sobol_GPEI_generation_strategy.gen(exp, n=2)
+                    g = sobol_MBM_generation_strategy.gen(exp, n=2)
             else:
-                g = sobol_GPEI_generation_strategy.gen(exp, n=2)
+                g = sobol_MBM_generation_strategy.gen(exp, n=2)
             exp.new_batch_trial(generator_run=g).run()
-        self.assertIsInstance(sobol_GPEI_generation_strategy.model, TorchModelBridge)
+        self.assertIsInstance(sobol_MBM_generation_strategy.model, TorchModelBridge)
 
     def test_with_factory_function(self) -> None:
         """Checks that generation strategy works with custom factory functions.
@@ -878,7 +850,7 @@ class TestGenerationStrategy(TestCase):
 
     def test_gen_multiple(self) -> None:
         exp = get_experiment_with_multi_objective()
-        sobol_GPEI_gs = self.basic_sobol_gpei_gs
+        sobol_MBM_gs = self.sobol_MBM_step_GS
 
         with mock_patch_method_original(
             mock_path=f"{ModelSpec.__module__}.ModelSpec.gen",
@@ -889,7 +861,7 @@ class TestGenerationStrategy(TestCase):
         ) as model_spec_fit_mock:
             # Generate first four Sobol GRs (one more to gen after that if
             # first four become trials.
-            grs = sobol_GPEI_gs._gen_multiple(experiment=exp, num_generator_runs=3)
+            grs = sobol_MBM_gs._gen_multiple(experiment=exp, num_generator_runs=3)
             self.assertEqual(len(grs), 3)
             # We should only fit once; refitting for each `gen` would be
             # wasteful as there is no new data.
@@ -921,7 +893,7 @@ class TestGenerationStrategy(TestCase):
                     same_elements(original_pending[m], first_3_trials_obs_feats)
                 )
 
-            grs = sobol_GPEI_gs._gen_multiple(
+            grs = sobol_MBM_gs._gen_multiple(
                 experiment=exp,
                 num_generator_runs=3,
                 pending_observations=get_pending(experiment=exp),
@@ -946,7 +918,7 @@ class TestGenerationStrategy(TestCase):
 
     def test_gen_for_multiple_trials_with_multiple_models(self) -> None:
         exp = get_experiment_with_multi_objective()
-        sobol_GPEI_gs = self.basic_sobol_gpei_gs
+        sobol_MBM_gs = self.sobol_MBM_step_GS
         with mock_patch_method_original(
             mock_path=f"{ModelSpec.__module__}.ModelSpec.gen",
             original_method=ModelSpec.gen,
@@ -956,7 +928,7 @@ class TestGenerationStrategy(TestCase):
         ) as model_spec_fit_mock:
             # Generate first four Sobol GRs (one more to gen after that if
             # first four become trials.
-            grs = sobol_GPEI_gs.gen_for_multiple_trials_with_multiple_models(
+            grs = sobol_MBM_gs.gen_for_multiple_trials_with_multiple_models(
                 experiment=exp, num_generator_runs=3
             )
         self.assertEqual(len(grs), 3)
@@ -994,7 +966,7 @@ class TestGenerationStrategy(TestCase):
                 same_elements(original_pending[m], first_3_trials_obs_feats)
             )
 
-        grs = sobol_GPEI_gs.gen_for_multiple_trials_with_multiple_models(
+        grs = sobol_MBM_gs.gen_for_multiple_trials_with_multiple_models(
             experiment=exp,
             num_generator_runs=3,
         )
@@ -1032,7 +1004,7 @@ class TestGenerationStrategy(TestCase):
                     model_kwargs=self.step_model_kwargs,
                 ),
                 GenerationStep(
-                    model=Models.GPEI,
+                    model=Models.BO_MIXED,
                     num_trials=1,
                     model_kwargs=self.step_model_kwargs,
                 ),
@@ -1136,7 +1108,7 @@ class TestGenerationStrategy(TestCase):
                         model_kwargs=self.step_model_kwargs,
                     ),
                     GenerationStep(
-                        model=Models.GPEI,
+                        model=Models.BOTORCH_MODULAR,
                         num_trials=-1,
                         model_kwargs=self.step_model_kwargs,
                     ),
@@ -1214,15 +1186,15 @@ class TestGenerationStrategy(TestCase):
             )
 
     def test_gs_with_generation_nodes(self) -> None:
-        "Simple test of a SOBOL + GPEI GenerationStrategy composed of GenerationNodes"
+        "Simple test of a SOBOL + MBM GenerationStrategy composed of GenerationNodes"
         exp = get_branin_experiment()
-        self.assertEqual(self.sobol_GPEI_GS_nodes.name, "Sobol+GPEI_Nodes")
+        self.assertEqual(self.sobol_MBM_GS_nodes.name, "Sobol+MBM_Nodes")
         expected_seed = None
 
         for i in range(7):
-            g = self.sobol_GPEI_GS_nodes.gen(exp)
+            g = self.sobol_MBM_GS_nodes.gen(exp)
             exp.new_trial(generator_run=g).run()
-            self.assertEqual(len(self.sobol_GPEI_GS_nodes._generator_runs), i + 1)
+            self.assertEqual(len(self.sobol_MBM_GS_nodes._generator_runs), i + 1)
             if i > 4:
                 self.mock_torch_model_bridge.assert_called()
             else:
@@ -1264,7 +1236,7 @@ class TestGenerationStrategy(TestCase):
                 )
                 ms = not_none(g._model_state_after_gen).copy()
                 # Compare the model state to Sobol state.
-                sobol_model = not_none(self.sobol_GPEI_GS_nodes.model).model
+                sobol_model = not_none(self.sobol_MBM_GS_nodes.model).model
                 self.assertTrue(
                     np.array_equal(
                         ms.pop("generated_points"), sobol_model.generated_points
@@ -1280,11 +1252,11 @@ class TestGenerationStrategy(TestCase):
         """
         exp = get_branin_experiment()
         for i in range(7):
-            g = self.sobol_GPEI_GS_nodes.gen(exp)
+            g = self.sobol_MBM_GS_nodes.gen(exp)
             exp.new_trial(generator_run=g).run()
-            self.assertEqual(len(self.sobol_GPEI_GS_nodes._generator_runs), i + 1)
-        gs_clone = self.sobol_GPEI_GS_nodes.clone_reset()
-        self.assertEqual(gs_clone.name, self.sobol_GPEI_GS_nodes.name)
+            self.assertEqual(len(self.sobol_MBM_GS_nodes._generator_runs), i + 1)
+        gs_clone = self.sobol_MBM_GS_nodes.clone_reset()
+        self.assertEqual(gs_clone.name, self.sobol_MBM_GS_nodes.name)
         self.assertEqual(gs_clone._generator_runs, [])
 
     def test_gs_with_nodes_and_blocking_criteria(self) -> None:
@@ -1296,24 +1268,24 @@ class TestGenerationStrategy(TestCase):
                     threshold=3,
                     block_gen_if_met=True,
                     block_transition_if_unmet=True,
-                    transition_to="GPEI_node",
+                    transition_to="MBM_node",
                 ),
                 MinTrials(
                     threshold=2,
                     only_in_statuses=[TrialStatus.COMPLETED],
                     block_gen_if_met=False,
                     block_transition_if_unmet=True,
-                    transition_to="GPEI_node",
+                    transition_to="MBM_node",
                 ),
             ],
         )
-        gpei_node = GenerationNode(
-            node_name="GPEI_node",
-            model_specs=[self.gpei_model_spec],
+        mbm_node = GenerationNode(
+            node_name="MBM_node",
+            model_specs=[self.mbm_model_spec],
         )
         gs = GenerationStrategy(
-            name="Sobol+GPEI_Nodes",
-            nodes=[sobol_node_with_criteria, gpei_node],
+            name="Sobol+MBM_Nodes",
+            nodes=[sobol_node_with_criteria, mbm_node],
         )
         exp = get_branin_experiment()
         for _ in range(5):
@@ -1326,7 +1298,7 @@ class TestGenerationStrategy(TestCase):
 
     def test_step_based_gs_only(self) -> None:
         """Test the step_based_gs_only decorator"""
-        gs_test = self.sobol_GPEI_GS_nodes
+        gs_test = self.sobol_MBM_GS_nodes
         with self.assertRaisesRegex(
             UnsupportedError, "is not supported for GenerationNode based"
         ):
@@ -1341,33 +1313,33 @@ class TestGenerationStrategy(TestCase):
         ``RuntimeError: dictionary changed size during iteration.``
         This test ensures this issue doesn't reappear.
         """
-        gs1 = self.basic_sobol_gpei_gs
-        gs2 = self.basic_sobol_gpei_gs
+        gs1 = self.sobol_MBM_step_GS
+        gs2 = self.sobol_MBM_step_GS
         self.assertEqual(gs1, gs2)
 
     def test_gs_with_competing_transition_edges(self) -> None:
         """Test that a ``GenerationStrategy`` with a node with competing transition
         edges correctly transitions.
         """
-        # this gs has a single sobol node which transitions to gpei. If the MaxTrials
+        # this gs has a single sobol node which transitions to mbm. If the MaxTrials
         # and MinTrials criterion are met, the transition to sobol_2 should occur,
         # otherwise, should transition to sobol_3
         gs = self.competing_tc_gs
         exp = get_branin_experiment()
 
-        # check that gpei will move to sobol_3 when MaxTrials and MinTrials are unmet
+        # check that mbm will move to sobol_3 when MaxTrials and MinTrials are unmet
         exp.new_trial(generator_run=gs.gen(exp)).run()
         gs.gen(exp)
-        self.assertEqual(gs.current_node_name, "gpei")
+        self.assertEqual(gs.current_node_name, "mbm")
         gs.gen(exp)
         self.assertEqual(gs.current_node_name, "sobol_3")
 
     def test_transition_edges(self) -> None:
         """Test transition_edges property of ``GenerationNode``"""
-        # this gs has a single sobol node which transitions to gpei. If the MaxTrials
+        # this gs has a single sobol node which transitions to mbm. If the MaxTrials
         # and MinTrials criterion are met, the transition to sobol_2 should occur,
         # otherwise, should transition back to sobol.
-        gpei_to_sobol_auto = AutoTransitionAfterGen(transition_to="sobol")
+        mbm_to_sobol_auto = AutoTransitionAfterGen(transition_to="sobol")
         gs = GenerationStrategy(
             nodes=[
                 GenerationNode(
@@ -1376,12 +1348,12 @@ class TestGenerationStrategy(TestCase):
                     transition_criteria=self.single_running_trial_criterion,
                 ),
                 GenerationNode(
-                    node_name="gpei",
-                    model_specs=[self.gpei_model_spec],
+                    node_name="mbm",
+                    model_specs=[self.mbm_model_spec],
                     transition_criteria=[
-                        self.gpei_to_sobol2_max,
-                        self.gpei_to_sobol2_min,
-                        gpei_to_sobol_auto,
+                        self.mbm_to_sobol2_max,
+                        self.mbm_to_sobol2_min,
+                        mbm_to_sobol_auto,
                     ],
                 ),
                 GenerationNode(
@@ -1392,16 +1364,16 @@ class TestGenerationStrategy(TestCase):
         )
         exp = get_branin_experiment()
         self.assertEqual(
-            gs._curr.transition_edges, {"gpei": self.single_running_trial_criterion}
+            gs._curr.transition_edges, {"mbm": self.single_running_trial_criterion}
         )
         exp.new_trial(generator_run=gs.gen(exp)).run()
         gs.gen(exp)
-        self.assertEqual(gs.current_node_name, "gpei")
+        self.assertEqual(gs.current_node_name, "mbm")
         self.assertEqual(
             gs._curr.transition_edges,
             {
-                "sobol_2": [self.gpei_to_sobol2_max, self.gpei_to_sobol2_min],
-                "sobol": [gpei_to_sobol_auto],
+                "sobol_2": [self.mbm_to_sobol2_max, self.mbm_to_sobol2_min],
+                "sobol": [mbm_to_sobol_auto],
             },
         )
 
@@ -1423,11 +1395,11 @@ class TestGenerationStrategy(TestCase):
             gs.gen_with_multiple_nodes(exp, arms_per_node=arms_per_node)
 
         # now we will check that the first trial contains 3 arms, the sconed trial
-        # contains 6 arms (2 from gpei, 1 from sobol_2, 3 from sobol_3), and all
+        # contains 6 arms (2 from mbm, 1 from sobol_2, 3 from sobol_3), and all
         # remaining trials contain 4 arms
         arms_per_node = {
             "sobol": 3,
-            "gpei": 1,
+            "mbm": 1,
             "sobol_2": 2,
             "sobol_3": 3,
             "sobol_4": 4,
@@ -1441,7 +1413,7 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(trial0.generator_runs[0]._generation_node_name, "sobol")
         trial0.run()
 
-        # after trial 0 is run, we create a trial with nodes gpei, sobol_2, and sobol_3
+        # after trial 0 is run, we create a trial with nodes mbm, sobol_2, and sobol_3
         # However, the sobol_3 criterion requires that we have two running trials. We
         # don't move onto sobol_4 until we have two running trials, instead we reset
         # to the last first node in a trial.
@@ -1454,7 +1426,7 @@ class TestGenerationStrategy(TestCase):
             self.assertEqual(gs.current_node_name, "sobol_3")
             self.assertEqual(len(trial.arms_by_name), 6)
             self.assertEqual(len(trial.generator_runs), 3)
-            self.assertEqual(trial.generator_runs[0]._generation_node_name, "gpei")
+            self.assertEqual(trial.generator_runs[0]._generation_node_name, "mbm")
             self.assertEqual(len(trial.generator_runs[0].arms), 1)
             self.assertEqual(trial.generator_runs[1]._generation_node_name, "sobol_2")
             self.assertEqual(len(trial.generator_runs[1].arms), 2)
@@ -1485,8 +1457,8 @@ class TestGenerationStrategy(TestCase):
                 # node 2,3,4 will be out iteration nodes, and grs from all 3 nodes
                 # should be used to make the subsequent trials
                 GenerationNode(
-                    node_name="gpei",
-                    model_specs=[self.gpei_model_spec],
+                    node_name="mbm",
+                    model_specs=[self.mbm_model_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(transition_to="sobol_2")
                     ],
@@ -1503,7 +1475,7 @@ class TestGenerationStrategy(TestCase):
                     model_specs=[self.sobol_model_spec],
                     transition_criteria=[
                         AutoTransitionAfterGen(
-                            transition_to="gpei",
+                            transition_to="mbm",
                             block_transition_if_unmet=True,
                             continue_trial_generation=False,
                         )
@@ -1516,7 +1488,7 @@ class TestGenerationStrategy(TestCase):
 
         # for the first trial, we start on sobol, we generate the trial, but it hasn't
         # been run yet, so we remain on sobol, after the trial  is run, the subsequent
-        # trials should be from node gpei, sobol_2, and sobol_3
+        # trials should be from node mbm, sobol_2, and sobol_3
         self.assertEqual(gs.current_node_name, "sobol")
         trial0 = exp.new_batch_trial(generator_runs=gs.gen_with_multiple_nodes(exp))
         self.assertEqual(gs.current_node_name, "sobol")
@@ -1528,7 +1500,7 @@ class TestGenerationStrategy(TestCase):
             trial = exp.new_batch_trial(generator_runs=gs.gen_with_multiple_nodes(exp))
             self.assertEqual(gs.current_node_name, "sobol_3")
             self.assertEqual(len(trial.generator_runs), 3)
-            self.assertEqual(trial.generator_runs[0]._generation_node_name, "gpei")
+            self.assertEqual(trial.generator_runs[0]._generation_node_name, "mbm")
             self.assertEqual(trial.generator_runs[1]._generation_node_name, "sobol_2")
             self.assertEqual(trial.generator_runs[2]._generation_node_name, "sobol_3")
 
@@ -1544,7 +1516,7 @@ class TestGenerationStrategy(TestCase):
         self.assertEqual(gs_2.current_node_name, "sobol")
         trial0.run()
 
-        # after trial 0 is run, we create a trial with nodes gpei, sobol_2, and sobol_3
+        # after trial 0 is run, we create a trial with nodes mbm, sobol_2, and sobol_3
         # However, the sobol_3 criterion requires that we have two running trials. We
         # don't move onto sobol_4 until we have two running trials, instead we reset
         # to the last first node in a trial.
@@ -1554,7 +1526,7 @@ class TestGenerationStrategy(TestCase):
             )
             self.assertEqual(gs_2.current_node_name, "sobol_3")
             self.assertEqual(len(trial.generator_runs), 3)
-            self.assertEqual(trial.generator_runs[0]._generation_node_name, "gpei")
+            self.assertEqual(trial.generator_runs[0]._generation_node_name, "mbm")
             self.assertEqual(trial.generator_runs[1]._generation_node_name, "sobol_2")
             self.assertEqual(trial.generator_runs[2]._generation_node_name, "sobol_3")
 
@@ -1568,7 +1540,7 @@ class TestGenerationStrategy(TestCase):
         gs = self.complex_multinode_per_trial_gs
         arms_per_node = {
             "sobol": 3,
-            "gpei": 1,
+            "mbm": 1,
             "sobol_2": 2,
             "sobol_3": 3,
             "sobol_4": 4,
@@ -1593,7 +1565,7 @@ class TestGenerationStrategy(TestCase):
         )
         self.assertEqual(
             not_none(gs.trials_as_df).head()["Generation Nodes"][1],
-            ["gpei", "sobol_2", "sobol_3"],
+            ["mbm", "sobol_2", "sobol_3"],
         )
 
     # ------------- Testing helpers (put tests above this line) -------------
