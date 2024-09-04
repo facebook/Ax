@@ -469,7 +469,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         optimization_config: Optional[OptimizationConfig] = None,
         trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
-    ) -> Optional[dict[int, tuple[TParameterization, TModelPredictArm]]]:
+    ) -> dict[int, tuple[TParameterization, TModelPredictArm]]:
         return self._get_pareto_optimal_parameters(
             experiment=self.experiment,
             generation_strategy=self.standard_generation_strategy,
