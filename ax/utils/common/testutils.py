@@ -250,6 +250,19 @@ def _build_comparison_str(
 def setup_import_mocks(
     mocked_import_paths: list[str], mock_config_dict: Optional[dict[str, Any]] = None
 ) -> None:
+    """This function mocks expensive modules used in tests. It must be called before
+    those modules are imported or it will not work.  Stubbing out these modules
+    will obviously affect the behavior of all tests that use it, so be sure modules
+    being mocked are not important to your test.  It will also mock all child modules.
+
+    Args:
+        mocked_import_paths: List of module paths to mock.
+        mock_config_dict: Dictionary of attributes to mock on the modules being mocked.
+            This is useful if the import is expensive, but there is still some
+            functionality it has the test relies on.  These attributes will be
+            set on all modules being mocked.
+    """
+
     # pyre-fixme[3]
     def custom_import(name: str, *args: Any, **kwargs: Any) -> Any:
         for import_path in mocked_import_paths:
