@@ -31,13 +31,13 @@ class TestAEPsychCriterion(TestCase):
         experiment = get_experiment()
 
         generation_strategy = GenerationStrategy(
-            name="SOBOL+GPEI::default",
+            name="SOBOL+MBM::default",
             steps=[
                 GenerationStep(
                     model=Models.SOBOL, num_trials=-1, completion_criteria=[criterion]
                 ),
                 GenerationStep(
-                    model=Models.GPEI,
+                    model=Models.BOTORCH_MODULAR,
                     num_trials=-1,
                     max_parallelism=1,
                 ),
@@ -77,7 +77,8 @@ class TestAEPsychCriterion(TestCase):
             )
 
             self.assertEqual(
-                generation_strategy._curr.model_spec_to_gen_from.model_enum, Models.GPEI
+                generation_strategy._curr.model_spec_to_gen_from.model_enum,
+                Models.BOTORCH_MODULAR,
             )
 
     def test_many_criteria(self) -> None:
@@ -89,13 +90,13 @@ class TestAEPsychCriterion(TestCase):
         experiment = get_experiment()
 
         generation_strategy = GenerationStrategy(
-            name="SOBOL+GPEI::default",
+            name="SOBOL+MBM::default",
             steps=[
                 GenerationStep(
                     model=Models.SOBOL, num_trials=-1, completion_criteria=criteria
                 ),
                 GenerationStep(
-                    model=Models.GPEI,
+                    model=Models.BOTORCH_MODULAR,
                     num_trials=-1,
                     max_parallelism=1,
                 ),
@@ -153,5 +154,6 @@ class TestAEPsychCriterion(TestCase):
             )
 
             self.assertEqual(
-                generation_strategy._curr.model_spec_to_gen_from.model_enum, Models.GPEI
+                generation_strategy._curr.model_spec_to_gen_from.model_enum,
+                Models.BOTORCH_MODULAR,
             )

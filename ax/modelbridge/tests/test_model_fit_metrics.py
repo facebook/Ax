@@ -58,7 +58,7 @@ class TestModelBridgeFitMetrics(TestCase):
                 GenerationStep(
                     model=Models.SOBOL, num_trials=NUM_SOBOL, max_parallelism=NUM_SOBOL
                 ),
-                GenerationStep(model=Models.GPEI, num_trials=-1),
+                GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=-1),
             ]
         )
 

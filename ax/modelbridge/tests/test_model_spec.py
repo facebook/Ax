@@ -37,7 +37,7 @@ class BaseModelSpecTest(TestCase):
 class ModelSpecTest(BaseModelSpecTest):
     @fast_botorch_optimize
     def test_construct(self) -> None:
-        ms = ModelSpec(model_enum=Models.GPEI)
+        ms = ModelSpec(model_enum=Models.BOTORCH_MODULAR)
         with self.assertRaises(UserInputError):
             ms.gen(n=1)
         ms.fit(experiment=self.experiment, data=self.data)
@@ -51,7 +51,7 @@ class ModelSpecTest(BaseModelSpecTest):
         wraps=extract_search_space_digest,
     )
     def test_fit(self, wrapped_extract_ssd: Mock) -> None:
-        ms = ModelSpec(model_enum=Models.GPEI)
+        ms = ModelSpec(model_enum=Models.BOTORCH_MODULAR)
         # This should fit the model as usual.
         ms.fit(experiment=self.experiment, data=self.data)
         wrapped_extract_ssd.assert_called_once()
@@ -159,7 +159,7 @@ class ModelSpecTest(BaseModelSpecTest):
         mock_diagnostics.assert_not_called()
 
     def test_fixed_features(self) -> None:
-        ms = ModelSpec(model_enum=Models.GPEI)
+        ms = ModelSpec(model_enum=Models.BOTORCH_MODULAR)
         self.assertIsNone(ms.fixed_features)
         new_features = ObservationFeatures(parameters={"a": 1.0})
         ms.fixed_features = new_features
@@ -177,7 +177,7 @@ class ModelSpecTest(BaseModelSpecTest):
         self.assertEqual(gen_metadata["model_std_generalization"], None)
 
     def test_gen_attaches_model_fit_metadata_if_applicable(self) -> None:
-        ms = ModelSpec(model_enum=Models.GPEI)
+        ms = ModelSpec(model_enum=Models.BOTORCH_MODULAR)
         ms.fit(experiment=self.experiment, data=self.data)
         gr = ms.gen(n=1)
         gen_metadata = not_none(gr.gen_metadata)
