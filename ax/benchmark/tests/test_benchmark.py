@@ -22,6 +22,7 @@ from ax.benchmark.benchmark_method import (
 from ax.benchmark.benchmark_problem import create_problem_from_botorch
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
+from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.benchmark.problems.registry import get_problem
 from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
@@ -35,7 +36,6 @@ from ax.utils.testing.benchmark_stubs import (
     get_moo_surrogate,
     get_multi_objective_benchmark_problem,
     get_single_objective_benchmark_problem,
-    get_sobol_benchmark_method,
     get_soo_surrogate,
     TestDataset,
 )
@@ -89,7 +89,9 @@ class TestBenchmark(TestCase):
     def test_storage(self) -> None:
         problem = get_single_objective_benchmark_problem()
         res = benchmark_replication(
-            problem=problem, method=get_sobol_benchmark_method(), seed=0
+            problem=problem,
+            method=get_sobol_benchmark_method(distribute_replications=False),
+            seed=0,
         )
         # Experiment is not in storage yet
         self.assertTrue(res.experiment is not None)
@@ -184,7 +186,7 @@ class TestBenchmark(TestCase):
             self.assertEqual(experiment.runner, problem.runner)
 
     def test_replication_sobol_synthetic(self) -> None:
-        method = get_sobol_benchmark_method()
+        method = get_sobol_benchmark_method(distribute_replications=False)
         problems = [
             get_single_objective_benchmark_problem(),
             get_problem("jenatton", num_trials=6),
@@ -192,18 +194,12 @@ class TestBenchmark(TestCase):
         for problem in problems:
             res = benchmark_replication(problem=problem, method=method, seed=0)
 
-            self.assertEqual(
-                min(
-                    problem.num_trials, not_none(method.scheduler_options.total_trials)
-                ),
-                len(not_none(res.experiment).trials),
-            )
-
+            self.assertEqual(problem.num_trials, len(not_none(res.experiment).trials))
             self.assertTrue(np.isfinite(res.score_trace).all())
             self.assertTrue(np.all(res.score_trace <= 100))
 
     def test_replication_sobol_surrogate(self) -> None:
-        method = get_sobol_benchmark_method()
+        method = get_sobol_benchmark_method(distribute_replications=False)
 
         # This is kind of a weird setup - these are "surrogates" that use a Branin
         # synthetic function. The idea here is to test the machinery around the
@@ -217,10 +213,7 @@ class TestBenchmark(TestCase):
                 res = benchmark_replication(problem=problem, method=method, seed=0)
 
                 self.assertEqual(
-                    min(
-                        problem.num_trials,
-                        not_none(method.scheduler_options.total_trials),
-                    ),
+                    problem.num_trials,
                     len(not_none(res.experiment).trials),
                 )
 
@@ -313,7 +306,9 @@ class TestBenchmark(TestCase):
         problem = get_multi_objective_benchmark_problem()
 
         res = benchmark_replication(
-            problem=problem, method=get_sobol_benchmark_method(), seed=0
+            problem=problem,
+            method=get_sobol_benchmark_method(distribute_replications=False),
+            seed=0,
         )
 
         self.assertEqual(
@@ -331,7 +326,7 @@ class TestBenchmark(TestCase):
         problem = get_single_objective_benchmark_problem()
         agg = benchmark_one_method_problem(
             problem=problem,
-            method=get_sobol_benchmark_method(),
+            method=get_sobol_benchmark_method(distribute_replications=False),
             seeds=(0, 1),
         )
 
@@ -352,7 +347,7 @@ class TestBenchmark(TestCase):
         aggs = benchmark_multiple_problems_methods(
             problems=[get_single_objective_benchmark_problem(num_trials=6)],
             methods=[
-                get_sobol_benchmark_method(),
+                get_sobol_benchmark_method(distribute_replications=False),
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,

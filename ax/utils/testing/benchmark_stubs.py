@@ -68,19 +68,6 @@ def get_multi_objective_benchmark_problem(
     )
 
 
-def get_sobol_benchmark_method() -> BenchmarkMethod:
-    return BenchmarkMethod(
-        name="SOBOL",
-        generation_strategy=GenerationStrategy(
-            steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)],
-            name="SOBOL",
-        ),
-        scheduler_options=SchedulerOptions(
-            total_trials=4, init_seconds_between_polls=0
-        ),
-    )
-
-
 def get_soo_surrogate() -> SurrogateBenchmarkProblem:
     experiment = get_branin_experiment(with_completed_trial=True)
     surrogate = TorchModelBridge(
