@@ -12,7 +12,6 @@ from collections import defaultdict
 from collections.abc import Generator, Iterable
 from copy import deepcopy
 from datetime import datetime
-from enum import Enum
 from logging import LoggerAdapter
 from time import sleep
 from typing import Any, Callable, cast, NamedTuple, Optional
@@ -52,7 +51,7 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
-from ax.utils.common.constants import Keys
+from ax.utils.common.constants import Keys, TS_FMT
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import (
@@ -111,32 +110,6 @@ NO_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
     cast(type[Exception], NotImplementedError),
     cast(type[Exception], UnsupportedError),
 )
-
-
-class ExperimentStatusProperties(str, Enum):
-    """Enum for keys in experiment properties that represent status of
-    optimization run through scheduler."""
-
-    # Number of trials run in each call to `Scheduler.run_trials_and_
-    # yield_results`.
-    NUM_TRIALS_RUN_PER_CALL = "num_trials_run_per_call"
-    # Status of each run of `Scheduler.run_trials_and_
-    # yield_results`. Recorded twice in a successful/aborted run; first
-    # "started" is recorded, then "success" or "aborted". If no second
-    # status is recorded, run must have encountered an exception.
-    RUN_TRIALS_STATUS = "run_trials_success"
-    # Timestamps of when the experiment was resumed from storage.
-    RESUMED_FROM_STORAGE_TIMESTAMPS = "resumed_from_storage_timestamps"
-
-
-class RunTrialsStatus(str, Enum):
-    """Possible statuses for each call to ``Scheduler.run_trials_and_
-    yield_results``, used in recording experiment status.
-    """
-
-    STARTED = "started"
-    SUCCESS = "success"
-    ABORTED = "aborted"
 
 
 class Scheduler(WithDBSettingsBase, BestPointMixin):
@@ -233,7 +206,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self._validate_remaining_trials(experiment=experiment)
         if self.options.enforce_immutable_search_space_and_opt_config:
             self._enforce_immutable_search_space_and_opt_config()
-        self._initialize_experiment_status_properties()
 
         if self.db_settings_set and not _skip_experiment_save:
             self._maybe_save_experiment_and_generation_strategy(
@@ -331,12 +303,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             # provided to this function.
             **kwargs,
         )
-        ts = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S.%f")
-        scheduler._append_to_experiment_properties(
-            to_append={
-                ExperimentStatusProperties.RESUMED_FROM_STORAGE_TIMESTAMPS: ts,
-            }
-        )
+        scheduler._record_experiment_resumption_from_storage()
         return scheduler
 
     @property
@@ -933,10 +900,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         # trials are pre-existing only if they do not still require running
         n_existing = len(self.experiment.trials) - n_initial_candidate_trials
-
-        self._record_run_trials_status(
-            num_preexisting_trials=None, status=RunTrialsStatus.STARTED
-        )
 
         # Until completion criterion is reached or `max_trials` is scheduled,
         # schedule new trials and poll existing ones in a loop.
@@ -1547,10 +1510,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         return results so far via `report_results`.
         """
         self._record_optimization_complete_message()
-        self._record_run_trials_status(
-            num_preexisting_trials=num_preexisting_trials,
-            status=RunTrialsStatus.ABORTED,
-        )
         return self.report_results(force_refit=True)
 
     def _complete_optimization(
@@ -1569,10 +1528,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         # Raise an error if the failure rate exceeds tolerance at the
         # end of the optimization.
         self.error_if_failure_rate_exceeded(force_check=True)
-        self._record_run_trials_status(
-            num_preexisting_trials=num_preexisting_trials,
-            status=RunTrialsStatus.SUCCESS,
-        )
         self.warn_if_non_terminal_trials()
         return res
 
@@ -1979,29 +1934,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             True
         )
 
-    def _initialize_experiment_status_properties(self) -> None:
-        """Initializes status-tracking properties of the experiment, which will
-        be appended to in ``run_trials_and_yield_results``."""
-        for status_prop_enum_member in ExperimentStatusProperties:
-            if status_prop_enum_member not in self.experiment._properties:
-                self.experiment._properties[status_prop_enum_member.value] = []
-
-    def _record_run_trials_status(
-        self, num_preexisting_trials: Optional[int], status: RunTrialsStatus
-    ) -> None:
-        """Records status of each call to ``Scheduler.run_trials_and_yield_results``
-        in properties of this experiment for monitoring of experiment success.
-        """
-        to_append: dict[str, Any] = {
-            ExperimentStatusProperties.RUN_TRIALS_STATUS.value: status.value
-        }
-        if num_preexisting_trials is not None:
-            new_trials = len(self.experiment.trials) - num_preexisting_trials
-            to_append[ExperimentStatusProperties.NUM_TRIALS_RUN_PER_CALL.value] = (
-                new_trials
-            )
-        self._append_to_experiment_properties(to_append=to_append)
-
     def _record_optimization_complete_message(self) -> None:
         """Adds a simple optimization completion message to this scheduler's markdown
         messages.
@@ -2017,15 +1949,14 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         else:
             self.markdown_messages["Optimization complete"] = completion_msg
 
-    def _append_to_experiment_properties(self, to_append: dict[str, Any]) -> None:
-        """Appends to list fields in experiment properties based on ``to_append``
-        input dict of form {property_name: value_to_append}.
+    def _record_experiment_resumption_from_storage(self) -> None:
+        """Adds a timestamp for resumption-from-storage, to the experiment properties.
+        Useful for debugging purposes and for keeping track of resumption events.
         """
-        for prop, val_to_append in to_append.items():
-            if prop in self.experiment._properties:
-                self.experiment._properties[prop].append(val_to_append)
-            else:
-                self.experiment._properties[prop] = [val_to_append]
+        resumption_timestamps = self.experiment._properties.setdefault(
+            Keys.RESUMED_FROM_STORAGE_TS.value, []
+        )
+        resumption_timestamps.append(datetime.strftime(datetime.now(), TS_FMT))
         self._update_experiment_properties_in_db(
             experiment_with_updated_properties=self.experiment
         )

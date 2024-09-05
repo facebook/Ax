@@ -23,7 +23,6 @@ from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
-
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.metric import Metric
@@ -43,7 +42,6 @@ from ax.modelbridge.registry import Models, ST_MTGP_trans
 from ax.runners.single_running_trial_mixin import SingleRunningTrialMixin
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.scheduler import (
-    ExperimentStatusProperties,
     FailureRateExceededError,
     get_fitted_model_bridge,
     OptimizationResult,
@@ -62,6 +60,7 @@ from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.save import save_experiment
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.structs import DBSettings
+
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
@@ -471,8 +470,6 @@ class AxSchedulerTestCase(TestCase):
         self.assertEqual(scheduler.options.tolerated_trial_failure_rate, 0.2)
         self.assertEqual(scheduler.options.init_seconds_between_polls, 10)
         self.assertIsNone(scheduler._latest_optimization_start_timestamp)
-        for status_prop in ExperimentStatusProperties:
-            self.assertEqual(scheduler.experiment._properties[status_prop.value], [])
         scheduler.run_all_trials()  # Runs no trials since total trials is 0.
         # `_latest_optimization_start_timestamp` should be set now.
         self.assertLessEqual(
@@ -589,23 +586,9 @@ class AxSchedulerTestCase(TestCase):
         # experiment.
         dat = scheduler.experiment.fetch_data().df
         self.assertEqual(set(dat["trial_index"].values), set(range(8)))
-        self.assertEqual(
-            scheduler.experiment._properties[
-                ExperimentStatusProperties.RUN_TRIALS_STATUS
-            ],
-            ["started", "success"],
-        )
-        self.assertEqual(
-            scheduler.experiment._properties[
-                ExperimentStatusProperties.NUM_TRIALS_RUN_PER_CALL
-            ],
-            [8],
-        )
-        self.assertEqual(
-            scheduler.experiment._properties[
-                ExperimentStatusProperties.RESUMED_FROM_STORAGE_TIMESTAMPS
-            ],
-            [],
+        self.assertNotIn(
+            Keys.RESUMED_FROM_STORAGE_TS.value,
+            scheduler.experiment._properties,
         )
 
     def test_run_all_trials_callback(self) -> None:
@@ -958,7 +941,6 @@ class AxSchedulerTestCase(TestCase):
         )
         scheduler.run_all_trials(timeout_hours=0)  # Forcing optimization to time out.
         self.assertEqual(len(scheduler.experiment.trials), 0)
-        self.assertIn("aborted", scheduler.experiment._properties["run_trials_success"])
 
     def test_logging(self) -> None:
         gs = self._get_generation_strategy_strategy_for_test(
@@ -1234,10 +1216,8 @@ class AxSchedulerTestCase(TestCase):
         )
         # Hack "resumed from storage timestamp" into `exp` to make sure all other fields
         # are equal, since difference in resumed from storage timestamps is expected.
-        exp._properties[ExperimentStatusProperties.RESUMED_FROM_STORAGE_TIMESTAMPS] = (
-            new_scheduler.experiment._properties[
-                ExperimentStatusProperties.RESUMED_FROM_STORAGE_TIMESTAMPS
-            ]
+        exp._properties[Keys.RESUMED_FROM_STORAGE_TS] = (
+            new_scheduler.experiment._properties[Keys.RESUMED_FROM_STORAGE_TS]
         )
         self.assertEqual(new_scheduler.experiment, exp)
         self.assertLessEqual(
@@ -1245,11 +1225,7 @@ class AxSchedulerTestCase(TestCase):
             len(new_scheduler.generation_strategy._generator_runs),
         )
         self.assertEqual(
-            len(
-                new_scheduler.experiment._properties[
-                    ExperimentStatusProperties.RESUMED_FROM_STORAGE_TIMESTAMPS
-                ]
-            ),
+            len(new_scheduler.experiment._properties[Keys.RESUMED_FROM_STORAGE_TS]),
             1,
         )
 
