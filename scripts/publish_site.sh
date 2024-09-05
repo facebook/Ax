@@ -53,8 +53,8 @@ cd "${WORK_DIR}" || exit
 
 if [[ $DOCUSAURUS_BOT == true ]]; then
   # Setup git credentials
-  git config --global user.name "Ax Website Deployment Script"
-  git config --global user.email "docusaurus-bot@users.noreply.github.com"
+  git config --global user.name "github-actions[bot]"
+  git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
   echo "machine github.com login docusaurus-bot password ${DOCUSAURUS_PUBLISH_TOKEN}" > ~/.netrc
 
   # Clone both main & gh-pages branches
@@ -63,8 +63,6 @@ if [[ $DOCUSAURUS_BOT == true ]]; then
   git clone --branch gh-pages https://docusaurus-bot@github.com/CristianLara/Ax.git Ax-gh-pages
 else
 # TODO: Temporarily changed while making changes on fork. Revert before merging back into facebook/Ax
-  git config --global user.name "github-actions[bot]"
-  git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
   git clone https://github.com/CristianLara/Ax.git Ax-main
   git clone --branch gh-pages https://github.com/CristianLara/Ax.git Ax-gh-pages
 fi
