@@ -32,10 +32,9 @@ from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_node import GenerationNode, GenerationStep
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec
 from ax.modelbridge.modelbridge_utils import get_fixed_features_from_experiment
-from ax.modelbridge.registry import _extract_model_state_after_gen, ModelRegistryBase
 from ax.modelbridge.transition_criterion import TrialBasedCriterion
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import checked_cast, checked_cast_list, not_none
+from ax.utils.common.typeutils import checked_cast_list, not_none
 from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
@@ -850,15 +849,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                 strategy will obtain the data via ``experiment.lookup_data``.
         """
         data = self.experiment.lookup_data() if data is None else data
-        # If last generator run's index matches the current node, extract
-        # model state from last generator run and pass it to the model
-        # being instantiated in this function.
-        model_state_on_lgr = self._get_model_state_from_last_generator_run()
-        if not data.df.empty:
-            trial_indices_in_data = sorted(data.df["trial_index"].unique())
-            logger.debug(f"Fitting model with data for trials: {trial_indices_in_data}")
-
-        self._curr.fit(experiment=self.experiment, data=data, **model_state_on_lgr)
+        self._curr.fit(experiment=self.experiment, data=data)
         self._model = self._curr._fitted_model
 
     def _maybe_transition_to_next_node(
@@ -901,37 +892,3 @@ class GenerationStrategy(GenerationStrategyInterface):
                     # this is done in `self._fit_current_model).
                     self._model = None
         return move_to_next_node
-
-    def _get_model_state_from_last_generator_run(self) -> dict[str, Any]:
-        lgr = self.last_generator_run
-        model_state_on_lgr = {}
-        # Need to check if model_spec_to_gen_from is none to account for
-        # ExternalGenerationNodes which leverage models from outside Ax.
-        model_on_curr = (
-            self._curr.model_spec_to_gen_from.model_enum
-            if self._curr.model_spec_to_gen_from
-            else None
-        )
-        if lgr is None:
-            return model_state_on_lgr
-
-        if not self.is_node_based:
-            grs_equal = lgr._generation_step_index == self.current_step_index
-        else:
-            grs_equal = lgr._generation_node_name == self._curr.node_name
-
-        if grs_equal and lgr._model_state_after_gen:
-            if self.model or isinstance(model_on_curr, ModelRegistryBase):
-                model_cls = (
-                    self.model.model.__class__
-                    if self.model is not None
-                    # NOTE: This checked cast is save per the OR-statement in last line
-                    # of the IF-check above.
-                    else checked_cast(ModelRegistryBase, model_on_curr).model_class
-                )
-                model_state_on_lgr = _extract_model_state_after_gen(
-                    generator_run=lgr,
-                    model_class=model_cls,
-                )
-
-        return model_state_on_lgr

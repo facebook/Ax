@@ -9,7 +9,7 @@
 import logging
 from typing import cast
 from unittest import mock
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 from ax.core.arm import Arm
@@ -29,6 +29,7 @@ from ax.exceptions.generation_strategy import (
     GenerationStrategyRepeatedPoints,
     MaxParallelismReachedException,
 )
+from ax.modelbridge.best_model_selector import SingleDiagnosticBestModelSelector
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_node import GenerationNode
@@ -36,6 +37,7 @@ from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrateg
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import (
+    _extract_model_state_after_gen,
     Cont_X_trans,
     MODEL_KEY_TO_MODEL_SETUP,
     Models,
@@ -1595,3 +1597,76 @@ class TestGenerationStrategy(TestCase):
                 trial.mark_completed()
 
         return could_gen
+
+
+class TestGenerationStrategyWithoutModelBridgeMocks(TestCase):
+    """The test class above heavily mocks the modelbridge. This makes it
+    difficult to test certain aspects of the GS. This is an alternative
+    test class that makes use of mocking rather sparingly.
+    """
+
+    @fast_botorch_optimize
+    @patch(
+        "ax.modelbridge.generation_node._extract_model_state_after_gen",
+        wraps=_extract_model_state_after_gen,
+    )
+    def test_with_model_selection(self, mock_model_state: Mock) -> None:
+        """Test that a GS with a model selection node functions correctly."""
+        best_model_selector = MagicMock(autospec=SingleDiagnosticBestModelSelector)
+        best_model_idx = 0
+        best_model_selector.best_model.side_effect = lambda model_specs: model_specs[
+            best_model_idx
+        ]
+        gs = GenerationStrategy(
+            name="Sobol+MBM/BO_MIXED",
+            nodes=[
+                GenerationNode(
+                    node_name="Sobol",
+                    model_specs=[ModelSpec(model_enum=Models.SOBOL)],
+                    transition_criteria=[
+                        MaxTrials(threshold=2, transition_to="MBM/BO_MIXED")
+                    ],
+                ),
+                GenerationNode(
+                    node_name="MBM/BO_MIXED",
+                    model_specs=[
+                        ModelSpec(model_enum=Models.BOTORCH_MODULAR),
+                        ModelSpec(model_enum=Models.BO_MIXED),
+                    ],
+                    best_model_selector=best_model_selector,
+                ),
+            ],
+        )
+        exp = get_branin_experiment(with_completed_trial=True)
+        # Gen with Sobol.
+        exp.new_trial(gs.gen(experiment=exp))
+        # Model state is not extracted since there is no past GR.
+        mock_model_state.assert_not_called()
+        exp.new_trial(gs.gen(experiment=exp))
+        # Model state is extracted since there is a past GR.
+        mock_model_state.assert_called_once()
+        mock_model_state.reset_mock()
+        # Gen with MBM/BO_MIXED.
+        mbm_gr_1 = gs.gen(experiment=exp)
+        # Model state is not extracted since there is no past GR from this node.
+        mock_model_state.assert_not_called()
+        mbm_gr_2 = gs.gen(experiment=exp)
+        # Model state is extracted only once, since there is a GR from only
+        # one of these models.
+        mock_model_state.assert_called_once()
+        # Verify that it was extracted from the previous GR.
+        self.assertIs(mock_model_state.call_args.kwargs["generator_run"], mbm_gr_1)
+        # Change the best model and verify that it generates as well.
+        best_model_idx = 1
+        mixed_gr_1 = gs.gen(experiment=exp)
+        # Only one new call for the MBM model.
+        self.assertEqual(mock_model_state.call_count, 2)
+        gs.gen(experiment=exp)
+        # Two new calls, since we have a GR from the mixed model as well.
+        self.assertEqual(mock_model_state.call_count, 4)
+        self.assertIs(
+            mock_model_state.call_args_list[-2].kwargs["generator_run"], mbm_gr_2
+        )
+        self.assertIs(
+            mock_model_state.call_args_list[-1].kwargs["generator_run"], mixed_gr_1
+        )
