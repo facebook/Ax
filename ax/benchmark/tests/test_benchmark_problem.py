@@ -82,7 +82,8 @@ class TestBenchmarkProblem(TestCase):
             float,
         )
         self.assertAlmostEqual(
-            problem.runner.evaluate_oracle(arm=arm).item(), at_target
+            problem.runner.evaluate_oracle(parameters=arm.parameters)[0],
+            at_target,
         )
         # first term: (-(b - 0.1) * (1 - x3)  + c - r)^2
         # low-fidelity: (-b - 0.1 + c - r)^2

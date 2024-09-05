@@ -10,6 +10,8 @@
 from itertools import product
 from unittest.mock import Mock
 
+import numpy as np
+
 import torch
 from ax.benchmark.runners.botorch_test import (
     BotorchTestProblemRunner,
@@ -150,8 +152,8 @@ class TestSyntheticRunner(TestCase):
                         torch.Size([2]), X.pow(2).sum().item(), dtype=torch.double
                     )
                 self.assertTrue(torch.allclose(Y, expected_Y))
-                oracle = runner.evaluate_oracle(arm=arm)
-                self.assertTrue(torch.equal(Y, oracle))
+                oracle = runner.evaluate_oracle(parameters=arm.parameters)
+                self.assertTrue(np.equal(Y.numpy(), oracle).all())
 
             with self.subTest(f"test `run()`, {test_description}"):
                 trial = Mock(spec=Trial)
