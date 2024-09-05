@@ -8,9 +8,13 @@
 
 import io
 import sys
+import warnings
 
+import torch
 from ax.utils.common.base import Base
 from ax.utils.common.testutils import TestCase
+from botorch.exceptions.warnings import InputDataWarning
+from botorch.models.gp_regression import SingleTaskGP
 
 
 # pyre-fixme[3]: Return type must be annotated.
@@ -19,7 +23,7 @@ def _f():
     raise e
 
 
-F_FAILURE_LINENO = 19  # Line # for the error in `_f`.
+F_FAILURE_LINENO = 23  # Line # for the error in `_f`.
 
 
 def _g() -> None:
@@ -113,3 +117,13 @@ class TestTestUtils(TestCase):
         self.assertEqual(None, self._long_test_active_reason)
         decorated_test()
         self.assertEqual(None, self._long_test_active_reason)
+
+    def test_warning_filtering(self) -> None:
+        with warnings.catch_warnings(record=True) as ws:
+            # Model with unstandardized float data, which would typically raise
+            # multiple warnings.
+            SingleTaskGP(
+                train_X=torch.rand(5, 2, dtype=torch.float) * 10,
+                train_Y=torch.rand(5, 1, dtype=torch.float) * 10,
+            )
+        self.assertFalse(any(w.category == InputDataWarning for w in ws))

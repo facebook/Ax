@@ -904,7 +904,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
             # users with this warning, we filter it out.
             warnings.filterwarnings(
                 "ignore",
-                message=r"Data \(outcome observations\) not standardized",
+                message=r"Data \(outcome observations\) is not standardized",
                 category=InputDataWarning,
             )
             cv_predictions = self._cross_validate(
