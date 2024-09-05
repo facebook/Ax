@@ -306,8 +306,10 @@ class TestCase(fake_filesystem_unittest.TestCase):
                 message += (
                     " To see a profiler output, set `TestCase.PROFILE_TESTS` to `True`."
                 )
-
-            if self._long_test_active_reason is None:
+            if hasattr(sys, "gettrace") and sys.gettrace() is not None:
+                # If we're in a debugger session, let the test continue running.
+                return
+            elif self._long_test_active_reason is None:
                 message += (
                     " To specify a reason for a long running test,"
                     + " utilize the @ax_long_test decorator. If your test "
