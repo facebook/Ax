@@ -364,7 +364,12 @@ class TestCase(fake_filesystem_unittest.TestCase):
         # BoTorch input standardization warnings.
         warnings.filterwarnings(
             "ignore",
-            message="Input data is not",
+            message=r"Data \(outcome observations\) is not standardized ",
+            category=InputDataWarning,
+        )
+        warnings.filterwarnings(
+            "ignore",
+            message=r"Data \(input features\) is not",
             category=InputDataWarning,
         )
 
