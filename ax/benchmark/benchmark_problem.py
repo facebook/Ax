@@ -95,7 +95,8 @@ class BenchmarkProblem(Base):
         for trial_index, trial in experiment.trials.items():
             for arm in trial.arms:
                 for metric_name, metric_value in zip(
-                    self.runner.outcome_names, self.runner.evaluate_oracle(arm=arm)
+                    self.runner.outcome_names,
+                    self.runner.evaluate_oracle(parameters=arm.parameters),
                 ):
                     records.append(
                         {
@@ -117,6 +118,11 @@ class BenchmarkProblem(Base):
         data = Data(df=pd.DataFrame.from_records(records))
         new_experiment.attach_data(data=data, overwrite_existing_data=True)
         return new_experiment
+
+    @property
+    def is_moo(self) -> bool:
+        """Whether the problem is multi-objective."""
+        return isinstance(self.optimization_config, MultiObjectiveOptimizationConfig)
 
     def get_opt_trace(self, experiment: Experiment) -> np.ndarray:
         """Evaluate the optimization trace of a list of Trials."""

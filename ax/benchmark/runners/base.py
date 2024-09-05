@@ -6,7 +6,7 @@
 # pyre-strict
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from math import sqrt
 from typing import Any, Union
 
@@ -18,8 +18,10 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.trial import Trial
+from ax.core.types import TParamValue
 
 from ax.utils.common.typeutils import checked_cast
+from numpy import ndarray
 from torch import Tensor
 
 
@@ -65,7 +67,7 @@ class BenchmarkRunner(Runner, ABC):
         """
         ...
 
-    def evaluate_oracle(self, arm: Arm) -> Tensor:
+    def evaluate_oracle(self, parameters: Mapping[str, TParamValue]) -> ndarray:
         """
         Evaluate oracle metric values at a parameterization. In the base class,
         oracle values are underlying noiseless function values evaluated at the
@@ -76,8 +78,8 @@ class BenchmarkRunner(Runner, ABC):
         preference-learned objective, the values might be true metrics evaluated
         at the true utility function (which would be unobserved in reality).
         """
-        params = {**arm.parameters, **self.target_fidelity_and_task}
-        return self.get_Y_true(arm=Arm(parameters=params))
+        params = {**parameters, **self.target_fidelity_and_task}
+        return self.get_Y_true(arm=Arm(parameters=params)).numpy()
 
     @abstractmethod
     def get_noise_stds(self) -> Union[None, float, dict[str, float]]:

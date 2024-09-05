@@ -435,9 +435,9 @@ class BestPointMixin(metaclass=ABCMeta):
         """Compute the optimization trace at each iteration.
 
         Given an experiment and an optimization config, compute the performance
-        at each iteration. For multi-objective, the performance is compute as the
-        hypervolume. For single objective, the performance is compute as the best
-        observed objective value.
+        at each iteration. For multi-objective, the performance is computed as
+        the hypervolume. For single objective, the performance is computed as
+        the best observed objective value.
 
         An iteration here refers to a completed or early-stopped (batch) trial.
         There will be one performance metric in the trace for each iteration.

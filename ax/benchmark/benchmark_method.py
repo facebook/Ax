@@ -26,6 +26,16 @@ class BenchmarkMethod(Base):
     Note: If `BenchmarkMethod.scheduler_options.total_trials` is less than
     `BenchmarkProblem.num_trials` then only the number of trials specified in the
     former will be run.
+
+    Args:
+        name: String description.
+        generation_strategy: The `GenerationStrategy` to use.
+        scheduler_options: `SchedulerOptions` that specify options such as
+            `max_pending_trials`, `timeout_hours`, and `batch_size`. Can be
+            generated with sensible defaults for benchmarking with
+            `get_benchmark_scheduler_options`.
+        distribute_replications: Indicates whether the replications should be
+            run in a distributed manner. Ax itself does not use this attribute.
     """
 
     name: str

@@ -28,12 +28,34 @@ PERCENTILES = [0.25, 0.5, 0.75]
 class BenchmarkResult(Base):
     """The result of a single optimization loop from one
     (BenchmarkProblem, BenchmarkMethod) pair.
+
+    Args:
+        name: Name of the benchmark. Should make it possible to determine the
+            problem and the method.
+        seed: Seed used for determinism.
+        optimization_trace: For single-objective problems, element i of the
+            optimization trace is the oracle value of the "best" point, computed
+            after the first i trials have been run. For multi-objective
+            problems, element i of the optimization trace is the hypervolume of
+            oracle values at a set of points, also computed after the first i
+            trials (even if these were ``BatchTrials``).  Oracle values are
+            typically ground-truth (rather than noisy) and evaluated at the
+            target task and fidelity.
+
+        score_trace: The scores associated with the problem, typically either
+            the optimization_trace or inference_value_trace normalized to a
+            0-100 scale for comparability between problems.
+        fit_time: Total time spent fitting models.
+        gen_time: Total time spent generating candidates.
+        experiment: If not ``None``, the Ax experiment associated with the
+            optimization that generated this data. Either ``experiment`` or
+            ``experiment_storage_id`` must be provided.
+        experiment_storage_id: Pointer to location where experiment data can be read.
     """
 
     name: str
     seed: int
 
-    # Tracks best point if single-objective problem, max hypervolume if MOO
     optimization_trace: ndarray
     score_trace: ndarray
 
@@ -41,7 +63,6 @@ class BenchmarkResult(Base):
     gen_time: float
 
     experiment: Optional[Experiment] = None
-    # Pointer to location where experiment data can be read
     experiment_storage_id: Optional[str] = None
 
     def __post_init__(self) -> None:
