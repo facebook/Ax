@@ -10,7 +10,7 @@
 // See https://docusaurus.io/docs/site-config for all the possible
 // site configuration options.
 
-const baseUrl = '/';
+const baseUrl = '/ax/';
 
 // If true, include Algolia search bar when building site
 // Note: this setting is toggled to false by publish_site.sh script, so
@@ -23,15 +23,15 @@ const users = [];
 const siteConfig = {
   title: 'Ax',
   tagline: 'Adaptive Experimentation Platform',
-  url: 'https://ax.dev/',
-  baseUrl: baseUrl,
+  url: 'http://cristianlara.me',
+  baseUrl: "/ax/",
 
   // Used for publishing and more
   projectName: 'Ax',
-  organizationName: 'facebook',
+  organizationName: 'cristianlara',
 
   // Google analytics
-  gaTrackingId: 'UA-139570076-1',
+  // gaTrackingId: 'UA-139570076-1',
 
   // For no header links in the top nav bar -> headerLinks: [],
   headerLinks: [
@@ -40,7 +40,7 @@ const siteConfig = {
     {href: `${baseUrl}api/`, label: 'API'},
     // Search can be enabled when site is online
     // {search: true},
-    {href: 'https://github.com/facebook/Ax', label: 'GitHub'},
+    {href: 'https://github.com/cristianlara/Ax', label: 'GitHub'},
   ],
 
   // If you have users set above, you add it here:
@@ -92,12 +92,12 @@ const siteConfig = {
   wrapPagesHTML: true,
 };
 
-if (includeAlgolia == true) {
-  siteConfig['algolia'] = {
-    apiKey: '467d4f1f6cace3ecb36ab551cb44905b',
-    indexName: 'ax',
-    algoliaOptions: {}, // Optional, if provided by Algolia
-  };
-}
+// if (includeAlgolia == true) {
+//   siteConfig['algolia'] = {
+//     apiKey: '467d4f1f6cace3ecb36ab551cb44905b',
+//     indexName: 'ax',
+//     algoliaOptions: {}, // Optional, if provided by Algolia
+//   };
+// }
 
 module.exports = siteConfig;
