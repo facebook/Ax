@@ -79,8 +79,10 @@ class TestExperiment(TestCase):
         trial.mark_completed(unsafe=True)
 
         # create a trial that among other things does bayesopt
+        data = experiment.fetch_data()
         botorch = Models.BOTORCH_MODULAR(
-            experiment=experiment, data=experiment.fetch_data()
+            experiment=experiment,
+            data=data,
         )
         trial = (
             experiment.new_batch_trial()
@@ -89,6 +91,15 @@ class TestExperiment(TestCase):
         )
         trial.add_arm(experiment.arms_by_name["0_0"])
         trial.mark_completed(unsafe=True)
+
+        # create another BO trial but leave it as a candidate
+        botorch = Models.BOTORCH_MODULAR(
+            experiment=experiment,
+            data=data,
+        )
+        trial = experiment.new_batch_trial().add_generator_run(
+            generator_run=botorch.gen(5)
+        )
 
         record = ExperimentCompletedRecord.from_experiment(experiment=experiment)
         self.assertEqual(record.num_initialization_trials, 1)
