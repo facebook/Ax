@@ -47,6 +47,7 @@ from botorch.acquisition.multi_objective.monte_carlo import (
     qExpectedHypervolumeImprovement,
     qNoisyExpectedHypervolumeImprovement,
 )
+from botorch.acquisition.multi_objective.parego import qLogNParEGO
 from botorch.acquisition.preference import AnalyticExpectedUtilityOfBestOption
 from botorch.models import SaasFullyBayesianSingleTaskGP
 from botorch.models.contextual import LCEAGP
@@ -144,6 +145,7 @@ ACQUISITION_FUNCTION_REGISTRY: dict[type[AcquisitionFunction], str] = {
     qLogNoisyExpectedImprovement: "qLogNoisyExpectedImprovement",
     qLogExpectedHypervolumeImprovement: "qLogExpectedHypervolumeImprovement",
     qLogNoisyExpectedHypervolumeImprovement: "qLogNoisyExpectedHypervolumeImprovement",
+    qLogNParEGO: "qLogNParEGO",
 }
 
 
