@@ -50,6 +50,8 @@ def validate_complete_sphinx(path_to_ax: str) -> None:
     * Every single non-package (i.e. py file) module should be included in rst file with
       `automodule::` directive. Sphinx will then automatically include all members from
        the module in the documentation.
+    * The files are located in the github/sphinx/source folder. If this is failing,
+      ensure your file/module is present in the correct location in that folder.
 
     Note: this function does not validate any documentation for the 'ax' module.
 
