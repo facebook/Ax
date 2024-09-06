@@ -50,7 +50,7 @@ DEV_REQUIRES = [
     "numpy<2.0",
 ]
 
-MYSQL_REQUIRES = ["SQLAlchemy==1.4.17"]
+MYSQL_REQUIRES = ["SQLAlchemy==2.0.21"]
 
 NOTEBOOK_REQUIRES = ["jupyter"]
 

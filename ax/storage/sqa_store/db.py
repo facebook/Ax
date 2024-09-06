@@ -47,6 +47,8 @@ T = TypeVar("T")
 class SQABase:
     """Metaclass for SQLAlchemy classes corresponding to core Ax classes."""
 
+    __allow_unmapped__ = True
+    __table_args__ = {"extend_existing": True}
     pass
 
 
