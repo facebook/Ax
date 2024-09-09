@@ -6,6 +6,7 @@
 # pyre-strict
 
 from copy import deepcopy
+from typing import List, Tuple, Type
 from unittest.mock import Mock
 
 import numpy as np
@@ -44,10 +45,42 @@ from hypothesis import assume, given, settings, strategies as st
 
 
 class RelativizeDataTest(TestCase):
+    relativize_classes: List[Type[Transform]] = [
+        Relativize,
+        RelativizeWithConstantControl,
+    ]
+    cases: List[Tuple[Type[Transform], List[Tuple[np.ndarray, np.ndarray]]]] = [
+        (
+            Relativize,
+            [
+                (np.array([0.0, 0.0]), np.array([[0.0, 0.0], [0.0, 0.0]])),
+                (
+                    np.array([-22.56, 98.01652893]),
+                    np.array([[604.8, 0.0], [0.0, 512.39669421]]),
+                ),
+                (np.array([0.0, 0.0]), np.array([[0.0, 0.0], [0.0, 0.0]])),
+                (np.array([-51.25, 98.4]), np.array([[812.5, 0.0], [0.0, 480.0]])),
+            ],
+        ),
+        (
+            RelativizeWithConstantControl,
+            [
+                (np.array([0.0, 0.0]), np.array([[0.0, 0.0], [0.0, 0.0]])),
+                (
+                    np.array([-20.0, 100.0]),
+                    np.array([[400.0, 0.0], [0.0, 115.70247934]]),
+                ),
+                (np.array([0.0, 0.0]), np.array([[0.0, 0.0], [0.0, 0.0]])),
+                (np.array([-50.0, 100.0]), np.array([[750.0, 0.0], [0.0, 160.0]])),
+            ],
+        ),
+    ]
+
     def test_relativize_transform_requires_a_modelbridge(self) -> None:
-        for relativize_cls in [Relativize, RelativizeWithConstantControl]:
+        for relativize_cls in self.relativize_classes:
             with self.assertRaisesRegex(
-                ValueError, "Relativize transform requires a modelbridge"
+                ValueError,
+                f"{relativize_cls.__name__} transform requires a modelbridge",
             ):
                 relativize_cls(
                     search_space=None,
@@ -57,12 +90,12 @@ class RelativizeDataTest(TestCase):
     def test_relativize_transform_requires_a_modelbridge_to_have_status_quo_data(
         self,
     ) -> None:
-        for relativize_cls in [Relativize, RelativizeWithConstantControl]:
+        for relativize_cls in self.relativize_classes:
             # modelbridge has no status quo
             sobol = Models.SOBOL(search_space=get_search_space())
             self.assertIsNone(sobol.status_quo)
             with self.assertRaisesRegex(
-                ValueError, "Cannot relativize data without status quo data"
+                ValueError, f"{relativize_cls.__name__} requires status quo data."
             ):
                 relativize_cls(
                     search_space=None,
@@ -110,6 +143,15 @@ class RelativizeDataTest(TestCase):
             self.assertEqual(
                 mean_in_data, not_none(modelbridge.status_quo_data_by_trial)[0].means[0]
             )
+            # reset SQ
+            not_none(exp._status_quo)._parameters["x1"] = 0.0
+            modelbridge = ModelBridge(
+                search_space=exp.search_space,
+                model=Model(),
+                transforms=[relativize_cls],
+                experiment=exp,
+                data=data,
+            )
 
             # create a new experiment
             new_exp = get_branin_experiment(
@@ -143,7 +185,7 @@ class RelativizeDataTest(TestCase):
             mb_sq = not_none(modelbridge._status_quo)
             mb_sq.arm_name = None
             self.assertIsNotNone(modelbridge.status_quo_data_by_trial)
-
+            self.assertEqual(len(modelbridge.status_quo_data_by_trial), 1)
             # test transform edge cases
             observations = observations_from_data(
                 experiment=exp,
@@ -180,16 +222,33 @@ class RelativizeDataTest(TestCase):
                 )
             # Check untransform
             untsfm_results = tf.untransform_observations(results)
-            for i, untsfm_obs in enumerate(untsfm_results):
-                obs = observations[i]
+            j = 0
+            for untsfm_obs in untsfm_results:
+                obs = observations[j]
+                # skip status quo for the non-target trial since that
+                # is removed when transforming observations
+                if untsfm_obs.arm_name != obs.arm_name:
+                    j += 1
+                    obs = observations[j]
                 self.assertTrue(np.allclose(untsfm_obs.data.means, obs.data.means))
                 self.assertTrue(
                     np.allclose(untsfm_obs.data.covariance, obs.data.covariance)
                 )
+                j += 1
 
         metric_names = ["foobar", "foobaz"]
-        arm_names = ["status_quo", "0_0"]
+        arm_names = ["status_quo", "0_0", "status_quo", "1_0"]
         obs_data = [
+            ObservationData(
+                metric_names=metric_names,
+                means=np.array([2.5, 5.5]),
+                covariance=np.array([[0.2, 0.0], [0.0, 0.3]]),
+            ),
+            ObservationData(
+                metric_names=metric_names,
+                means=np.array([2.0, 11.0]),
+                covariance=np.array([[0.25, 0.0], [0.0, 0.35]]),
+            ),
             ObservationData(
                 metric_names=metric_names,
                 means=np.array([2.0, 5.0]),
@@ -204,32 +263,19 @@ class RelativizeDataTest(TestCase):
         obs_features = [
             ObservationFeatures(parameters={"x": 1}, trial_index=0),
             ObservationFeatures(parameters={"x": 2}, trial_index=0),
+            ObservationFeatures(parameters={"x": 1}, trial_index=1),
+            ObservationFeatures(parameters={"x": 3}, trial_index=1),
         ]
 
         observations = recombine_observations(obs_features, obs_data, arm_names)
         modelbridge = Mock(
             status_quo=Mock(
-                data=obs_data[0], features=obs_features[0], arm_name=arm_names[0]
+                data=obs_data[2], features=obs_features[2], arm_name=arm_names[2]
             ),
-            status_quo_data_by_trial={0: obs_data[0]},
+            status_quo_data_by_trial={0: obs_data[0], 1: obs_data[2]},
         )
 
-        for relativize_cls, expected_mean_and_covar in [
-            (
-                Relativize,
-                [
-                    (np.array([0.0, 0.0]), np.array([[0.0, 0.0], [0.0, 0.0]])),
-                    (np.array([-51.25, 98.4]), np.array([[812.5, 0.0], [0.0, 480.0]])),
-                ],
-            ),
-            (
-                RelativizeWithConstantControl,
-                [
-                    (np.array([0.0, 0.0]), np.array([[0.0, 0.0], [0.0, 0.0]])),
-                    (np.array([-50.0, 100.0]), np.array([[750.0, 0.0], [0.0, 160.0]])),
-                ],
-            ),
-        ]:
+        for relativize_cls, expected_mean_and_covar in self.cases:
             tf = relativize_cls(
                 search_space=None,
                 observations=observations,
@@ -242,25 +288,30 @@ class RelativizeDataTest(TestCase):
                 expected_mean_and_covar=expected_mean_and_covar,
             )
             # transform should still work when trial_index is None
-            modelbridge = Mock(
-                status_quo=Mock(
-                    data=obs_data[0], features=obs_features[0], arm_name=arm_names[0]
-                ),
-                status_quo_data_by_trial={0: obs_data[1], 1: obs_data[0]},
-            )
-            tf = relativize_cls(
-                search_space=None,
-                observations=observations,
-                modelbridge=modelbridge,
-            )
-            for obs in observations:
-                obs.features.trial_index = None
-            _check_transform_observations(
-                tf=tf,
-                observations=observations,
-                expected_mean_and_covar=expected_mean_and_covar,
-            )
+            if relativize_cls in [RelativizeWithConstantControl, Relativize]:
+                modelbridge = Mock(
+                    status_quo=Mock(
+                        data=obs_data[2],
+                        features=obs_features[2],
+                        arm_name=arm_names[2],
+                    ),
+                    status_quo_data_by_trial={0: obs_data[0], 1: obs_data[2]},
+                )
+                tf = relativize_cls(
+                    search_space=None,
+                    observations=observations,
+                    modelbridge=modelbridge,
+                )
+                observations2 = deepcopy(observations)
+                for obs in observations2:
+                    obs.features.trial_index = None
+                _check_transform_observations(
+                    tf=tf,
+                    observations=observations2[2:4],
+                    expected_mean_and_covar=expected_mean_and_covar[2:4],
+                )
 
+    def test_bad_relativize(self) -> None:
         # Check instantiation and subclassing of BaseRelativize
         class BadRelativize(BaseRelativize):
             pass
@@ -269,8 +320,8 @@ class RelativizeDataTest(TestCase):
             with self.assertRaisesRegex(TypeError, "Can't instantiate abstract class"):
                 abstract_cls(
                     search_space=None,
-                    observations=observations,
-                    modelbridge=modelbridge,
+                    observations=None,
+                    modelbridge=None,
                 )
 
     # pyre-fixme[56]: Pyre was not able to infer the type of argument
@@ -419,6 +470,7 @@ class RelativizeDataOptConfigTest(TestCase):
                 features=ObservationFeatures(parameters=gr.arms[0].parameters)
             ),
         )
+        self.model.status_quo_data_by_trial = {0: None}
 
     def test_transform_optimization_config_without_constraints(self) -> None:
         for relativize_cls in [Relativize, RelativizeWithConstantControl]:
