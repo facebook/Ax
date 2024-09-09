@@ -24,7 +24,7 @@ const siteConfig = {
   title: 'Ax',
   tagline: 'Adaptive Experimentation Platform',
   url: 'http://cristianlara.me',
-  baseUrl: "/ax/",
+  baseUrl: baseUrl,
 
   // Used for publishing and more
   projectName: 'Ax',

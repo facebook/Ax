@@ -119,7 +119,7 @@ if [[ $VERSION == false ]]; then
 
   # Replace baseUrl (set to /versions/latest/) & disable Algolia
   CONFIG_FILE=$(fullpath "siteConfig.js")
-  python3 ../scripts/patch_site_config.py -f "${CONFIG_FILE}" -b "/versions/latest/" --disable_algolia
+  python3 ../scripts/patch_site_config.py -f "${CONFIG_FILE}" -b "versions/latest/" --disable_algolia
 
   # Tag site with "latest" version
   yarn
