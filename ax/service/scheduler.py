@@ -1233,8 +1233,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         trial_indices_with_updated_data_or_status.update(trial_indices_with_new_data)
 
         # EARLY STOP TRIALS
-        stop_trial_info = self.should_stop_trials_early(
+        stop_trial_info = early_stopping_utils.should_stop_trials_early(
+            early_stopping_strategy=self.options.early_stopping_strategy,
             trial_indices=self.experiment.running_trial_indices,
+            experiment=self.experiment,
         )
         self.stop_trial_runs(
             trials=[self.experiment.trials[trial_idx] for trial_idx in stop_trial_info],
@@ -1426,24 +1428,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self.logger.info(f"Fetching data for trials: {idcs}.")
         self._fetch_and_process_trials_data_results(
             trial_indices=newly_completed,
-        )
-
-    def should_stop_trials_early(
-        self, trial_indices: set[int]
-    ) -> dict[int, Optional[str]]:
-        """Evaluate whether to early-stop running trials.
-
-        Args:
-            trial_indices: Indices of trials to consider for early stopping.
-
-        Returns:
-            A dictionary mapping trial indices that should be early stopped to
-            (optional) messages with the associated reason.
-        """
-        return early_stopping_utils.should_stop_trials_early(
-            early_stopping_strategy=self.options.early_stopping_strategy,
-            trial_indices=trial_indices,
-            experiment=self.experiment,
         )
 
     def estimate_early_stopping_savings(self, map_key: Optional[str] = None) -> float:
