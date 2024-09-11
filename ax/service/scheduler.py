@@ -219,12 +219,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         # when trials are not generated for the same reason multiple times in
         # a row.
         self._log_next_no_trials_reason = True
-        if not hasattr(self, "markdown_messages"):
-            self.markdown_messages = {}
-        self.markdown_messages["Generation strategy"] = GS_TYPE_MSG.format(
-            gs_name=generation_strategy.name
-        )
-
+        self.markdown_messages = {
+            "Generation strategy": GS_TYPE_MSG.format(gs_name=generation_strategy.name)
+        }
         self._timeout_hours = options.timeout_hours
 
     @classmethod
