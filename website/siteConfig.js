@@ -10,7 +10,7 @@
 // See https://docusaurus.io/docs/site-config for all the possible
 // site configuration options.
 
-const baseUrl = '/ax/';
+const baseUrl = '/Ax/';
 
 // If true, include Algolia search bar when building site
 // Note: this setting is toggled to false by publish_site.sh script, so
