@@ -237,7 +237,7 @@ def get_best_parameters_from_model_predictions_with_trial_index(
             except ValueError:
                 return _gr_to_prediction_with_trial_index(idx, gr)
 
-            # If model is not TorchModelBridge, just use the best arm frmo the
+            # If model is not TorchModelBridge, just use the best arm from the
             # last good generator run
             if not isinstance(model, TorchModelBridge):
                 return _gr_to_prediction_with_trial_index(idx, gr)

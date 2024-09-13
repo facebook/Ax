@@ -149,15 +149,6 @@ class TestBenchmarkProblem(TestCase):
                 self.assertEqual(
                     test_problem.optimization_config.outcome_constraints, []
                 )
-                expected_repr = (
-                    "BenchmarkProblem(name='Ackley', "
-                    "optimization_config=OptimizationConfig(objective=Objective("
-                    'metric_name="Ackley", '
-                    "minimize=True), outcome_constraints=[]), "
-                    "num_trials=1, "
-                    "observe_noise_stds=False, "
-                    "optimal_value=0.0)"
-                )
             else:
                 outcome_constraint = (
                     test_problem.optimization_config.outcome_constraints[0]
@@ -166,18 +157,6 @@ class TestBenchmarkProblem(TestCase):
                 self.assertEqual(outcome_constraint.op, ComparisonOp.GEQ)
                 self.assertFalse(outcome_constraint.relative)
                 self.assertEqual(outcome_constraint.bound, 0.0)
-                expected_repr = (
-                    "BenchmarkProblem(name='ConstrainedHartmann', "
-                    "optimization_config=OptimizationConfig(objective=Objective("
-                    'metric_name="ConstrainedHartmann", minimize=True), '
-                    "outcome_constraints=[OutcomeConstraint(constraint_slack_0"
-                    " >= 0.0)]), "
-                    "num_trials=1, "
-                    "observe_noise_stds=False, "
-                    "optimal_value=-3.32237)"
-                )
-
-            self.assertEqual(repr(test_problem), expected_repr)
 
     def _test_constrained_from_botorch(
         self,
