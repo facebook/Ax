@@ -79,6 +79,7 @@ from ax.utils.testing.core_stubs import DummyEarlyStoppingStrategy
 from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_observation1, get_observation1trans
 from botorch.test_functions.multi_objective import BraninCurrin
+from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
     from ax.core.types import TTrialEvaluation
@@ -1477,20 +1478,15 @@ class TestAxClient(TestCase):
     )
     def test_get_best_point_no_model_predictions(
         self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        mock_get_best_parameters_from_model_predictions_with_trial_index,
+        mock_get_best_parameters_from_model_predictions_with_trial_index: Mock,
     ) -> None:
         ax_client = get_branin_optimization()
         params, idx = ax_client.get_next_trial()
         ax_client.complete_trial(trial_index=idx, raw_data={"branin": (0, 0.0)})
-        # pyre-fixme[23]: Unable to unpack `Optional[Tuple[int, Dict[str,
-        #  typing.Union[None, bool, float, int, str]], Optional[Tuple[Dict[str, float],
-        #  Optional[Dict[str, typing.Dict[str, float]]]]]]]` into 3 values.
-        best_idx, best_params, _ = ax_client.get_best_trial()
+        best_idx, best_params, _ = none_throws(ax_client.get_best_trial())
         self.assertEqual(best_idx, idx)
         self.assertEqual(best_params, params)
-        # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
-        self.assertEqual(ax_client.get_best_parameters()[0], params)
+        self.assertEqual(none_throws(ax_client.get_best_parameters())[0], params)
         mock_get_best_parameters_from_model_predictions_with_trial_index.assert_called()
         mock_get_best_parameters_from_model_predictions_with_trial_index.reset_mock()
         ax_client.get_best_parameters(use_model_predictions=False)

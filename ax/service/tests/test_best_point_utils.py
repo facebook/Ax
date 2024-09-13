@@ -117,7 +117,14 @@ class TestBestPointUtils(TestCase):
                 mock_model_best_point.assert_called()
 
         # Assert the non-mocked method works correctly as well
-        self.assertIsNotNone(get_best_parameters(exp, Models))
+        best_params = get_best_parameters(exp, Models)
+        self.assertIsNotNone(best_params)
+        # It works even when there are no predictions already stored on the
+        # GeneratorRun
+        for trial in exp.trials.values():
+            trial.generator_run._best_arm_predictions = None
+        best_params_no_gr = get_best_parameters(exp, Models)
+        self.assertEqual(best_params, best_params_no_gr)
 
     def test_best_raw_objective_point(self) -> None:
         exp = get_branin_experiment()
