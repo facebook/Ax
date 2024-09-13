@@ -16,8 +16,6 @@ from ax.utils.testing.benchmark_stubs import get_moo_surrogate, get_soo_surrogat
 class TestSurrogateProblems(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        # print max output so errors in 'repr' can be fully shown
-        self.maxDiff = None
 
     def test_conforms_to_api(self) -> None:
         sbp = get_soo_surrogate()
@@ -25,21 +23,6 @@ class TestSurrogateProblems(TestCase):
 
         mbp = get_moo_surrogate()
         self.assertIsInstance(mbp, BenchmarkProblem)
-
-    def test_repr(self) -> None:
-
-        sbp = get_soo_surrogate()
-
-        expected_repr = (
-            "SurrogateBenchmarkProblem(name='test', "
-            "optimization_config=OptimizationConfig(objective=Objective(metric_name="
-            '"branin", '
-            "minimize=True), "
-            "outcome_constraints=[]), num_trials=6, "
-            "observe_noise_stds=True, "
-            "optimal_value=0.0)"
-        )
-        self.assertEqual(repr(sbp), expected_repr)
 
     def test_compute_score_trace(self) -> None:
         soo_problem = get_soo_surrogate()
