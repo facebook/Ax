@@ -6,6 +6,7 @@
 # pyre-strict
 
 import math
+from math import pi
 from typing import Optional, Union
 
 import torch
@@ -22,6 +23,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
+from ax.utils.testing.core_stubs import get_branin_experiment
 from botorch.test_functions.base import ConstrainedBaseTestProblem
 from botorch.test_functions.multi_fidelity import AugmentedBranin
 from botorch.test_functions.multi_objective import BraninCurrin, ConstrainedBraninCurrin
@@ -322,3 +324,72 @@ class TestBenchmarkProblem(TestCase):
             test_problem_kwargs={},
         )
         self.assertFalse(test_problem.optimization_config.objective.minimize)
+
+    def test_get_oracle_experiment_from_params(self) -> None:
+        problem = create_problem_from_botorch(
+            test_problem_class=Branin,
+            test_problem_kwargs={},
+            num_trials=5,
+        )
+        # first is near optimum
+        near_opt_params = {"x0": -pi, "x1": 12.275}
+        other_params = {"x0": 0.5, "x1": 0.5}
+        unbatched_experiment = problem.get_oracle_experiment_from_params(
+            {0: {"0": near_opt_params}, 1: {"1": other_params}}
+        )
+        self.assertEqual(len(unbatched_experiment.trials), 2)
+        self.assertTrue(
+            all(t.status.is_completed for t in unbatched_experiment.trials.values())
+        )
+        self.assertTrue(
+            all(len(t.arms) == 1 for t in unbatched_experiment.trials.values())
+        )
+        df = unbatched_experiment.fetch_data().df
+        self.assertAlmostEqual(df["mean"].iloc[0], Branin._optimal_value, places=5)
+
+        batched_experiment = problem.get_oracle_experiment_from_params(
+            {0: {"0_0": near_opt_params, "0_1": other_params}}
+        )
+        self.assertEqual(len(batched_experiment.trials), 1)
+        self.assertEqual(len(batched_experiment.trials[0].arms), 2)
+        df = batched_experiment.fetch_data().df
+        self.assertAlmostEqual(df["mean"].iloc[0], Branin._optimal_value, places=5)
+
+        # Test empty inputs
+        experiment = problem.get_oracle_experiment_from_params({})
+        self.assertEqual(len(experiment.trials), 0)
+
+        with self.assertRaisesRegex(ValueError, "trial with no arms"):
+            problem.get_oracle_experiment_from_params({0: {}})
+
+    def test_get_oracle_experiment_from_experiment(self) -> None:
+        problem = create_problem_from_botorch(
+            test_problem_class=Branin,
+            test_problem_kwargs={"negate": True},
+            num_trials=5,
+        )
+
+        # empty experiment
+        empty_experiment = get_branin_experiment(with_trial=False)
+        oracle_experiment = problem.get_oracle_experiment_from_experiment(
+            empty_experiment
+        )
+        self.assertEqual(oracle_experiment.search_space, problem.search_space)
+        self.assertEqual(
+            oracle_experiment.optimization_config, problem.optimization_config
+        )
+        self.assertEqual(oracle_experiment.trials.keys(), set())
+
+        experiment = get_branin_experiment(
+            with_trial=True,
+            search_space=problem.search_space,
+            with_status_quo=False,
+        )
+        oracle_experiment = problem.get_oracle_experiment_from_experiment(
+            experiment=experiment
+        )
+        self.assertEqual(oracle_experiment.search_space, problem.search_space)
+        self.assertEqual(
+            oracle_experiment.optimization_config, problem.optimization_config
+        )
+        self.assertEqual(oracle_experiment.trials.keys(), experiment.trials.keys())
