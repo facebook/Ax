@@ -32,6 +32,7 @@ from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkRe
 from ax.core.experiment import Experiment
 from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
+from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import with_rng_seed
 
@@ -116,7 +117,15 @@ def benchmark_replication(
     with with_rng_seed(seed=seed):
         scheduler.run_n_trials(max_trials=problem.num_trials)
 
-    optimization_trace = problem.get_opt_trace(experiment=experiment)
+    oracle_experiment = problem.get_oracle_experiment_from_experiment(
+        experiment=experiment
+    )
+    optimization_trace = np.array(
+        BestPointMixin._get_trace(
+            experiment=oracle_experiment,
+            optimization_config=problem.optimization_config,
+        )
+    )
 
     try:
         # Catch any errors that may occur during score computation, such as errors
