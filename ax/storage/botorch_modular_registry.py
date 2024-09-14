@@ -54,11 +54,8 @@ from botorch.models.contextual import LCEAGP
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 
 # BoTorch `Model` imports
-from botorch.models.gp_regression import FixedNoiseGP, SingleTaskGP
-from botorch.models.gp_regression_fidelity import (
-    FixedNoiseMultiFidelityGP,
-    SingleTaskMultiFidelityGP,
-)
+from botorch.models.gp_regression import SingleTaskGP
+from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
@@ -110,8 +107,6 @@ MODEL_REGISTRY: dict[type[Model], str] = {
     # NOTE: Fixed noise models are deprecated. They point to their
     # supported parent classes, so that we can reap them with minimal
     # concern for backwards compatibility when the time comes.
-    FixedNoiseGP: "SingleTaskGP",
-    FixedNoiseMultiFidelityGP: "SingleTaskMultiFidelityGP",
     MixedSingleTaskGP: "MixedSingleTaskGP",
     ModelListGP: "ModelListGP",
     MultiTaskGP: "MultiTaskGP",

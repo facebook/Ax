@@ -761,7 +761,7 @@ def _get_model(
         gp = SingleTaskMultiFidelityGP(
             train_X=X,
             train_Y=Y,
-            data_fidelity=fidelity_features[0],
+            data_fidelities=fidelity_features[:1],
             input_transform=warp_tf,
             **kwargs,
         )
