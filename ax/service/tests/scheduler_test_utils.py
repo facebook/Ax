@@ -141,15 +141,6 @@ class TestScheduler(Scheduler):
         }
 
 
-class EarlyStopsInsteadOfNormalCompletionScheduler(TestScheduler):
-    """Test scheduler that marks all trials as ones that should be early-stopped."""
-
-    def should_stop_trials_early(
-        self, trial_indices: set[int]
-    ) -> dict[int, Optional[str]]:
-        return {i: None for i in trial_indices}
-
-
 # ---- Runners below simulate different usage and failure modes for scheduler ----
 
 
@@ -1310,7 +1301,7 @@ class AxSchedulerTestCase(TestCase):
             experiment=self.branin_experiment,
             generation_strategy=self.two_sobol_steps_GS,
         )
-        scheduler = EarlyStopsInsteadOfNormalCompletionScheduler(
+        scheduler = TestScheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,
             options=SchedulerOptions(
@@ -1319,10 +1310,9 @@ class AxSchedulerTestCase(TestCase):
             db_settings=self.db_settings_if_always_needed,
         )
         # All trials should be marked complete after one run.
-        with patch.object(
-            scheduler,
-            "should_stop_trials_early",
-            wraps=scheduler.should_stop_trials_early,
+        with patch(
+            "ax.service.utils.early_stopping.should_stop_trials_early",
+            wraps=lambda trial_indices, **kwargs: {i: None for i in trial_indices},
         ) as mock_should_stop_trials_early, patch.object(
             InfinitePollRunner, "stop", return_value=None
         ) as mock_stop_trial_run:
