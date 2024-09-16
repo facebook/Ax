@@ -125,7 +125,11 @@ class Decoder:
                 for aux_exp_name in aux_exp_names:
                     auxiliary_experiments_by_purpose[aux_exp_purpose].append(
                         AuxiliaryExperiment(
-                            experiment=load_experiment(aux_exp_name, config=self.config)
+                            experiment=load_experiment(
+                                aux_exp_name,
+                                config=self.config,
+                                skip_runners_and_metrics=True,
+                            )
                         )
                     )
         return auxiliary_experiments_by_purpose
