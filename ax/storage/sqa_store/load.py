@@ -57,7 +57,7 @@ def load_experiment(
         config: `SQAConfig`, from which to retrieve the decoder. Optional,
             defaults to base `SQAConfig`.
         reduced_state: Whether to load experiment with a slightly reduced state
-            (without abandoned arms on experiment and withoug model state,
+            (without abandoned arms on experiment and without model state,
             search space, and optimization config on generator runs).
         skip_runners_and_metrics: If True skip loading runners, and do only a
             minimal load of metrics. This option is intended to enable loading of
