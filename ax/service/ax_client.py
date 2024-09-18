@@ -390,6 +390,11 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             metric_definitions: A mapping of metric names to extra kwargs to pass
                 to that metric
         """
+        metric_definitions = (
+            self.metric_definitions
+            if metric_definitions is None
+            else metric_definitions
+        )
         optimization_config = self.make_optimization_config_from_properties(
             objectives=objectives,
             outcome_constraints=outcome_constraints,
@@ -423,6 +428,11 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 Metric must have its is own dictionary (metrics cannot share a
                 single dictionary object).
         """
+        metric_definitions = (
+            self.metric_definitions
+            if metric_definitions is None
+            else metric_definitions
+        )
         self.experiment.add_tracking_metrics(
             metrics=[
                 self._make_metric(
