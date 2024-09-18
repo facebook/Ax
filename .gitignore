@@ -136,7 +136,9 @@ tutorials/*.db
 website/yarn.lock
 website/build/
 website/i18n/
-website/node_modules/
+**/node_modules/
+.docusaurus
+.cache-loader
 
 ## Generated for tutorials
 website/_tutorials/
