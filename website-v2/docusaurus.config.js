@@ -30,9 +30,9 @@ module.exports={
           "sidebarPath": "../website/sidebars.json"
         },
         "blog": {},
-        "theme": {
-          "customCss": "../src/css/customTheme.css"
-        }
+        // "theme": {
+        //   "customCss": "src/css/customTheme.css"
+        // }
       }
     ]
   ],
