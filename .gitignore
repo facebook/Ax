@@ -133,7 +133,7 @@ tutorials/ax_client_snapshot.json
 tutorials/*.db
 
 # Docusaurus site
-website/yarn.lock
+**/yarn.lock
 website/build/
 website/i18n/
 **/node_modules/
