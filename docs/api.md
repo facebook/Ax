@@ -2,6 +2,10 @@
 id: api
 title: APIs
 ---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 The modular design of Ax enables three different usage modes, with different
 balances of structure to flexibility and reproducibility. Navigate to the
 ["Tutorials" page](/tutorials) for an in-depth walk-through of each API and
@@ -56,9 +60,9 @@ From most lightweight to fullest functionality, our APIs are:
 Here is a comparison of the three APIs in the simple case of evaluating the
 unconstrained synthetic Branin function:
 
-DOCUSAURUS_CODE_TABS
 
-Loop
+<Tabs>
+  <TabItem value="Loop" label="Loop" default>
 
 ```py
 
@@ -84,7 +88,8 @@ best_parameters, values, experiment, model = optimize(
 
 ```
 
-Service
+  </TabItem>
+  <TabItem value="Service" label="Service">
 
 ```py
 
@@ -118,7 +123,8 @@ best_parameters, metrics = ax_client.get_best_parameters()
 
 ```
 
-Developer
+  </TabItem>
+  <TabItem value="Developer" label="Developer">
 
 ```py
 
@@ -172,7 +178,8 @@ best_parameters = best_arm.parameters
 
 ```
 
-Scheduler
+  </TabItem>
+  <TabItem value="Scheduler" label="Scheduler">
 
 ```py
 
@@ -195,4 +202,5 @@ scheduler.run_n_trials(100)  # Automate running 100 trials and reporting results
 
 ```
 
-END_DOCUSAURUS_CODE_TABS
+  </TabItem>
+</Tabs>

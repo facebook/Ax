@@ -21,11 +21,9 @@ The required Python dependencies are:
 
 We recommend installing Ax via pip (even if using Conda environment):
 
-```
-
+```shell
 conda install pytorch torchvision -c pytorch  # OSX only (details below)
 pip install ax-platform
-
 ```
 
 Installation will use Python wheels from PyPI, available for [OSX, Linux, and Windows](https://pypi.org/project/ax-platform/#files).
@@ -44,18 +42,14 @@ If you need CUDA on MacOS, you will need to build PyTorch from source. Please co
 
 To use Ax with a notebook environment, you will need Jupyter. Install it first:
 
-```
-
+```shell
 pip install jupyter
-
 ```
 
 If you want to store the experiments in MySQL, you will need SQLAlchemy:
 
-```
-
+```shell
 pip install SQLAlchemy
-
 ```
 
 ## Latest Version
@@ -64,47 +58,38 @@ pip install SQLAlchemy
 
 You can install the latest (bleeding edge) version from GitHub:
 
-```
-
+```shell
 pip install 'git+https://github.com/facebook/Ax.git#egg=ax-platform'
-
 ```
 
 See also the recommendation for installing PyTorch for MacOS users above.
 
 At times, the bleeding edge for Ax can depend on bleeding edge versions of BoTorch (or GPyTorch). We therefore recommend installing those from Git as well:
 
-```
-
+```shell
 pip install git+https://github.com/cornellius-gp/gpytorch.git
 pip install git+https://github.com/pytorch/botorch.git
-
 ```
 
 ### Optional Dependencies
 
 To use Ax with a notebook environment, you will need Jupyter. Install it first:
 
-```
-
+```shell
 pip install 'git+https://github.com/facebook/Ax.git#egg=ax-platform[notebook]'
-
 ```
 
 If storing Ax experiments via SQLAlchemy in MySQL or SQLite:
 
-```
-
+```shell
 pip install 'git+https://github.com/facebook/Ax.git#egg=ax-platform[mysql]'
-
 ```
 
 ## Development
 
 When contributing to Ax, we recommend cloning the [repository](https://github.com/facebook/Ax) and installing all optional dependencies:
 
-```
-
+```shell
 # bleeding edge versions of GPyTorch + BoTorch are recommended
 pip install git+https://github.com/cornellius-gp/gpytorch.git
 pip install git+https://github.com/pytorch/botorch.git
@@ -112,7 +97,6 @@ pip install git+https://github.com/pytorch/botorch.git
 git clone https://github.com/facebook/ax.git --depth 1
 cd ax
 pip install -e .[notebook,mysql,dev]
-
 ```
 
 See recommendation for installing PyTorch for MacOS users above.

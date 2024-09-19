@@ -10,13 +10,11 @@ In the optimization algorithms implemented by Ax, models predict the outcomes of
 
 The [`get_sobol`](../api/modelbridge.html#ax.modelbridge.factory.get_sobol) function is used to construct a model that produces a quasirandom Sobol sequence when[`gen`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.gen) is called. This code generates a scrambled Sobol sequence of 10 points:
 
-```Python
-
+```python
 from ax.modelbridge.factory import get_sobol
 
 m = get_sobol(search_space)
 gr = m.gen(n=10)
-
 ```
 
 The output of [`gen`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.gen) is a [`GeneratorRun`](../api/core.html#ax.core.generator_run.GeneratorRun) object that contains the generated points, along with metadata about the generation process. The generated arms can be accessed at [`GeneratorRun.arms`](../api/core.html#ax.core.generator_run.GeneratorRun.arms).
@@ -29,19 +27,16 @@ Sobol sequences are typically used to select initialization points, and this mod
 
 Gaussian Processes (GPs) are used for [Bayesian Optimization](bayesopt.md) in Ax, the [`get_GPEI`](../api/modelbridge.html#ax.modelbridge.factory.get_gpei) function constructs a model that fits a GP to the data, and uses the EI acquisition function to generate new points on calls to [`gen`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.gen). This code fits a GP and generates a batch of 5 points which maximizes EI:
 
-```Python
-
+```python
 from ax.modelbridge.factory import get_GPEI
 
 m = get_GPEI(experiment, data)
 gr = m.gen(n=5, optimization_config=optimization_config)
-
 ```
 
 In contrast to [`get_sobol`](../api/modelbridge.html#ax.modelbridge.factory.get_sobol), the GP requires data and is able to make predictions. We make predictions by constructing a list of [`ObservationFeatures`](../api/core.html#ax.core.observation.ObservationFeatures) objects with the parameter values for which we want predictions:
 
-```Python
-
+```python
 from ax.core.observation import ObservationFeatures
 
 obs_feats = [
@@ -49,15 +44,13 @@ obs_feats = [
     ObservationFeatures(parameters={'x1': 1.41, 'x2': 1.62}),
 ]
 f, cov = m.predict(obs_feats)
-
 ```
 
 The output of [`predict`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.predict) is the mean estimate of each metric and the covariance (across metrics) for each point.
 
 All Ax models that implement [`predict`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.predict) can be used with the built-in plotting utilities, which can produce plots of model predictions on 1-d or 2-d slices of the parameter space:
 
-```Python
-
+```python
 from ax.plot.slice import plot_slice
 from ax.utils.notebook.plotting import render, init_notebook_plotting
 
@@ -68,13 +61,11 @@ render(plot_slice(
     metric_name='metric_a',
     slice_values={'x2': 7.5},  # Fix at this value for the slice
 ))
-
 ```
 
 <div id="slice" style={{width: "100%"}} />
 
-```Python
-
+```python
 from ax.plot.contour import plot_contour
 
 render(plot_contour(
@@ -83,30 +74,25 @@ render(plot_contour(
     param_y='x2',
     metric_name='metric_a',
 ))
-
 ```
 
 <div id="contour" style={{width: "100%"}} />
 
 Ax also includes utilities for cross validation to assess model predictive performance. Leave-one-out cross validation can be performed as follows:
 
-```Python
-
+```python
 from ax.modelbridge.cross_validation import cross_validate, compute_diagnostics
 
 cv = cross_validate(model)
 diagnostics = compute_diagnostics(cv)
-
 ```
 
 [`compute_diagnostics`](../api/modelbridge.html#ax.modelbridge.cross_validation.compute_diagnostics) computes a collection of diagnostics of model predictions, such as the correlation between predictions and actual values, and the p-value for a Fisher test of the model's ability to distinguish high values from low. A very useful tool for assessing model performance is to plot the cross validated predictions against the actual observed values:
 
-```Python
-
+```python
 from ax.plot.diagnostic import interact_cross_validation
 
 render(interact_cross_validation(cv))
-
 ```
 
 <div id="cv" style={{width: "100%"}} />
@@ -130,33 +116,27 @@ For the ordinal variables we can use a standard kernel such as Matérn-5/2, but 
 
 For [Bandit optimization](banditopt.md), The [`get_empirical_bayes_thompson`](../api/modelbridge.html#ax.modelbridge.factory.get_empirical_bayes_thompson) factory function returns a model that applies [empirical Bayes shrinkage](banditopt.md#empirical-bayes) to a discrete set of arms, and then uses Thompson sampling to construct a policy with the weight that should be allocated to each arms. Here we apply empirical Bayes to the data and use Thompson sampling to generate a policy that is truncated at `n=10` arms:
 
-```Python
-
+```python
 from ax.modelbridge.factory import get_empirical_bayes_thompson
 
 m = get_empirical_bayes_thompson(experiment, data)
 gr = m.gen(n=10, optimization_config=optimization_config)
-
 ```
 
 The arms and their corresponding weights can be accessed as `gr.arm_weights`.
 
 As with the GP, we can use [`predict`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.predict) to evaluate the model at points of our choosing. However, because this is a purely in-sample model, those points should correspond to arms that were in the data. The model prediction will return the estimate at that point after applying the empirical Bayes shrinkage:
 
-```Python
-
+```python
 f, cov = m.predict([ObservationFeatures(parameters={'x1': 3.14, 'x2': 2.72})])
-
 ```
 
 We can generate a plot that shows the predictions for each arm with the shrinkage using [`plot_fitted`](../api/plot.html#ax.plot.scatter.plot_fitted), which shows model predictions on all in-sample arms:
 
-```Python
-
+```python
 from ax.plot.scatter import plot_fitted
 
 render(plot_fitted(m, metric="metric_a", rel=False))
-
 ```
 
 <div id="fitted" style={{width: "100%"}} />
@@ -165,13 +145,11 @@ render(plot_fitted(m, metric="metric_a", rel=False))
 
 The factory function [`get_factorial`](../api/modelbridge.html#ax.modelbridge.factory.get_factorial) can be used to construct a factorial design on a set of [`ChoiceParameters`](../api/core.html#ax.core.parameter.ChoiceParameter).
 
-```Python
-
+```python
 from ax.modelbridge.factory import get_factorial
 
 m = get_factorial(search_space)
 gr = m.gen(n=10)
-
 ```
 
 Like the Sobol sequence, the factorial model is only used to generate points and does not implement [`predict`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.predict).
@@ -225,8 +203,7 @@ The easiest way to implement a new model is if it can be adapted to the one of t
 
 Once the new model has been implemented, it can be used in Ax with the corresponding [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) from the table above. For instance, suppose a new torch-based model was implemented as a subclass of [`TorchModel`](../api/models.html#ax.models.torch_base.TorchModel). We can use that model in Ax like:
 
-```Python
-
+```python
 new_model_obj = NewModel(init_args)  # An instance of the new model class
 m = TorchModelBridge(
     experiment=experiment,
@@ -235,7 +212,6 @@ m = TorchModelBridge(
     model=new_model_obj,
     transforms=[UnitX, StandardizeY],  # Include the desired set of transforms
 )
-
 ```
 
 The [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) object `m` can then be used with plotting and cross validation utilities exactly the same way as the built-in models.
@@ -245,10 +221,8 @@ The [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) obj
 If none of the existing Model interfaces work are suitable for the new model type, then a new interface will have to be created. This involves two steps: creating the new model interface and creating the new model bridge. The new model bridge must be a subclass of [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) that implements `ModelBridge._fit`,  `ModelBridge._predict`, `ModelBridge._gen`, and  `ModelBridge._cross_validate`. The implementation of each of these methods will transform the Ax objects in the inputs into objects required for the interface with the new model type. The model bridge will then call out to the new model interface to do the actual modeling work. All of the ModelBridge/Model pairs in the table above provide examples of how this interface can be defined. The main key is that the inputs on the [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) side are fixed, but those inputs can then be transformed in whatever way is desired for the downstream Model interface to be that which is most convenient for implementing the model.
 
 ```html
-
 <script type="text/javascript" src="assets/slice.js"></script>
 <script type="text/javascript" src="assets/contour.js"></script>
 <script type="text/javascript" src="assets/cv.js"></script>
 <script type="text/javascript" src="assets/fitted.js"></script>
-
 ```

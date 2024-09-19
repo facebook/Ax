@@ -26,7 +26,6 @@ Our base Metric class is meant to be subclassed. Subclasses must provide an impl
 An example of a custom metric:
 
 ```python
-
 import pandas as pd
 from ax import Metric
 
@@ -43,7 +42,6 @@ class CustomMetric(Metric):
                 "trial_index": trial.index,
             })
         return Data(df=pd.DataFrame.from_records(records))
-
 ```
 
 ## Advanced Data Fetching
