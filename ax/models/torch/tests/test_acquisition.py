@@ -430,11 +430,23 @@ class AcquisitionTest(TestCase):
                 rounding_func=self.rounding_func,
             )
 
+        acquisition = self.get_acquisition_function()
+        n = 2
+
+        # Also check that it runs when optimizer options are provided, whether
+        # `raw_samples` are present or not.
+        for optimizer_options in [None, {"raw_samples": 8}, {}]:
+            with self.subTest(optimizer_options=optimizer_options):
+                acquisition.optimize(
+                    n=n,
+                    search_space_digest=ssd1,
+                    rounding_func=self.rounding_func,
+                    optimizer_options=optimizer_options,
+                )
+
         # check this works without any fixed_feature specified
         # 2 candidates have acqf value 8, but [1, 3, 4] is pending and thus should
         # not be selected. [2, 3, 4] is the best point, but has already been picked
-        acquisition = self.get_acquisition_function()
-        n = 2
         with mock.patch(
             f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
         ) as mock_optimizer_argparse, mock.patch(
