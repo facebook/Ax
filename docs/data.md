@@ -2,7 +2,6 @@
 id: data
 title: Data
 ---
-
 ## Fetching Data
 
 [Metrics](glossary.md#metric) provide an interface for fetching data for an experiment or trial. Experiment objectives and outcome constraints are special types of metrics, and you can also attach additional metrics for tracking purposes.
@@ -14,7 +13,7 @@ To fetch data for an experiment or trial, use `exp.fetch_data` or `trial.fetch_d
 Each row of the final DataFrame represents the evaluation of an arm on a metric. As such, the required columns are: `arm_name`, `metric_name`, `mean`, and `sem`. Additional optional columns are also supported: `trial_index`, `start_time`, and `end_time`.
 
 | arm_name | metric_name | mean | sem |
-|----------|-------------|------|-----|
+| -------- | ----------- | ---- | --- |
 | 0_0      | metric1     | ...  | ... |
 | 0_0      | metric2     | ...  | ... |
 | 0_1      | metric1     | ...  | ... |
@@ -27,6 +26,7 @@ Our base Metric class is meant to be subclassed. Subclasses must provide an impl
 An example of a custom metric:
 
 ```python
+
 import pandas as pd
 from ax import Metric
 
@@ -43,6 +43,7 @@ class CustomMetric(Metric):
                 "trial_index": trial.index,
             })
         return Data(df=pd.DataFrame.from_records(records))
+
 ```
 
 ## Advanced Data Fetching
