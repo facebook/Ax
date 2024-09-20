@@ -2,19 +2,21 @@
 id: models
 title: Models
 ---
-
 ## Using models in Ax
 
 In the optimization algorithms implemented by Ax, models predict the outcomes of metrics within an experiment evaluated at a parameterization, and are used to predict metrics or suggest new parameterizations for trials. Models in Ax are created using factory functions from the [`ax.modelbridge.factory`](../api/modelbridge.html#module-ax.modelbridge.factory). All of these models share a common API with [`predict()`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.predict) to make predictions at new points and [`gen()`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.gen) to generate new candidates to be tested. There are a variety of models available in the factory; here we describe the usage patterns for the primary model types and show how the various Ax utilities can be used with models.
 
 #### Sobol sequence
+
 The [`get_sobol`](../api/modelbridge.html#ax.modelbridge.factory.get_sobol) function is used to construct a model that produces a quasirandom Sobol sequence when[`gen`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.gen) is called. This code generates a scrambled Sobol sequence of 10 points:
-```Python
+
+```python
 from ax.modelbridge.factory import get_sobol
 
 m = get_sobol(search_space)
 gr = m.gen(n=10)
 ```
+
 The output of [`gen`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.gen) is a [`GeneratorRun`](../api/core.html#ax.core.generator_run.GeneratorRun) object that contains the generated points, along with metadata about the generation process. The generated arms can be accessed at [`GeneratorRun.arms`](../api/core.html#ax.core.generator_run.GeneratorRun.arms).
 
 Additional arguments can be passed to [`get_sobol`](../api/modelbridge.html#ax.modelbridge.factory.get_sobol) such as `scramble=False` to disable scrambling, and `seed` to set a seed (see [model API](../api/models.html#ax.models.random.sobol.SobolGenerator)).
@@ -22,8 +24,10 @@ Additional arguments can be passed to [`get_sobol`](../api/modelbridge.html#ax.m
 Sobol sequences are typically used to select initialization points, and this model does not implement [`predict`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.predict). It can be used on search spaces with any combination of discrete and continuous parameters.
 
 #### Gaussian Process with EI
+
 Gaussian Processes (GPs) are used for [Bayesian Optimization](bayesopt.md) in Ax, the [`get_GPEI`](../api/modelbridge.html#ax.modelbridge.factory.get_gpei) function constructs a model that fits a GP to the data, and uses the EI acquisition function to generate new points on calls to [`gen`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.gen). This code fits a GP and generates a batch of 5 points which maximizes EI:
-```Python
+
+```python
 from ax.modelbridge.factory import get_GPEI
 
 m = get_GPEI(experiment, data)
@@ -31,7 +35,8 @@ gr = m.gen(n=5, optimization_config=optimization_config)
 ```
 
 In contrast to [`get_sobol`](../api/modelbridge.html#ax.modelbridge.factory.get_sobol), the GP requires data and is able to make predictions. We make predictions by constructing a list of [`ObservationFeatures`](../api/core.html#ax.core.observation.ObservationFeatures) objects with the parameter values for which we want predictions:
-```Python
+
+```python
 from ax.core.observation import ObservationFeatures
 
 obs_feats = [
@@ -40,10 +45,12 @@ obs_feats = [
 ]
 f, cov = m.predict(obs_feats)
 ```
+
 The output of [`predict`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.predict) is the mean estimate of each metric and the covariance (across metrics) for each point.
 
 All Ax models that implement [`predict`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.predict) can be used with the built-in plotting utilities, which can produce plots of model predictions on 1-d or 2-d slices of the parameter space:
-```Python
+
+```python
 from ax.plot.slice import plot_slice
 from ax.utils.notebook.plotting import render, init_notebook_plotting
 
@@ -56,9 +63,9 @@ render(plot_slice(
 ))
 ```
 
-<div id="slice" style="width: 100%;"></div>
+<div id="slice" style={{width: "100%"}} />
 
-```Python
+```python
 from ax.plot.contour import plot_contour
 
 render(plot_contour(
@@ -69,23 +76,26 @@ render(plot_contour(
 ))
 ```
 
-<div id="contour" style="width: 100%;"></div>
+<div id="contour" style={{width: "100%"}} />
 
 Ax also includes utilities for cross validation to assess model predictive performance. Leave-one-out cross validation can be performed as follows:
-```Python
+
+```python
 from ax.modelbridge.cross_validation import cross_validate, compute_diagnostics
 
 cv = cross_validate(model)
 diagnostics = compute_diagnostics(cv)
 ```
+
 [`compute_diagnostics`](../api/modelbridge.html#ax.modelbridge.cross_validation.compute_diagnostics) computes a collection of diagnostics of model predictions, such as the correlation between predictions and actual values, and the p-value for a Fisher test of the model's ability to distinguish high values from low. A very useful tool for assessing model performance is to plot the cross validated predictions against the actual observed values:
-```Python
+
+```python
 from ax.plot.diagnostic import interact_cross_validation
 
 render(interact_cross_validation(cv))
 ```
 
-<div id="cv" style="width: 100%;"></div>
+<div id="cv" style={{width: "100%"}} />
 
 If the model fits the data well, the values will lie along the diagonal. Poor GP fits tend to produce cross validation plots that are flat with high predictive uncertainty - such fits are unlikely to produce good candidates in [`gen`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.gen).
 
@@ -99,43 +109,50 @@ In discrete spaces where the GP does not predict well, a multi-armed bandit appr
 
 The most common way of dealing with categorical variables in Bayesian optimization is to one-hot encode the categories to allow fitting a GP model in a continuous space. In this setting, a categorical variable with categories `["red", "blue", "green"]` is represented by three new variables (one for each category). While this is a convenient choice, it can drastically increase the dimensionality of the search space. In addition, the acquisition function is often optimized in the corresponding continuous space and the final candidate is selected by rounding back to the original space, which may result in selecting sub-optimal points according to the acquisition function.
 
-Our new approach uses separate kernels for the categorical and ordinal (continuous/integer) variables. In particular, we use a kernel of the form: $$k(x, y) = k_\text{cat}(x_\text{cat}, y_\text{cat}) \times k_\text{ord}(x_\text{ord}, y_\text{ord}) + k_\text{cat}(x_\text{cat}, y_\text{cat}) + k_\text{ord}(x_\text{ord}, y_\text{ord})$$
+Our new approach uses separate kernels for the categorical and ordinal (continuous/integer) variables. In particular, we use a kernel of the form: $$k(x, y) = k_\\text{"{"}cat{"}"}(x_\\text{"{"}cat{"}"}, y_\\text{"{"}cat{"}"}) \\times k_\\text{"{"}ord{"}"}(x_\\text{"{"}ord{"}"}, y_\\text{"{"}ord{"}"}) + k_\\text{"{"}cat{"}"}(x_\\text{"{"}cat{"}"}, y_\\text{"{"}cat{"}"}) + k_\\text{"{"}ord{"}"}(x_\\text{"{"}ord{"}"}, y_\\text{"{"}ord{"}"})$$
 For the ordinal variables we can use a standard kernel such as Matérn-5/2, but for the categorical variables we need a way to compute distances between the different categories. A natural choice is to set the distance is 0 if two categories are equal and 1 otherwise, similar to the idea of Hamming distances. This approach can be combined with the idea automatic relevance determination (ARD) where each categorical variable has its own lengthscale. Rather than optimizing the acquisition function in a continuously relaxed space, we optimize it separately over each combination of the categorical variables. While this is likely to result in better optimization performance, it may lead to slow optimization of the acquisition function when there are many categorical variables.
 
 #### Empirical Bayes and Thompson sampling
+
 For [Bandit optimization](banditopt.md), The [`get_empirical_bayes_thompson`](../api/modelbridge.html#ax.modelbridge.factory.get_empirical_bayes_thompson) factory function returns a model that applies [empirical Bayes shrinkage](banditopt.md#empirical-bayes) to a discrete set of arms, and then uses Thompson sampling to construct a policy with the weight that should be allocated to each arms. Here we apply empirical Bayes to the data and use Thompson sampling to generate a policy that is truncated at `n=10` arms:
-```Python
+
+```python
 from ax.modelbridge.factory import get_empirical_bayes_thompson
 
 m = get_empirical_bayes_thompson(experiment, data)
 gr = m.gen(n=10, optimization_config=optimization_config)
 ```
+
 The arms and their corresponding weights can be accessed as `gr.arm_weights`.
 
 As with the GP, we can use [`predict`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.predict) to evaluate the model at points of our choosing. However, because this is a purely in-sample model, those points should correspond to arms that were in the data. The model prediction will return the estimate at that point after applying the empirical Bayes shrinkage:
-```Python
+
+```python
 f, cov = m.predict([ObservationFeatures(parameters={'x1': 3.14, 'x2': 2.72})])
 ```
+
 We can generate a plot that shows the predictions for each arm with the shrinkage using [`plot_fitted`](../api/plot.html#ax.plot.scatter.plot_fitted), which shows model predictions on all in-sample arms:
-```Python
+
+```python
 from ax.plot.scatter import plot_fitted
 
 render(plot_fitted(m, metric="metric_a", rel=False))
 ```
 
-<div id="fitted" style="width: 100%;"></div>
+<div id="fitted" style={{width: "100%"}} />
 
 #### Factorial designs
 
 The factory function [`get_factorial`](../api/modelbridge.html#ax.modelbridge.factory.get_factorial) can be used to construct a factorial design on a set of [`ChoiceParameters`](../api/core.html#ax.core.parameter.ChoiceParameter).
-```Python
+
+```python
 from ax.modelbridge.factory import get_factorial
 
 m = get_factorial(search_space)
 gr = m.gen(n=10)
 ```
-Like the Sobol sequence, the factorial model is only used to generate points and does not implement [`predict`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.predict).
 
+Like the Sobol sequence, the factorial model is only used to generate points and does not implement [`predict`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.predict).
 
 ## Deeper dive: organization of the modeling stack
 
@@ -145,28 +162,28 @@ The [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) is 
 
 Model objects are only used in Ax via a [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge). Each Model object defines an API which does not use Ax objects, allowing for modularity of different model types and making it easy to implement new models. For example, the TorchModel defines an API for a model that operates on torch tensors. There is a 1-to-1 link between [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) objects and Model objects. For instance, the TorchModelBridge takes in Ax objects, converts them to torch tensors, and sends them along to the TorchModel. Similar pairings exist for all of the different model types:
 
-| ModelBridge         | Model         | Example implementation        |
-| ------------------- | ------------- | ----------------------------- |
-| [`TorchModelBridge`](../api/modelbridge.html#module-ax.modelbridge.torch)    | [`TorchModel`](../api/models.html#ax.models.torch_base.TorchModel)   | [`BotorchModel`](../api/models.html#ax.models.torch.botorch.BotorchModel)                  |           |
-| [`DiscreteModelBridge`](../api/modelbridge.html#module-ax.modelbridge.discrete) | [`DiscreteModel`](../api/models.html#ax.models.discrete_base.DiscreteModel) | [`ThompsonSampler`](../api/models.html#ax.models.discrete.thompson.ThompsonSampler)               |
-| [`RandomModelBridge`](../api/modelbridge.html#module-ax.modelbridge.random)   | [`RandomModel`](../api/models.html#ax.models.random.base.RandomModel)  | [`SobolGenerator`](../api/models.html#ax.models.random.sobol.SobolGenerator)                |
+| ModelBridge                                                                            | Model                                                                              | Example implementation                                                                     |   |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | - |
+| [`TorchModelBridge`](../api/modelbridge.html#module-ax.modelbridge.torch)       | [`TorchModel`](../api/models.html#ax.models.torch_base.TorchModel)          | [`BotorchModel`](../api/models.html#ax.models.torch.botorch.BotorchModel)           |   |
+| [`DiscreteModelBridge`](../api/modelbridge.html#module-ax.modelbridge.discrete) | [`DiscreteModel`](../api/models.html#ax.models.discrete_base.DiscreteModel) | [`ThompsonSampler`](../api/models.html#ax.models.discrete.thompson.ThompsonSampler) |   |
+| [`RandomModelBridge`](../api/modelbridge.html#module-ax.modelbridge.random)     | [`RandomModel`](../api/models.html#ax.models.random.base.RandomModel)       | [`SobolGenerator`](../api/models.html#ax.models.random.sobol.SobolGenerator)        |   |
 
 This structure allows for different models like the GP in BotorchModel and the Random Forest in RandomForest to share an interface and use common plotting tools at the level of the ModelBridge, while each is implemented using its own torch or numpy structures.
 
 The primary role of the [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) is to act as a transformation layer. This includes transformations to the data, search space, and optimization config such as standardization and log transforms, as well as the final transform from Ax objects into the objects consumed by the Model. We now describe how transforms are implemented and used in the ModelBridge.
 
-
 ## Transforms
 
 The transformations in the [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) are done by chaining together a set of individual Transform objects. For continuous space models obtained via factory functions ([`get_sobol`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.modelbridge.factory.get_sobol) and [`get_GPEI`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.modelbridge.factory.get_GPEI)), the following transforms will be applied by default, in this sequence:
-* [`RemoveFixed`](../api/modelbridge.html#ax.modelbridge.transforms.remove_fixed.RemoveFixed): Remove [`FixedParameters`](../api/core.html#ax.core.parameter.FixedParameter) from the search space.
-* [`OrderedChoiceEncode`](../api/modelbridge.html#ax.modelbridge.transforms.choice_encode.OrderedChoiceEncode): [`ChoiceParameters`](../api/core.html#ax.core.parameter.ChoiceParameter) with `is_ordered` set to `True` are encoded as a sequence of integers.
-* [`OneHot`](../api/modelbridge.html#ax.modelbridge.transforms.one_hot.OneHot): [`ChoiceParameters`](../api/core.html#ax.core.parameter.ChoiceParameter) with `is_ordered` set to `False` are one-hot encoded.
-* [`IntToFloat`](../api/modelbridge.html#ax.modelbridge.transforms.int_to_float.IntToFloat): Integer-valued [`RangeParameters`](../api/core.html#ax.core.parameter.RangeParameter) are converted to have float values.
-* [`Log`](../api/modelbridge.html#ax.modelbridge.transforms.log.Log): [`RangeParameters`](../api/core.html#ax.core.parameter.RangeParameter) with `log_scale` set to `True` are log transformed.
-* [`UnitX`](../api/modelbridge.html#ax.modelbridge.transforms.unit_x.UnitX): All float [`RangeParameters`](../api/core.html#ax.core.parameter.RangeParameter) are mapped to `[0, 1]`.
-* [`Derelativize`](../api/modelbridge.html#ax.modelbridge.transforms.derelativize.Derelativize): Constraints relative to status quo are converted to constraints on raw values.
-* [`StandardizeY`](../api/modelbridge.html#ax.modelbridge.transforms.standardize_y.StandardizeY): The Y values for each metric are standardized (subtract mean, divide by standard deviation).
+
+-   [`RemoveFixed`](../api/modelbridge.html#ax.modelbridge.transforms.remove_fixed.RemoveFixed): Remove [`FixedParameters`](../api/core.html#ax.core.parameter.FixedParameter) from the search space.
+-   [`OrderedChoiceEncode`](../api/modelbridge.html#ax.modelbridge.transforms.choice_encode.OrderedChoiceEncode): [`ChoiceParameters`](../api/core.html#ax.core.parameter.ChoiceParameter) with `is_ordered` set to `True` are encoded as a sequence of integers.
+-   [`OneHot`](../api/modelbridge.html#ax.modelbridge.transforms.one_hot.OneHot): [`ChoiceParameters`](../api/core.html#ax.core.parameter.ChoiceParameter) with `is_ordered` set to `False` are one-hot encoded.
+-   [`IntToFloat`](../api/modelbridge.html#ax.modelbridge.transforms.int_to_float.IntToFloat): Integer-valued [`RangeParameters`](../api/core.html#ax.core.parameter.RangeParameter) are converted to have float values.
+-   [`Log`](../api/modelbridge.html#ax.modelbridge.transforms.log.Log): [`RangeParameters`](../api/core.html#ax.core.parameter.RangeParameter) with `log_scale` set to `True` are log transformed.
+-   [`UnitX`](../api/modelbridge.html#ax.modelbridge.transforms.unit_x.UnitX): All float [`RangeParameters`](../api/core.html#ax.core.parameter.RangeParameter) are mapped to `[0, 1]`.
+-   [`Derelativize`](../api/modelbridge.html#ax.modelbridge.transforms.derelativize.Derelativize): Constraints relative to status quo are converted to constraints on raw values.
+-   [`StandardizeY`](../api/modelbridge.html#ax.modelbridge.transforms.standardize_y.StandardizeY): The Y values for each metric are standardized (subtract mean, divide by standard deviation).
 
 Each transform defines both a forward and backwards transform. Arm parameters are passed through the forward transform before being sent along to the Model. The Model works entirely in the transformed space, and when new candidates are generated, they are passed through all of the backwards transforms so the [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) returns points in the original space.
 
@@ -180,13 +197,13 @@ See [the API reference](../api/modelbridge.html#transforms) for the full collect
 
 The structure of the modeling stack makes it easy to implement new models and use them inside Ax. There are two ways this might be done.
 
-
 ### Using an existing Model interface
 
 The easiest way to implement a new model is if it can be adapted to the one of the existing Model interfaces: ([`TorchModel`](api/models.html#ax.models.torch_base.TorchModel), [`DiscreteModel`](../api/models.html#ax.models.discrete_base.DiscreteModel), or [`RandomModel`](../api/models.html#ax.models.random.base.RandomModel)). The class definition provides the interface for each of the methods that should be implemented in order for Ax to be able to fully use the new model. Note however that not all methods must need be implemented to use some Ax functionality. For instance, an implementation of [`TorchModel`](../api/models.html#ax.models.torch_base.TorchModel) that implements only [`fit`](../api/models.html#ax.models.torch_base.TorchModel.fit) and [`predict`](../api/models.html#ax.models.torch_base.TorchModel.predict) can be used to fit data and make plots in Ax; however, it will not be able to generate new candidates (requires implementing [`gen`](../api/models.html#ax.models.torch_base.TorchModel.gen)) or be used with Ax's cross validation utility (requires implementing [`cross_validate`](../api/models.html#ax.models.torch_base.TorchModel.cross_validate)).
 
 Once the new model has been implemented, it can be used in Ax with the corresponding [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) from the table above. For instance, suppose a new torch-based model was implemented as a subclass of [`TorchModel`](../api/models.html#ax.models.torch_base.TorchModel). We can use that model in Ax like:
-```Python
+
+```python
 new_model_obj = NewModel(init_args)  # An instance of the new model class
 m = TorchModelBridge(
     experiment=experiment,
@@ -196,6 +213,7 @@ m = TorchModelBridge(
     transforms=[UnitX, StandardizeY],  # Include the desired set of transforms
 )
 ```
+
 The [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) object `m` can then be used with plotting and cross validation utilities exactly the same way as the built-in models.
 
 ### Creating a new Model interface

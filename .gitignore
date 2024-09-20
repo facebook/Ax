@@ -133,10 +133,12 @@ tutorials/ax_client_snapshot.json
 tutorials/*.db
 
 # Docusaurus site
-website/yarn.lock
+**/yarn.lock
 website/build/
 website/i18n/
-website/node_modules/
+**/node_modules/
+.docusaurus
+.cache-loader
 
 ## Generated for tutorials
 website/_tutorials/

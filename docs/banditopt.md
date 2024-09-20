@@ -2,13 +2,11 @@
 id: banditopt
 title: Bandit Optimization
 ---
-
 Many decision problems require choosing from a discrete set of candidates, and for these problems Ax uses bandit optimization. In contrast to [Bayesian optimization](bayesopt.md) — which provides a solution for problems with continuous parameters and an infinite number of potential options — bandit optimization is used for problems with a finite set of choices. Most ordinary A/B tests, in which a handful of options are evaluated against each other, fall into this category. Experimenters typically perform such tests by allocating a fixed percentage of experimental units to each choice, waiting to collect data about each, and then choosing a winner. In the case of an online system receiving incoming requests, this can be done by splitting traffic amongst the choices. However, with more than just a few options A/B tests quickly become prohibitively resource-intensive, largely because all choices — no matter how good or bad they appear — receive the same traffic allocation.
 
 Bandit optimization allocates traffic more efficiently among these discrete choices by sequentially updating the allocation of traffic based on each candidate's performance so far. The key problem for bandit optimization algorithms is balancing exploration (sending traffic to candidates that have the potential to perform well) with exploitation (sending traffic to candidates which already appear to perform well). This trade-off is very similar to the underlying exploration problem highlighted in Bayesian Optimization [acquisition functions](bayesopt.md#acquisition-functions).
 
 Bandit optimization is more sample efficient than traditional static A/B tests: it acquires a greater reward for the same amount of experimentation. Consequently, it is safer with larger cohorts because the samples are automatically diverted towards the good parameter values (and away from the bad ones).
-
 
 ## How does it work?
 
@@ -30,16 +28,16 @@ Early in the process, the uncertainty in our estimates of CTR means that the ban
 
 We want a bandit algorithm to maximize the total rewards over time or equivalently, to minimize the regret, which is defined as the cumulative difference between the highest possible reward and the actual reward at a point in time. In our running example, regret is the number of clicks we "left on the table" through our choice of allocation procedure. We can imagine two extremes:
 
-1. Pure exploration, in which we just always allocate users evenly across all conditions. This is the standard approach to A/B tests.
-2. Pure exploitation, in which we simply allocate all users to the arm we think is most likely to be best.
+1.  Pure exploration, in which we just always allocate users evenly across all conditions. This is the standard approach to A/B tests.
+2.  Pure exploitation, in which we simply allocate all users to the arm we think is most likely to be best.
 
 Both of these extremes will do a poor job of minimizing our regret, so our aim is to balance them.
 
 The following figure compares the cumulative regret of three different approaches to bandit optimization for 200 rounds of experimentation on our running example:
 
-1. Thompson sampling: the primary approach used by Ax, described above
-2. Greedy: select the arm with the current best reward
-3. Epsilon-greedy: randomly picks an arm $e$ percent of the time, picks the current best arm $100-e$ percent of the time
+1.  Thompson sampling: the primary approach used by Ax, described above
+2.  Greedy: select the arm with the current best reward
+3.  Epsilon-greedy: randomly picks an arm $e$ percent of the time, picks the current best arm $100-e$ percent of the time
 
 ![Bandit Optimization: Regret](assets/mab_regret.png)
 
@@ -59,8 +57,8 @@ The diagram below illustrates how the estimates of two different experiments cha
 
 The experiment on the left has large effects relative to estimation variability, and so shrinkage (visualized here as distance from the dashed $y=x$ line), is very small. On the right side, however, we can see an experiment where shrinkage makes a significant difference. Effects far from the center of the distribution result in fairly substantial shrinkage, reducing the range of effects by nearly half. While effect estimates in the middle were largely unchanged, the largest observed effects went from around 17% before shrinkage to around 8% afterwards.
 
-The vast majority of experimental groups are estimated more accurately using empirical Bayes. The arms which tend to have increases in error are those with the largest effects. Understating the effects of such arms is usually not a very big deal when making launch decisions, however, as one is usually most interested in *which* arm is the best rather than exactly how good it is.
+The vast majority of experimental groups are estimated more accurately using empirical Bayes. The arms which tend to have increases in error are those with the largest effects. Understating the effects of such arms is usually not a very big deal when making launch decisions, however, as one is usually most interested in _which_ arm is the best rather than exactly how good it is.
 
-Using Empirical Bayes does better at allocating users to the best arm than does using the raw effect estimates. It does this by concentrating exploration early in the experiment. In particular, it concentrates that exploration on the *set* of arms that look good, rather than over-exploiting the single best performing arm. By spreading exploration out a little bit more when effect estimates are noisy (and playing the best arm a little less), it is able to identify the best arm with more confidence later in the experiment.
+Using Empirical Bayes does better at allocating users to the best arm than does using the raw effect estimates. It does this by concentrating exploration early in the experiment. In particular, it concentrates that exploration on the _set_ of arms that look good, rather than over-exploiting the single best performing arm. By spreading exploration out a little bit more when effect estimates are noisy (and playing the best arm a little less), it is able to identify the best arm with more confidence later in the experiment.
 
 See more [details in our paper](https://arxiv.org/abs/1904.12918).

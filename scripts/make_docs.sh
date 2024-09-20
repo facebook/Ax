@@ -62,7 +62,7 @@ fi
 echo "-----------------------------------"
 echo "Getting Docusaurus deps"
 echo "-----------------------------------"
-cd website || exit
+cd website-v2 || exit
 yarn
 
 if [[ $ONLY_DOCUSAURUS == false ]]; then
@@ -106,7 +106,7 @@ if [[ $ONLY_DOCUSAURUS == false ]]; then
     python3 scripts/make_tutorials.py -w "${cwd}"
   fi
 
-cd website || exit
+cd website-v2 || exit
 fi  # end of not only Docusaurus block
 
 if [[ $INSERT_API_REFS == true ]]; then
