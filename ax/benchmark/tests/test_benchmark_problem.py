@@ -6,6 +6,7 @@
 # pyre-strict
 
 import math
+from itertools import product
 from math import pi
 from typing import Optional, Union
 
@@ -34,7 +35,6 @@ from botorch.test_functions.synthetic import (
     ConstrainedHartmann,
     Cosine8,
 )
-from hypothesis import given, strategies as st
 from pyre_extensions import assert_is_instance
 
 
@@ -205,26 +205,21 @@ class TestBenchmarkProblem(TestCase):
                 observe_noise_sd,
             )
 
-    # pyre-fixme[56]: Invalid decoration. Pyre was not able to infer the type of
-    # argument `hypothesis.strategies.booleans()` to decorator factory
-    # `hypothesis.given`.
-    @given(
-        st.booleans(),
-        st.one_of(st.none(), st.just(0.1)),
-        st.one_of(st.none(), st.just(0.2), st.just([0.3, 0.4])),
-    )
-    def test_constrained_soo_from_botorch(
-        self,
-        observe_noise_sd: bool,
-        objective_noise_std: Optional[float],
-        constraint_noise_std: Optional[Union[float, list[float]]],
-    ) -> None:
-        self._test_constrained_from_botorch(
-            observe_noise_sd=observe_noise_sd,
-            objective_noise_std=objective_noise_std,
-            constraint_noise_std=constraint_noise_std,
-            test_problem_class=ConstrainedGramacy,
-        )
+    def test_constrained_soo_from_botorch(self) -> None:
+        for observe_noise_sd, objective_noise_std, constraint_noise_std in product(
+            [False, True], [None, 0.1], [None, 0.2, [0.3, 0.4]]
+        ):
+            with self.subTest(
+                observe_noise_sd=observe_noise_sd,
+                objective_noise_std=objective_noise_std,
+                constraint_noise_std=constraint_noise_std,
+            ):
+                self._test_constrained_from_botorch(
+                    observe_noise_sd=observe_noise_sd,
+                    objective_noise_std=objective_noise_std,
+                    constraint_noise_std=constraint_noise_std,
+                    test_problem_class=ConstrainedGramacy,
+                )
 
     def test_constrained_moo_from_botorch(self) -> None:
         self._test_constrained_from_botorch(
