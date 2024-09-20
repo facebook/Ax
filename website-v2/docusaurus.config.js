@@ -30,9 +30,9 @@ module.exports={
           "sidebarPath": "../website/sidebars.json"
         },
         "blog": {},
-        // "theme": {
-        //   "customCss": "src/css/customTheme.css"
-        // }
+        "theme": {
+          "customCss": "src/css/customTheme.css"
+        }
       }
     ]
   ],
@@ -50,7 +50,7 @@ module.exports={
     "navbar": {
       "title": "Ax",
       "logo": {
-        "src": "img/ax_lockup_white.svg"
+        "src": "img/ax.svg",
       },
       "items": [
         {
@@ -77,10 +77,50 @@ module.exports={
     },
     "image": "img/ax.svg",
     "footer": {
-      "links": [],
+      style: 'dark',
       "logo": {
-        "src": "img/ax.svg"
-      }
+        alt: "Ax",
+        "src": "img/meta_opensource_logo_negative.svg",
+      },
+      links: [
+        {
+          title: 'Docs',
+          items: [
+            {
+              label: 'Introduction',
+              to: 'docs/why-ax',
+            },
+          ],
+        },
+        {
+          title: 'Social',
+          items: [
+            {
+              label: 'GitHub',
+              href: 'https://github.com/cristianlara/ax',
+            },
+          ],
+        },
+        {
+          title: 'Legal',
+          // Please do not remove the privacy and terms, it's a legal requirement.
+          items: [
+            {
+              label: 'Privacy',
+              href: 'https://opensource.facebook.com/legal/privacy/',
+              target: '_blank',
+              rel: 'noreferrer noopener',
+            },
+            {
+              label: 'Terms',
+              href: 'https://opensource.facebook.com/legal/terms/',
+              target: '_blank',
+              rel: 'noreferrer noopener',
+            },
+          ],
+        },
+      ],
+      copyright: `Copyright © ${new Date().getFullYear()} Meta Platforms, Inc.`,
     }
   }
 }
