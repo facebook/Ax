@@ -426,16 +426,29 @@ class AxSchedulerTestCase(TestCase):
 
     def test_init_with_no_impl_with_runner(self) -> None:
         self.branin_experiment_no_impl_runner_or_metrics.runner = self.runner
+        generation_strategy = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment_no_impl_runner_or_metrics,
+            generation_strategy=self.sobol_GPEI_GS,
+        )
         with self.assertRaisesRegex(
             UnsupportedError,
             ".*Metrics {'branin'} do not implement fetching logic.",
         ):
             Scheduler(
                 experiment=self.branin_experiment_no_impl_runner_or_metrics,
-                generation_strategy=self._get_generation_strategy_strategy_for_test(
-                    experiment=self.branin_experiment_no_impl_runner_or_metrics,
-                    generation_strategy=self.sobol_GPEI_GS,
-                ),
+                generation_strategy=generation_strategy,
+                options=SchedulerOptions(total_trials=10),
+                db_settings=self.db_settings_if_always_needed,
+            )
+
+        self.branin_experiment_no_impl_runner_or_metrics._optimization_config = None
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "`Scheduler` requires that `experiment.metrics` not be None.",
+        ):
+            Scheduler(
+                experiment=self.branin_experiment_no_impl_runner_or_metrics,
+                generation_strategy=generation_strategy,
                 options=SchedulerOptions(total_trials=10),
                 db_settings=self.db_settings_if_always_needed,
             )
