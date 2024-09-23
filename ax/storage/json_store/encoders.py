@@ -442,6 +442,7 @@ def generation_node_to_dict(generation_node: GenerationNode) -> dict[str, Any]:
         "should_deduplicate": generation_node.should_deduplicate,
         "transition_criteria": generation_node.transition_criteria,
         "model_spec_to_gen_from": generation_node._model_spec_to_gen_from,
+        "previous_node_name": generation_node._previous_node_name,
     }
 
 

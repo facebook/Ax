@@ -1213,7 +1213,7 @@ class TestGenerationStrategy(TestCase):
             ],
         )
         for node in gs._nodes:
-            self.assertIsNone(node._previous_node)
+            self.assertIsNone(node._previous_node_name)
 
     def test_gs_with_generation_nodes(self) -> None:
         "Simple test of a SOBOL + MBM GenerationStrategy composed of GenerationNodes"
