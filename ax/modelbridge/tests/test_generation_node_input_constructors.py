@@ -5,10 +5,17 @@
 
 # pyre-strict
 
+import inspect
+from collections import Counter
+from typing import Any, Dict, get_type_hints, Optional
+
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
 from ax.modelbridge.generation_node import GenerationNode
-from ax.modelbridge.generation_node_input_constructors import NodeInputConstructors
+from ax.modelbridge.generation_node_input_constructors import (
+    InputConstructorPurpose,
+    NodeInputConstructors,
+)
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
@@ -126,3 +133,40 @@ class TestGenerationNodeInputConstructors(TestCase):
                 next_node=self.sobol_generation_node,
                 gs_gen_call_kwargs={},
             )
+
+
+class TestInstantiationFromNodeInputConstructor(TestCase):
+    """Class to test that all node input constructors can be instantiated and are
+    being tested."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.constructor_cases = {
+            "ALl_N": NodeInputConstructors.ALL_N,
+            "REPEAT_N": NodeInputConstructors.REPEAT_N,
+            "REMAINING_N": NodeInputConstructors.REMAINING_N,
+        }
+        self.purpose_cases = {
+            "N": InputConstructorPurpose.N,
+        }
+
+    def test_all_constructors_have_same_signature(self) -> None:
+        """Test that all node input constructors methods have the same signature
+        and that the parameters are of the expected types"""
+        all_constructors_tested = list(self.constructor_cases.values())
+        method_signature = inspect.signature(all_constructors_tested[0])
+        for constructor in all_constructors_tested[1:]:
+            with self.subTest(constructor=constructor):
+                func_parameters = get_type_hints(constructor)
+                self.assertEqual(
+                    Counter(list(func_parameters.keys())),
+                    Counter(
+                        ["previous_node", "next_node", "gs_gen_call_kwargs", "return"]
+                    ),
+                )
+                self.assertEqual(
+                    func_parameters["previous_node"], Optional[GenerationNode]
+                )
+                self.assertEqual(func_parameters["next_node"], GenerationNode)
+                self.assertEqual(func_parameters["gs_gen_call_kwargs"], Dict[str, Any])
+                self.assertEqual(method_signature, inspect.signature(constructor))
