@@ -62,7 +62,7 @@ fi
 echo "-----------------------------------"
 echo "Getting Docusaurus deps"
 echo "-----------------------------------"
-cd website-v2 || exit
+cd website || exit
 yarn
 
 if [[ $ONLY_DOCUSAURUS == false ]]; then
@@ -71,10 +71,10 @@ if [[ $ONLY_DOCUSAURUS == false ]]; then
   echo "Parsing Sphinx docs and moving to Docusaurus"
   echo "--------------------------------------------"
   cd ..
-  mkdir -p "website/pages/api/"
+  mkdir -p "website/src/pages/api/"
 
   cwd=$(pwd)
-  python3 scripts/parse_sphinx.py -i "${cwd}/sphinx/build/html/" -o "${cwd}/website/pages/api/"
+  python3 scripts/parse_sphinx.py -i "${cwd}/sphinx/build/html/" -o "${cwd}/website/src/pages/api/"
 
   SPHINX_JS_DIR='sphinx/build/html/_static/'
   DOCUSAURUS_JS_DIR='website/static/js/'
@@ -100,13 +100,13 @@ if [[ $ONLY_DOCUSAURUS == false ]]; then
   echo "-----------------------------------"
   # mkdir -p "website/_tutorials"
   # mkdir -p "website/static/files"
-  if [[ $BUILD_TUTORIALS == true ]]; then
-    python3 scripts/make_tutorials.py -w "${cwd}" -e
-  else
-    python3 scripts/make_tutorials.py -w "${cwd}"
-  fi
+  # if [[ $BUILD_TUTORIALS == true ]]; then
+  #   python3 scripts/make_tutorials.py -w "${cwd}" -e
+  # else
+  #   python3 scripts/make_tutorials.py -w "${cwd}"
+  # fi
 
-cd website-v2 || exit
+cd website || exit
 fi  # end of not only Docusaurus block
 
 if [[ $INSERT_API_REFS == true ]]; then
