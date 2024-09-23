@@ -30,6 +30,7 @@ from ax.exceptions.generation_strategy import (
 )
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_node import GenerationNode, GenerationStep
+from ax.modelbridge.generation_node_input_constructors import InputConstructorPurpose
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec
 from ax.modelbridge.modelbridge_utils import get_fixed_features_from_experiment
 from ax.modelbridge.transition_criterion import TrialBasedCriterion
@@ -384,6 +385,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         data: Optional[Data] = None,
         pending_observations: Optional[dict[str, list[ObservationFeatures]]] = None,
         arms_per_node: Optional[dict[str, int]] = None,
+        n: int = 1,
     ) -> list[GeneratorRun]:
         """Produces a List of GeneratorRuns for a single trial, either ``Trial`` or
         ``BatchTrial``, and if producing a ``BatchTrial`` allows for multiple
@@ -403,9 +405,15 @@ class GenerationStrategy(GenerationStrategyInterface):
             pending_observations: A map from metric name to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
-            arms_per_node: A map from node name to the number of arms to generate
-                from that node. If not provided, the number of arms to generate
-                from each node defaults to one.
+            arms_per_node: An optional map from node name to the number of arms to
+                generate from that node. If not provided, will default to the number
+                of arms specified in the node's ``InputConstructors`` or n if no
+                ``InputConstructors`` are defined on the node.
+            n: Integer representing how many arms should be in the generator run
+                produced by this method. NOTE: Some underlying models may ignore
+                the `n` and produce a model-determined number of arms. In that
+                case this method will also output a generator run with number of
+                arms that can differ from `n`.
 
         Returns:
             A list of ``GeneratorRuns`` for a single trial.
@@ -427,25 +435,40 @@ class GenerationStrategy(GenerationStrategyInterface):
                 the spelling.
                 """
             )
-        if arms_per_node is None:
-            arms_per_node = {node_name: 1 for node_name in node_names}
         grs = []
         continue_gen_for_trial = True
-
+        # TODO: @mgarrard update this when gen methods are merged
+        gen_kwargs = {
+            "experiment": experiment,
+            "data": data,
+            "pending_observations": pending_observations,
+            "grs_this_gen": grs,
+            "n": n,
+        }
         while continue_gen_for_trial:
-            next_node_name = self.current_node_name
-            should_transition, next_node = self._curr.should_transition_to_next_node(
-                raise_data_required_error=False
+            gen_kwargs["grs_this_gen"] = grs
+            should_transition, node_to_gen_from_name = (
+                self._curr.should_transition_to_next_node(
+                    raise_data_required_error=False
+                )
             )
+            node_to_gen_from = self._nodes[node_names.index(node_to_gen_from_name)]
             if should_transition:
-                assert next_node is not None
-                next_node_name = next_node
+                node_to_gen_from._previous_node = node_to_gen_from_name
+            arms_from_node = self._determine_arms_from_node(
+                node_to_gen_from=node_to_gen_from,
+                arms_per_node=arms_per_node,
+                node_to_gen_from_name=node_to_gen_from_name,
+                n=n,
+                node_names=node_names,
+                gen_kwargs=gen_kwargs,
+            )
             grs.extend(
                 self._gen_multiple(
                     experiment=experiment,
                     num_generator_runs=1,
                     data=data,
-                    n=arms_per_node[next_node_name],
+                    n=arms_from_node,
                     pending_observations=pending_observations,
                 )
             )
@@ -837,6 +860,63 @@ class GenerationStrategy(GenerationStrategyInterface):
             tc.continue_trial_generation
             for tc in self._curr.transition_edges[next_node]
         )
+
+    def _determine_arms_from_node(
+        self,
+        n: int,
+        node_to_gen_from: GenerationNode,
+        node_to_gen_from_name: str,
+        node_names: list[str],
+        gen_kwargs: dict[str, Any],
+        arms_per_node: Optional[dict[str, int]] = None,
+    ) -> int:
+        """Calculates the number of arms to generate from the node that will be used
+        during generation.
+
+        Args:
+            n: Integer representing how many arms should be in the generator run
+                produced by this method. NOTE: Some underlying models may ignore
+                the `n` and produce a model-determined number of arms. In that
+                case this method will also output a generator run with number of
+                arms that can differ from `n`.
+            node_to_gen_from: The node from which to generate from
+            node_to_gen_from_name: The name of the node from which to generate from.
+            node_names: The names of all nodes in this generation strategy.
+            gs_kwargs: The kwargs passed to the ``GenerationStrategy``'s
+            gen call.
+            arms_per_node: An optional map from node name to the number of arms to
+                generate from that node. If not provided, will default to the number
+                of arms specified in the node's ``InputConstructors`` or n if no
+                ``InputConstructors`` are defined on the node.
+
+        Returns:
+            The number of arms to generate from the node that will be used during this
+            generation via ``_gen_multiple``.
+        """
+        if arms_per_node is not None:
+            # arms_per_node provides a way to manually override input
+            # constructors. This should be used with caution, and only
+            # if you really know what you're doing. :)
+            arms_from_node = arms_per_node[node_to_gen_from_name]
+        elif InputConstructorPurpose.N not in node_to_gen_from.input_constructors:
+            # if the node does not have an input constructor for N, then we
+            # assume a default of generating n arms from this node.
+            arms_from_node = n
+        else:
+            previous_node = (
+                self._nodes[node_names.index(node_to_gen_from._previous_node)]
+                if node_to_gen_from._previous_node is not None
+                else None
+            )
+            arms_from_node = node_to_gen_from.input_constructors[
+                InputConstructorPurpose.N
+            ](
+                previous_node=previous_node,
+                next_node=node_to_gen_from,
+                gs_gen_call_kwargs=gen_kwargs,
+            )
+
+        return arms_from_node
 
     # ------------------------- Model selection logic helpers. -------------------------
 

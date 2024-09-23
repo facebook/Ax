@@ -66,31 +66,31 @@ class TestGenerationNodeInputConstructors(TestCase):
 
     def test_remaining_n_constructor_expect_1(self) -> None:
         """Test that the remaining_n_constructor returns the remaining n."""
-        # should return 1 becuase 4 arms already exist and 5 are requested
+        # should return 1 because 4 arms already exist and 5 are requested
         expect_1 = NodeInputConstructors.REMAINING_N(
             previous_node=None,
             next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={"n": 5, "grs": self.grs},
+            gs_gen_call_kwargs={"n": 5, "grs_this_gen": self.grs},
         )
         self.assertEqual(expect_1, 1)
 
     def test_remaining_n_constructor_expect_0(self) -> None:
-        # should return 0 becuase 4 arms already exist and 4 are requested
+        # should return 0 because 4 arms already exist and 4 are requested
         expect_0 = NodeInputConstructors.REMAINING_N(
             previous_node=None,
             next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={"n": 4, "grs": self.grs},
+            gs_gen_call_kwargs={"n": 4, "grs_this_gen": self.grs},
         )
         self.assertEqual(expect_0, 0)
 
     def test_remaining_n_constructor_cap_at_zero(self) -> None:
-        # should return 0 becuase 4 arms already exist and 3 are requested
+        # should return 0 because 4 arms already exist and 3 are requested
         # this is a bad state that should never be hit, but ensuring proper
         # handling here feels like a valid edge case
         expect_0 = NodeInputConstructors.REMAINING_N(
             previous_node=None,
             next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={"n": 3, "grs": self.grs},
+            gs_gen_call_kwargs={"n": 3, "grs_this_gen": self.grs},
         )
         self.assertEqual(expect_0, 0)
 

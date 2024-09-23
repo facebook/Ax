@@ -99,7 +99,7 @@ def remaining_n(
             "specified"
         )
     # TODO: @mgarrard improve this logic to be more robust
-    grs_this_gen = gs_gen_call_kwargs.get("grs")
+    grs_this_gen = gs_gen_call_kwargs.get("grs_this_gen")
     total_n = gs_gen_call_kwargs.get("n")
     # if all arms have been generated, return 0
     return max(total_n - sum(len(gr.arms) for gr in grs_this_gen), 0)
