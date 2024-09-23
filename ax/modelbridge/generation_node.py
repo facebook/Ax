@@ -12,7 +12,7 @@ from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 # Module-level import to avoid circular dependency b/w this file and
 # generation_strategy.py
@@ -29,6 +29,7 @@ from ax.exceptions.core import UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyRepeatedPoints
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.best_model_selector import BestModelSelector
+
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import _extract_model_state_after_gen, ModelRegistryBase
 from ax.modelbridge.transition_criterion import (
@@ -100,7 +101,12 @@ class GenerationNode(SerializationMixin, SortableBase):
     _model_spec_to_gen_from: Optional[ModelSpec] = None
     # TODO: @mgarrard should this be a dict criterion_class name -> criterion mapping?
     _transition_criteria: Optional[Sequence[TransitionCriterion]]
-
+    _input_constructors: Optional[
+        Dict[
+            modelbridge.generation_node_input_constructors.InputConstructorPurpose,
+            modelbridge.generation_node_input_constructors.NodeInputConstructors,
+        ]
+    ]
     # [TODO] Handle experiment passing more eloquently by enforcing experiment
     # attribute is set in generation strategies class
     _generation_strategy: Optional[
@@ -114,6 +120,12 @@ class GenerationNode(SerializationMixin, SortableBase):
         best_model_selector: Optional[BestModelSelector] = None,
         should_deduplicate: bool = False,
         transition_criteria: Optional[Sequence[TransitionCriterion]] = None,
+        input_constructors: Optional[
+            Dict[
+                modelbridge.generation_node_input_constructors.InputConstructorPurpose,
+                modelbridge.generation_node_input_constructors.NodeInputConstructors,
+            ]
+        ] = None,
     ) -> None:
         self._node_name = node_name
         # Check that the model specs have unique model keys.
@@ -128,6 +140,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         self.best_model_selector = best_model_selector
         self.should_deduplicate = should_deduplicate
         self._transition_criteria = transition_criteria
+        self._input_constructors = input_constructors
 
     @property
     def node_name(self) -> str:
@@ -173,6 +186,20 @@ class GenerationNode(SerializationMixin, SortableBase):
         if this GenerationNode is complete and should transition to the next node.
         """
         return [] if self._transition_criteria is None else self._transition_criteria
+
+    @property
+    def input_constructors(
+        self,
+    ) -> Optional[
+        Dict[
+            modelbridge.generation_node_input_constructors.InputConstructorPurpose,
+            modelbridge.generation_node_input_constructors.NodeInputConstructors,
+        ]
+    ]:
+        """Returns the input constructors that will be used to determine any dynamic
+        inputs to this ``GenerationNode``.
+        """
+        return self._input_constructors
 
     @property
     def experiment(self) -> Experiment:
