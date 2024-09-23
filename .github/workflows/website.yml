@@ -29,7 +29,7 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        bash scripts/make_docs.sh -b -o
+        bash scripts/make_docs.sh -b
     - name: Deploy
       uses: JamesIves/github-pages-deploy-action@releases/v3
       with:
