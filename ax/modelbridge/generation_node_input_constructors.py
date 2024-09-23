@@ -58,7 +58,7 @@ def repeat_arm_n(
         gs_gen_call_kwargs: The kwargs passed to the ``GenerationStrategy``'s
             gen call.
     Returns:
-        The number of requested arms from the next node.
+        The number of requested arms from the next node
     """
     if gs_gen_call_kwargs.get("n") is None:
         raise NotImplementedError(
@@ -75,6 +75,36 @@ def repeat_arm_n(
     return ceil(total_n / 10)
 
 
+def remaining_n(
+    previous_node: Optional[GenerationNode],
+    next_node: GenerationNode,
+    gs_gen_call_kwargs: Dict[str, Any],
+) -> int:
+    """Generate the remaining number of arms requested for this trial in gs.gen().
+
+    Args:
+        previous_node: The previous node in the ``GenerationStrategy``. This is the node
+            that is being transition away from, and is provided for easy access to
+            properties of this node.
+        next_node: The next node in the ``GenerationStrategy``. This is the node that
+            will leverage the inputs defined by this input constructor.
+        gs_gen_call_kwargs: The kwargs passed to the ``GenerationStrategy``'s
+            gen call.
+    Returns:
+        The number of requested arms from the next node
+    """
+    if gs_gen_call_kwargs.get("n") is None:
+        raise NotImplementedError(
+            f"Currently `{remaining_n.__name__}` only supports cases where n is "
+            "specified"
+        )
+    # TODO: @mgarrard improve this logic to be more robust
+    grs_this_gen = gs_gen_call_kwargs.get("grs")
+    total_n = gs_gen_call_kwargs.get("n")
+    # if all arms have been generated, return 0
+    return max(total_n - sum(len(gr.arms) for gr in grs_this_gen), 0)
+
+
 @unique
 class NodeInputConstructors(Enum):
     """An enum which maps to a callable method for constructing ``GenerationNode``
@@ -83,6 +113,7 @@ class NodeInputConstructors(Enum):
 
     ALL_N = consume_all_n
     REPEAT_N = repeat_arm_n
+    REMAINING_N = remaining_n
 
     def __call__(
         self,
