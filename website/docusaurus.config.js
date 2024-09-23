@@ -66,7 +66,8 @@ module.exports={
         {
           "href": "/Ax/api/",
           "label": "API",
-          "position": "left"
+          "position": "left",
+          "target": "_blank",
         },
         {
           "href": "https://github.com/cristianlara/Ax",
