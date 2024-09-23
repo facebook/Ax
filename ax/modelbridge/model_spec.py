@@ -255,6 +255,7 @@ class ModelSpec(SortableBase, SerializationMixin):
             model_kwargs=deepcopy(self.model_kwargs),
             model_gen_kwargs=deepcopy(self.model_gen_kwargs),
             model_cv_kwargs=deepcopy(self.model_cv_kwargs),
+            model_key_override=self.model_key_override,
         )
 
     def _safe_to_update(
