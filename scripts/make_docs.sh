@@ -99,6 +99,6 @@ if [[ $ONLY_DOCUSAURUS == false ]]; then
   echo "Generating API reference via Sphinx"
   echo "-----------------------------------"
   cd sphinx || exit
-  make html
+  make dirhtml
   cd .. || exit
 fi
