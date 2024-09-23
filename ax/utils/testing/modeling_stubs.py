@@ -214,6 +214,7 @@ def get_generation_strategy(
 def sobol_gpei_generation_node_gs(
     with_model_selection: bool = False,
     with_auto_transition: bool = False,
+    with_previous_node: bool = False,
 ) -> GenerationStrategy:
     """Returns a basic SOBOL+MBM GS using GenerationNodes for testing.
 
@@ -301,6 +302,11 @@ def sobol_gpei_generation_node_gs(
             model_specs=mbm_model_specs,
             best_model_selector=best_model_selector,
         )
+
+    # in an actual GS, this would be set during transition, manually setting here for
+    # testing purposes
+    if with_previous_node:
+        mbm_node._previous_node_name = sobol_node.node_name
 
     sobol_mbm_GS_nodes = GenerationStrategy(
         name="Sobol+MBM_Nodes",

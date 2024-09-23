@@ -671,6 +671,11 @@ def generation_node_from_json(
             if "transition_criteria" in generation_node_json.keys()
             else None
         ),
+        previous_node_name=(
+            generation_node_json.pop("previous_node_name")
+            if "previous_node_name" in generation_node_json.keys()
+            else None
+        ),
     )
 
 
