@@ -1874,14 +1874,15 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             raise UnsupportedError(
                 "`Scheduler` requires that experiment specifies a `Runner`."
             )
-        msg = (
-            "`Scheduler` requires that experiment specifies metrics "
-            "with implemented fetching logic."
-        )
         metrics_are_invalid = False
         if not experiment.metrics:
+            msg = "`Scheduler` requires that `experiment.metrics` not be None."
             metrics_are_invalid = True
         else:
+            msg = (
+                "`Scheduler` requires that experiment specifies metrics "
+                "with implemented fetching logic."
+            )
             base_metrics = {
                 m_name for m_name, m in experiment.metrics.items() if type(m) is Metric
             }
