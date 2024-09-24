@@ -88,7 +88,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         input_constructors: A dictionary mapping input constructor purpose enum to the
             input constructor enum. Each input constructor maps to a method which
             encodes the logic for determining dynamic inputs to the ``GenerationNode``
-        previous_node: The previous ``GenerationNode`` name in the
+        previous_node_name: The previous ``GenerationNode`` name in the
             ``GenerationStrategy``, if any. Initialized to None for all nodes, and is
             set during transition from one ``GenerationNode`` to the next. Can be
             overwritten if multiple transitions occur between nodes, and will always
@@ -115,7 +115,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             modelbridge.generation_node_input_constructors.NodeInputConstructors,
         ]
     ]
-    _previous_node: Optional[str] = None
+    _previous_node_name: Optional[str] = None
 
     # [TODO] Handle experiment passing more eloquently by enforcing experiment
     # attribute is set in generation strategies class
@@ -136,7 +136,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                 modelbridge.generation_node_input_constructors.NodeInputConstructors,
             ]
         ] = None,
-        previous_node: Optional[str] = None,
+        previous_node_name: Optional[str] = None,
     ) -> None:
         self._node_name = node_name
         # Check that the model specs have unique model keys.
@@ -152,7 +152,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         self.should_deduplicate = should_deduplicate
         self._transition_criteria = transition_criteria
         self._input_constructors = input_constructors
-        self._previous_node = previous_node
+        self._previous_node_name = previous_node_name
 
     @property
     def node_name(self) -> str:

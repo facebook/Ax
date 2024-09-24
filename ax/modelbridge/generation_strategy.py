@@ -454,7 +454,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             )
             node_to_gen_from = self._nodes[node_names.index(node_to_gen_from_name)]
             if should_transition:
-                node_to_gen_from._previous_node = node_to_gen_from_name
+                node_to_gen_from._previous_node_name = node_to_gen_from_name
             arms_from_node = self._determine_arms_from_node(
                 node_to_gen_from=node_to_gen_from,
                 arms_per_node=arms_per_node,
@@ -904,8 +904,8 @@ class GenerationStrategy(GenerationStrategyInterface):
             arms_from_node = n
         else:
             previous_node = (
-                self._nodes[node_names.index(node_to_gen_from._previous_node)]
-                if node_to_gen_from._previous_node is not None
+                self._nodes[node_names.index(node_to_gen_from._previous_node_name)]
+                if node_to_gen_from._previous_node_name is not None
                 else None
             )
             arms_from_node = node_to_gen_from.input_constructors[
