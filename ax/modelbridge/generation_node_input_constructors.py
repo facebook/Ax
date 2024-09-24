@@ -109,6 +109,8 @@ def remaining_n(
 class NodeInputConstructors(Enum):
     """An enum which maps to a callable method for constructing ``GenerationNode``
     inputs.
+
+    NOTE: The methods defined by this enum should all share identical signatures.
     """
 
     ALL_N = consume_all_n
