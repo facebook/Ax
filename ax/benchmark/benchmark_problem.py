@@ -74,6 +74,13 @@ class BenchmarkProblem(Base):
         search_space: The search space.
         runner: The Runner that will be used to generate data for the problem,
             including any ground-truth data stored as tracking metrics.
+        report_inference_value_as_trace: Whether the ``optimization_trace`` on a
+            ``BenchmarkResult`` should use the ``oracle_trace`` (if False,
+            default) or the ``inference_trace``. See ``BenchmarkResult`` for
+            more information. Currently, this is only supported for
+            single-objective problems.
+        n_best_points: Number of points for a best-point selector to recommend.
+            Currently, only ``n_best_points=1`` is supported.
     """
 
     name: str
@@ -84,6 +91,17 @@ class BenchmarkProblem(Base):
 
     search_space: SearchSpace = field(repr=False)
     runner: BenchmarkRunner = field(repr=False)
+    report_inference_value_as_trace: bool = False
+    n_best_points: int = 1
+
+    def __post_init__(self) -> None:
+        if self.n_best_points != 1:
+            raise NotImplementedError("Only `n_best_points=1` is currently supported.")
+        if self.report_inference_value_as_trace and self.is_moo:
+            raise NotImplementedError(
+                "Inference trace is not supported for MOO. Please set "
+                "`report_inference_value_as_trace` to False."
+            )
 
     def get_oracle_experiment_from_params(
         self,
@@ -285,6 +303,7 @@ def create_problem_from_botorch(
     lower_is_better: bool = True,
     observe_noise_sd: bool = False,
     search_space: SearchSpace | None = None,
+    report_inference_value_as_trace: bool = False,
 ) -> BenchmarkProblem:
     """
     Create a `BenchmarkProblem` from a BoTorch `BaseTestProblem`.
@@ -308,6 +327,10 @@ def create_problem_from_botorch(
         search_space: If provided, the `search_space` of the `BenchmarkProblem`.
             Otherwise, a `SearchSpace` with all `RangeParameter`s is created
             from the bounds of the test problem.
+        report_inference_value_as_trace: If True, indicates that the
+            ``optimization_trace`` on a ``BenchmarkResult`` ought to be the
+            ``inference_trace``; otherwise, it will be the ``oracle_trace``.
+            See ``BenchmarkResult`` for more information.
     """
     # pyre-fixme [45]: Invalid class instantiation
     test_problem = test_problem_class(**test_problem_kwargs)
@@ -364,4 +387,5 @@ def create_problem_from_botorch(
         num_trials=num_trials,
         observe_noise_stds=observe_noise_sd,
         optimal_value=optimal_value,
+        report_inference_value_as_trace=report_inference_value_as_trace,
     )

@@ -46,12 +46,14 @@ def get_single_objective_benchmark_problem(
     observe_noise_sd: bool = False,
     num_trials: int = 4,
     test_problem_kwargs: Optional[dict[str, Any]] = None,
+    report_inference_value_as_trace: bool = False,
 ) -> BenchmarkProblem:
     return create_problem_from_botorch(
         test_problem_class=Branin,
         test_problem_kwargs=test_problem_kwargs or {},
         num_trials=num_trials,
         observe_noise_sd=observe_noise_sd,
+        report_inference_value_as_trace=report_inference_value_as_trace,
     )
 
 
@@ -59,12 +61,14 @@ def get_multi_objective_benchmark_problem(
     observe_noise_sd: bool = False,
     num_trials: int = 4,
     test_problem_class: type[BraninCurrin] = BraninCurrin,
+    report_inference_value_as_trace: bool = False,
 ) -> BenchmarkProblem:
     return create_problem_from_botorch(
         test_problem_class=test_problem_class,
         test_problem_kwargs={},
         num_trials=num_trials,
         observe_noise_sd=observe_noise_sd,
+        report_inference_value_as_trace=report_inference_value_as_trace,
     )
 
 
@@ -206,6 +210,8 @@ def get_benchmark_result() -> BenchmarkResult:
             runner=problem.runner,
             is_test=True,
         ),
+        inference_trace=np.ones(4),
+        oracle_trace=np.zeros(4),
         optimization_trace=np.array([3, 2, 1, 0.1]),
         score_trace=np.array([3, 2, 1, 0.1]),
         fit_time=0.1,
