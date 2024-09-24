@@ -22,6 +22,10 @@ from ax.modelbridge.generation_node import (
     GenerationStep,
     MISSING_MODEL_SELECTOR_MESSAGE,
 )
+from ax.modelbridge.generation_node_input_constructors import (
+    InputConstructorPurpose,
+    NodeInputConstructors,
+)
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import Models
 from ax.modelbridge.transition_criterion import MaxTrials
@@ -76,6 +80,25 @@ class TestGenerationNode(TestCase):
         )
         self.assertEqual(node.model_specs, mbm_specs)
         self.assertIs(node.best_model_selector, model_selector)
+
+    def test_input_constructor_none(self) -> None:
+        self.assertIsNone(self.sobol_generation_node.input_constructors)
+        self.assertIsNone(self.sobol_generation_node._input_constructors)
+
+    def test_input_constructor(self) -> None:
+        node = GenerationNode(
+            node_name="test",
+            model_specs=[self.sobol_model_spec],
+            input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
+        )
+        self.assertEqual(
+            node.input_constructors,
+            {InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
+        )
+        self.assertEqual(
+            node._input_constructors,
+            {InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
+        )
 
     def test_fit(self) -> None:
         dat = self.branin_experiment.lookup_data()
