@@ -31,16 +31,45 @@ class TestGenerationNodeInputConstructors(TestCase):
             next_node=self.sobol_generation_node,
             gs_gen_call_kwargs={"n": 5},
         )
-
         self.assertEqual(num_to_gen, 5)
 
-    def test_consume_all_n_constructor_no_n(self) -> None:
+    def test_repeat_arm_n_constructor(self) -> None:
+        """Test that the repeat_arm_n_constructor returns a small percentage of n."""
+        small_n = NodeInputConstructors.REPEAT_N(
+            previous_node=None,
+            next_node=self.sobol_generation_node,
+            gs_gen_call_kwargs={"n": 5},
+        )
+        medium_n = NodeInputConstructors.REPEAT_N(
+            previous_node=None,
+            next_node=self.sobol_generation_node,
+            gs_gen_call_kwargs={"n": 8},
+        )
+        large_n = NodeInputConstructors.REPEAT_N(
+            previous_node=None,
+            next_node=self.sobol_generation_node,
+            gs_gen_call_kwargs={"n": 11},
+        )
+        self.assertEqual(small_n, 0)
+        self.assertEqual(medium_n, 1)
+        self.assertEqual(large_n, 2)
+
+    def test_no_n_provided_error(self) -> None:
         """Test raise error if n is not specified."""
         with self.assertRaisesRegex(
             NotImplementedError,
             "`consume_all_n` only supports cases where n is specified",
         ):
             _ = NodeInputConstructors.ALL_N(
+                previous_node=None,
+                next_node=self.sobol_generation_node,
+                gs_gen_call_kwargs={},
+            )
+        with self.assertRaisesRegex(
+            NotImplementedError,
+            " `repeat_arm_n` only supports cases where n is specified",
+        ):
+            _ = NodeInputConstructors.REPEAT_N(
                 previous_node=None,
                 next_node=self.sobol_generation_node,
                 gs_gen_call_kwargs={},

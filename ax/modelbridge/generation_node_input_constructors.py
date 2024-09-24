@@ -5,6 +5,7 @@
 
 # pyre-strict
 from enum import Enum, unique
+from math import ceil
 from typing import Any, Dict, Optional
 
 from ax.modelbridge.generation_node import GenerationNode
@@ -40,6 +41,40 @@ def consume_all_n(
     return gs_gen_call_kwargs.get("n")
 
 
+def repeat_arm_n(
+    previous_node: Optional[GenerationNode],
+    next_node: GenerationNode,
+    gs_gen_call_kwargs: Dict[str, Any],
+) -> int:
+    """Generate a small percentage of arms requested to be used for repeat arms in
+    the next trial.
+
+    Args:
+        previous_node: The previous node in the ``GenerationStrategy``. This is the node
+            that is being transition away from, and is provided for easy access to
+            properties of this node.
+        next_node: The next node in the ``GenerationStrategy``. This is the node that
+            will leverage the inputs defined by this input constructor.
+        gs_gen_call_kwargs: The kwargs passed to the ``GenerationStrategy``'s
+            gen call.
+    Returns:
+        The number of requested arms from the next node.
+    """
+    if gs_gen_call_kwargs.get("n") is None:
+        raise NotImplementedError(
+            f"Currently `{repeat_arm_n.__name__}` only supports cases where n is "
+            "specified"
+        )
+    total_n = gs_gen_call_kwargs.get("n")
+    if total_n < 6:
+        # if the next trial is small, we don't want to waste allocation on repeat arms
+        # users can still manually add repeat arms if they want before allocation
+        return 0
+    elif total_n <= 10:
+        return 1
+    return ceil(total_n / 10)
+
+
 @unique
 class NodeInputConstructors(Enum):
     """An enum which maps to a callable method for constructing ``GenerationNode``
@@ -47,6 +82,7 @@ class NodeInputConstructors(Enum):
     """
 
     ALL_N = consume_all_n
+    REPEAT_N = repeat_arm_n
 
     def __call__(
         self,
