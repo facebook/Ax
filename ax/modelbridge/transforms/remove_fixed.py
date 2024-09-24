@@ -48,14 +48,8 @@ class RemoveFixed(Transform):
         self, observation_features: list[ObservationFeatures]
     ) -> list[ObservationFeatures]:
         for obsf in observation_features:
-            for p_name, fixed_p in self.fixed_parameters.items():
-                if p_name in obsf.parameters:
-                    if obsf.parameters[p_name] != fixed_p.value:
-                        raise ValueError(
-                            f"Fixed parameter {p_name} with out of design value: "
-                            f"{obsf.parameters[p_name]} passed to `RemoveFixed`."
-                        )
-                    obsf.parameters.pop(p_name)
+            for p_name in self.fixed_parameters:
+                obsf.parameters.pop(p_name, None)
         return observation_features
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
