@@ -38,6 +38,12 @@ Transition Criterion
     :undoc-members:
     :show-inheritance:
 
+Generation Node Input Constructors
+.. automodule:: ax.modelbridge.generation_node_input_constructors
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Registry
 ~~~~~~~~
 .. automodule:: ax.modelbridge.registry
