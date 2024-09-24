@@ -33,6 +33,10 @@ from ax.modelbridge.best_model_selector import SingleDiagnosticBestModelSelector
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_node import GenerationNode
+from ax.modelbridge.generation_node_input_constructors import (
+    InputConstructorPurpose,
+    NodeInputConstructors,
+)
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.random import RandomModelBridge
@@ -1187,6 +1191,30 @@ class TestGenerationStrategy(TestCase):
                 logger.output,
             )
 
+    def test_gs_initializes_all_previous_node_to_none(self) -> None:
+        """Test that all previous nodes are initialized to None"""
+        node_1 = GenerationNode(
+            node_name="node_1",
+            model_specs=[self.sobol_model_spec],
+        )
+        node_2 = GenerationNode(
+            node_name="node_2",
+            model_specs=[self.sobol_model_spec],
+        )
+        node_3 = GenerationNode(
+            node_name="node_3",
+            model_specs=[self.sobol_model_spec],
+        )
+        gs = GenerationStrategy(
+            nodes=[
+                node_1,
+                node_2,
+                node_3,
+            ],
+        )
+        for node in gs._nodes:
+            self.assertIsNone(node._previous_node)
+
     def test_gs_with_generation_nodes(self) -> None:
         "Simple test of a SOBOL + MBM GenerationStrategy composed of GenerationNodes"
         exp = get_branin_experiment()
@@ -1396,7 +1424,7 @@ class TestGenerationStrategy(TestCase):
         with self.assertRaisesRegex(UserInputError, "defined in `arms_per_node`"):
             gs.gen_with_multiple_nodes(exp, arms_per_node=arms_per_node)
 
-        # now we will check that the first trial contains 3 arms, the sconed trial
+        # now we will check that the first trial contains 3 arms, the second trial
         # contains 6 arms (2 from mbm, 1 from sobol_2, 3 from sobol_3), and all
         # remaining trials contain 4 arms
         arms_per_node = {
@@ -1569,6 +1597,78 @@ class TestGenerationStrategy(TestCase):
             not_none(gs.trials_as_df).head()["Generation Nodes"][1],
             ["mbm", "sobol_2", "sobol_3"],
         )
+
+    def test_gs_with_input_constructor(self) -> None:
+        """Test a ``GenerationStrategy`` that uses ``InputConstructors`` to determine
+        breakdown of arms per node. This GS consists of a 3 sobol nodes for simplicity.
+        The first sobol node should generate all requested n for the exploration
+        trial, for subsequent trials the sobol_2 node should generate 1 arm per trial,
+        and the sobol_3 node should generate the remaining arms.
+        """
+        exp = get_branin_experiment()
+        sobol_criterion = [
+            MaxTrials(
+                threshold=1,
+                transition_to="sobol_2",
+                block_gen_if_met=True,
+                only_in_statuses=None,
+                not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
+            )
+        ]
+        sobol_node = GenerationNode(
+            node_name="sobol_node",
+            transition_criteria=sobol_criterion,
+            model_specs=[self.sobol_model_spec],
+            input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
+        )
+        sobol_2_node = GenerationNode(
+            node_name="sobol_2",
+            transition_criteria=[AutoTransitionAfterGen(transition_to="sobol_3")],
+            model_specs=[self.sobol_model_spec],
+            input_constructors={
+                InputConstructorPurpose.N: NodeInputConstructors.REPEAT_N
+            },
+        )
+        sobol_3_node = GenerationNode(
+            node_name="sobol_3",
+            transition_criteria=[
+                AutoTransitionAfterGen(
+                    transition_to="sobol_2", continue_trial_generation=False
+                )
+            ],
+            model_specs=[self.sobol_model_spec],
+            input_constructors={
+                InputConstructorPurpose.N: NodeInputConstructors.REMAINING_N
+            },
+        )
+        gs = GenerationStrategy(
+            name="Sobol+Sobol_2+MBM",
+            nodes=[sobol_node, sobol_2_node, sobol_3_node],
+        )
+        gs.experiment = exp
+
+        # The first trial is our exploration trial, all arms should be generated from
+        # the sobol node due to the input constructor == ALL_N.
+        trial0 = exp.new_batch_trial(
+            generator_runs=gs.gen_with_multiple_nodes(exp, n=9)
+        )
+        self.assertEqual(len(trial0.arms_by_name), 9)
+        self.assertEqual(trial0.generator_runs[0]._generation_node_name, "sobol_node")
+        trial0.run()  # necessary for transition criterion to be met
+
+        for _i in range(0, 2):
+            # subsequent trials should be generated from sobol_2 and sobol_3, with
+            # sobol_2 generating 1 arm and sobol_3 generating the remaining 8 arms.
+            trial = exp.new_batch_trial(
+                generator_runs=gs.gen_with_multiple_nodes(exp, n=9)
+            )
+            self.assertEqual(gs.current_node_name, "sobol_3")
+            self.assertEqual(len(trial.arms_by_name), 9)
+            self.assertEqual(len(trial.generator_runs), 2)
+            self.assertEqual(trial.generator_runs[0]._generation_node_name, "sobol_2")
+            self.assertEqual(len(trial.generator_runs[0].arms), 1)
+            self.assertEqual(trial.generator_runs[1]._generation_node_name, "sobol_3")
+            self.assertEqual(len(trial.generator_runs[1].arms), 8)
 
     # ------------- Testing helpers (put tests above this line) -------------
 

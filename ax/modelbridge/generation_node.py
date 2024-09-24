@@ -85,6 +85,14 @@ class GenerationNode(SerializationMixin, SortableBase):
             condition that must be met before completing a GenerationNode. All `is_met`
             must evaluateTrue for the GenerationStrategy to move on to the next
             GenerationNode.
+        input_constructors: A dictionary mapping input constructor purpose enum to the
+            input constructor enum. Each input constructor maps to a method which
+            encodes the logic for determining dynamic inputs to the ``GenerationNode``
+        previous_node: The previous ``GenerationNode`` name in the
+            ``GenerationStrategy``, if any. Initialized to None for all nodes, and is
+            set during transition from one ``GenerationNode`` to the next. Can be
+            overwritten if multiple transitions occur between nodes, and will always
+            store the most recent previous ``GenerationNode`` name.
 
     Note for developers: by "model" here we really mean an Ax ModelBridge object, which
     contains an Ax Model under the hood. We call it "model" here to simplify and focus
@@ -107,6 +115,8 @@ class GenerationNode(SerializationMixin, SortableBase):
             modelbridge.generation_node_input_constructors.NodeInputConstructors,
         ]
     ]
+    _previous_node: Optional[str] = None
+
     # [TODO] Handle experiment passing more eloquently by enforcing experiment
     # attribute is set in generation strategies class
     _generation_strategy: Optional[
@@ -126,6 +136,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                 modelbridge.generation_node_input_constructors.NodeInputConstructors,
             ]
         ] = None,
+        previous_node: Optional[str] = None,
     ) -> None:
         self._node_name = node_name
         # Check that the model specs have unique model keys.
@@ -141,6 +152,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         self.should_deduplicate = should_deduplicate
         self._transition_criteria = transition_criteria
         self._input_constructors = input_constructors
+        self._previous_node = previous_node
 
     @property
     def node_name(self) -> str:
@@ -190,16 +202,14 @@ class GenerationNode(SerializationMixin, SortableBase):
     @property
     def input_constructors(
         self,
-    ) -> Optional[
-        Dict[
-            modelbridge.generation_node_input_constructors.InputConstructorPurpose,
-            modelbridge.generation_node_input_constructors.NodeInputConstructors,
-        ]
+    ) -> Dict[
+        modelbridge.generation_node_input_constructors.InputConstructorPurpose,
+        modelbridge.generation_node_input_constructors.NodeInputConstructors,
     ]:
         """Returns the input constructors that will be used to determine any dynamic
         inputs to this ``GenerationNode``.
         """
-        return self._input_constructors
+        return self._input_constructors if self._input_constructors is not None else {}
 
     @property
     def experiment(self) -> Experiment:
@@ -506,7 +516,7 @@ class GenerationNode(SerializationMixin, SortableBase):
 
     def should_transition_to_next_node(
         self, raise_data_required_error: bool = True
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str]:
         """Checks whether we should transition to the next node based on this node's
         TransitionCriterion.
 
@@ -520,12 +530,12 @@ class GenerationNode(SerializationMixin, SortableBase):
                 check how many generator runs (to be made into trials) can be produced,
                 but not actually producing them yet.
         Returns:
-            Tuple[bool, Optional[str]]: Whether we should transition to the next node
-                and the name of the next node.
+            Tuple[bool, str]: Whether we should transition to the next node
+                and the name of the node to gen from (either the current or next node)
         """
         # if no transition criteria are defined, this node can generate unlimited trials
         if len(self.transition_criteria) == 0:
-            return False, None
+            return False, self.node_name
 
         # for each edge in node DAG, check if the transition criterion are met, if so
         # transition to the next node defined by that edge.
@@ -569,7 +579,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             if len(transition_blocking) > 0 and transition_blocking_met:
                 return True, next_node
 
-        return False, None
+        return False, self.node_name
 
     def generator_run_limit(self, raise_generation_errors: bool = False) -> int:
         """How many generator runs can this generation strategy generate right now,
