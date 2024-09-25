@@ -4,11 +4,60 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
+import sys
 from enum import Enum, unique
 from math import ceil
 from typing import Any, Dict, Optional
 
 from ax.modelbridge.generation_node import GenerationNode
+
+
+@unique
+class NodeInputConstructors(Enum):
+    """An enum which maps to a the name of a callable method for constructing
+    ``GenerationNode`` inputs.
+
+    NOTE: The methods defined by this enum should all share identical signatures
+    and reside in this file.
+    """
+
+    ALL_N = "consume_all_n"
+    REPEAT_N = "repeat_arm_n"
+    REMAINING_N = "remaining_n"
+
+    def __call__(
+        self,
+        previous_node: Optional[GenerationNode],
+        next_node: GenerationNode,
+        gs_gen_call_kwargs: Dict[str, Any],
+    ) -> int:
+        """Defines a callable method for the Enum as all values are methods"""
+        try:
+            method = getattr(sys.modules[__name__], self.value)
+        except AttributeError:
+            raise ValueError(
+                f"{self.value} is not defined as a method in "
+                "``generation_node_input_constructors.py``. Please add the method "
+                "to the file."
+            )
+        return method(
+            previous_node=previous_node,
+            next_node=next_node,
+            gs_gen_call_kwargs=gs_gen_call_kwargs,
+        )
+
+
+@unique
+class InputConstructorPurpose(Enum):
+    """A simple enum to indicate the purpose of the input constructor.
+
+    Explanation of the different purposes:
+        N: Defines the logic to determine the number of arms to generate from the
+           next ``GenerationNode`` given the total number of arms expected in
+           this trial.
+    """
+
+    N = "n"
 
 
 def consume_all_n(
@@ -103,42 +152,3 @@ def remaining_n(
     total_n = gs_gen_call_kwargs.get("n")
     # if all arms have been generated, return 0
     return max(total_n - sum(len(gr.arms) for gr in grs_this_gen), 0)
-
-
-@unique
-class NodeInputConstructors(Enum):
-    """An enum which maps to a callable method for constructing ``GenerationNode``
-    inputs.
-
-    NOTE: The methods defined by this enum should all share identical signatures.
-    """
-
-    ALL_N = consume_all_n
-    REPEAT_N = repeat_arm_n
-    REMAINING_N = remaining_n
-
-    def __call__(
-        self,
-        previous_node: Optional[GenerationNode],
-        next_node: GenerationNode,
-        gs_gen_call_kwargs: Dict[str, Any],
-    ) -> int:
-        """Defines a callable method for the Enum as all values are methods"""
-        return self(
-            previous_node=previous_node,
-            next_node=next_node,
-            gs_gen_call_kwargs=gs_gen_call_kwargs,
-        )
-
-
-@unique
-class InputConstructorPurpose(Enum):
-    """A simple enum to indicate the purpose of the input constructor.
-
-    Explanation of the different purposes:
-        N: Defines the logic to determine the number of arms to generate from the
-           next ``GenerationNode`` given the total number of arms expected in
-           this trial.
-    """
-
-    N = "n"

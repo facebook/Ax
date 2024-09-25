@@ -151,7 +151,9 @@ class GenerationNode(SerializationMixin, SortableBase):
         self.best_model_selector = best_model_selector
         self.should_deduplicate = should_deduplicate
         self._transition_criteria = transition_criteria
-        self._input_constructors = input_constructors
+        self._input_constructors = (
+            input_constructors if input_constructors is not None else {}
+        )
         self._previous_node_name = previous_node_name
 
     @property

@@ -82,7 +82,7 @@ class TestGenerationNode(TestCase):
         self.assertIs(node.best_model_selector, model_selector)
 
     def test_input_constructor_none(self) -> None:
-        self.assertIsNone(self.sobol_generation_node._input_constructors)
+        self.assertEqual(self.sobol_generation_node._input_constructors, {})
         self.assertEqual(self.sobol_generation_node.input_constructors, {})
 
     def test_input_constructor(self) -> None:

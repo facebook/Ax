@@ -25,6 +25,11 @@ from ax.modelbridge.cross_validation import FISHER_EXACT_TEST_P
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_node import GenerationNode
+
+from ax.modelbridge.generation_node_input_constructors import (
+    InputConstructorPurpose,
+    NodeInputConstructors,
+)
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
@@ -215,6 +220,9 @@ def sobol_gpei_generation_node_gs(
     with_model_selection: bool = False,
     with_auto_transition: bool = False,
     with_previous_node: bool = False,
+    with_input_constructors_all_n: bool = False,
+    with_input_constructors_remaining_n: bool = False,
+    with_input_constructors_repeat_n: bool = False,
 ) -> GenerationStrategy:
     """Returns a basic SOBOL+MBM GS using GenerationNodes for testing.
 
@@ -307,6 +315,22 @@ def sobol_gpei_generation_node_gs(
     # testing purposes
     if with_previous_node:
         mbm_node._previous_node_name = sobol_node.node_name
+
+    # test input constructors, this also leaves the mbm node with no input
+    # constructors which validates encoding/decoding of instances with no
+    # input constructors
+    if with_input_constructors_all_n:
+        sobol_node._input_constructors = {
+            InputConstructorPurpose.N: NodeInputConstructors.ALL_N,
+        }
+    elif with_input_constructors_remaining_n:
+        sobol_node._input_constructors = {
+            InputConstructorPurpose.N: NodeInputConstructors.REMAINING_N,
+        }
+    elif with_input_constructors_repeat_n:
+        sobol_node._input_constructors = {
+            InputConstructorPurpose.N: NodeInputConstructors.REPEAT_N,
+        }
 
     sobol_mbm_GS_nodes = GenerationStrategy(
         name="Sobol+MBM_Nodes",
