@@ -129,6 +129,7 @@ class Decoder:
                                 aux_exp_name,
                                 config=self.config,
                                 skip_runners_and_metrics=True,
+                                load_auxiliary_experiments=False,
                             )
                         )
                     )
@@ -138,6 +139,7 @@ class Decoder:
         self,
         experiment_sqa: SQAExperiment,
         ax_object_field_overrides: Optional[dict[str, Any]] = None,
+        load_auxiliary_experiments: bool = True,
     ) -> Experiment:
         """First step of conversion within experiment_from_sqa."""
         opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
@@ -180,9 +182,13 @@ class Decoder:
         default_data_type = experiment_sqa.default_data_type
 
         auxiliary_experiments_by_purpose = (
-            self._auxiliary_experiments_by_purpose_from_experiment_sqa(
-                experiment_sqa=experiment_sqa
+            (
+                self._auxiliary_experiments_by_purpose_from_experiment_sqa(
+                    experiment_sqa=experiment_sqa
+                )
             )
+            if load_auxiliary_experiments
+            else {}
         )
 
         return Experiment(
@@ -258,6 +264,7 @@ class Decoder:
         experiment_sqa: SQAExperiment,
         reduced_state: bool = False,
         ax_object_field_overrides: Optional[dict[str, Any]] = None,
+        load_auxiliary_experiments: bool = True,
     ) -> Experiment:
         """Convert SQLAlchemy Experiment to Ax Experiment.
 
@@ -270,13 +277,16 @@ class Decoder:
                 to override values loaded objects will all be instantiated with fields
                 set to override value
                 current valid object types are: "runner"
+            load_auxiliary_experiment: whether to load auxiliary experiments.
         """
         subclass = (experiment_sqa.properties or {}).get(Keys.SUBCLASS)
         if subclass == "MultiTypeExperiment":
             experiment = self._init_mt_experiment_from_sqa(experiment_sqa)
         else:
             experiment = self._init_experiment_from_sqa(
-                experiment_sqa, ax_object_field_overrides=ax_object_field_overrides
+                experiment_sqa,
+                ax_object_field_overrides=ax_object_field_overrides,
+                load_auxiliary_experiments=load_auxiliary_experiments,
             )
         trials = [
             self.trial_from_sqa(
