@@ -223,6 +223,7 @@ def sobol_gpei_generation_node_gs(
     with_input_constructors_all_n: bool = False,
     with_input_constructors_remaining_n: bool = False,
     with_input_constructors_repeat_n: bool = False,
+    with_unlimited_gen_mbm: bool = False,
 ) -> GenerationStrategy:
     """Returns a basic SOBOL+MBM GS using GenerationNodes for testing.
 
@@ -300,6 +301,13 @@ def sobol_gpei_generation_node_gs(
         mbm_node = GenerationNode(
             node_name="MBM_node",
             transition_criteria=alt_mbm_criterion,
+            model_specs=mbm_model_specs,
+            best_model_selector=best_model_selector,
+        )
+    elif with_unlimited_gen_mbm:
+        # no TC defined is equivalent to unlimited gen
+        mbm_node = GenerationNode(
+            node_name="MBM_node",
             model_specs=mbm_model_specs,
             best_model_selector=best_model_selector,
         )

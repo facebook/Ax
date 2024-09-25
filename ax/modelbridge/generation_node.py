@@ -108,12 +108,10 @@ class GenerationNode(SerializationMixin, SortableBase):
     # Optional specifications
     _model_spec_to_gen_from: Optional[ModelSpec] = None
     # TODO: @mgarrard should this be a dict criterion_class name -> criterion mapping?
-    _transition_criteria: Optional[Sequence[TransitionCriterion]]
-    _input_constructors: Optional[
-        Dict[
-            modelbridge.generation_node_input_constructors.InputConstructorPurpose,
-            modelbridge.generation_node_input_constructors.NodeInputConstructors,
-        ]
+    _transition_criteria: Sequence[TransitionCriterion]
+    _input_constructors: Dict[
+        modelbridge.generation_node_input_constructors.InputConstructorPurpose,
+        modelbridge.generation_node_input_constructors.NodeInputConstructors,
     ]
     _previous_node_name: Optional[str] = None
 
@@ -150,7 +148,9 @@ class GenerationNode(SerializationMixin, SortableBase):
         self.model_specs = model_specs
         self.best_model_selector = best_model_selector
         self.should_deduplicate = should_deduplicate
-        self._transition_criteria = transition_criteria
+        self._transition_criteria = (
+            transition_criteria if transition_criteria is not None else []
+        )
         self._input_constructors = (
             input_constructors if input_constructors is not None else {}
         )
