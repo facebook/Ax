@@ -131,6 +131,11 @@ logger: Logger = get_logger(__name__)
 GET_GS_SQA_IMM_FUNC = _get_generation_strategy_sqa_immutable_opt_config_and_search_space
 
 
+@unique
+class TestAuxiliaryExperimentPurpose(AuxiliaryExperimentPurpose):
+    MyAuxExpPurpose = "my_auxiliary_experiment_purpose"
+
+
 class SQAStoreTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
@@ -143,6 +148,7 @@ class SQAStoreTest(TestCase):
             get_range_parameter(),  # w
             get_range_parameter2(),  # x
         ]
+        self.config.auxiliary_experiment_purpose_enum = TestAuxiliaryExperimentPurpose
 
     def test_CreationOfTestDB(self) -> None:
         init_test_engine_and_session_factory(tier_or_path=":memory:", force_init=True)
@@ -212,12 +218,6 @@ class SQAStoreTest(TestCase):
             self.assertEqual(loaded_experiment, exp)
 
     def test_saving_and_loading_experiment_with_aux_exp(self) -> None:
-        @unique
-        class TestAuxiliaryExperimentPurpose(AuxiliaryExperimentPurpose):
-            MyAuxExpPurpose = "my_auxiliary_experiment_purpose"
-
-        self.config.auxiliary_experiment_purpose_enum = TestAuxiliaryExperimentPurpose
-
         aux_experiment = Experiment(
             name="test_aux_exp_in_SQAStoreTest",
             search_space=get_search_space(),
@@ -250,6 +250,61 @@ class SQAStoreTest(TestCase):
         )
         self.assertEqual(experiment_w_aux_exp, loaded_experiment)
         self.assertEqual(len(loaded_experiment.auxiliary_experiments_by_purpose), 1)
+
+    def test_saving_and_loading_experiment_with_cross_referencing_aux_exp(self) -> None:
+        exp1_name = "test_aux_exp_in_SQAStoreTest1"
+        exp2_name = "test_aux_exp_in_SQAStoreTest2"
+        # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
+        exp_purpose = self.config.auxiliary_experiment_purpose_enum.MyAuxExpPurpose
+
+        exp1 = Experiment(
+            name=exp1_name,
+            search_space=get_search_space(),
+            optimization_config=get_optimization_config(),
+            description="test description",
+            tracking_metrics=[Metric(name="tracking")],
+            is_test=True,
+        )
+        exp2 = Experiment(
+            name=exp2_name,
+            search_space=get_search_space(),
+            optimization_config=get_optimization_config(),
+            description="test description",
+            tracking_metrics=[Metric(name="tracking")],
+            is_test=True,
+        )
+        # Save both experiments first
+        save_experiment(exp1, config=self.config)
+        save_experiment(exp2, config=self.config)
+
+        exp1.auxiliary_experiments_by_purpose = {
+            exp_purpose: [AuxiliaryExperiment(experiment=exp2)]
+        }
+        exp2.auxiliary_experiments_by_purpose = {
+            exp_purpose: [AuxiliaryExperiment(experiment=exp1)]
+        }
+
+        # Saving both experiments with cross referencing experiments should be fine
+        save_experiment(exp1, config=self.config)
+        save_experiment(exp2, config=self.config)
+
+        reloaded_exp1 = load_experiment(exp1_name, config=self.config)
+
+        # The reloaded experiment should still have the aux experiment
+        rel_exp1_aux_exps = reloaded_exp1.auxiliary_experiments_by_purpose[exp_purpose]
+        self.assertEqual(len(rel_exp1_aux_exps), 1)
+
+        exp1_aux_exp = exp1.auxiliary_experiments_by_purpose[exp_purpose][0].experiment
+        rel_exp1_aux_exp = rel_exp1_aux_exps[0].experiment
+
+        # The directly reloaded experiment won't be equal since the original exp1 has
+        # recursive aux experiments
+        self.assertNotEqual(exp1_aux_exp, rel_exp1_aux_exp)
+
+        # Manually set exp1's aux's aux experiment to be empty.
+        # Then they will be equal as we don't load aux experiment recursively
+        exp1_aux_exp.auxiliary_experiments_by_purpose = {}
+        self.assertEqual(exp1_aux_exp, rel_exp1_aux_exp)
 
     def test_saving_an_experiment_with_type_requires_an_enum(self) -> None:
         self.experiment.experiment_type = "TEST"
