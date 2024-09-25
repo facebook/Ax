@@ -157,7 +157,7 @@ class TestInstantiationFromNodeInputConstructor(TestCase):
         method_signature = inspect.signature(all_constructors_tested[0])
         for constructor in all_constructors_tested[1:]:
             with self.subTest(constructor=constructor):
-                func_parameters = get_type_hints(constructor)
+                func_parameters = get_type_hints(constructor.__call__)
                 self.assertEqual(
                     Counter(list(func_parameters.keys())),
                     Counter(
