@@ -202,6 +202,10 @@ TEST_CASES = [
         "GenerationStrategy",
         partial(sobol_gpei_generation_node_gs, with_input_constructors_repeat_n=True),
     ),
+    (
+        "GenerationStrategy",
+        partial(sobol_gpei_generation_node_gs, with_unlimited_gen_mbm=True),
+    ),
     ("GeneratorRun", get_generator_run),
     ("Hartmann6Metric", get_hartmann_metric),
     ("HierarchicalSearchSpace", get_hierarchical_search_space),
@@ -378,9 +382,9 @@ class JSONStoreTest(TestCase):
                 # for this specific test only
                 if "with_completion_criteria" in fake_func.keywords:
                     for step in original_object._steps:
-                        step._transition_criteria = None
+                        step._transition_criteria = []
                     for step in converted_object._steps:
-                        step._transition_criteria = None
+                        step._transition_criteria = []
                     # also unset the `transition_to` field for the same reason
                     for criterion in converted_object._steps[0].completion_criteria:
                         if criterion.criterion_class == "MinimumPreferenceOccurances":
