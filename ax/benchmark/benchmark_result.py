@@ -33,15 +33,38 @@ class BenchmarkResult(Base):
         name: Name of the benchmark. Should make it possible to determine the
             problem and the method.
         seed: Seed used for determinism.
-        optimization_trace: For single-objective problems, element i of the
-            optimization trace is the oracle value of the "best" point, computed
-            after the first i trials have been run. For multi-objective
-            problems, element i of the optimization trace is the hypervolume of
-            oracle values at a set of points, also computed after the first i
-            trials (even if these were ``BatchTrials``).  Oracle values are
-            typically ground-truth (rather than noisy) and evaluated at the
-            target task and fidelity.
+        oracle_trace: For single-objective problems, element i of the
+            optimization trace is the best oracle value of the arms evaluated
+            after the first i trials.  For multi-objective problems, element i
+            of the optimization trace is the hypervolume of the oracle values of
+            the arms in the first i trials (which may be ``BatchTrial``s).
+            Oracle values are typically ground-truth (rather than noisy) and
+            evaluated at the target task and fidelity.
+        inference_trace: Inference trace comes from choosing a "best" point
+            based only on data that would be observable in realistic settings
+            and then evaluating the oracle value of that point. For
+            multi-objective problems, we find a Pareto set and evaluate its
+            hypervolume.
 
+            There are several ways of specifying the "best" point: One could
+            pick the point with the best observed value, or the point with the
+            best model prediction, and could consider the whole search space,
+            the set of trials completed so far, etc. How the inference trace is
+            computed is specified by a best-point selector, which is an
+            attribute of the `BenchmarkMethod`.
+
+            Note: This is not "inference regret", which is a lower-is-better value
+            that is relative to the best possible value. The inference value
+            trace is higher-is-better if the problem is a maximization problem
+            or if the problem is multi-objective (in which case hypervolume is
+            used). Hence, it is signed the same as ``oracle_trace`` and
+            ``optimization_trace``. ``score_trace`` is higher-is-better and
+            relative to the optimum.
+        optimization_trace: Either the ``oracle_trace`` or the
+            ``inference_trace``, depending on whether the ``BenchmarkProblem``
+            specifies ``report_inference_value``. Having ``optimization_trace``
+            specified separately is useful when we need just one value to
+            evaluate how well the benchmark went.
         score_trace: The scores associated with the problem, typically either
             the optimization_trace or inference_value_trace normalized to a
             0-100 scale for comparability between problems.
@@ -56,6 +79,8 @@ class BenchmarkResult(Base):
     name: str
     seed: int
 
+    oracle_trace: ndarray
+    inference_trace: ndarray
     optimization_trace: ndarray
     score_trace: ndarray
 

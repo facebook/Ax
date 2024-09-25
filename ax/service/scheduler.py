@@ -850,7 +850,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self,
         max_trials: int,
         ignore_global_stopping_strategy: bool = False,
-        timeout_hours: Optional[int] = None,
+        timeout_hours: int | float | None = None,
         idle_callback: Optional[Callable[[Scheduler], None]] = None,
     ) -> Generator[dict[str, Any], None, None]:
         """Make continuous calls to `run` and `process_results` to run up to

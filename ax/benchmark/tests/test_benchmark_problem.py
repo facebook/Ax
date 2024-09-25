@@ -14,11 +14,14 @@ import torch
 
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 
-from ax.benchmark.benchmark_problem import create_problem_from_botorch
+from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
 from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
 from ax.core.arm import Arm
-from ax.core.objective import MultiObjective
-from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.core.objective import MultiObjective, Objective
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
@@ -43,6 +46,46 @@ class TestBenchmarkProblem(TestCase):
         # Print full output, so that any differences in 'repr' output are shown
         self.maxDiff = None
         super().setUp()
+
+    def test_inference_value_not_implemented(self) -> None:
+        objectives = [
+            Objective(metric=BenchmarkMetric(name, lower_is_better=True))
+            for name in ["Branin", "Currin"]
+        ]
+        optimization_config = OptimizationConfig(objective=objectives[0])
+        runner = BotorchTestProblemRunner(
+            test_problem_class=Branin,
+            outcome_names=["foo"],
+            test_problem_kwargs={},
+        )
+        with self.assertRaisesRegex(NotImplementedError, "Only `n_best_points=1`"):
+            BenchmarkProblem(
+                name="foo",
+                optimization_config=optimization_config,
+                num_trials=1,
+                observe_noise_stds=False,
+                optimal_value=0.0,
+                search_space=SearchSpace(parameters=[]),
+                runner=runner,
+                n_best_points=2,
+            )
+
+        with self.assertRaisesRegex(
+            NotImplementedError, "Inference trace is not supported for MOO"
+        ):
+            BenchmarkProblem(
+                name="foo",
+                optimization_config=MultiObjectiveOptimizationConfig(
+                    objective=MultiObjective(objectives)
+                ),
+                num_trials=1,
+                observe_noise_stds=False,
+                optimal_value=0.0,
+                search_space=SearchSpace(parameters=[]),
+                runner=runner,
+                n_best_points=1,
+                report_inference_value_as_trace=True,
+            )
 
     def _test_multi_fidelity_or_multi_task(self, fidelity_or_task: str) -> None:
         """

@@ -5,16 +5,20 @@
 
 # pyre-strict
 
-import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+from ax.core.experiment import Experiment
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
+from ax.core.types import TParameterization
 
 from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.utils.common.base import Base
-from ax.utils.common.logger import get_logger
-
-
-logger: logging.Logger = get_logger("BenchmarkMethod")
+from pyre_extensions import none_throws
 
 
 @dataclass(frozen=True)
@@ -36,12 +40,78 @@ class BenchmarkMethod(Base):
             `get_benchmark_scheduler_options`.
         distribute_replications: Indicates whether the replications should be
             run in a distributed manner. Ax itself does not use this attribute.
+        best_point_kwargs: Arguments passed to `get_pareto_optimal_parameters`
+            (if multi-objective) or `BestPointMixin._get_best_trial` (if
+            single-objective). Currently, the only supported argument is
+            `use_model_predictions`. However, note that if multi-objective,
+            best-point selection is not currently supported and
+            `get_pareto_optimal_parameters` will raise a `NotImplementedError`.
     """
 
     name: str
     generation_strategy: GenerationStrategy
     scheduler_options: SchedulerOptions
     distribute_replications: bool = False
+    best_point_kwargs: dict[str, bool] = field(
+        default_factory=lambda: {"use_model_predictions": False}
+    )
+
+    def get_best_parameters(
+        self,
+        experiment: Experiment,
+        optimization_config: OptimizationConfig,
+        n_points: int,
+    ) -> list[TParameterization]:
+        """
+        Get ``n_points`` promising points. NOTE: Only SOO with n_points = 1 is
+        supported.
+
+        The expected use case is that these points will be evaluated against an
+        oracle for hypervolume (if multi-objective) or for the value of the best
+        parameter (if single-objective).
+
+        For multi-objective cases, ``n_points > 1`` is needed. For SOO, ``n_points > 1``
+        reflects setups where we can choose some points which will then be
+        evaluated noiselessly or at high fidelity and then use the best one.
+
+
+        Args:
+            experiment: The experiment to get the data from. This should contain
+                values that would be observed in a realistic setting and not
+                contain oracle values.
+            optimization_config: The ``optimization_config`` for the corresponding
+                ``BenchmarkProblem``.
+            n_points: The number of points to return.
+        """
+        if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
+            raise NotImplementedError(
+                "BenchmarkMethod.get_pareto_optimal_parameters is not currently "
+                "supported for multi-objective problems."
+            )
+
+        if n_points != 1:
+            raise NotImplementedError(
+                f"Currently only n_points=1 is supported. Got {n_points=}."
+            )
+
+        # SOO, n=1 case.
+        # Note: This has the same effect Scheduler.get_best_parameters
+        result = BestPointMixin._get_best_trial(
+            experiment=experiment,
+            generation_strategy=self.generation_strategy,
+            optimization_config=optimization_config,
+            # pyre-fixme: Incompatible parameter type [6]: In call
+            # `get_pareto_optimal_parameters`, for 4th positional argument,
+            # expected `Optional[Iterable[int]]` but got `bool`.
+            **self.best_point_kwargs,
+        )
+        if result is None:
+            # This can happen if no points are predicted to satisfy all outcome
+            # constraints.
+            return []
+
+        i, params, prediction = none_throws(result)
+        return [params]
 
 
 def get_benchmark_scheduler_options(

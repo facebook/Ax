@@ -6,6 +6,7 @@
 # pyre-strict
 
 import tempfile
+from itertools import product
 from unittest.mock import patch
 
 import numpy as np
@@ -119,6 +120,8 @@ class TestBenchmark(TestCase):
             BenchmarkResult(
                 name="name",
                 seed=0,
+                inference_trace=np.array([]),
+                oracle_trace=np.array([]),
                 optimization_trace=np.array([]),
                 score_trace=np.array([]),
                 fit_time=0.0,
@@ -133,6 +136,8 @@ class TestBenchmark(TestCase):
             BenchmarkResult(
                 name="name",
                 seed=0,
+                inference_trace=np.array([]),
+                oracle_trace=np.array([]),
                 optimization_trace=np.array([]),
                 score_trace=np.array([]),
                 fit_time=0.0,
@@ -219,6 +224,73 @@ class TestBenchmark(TestCase):
 
                 self.assertTrue(np.isfinite(res.score_trace).all())
                 self.assertTrue(np.all(res.score_trace <= 100))
+
+    @fast_botorch_optimize
+    def _test_replication_with_inference_value(
+        self,
+        batch_size: int,
+        use_model_predictions: bool,
+        report_inference_value_as_trace: bool,
+    ) -> None:
+        seed = 1
+        method = get_sobol_botorch_modular_acquisition(
+            model_cls=SingleTaskGP,
+            acquisition_cls=qLogNoisyExpectedImprovement,
+            distribute_replications=False,
+            best_point_kwargs={"use_model_predictions": use_model_predictions},
+            num_sobol_trials=3,
+        )
+
+        test_problem_kwargs = {"noise_std": 100.0}
+        num_trials = 4
+        problem = get_single_objective_benchmark_problem(
+            test_problem_kwargs=test_problem_kwargs,
+            num_trials=num_trials,
+            report_inference_value_as_trace=report_inference_value_as_trace,
+        )
+        res = benchmark_replication(problem=problem, method=method, seed=seed)
+        # The inference trace could coincide with the oracle trace, but it won't
+        # happen in this example with high noise and a seed
+        self.assertEqual(
+            np.equal(res.inference_trace, res.optimization_trace).all(),
+            report_inference_value_as_trace,
+        )
+        self.assertEqual(
+            np.equal(res.oracle_trace, res.optimization_trace).all(),
+            not report_inference_value_as_trace,
+        )
+
+        self.assertEqual(res.optimization_trace.shape, (problem.num_trials,))
+        self.assertTrue((res.inference_trace >= res.oracle_trace).all())
+        self.assertTrue((res.score_trace >= 0).all())
+        self.assertTrue((res.score_trace <= 100).all())
+
+    def test_replication_with_inference_value(self) -> None:
+        for (
+            use_model_predictions,
+            batch_size,
+            report_inference_value_as_trace,
+        ) in product(
+            [False, True],
+            [1, 2],
+            [False, True],
+        ):
+            with self.subTest(
+                batch_size=batch_size,
+                use_model_predictions=use_model_predictions,
+                report_inference_value_as_trace=report_inference_value_as_trace,
+            ):
+                self._test_replication_with_inference_value(
+                    batch_size=batch_size,
+                    use_model_predictions=use_model_predictions,
+                    report_inference_value_as_trace=report_inference_value_as_trace,
+                )
+
+        with self.assertRaisesRegex(
+            NotImplementedError,
+            "Inference trace is not supported for MOO",
+        ):
+            get_multi_objective_benchmark_problem(report_inference_value_as_trace=True)
 
     @fast_botorch_optimize
     def test_replication_mbm(self) -> None:
