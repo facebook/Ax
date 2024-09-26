@@ -11,7 +11,6 @@ from math import sqrt
 from typing import Any, Union
 
 import torch
-from ax.core.arm import Arm
 
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
@@ -59,7 +58,7 @@ class BenchmarkRunner(Runner, ABC):
         else:
             self.target_fidelity_and_task = {}
 
-    def get_Y_true(self, arm: Arm) -> Tensor:
+    def get_Y_true(self, params: Mapping[str, TParamValue]) -> Tensor:
         """
         Return the ground truth values for a given arm.
 
@@ -79,7 +78,7 @@ class BenchmarkRunner(Runner, ABC):
         at the true utility function (which would be unobserved in reality).
         """
         params = {**parameters, **self.target_fidelity_and_task}
-        return self.get_Y_true(arm=Arm(parameters=params)).numpy()
+        return self.get_Y_true(params=params).numpy()
 
     @abstractmethod
     def get_noise_stds(self) -> Union[None, float, dict[str, float]]:
@@ -134,7 +133,7 @@ class BenchmarkRunner(Runner, ABC):
 
         for arm in trial.arms:
             # Case where we do have a ground truth
-            Y_true = self.get_Y_true(arm)
+            Y_true = self.get_Y_true(arm.parameters)
             if noise_stds is None:
                 # No noise, so just return the true outcome.
                 Ystds[arm.name] = [0.0] * len(Y_true)

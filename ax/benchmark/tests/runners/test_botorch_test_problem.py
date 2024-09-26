@@ -124,11 +124,8 @@ class TestSyntheticRunner(TestCase):
 
             with self.subTest(f"test `get_Y_true()`, {test_description}"):
                 X = torch.rand(1, 6, dtype=torch.double)
-                arm = Arm(
-                    name="0_0",
-                    parameters={f"x{i}": x.item() for i, x in enumerate(X.unbind(-1))},
-                )
-                Y = runner.get_Y_true(arm=arm)
+                params = {f"x{i}": x.item() for i, x in enumerate(X.unbind(-1))}
+                Y = runner.get_Y_true(params=params)
                 if modified_bounds is not None:
                     X_tf = normalize(
                         X, torch.tensor(modified_bounds, dtype=torch.double).T
@@ -152,11 +149,14 @@ class TestSyntheticRunner(TestCase):
                         torch.Size([2]), X.pow(2).sum().item(), dtype=torch.double
                     )
                 self.assertTrue(torch.allclose(Y, expected_Y))
-                oracle = runner.evaluate_oracle(parameters=arm.parameters)
+                oracle = runner.evaluate_oracle(parameters=params)
                 self.assertTrue(np.equal(Y.numpy(), oracle).all())
 
             with self.subTest(f"test `run()`, {test_description}"):
                 trial = Mock(spec=Trial)
+                # pyre-fixme[6]: Incomptabile parameter type: params is a
+                # mutable subtype of the type expected by `Arm`.
+                arm = Arm(name="0_0", parameters=params)
                 trial.arms = [arm]
                 trial.arm = arm
                 trial.index = 0
