@@ -136,6 +136,18 @@ class SearchSpaceToChoiceTest(TestCase):
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, self.observation_features)
 
+        # Testing transform empty parameters dict
+        # Both transform and untransform should leave the param dict intact
+        empty_obs_param = ObservationFeatures(parameters={}, trial_index=0)
+        tsfm_empty_obs_param = self.t.transform_observation_features([empty_obs_param])[
+            0
+        ]
+        self.assertEqual(tsfm_empty_obs_param, empty_obs_param)
+        untsfm_empty_obs_param = self.t.untransform_observation_features(
+            [tsfm_empty_obs_param]
+        )[0]
+        self.assertEqual(untsfm_empty_obs_param, empty_obs_param)
+
     def test_w_robust_search_space(self) -> None:
         rss = get_robust_search_space()
         # Raises an error in __init__.
