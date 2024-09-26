@@ -86,15 +86,19 @@ class SearchSpaceToChoice(Transform):
         self, observation_features: list[ObservationFeatures]
     ) -> list[ObservationFeatures]:
         for obsf in observation_features:
-            obsf.parameters = {
-                self.parameter_name: Arm(parameters=obsf.parameters).signature
-            }
+            # if obsf.parameters is not an empty dict
+            if len(obsf.parameters) != 0:
+                obsf.parameters = {
+                    self.parameter_name: Arm(parameters=obsf.parameters).signature
+                }
         return observation_features
 
     def untransform_observation_features(
         self, observation_features: list[ObservationFeatures]
     ) -> list[ObservationFeatures]:
         for obsf in observation_features:
-            signature = obsf.parameters[self.parameter_name]
-            obsf.parameters = self.signature_to_parameterization[signature]
+            # Do not untransform empty dict as it wasn't transformed in the first place
+            if len(obsf.parameters) != 0:
+                signature = obsf.parameters[self.parameter_name]
+                obsf.parameters = self.signature_to_parameterization[signature]
         return observation_features
