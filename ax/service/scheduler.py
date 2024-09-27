@@ -26,6 +26,11 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
+from ax.core.multi_type_experiment import (
+    filter_trials_by_type,
+    get_trial_indices_for_statuses,
+    MultiTypeExperiment,
+)
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -61,8 +66,7 @@ from ax.utils.common.logger import (
     set_stderr_log_level,
 )
 from ax.utils.common.timeutils import current_timestamp_in_millis
-from ax.utils.common.typeutils import not_none
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
 
 
 NOT_IMPLEMENTED_IN_BASE_CLASS_MSG = """ \
@@ -292,7 +296,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         scheduler = cls(
             experiment=exp,
-            generation_strategy=not_none(generation_strategy or gs),
+            generation_strategy=none_throws(generation_strategy or gs),
             options=options,
             # No need to resave the experiment we just reloaded.
             _skip_experiment_save=True,
@@ -317,41 +321,140 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self._validate_runner_and_implemented_metrics(experiment=self.experiment)
 
     @property
+    def trial_type(self) -> Optional[str]:
+        """Trial type for the experiment this scheduler is running.
+
+        This returns None if the experiment is not a MultitypeExperiment
+
+        Returns:
+            Trial type for the experiment this scheduler is running if the
+            experiment is a MultiTypeExperiment and None otherwise.
+        """
+        if isinstance(self.experiment, MultiTypeExperiment):
+            return self.options.mt_experiment_trial_type
+        return None
+
+    @property
     def running_trials(self) -> list[BaseTrial]:
+        """Currently running trials.
+
+        Note: if the experiment is a MultiTypeExperiment, then this will
+        only fetch trials of type `Scheduler.trial_type`.
+
+
+        Returns:
+            List of trials that are currently running.
+        """
+        return filter_trials_by_type(
+            trials=self.experiment.trials_by_status[TrialStatus.RUNNING],
+            trial_type=self.trial_type,
+        )
+
+    @property
+    def trials(self) -> list[BaseTrial]:
+        """All trials.
+
+        Note: if the experiment is a MultiTypeExperiment, then this will
+        only fetch trials of type `Scheduler.trial_type`.
+
+        Returns:
+            List of trials that are currently running.
+        """
+        return filter_trials_by_type(
+            trials=list(self.experiment.trials.values()), trial_type=self.trial_type
+        )
+
+    @property
+    def running_trial_indices(self) -> set[int]:
         """Currently running trials.
 
         Returns:
             List of trials that are currently running.
         """
-        return self.experiment.trials_by_status[TrialStatus.RUNNING]
+        return get_trial_indices_for_statuses(
+            experiment=self.experiment,
+            statuses={TrialStatus.RUNNING},
+            trial_type=self.trial_type,
+        )
+
+    @property
+    def failed_abandoned_trial_indices(self) -> set[int]:
+        """Failed or abandoned trials.
+
+        Note: if the experiment is a MultiTypeExperiment, then this will
+        only fetch trials of type `Scheduler.trial_type`.
+
+        Returns:
+            List of trials that are currently running.
+        """
+        return get_trial_indices_for_statuses(
+            experiment=self.experiment,
+            statuses={TrialStatus.ABANDONED, TrialStatus.FAILED},
+            trial_type=self.trial_type,
+        )
 
     @property
     def pending_trials(self) -> list[BaseTrial]:
         """Running or staged trials on the experiment this scheduler is
         running.
 
+        Note: if the experiment is a MultiTypeExperiment, then this will
+        only fetch trials of type `Scheduler.trial_type`.
+
         Returns:
             List of trials that are currently running or staged.
         """
-        return (
-            self.running_trials + self.experiment.trials_by_status[TrialStatus.STAGED]
+        staged_trials = filter_trials_by_type(
+            trials=self.experiment.trials_by_status[TrialStatus.STAGED],
+            trial_type=self.trial_type,
         )
+        return self.running_trials + staged_trials
 
     @property
     def candidate_trials(self) -> list[BaseTrial]:
         """Candidate trials on the experiment this scheduler is running.
 
+        Note: if the experiment is a MultiTypeExperiment, then this will
+        only fetch trials of type `Scheduler.trial_type`.
+
         Returns:
             List of trials that are currently candidates.
         """
-        return self.experiment.trials_by_status[TrialStatus.CANDIDATE]
+        return filter_trials_by_type(
+            trials=self.experiment.trials_by_status[TrialStatus.CANDIDATE],
+            trial_type=self.trial_type,
+        )
+
+    @property
+    def trials_expecting_data(self) -> list[BaseTrial]:
+        """Trials expecting data.
+
+        Note: if the experiment is a MultiTypeExperiment, then this will
+        only fetch trials of type `Scheduler.trial_type`.
+        """
+        trials = []
+        for trial in self.experiment.trials.values():
+            if trial.status.expecting_data:
+                if self.trial_type is None or trial.trial_type == self.trial_type:
+                    trials.append(trial)
+        return trials
 
     @property
     def runner(self) -> Runner:
         """``Runner`` specified on the experiment associated with this ``Scheduler``
         instance.
         """
-        return not_none(self.experiment.runner)
+        if self.trial_type is not None:
+            runner = assert_is_instance(
+                self.experiment, MultiTypeExperiment
+            ).runner_for_trial_type(trial_type=none_throws(self.trial_type))
+        else:
+            runner = self.experiment.runner
+        if runner is None:
+            raise UnsupportedError(
+                "`Scheduler` requires that experiment specifies a `Runner`."
+            )
+        return runner
 
     @property
     def standard_generation_strategy(self) -> GenerationStrategy:
@@ -395,7 +498,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             not self.__ignore_global_stopping_strategy
             and self.options.global_stopping_strategy is not None
         ):
-            gss = not_none(self.options.global_stopping_strategy)
+            gss = none_throws(self.options.global_stopping_strategy)
             stop_optimization, global_stopping_msg = gss.should_stop_optimization(
                 experiment=self.experiment
             )
@@ -407,8 +510,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             # so it will not run indefinitely.
             return False, ""
 
-        num_trials = len(self.experiment.trials)
-        should_stop = num_trials >= not_none(self.options.total_trials)
+        num_trials = len(self.trials)
+        should_stop = num_trials >= none_throws(self.options.total_trials)
         message = "Exceeding the total number of trials." if should_stop else ""
         return should_stop, message
 
@@ -545,12 +648,12 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         baseline_value = data.iloc[0]["mean"]
 
         # Find objective value of the best trial
-        idx, param, best_arm = not_none(
+        idx, param, best_arm = none_throws(
             self.get_best_trial(
                 optimization_config=optimization_config, use_model_predictions=False
             )
         )
-        best_arm = not_none(best_arm)
+        best_arm = none_throws(best_arm)
         best_obj_value = best_arm[0][objective_metric_name]
 
         def percent_change(x: float, y: float, minimize: bool) -> float:
@@ -613,10 +716,11 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             (ABANDONED, FAILED, COMPLETED) status (but it may).
         """
         trials = (
-            self.experiment.trials.values()
+            list(self.experiment.trials.values())
             if poll_all_trial_statuses
             else self.pending_trials
         )
+        trials = filter_trials_by_type(trials=trials, trial_type=self.trial_type)
         if len(trials) == 0:
             return {}
         return self.runner.poll_trial_status(trials=trials)
@@ -764,8 +868,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             self._timeout_hours is not None
             and self._latest_optimization_start_timestamp is not None
             and current_timestamp_in_millis()
-            - not_none(self._latest_optimization_start_timestamp)
-            >= not_none(self._timeout_hours) * 60 * 60 * 1000
+            - none_throws(self._latest_optimization_start_timestamp)
+            >= none_throws(self._timeout_hours) * 60 * 60 * 1000
         )
         if timed_out:
             self.logger.error(
@@ -830,13 +934,13 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         """Returns the number of trials that have failed or been abandoned in the
         scheduler.
         """
-        bad_idcs = (
-            self.experiment.trial_indices_by_status[TrialStatus.FAILED]
-            | self.experiment.trial_indices_by_status[TrialStatus.ABANDONED]
-        )
         # We only count failed trials with indices that came after the preexisting
         # trials on experiment before scheduler use.
-        return sum(1 for f in bad_idcs if f >= self._num_preexisting_trials)
+        return sum(
+            1
+            for f in self.failed_abandoned_trial_indices
+            if f >= self._num_preexisting_trials
+        )
 
     def _num_ran_in_scheduler(self) -> int:
         """Returns the number of trials that have been run by the scheduler."""
@@ -896,7 +1000,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             raise UserInputError(f"Expected `max_trials` >= 0, got {max_trials}.")
 
         # trials are pre-existing only if they do not still require running
-        n_existing = len(self.experiment.trials) - n_initial_candidate_trials
+        n_existing = len(self.trials) - n_initial_candidate_trials
 
         # Until completion criterion is reached or `max_trials` is scheduled,
         # schedule new trials and poll existing ones in a loop.
@@ -921,9 +1025,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 # Not checking `should_abort_optimization` on every trial for perf.
                 # reasons.
                 n_already_run_by_scheduler = (
-                    len(self.experiment.trials)
-                    - n_existing
-                    - len(self.candidate_trials)
+                    len(self.trials) - n_existing - len(self.candidate_trials)
                 )
                 self._num_remaining_requested_trials = (
                     max_trials - n_already_run_by_scheduler
@@ -1076,7 +1178,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 "to the `Scheduler` or use `run_n_trials` instead of `run_all_trials`."
             )
         return self.run_n_trials(
-            max_trials=not_none(self.options.total_trials),
+            max_trials=none_throws(self.options.total_trials),
             timeout_hours=timeout_hours,
             idle_callback=idle_callback,
         )
@@ -1232,7 +1334,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         # EARLY STOP TRIALS
         stop_trial_info = early_stopping_utils.should_stop_trials_early(
             early_stopping_strategy=self.options.early_stopping_strategy,
-            trial_indices=self.experiment.running_trial_indices,
+            trial_indices=self.running_trial_indices,
             experiment=self.experiment,
         )
         self.stop_trial_runs(
@@ -1359,8 +1461,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         # includes completed and early stopped trials
         prev_completed_trial_idcs = {
-            t.index for t in self.experiment.trials_expecting_data
-        } - self.experiment.running_trial_indices
+            t.index for t in self.trials_expecting_data
+        } - self.running_trial_indices
         trial_indices_to_fetch = set()
 
         # Fetch data for newly completed trials
@@ -1412,9 +1514,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         )
         return {
             t.index
-            for t in self.experiment.trials_expecting_data
+            for t in self.trials_expecting_data
             if t.time_completed is not None
-            and datetime.now() - not_none(t.time_completed) < max_period
+            and datetime.now() - none_throws(t.time_completed) < max_period
         }
 
     def _process_completed_trials(self, newly_completed: set[int]) -> None:
@@ -1529,6 +1631,23 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                     "will be unable to fetch intermediate results with which to "
                     "evaluate early stopping criteria."
                 )
+        if isinstance(self.experiment, MultiTypeExperiment):
+            if options.mt_experiment_trial_type is None:
+                raise UserInputError(
+                    "Must specify `mt_experiment_trial_type` for MultiTypeExperiment."
+                )
+            if not self.experiment.supports_trial_type(
+                options.mt_experiment_trial_type
+            ):
+                raise ValueError(
+                    "Experiment does not support trial type "
+                    f"{options.mt_experiment_trial_type}."
+                )
+        elif options.mt_experiment_trial_type is not None:
+            raise UserInputError(
+                "`mt_experiment_trial_type` must be None unless the experiment is a "
+                "MultiTypeExperiment."
+            )
 
     def _get_max_pending_trials(self) -> int:
         return self.options.max_pending_trials
@@ -1577,7 +1696,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         n = max_pending_upper_bound if n == -1 else min(max_pending_upper_bound, n)
 
         if total_trials is not None:
-            left_in_total = total_trials - len(self.experiment.trials_expecting_data)
+            left_in_total = total_trials - len(self.trials_expecting_data)
             n = min(n, left_in_total)
 
         existing_candidate_trials = self.candidate_trials[:n]
@@ -1662,6 +1781,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 trial = self.experiment.new_batch_trial(
                     generator_runs=generator_run_list,
                     ttl_seconds=self.options.ttl_seconds_for_trials,
+                    trial_type=self.trial_type,
                 )
                 if self.options.status_quo_weight > 0:
                     trial.set_status_quo_with_weight(
@@ -1672,6 +1792,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 trial = self.experiment.new_trial(
                     generator_run=generator_run_list[0],
                     ttl_seconds=self.options.ttl_seconds_for_trials,
+                    trial_type=self.trial_type,
                 )
 
             trials.append(trial)
@@ -1749,6 +1870,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         ``_gen_multiple`` method of the scheduler's ``generation_strategy``, taking
         into account any ``pending`` observations.
         """
+        # TODO: pass self.trial_type to GS.gen for multi-type experiments
         return self.generation_strategy.gen_for_multiple_trials_with_multiple_models(
             experiment=self.experiment,
             num_generator_runs=num_trials,
@@ -1822,7 +1944,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         if self._latest_trial_start_timestamp is not None:
             seconds_since_run_trial = (
                 current_timestamp_in_millis()
-                - not_none(self._latest_trial_start_timestamp)
+                - none_throws(self._latest_trial_start_timestamp)
             ) * 1000
             if seconds_since_run_trial < self.options.min_seconds_before_poll:
                 sleep(self.options.min_seconds_before_poll - seconds_since_run_trial)
@@ -1834,7 +1956,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         set_stderr_log_level(options.logging_level)
         if options.log_filepath is not None:
             handler = build_file_handler(
-                filepath=not_none(options.log_filepath),
+                filepath=none_throws(options.log_filepath),
                 level=options.logging_level,
             )
             logger.addHandler(handler)
@@ -1848,7 +1970,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         if not experiment.trials or not self.options.total_trials:
             return
 
-        total_trials = not_none(self.options.total_trials)
+        total_trials = none_throws(self.options.total_trials)
         preexisting = len(experiment.trials)
         msg = (
             f"{experiment} already has {preexisting} trials associated with it. "
@@ -1870,10 +1992,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         """Ensure that the experiment specifies runner and metrics; check that metrics
         are not base ``Metric``-s, which do not implement fetching logic.
         """
-        if experiment.runner is None:
-            raise UnsupportedError(
-                "`Scheduler` requires that experiment specifies a `Runner`."
-            )
+        # this will raise an exception if no runner is set on the expeirment
+        self.runner
         metrics_are_invalid = False
         if not experiment.metrics:
             msg = "`Scheduler` requires that `experiment.metrics` not be None."
