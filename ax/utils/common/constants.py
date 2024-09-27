@@ -61,6 +61,7 @@ class Keys(str, Enum):
     CURRENT_VALUE = "current_value"
     EXPAND = "expand"
     EXPECTED_ACQF_VAL = "expected_acquisition_value"
+    EXPERIMENT_TOTAL_CONCURRENT_ARMS = "total_concurrent_arms"
     FIDELITY_FEATURES = "fidelity_features"
     FIDELITY_WEIGHTS = "fidelity_weights"
     FRAC_RANDOM = "frac_random"

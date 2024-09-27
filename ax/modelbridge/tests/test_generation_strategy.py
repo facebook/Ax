@@ -55,6 +55,7 @@ from ax.modelbridge.transition_criterion import (
     MinTrials,
 )
 from ax.models.random.sobol import SobolGenerator
+from ax.utils.common.constants import Keys
 from ax.utils.common.equality import same_elements
 from ax.utils.common.mock import mock_patch_method_original
 from ax.utils.common.testutils import TestCase
@@ -922,6 +923,19 @@ class TestGenerationStrategy(TestCase):
                             for p in original_pending[m]:
                                 self.assertIn(p, pending[m])
 
+    def test_gen_for_multiple_uses_total_concurrent_arms_for_a_default(
+        self,
+    ) -> None:
+        exp = get_branin_experiment()
+        gs = self.sobol_GS
+        gs.experiment = exp
+        exp._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS.value] = 3
+        grs = gs.gen_for_multiple_trials_with_multiple_models(exp, num_generator_runs=2)
+        self.assertEqual(len(grs), 2)
+        for gr_list in grs:
+            self.assertEqual(len(gr_list), 1)
+            self.assertEqual(len(gr_list[0].arms), 3)
+
     def test_gen_for_multiple_trials_with_multiple_models(self) -> None:
         exp = get_experiment_with_multi_objective()
         sobol_MBM_gs = self.sobol_MBM_step_GS
@@ -1470,6 +1484,15 @@ class TestGenerationStrategy(TestCase):
         )
         self.assertEqual(trial.generator_runs[0]._generation_node_name, "sobol_4")
         self.assertEqual(len(trial.generator_runs[0].arms), 4)
+
+    def test_gen_with_multiple_uses_total_concurrent_arms_for_a_default(self) -> None:
+        exp = get_branin_experiment()
+        gs = self.sobol_GS
+        gs.experiment = exp
+        exp._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS.value] = 3
+        grs = gs.gen_with_multiple_nodes(exp)
+        self.assertEqual(len(grs), 1)
+        self.assertEqual(len(grs[0].arms), 3)
 
     def test_node_gs_with_auto_transitions(self) -> None:
         """Test that node-based generation strategies which leverage

@@ -34,6 +34,7 @@ from ax.modelbridge.generation_node_input_constructors import InputConstructorPu
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec
 from ax.modelbridge.modelbridge_utils import get_fixed_features_from_experiment
 from ax.modelbridge.transition_criterion import TrialBasedCriterion
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import checked_cast_list, not_none
 from pyre_extensions import none_throws
@@ -422,7 +423,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         # Validate `arms_per_node` if specified, otherwise construct the default
         # behavior with keys being node names and values being 1 to represent
         # generating a single GR from each node.
-        n = self._get_n(n=n)
+        n = self._get_n(experiment=experiment, n=n)
         node_names = [node.node_name for node in self._nodes]
         if arms_per_node is not None and not all(
             node_name in arms_per_node for node_name in node_names
@@ -510,7 +511,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             run for that trial.
         """
         # TODO: use gen_with_multiple_nodes() and get `n` there
-        n = self._get_n(n=n)
+        n = self._get_n(experiment=experiment, n=n)
         grs = self._gen_multiple(
             experiment=experiment,
             num_generator_runs=num_generator_runs,
@@ -560,13 +561,25 @@ class GenerationStrategy(GenerationStrategyInterface):
             name=self.name, steps=checked_cast_list(GenerationStep, cloned_nodes)
         )
 
-    def _get_n(self, n: Optional[int]) -> int:
+    def _get_n(self, experiment: Experiment, n: Optional[int]) -> int:
         """Get the number of arms to generate from the current generation node.
 
         Args:
+            experiment: Experiment, for which the generation strategy is producing
+                a new generator run, which will be used to check for
+                ``total_concurrent_arms`` if n is None.
             n: Optional number of arms passed in by the user.
         """
-        return self.DEFAULT_N if n is None else n
+        total_concurrent_arms = experiment._properties.get(
+            Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS.value
+        )
+        # TODO: implement logic for determining n based on total_concurrent_arms
+        calculated_n = total_concurrent_arms
+        return (
+            (self.DEFAULT_N if calculated_n is None else calculated_n)
+            if n is None
+            else n
+        )
 
     def _unset_non_persistent_state_fields(self) -> None:
         """Utility for testing convenience: unset fields of generation strategy
