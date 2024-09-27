@@ -232,10 +232,6 @@ class Decoder:
         }
         default_trial_type = not_none(experiment_sqa.default_trial_type)
         properties = dict(experiment_sqa.properties or {})
-        if properties:
-            # Remove 'subclass' from experiment's properties, since its only
-            # used for decoding to the correct experiment subclass in storage.
-            properties.pop(Keys.SUBCLASS, None)
         default_data_type = experiment_sqa.default_data_type
         experiment = MultiTypeExperiment(
             name=experiment_sqa.name,

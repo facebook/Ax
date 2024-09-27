@@ -364,21 +364,22 @@ def get_robust_branin_experiment(
     return exp
 
 
+def get_map_metric(name: str, rate: float | None = None) -> BraninTimestampMapMetric:
+    return BraninTimestampMapMetric(
+        name=name,
+        param_names=["x1", "x2"],
+        rate=rate,
+        lower_is_better=True,
+    )
+
+
 def get_branin_experiment_with_timestamp_map_metric(
     with_status_quo: bool = False,
     rate: Optional[float] = None,
     map_tracking_metric: bool = False,
 ) -> Experiment:
-    def get_map_metric(name: str) -> BraninTimestampMapMetric:
-        return BraninTimestampMapMetric(
-            name=name,
-            param_names=["x1", "x2"],
-            rate=rate,
-            lower_is_better=True,
-        )
-
     tracking_metric = (
-        get_map_metric("tracking_branin_map")
+        get_map_metric(name="tracking_branin_map", rate=rate)
         if map_tracking_metric
         else BraninMetric(name="branin", param_names=["x1", "x2"], lower_is_better=True)
     )
@@ -386,7 +387,9 @@ def get_branin_experiment_with_timestamp_map_metric(
         name="branin_with_timestamp_map_metric",
         search_space=get_branin_search_space(),
         optimization_config=OptimizationConfig(
-            objective=Objective(metric=get_map_metric("branin_map"), minimize=True)
+            objective=Objective(
+                metric=get_map_metric(name="branin_map", rate=rate), minimize=True
+            )
         ),
         tracking_metrics=[tracking_metric],
         runner=SyntheticRunner(),
