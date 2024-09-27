@@ -16,7 +16,6 @@ from ax.benchmark.benchmark_metric import BenchmarkMetric
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
 from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
-from ax.core.arm import Arm
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -119,7 +118,7 @@ class TestBenchmarkProblem(TestCase):
             search_space=SearchSpace(parameters),
             num_trials=3,
         )
-        arm = Arm(parameters={"x0": 1.0, "x1": 0.0, "x2": 0.0})
+        params = {"x0": 1.0, "x1": 0.0, "x2": 0.0}
         at_target = assert_is_instance(
             Branin()
             .evaluate_true(torch.tensor([1.0, 0.0], dtype=torch.double).unsqueeze(0))
@@ -127,7 +126,7 @@ class TestBenchmarkProblem(TestCase):
             float,
         )
         self.assertAlmostEqual(
-            problem.runner.evaluate_oracle(parameters=arm.parameters)[0],
+            problem.runner.evaluate_oracle(parameters=params)[0],
             at_target,
         )
         # first term: (-(b - 0.1) * (1 - x3)  + c - r)^2
@@ -136,7 +135,7 @@ class TestBenchmarkProblem(TestCase):
         t = -5.1 / (4 * math.pi**2) + 5 / math.pi - 6
         expected_change = (t + 0.1) ** 2 - t**2
         self.assertAlmostEqual(
-            problem.runner.get_Y_true(arm=arm).item(),
+            problem.runner.get_Y_true(params=params).item(),
             at_target + expected_change,
         )
 
