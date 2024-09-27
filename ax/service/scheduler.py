@@ -1702,13 +1702,15 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         existing_candidate_trials = self.candidate_trials[:n]
         n_new = min(n - len(existing_candidate_trials), max_new_trials)
         new_trials = (
-            self._get_next_trials(num_trials=n_new, n=(self.options.batch_size or 1))
+            self._get_next_trials(num_trials=n_new, n=self.options.batch_size)
             if n_new > 0
             else []
         )
         return existing_candidate_trials, new_trials
 
-    def _get_next_trials(self, num_trials: int = 1, n: int = 1) -> list[BaseTrial]:
+    def _get_next_trials(
+        self, num_trials: int = 1, n: Optional[int] = None
+    ) -> list[BaseTrial]:
         """Produce up to `num_trials` new generator runs from the underlying
         generation strategy and create new trials with them. Logs errors
         encountered during generation.
@@ -1864,7 +1866,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def _gen_new_trials_from_generation_strategy(
         self,
         num_trials: int,
-        n: int,
+        n: Optional[int] = None,
     ) -> list[list[GeneratorRun]]:
         """Generates a list ``GeneratorRun``s of length of ``num_trials`` using the
         ``_gen_multiple`` method of the scheduler's ``generation_strategy``, taking
