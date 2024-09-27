@@ -385,7 +385,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         data: Optional[Data] = None,
         pending_observations: Optional[dict[str, list[ObservationFeatures]]] = None,
         arms_per_node: Optional[dict[str, int]] = None,
-        n: int = 1,
+        n: Optional[int] = None,
     ) -> list[GeneratorRun]:
         """Produces a List of GeneratorRuns for a single trial, either ``Trial`` or
         ``BatchTrial``, and if producing a ``BatchTrial`` allows for multiple
@@ -422,6 +422,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         # Validate `arms_per_node` if specified, otherwise construct the default
         # behavior with keys being node names and values being 1 to represent
         # generating a single GR from each node.
+        n = self._get_n(n=n)
         node_names = [node.node_name for node in self._nodes]
         if arms_per_node is not None and not all(
             node_name in arms_per_node for node_name in node_names
@@ -480,7 +481,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         experiment: Experiment,
         num_generator_runs: int,
         data: Optional[Data] = None,
-        n: int = 1,
+        n: Optional[int] = None,
     ) -> list[list[GeneratorRun]]:
         """Produce GeneratorRuns for multiple trials at once with the possibility of
         ensembling, or using multiple models per trial, getting multiple
@@ -508,6 +509,8 @@ class GenerationStrategy(GenerationStrategyInterface):
             a trial being suggested and  each inner list represents a generator
             run for that trial.
         """
+        # TODO: use gen_with_multiple_nodes() and get `n` there
+        n = self._get_n(n=n)
         grs = self._gen_multiple(
             experiment=experiment,
             num_generator_runs=num_generator_runs,
@@ -556,6 +559,14 @@ class GenerationStrategy(GenerationStrategyInterface):
         return GenerationStrategy(
             name=self.name, steps=checked_cast_list(GenerationStep, cloned_nodes)
         )
+
+    def _get_n(self, n: Optional[int]) -> int:
+        """Get the number of arms to generate from the current generation node.
+
+        Args:
+            n: Optional number of arms passed in by the user.
+        """
+        return self.DEFAULT_N if n is None else n
 
     def _unset_non_persistent_state_fields(self) -> None:
         """Utility for testing convenience: unset fields of generation strategy

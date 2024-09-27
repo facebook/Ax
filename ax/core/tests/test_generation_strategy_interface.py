@@ -24,7 +24,7 @@ class MyGSI(GenerationStrategyInterface):
         # TODO[drfreund, danielcohennyc, mgarrard]: Update the format of the arguments
         # below as we find the right one.
         num_generator_runs: int = 1,
-        n: int = 1,
+        n: Optional[int] = None,
     ) -> list[list[GeneratorRun]]:
         raise NotImplementedError
 
