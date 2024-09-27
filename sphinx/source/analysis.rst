@@ -46,3 +46,11 @@ Parallel Coordinates Analysis
     :members:
     :undoc-members:
     :show-inheritance:
+
+Predicted Effects Analysis
+~~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.plotly.predicted_effects
+    :members:
+    :undoc-members:
+    :show-inheritance:
