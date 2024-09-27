@@ -1545,8 +1545,10 @@ def get_scalarized_outcome_constraint() -> ScalarizedOutcomeConstraint:
     )
 
 
-def get_branin_outcome_constraint() -> OutcomeConstraint:
-    return OutcomeConstraint(metric=get_branin_metric(), op=ComparisonOp.LEQ, bound=0.0)
+def get_branin_outcome_constraint(name: str = "branin") -> OutcomeConstraint:
+    return OutcomeConstraint(
+        metric=get_branin_metric(name=name), op=ComparisonOp.LEQ, bound=0.0
+    )
 
 
 ##############################
