@@ -294,8 +294,16 @@ class TestGenerationStep(TestCase):
         )
 
     def test_properties(self) -> None:
-        self.assertEqual(self.sobol_generation_step.model_spec, self.model_spec)
-        self.assertEqual(self.sobol_generation_step._unique_id, "-1")
+        step = self.sobol_generation_step
+        self.assertEqual(step.model_spec, self.model_spec)
+        self.assertEqual(step._unique_id, "-1")
+        # Make sure that model_kwargs and model_gen_kwargs are synchronized
+        # to the underlying model spec.
+        spec = step.model_spec
+        spec.model_kwargs.update({"new_kwarg": 1})
+        spec.model_gen_kwargs.update({"new_gen_kwarg": 1})
+        self.assertEqual(step.model_kwargs, spec.model_kwargs)
+        self.assertEqual(step.model_gen_kwargs, spec.model_gen_kwargs)
 
 
 class TestGenerationNodeWithBestModelSelector(TestCase):
