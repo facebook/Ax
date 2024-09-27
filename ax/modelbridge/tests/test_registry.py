@@ -13,6 +13,7 @@ from ax.core.observation import ObservationFeatures
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import (
+    _extract_model_state_after_gen,
     Cont_X_trans,
     get_model_from_generator_run,
     MODEL_KEY_TO_MODEL_SETUP,
@@ -23,6 +24,7 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.models.base import Model
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
+from ax.models.random.sobol import SobolGenerator
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
@@ -515,3 +517,21 @@ class ModelRegistryTest(TestCase):
                     self.assertEqual(
                         new_model, getattr(Models, old_model_str).fget(Models)
                     )
+
+    def test_extract_model_state_after_gen(self) -> None:
+        # Test with actual state.
+        exp = get_branin_experiment()
+        sobol = Models.SOBOL(search_space=exp.search_space)
+        gr = sobol.gen(n=1)
+        expected_state = sobol.model._get_state()
+        self.assertEqual(gr._model_state_after_gen, expected_state)
+        extracted = _extract_model_state_after_gen(
+            generator_run=gr, model_class=SobolGenerator
+        )
+        self.assertEqual(extracted, expected_state)
+        # Test with empty state.
+        gr._model_state_after_gen = None
+        extracted = _extract_model_state_after_gen(
+            generator_run=gr, model_class=SobolGenerator
+        )
+        self.assertEqual(extracted, {})
