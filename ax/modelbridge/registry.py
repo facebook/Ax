@@ -572,12 +572,9 @@ def _extract_model_state_after_gen(
     generator_run: GeneratorRun, model_class: type[Model]
 ) -> dict[str, Any]:
     """Extracts serialized post-generation model state from a generator run and
-    deserializes it. Fails if no post-generation model state was specified on the
-    generator run.
+    deserializes it.
     """
-    serialized_model_state = not_none(generator_run._model_state_after_gen)
-    # We don't want to update `model_kwargs` on the `GenerationStep`,
-    # just to add to them for the purpose of this function.
+    serialized_model_state = generator_run._model_state_after_gen or {}
     return model_class.deserialize_state(serialized_model_state)
 
 
