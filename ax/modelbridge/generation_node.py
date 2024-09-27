@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from logging import Logger
 from typing import Any, Callable, Dict, Optional, Union
 
@@ -701,43 +701,51 @@ class GenerationStep(GenerationNode, SortableBase):
             attempts, a `GenerationStrategyRepeatedPoints` error will be raised, as we
             assume that the optimization converged when the model can no longer suggest
             unique arms.
+        model_name: Optional name of the model. If not specified, defaults to the
+            model key of the model spec.
 
     Note for developers: by "model" here we really mean an Ax ModelBridge object, which
     contains an Ax Model under the hood. We call it "model" here to simplify and focus
     on explaining the logic of GenerationStep and GenerationStrategy.
     """
 
-    # Required options:
-    model: Union[ModelRegistryBase, Callable[..., ModelBridge]]
-    num_trials: int
+    def __init__(
+        self,
+        model: Union[ModelRegistryBase, Callable[..., ModelBridge]],
+        num_trials: int,
+        model_kwargs: Optional[dict[str, Any]] = None,
+        model_gen_kwargs: Optional[dict[str, Any]] = None,
+        completion_criteria: Optional[Sequence[TransitionCriterion]] = None,
+        min_trials_observed: int = 0,
+        max_parallelism: Optional[int] = None,
+        enforce_num_trials: bool = True,
+        should_deduplicate: bool = False,
+        model_name: Optional[str] = None,
+        use_update: bool = False,  # DEPRECATED.
+        index: int = -1,  # Index of this step, set internally.
+    ) -> None:
+        r"""Initializes a single-model GenerationNode, a.k.a. a GenerationStep.
 
-    # Optional model specifications:
-    # Kwargs to pass into the Models constructor (or factory function).
-    model_kwargs: dict[str, Any] = field(default_factory=dict)
-    # Kwargs to pass into the Model's `.gen` function.
-    model_gen_kwargs: dict[str, Any] = field(default_factory=dict)
-
-    # Optional specifications for use in generation strategy:
-    completion_criteria: Sequence[TransitionCriterion] = field(default_factory=list)
-    min_trials_observed: int = 0
-    max_parallelism: Optional[int] = None
-    use_update: bool = False
-    enforce_num_trials: bool = True
-    # Whether the generation strategy should deduplicate the suggested arms against
-    # the arms already present on the experiment. If this is `True`
-    # on a given generation step, during that step the generation
-    # strategy will discard a generator run that contains an arm
-    # already present on the experiment and produce a new generator
-    # run instead before returning it from `gen` or `_gen_multiple`.
-    should_deduplicate: bool = False
-    index: int = -1  # Index of this step, set internally.
-
-    # Optional model name. Defaults to `model_spec.model_key`.
-    model_name: str = field(default_factory=str)
-
-    def __post_init__(self) -> None:
-        if self.use_update:
+        See the class docstring for argument descriptions.
+        """
+        if use_update:
             raise DeprecationWarning("`GenerationStep.use_update` is deprecated.")
+        # These are here for backwards compatibility. Prior to implementation of
+        # custom __init__, these were the fields of the dataclass.
+        self.index = index
+        self.model = model
+        self.num_trials = num_trials
+        self.completion_criteria: Sequence[TransitionCriterion] = (
+            completion_criteria or []
+        )
+        self.min_trials_observed = min_trials_observed
+        self.max_parallelism = max_parallelism
+        self.enforce_num_trials = enforce_num_trials
+        self.use_update = use_update
+
+        model_kwargs = model_kwargs or {}
+        model_gen_kwargs = model_gen_kwargs or {}
+
         if (
             self.enforce_num_trials
             and (self.num_trials >= 0)
@@ -749,11 +757,6 @@ class GenerationStep(GenerationNode, SortableBase):
                 f"{self.num_trials}`), making completion of this step impossible. "
                 "Please alter inputs so that `min_trials_observed <= num_trials`."
             )
-        # For backwards compatibility with None / Optional input.
-        self.model_kwargs = self.model_kwargs if self.model_kwargs is not None else {}
-        self.model_gen_kwargs = (
-            self.model_gen_kwargs if self.model_gen_kwargs is not None else {}
-        )
         if not isinstance(self.model, ModelRegistryBase):
             if not callable(self.model):
                 raise UserInputError(
@@ -764,18 +767,19 @@ class GenerationStep(GenerationNode, SortableBase):
             model_spec = FactoryFunctionModelSpec(
                 factory_function=self.model,
                 # Only pass down the model name if it is not empty.
-                model_key_override=self.model_name if self.model_name else None,
-                model_kwargs=self.model_kwargs,
-                model_gen_kwargs=self.model_gen_kwargs,
+                model_key_override=model_name if model_name else None,
+                model_kwargs=model_kwargs,
+                model_gen_kwargs=model_gen_kwargs,
             )
         else:
             model_spec = ModelSpec(
                 model_enum=self.model,
-                model_kwargs=self.model_kwargs,
-                model_gen_kwargs=self.model_gen_kwargs,
+                model_kwargs=model_kwargs,
+                model_gen_kwargs=model_gen_kwargs,
             )
-        if self.model_name == "":
-            self.model_name = model_spec.model_key
+        if not model_name:
+            model_name = model_spec.model_key
+        self.model_name: str = model_name
 
         # Create transition criteria for this step. MaximumTrialsInStatus can be used
         # to ensure that requirements related to num_trials and unlimited trials
@@ -821,9 +825,19 @@ class GenerationStep(GenerationNode, SortableBase):
         super().__init__(
             node_name=f"GenerationStep_{str(self.index)}",
             model_specs=[model_spec],
-            should_deduplicate=self.should_deduplicate,
+            should_deduplicate=should_deduplicate,
             transition_criteria=transition_criteria,
         )
+
+    @property
+    def model_kwargs(self) -> dict[str, Any]:
+        """Returns the model kwargs of the underlying ``ModelSpec``."""
+        return self.model_spec.model_kwargs
+
+    @property
+    def model_gen_kwargs(self) -> dict[str, Any]:
+        """Returns the model gen kwargs of the underlying ``ModelSpec``."""
+        return self.model_spec.model_gen_kwargs
 
     @property
     def model_spec(self) -> ModelSpec:
