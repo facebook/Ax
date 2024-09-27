@@ -2442,7 +2442,7 @@ class SpecialGenerationStrategy(GenerationStrategyInterface):
         experiment: Experiment,
         num_generator_runs: int,
         data: Optional[Data] = None,
-        n: int = 1,
+        n: Optional[int] = None,
     ) -> list[list[GeneratorRun]]:
         return []
 

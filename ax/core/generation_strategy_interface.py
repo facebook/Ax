@@ -33,6 +33,10 @@ class GenerationStrategyInterface(ABC, Base):
     # it exists.
     _experiment: Optional[Experiment] = None
 
+    # Constant for default number of arms to generate if `n` is not specified in
+    # `gen` call and "total_concurrent_arms" is not set in experiment properties.
+    DEFAULT_N: int = 1
+
     def __init__(self, name: str) -> None:
         self._name = name
 
@@ -44,7 +48,7 @@ class GenerationStrategyInterface(ABC, Base):
         # TODO[drfreund, danielcohennyc, mgarrard]: Update the format of the arguments
         # below as we find the right one.
         num_generator_runs: int = 1,
-        n: int = 1,
+        n: Optional[int] = None,
     ) -> list[list[GeneratorRun]]:
         """Produce ``GeneratorRun``-s for multiple trials at once with the possibility
         of joining ``GeneratorRun``-s from multiple models into one ``BatchTrial``.
