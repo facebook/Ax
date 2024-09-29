@@ -113,6 +113,10 @@ class SchedulerOptions:
         enforce_immutable_search_space_and_opt_config: Whether to enforce that the
             search space and optimization config are immutable.  If true, will add
             `"immutable_search_space_and_opt_config": True` to experiment properties
+        mt_experiment_trial_type: Type of trial to run for MultiTypeExperiments. This
+            is currently required for MultiTypeExperiments. This is ignored for
+            "regular" or single type experiments. If you don't know what a single type
+            experiment is, you don't need this.
     """
 
     max_pending_trials: int = 10
@@ -138,3 +142,4 @@ class SchedulerOptions:
     validate_metrics: bool = True
     status_quo_weight: float = 0.0
     enforce_immutable_search_space_and_opt_config: bool = True
+    mt_experiment_trial_type: Optional[str] = None

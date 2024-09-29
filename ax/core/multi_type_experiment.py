@@ -7,10 +7,10 @@
 # pyre-strict
 
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 from ax.core.arm import Arm
-from ax.core.base_trial import BaseTrial
+from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import DataType, Experiment
 from ax.core.metric import Metric, MetricFetchResult
@@ -19,6 +19,7 @@ from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
+from pyre_extensions import none_throws
 
 
 logger: logging.Logger = get_logger(__name__)
@@ -114,6 +115,19 @@ class MultiTypeExperiment(Experiment):
         self._trial_type_to_runner[trial_type] = runner
         return self
 
+    # pyre-fixme [56]: Pyre was not able to infer the type of the decorator
+    # `Experiment.optimization_config.setter`.
+    @Experiment.optimization_config.setter
+    def optimization_config(self, optimization_config: OptimizationConfig) -> None:
+        # pyre-fixme [16]: `Optional` has no attribute `fset`.
+        Experiment.optimization_config.fset(self, optimization_config)
+        for metric_name in optimization_config.metrics.keys():
+            # Optimization config metrics are required to be the default trial type
+            # currently. TODO: remove that restriction (T202797235)
+            self._metric_to_trial_type[metric_name] = none_throws(
+                self.default_trial_type
+            )
+
     def update_runner(self, trial_type: str, runner: Runner) -> "MultiTypeExperiment":
         """Update the default runner for an existing trial_type.
 
@@ -198,6 +212,9 @@ class MultiTypeExperiment(Experiment):
         overwrite_existing_data: bool = False,
         **kwargs: Any,
     ) -> Data:
+        # TODO: make this more efficient for fetching
+        # data for multiple trials of the same type
+        # by overriding Experiment._lookup_or_fetch_trials_results
         return self.default_data_constructor.from_multiple_data(
             [
                 (
@@ -239,7 +256,6 @@ class MultiTypeExperiment(Experiment):
         """
         opt_config_types = {
             metric_name: self.default_trial_type
-            # pyre-fixme[16]: `Optional` has no attribute `metrics`.
             for metric_name in self.optimization_config.metrics.keys()
         }
         return {**opt_config_types, **self._metric_to_trial_type}
@@ -255,9 +271,16 @@ class MultiTypeExperiment(Experiment):
 
         Looks up the appropriate runner for this trial type in the trial_type_to_runner.
         """
-        if trial.trial_type is None or not self.supports_trial_type(trial.trial_type):
-            raise ValueError(f"Batch type `{trial.trial_type}` is not supported.")
-        return self._trial_type_to_runner[trial.trial_type]
+        return self.runner_for_trial_type(trial_type=none_throws(trial.trial_type))
+
+    def runner_for_trial_type(self, trial_type: str) -> Optional[Runner]:
+        """The default runner to use for a given trial type.
+
+        Looks up the appropriate runner for this trial type in the trial_type_to_runner.
+        """
+        if not self.supports_trial_type(trial_type):
+            raise ValueError(f"Trial type `{trial_type}` is not supported.")
+        return self._trial_type_to_runner[trial_type]
 
     def supports_trial_type(self, trial_type: Optional[str]) -> bool:
         """Whether this experiment allows trials of the given type.
@@ -270,3 +293,44 @@ class MultiTypeExperiment(Experiment):
         raise NotImplementedError(
             "MultiTypeExperiment does not support resetting all runners."
         )
+
+
+def filter_trials_by_type(
+    trials: Sequence[BaseTrial], trial_type: Optional[str]
+) -> list[BaseTrial]:
+    """Filter trials by trial type if provided.
+
+    This filters trials by trial type if the experiment is a
+    MultiTypeExperiment.
+
+    Args:
+        trials: Trials to filter.
+
+    Returns:
+        Filtered trials.
+    """
+    if trial_type is not None:
+        return [t for t in trials if t.trial_type == trial_type]
+    return list(trials)
+
+
+def get_trial_indices_for_statuses(
+    experiment: Experiment, statuses: set[TrialStatus], trial_type: str | None = None
+) -> set[int]:
+    """Get trial indices for a set of statuses.
+
+    Args:
+        statuses: Set of statuses to get trial indices for.
+
+    Returns:
+        Set of trial indices for the given statuses.
+    """
+    return {
+        i
+        for i, t in experiment.trials.items()
+        if (t.status in statuses)
+        and (
+            (trial_type is None)
+            or ((trial_type is not None) and (t.trial_type == trial_type))
+        )
+    }

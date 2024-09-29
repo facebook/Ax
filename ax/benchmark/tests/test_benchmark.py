@@ -6,6 +6,7 @@
 # pyre-strict
 
 import tempfile
+from itertools import product
 from unittest.mock import patch
 
 import numpy as np
@@ -22,6 +23,7 @@ from ax.benchmark.benchmark_method import (
 from ax.benchmark.benchmark_problem import create_problem_from_botorch
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
+from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.benchmark.problems.registry import get_problem
 from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
@@ -35,7 +37,6 @@ from ax.utils.testing.benchmark_stubs import (
     get_moo_surrogate,
     get_multi_objective_benchmark_problem,
     get_single_objective_benchmark_problem,
-    get_sobol_benchmark_method,
     get_soo_surrogate,
     TestDataset,
 )
@@ -89,7 +90,9 @@ class TestBenchmark(TestCase):
     def test_storage(self) -> None:
         problem = get_single_objective_benchmark_problem()
         res = benchmark_replication(
-            problem=problem, method=get_sobol_benchmark_method(), seed=0
+            problem=problem,
+            method=get_sobol_benchmark_method(distribute_replications=False),
+            seed=0,
         )
         # Experiment is not in storage yet
         self.assertTrue(res.experiment is not None)
@@ -117,6 +120,8 @@ class TestBenchmark(TestCase):
             BenchmarkResult(
                 name="name",
                 seed=0,
+                inference_trace=np.array([]),
+                oracle_trace=np.array([]),
                 optimization_trace=np.array([]),
                 score_trace=np.array([]),
                 fit_time=0.0,
@@ -131,6 +136,8 @@ class TestBenchmark(TestCase):
             BenchmarkResult(
                 name="name",
                 seed=0,
+                inference_trace=np.array([]),
+                oracle_trace=np.array([]),
                 optimization_trace=np.array([]),
                 score_trace=np.array([]),
                 fit_time=0.0,
@@ -184,7 +191,7 @@ class TestBenchmark(TestCase):
             self.assertEqual(experiment.runner, problem.runner)
 
     def test_replication_sobol_synthetic(self) -> None:
-        method = get_sobol_benchmark_method()
+        method = get_sobol_benchmark_method(distribute_replications=False)
         problems = [
             get_single_objective_benchmark_problem(),
             get_problem("jenatton", num_trials=6),
@@ -192,18 +199,12 @@ class TestBenchmark(TestCase):
         for problem in problems:
             res = benchmark_replication(problem=problem, method=method, seed=0)
 
-            self.assertEqual(
-                min(
-                    problem.num_trials, not_none(method.scheduler_options.total_trials)
-                ),
-                len(not_none(res.experiment).trials),
-            )
-
+            self.assertEqual(problem.num_trials, len(not_none(res.experiment).trials))
             self.assertTrue(np.isfinite(res.score_trace).all())
             self.assertTrue(np.all(res.score_trace <= 100))
 
     def test_replication_sobol_surrogate(self) -> None:
-        method = get_sobol_benchmark_method()
+        method = get_sobol_benchmark_method(distribute_replications=False)
 
         # This is kind of a weird setup - these are "surrogates" that use a Branin
         # synthetic function. The idea here is to test the machinery around the
@@ -217,15 +218,79 @@ class TestBenchmark(TestCase):
                 res = benchmark_replication(problem=problem, method=method, seed=0)
 
                 self.assertEqual(
-                    min(
-                        problem.num_trials,
-                        not_none(method.scheduler_options.total_trials),
-                    ),
+                    problem.num_trials,
                     len(not_none(res.experiment).trials),
                 )
 
                 self.assertTrue(np.isfinite(res.score_trace).all())
                 self.assertTrue(np.all(res.score_trace <= 100))
+
+    @fast_botorch_optimize
+    def _test_replication_with_inference_value(
+        self,
+        batch_size: int,
+        use_model_predictions: bool,
+        report_inference_value_as_trace: bool,
+    ) -> None:
+        seed = 1
+        method = get_sobol_botorch_modular_acquisition(
+            model_cls=SingleTaskGP,
+            acquisition_cls=qLogNoisyExpectedImprovement,
+            distribute_replications=False,
+            best_point_kwargs={"use_model_predictions": use_model_predictions},
+            num_sobol_trials=3,
+        )
+
+        test_problem_kwargs = {"noise_std": 100.0}
+        num_trials = 4
+        problem = get_single_objective_benchmark_problem(
+            test_problem_kwargs=test_problem_kwargs,
+            num_trials=num_trials,
+            report_inference_value_as_trace=report_inference_value_as_trace,
+        )
+        res = benchmark_replication(problem=problem, method=method, seed=seed)
+        # The inference trace could coincide with the oracle trace, but it won't
+        # happen in this example with high noise and a seed
+        self.assertEqual(
+            np.equal(res.inference_trace, res.optimization_trace).all(),
+            report_inference_value_as_trace,
+        )
+        self.assertEqual(
+            np.equal(res.oracle_trace, res.optimization_trace).all(),
+            not report_inference_value_as_trace,
+        )
+
+        self.assertEqual(res.optimization_trace.shape, (problem.num_trials,))
+        self.assertTrue((res.inference_trace >= res.oracle_trace).all())
+        self.assertTrue((res.score_trace >= 0).all())
+        self.assertTrue((res.score_trace <= 100).all())
+
+    def test_replication_with_inference_value(self) -> None:
+        for (
+            use_model_predictions,
+            batch_size,
+            report_inference_value_as_trace,
+        ) in product(
+            [False, True],
+            [1, 2],
+            [False, True],
+        ):
+            with self.subTest(
+                batch_size=batch_size,
+                use_model_predictions=use_model_predictions,
+                report_inference_value_as_trace=report_inference_value_as_trace,
+            ):
+                self._test_replication_with_inference_value(
+                    batch_size=batch_size,
+                    use_model_predictions=use_model_predictions,
+                    report_inference_value_as_trace=report_inference_value_as_trace,
+                )
+
+        with self.assertRaisesRegex(
+            NotImplementedError,
+            "Inference trace is not supported for MOO",
+        ):
+            get_multi_objective_benchmark_problem(report_inference_value_as_trace=True)
 
     @fast_botorch_optimize
     def test_replication_mbm(self) -> None:
@@ -313,7 +378,9 @@ class TestBenchmark(TestCase):
         problem = get_multi_objective_benchmark_problem()
 
         res = benchmark_replication(
-            problem=problem, method=get_sobol_benchmark_method(), seed=0
+            problem=problem,
+            method=get_sobol_benchmark_method(distribute_replications=False),
+            seed=0,
         )
 
         self.assertEqual(
@@ -331,7 +398,7 @@ class TestBenchmark(TestCase):
         problem = get_single_objective_benchmark_problem()
         agg = benchmark_one_method_problem(
             problem=problem,
-            method=get_sobol_benchmark_method(),
+            method=get_sobol_benchmark_method(distribute_replications=False),
             seeds=(0, 1),
         )
 
@@ -352,7 +419,7 @@ class TestBenchmark(TestCase):
         aggs = benchmark_multiple_problems_methods(
             problems=[get_single_objective_benchmark_problem(num_trials=6)],
             methods=[
-                get_sobol_benchmark_method(),
+                get_sobol_benchmark_method(distribute_replications=False),
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,

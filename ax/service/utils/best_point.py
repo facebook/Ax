@@ -224,7 +224,7 @@ def get_best_parameters_from_model_predictions_with_trial_index(
                 # In theory batch_trial can have >1 gr, grab the first
                 gr = trial.generator_run_structs[0].generator_run
 
-        if gr is not None and gr.best_arm_predictions is not None:
+        if gr is not None:
             data = experiment.lookup_data(trial_indices=trial_indices)
 
             try:
@@ -237,7 +237,7 @@ def get_best_parameters_from_model_predictions_with_trial_index(
             except ValueError:
                 return _gr_to_prediction_with_trial_index(idx, gr)
 
-            # If model is not TorchModelBridge, just use the best arm frmo the
+            # If model is not TorchModelBridge, just use the best arm from the
             # last good generator run
             if not isinstance(model, TorchModelBridge):
                 return _gr_to_prediction_with_trial_index(idx, gr)

@@ -414,7 +414,9 @@ def relativize_data(
     for grp in grouped_df.groups.keys():
         subgroup_df = grouped_df.get_group(grp)
         is_sq = subgroup_df["arm_name"] == status_quo_name
-        sq_mean, sq_sem = subgroup_df[is_sq][["mean", "sem"]].values.flatten()
+        sq_mean, sq_sem = (
+            subgroup_df[is_sq][["mean", "sem"]].drop_duplicates().values.flatten()
+        )
 
         # rm status quo from final df to relativize
         if not include_sq:

@@ -7,14 +7,14 @@
 
 import importlib
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Optional, Union
 
 import torch
 from ax.benchmark.runners.base import BenchmarkRunner
-from ax.core.arm import Arm
 from ax.core.search_space import SearchSpaceDigest
-from ax.core.types import TParameterization
+from ax.core.types import TParamValue
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
@@ -41,9 +41,9 @@ class ParamBasedTestProblem(ABC):
     negate: bool = False
 
     @abstractmethod
-    def evaluate_true(self, params: TParameterization) -> Tensor: ...
+    def evaluate_true(self, params: Mapping[str, TParamValue]) -> Tensor: ...
 
-    def evaluate_slack_true(self, params: TParameterization) -> Tensor:
+    def evaluate_slack_true(self, params: Mapping[str, TParamValue]) -> Tensor:
         raise NotImplementedError(
             f"{self.__class__.__name__} does not support constraints."
         )
@@ -243,7 +243,7 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
             self.test_problem, ConstrainedBaseTestProblem
         )
 
-    def get_Y_true(self, arm: Arm) -> Tensor:
+    def get_Y_true(self, params: Mapping[str, TParamValue]) -> Tensor:
         """
         Convert the arm to a tensor and evaluate it on the base test problem.
 
@@ -252,7 +252,7 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
         `modified_bounds` in `BotorchTestProblemRunner.__init__` for details.
 
         Args:
-            arm: Arm to evaluate. It will be converted to a
+            params: Parameterization to evaluate. It will be converted to a
                 `batch_shape x d`-dim tensor of point(s) at which to evaluate the
                 test problem.
 
@@ -260,10 +260,7 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
             A `batch_shape x m`-dim tensor of ground truth (noiseless) evaluations.
         """
         X = torch.tensor(
-            [
-                value
-                for _key, value in [*arm.parameters.items()][: self.test_problem.dim]
-            ],
+            [value for _key, value in [*params.items()][: self.test_problem.dim]],
             dtype=torch.double,
         )
 
@@ -322,13 +319,13 @@ class ParamBasedTestProblemRunner(SyntheticProblemRunner):
         )
         self.test_problem: ParamBasedTestProblem = self.test_problem
 
-    def get_Y_true(self, arm: Arm) -> Tensor:
+    def get_Y_true(self, params: Mapping[str, TParamValue]) -> Tensor:
         """Evaluates the test problem.
 
         Returns:
             A `batch_shape x m`-dim tensor of ground truth (noiseless) evaluations.
         """
-        Y_true = self.test_problem.evaluate_true(arm.parameters).view(-1)
+        Y_true = self.test_problem.evaluate_true(params).view(-1)
         # `ParamBasedTestProblem.evaluate_true()` does not negate the outcome
         if self.test_problem.negate:
             Y_true = -Y_true

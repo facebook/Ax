@@ -70,6 +70,9 @@ class TestInstantiationtUtils(TestCase):
             },
         )
 
+        with self.assertRaisesRegex(AssertionError, "Outcome constraint 'm1"):
+            InstantiationBase.outcome_constraint_from_str("m1 == 2*m2")
+
         self.assertEqual(three_val_constaint.bound, 3.0)
         with self.assertRaisesRegex(ValueError, "Parameter constraint should"):
             InstantiationBase.constraint_from_str(

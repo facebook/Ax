@@ -143,14 +143,6 @@ ax.models.torch.botorch_kg module
     :undoc-members:
     :show-inheritance:
 
-ax.models.torch.botorch_mes module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.models.torch.botorch_mes
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 ax.models.torch.botorch_moo module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

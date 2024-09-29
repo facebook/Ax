@@ -22,7 +22,7 @@ Key terms used:
 from collections.abc import Iterable
 from itertools import product
 from logging import Logger
-from time import time
+from time import monotonic, time
 
 import numpy as np
 
@@ -30,8 +30,10 @@ from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.core.experiment import Experiment
+from ax.core.types import TParameterization
 from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
+from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import with_rng_seed
 
@@ -92,12 +94,23 @@ def benchmark_replication(
     method: BenchmarkMethod,
     seed: int,
 ) -> BenchmarkResult:
-    """Runs one benchmarking replication (equivalent to one optimization loop).
+    """
+    Run one benchmarking replication (equivalent to one optimization loop).
+
+    After each trial, the `method` gets the best parameter(s) found so far, as
+    evaluated based on empirical data. After all trials are run, the `problem`
+    gets the oracle values of each "best" parameter; this yields the ``inference
+    trace``. The cumulative maximum of the oracle value of each parameterization
+    tested is the ``oracle_trace``.
+
 
     Args:
         problem: The BenchmarkProblem to test against (can be synthetic or real)
         method: The BenchmarkMethod to test
         seed: The seed to use for this replication.
+
+    Return:
+        ``BenchmarkResult`` object.
     """
 
     experiment = Experiment(
@@ -112,11 +125,70 @@ def benchmark_replication(
         generation_strategy=method.generation_strategy.clone_reset(),
         options=method.scheduler_options,
     )
+    timeout_hours = scheduler.options.timeout_hours
 
+    # list of parameters for each trial
+    best_params_by_trial: list[list[TParameterization]] = []
+
+    is_mf_or_mt = len(problem.runner.target_fidelity_and_task) > 0
+    # Run the optimization loop.
+    timeout_hours = scheduler.options.timeout_hours
     with with_rng_seed(seed=seed):
-        scheduler.run_n_trials(max_trials=problem.num_trials)
+        start = monotonic()
+        for _ in range(problem.num_trials):
+            next(
+                scheduler.run_trials_and_yield_results(
+                    max_trials=1, timeout_hours=timeout_hours
+                )
+            )
+            if timeout_hours is not None:
+                elapsed_hours = (monotonic() - start) / 3600
+                timeout_hours = timeout_hours - elapsed_hours
+                if timeout_hours <= 0:
+                    break
 
-    optimization_trace = problem.get_opt_trace(experiment=experiment)
+            if problem.is_moo or is_mf_or_mt:
+                # Inference trace is not supported for MOO.
+                # It's also not supported for multi-fidelity or multi-task
+                # problems, because Ax's best-point functionality doesn't know
+                # to predict at the target task or fidelity.
+                continue
+
+            best_params = method.get_best_parameters(
+                experiment=experiment,
+                optimization_config=problem.optimization_config,
+                n_points=problem.n_best_points,
+            )
+            best_params_by_trial.append(best_params)
+
+    # Construct inference trace from best parameters
+    inference_trace = np.full(problem.num_trials, np.nan)
+    for trial_index, best_params in enumerate(best_params_by_trial):
+        if len(best_params) == 0:
+            inference_trace[trial_index] = np.nan
+            continue
+        # Construct an experiment with one BatchTrial
+        best_params_oracle_experiment = problem.get_oracle_experiment_from_params(
+            {0: {str(i): p for i, p in enumerate(best_params)}}
+        )
+        # Get the optimization trace. It will have only one point.
+        inference_trace[trial_index] = BestPointMixin._get_trace(
+            experiment=best_params_oracle_experiment,
+            optimization_config=problem.optimization_config,
+        )[0]
+
+    actual_params_oracle_experiment = problem.get_oracle_experiment_from_experiment(
+        experiment=experiment
+    )
+    oracle_trace = np.array(
+        BestPointMixin._get_trace(
+            experiment=actual_params_oracle_experiment,
+            optimization_config=problem.optimization_config,
+        )
+    )
+    optimization_trace = (
+        inference_trace if problem.report_inference_value_as_trace else oracle_trace
+    )
 
     try:
         # Catch any errors that may occur during score computation, such as errors
@@ -146,6 +218,8 @@ def benchmark_replication(
         name=scheduler.experiment.name,
         seed=seed,
         experiment=scheduler.experiment,
+        oracle_trace=oracle_trace,
+        inference_trace=inference_trace,
         optimization_trace=optimization_trace,
         score_trace=score_trace,
         fit_time=fit_time,

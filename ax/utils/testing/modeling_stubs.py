@@ -25,6 +25,11 @@ from ax.modelbridge.cross_validation import FISHER_EXACT_TEST_P
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.generation_node import GenerationNode
+
+from ax.modelbridge.generation_node_input_constructors import (
+    InputConstructorPurpose,
+    NodeInputConstructors,
+)
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
@@ -214,6 +219,11 @@ def get_generation_strategy(
 def sobol_gpei_generation_node_gs(
     with_model_selection: bool = False,
     with_auto_transition: bool = False,
+    with_previous_node: bool = False,
+    with_input_constructors_all_n: bool = False,
+    with_input_constructors_remaining_n: bool = False,
+    with_input_constructors_repeat_n: bool = False,
+    with_unlimited_gen_mbm: bool = False,
 ) -> GenerationStrategy:
     """Returns a basic SOBOL+MBM GS using GenerationNodes for testing.
 
@@ -294,6 +304,13 @@ def sobol_gpei_generation_node_gs(
             model_specs=mbm_model_specs,
             best_model_selector=best_model_selector,
         )
+    elif with_unlimited_gen_mbm:
+        # no TC defined is equivalent to unlimited gen
+        mbm_node = GenerationNode(
+            node_name="MBM_node",
+            model_specs=mbm_model_specs,
+            best_model_selector=best_model_selector,
+        )
     else:
         mbm_node = GenerationNode(
             node_name="MBM_node",
@@ -301,6 +318,27 @@ def sobol_gpei_generation_node_gs(
             model_specs=mbm_model_specs,
             best_model_selector=best_model_selector,
         )
+
+    # in an actual GS, this would be set during transition, manually setting here for
+    # testing purposes
+    if with_previous_node:
+        mbm_node._previous_node_name = sobol_node.node_name
+
+    # test input constructors, this also leaves the mbm node with no input
+    # constructors which validates encoding/decoding of instances with no
+    # input constructors
+    if with_input_constructors_all_n:
+        sobol_node._input_constructors = {
+            InputConstructorPurpose.N: NodeInputConstructors.ALL_N,
+        }
+    elif with_input_constructors_remaining_n:
+        sobol_node._input_constructors = {
+            InputConstructorPurpose.N: NodeInputConstructors.REMAINING_N,
+        }
+    elif with_input_constructors_repeat_n:
+        sobol_node._input_constructors = {
+            InputConstructorPurpose.N: NodeInputConstructors.REPEAT_N,
+        }
 
     sobol_mbm_GS_nodes = GenerationStrategy(
         name="Sobol+MBM_Nodes",

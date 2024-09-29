@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 # Module-level import to avoid circular dependency b/w this file and
 # generation_strategy.py
@@ -29,8 +29,9 @@ from ax.exceptions.core import UserInputError
 from ax.exceptions.generation_strategy import GenerationStrategyRepeatedPoints
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.best_model_selector import BestModelSelector
+
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
-from ax.modelbridge.registry import ModelRegistryBase
+from ax.modelbridge.registry import _extract_model_state_after_gen, ModelRegistryBase
 from ax.modelbridge.transition_criterion import (
     MaxGenerationParallelism,
     MaxTrials,
@@ -47,12 +48,12 @@ from ax.utils.common.typeutils import not_none
 logger: Logger = get_logger(__name__)
 
 TModelFactory = Callable[..., ModelBridge]
-CANNOT_SELECT_ONE_MODEL_MSG = """\
-Base `GenerationNode` does not implement selection among fitted \
-models, so exactly one `ModelSpec` must be specified when using \
-`GenerationNode._pick_fitted_model_to_gen_from` (usually called \
-by `GenerationNode.gen`.
-"""
+MISSING_MODEL_SELECTOR_MESSAGE = (
+    "A `BestModelSelector` must be provided when using multiple "
+    "`ModelSpec`s in a `GenerationNode`. After fitting all `ModelSpec`s, "
+    "the `BestModelSelector` will be used to select the `ModelSpec` to "
+    "use for candidate generation."
+)
 MAX_GEN_DRAWS = 5
 MAX_GEN_DRAWS_EXCEEDED_MESSAGE = (
     f"GenerationStrategy exceeded `MAX_GEN_DRAWS` of {MAX_GEN_DRAWS} while trying to "
@@ -84,6 +85,14 @@ class GenerationNode(SerializationMixin, SortableBase):
             condition that must be met before completing a GenerationNode. All `is_met`
             must evaluateTrue for the GenerationStrategy to move on to the next
             GenerationNode.
+        input_constructors: A dictionary mapping input constructor purpose enum to the
+            input constructor enum. Each input constructor maps to a method which
+            encodes the logic for determining dynamic inputs to the ``GenerationNode``
+        previous_node_name: The previous ``GenerationNode`` name in the
+            ``GenerationStrategy``, if any. Initialized to None for all nodes, and is
+            set during transition from one ``GenerationNode`` to the next. Can be
+            overwritten if multiple transitions occur between nodes, and will always
+            store the most recent previous ``GenerationNode`` name.
 
     Note for developers: by "model" here we really mean an Ax ModelBridge object, which
     contains an Ax Model under the hood. We call it "model" here to simplify and focus
@@ -99,7 +108,12 @@ class GenerationNode(SerializationMixin, SortableBase):
     # Optional specifications
     _model_spec_to_gen_from: Optional[ModelSpec] = None
     # TODO: @mgarrard should this be a dict criterion_class name -> criterion mapping?
-    _transition_criteria: Optional[Sequence[TransitionCriterion]]
+    _transition_criteria: Sequence[TransitionCriterion]
+    _input_constructors: Dict[
+        modelbridge.generation_node_input_constructors.InputConstructorPurpose,
+        modelbridge.generation_node_input_constructors.NodeInputConstructors,
+    ]
+    _previous_node_name: Optional[str] = None
 
     # [TODO] Handle experiment passing more eloquently by enforcing experiment
     # attribute is set in generation strategies class
@@ -114,17 +128,33 @@ class GenerationNode(SerializationMixin, SortableBase):
         best_model_selector: Optional[BestModelSelector] = None,
         should_deduplicate: bool = False,
         transition_criteria: Optional[Sequence[TransitionCriterion]] = None,
+        input_constructors: Optional[
+            Dict[
+                modelbridge.generation_node_input_constructors.InputConstructorPurpose,
+                modelbridge.generation_node_input_constructors.NodeInputConstructors,
+            ]
+        ] = None,
+        previous_node_name: Optional[str] = None,
     ) -> None:
         self._node_name = node_name
-        # While `GenerationNode` only handles a single `ModelSpec` in the `gen`
-        # and `_pick_fitted_model_to_gen_from` methods, we validate the
-        # length of `model_specs` in `_pick_fitted_model_to_gen_from` in order
-        # to not require all `GenerationNode` subclasses to override an `__init__`
-        # method to bypass that validation.
+        # Check that the model specs have unique model keys.
+        model_keys = {model_spec.model_key for model_spec in model_specs}
+        if len(model_keys) != len(model_specs):
+            raise UserInputError(
+                "Model keys must be unique across all model specs in a GenerationNode."
+            )
+        if len(model_specs) > 1 and best_model_selector is None:
+            raise UserInputError(MISSING_MODEL_SELECTOR_MESSAGE)
         self.model_specs = model_specs
         self.best_model_selector = best_model_selector
         self.should_deduplicate = should_deduplicate
-        self._transition_criteria = transition_criteria
+        self._transition_criteria = (
+            transition_criteria if transition_criteria is not None else []
+        )
+        self._input_constructors = (
+            input_constructors if input_constructors is not None else {}
+        )
+        self._previous_node_name = previous_node_name
 
     @property
     def node_name(self) -> str:
@@ -170,6 +200,18 @@ class GenerationNode(SerializationMixin, SortableBase):
         if this GenerationNode is complete and should transition to the next node.
         """
         return [] if self._transition_criteria is None else self._transition_criteria
+
+    @property
+    def input_constructors(
+        self,
+    ) -> Dict[
+        modelbridge.generation_node_input_constructors.InputConstructorPurpose,
+        modelbridge.generation_node_input_constructors.NodeInputConstructors,
+    ]:
+        """Returns the input constructors that will be used to determine any dynamic
+        inputs to this ``GenerationNode``.
+        """
+        return self._input_constructors if self._input_constructors is not None else {}
 
     @property
     def experiment(self) -> Experiment:
@@ -221,15 +263,70 @@ class GenerationNode(SerializationMixin, SortableBase):
                 ``fit`` method. NOTE: Local kwargs take precedence over the ones
                 stored in ``ModelSpec.model_kwargs``.
         """
+        if not data.df.empty:
+            trial_indices_in_data = sorted(data.df["trial_index"].unique())
+        else:
+            trial_indices_in_data = []
         self._model_spec_to_gen_from = None
         for model_spec in self.model_specs:
+            logger.debug(
+                f"Fitting model {model_spec.model_key} with data for "
+                f"trials: {trial_indices_in_data}"
+            )
             model_spec.fit(  # Stores the fitted model as `model_spec._fitted_model`
                 experiment=experiment,
                 data=data,
                 search_space=search_space,
                 optimization_config=optimization_config,
-                **kwargs,
+                **{
+                    **self._get_model_state_from_last_generator_run(
+                        model_spec=model_spec
+                    ),
+                    **kwargs,
+                },
             )
+
+    def _get_model_state_from_last_generator_run(
+        self, model_spec: ModelSpec
+    ) -> dict[str, Any]:
+        """Get the fit args from the last generator run for the model being fit.
+
+        NOTE: This only works for the base ModelSpec class. Factory functions
+        are not supported and will return an empty dict.
+
+        Args:
+            model_spec: The model spec to get the fit args for.
+
+        Returns:
+            A dictionary of fit args extracted from the last generator run
+            that was generated by the model being fit.
+        """
+        if (
+            isinstance(model_spec, FactoryFunctionModelSpec)
+            or self._generation_strategy is None
+        ):
+            # We cannot extract the args for factory functions (which are to be
+            # deprecated). If there is no GS, we cannot access the previous GRs.
+            return {}
+        curr_model = model_spec.model_enum
+        # Find the last GR that was generated by the model being fit.
+        grs = self.generation_strategy._generator_runs
+        for gr in reversed(grs):
+            if (
+                gr._generation_node_name == self.node_name
+                and gr._model_key == model_spec.model_key
+            ):
+                break
+        else:
+            # No previous GR from this model.
+            return {}
+        # Extract the fit args from the GR.
+        return _extract_model_state_after_gen(
+            # pyre-ignore [61]: Local variable `gr` is undefined, or not always defined.
+            # Pyre is wrong here. If we reach this line, `gr` must be defined.
+            generator_run=gr,
+            model_class=curr_model.model_class,
+        )
 
     # TODO [drfreund]: Move this up to `GenerationNodeInterface` once implemented.
     def gen(
@@ -358,8 +455,8 @@ class GenerationNode(SerializationMixin, SortableBase):
              `ModelSpec` and select it.
         """
         if self.best_model_selector is None:
-            if len(self.model_specs) != 1:
-                raise NotImplementedError(CANNOT_SELECT_ONE_MODEL_MSG)
+            if len(self.model_specs) != 1:  # pragma: no cover -- raised in __init__.
+                raise UserInputError(MISSING_MODEL_SELECTOR_MESSAGE)
             return self.model_specs[0]
 
         best_model = not_none(self.best_model_selector).best_model(
@@ -421,7 +518,7 @@ class GenerationNode(SerializationMixin, SortableBase):
 
     def should_transition_to_next_node(
         self, raise_data_required_error: bool = True
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str]:
         """Checks whether we should transition to the next node based on this node's
         TransitionCriterion.
 
@@ -435,12 +532,12 @@ class GenerationNode(SerializationMixin, SortableBase):
                 check how many generator runs (to be made into trials) can be produced,
                 but not actually producing them yet.
         Returns:
-            Tuple[bool, Optional[str]]: Whether we should transition to the next node
-                and the name of the next node.
+            Tuple[bool, str]: Whether we should transition to the next node
+                and the name of the node to gen from (either the current or next node)
         """
         # if no transition criteria are defined, this node can generate unlimited trials
         if len(self.transition_criteria) == 0:
-            return False, None
+            return False, self.node_name
 
         # for each edge in node DAG, check if the transition criterion are met, if so
         # transition to the next node defined by that edge.
@@ -484,7 +581,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             if len(transition_blocking) > 0 and transition_blocking_met:
                 return True, next_node
 
-        return False, None
+        return False, self.node_name
 
     def generator_run_limit(self, raise_generation_errors: bool = False) -> int:
         """How many generator runs can this generation strategy generate right now,
@@ -604,43 +701,51 @@ class GenerationStep(GenerationNode, SortableBase):
             attempts, a `GenerationStrategyRepeatedPoints` error will be raised, as we
             assume that the optimization converged when the model can no longer suggest
             unique arms.
+        model_name: Optional name of the model. If not specified, defaults to the
+            model key of the model spec.
 
     Note for developers: by "model" here we really mean an Ax ModelBridge object, which
     contains an Ax Model under the hood. We call it "model" here to simplify and focus
     on explaining the logic of GenerationStep and GenerationStrategy.
     """
 
-    # Required options:
-    model: Union[ModelRegistryBase, Callable[..., ModelBridge]]
-    num_trials: int
+    def __init__(
+        self,
+        model: Union[ModelRegistryBase, Callable[..., ModelBridge]],
+        num_trials: int,
+        model_kwargs: Optional[dict[str, Any]] = None,
+        model_gen_kwargs: Optional[dict[str, Any]] = None,
+        completion_criteria: Optional[Sequence[TransitionCriterion]] = None,
+        min_trials_observed: int = 0,
+        max_parallelism: Optional[int] = None,
+        enforce_num_trials: bool = True,
+        should_deduplicate: bool = False,
+        model_name: Optional[str] = None,
+        use_update: bool = False,  # DEPRECATED.
+        index: int = -1,  # Index of this step, set internally.
+    ) -> None:
+        r"""Initializes a single-model GenerationNode, a.k.a. a GenerationStep.
 
-    # Optional model specifications:
-    # Kwargs to pass into the Models constructor (or factory function).
-    model_kwargs: dict[str, Any] = field(default_factory=dict)
-    # Kwargs to pass into the Model's `.gen` function.
-    model_gen_kwargs: dict[str, Any] = field(default_factory=dict)
-
-    # Optional specifications for use in generation strategy:
-    completion_criteria: Sequence[TransitionCriterion] = field(default_factory=list)
-    min_trials_observed: int = 0
-    max_parallelism: Optional[int] = None
-    use_update: bool = False
-    enforce_num_trials: bool = True
-    # Whether the generation strategy should deduplicate the suggested arms against
-    # the arms already present on the experiment. If this is `True`
-    # on a given generation step, during that step the generation
-    # strategy will discard a generator run that contains an arm
-    # already present on the experiment and produce a new generator
-    # run instead before returning it from `gen` or `_gen_multiple`.
-    should_deduplicate: bool = False
-    index: int = -1  # Index of this step, set internally.
-
-    # Optional model name. Defaults to `model_spec.model_key`.
-    model_name: str = field(default_factory=str)
-
-    def __post_init__(self) -> None:
-        if self.use_update:
+        See the class docstring for argument descriptions.
+        """
+        if use_update:
             raise DeprecationWarning("`GenerationStep.use_update` is deprecated.")
+        # These are here for backwards compatibility. Prior to implementation of
+        # custom __init__, these were the fields of the dataclass.
+        self.index = index
+        self.model = model
+        self.num_trials = num_trials
+        self.completion_criteria: Sequence[TransitionCriterion] = (
+            completion_criteria or []
+        )
+        self.min_trials_observed = min_trials_observed
+        self.max_parallelism = max_parallelism
+        self.enforce_num_trials = enforce_num_trials
+        self.use_update = use_update
+
+        model_kwargs = model_kwargs or {}
+        model_gen_kwargs = model_gen_kwargs or {}
+
         if (
             self.enforce_num_trials
             and (self.num_trials >= 0)
@@ -652,11 +757,6 @@ class GenerationStep(GenerationNode, SortableBase):
                 f"{self.num_trials}`), making completion of this step impossible. "
                 "Please alter inputs so that `min_trials_observed <= num_trials`."
             )
-        # For backwards compatibility with None / Optional input.
-        self.model_kwargs = self.model_kwargs if self.model_kwargs is not None else {}
-        self.model_gen_kwargs = (
-            self.model_gen_kwargs if self.model_gen_kwargs is not None else {}
-        )
         if not isinstance(self.model, ModelRegistryBase):
             if not callable(self.model):
                 raise UserInputError(
@@ -667,22 +767,19 @@ class GenerationStep(GenerationNode, SortableBase):
             model_spec = FactoryFunctionModelSpec(
                 factory_function=self.model,
                 # Only pass down the model name if it is not empty.
-                model_key_override=self.model_name if self.model_name else None,
-                model_kwargs=self.model_kwargs,
-                model_gen_kwargs=self.model_gen_kwargs,
+                model_key_override=model_name if model_name else None,
+                model_kwargs=model_kwargs,
+                model_gen_kwargs=model_gen_kwargs,
             )
         else:
             model_spec = ModelSpec(
                 model_enum=self.model,
-                model_kwargs=self.model_kwargs,
-                model_gen_kwargs=self.model_gen_kwargs,
+                model_kwargs=model_kwargs,
+                model_gen_kwargs=model_gen_kwargs,
             )
-        if self.model_name == "":
-            try:
-                self.model_name = model_spec.model_key
-            except TypeError:
-                # Factory functions may not always have a model key defined.
-                self.model_name = f"Unknown {model_spec.__class__.__name__}"
+        if not model_name:
+            model_name = model_spec.model_key
+        self.model_name: str = model_name
 
         # Create transition criteria for this step. MaximumTrialsInStatus can be used
         # to ensure that requirements related to num_trials and unlimited trials
@@ -728,9 +825,19 @@ class GenerationStep(GenerationNode, SortableBase):
         super().__init__(
             node_name=f"GenerationStep_{str(self.index)}",
             model_specs=[model_spec],
-            should_deduplicate=self.should_deduplicate,
+            should_deduplicate=should_deduplicate,
             transition_criteria=transition_criteria,
         )
+
+    @property
+    def model_kwargs(self) -> dict[str, Any]:
+        """Returns the model kwargs of the underlying ``ModelSpec``."""
+        return self.model_spec.model_kwargs
+
+    @property
+    def model_gen_kwargs(self) -> dict[str, Any]:
+        """Returns the model gen kwargs of the underlying ``ModelSpec``."""
+        return self.model_spec.model_gen_kwargs
 
     @property
     def model_spec(self) -> ModelSpec:

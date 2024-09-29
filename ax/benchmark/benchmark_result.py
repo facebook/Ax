@@ -28,12 +28,59 @@ PERCENTILES = [0.25, 0.5, 0.75]
 class BenchmarkResult(Base):
     """The result of a single optimization loop from one
     (BenchmarkProblem, BenchmarkMethod) pair.
+
+    Args:
+        name: Name of the benchmark. Should make it possible to determine the
+            problem and the method.
+        seed: Seed used for determinism.
+        oracle_trace: For single-objective problems, element i of the
+            optimization trace is the best oracle value of the arms evaluated
+            after the first i trials.  For multi-objective problems, element i
+            of the optimization trace is the hypervolume of the oracle values of
+            the arms in the first i trials (which may be ``BatchTrial``s).
+            Oracle values are typically ground-truth (rather than noisy) and
+            evaluated at the target task and fidelity.
+        inference_trace: Inference trace comes from choosing a "best" point
+            based only on data that would be observable in realistic settings
+            and then evaluating the oracle value of that point. For
+            multi-objective problems, we find a Pareto set and evaluate its
+            hypervolume.
+
+            There are several ways of specifying the "best" point: One could
+            pick the point with the best observed value, or the point with the
+            best model prediction, and could consider the whole search space,
+            the set of trials completed so far, etc. How the inference trace is
+            computed is specified by a best-point selector, which is an
+            attribute of the `BenchmarkMethod`.
+
+            Note: This is not "inference regret", which is a lower-is-better value
+            that is relative to the best possible value. The inference value
+            trace is higher-is-better if the problem is a maximization problem
+            or if the problem is multi-objective (in which case hypervolume is
+            used). Hence, it is signed the same as ``oracle_trace`` and
+            ``optimization_trace``. ``score_trace`` is higher-is-better and
+            relative to the optimum.
+        optimization_trace: Either the ``oracle_trace`` or the
+            ``inference_trace``, depending on whether the ``BenchmarkProblem``
+            specifies ``report_inference_value``. Having ``optimization_trace``
+            specified separately is useful when we need just one value to
+            evaluate how well the benchmark went.
+        score_trace: The scores associated with the problem, typically either
+            the optimization_trace or inference_value_trace normalized to a
+            0-100 scale for comparability between problems.
+        fit_time: Total time spent fitting models.
+        gen_time: Total time spent generating candidates.
+        experiment: If not ``None``, the Ax experiment associated with the
+            optimization that generated this data. Either ``experiment`` or
+            ``experiment_storage_id`` must be provided.
+        experiment_storage_id: Pointer to location where experiment data can be read.
     """
 
     name: str
     seed: int
 
-    # Tracks best point if single-objective problem, max hypervolume if MOO
+    oracle_trace: ndarray
+    inference_trace: ndarray
     optimization_trace: ndarray
     score_trace: ndarray
 
@@ -41,7 +88,6 @@ class BenchmarkResult(Base):
     gen_time: float
 
     experiment: Optional[Experiment] = None
-    # Pointer to location where experiment data can be read
     experiment_storage_id: Optional[str] = None
 
     def __post_init__(self) -> None:

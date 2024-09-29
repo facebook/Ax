@@ -58,7 +58,7 @@ class TestTransitionCriterion(TestCase):
                     completion_criteria=[criterion],
                 ),
                 GenerationStep(
-                    model=Models.GPEI,
+                    model=Models.BOTORCH_MODULAR,
                     num_trials=-1,
                     max_parallelism=1,
                 ),
@@ -92,7 +92,8 @@ class TestTransitionCriterion(TestCase):
                 )
             )
             self.assertEqual(
-                generation_strategy._curr.model_spec_to_gen_from.model_enum, Models.GPEI
+                generation_strategy._curr.model_spec_to_gen_from.model_enum,
+                Models.BOTORCH_MODULAR,
             )
 
     def test_default_step_criterion_setup(self) -> None:
@@ -106,21 +107,21 @@ class TestTransitionCriterion(TestCase):
         """
         experiment = get_experiment()
         gs = GenerationStrategy(
-            name="SOBOL+GPEI::default",
+            name="SOBOL+MBM::default",
             steps=[
                 GenerationStep(
                     model=Models.SOBOL,
                     num_trials=3,
                 ),
                 GenerationStep(
-                    model=Models.GPEI,
+                    model=Models.BOTORCH_MODULAR,
                     num_trials=4,
                     max_parallelism=1,
                     min_trials_observed=2,
                     enforce_num_trials=False,
                 ),
                 GenerationStep(
-                    model=Models.GPEI,
+                    model=Models.BOTORCH_MODULAR,
                     num_trials=-1,
                 ),
             ],
