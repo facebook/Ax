@@ -6,11 +6,11 @@
 # pyre-strict
 
 import warnings
+from collections.abc import Mapping
 from typing import Any, Callable, Optional, Union
 
 import torch
 from ax.benchmark.runners.base import BenchmarkRunner
-from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.observation import ObservationFeatures
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
@@ -95,11 +95,13 @@ class SurrogateRunner(BenchmarkRunner):
     def get_noise_stds(self) -> Union[None, float, dict[str, float]]:
         return self.noise_stds
 
-    def get_Y_true(self, arm: Arm) -> Tensor:
+    # pyre-fixme[14]: Inconsistent override
+    def get_Y_true(self, params: Mapping[str, float | int]) -> Tensor:
         # We're ignoring the uncertainty predictions of the surrogate model here and
         # use the mean predictions as the outcomes (before potentially adding noise)
         means, _ = self.surrogate.predict(
-            observation_features=[ObservationFeatures(arm.parameters)]
+            # pyre-fixme[6]: params is a Mapping, but ObservationFeatures expects a Dict
+            observation_features=[ObservationFeatures(params)]
         )
         means = [means[name][0] for name in self.outcome_names]
         return torch.tensor(

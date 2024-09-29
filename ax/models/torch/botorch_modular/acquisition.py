@@ -452,7 +452,7 @@ class Acquisition(Base):
                     # TODO[santorella]: Rather than manually removing it, we should
                     # ensure that it is never passed.
                     if optimizer_options is not None:
-                        optimizer_options.pop("raw_samples")
+                        optimizer_options.pop("raw_samples", None)
             else:
                 optimizer = "optimize_acqf_mixed"
 

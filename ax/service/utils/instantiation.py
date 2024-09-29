@@ -477,7 +477,8 @@ class InstantiationBase:
         """Parse string representation of an outcome constraint."""
         tokens = representation.split()
         assert len(tokens) == 3 and tokens[1] in COMPARISON_OPS, (
-            "Outcome constraint should be of form `metric_name >= x`, where x is a "
+            f"Outcome constraint '{representation}' should be of "
+            "form `metric_name >= x`, where x is a "
             "float bound and comparison operator is >= or <=."
         )
         op = COMPARISON_OPS[tokens[1]]
@@ -489,7 +490,9 @@ class InstantiationBase:
                 bound_repr = bound_repr[:-1]
             bound = float(bound_repr)
         except ValueError:
-            raise ValueError("Outcome constraint bound should be a float.")
+            raise ValueError(
+                f"Outcome constraint bound should be a float for '{representation}'."
+            )
         return OutcomeConstraint(
             cls._make_metric(
                 name=tokens[0],

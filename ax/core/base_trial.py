@@ -534,8 +534,10 @@ class BaseTrial(ABC, SortableBase):
         experiment, uses the existing arm name.
         """
         proposed_name = self._get_default_name()
+
+        # Arm could already be in experiment, replacement is okay.
         self.experiment._name_and_store_arm_if_not_exists(
-            arm=arm, proposed_name=proposed_name
+            arm=arm, proposed_name=proposed_name, replace=True
         )
         # If arm was named using given name, incremement the count
         if arm.name == proposed_name:

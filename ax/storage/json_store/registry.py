@@ -82,6 +82,10 @@ from ax.modelbridge.best_model_selector import (
 )
 from ax.modelbridge.factory import Models
 from ax.modelbridge.generation_node import GenerationNode, GenerationStep
+from ax.modelbridge.generation_node_input_constructors import (
+    InputConstructorPurpose,
+    NodeInputConstructors,
+)
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import ModelRegistryBase
@@ -312,6 +316,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "Hartmann6Metric": Hartmann6Metric,
     "HierarchicalSearchSpace": HierarchicalSearchSpace,
     "ImprovementGlobalStoppingStrategy": ImprovementGlobalStoppingStrategy,
+    "InputConstructorPurpose": InputConstructorPurpose,
     "Interval": Interval,
     "LifecycleStage": LifecycleStage,
     "ListSurrogate": Surrogate,  # For backwards compatibility
@@ -334,6 +339,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "MultiObjectiveOptimizationConfig": MultiObjectiveOptimizationConfig,
     "MultiTypeExperiment": MultiTypeExperiment,
     "NegativeBraninMetric": NegativeBraninMetric,
+    "NodeInputConstructors": NodeInputConstructors,
     "NoisyFunctionMetric": NoisyFunctionMetric,
     "Normalize": Normalize,
     "Objective": Objective,

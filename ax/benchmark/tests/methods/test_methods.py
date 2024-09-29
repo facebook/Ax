@@ -6,14 +6,24 @@
 # pyre-strict
 
 
+from itertools import product
+from unittest.mock import patch
+
 import numpy as np
 from ax.benchmark.benchmark import benchmark_replication
 from ax.benchmark.benchmark_method import get_benchmark_scheduler_options
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.benchmark.problems.registry import get_problem
+from ax.core.experiment import Experiment
 from ax.modelbridge.registry import Models
+from ax.service.scheduler import Scheduler
+from ax.service.utils.best_point import (
+    get_best_by_raw_objective_with_trial_index,
+    get_best_parameters_from_model_predictions_with_trial_index,
+)
 from ax.service.utils.scheduler_options import SchedulerOptions
+from ax.utils.common.random import with_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -124,3 +134,68 @@ class TestMethods(TestCase):
         problem = get_problem(problem_name="ackley4", num_trials=3)
         result = benchmark_replication(problem=problem, method=method, seed=0)
         self.assertTrue(np.isfinite(result.score_trace).all())
+
+    def _test_get_best_parameters(
+        self, use_model_predictions: bool, as_batch: bool
+    ) -> None:
+        problem = get_problem(
+            problem_name="ackley4", num_trials=2, test_problem_kwargs={"noise_std": 1.0}
+        )
+
+        method = get_sobol_botorch_modular_acquisition(
+            model_cls=SingleTaskGP,
+            acquisition_cls=qLogExpectedImprovement,
+            distribute_replications=False,
+            best_point_kwargs={"use_model_predictions": use_model_predictions},
+            num_sobol_trials=1,
+        )
+
+        experiment = Experiment(
+            name="test",
+            search_space=problem.search_space,
+            optimization_config=problem.optimization_config,
+            runner=problem.runner,
+        )
+
+        scheduler = Scheduler(
+            experiment=experiment,
+            generation_strategy=method.generation_strategy.clone_reset(),
+            options=method.scheduler_options,
+        )
+
+        with with_rng_seed(seed=0):
+            scheduler.run_n_trials(max_trials=problem.num_trials)
+
+        # because the second trial is a BoTorch trial, the model should be used
+        best_point_mixin_path = "ax.service.utils.best_point_mixin.best_point_utils."
+        with patch(
+            best_point_mixin_path
+            + "get_best_parameters_from_model_predictions_with_trial_index",
+            wraps=get_best_parameters_from_model_predictions_with_trial_index,
+        ) as mock_get_best_parameters_from_predictions, patch(
+            best_point_mixin_path + "get_best_by_raw_objective_with_trial_index",
+            wraps=get_best_by_raw_objective_with_trial_index,
+        ) as mock_get_best_by_raw_objective_with_trial_index:
+            best_params = method.get_best_parameters(
+                experiment=experiment,
+                optimization_config=problem.optimization_config,
+                n_points=1,
+            )
+        if use_model_predictions:
+            mock_get_best_parameters_from_predictions.assert_called_once()
+            # get_best_by_raw_objective_with_trial_index might be used as
+            # fallback
+        else:
+            mock_get_best_parameters_from_predictions.assert_not_called()
+            mock_get_best_by_raw_objective_with_trial_index.assert_called_once()
+        self.assertEqual(len(best_params), 1)
+
+    def test_get_best_parameters(self) -> None:
+        for use_model_predictions, as_batch in product(
+            [False, True],
+            [False, True],
+        ):
+            with self.subTest(f"{use_model_predictions=}, {as_batch=}"):
+                self._test_get_best_parameters(
+                    use_model_predictions=use_model_predictions, as_batch=as_batch
+                )

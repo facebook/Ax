@@ -134,7 +134,7 @@ class BestPointMixin(metaclass=ABCMeta):
         optimization_config: Optional[OptimizationConfig] = None,
         trial_indices: Optional[Iterable[int]] = None,
         use_model_predictions: bool = True,
-    ) -> Optional[dict[int, tuple[TParameterization, TModelPredictArm]]]:
+    ) -> dict[int, tuple[TParameterization, TModelPredictArm]]:
         """Identifies the best parameterizations tried in the experiment so far,
         using model predictions if ``use_model_predictions`` is true and using
         observed values from the experiment otherwise. By default, uses model
@@ -158,12 +158,13 @@ class BestPointMixin(metaclass=ABCMeta):
                 observed values.
 
         Returns:
-            ``None`` if it was not possible to extract the Pareto frontier,
-            otherwise a mapping from trial index to the tuple of:
+            A mapping from trial index to the tuple of:
             - the parameterization of the arm in that trial,
             - two-item tuple of metric means dictionary and covariance matrix
                 (model-predicted if ``use_model_predictions=True`` and observed
                 otherwise).
+            Raises a `NotImplementedError` if extracting the Pareto frontier is
+            not possible. Note that the returned dict may be empty.
         """
         pass
 
@@ -434,9 +435,9 @@ class BestPointMixin(metaclass=ABCMeta):
         """Compute the optimization trace at each iteration.
 
         Given an experiment and an optimization config, compute the performance
-        at each iteration. For multi-objective, the performance is compute as the
-        hypervolume. For single objective, the performance is compute as the best
-        observed objective value.
+        at each iteration. For multi-objective, the performance is computed as
+        the hypervolume. For single objective, the performance is computed as
+        the best observed objective value.
 
         An iteration here refers to a completed or early-stopped (batch) trial.
         There will be one performance metric in the trace for each iteration.

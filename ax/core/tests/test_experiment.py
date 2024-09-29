@@ -34,7 +34,7 @@ from ax.core.parameter import (
 )
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import AxError, UnsupportedError
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
@@ -1540,4 +1540,44 @@ class ExperimentWithMapDataTest(TestCase):
                         another_aux_exp,
                     ],
                 },
+            )
+
+    def test_name_and_store_arm_if_not_exists_same_name_different_signature(
+        self,
+    ) -> None:
+        experiment = self.experiment
+        shared_name = "shared_name"
+
+        arm_1 = Arm({"x1": -1.0, "x2": 1.0}, name=shared_name)
+        arm_2 = Arm({"x1": -1.7, "x2": 0.2, "x3": 1})
+        self.assertNotEqual(arm_1.signature, arm_2.signature)
+
+        experiment._register_arm(arm=arm_1)
+        with self.assertRaisesRegex(
+            AxError,
+            f"Arm with name {shared_name} already exists on experiment "
+            f"with different signature.",
+        ):
+            experiment._name_and_store_arm_if_not_exists(
+                arm=arm_2, proposed_name=shared_name
+            )
+
+    def test_name_and_store_arm_if_not_exists_same_proposed_name_different_signature(
+        self,
+    ) -> None:
+        experiment = self.experiment
+        shared_name = "shared_name"
+
+        arm_1 = Arm({"x1": -1.0, "x2": 1.0}, name=shared_name)
+        arm_2 = Arm({"x1": -1.7, "x2": 0.2, "x3": 1}, name=shared_name)
+        self.assertNotEqual(arm_1.signature, arm_2.signature)
+
+        experiment._register_arm(arm=arm_1)
+        with self.assertRaisesRegex(
+            AxError,
+            f"Arm with name {shared_name} already exists on experiment "
+            f"with different signature.",
+        ):
+            experiment._name_and_store_arm_if_not_exists(
+                arm=arm_2, proposed_name="different proposed name"
             )

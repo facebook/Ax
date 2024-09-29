@@ -8,8 +8,19 @@
 
 from enum import Enum, unique
 
+# ------------------------- Miscellaneous -------------------------
 
-# -------------------------- Warnings --------------------------
+
+TS_FMT = "%Y-%m-%d %H:%M:%S.%f"
+
+DEFAULT_WINSORIZATION_LIMITS_MINIMIZATION: tuple[float, float] = (0.0, 0.2)
+DEFAULT_WINSORIZATION_LIMITS_MAXIMIZATION: tuple[float, float] = (0.2, 0.0)
+
+TESTENV_ENV_KEY = "TESTENV"
+TESTENV_ENV_VAL = "True"
+
+
+# --------------------------- Warnings ---------------------------
 
 
 EXPERIMENT_IS_TEST_WARNING = (
@@ -19,7 +30,7 @@ EXPERIMENT_IS_TEST_WARNING = (
 )
 
 
-# -------------------------- Error messages --------------------------
+# ------------------------ Error messages ------------------------
 
 
 UNEXPECTED_METRIC_COMBINATION = """\
@@ -28,7 +39,7 @@ subclasses with defined fetching logic.
 """
 
 
-# --------------------------- Reserved keys ---------------------------
+# ------------------------- Reserved keys -------------------------
 
 
 @unique
@@ -50,6 +61,7 @@ class Keys(str, Enum):
     CURRENT_VALUE = "current_value"
     EXPAND = "expand"
     EXPECTED_ACQF_VAL = "expected_acquisition_value"
+    EXPERIMENT_TOTAL_CONCURRENT_ARMS = "total_concurrent_arms"
     FIDELITY_FEATURES = "fidelity_features"
     FIDELITY_WEIGHTS = "fidelity_weights"
     FRAC_RANDOM = "frac_random"
@@ -72,6 +84,7 @@ class Keys(str, Enum):
     QMC = "qmc"
     RAW_INNER_SAMPLES = "raw_inner_samples"
     RAW_SAMPLES = "raw_samples"
+    RESUMED_FROM_STORAGE_TS = "resumed_from_storage_timestamps"
     SAMPLER = "sampler"
     SEED_INNER = "seed_inner"
     SEQUENTIAL = "sequential"
@@ -82,10 +95,3 @@ class Keys(str, Enum):
     WARM_START_REFITTING = "warm_start_refitting"
     X_BASELINE = "X_baseline"
     PAIRWISE_PREFERENCE_QUERY = "pairwise_pref_query"
-
-
-DEFAULT_WINSORIZATION_LIMITS_MINIMIZATION: tuple[float, float] = (0.0, 0.2)
-DEFAULT_WINSORIZATION_LIMITS_MAXIMIZATION: tuple[float, float] = (0.2, 0.0)
-
-TESTENV_ENV_KEY = "TESTENV"
-TESTENV_ENV_VAL = "True"

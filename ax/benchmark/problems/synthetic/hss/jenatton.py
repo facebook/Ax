@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Optional
 
@@ -19,7 +20,6 @@ from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import HierarchicalSearchSpace
-from ax.core.types import TParameterization
 from pyre_extensions import none_throws
 
 
@@ -60,7 +60,8 @@ class Jenatton(ParamBasedTestProblem):
     optimal_value: float = 0.1
     _is_constrained: bool = False
 
-    def evaluate_true(self, params: TParameterization) -> torch.Tensor:
+    # pyre-fixme[14]: Inconsistent override
+    def evaluate_true(self, params: Mapping[str, float | int | None]) -> torch.Tensor:
         # pyre-fixme: Incompatible parameter type [6]: In call
         # `jenatton_test_function`, for 1st positional argument, expected
         # `Optional[float]` but got `Union[None, bool, float, int, str]`.

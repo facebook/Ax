@@ -30,12 +30,13 @@ from ax.exceptions.generation_strategy import (
 )
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_node import GenerationNode, GenerationStep
+from ax.modelbridge.generation_node_input_constructors import InputConstructorPurpose
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec
 from ax.modelbridge.modelbridge_utils import get_fixed_features_from_experiment
-from ax.modelbridge.registry import _extract_model_state_after_gen, ModelRegistryBase
 from ax.modelbridge.transition_criterion import TrialBasedCriterion
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import checked_cast, checked_cast_list, not_none
+from ax.utils.common.typeutils import checked_cast_list, not_none
 from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
@@ -385,6 +386,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         data: Optional[Data] = None,
         pending_observations: Optional[dict[str, list[ObservationFeatures]]] = None,
         arms_per_node: Optional[dict[str, int]] = None,
+        n: Optional[int] = None,
     ) -> list[GeneratorRun]:
         """Produces a List of GeneratorRuns for a single trial, either ``Trial`` or
         ``BatchTrial``, and if producing a ``BatchTrial`` allows for multiple
@@ -404,9 +406,15 @@ class GenerationStrategy(GenerationStrategyInterface):
             pending_observations: A map from metric name to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
-            arms_per_node: A map from node name to the number of arms to generate
-                from that node. If not provided, the number of arms to generate
-                from each node defaults to one.
+            arms_per_node: An optional map from node name to the number of arms to
+                generate from that node. If not provided, will default to the number
+                of arms specified in the node's ``InputConstructors`` or n if no
+                ``InputConstructors`` are defined on the node.
+            n: Integer representing how many arms should be in the generator run
+                produced by this method. NOTE: Some underlying models may ignore
+                the `n` and produce a model-determined number of arms. In that
+                case this method will also output a generator run with number of
+                arms that can differ from `n`.
 
         Returns:
             A list of ``GeneratorRuns`` for a single trial.
@@ -415,6 +423,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         # Validate `arms_per_node` if specified, otherwise construct the default
         # behavior with keys being node names and values being 1 to represent
         # generating a single GR from each node.
+        n = self._get_n(experiment=experiment, n=n)
         node_names = [node.node_name for node in self._nodes]
         if arms_per_node is not None and not all(
             node_name in arms_per_node for node_name in node_names
@@ -428,25 +437,40 @@ class GenerationStrategy(GenerationStrategyInterface):
                 the spelling.
                 """
             )
-        if arms_per_node is None:
-            arms_per_node = {node_name: 1 for node_name in node_names}
         grs = []
         continue_gen_for_trial = True
-
+        # TODO: @mgarrard update this when gen methods are merged
+        gen_kwargs = {
+            "experiment": experiment,
+            "data": data,
+            "pending_observations": pending_observations,
+            "grs_this_gen": grs,
+            "n": n,
+        }
         while continue_gen_for_trial:
-            next_node_name = self.current_node_name
-            should_transition, next_node = self._curr.should_transition_to_next_node(
-                raise_data_required_error=False
+            gen_kwargs["grs_this_gen"] = grs
+            should_transition, node_to_gen_from_name = (
+                self._curr.should_transition_to_next_node(
+                    raise_data_required_error=False
+                )
             )
+            node_to_gen_from = self._nodes[node_names.index(node_to_gen_from_name)]
             if should_transition:
-                assert next_node is not None
-                next_node_name = next_node
+                node_to_gen_from._previous_node_name = node_to_gen_from_name
+            arms_from_node = self._determine_arms_from_node(
+                node_to_gen_from=node_to_gen_from,
+                arms_per_node=arms_per_node,
+                node_to_gen_from_name=node_to_gen_from_name,
+                n=n,
+                node_names=node_names,
+                gen_kwargs=gen_kwargs,
+            )
             grs.extend(
                 self._gen_multiple(
                     experiment=experiment,
                     num_generator_runs=1,
                     data=data,
-                    n=arms_per_node[next_node_name],
+                    n=arms_from_node,
                     pending_observations=pending_observations,
                 )
             )
@@ -458,7 +482,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         experiment: Experiment,
         num_generator_runs: int,
         data: Optional[Data] = None,
-        n: int = 1,
+        n: Optional[int] = None,
     ) -> list[list[GeneratorRun]]:
         """Produce GeneratorRuns for multiple trials at once with the possibility of
         ensembling, or using multiple models per trial, getting multiple
@@ -486,6 +510,8 @@ class GenerationStrategy(GenerationStrategyInterface):
             a trial being suggested and  each inner list represents a generator
             run for that trial.
         """
+        # TODO: use gen_with_multiple_nodes() and get `n` there
+        n = self._get_n(experiment=experiment, n=n)
         grs = self._gen_multiple(
             experiment=experiment,
             num_generator_runs=num_generator_runs,
@@ -533,6 +559,26 @@ class GenerationStrategy(GenerationStrategyInterface):
 
         return GenerationStrategy(
             name=self.name, steps=checked_cast_list(GenerationStep, cloned_nodes)
+        )
+
+    def _get_n(self, experiment: Experiment, n: Optional[int]) -> int:
+        """Get the number of arms to generate from the current generation node.
+
+        Args:
+            experiment: Experiment, for which the generation strategy is producing
+                a new generator run, which will be used to check for
+                ``total_concurrent_arms`` if n is None.
+            n: Optional number of arms passed in by the user.
+        """
+        total_concurrent_arms = experiment._properties.get(
+            Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS.value
+        )
+        # TODO: implement logic for determining n based on total_concurrent_arms
+        calculated_n = total_concurrent_arms
+        return (
+            (self.DEFAULT_N if calculated_n is None else calculated_n)
+            if n is None
+            else n
         )
 
     def _unset_non_persistent_state_fields(self) -> None:
@@ -839,6 +885,63 @@ class GenerationStrategy(GenerationStrategyInterface):
             for tc in self._curr.transition_edges[next_node]
         )
 
+    def _determine_arms_from_node(
+        self,
+        n: int,
+        node_to_gen_from: GenerationNode,
+        node_to_gen_from_name: str,
+        node_names: list[str],
+        gen_kwargs: dict[str, Any],
+        arms_per_node: Optional[dict[str, int]] = None,
+    ) -> int:
+        """Calculates the number of arms to generate from the node that will be used
+        during generation.
+
+        Args:
+            n: Integer representing how many arms should be in the generator run
+                produced by this method. NOTE: Some underlying models may ignore
+                the `n` and produce a model-determined number of arms. In that
+                case this method will also output a generator run with number of
+                arms that can differ from `n`.
+            node_to_gen_from: The node from which to generate from
+            node_to_gen_from_name: The name of the node from which to generate from.
+            node_names: The names of all nodes in this generation strategy.
+            gs_kwargs: The kwargs passed to the ``GenerationStrategy``'s
+            gen call.
+            arms_per_node: An optional map from node name to the number of arms to
+                generate from that node. If not provided, will default to the number
+                of arms specified in the node's ``InputConstructors`` or n if no
+                ``InputConstructors`` are defined on the node.
+
+        Returns:
+            The number of arms to generate from the node that will be used during this
+            generation via ``_gen_multiple``.
+        """
+        if arms_per_node is not None:
+            # arms_per_node provides a way to manually override input
+            # constructors. This should be used with caution, and only
+            # if you really know what you're doing. :)
+            arms_from_node = arms_per_node[node_to_gen_from_name]
+        elif InputConstructorPurpose.N not in node_to_gen_from.input_constructors:
+            # if the node does not have an input constructor for N, then we
+            # assume a default of generating n arms from this node.
+            arms_from_node = n
+        else:
+            previous_node = (
+                self._nodes[node_names.index(node_to_gen_from._previous_node_name)]
+                if node_to_gen_from._previous_node_name is not None
+                else None
+            )
+            arms_from_node = node_to_gen_from.input_constructors[
+                InputConstructorPurpose.N
+            ](
+                previous_node=previous_node,
+                next_node=node_to_gen_from,
+                gs_gen_call_kwargs=gen_kwargs,
+            )
+
+        return arms_from_node
+
     # ------------------------- Model selection logic helpers. -------------------------
 
     def _fit_current_model(self, data: Optional[Data]) -> None:
@@ -850,15 +953,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                 strategy will obtain the data via ``experiment.lookup_data``.
         """
         data = self.experiment.lookup_data() if data is None else data
-        # If last generator run's index matches the current node, extract
-        # model state from last generator run and pass it to the model
-        # being instantiated in this function.
-        model_state_on_lgr = self._get_model_state_from_last_generator_run()
-        if not data.df.empty:
-            trial_indices_in_data = sorted(data.df["trial_index"].unique())
-            logger.debug(f"Fitting model with data for trials: {trial_indices_in_data}")
-
-        self._curr.fit(experiment=self.experiment, data=data, **model_state_on_lgr)
+        self._curr.fit(experiment=self.experiment, data=data)
         self._model = self._curr._fitted_model
 
     def _maybe_transition_to_next_node(
@@ -901,37 +996,3 @@ class GenerationStrategy(GenerationStrategyInterface):
                     # this is done in `self._fit_current_model).
                     self._model = None
         return move_to_next_node
-
-    def _get_model_state_from_last_generator_run(self) -> dict[str, Any]:
-        lgr = self.last_generator_run
-        model_state_on_lgr = {}
-        # Need to check if model_spec_to_gen_from is none to account for
-        # ExternalGenerationNodes which leverage models from outside Ax.
-        model_on_curr = (
-            self._curr.model_spec_to_gen_from.model_enum
-            if self._curr.model_spec_to_gen_from
-            else None
-        )
-        if lgr is None:
-            return model_state_on_lgr
-
-        if not self.is_node_based:
-            grs_equal = lgr._generation_step_index == self.current_step_index
-        else:
-            grs_equal = lgr._generation_node_name == self._curr.node_name
-
-        if grs_equal and lgr._model_state_after_gen:
-            if self.model or isinstance(model_on_curr, ModelRegistryBase):
-                model_cls = (
-                    self.model.model.__class__
-                    if self.model is not None
-                    # NOTE: This checked cast is save per the OR-statement in last line
-                    # of the IF-check above.
-                    else checked_cast(ModelRegistryBase, model_on_curr).model_class
-                )
-                model_state_on_lgr = _extract_model_state_after_gen(
-                    generator_run=lgr,
-                    model_class=model_cls,
-                )
-
-        return model_state_on_lgr

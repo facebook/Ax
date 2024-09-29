@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from ax.core.experiment import Experiment
+from ax.core.parameter import FixedParameter
 from ax.exceptions.core import AxWarning
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
@@ -66,7 +67,11 @@ def _get_max_transformed_dimensionality(
         len(
             extract_search_space_digest(
                 search_space=tf_search_space,
-                param_names=list(tf_search_space.parameters.keys()),
+                param_names=[
+                    name
+                    for name, param in tf_search_space.parameters.items()
+                    if not isinstance(param, FixedParameter)
+                ],
             ).bounds
         )
         for tf_search_space in transformed_search_spaces

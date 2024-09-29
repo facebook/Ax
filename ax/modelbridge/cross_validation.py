@@ -184,7 +184,7 @@ def cross_validate(
                 # To avoid confusing users with this warning, we filter it out.
                 warnings.filterwarnings(
                     "ignore",
-                    message=r"Data \(outcome observations\) not standardized",
+                    message=r"Data \(outcome observations\) is not standardized",
                     category=InputDataWarning,
                 )
                 cv_test_predictions = model._cross_validate(

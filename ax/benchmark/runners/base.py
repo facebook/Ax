@@ -6,20 +6,21 @@
 # pyre-strict
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from math import sqrt
 from typing import Any, Union
 
 import torch
-from ax.core.arm import Arm
 
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.trial import Trial
+from ax.core.types import TParamValue
 
 from ax.utils.common.typeutils import checked_cast
+from numpy import ndarray
 from torch import Tensor
 
 
@@ -57,7 +58,7 @@ class BenchmarkRunner(Runner, ABC):
         else:
             self.target_fidelity_and_task = {}
 
-    def get_Y_true(self, arm: Arm) -> Tensor:
+    def get_Y_true(self, params: Mapping[str, TParamValue]) -> Tensor:
         """
         Return the ground truth values for a given arm.
 
@@ -65,7 +66,7 @@ class BenchmarkRunner(Runner, ABC):
         """
         ...
 
-    def evaluate_oracle(self, arm: Arm) -> Tensor:
+    def evaluate_oracle(self, parameters: Mapping[str, TParamValue]) -> ndarray:
         """
         Evaluate oracle metric values at a parameterization. In the base class,
         oracle values are underlying noiseless function values evaluated at the
@@ -76,8 +77,8 @@ class BenchmarkRunner(Runner, ABC):
         preference-learned objective, the values might be true metrics evaluated
         at the true utility function (which would be unobserved in reality).
         """
-        params = {**arm.parameters, **self.target_fidelity_and_task}
-        return self.get_Y_true(arm=Arm(parameters=params))
+        params = {**parameters, **self.target_fidelity_and_task}
+        return self.get_Y_true(params=params).numpy()
 
     @abstractmethod
     def get_noise_stds(self) -> Union[None, float, dict[str, float]]:
@@ -132,7 +133,7 @@ class BenchmarkRunner(Runner, ABC):
 
         for arm in trial.arms:
             # Case where we do have a ground truth
-            Y_true = self.get_Y_true(arm)
+            Y_true = self.get_Y_true(arm.parameters)
             if noise_stds is None:
                 # No noise, so just return the true outcome.
                 Ystds[arm.name] = [0.0] * len(Y_true)

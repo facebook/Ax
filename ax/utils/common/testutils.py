@@ -250,6 +250,19 @@ def _build_comparison_str(
 def setup_import_mocks(
     mocked_import_paths: list[str], mock_config_dict: Optional[dict[str, Any]] = None
 ) -> None:
+    """This function mocks expensive modules used in tests. It must be called before
+    those modules are imported or it will not work.  Stubbing out these modules
+    will obviously affect the behavior of all tests that use it, so be sure modules
+    being mocked are not important to your test.  It will also mock all child modules.
+
+    Args:
+        mocked_import_paths: List of module paths to mock.
+        mock_config_dict: Dictionary of attributes to mock on the modules being mocked.
+            This is useful if the import is expensive, but there is still some
+            functionality it has the test relies on.  These attributes will be
+            set on all modules being mocked.
+    """
+
     # pyre-fixme[3]
     def custom_import(name: str, *args: Any, **kwargs: Any) -> Any:
         for import_path in mocked_import_paths:
@@ -293,8 +306,10 @@ class TestCase(fake_filesystem_unittest.TestCase):
                 message += (
                     " To see a profiler output, set `TestCase.PROFILE_TESTS` to `True`."
                 )
-
-            if self._long_test_active_reason is None:
+            if hasattr(sys, "gettrace") and sys.gettrace() is not None:
+                # If we're in a debugger session, let the test continue running.
+                return
+            elif self._long_test_active_reason is None:
                 message += (
                     " To specify a reason for a long running test,"
                     + " utilize the @ax_long_test decorator. If your test "
@@ -351,7 +366,12 @@ class TestCase(fake_filesystem_unittest.TestCase):
         # BoTorch input standardization warnings.
         warnings.filterwarnings(
             "ignore",
-            message="Input data is not",
+            message=r"Data \(outcome observations\) is not standardized ",
+            category=InputDataWarning,
+        )
+        warnings.filterwarnings(
+            "ignore",
+            message=r"Data \(input features\) is not",
             category=InputDataWarning,
         )
 

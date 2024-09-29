@@ -85,7 +85,6 @@ class JenattonTest(TestCase):
             )
 
         for params, value in cases:
-            arm = Arm(parameters=params)
             self.assertAlmostEqual(
                 # pyre-fixme: Incompatible parameter type [6]: In call
                 # `jenatton_test_function`, for 1st positional argument,
@@ -95,7 +94,7 @@ class JenattonTest(TestCase):
                 value,
             )
             self.assertAlmostEqual(
-                benchmark_problem.runner.evaluate_oracle(arm).item(),
+                benchmark_problem.runner.evaluate_oracle(parameters=params)[0],
                 value,
                 places=6,
             )

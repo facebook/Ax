@@ -38,6 +38,12 @@ Transition Criterion
     :undoc-members:
     :show-inheritance:
 
+Generation Node Input Constructors
+.. automodule:: ax.modelbridge.generation_node_input_constructors
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Registry
 ~~~~~~~~
 .. automodule:: ax.modelbridge.registry
@@ -380,6 +386,14 @@ Transforms
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.time_as_feature
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+`ax.modelbridge.transforms.transform\_to\_new\_sq`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.transform_to_new_sq
     :members:
     :undoc-members:
     :show-inheritance:

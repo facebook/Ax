@@ -49,6 +49,7 @@ def load_experiment(
     reduced_state: bool = False,
     load_trials_in_batches_of_size: Optional[int] = None,
     skip_runners_and_metrics: bool = False,
+    load_auxiliary_experiments: bool = True,
 ) -> Experiment:
     """Load experiment by name.
 
@@ -57,7 +58,7 @@ def load_experiment(
         config: `SQAConfig`, from which to retrieve the decoder. Optional,
             defaults to base `SQAConfig`.
         reduced_state: Whether to load experiment with a slightly reduced state
-            (without abandoned arms on experiment and withoug model state,
+            (without abandoned arms on experiment and without model state,
             search space, and optimization config on generator runs).
         skip_runners_and_metrics: If True skip loading runners, and do only a
             minimal load of metrics. This option is intended to enable loading of
@@ -65,6 +66,7 @@ def load_experiment(
             on a registry. Note that even though the intention is to skip loading
             of metrics, this option converts the loaded metrics into a base
             metric avoiding conversion related to custom properties of the metric.
+        load_auxiliary_experiments: whether to load auxiliary experiments.
     """
     config = SQAConfig() if config is None else config
     decoder = Decoder(config=config)
@@ -74,6 +76,7 @@ def load_experiment(
         reduced_state=reduced_state,
         load_trials_in_batches_of_size=load_trials_in_batches_of_size,
         skip_runners_and_metrics=skip_runners_and_metrics,
+        load_auxiliary_experiments=load_auxiliary_experiments,
     )
 
 
@@ -84,6 +87,7 @@ def _load_experiment(
     load_trials_in_batches_of_size: Optional[int] = None,
     ax_object_field_overrides: Optional[dict[str, Any]] = None,
     skip_runners_and_metrics: bool = False,
+    load_auxiliary_experiments: bool = True,
 ) -> Experiment:
     """Load experiment by name, using given Decoder instance.
 
@@ -100,7 +104,7 @@ def _load_experiment(
             to override values loaded objects will all be instantiated with fields
             set to override value
             current valid object types are: "runner"
-
+        load_auxiliary_experiments: whether to load auxiliary experiments.
     """
 
     # pyre-ignore Incompatible variable type [9]: exp_sqa_class is declared to have type
@@ -167,6 +171,7 @@ def _load_experiment(
         experiment_sqa=experiment_sqa,
         reduced_state=reduced_state,
         ax_object_field_overrides=ax_object_field_overrides,
+        load_auxiliary_experiments=load_auxiliary_experiments,
     )
 
 

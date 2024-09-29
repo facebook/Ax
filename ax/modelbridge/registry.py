@@ -424,7 +424,7 @@ class Models(ModelRegistryBase):
 
     To instantiate a model in this enum, simply call an enum member like so:
     `Models.SOBOL(search_space=search_space)` or
-    `Models.GPEI(experiment=experiment, data=data)`. Keyword arguments
+    `Models.BOTORCH(experiment=experiment, data=data)`. Keyword arguments
     specified to the call will be passed into the model or the model bridge
     constructors according to their keyword.
 
@@ -572,12 +572,9 @@ def _extract_model_state_after_gen(
     generator_run: GeneratorRun, model_class: type[Model]
 ) -> dict[str, Any]:
     """Extracts serialized post-generation model state from a generator run and
-    deserializes it. Fails if no post-generation model state was specified on the
-    generator run.
+    deserializes it.
     """
-    serialized_model_state = not_none(generator_run._model_state_after_gen)
-    # We don't want to update `model_kwargs` on the `GenerationStep`,
-    # just to add to them for the purpose of this function.
+    serialized_model_state = generator_run._model_state_after_gen or {}
     return model_class.deserialize_state(serialized_model_state)
 
 

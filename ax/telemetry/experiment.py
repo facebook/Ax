@@ -270,10 +270,12 @@ class ExperimentCompletedRecord:
             status: len(trials)
             for status, trials in experiment.trials_by_status.items()
         }
+        ignored_statuses = {TrialStatus.STAGED, TrialStatus.CANDIDATE}
 
         model_keys = [
             [gr._model_key for gr in trial.generator_runs]
             for trial in experiment.trials.values()
+            if trial.status not in ignored_statuses
         ]
 
         fit_time, gen_time = get_model_times(experiment=experiment)

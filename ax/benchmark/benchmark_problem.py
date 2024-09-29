@@ -5,10 +5,10 @@
 
 # pyre-strict
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Optional, Union
 
-import numpy as np
 import pandas as pd
 
 from ax.benchmark.benchmark_metric import BenchmarkMetric
@@ -25,9 +25,8 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import ComparisonOp
+from ax.core.types import ComparisonOp, TParamValue
 from ax.modelbridge.modelbridge_utils import extract_search_space_digest
-from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.base import Base
 from botorch.test_functions.base import (
     BaseTestProblem,
@@ -75,6 +74,13 @@ class BenchmarkProblem(Base):
         search_space: The search space.
         runner: The Runner that will be used to generate data for the problem,
             including any ground-truth data stored as tracking metrics.
+        report_inference_value_as_trace: Whether the ``optimization_trace`` on a
+            ``BenchmarkResult`` should use the ``oracle_trace`` (if False,
+            default) or the ``inference_trace``. See ``BenchmarkResult`` for
+            more information. Currently, this is only supported for
+            single-objective problems.
+        n_best_points: Number of points for a best-point selector to recommend.
+            Currently, only ``n_best_points=1`` is supported.
     """
 
     name: str
@@ -85,49 +91,96 @@ class BenchmarkProblem(Base):
 
     search_space: SearchSpace = field(repr=False)
     runner: BenchmarkRunner = field(repr=False)
+    report_inference_value_as_trace: bool = False
+    n_best_points: int = 1
 
-    def get_oracle_experiment(self, experiment: Experiment) -> Experiment:
+    def __post_init__(self) -> None:
+        if self.n_best_points != 1:
+            raise NotImplementedError("Only `n_best_points=1` is currently supported.")
+        if self.report_inference_value_as_trace and self.is_moo:
+            raise NotImplementedError(
+                "Inference trace is not supported for MOO. Please set "
+                "`report_inference_value_as_trace` to False."
+            )
+
+    def get_oracle_experiment_from_params(
+        self,
+        dict_of_dict_of_params: Mapping[int, Mapping[str, [Mapping[str, TParamValue]]]],
+    ) -> Experiment:
+        """
+        Get a new experiment with the same search space and optimization config
+        as those belonging to this problem, but with parameterizations evaluated
+        at oracle values.
+
+        Args:
+            dict_of_dict_of_params: Keys are trial indices, values are Mappings
+                (e.g. dicts) that map arm names to parameterizations.
+
+        Example:
+            >>> problem.get_oracle_experiment_from_params(
+            ...     {
+            ...         0: {
+            ...            "0_0": {"x0": 0.0, "x1": 0.0},
+            ...            "0_1": {"x0": 0.3, "x1": 0.4},
+            ...         },
+            ...         1: {"1_0": {"x0": 0.0, "x1": 0.0}},
+            ...     }
+            ... )
+        """
         records = []
 
-        new_experiment = Experiment(
+        experiment = Experiment(
             search_space=self.search_space, optimization_config=self.optimization_config
         )
-        for trial_index, trial in experiment.trials.items():
-            for arm in trial.arms:
+        if len(dict_of_dict_of_params) == 0:
+            return experiment
+
+        for trial_index, dict_of_params in dict_of_dict_of_params.items():
+            if len(dict_of_params) == 0:
+                raise ValueError(
+                    "Can't create a trial with no arms. Each sublist in "
+                    "list_of_list_of_params must have at least one element."
+                )
+            for arm_name, params in dict_of_params.items():
                 for metric_name, metric_value in zip(
-                    self.runner.outcome_names, self.runner.evaluate_oracle(arm=arm)
+                    self.runner.outcome_names,
+                    self.runner.evaluate_oracle(parameters=params),
                 ):
                     records.append(
                         {
-                            "arm_name": arm.name,
+                            "arm_name": arm_name,
                             "metric_name": metric_name,
-                            "mean": metric_value.item(),
+                            "mean": metric_value,
                             "sem": 0.0,
                             "trial_index": trial_index,
                         }
                     )
 
-            new_experiment.attach_trial(
-                parameterizations=[arm.parameters for arm in trial.arms],
-                arm_names=[arm.name for arm in trial.arms],
+            experiment.attach_trial(
+                parameterizations=list(dict_of_params.values()),
+                arm_names=list(dict_of_params.keys()),
             )
-        for trial in new_experiment.trials.values():
+        for trial in experiment.trials.values():
             trial.mark_completed()
 
         data = Data(df=pd.DataFrame.from_records(records))
-        new_experiment.attach_data(data=data, overwrite_existing_data=True)
-        return new_experiment
+        experiment.attach_data(data=data, overwrite_existing_data=True)
+        return experiment
 
-    def get_opt_trace(self, experiment: Experiment) -> np.ndarray:
-        """Evaluate the optimization trace of a list of Trials."""
-        oracle_experiment = self.get_oracle_experiment(experiment=experiment)
-
-        return np.array(
-            BestPointMixin._get_trace(
-                experiment=oracle_experiment,
-                optimization_config=self.optimization_config,
-            )
+    def get_oracle_experiment_from_experiment(
+        self, experiment: Experiment
+    ) -> Experiment:
+        return self.get_oracle_experiment_from_params(
+            dict_of_dict_of_params={
+                trial.index: {arm.name: arm.parameters for arm in trial.arms}
+                for trial in experiment.trials.values()
+            }
         )
+
+    @property
+    def is_moo(self) -> bool:
+        """Whether the problem is multi-objective."""
+        return isinstance(self.optimization_config, MultiObjectiveOptimizationConfig)
 
 
 def _get_constraints(
@@ -250,6 +303,7 @@ def create_problem_from_botorch(
     lower_is_better: bool = True,
     observe_noise_sd: bool = False,
     search_space: SearchSpace | None = None,
+    report_inference_value_as_trace: bool = False,
 ) -> BenchmarkProblem:
     """
     Create a `BenchmarkProblem` from a BoTorch `BaseTestProblem`.
@@ -273,6 +327,10 @@ def create_problem_from_botorch(
         search_space: If provided, the `search_space` of the `BenchmarkProblem`.
             Otherwise, a `SearchSpace` with all `RangeParameter`s is created
             from the bounds of the test problem.
+        report_inference_value_as_trace: If True, indicates that the
+            ``optimization_trace`` on a ``BenchmarkResult`` ought to be the
+            ``inference_trace``; otherwise, it will be the ``oracle_trace``.
+            See ``BenchmarkResult`` for more information.
     """
     # pyre-fixme [45]: Invalid class instantiation
     test_problem = test_problem_class(**test_problem_kwargs)
@@ -329,4 +387,5 @@ def create_problem_from_botorch(
         num_trials=num_trials,
         observe_noise_stds=observe_noise_sd,
         optimal_value=optimal_value,
+        report_inference_value_as_trace=report_inference_value_as_trace,
     )
