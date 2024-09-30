@@ -164,6 +164,11 @@ class GenerationStrategy(GenerationStrategyInterface):
         )
 
     @property
+    def nodes_dict(self) -> dict[str, GenerationNode]:
+        """Returns a dictionary mapping node names to nodes."""
+        return {node.node_name: node for node in self._nodes}
+
+    @property
     def name(self) -> str:
         """Name of this generation strategy. Defaults to a combination of model
         names provided in generation steps, set at the time of the
@@ -424,17 +429,15 @@ class GenerationStrategy(GenerationStrategyInterface):
         # behavior with keys being node names and values being 1 to represent
         # generating a single GR from each node.
         n = self._get_n(experiment=experiment, n=n)
-        node_names = [node.node_name for node in self._nodes]
-        if arms_per_node is not None and not all(
-            node_name in arms_per_node for node_name in node_names
+        if arms_per_node is not None and not set(self.nodes_dict).issubset(
+            arms_per_node
         ):
             raise UserInputError(
                 f"""
-                Each node defined in the GenerationStrategy must have
-                an associated number of arms to generate from that node
-                defined in `arms_per_node`. {arms_per_node} does not
-                include all of {node_names}. It may be helpful to double check
-                the spelling.
+                Each node defined in the GenerationStrategy must have an associated
+                number of arms to generate from that node defined in `arms_per_node`.
+                {arms_per_node} does not include all of {self.nodes_dict.keys()}. It
+                may be helpful to double check the spelling.
                 """
             )
         grs = []
@@ -454,7 +457,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                     raise_data_required_error=False
                 )
             )
-            node_to_gen_from = self._nodes[node_names.index(node_to_gen_from_name)]
+            node_to_gen_from = self.nodes_dict[node_to_gen_from_name]
             if should_transition:
                 node_to_gen_from._previous_node_name = node_to_gen_from_name
             arms_from_node = self._determine_arms_from_node(
@@ -462,7 +465,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                 arms_per_node=arms_per_node,
                 node_to_gen_from_name=node_to_gen_from_name,
                 n=n,
-                node_names=node_names,
+                node_names=list(self.nodes_dict.keys()),
                 gen_kwargs=gen_kwargs,
             )
             grs.extend(
@@ -928,7 +931,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             arms_from_node = n
         else:
             previous_node = (
-                self._nodes[node_names.index(node_to_gen_from._previous_node_name)]
+                self.nodes_dict[node_to_gen_from._previous_node_name]
                 if node_to_gen_from._previous_node_name is not None
                 else None
             )
