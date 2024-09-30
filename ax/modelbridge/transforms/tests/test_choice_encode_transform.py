@@ -87,10 +87,10 @@ class ChoiceEncodeTransformTest(TestCase):
             "d": 1,
         }
 
-    def test_Init(self) -> None:
+    def test_init(self) -> None:
         self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c", "d", "e"])
 
-    def test_TransformObservationFeatures(self) -> None:
+    def test_transform_observation_features(self) -> None:
         observation_features = self.observation_features
         obs_ft2 = deepcopy(observation_features)
         obs_ft2 = self.t.transform_observation_features(obs_ft2)
@@ -112,7 +112,7 @@ class ChoiceEncodeTransformTest(TestCase):
         obs_ft5 = self.t.transform_observation_features([ObservationFeatures({})])
         self.assertEqual(obs_ft5[0], ObservationFeatures({}))
 
-    def test_ItPreservesChoiceParameterArgs(self) -> None:
+    def test_parameter_attributes_are_preserved(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
         for p in ("d", "e"):
@@ -137,7 +137,7 @@ class ChoiceEncodeTransformTest(TestCase):
                         original_param.values,
                     )
 
-    def test_TransformSearchSpace(self) -> None:
+    def test_transform_search_space(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
 
@@ -175,23 +175,18 @@ class ChoiceEncodeTransformTest(TestCase):
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
 
-    def test_w_parameter_distributions(self) -> None:
+    def test_with_parameter_distributions(self) -> None:
         rss = get_robust_search_space()
-        # pyre-fixme[16]: `Parameter` has no attribute `_is_ordered`.
-        rss.parameters["c"]._is_ordered = True
+        checked_cast(ChoiceParameter, rss.parameters["c"])._is_ordered = True
         # Transform a non-distributional parameter.
         t = self.t_class(
             search_space=rss,
             observations=[],
         )
-        rss_new = t.transform_search_space(rss)
-        # Make sure that the return value is still a RobustSearchSpace.
-        self.assertIsInstance(rss_new, RobustSearchSpace)
+        rss_new = checked_cast(RobustSearchSpace, t.transform_search_space(rss))
         self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
-        # pyre-fixme[16]: `SearchSpace` has no attribute `parameter_distributions`.
         self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
-        # pyre-fixme[16]: Optional type has no attribute `parameter_type`.
-        self.assertEqual(rss_new.parameters.get("c").parameter_type, ParameterType.INT)
+        self.assertEqual(rss_new.parameters["c"].parameter_type, ParameterType.INT)
         # Test with environmental variables.
         all_params = list(rss.parameters.values())
         rss = RobustSearchSpace(
@@ -204,13 +199,11 @@ class ChoiceEncodeTransformTest(TestCase):
             search_space=rss,
             observations=[],
         )
-        rss_new = t.transform_search_space(rss)
-        self.assertIsInstance(rss_new, RobustSearchSpace)
+        rss_new = checked_cast(RobustSearchSpace, t.transform_search_space(rss))
         self.assertEqual(set(rss.parameters.keys()), set(rss_new.parameters.keys()))
         self.assertEqual(rss.parameter_distributions, rss_new.parameter_distributions)
-        # pyre-fixme[16]: `SearchSpace` has no attribute `_environmental_variables`.
         self.assertEqual(rss._environmental_variables, rss_new._environmental_variables)
-        self.assertEqual(rss_new.parameters.get("c").parameter_type, ParameterType.INT)
+        self.assertEqual(rss_new.parameters["c"].parameter_type, ParameterType.INT)
 
 
 class OrderedChoiceToIntegerRangeTransformTest(ChoiceEncodeTransformTest):
@@ -229,10 +222,10 @@ class OrderedChoiceToIntegerRangeTransformTest(ChoiceEncodeTransformTest):
             "d": "r",
         }
 
-    def test_Init(self) -> None:
+    def test_init(self) -> None:
         self.assertEqual(list(self.t.encoded_parameters.keys()), ["b", "c"])
 
-    def test_TransformSearchSpace(self) -> None:
+    def test_transform_search_space(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
 
@@ -250,6 +243,7 @@ class OrderedChoiceToIntegerRangeTransformTest(ChoiceEncodeTransformTest):
         self.assertEqual(ss2.parameters["c"].upper, 2)
         self.assertEqual(ss2.parameters["d"].values, ["q", "r", "z"])
 
+    def test_transform_search_space_fidelity(self) -> None:
         # Ensure we error if we try to transform a fidelity parameter
         ss3 = SearchSpace(
             parameters=[
@@ -266,6 +260,39 @@ class OrderedChoiceToIntegerRangeTransformTest(ChoiceEncodeTransformTest):
         t = OrderedChoiceToIntegerRange(search_space=ss3, observations=[])
         with self.assertRaises(ValueError):
             t.transform_search_space(ss3)
+
+    def test_transform_search_space_with_different_values(self) -> None:
+        # Parameter with unseen values.
+        ss = SearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    name="b", parameter_type=ParameterType.FLOAT, values=[5.0, 10.0]
+                )
+            ]
+        )
+        with self.assertRaisesRegex(ValueError, "contains values that are not present"):
+            self.t.transform_search_space(ss)
+        # Parameter that maps to a non-contiguous range.
+        ss = SearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    name="b", parameter_type=ParameterType.FLOAT, values=[1.0, 100.0]
+                )
+            ]
+        )
+        with self.assertRaisesRegex(ValueError, "does not span a contiguous range"):
+            self.t.transform_search_space(ss)
+        # Parameter that maps to a contiguous range not starting at 0.
+        ss = SearchSpace(
+            parameters=[
+                ChoiceParameter(
+                    name="b", parameter_type=ParameterType.FLOAT, values=[10.0, 100.0]
+                )
+            ]
+        )
+        t_ss = self.t.transform_search_space(ss)
+        self.assertEqual(t_ss.parameters["b"].lower, 1)
+        self.assertEqual(t_ss.parameters["b"].upper, 2)
 
     def test_deprecated_OrderedChoiceEncode(self) -> None:
         # Ensure we error if we try to transform a fidelity parameter

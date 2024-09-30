@@ -177,12 +177,32 @@ class OrderedChoiceToIntegerRange(ChoiceToNumericChoice):
                     raise ValueError(
                         f"Cannot choice-encode fidelity parameter {p_name}"
                     )
-                # Choice(|K|) => Range(0, K-1)
+                # Make sure that the search space is compatible with the encoding.
+                encoding = self.encoded_parameters[p_name]
+                try:
+                    t_values = [encoding[pv] for pv in p.values]
+                except KeyError:
+                    raise ValueError(
+                        f"The parameter {p} contains values that are not present in "
+                        "the search space used to initialize the transform. The "
+                        f"supported encoding for the parameter {p_name} is {encoding}."
+                    )
+                min_val = min(t_values)
+                len_val = len(t_values)
+                # Ensure that the values span a contiguous range.
+                if set(t_values) != set(range(min_val, min_val + len_val)):
+                    raise ValueError(
+                        f"The {self.__class__.__name__} transform requires the "
+                        "parameter to be encoded with a contiguous range of integers. "
+                        f"The parameter {p} maps to {t_values}, which does not span "
+                        f"a contiguous range of integers. For parameter {p_name}, "
+                        f"the transform uses {encoding=}."
+                    )
                 transformed_parameters[p_name] = RangeParameter(
                     name=p_name,
                     parameter_type=ParameterType.INT,
-                    lower=0,
-                    upper=len(p.values) - 1,
+                    lower=min_val,
+                    upper=min_val + len_val - 1,
                 )
             else:
                 transformed_parameters[p.name] = p
