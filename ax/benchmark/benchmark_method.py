@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import (
@@ -40,21 +40,19 @@ class BenchmarkMethod(Base):
             `get_benchmark_scheduler_options`.
         distribute_replications: Indicates whether the replications should be
             run in a distributed manner. Ax itself does not use this attribute.
-        best_point_kwargs: Arguments passed to `get_pareto_optimal_parameters`
-            (if multi-objective) or `BestPointMixin._get_best_trial` (if
-            single-objective). Currently, the only supported argument is
-            `use_model_predictions`. However, note that if multi-objective,
-            best-point selection is not currently supported and
-            `get_pareto_optimal_parameters` will raise a `NotImplementedError`.
+        use_model_predictions_for_best_point: Whether to use model predictions
+            with `get_pareto_optimal_parameters` (if multi-objective) or
+            `BestPointMixin._get_best_trial` (if single-objective). However,
+            note that if multi-objective, best-point selection is not currently
+            supported and `get_pareto_optimal_parameters` will raise a
+            `NotImplementedError`.
     """
 
     name: str
     generation_strategy: GenerationStrategy
     scheduler_options: SchedulerOptions
     distribute_replications: bool = False
-    best_point_kwargs: dict[str, bool] = field(
-        default_factory=lambda: {"use_model_predictions": False}
-    )
+    use_model_predictions_for_best_point: bool = False
 
     def get_best_parameters(
         self,
@@ -95,15 +93,12 @@ class BenchmarkMethod(Base):
             )
 
         # SOO, n=1 case.
-        # Note: This has the same effect Scheduler.get_best_parameters
+        # Note: This has the same effect as Scheduler.get_best_parameters
         result = BestPointMixin._get_best_trial(
             experiment=experiment,
             generation_strategy=self.generation_strategy,
             optimization_config=optimization_config,
-            # pyre-fixme: Incompatible parameter type [6]: In call
-            # `get_pareto_optimal_parameters`, for 4th positional argument,
-            # expected `Optional[Iterable[int]]` but got `bool`.
-            **self.best_point_kwargs,
+            use_model_predictions=self.use_model_predictions_for_best_point,
         )
         if result is None:
             # This can happen if no points are predicted to satisfy all outcome

@@ -48,7 +48,7 @@ def get_sobol_botorch_modular_acquisition(
     name: Optional[str] = None,
     num_sobol_trials: int = 5,
     model_gen_kwargs: Optional[dict[str, Any]] = None,
-    best_point_kwargs: dict[str, bool] | None = None,
+    use_model_predictions_for_best_point: bool = False,
 ) -> BenchmarkMethod:
     """Get a `BenchmarkMethod` that uses Sobol followed by MBM.
 
@@ -65,7 +65,7 @@ def get_sobol_botorch_modular_acquisition(
             `BatchTrial`s.
         model_gen_kwargs: Passed to the BoTorch `GenerationStep` and ultimately
             to the BoTorch `Model`.
-        best_point_kwargs: Passed to the created `BenchmarkMethod`.
+        use_model_predictions_for_best_point: Passed to the created `BenchmarkMethod`.
 
     Example:
         >>> # A simple example
@@ -140,5 +140,5 @@ def get_sobol_botorch_modular_acquisition(
         generation_strategy=generation_strategy,
         scheduler_options=scheduler_options or get_benchmark_scheduler_options(),
         distribute_replications=distribute_replications,
-        best_point_kwargs={} if best_point_kwargs is None else best_point_kwargs,
+        use_model_predictions_for_best_point=use_model_predictions_for_best_point,
     )
