@@ -48,19 +48,13 @@ while getopts 'hbotrk:' flag; do
   esac
 done
 
-# if [[ $ONLY_DOCUSAURUS == false ]]; then
-#   echo "-----------------------------------"
-#   echo "Generating tutorials"
-#   echo "-----------------------------------"
-#   mkdir -p "website/_tutorials"
-#   mkdir -p "website/static/files"
-#   if [[ $BUILD_TUTORIALS == true ]]; then
-#     python3 scripts/make_tutorials.py -w "${cwd}" -e
-#   else
-#     python3 scripts/make_tutorials.py -w "${cwd}"
-#   fi
+if [[ $ONLY_DOCUSAURUS == false ]]; then
+  echo "-----------------------------------"
+  echo "Generating tutorials"
+  echo "-----------------------------------"
+  python3 scripts/convert_ipynb_to_mdx.py
 
-# fi  # end of not only Docusaurus block
+fi  # end of not only Docusaurus block
 
 # init Docusaurus deps
 echo "-----------------------------------"
