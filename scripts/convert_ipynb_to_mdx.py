@@ -515,7 +515,10 @@ def handle_pandas(
     for value in values:
         index = int(value["index"])
         data = str(value["data"])
-        df = pd.read_html(data, flavor="lxml")
+        if 'class="dataframe"' not in data:
+            # pd.read_html() raises an error if there's no dataframe.
+            continue
+        df = pd.read_html(io.StringIO(data), flavor="lxml")
         # NOTE: The return is a list of dataframes and we only care about the first
         #       one.
         md_df = df[0]
@@ -763,16 +766,15 @@ def aggregate_images_and_plotly(
         None: Does not return anything, instead adds values to the
             cell_outputs_to_process if applicable.
     """
-    if prioritized_data_dtype.startswith("image"):
-        if not plotly_flags[i]:
-            cell_outputs_to_process["image"].append(
-                {"index": i, "data": data, "mime_type": prioritized_data_dtype},
-            )
-        # Plotly outputs a static image, but we can use the JSON in the cell
-        # output to create interactive plots using a React component.
-        if plotly_flags[i]:
-            data = cell_output["data"]["application/vnd.plotly.v1+json"]
-            cell_outputs_to_process["plotly"].append({"index": i, "data": data})
+    if not plotly_flags[i]:
+        cell_outputs_to_process["image"].append(
+            {"index": i, "data": data, "mime_type": prioritized_data_dtype},
+        )
+    # Plotly outputs a static image, but we can use the JSON in the cell
+    # output to create interactive plots using a React component.
+    if plotly_flags[i]:
+        data = cell_output["data"]["application/vnd.plotly.v1+json"]
+        cell_outputs_to_process["plotly"].append({"index": i, "data": data})
 
 
 def aggregate_plain_output(
@@ -851,7 +853,7 @@ def aggregate_output_types(cell_outputs: List[NotebookNode]) -> CELL_OUTPUTS_TO_
                 cell_outputs_to_process,
                 i,
             )
-        image_check = prioritized_data_dtype.startswith("image")
+        image_check = prioritized_data_dtype.startswith("image") or "plotly" in prioritized_data_dtype
         if image_check:
             aggregate_images_and_plotly(
                 prioritized_data_dtype,
