@@ -7,6 +7,7 @@ import json
 import re
 import shutil
 import uuid
+import io
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
@@ -279,6 +280,27 @@ def transform_style_attributes(markdown: str) -> str:
         markdown = markdown.replace('"{{', "{{").replace('}}"', "}}")
     return markdown
 
+def sanitize_mdx(mdx: str) -> str:
+    """
+    Sanitize the given MDX string.
+
+    Args:
+        mdx (str): MDX string to sanitize.
+
+    Returns:
+        str: Sanitized MDX string.
+    """
+    # Remove some lingering HTML tags that break MDX.
+    mdx = mdx.replace("<markdowncell>", "")
+    mdx = mdx.replace("<TODO>", "")
+    # Remove any HTML comments from the Markdown. They are fine to keep in the
+    # notebooks, but are not really useful in the MDX.
+    mdx = re.sub("(<!--.*?-->)", "", mdx, flags=re.DOTALL)
+    # "\" Escape brackets to make the text MDX compatible.
+    mdx = re.sub("([^\\\\]){", "\\g<1>\\{", mdx)
+    mdx = re.sub("([^\\\\])}", "\\g<1>\\}", mdx)
+
+    return mdx
 
 def handle_markdown_cell(
     cell: NotebookNode,
@@ -307,15 +329,7 @@ def handle_markdown_cell(
     # them to something React can consume.
     markdown = transform_style_attributes(markdown)
 
-    # Remove any HTML comments from the Markdown. They are fine to keep in the
-    # notebooks, but are not really useful in the MDX.
-    markdown = re.sub("(<!--.*?-->)", "", markdown, flags=re.DOTALL)
-    # Remove some lingering HTML tags that break MDX.
-    markdown = markdown.replace("<markdowncell>", "")
-    markdown = markdown.replace("<TODO>", "")
-    # "\" Escape brackets to make the text MDX compatible.
-    markdown = re.sub("([^\\\\]){", "\\g<1>\\{", markdown)
-    markdown = re.sub("([^\\\\])}", "\\g<1>\\}", markdown)
+    markdown = sanitize_mdx(markdown)
     mdx = mdformat.text(markdown, options={"wrap": 88}, extensions={"myst"})
     return f"{mdx}\n"
 
@@ -515,7 +529,10 @@ def handle_pandas(
     for value in values:
         index = int(value["index"])
         data = str(value["data"])
-        df = pd.read_html(data, flavor="lxml")
+        if 'class="dataframe"' not in data:
+            # pd.read_html() raises an error if there's no dataframe.
+            continue
+        df = pd.read_html(io.StringIO(data), flavor="lxml")
         # NOTE: The return is a list of dataframes and we only care about the first
         #       one.
         md_df = df[0]
@@ -528,7 +545,7 @@ def handle_pandas(
             mdx = md_df.to_markdown(index=False)
         elif not isinstance(md_df.index, pd.RangeIndex):
             mdx = md_df.to_markdown()
-        output.append((index, f"\n{mdx}\n\n"))
+        output.append((index, f"\n{sanitize_mdx(mdx)}\n\n"))
     return output
 
 
@@ -763,16 +780,15 @@ def aggregate_images_and_plotly(
         None: Does not return anything, instead adds values to the
             cell_outputs_to_process if applicable.
     """
-    if prioritized_data_dtype.startswith("image"):
-        if not plotly_flags[i]:
-            cell_outputs_to_process["image"].append(
-                {"index": i, "data": data, "mime_type": prioritized_data_dtype},
-            )
-        # Plotly outputs a static image, but we can use the JSON in the cell
-        # output to create interactive plots using a React component.
-        if plotly_flags[i]:
-            data = cell_output["data"]["application/vnd.plotly.v1+json"]
-            cell_outputs_to_process["plotly"].append({"index": i, "data": data})
+    if not plotly_flags[i]:
+        cell_outputs_to_process["image"].append(
+            {"index": i, "data": data, "mime_type": prioritized_data_dtype},
+        )
+    # Plotly outputs a static image, but we can use the JSON in the cell
+    # output to create interactive plots using a React component.
+    if plotly_flags[i]:
+        data = cell_output["data"]["application/vnd.plotly.v1+json"]
+        cell_outputs_to_process["plotly"].append({"index": i, "data": data})
 
 
 def aggregate_plain_output(
@@ -851,7 +867,7 @@ def aggregate_output_types(cell_outputs: List[NotebookNode]) -> CELL_OUTPUTS_TO_
                 cell_outputs_to_process,
                 i,
             )
-        image_check = prioritized_data_dtype.startswith("image")
+        image_check = prioritized_data_dtype.startswith("image") or "plotly" in prioritized_data_dtype
         if image_check:
             aggregate_images_and_plotly(
                 prioritized_data_dtype,
@@ -976,6 +992,6 @@ if __name__ == "__main__":
             path = (LIB_DIR / "tutorials" / metadata["dir"] / (metadata["id"] + ".ipynb")).resolve()
         else:
             path = (LIB_DIR / "tutorials" / (metadata["id"] + ".ipynb")).resolve()
-        # print(f"{path.stem}")
+        print(f"{path.stem}")
         mdx = transform_notebook(path, metadata)
     print("")

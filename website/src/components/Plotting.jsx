@@ -42,7 +42,7 @@ const Plotly = Loadable({
 
 export const PlotlyFigure = React.memo(({data}) => {
   return (
-    <div className="plotly-figure">
+    <div className="plotly-figure" style={{"overflow-x": "auto"}}>
       <Plotly data={data['data']} layout={data['layout']} />
     </div>
   );
