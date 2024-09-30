@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Sequence
-from dataclasses import dataclass
 from logging import Logger
 from typing import Any, Callable, Optional, Union
 
@@ -39,7 +38,7 @@ from ax.modelbridge.transition_criterion import (
     TransitionCriterion,
     TrialBasedCriterion,
 )
-from ax.utils.common.base import Base, SortableBase
+from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import SerializationMixin
 from ax.utils.common.typeutils import not_none
@@ -640,7 +639,6 @@ class GenerationNode(SerializationMixin, SortableBase):
         return f"{str_rep})"
 
 
-@dataclass
 class GenerationStep(GenerationNode, SortableBase):
     """One step in the generation strategy, corresponds to a single model.
     Describes the model, how many trials will be generated with this model, what
@@ -731,7 +729,9 @@ class GenerationStep(GenerationNode, SortableBase):
         if use_update:
             raise DeprecationWarning("`GenerationStep.use_update` is deprecated.")
         # These are here for backwards compatibility. Prior to implementation of
-        # custom __init__, these were the fields of the dataclass.
+        # the __init__ method, these were the fields of the dataclass. GenerationStep
+        # storage utilizes these attributes, so we need to store them. Once we start
+        # using GenerationNode storage, we can clean up these attributes.
         self.index = index
         self.model = model
         self.num_trials = num_trials
@@ -866,11 +866,3 @@ class GenerationStep(GenerationNode, SortableBase):
         )
         gr._generation_step_index = self.index
         return gr
-
-    def __eq__(self, other: Base) -> bool:
-        # We need to override `__eq__` to make sure we inherit the one from
-        # the base class and not the one from dataclasses library, since we
-        # want to be comparing equality of generation steps in the same way
-        # as we compare equality of other Ax objects (and we want all the
-        # same special-casing to apply).
-        return SortableBase.__eq__(self, other=other)
