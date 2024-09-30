@@ -12,7 +12,7 @@ from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 # Module-level import to avoid circular dependency b/w this file and
 # generation_strategy.py
@@ -109,7 +109,7 @@ class GenerationNode(SerializationMixin, SortableBase):
     _model_spec_to_gen_from: Optional[ModelSpec] = None
     # TODO: @mgarrard should this be a dict criterion_class name -> criterion mapping?
     _transition_criteria: Sequence[TransitionCriterion]
-    _input_constructors: Dict[
+    _input_constructors: dict[
         modelbridge.generation_node_input_constructors.InputConstructorPurpose,
         modelbridge.generation_node_input_constructors.NodeInputConstructors,
     ]
@@ -129,7 +129,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         should_deduplicate: bool = False,
         transition_criteria: Optional[Sequence[TransitionCriterion]] = None,
         input_constructors: Optional[
-            Dict[
+            dict[
                 modelbridge.generation_node_input_constructors.InputConstructorPurpose,
                 modelbridge.generation_node_input_constructors.NodeInputConstructors,
             ]
@@ -204,7 +204,7 @@ class GenerationNode(SerializationMixin, SortableBase):
     @property
     def input_constructors(
         self,
-    ) -> Dict[
+    ) -> dict[
         modelbridge.generation_node_input_constructors.InputConstructorPurpose,
         modelbridge.generation_node_input_constructors.NodeInputConstructors,
     ]:

@@ -31,6 +31,7 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.search_space import SearchSpace
 from ax.exceptions.storage import JSONDecodeError, STORAGE_DOCS_SUFFIX
+from ax.modelbridge.generation_node_input_constructors import InputConstructorPurpose
 from ax.modelbridge.generation_strategy import (
     GenerationNode,
     GenerationStep,
@@ -649,6 +650,20 @@ def generation_node_from_json(
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> GenerationNode:
     """Load GenerationNode object from JSON."""
+    # Due to input_constructors being a dictionary with both keys and values being of
+    # type enum, we must manually decode them here because object_from_json doesn't
+    # recursively decode dictionary key values.
+    decoded_input_constructors = None
+    if "input_constructors" in generation_node_json.keys():
+        decoded_input_constructors = {
+            InputConstructorPurpose[key]: object_from_json(
+                value,
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
+            )
+            for key, value in generation_node_json.pop("input_constructors").items()
+        }
+
     return GenerationNode(
         node_name=generation_node_json.pop("node_name"),
         model_specs=object_from_json(
@@ -671,15 +686,7 @@ def generation_node_from_json(
             if "transition_criteria" in generation_node_json.keys()
             else None
         ),
-        input_constructors=(
-            object_from_json(
-                generation_node_json.pop("input_constructors"),
-                decoder_registry=decoder_registry,
-                class_decoder_registry=class_decoder_registry,
-            )
-            if "input_constructors" in generation_node_json.keys()
-            else None
-        ),
+        input_constructors=decoded_input_constructors,
         previous_node_name=(
             generation_node_json.pop("previous_node_name")
             if "previous_node_name" in generation_node_json.keys()
