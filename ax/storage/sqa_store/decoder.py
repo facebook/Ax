@@ -812,6 +812,11 @@ class Decoder:
         # Determine which to use to initialize this GenerationStrategy.
         if len(steps) > 0:
             gs = GenerationStrategy(name=gs_sqa.name, steps=steps)
+            if gs_sqa.curr_index is None:
+                raise SQADecodeError(
+                    "Current index must be specified for "
+                    "step-based Generation Strategies."
+                )
             gs._curr = gs._steps[gs_sqa.curr_index]
         else:
             gs = GenerationStrategy(name=gs_sqa.name, nodes=nodes)

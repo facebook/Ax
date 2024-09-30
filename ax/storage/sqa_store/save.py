@@ -346,15 +346,18 @@ def _update_generation_strategy(
         )
 
     curr_index = (
-        generation_strategy.current_node_name
+        None
         if generation_strategy.is_node_based
         else generation_strategy.current_step_index
     )
+    # there is always a node name
+    curr_node_name = generation_strategy.current_node_name
     with session_scope() as session:
         session.query(gs_sqa_class).filter_by(id=gs_id).update(
             {
                 "curr_index": curr_index,
                 "experiment_id": experiment_id,
+                "curr_node_name": curr_node_name,
             }
         )
 

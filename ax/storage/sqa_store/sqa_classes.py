@@ -290,7 +290,7 @@ class SQAGenerationStrategy(Base):
     id: Column[int] = Column(Integer, primary_key=True)
     name: Column[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
     steps: Column[list[dict[str, Any]]] = Column(JSONEncodedList, nullable=False)
-    curr_index: Column[int] = Column(Integer, nullable=False)
+    curr_index: Column[Optional[int]] = Column(Integer, nullable=True)
     experiment_id: Column[Optional[int]] = Column(
         Integer, ForeignKey("experiment_v2.id")
     )
