@@ -976,6 +976,6 @@ if __name__ == "__main__":
             path = (LIB_DIR / "tutorials" / metadata["dir"] / (metadata["id"] + ".ipynb")).resolve()
         else:
             path = (LIB_DIR / "tutorials" / (metadata["id"] + ".ipynb")).resolve()
-        # print(f"{path.stem}")
+        print(f"{path.stem}")
         mdx = transform_notebook(path, metadata)
     print("")
