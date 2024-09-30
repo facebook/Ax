@@ -60,7 +60,7 @@ class FullFactorialGenerator(DiscreteModel):
         model_gen_options: Optional[TConfig] = None,
     ) -> tuple[list[TParamValueList], list[float], TGenMetadata]:
         if n != -1:
-            raise ValueError(
+            logger.warning(
                 "FullFactorialGenerator will ignore the specified value of n. "
                 "The generator automatically determines how many arms to "
                 "generate."
