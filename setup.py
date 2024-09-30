@@ -48,6 +48,8 @@ DEV_REQUIRES = [
     # Replace with `tensorboard >= x.x` once tb cuts a release.
     # https://github.com/tensorflow/tensorboard/issues/6869#issuecomment-2273718763
     "numpy<2.0",
+    "lxml",
+    "mdformat-myst",
 ]
 
 MYSQL_REQUIRES = ["SQLAlchemy==1.4.17"]
@@ -74,6 +76,7 @@ TUTORIAL_REQUIRES = UNITTEST_REQUIRES + [
     "pytorch-lightning",  # For the early stopping tutorial.
     "papermill",  # For executing the tutorials.
     "submitit",  # Required for building the SubmitIt notebook.
+    "mdformat",
 ]
 
 

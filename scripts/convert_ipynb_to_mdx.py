@@ -16,18 +16,12 @@ import pandas as pd
 from lxml import etree  # pyre-ignore
 from nbformat.notebooknode import NotebookNode
 
-try:
-    from libfb.py.fbcode_root import get_fbcode_dir  # pyre-ignore
-except ImportError:
-    SCRIPTS_DIR = Path(__file__).parent.resolve()
-    LIB_DIR = SCRIPTS_DIR.parent.parent.resolve()
-else:
-    LIB_DIR = (Path(get_fbcode_dir()) / "beanmachine").resolve()
+SCRIPTS_DIR = Path(__file__).parent.resolve()
+LIB_DIR = SCRIPTS_DIR.parent.resolve()
 
 WEBSITE_DIR = LIB_DIR.joinpath("website")
 DOCS_DIR = LIB_DIR.joinpath("docs")
-OVERVIEW_DIR = DOCS_DIR.joinpath("overview")
-TUTORIALS_DIR = OVERVIEW_DIR.joinpath("tutorials")
+TUTORIALS_DIR = DOCS_DIR.joinpath("tutorials")
 # Data display priority. Below lists the priority for displaying data from cell outputs.
 # Cells can output many different items, and some will output a fallback display, e.g.
 # text/plain if text/html is not working. The below priorities help ensure the output in
@@ -60,7 +54,11 @@ def load_nb_metadata() -> Dict[str, Dict[str, str]]:
     tutorials_json_path = WEBSITE_DIR.joinpath("tutorials.json")
     with tutorials_json_path.open("r") as f:
         tutorials_data = json.load(f)
-    return tutorials_data
+    # flatten tutorial config, we handle the nested structure in sidebars.js
+    tutorial_configs = [
+        config for category in tutorials_data.values() for config in category
+    ]
+    return tutorial_configs
 
 
 def load_notebook(path: Path) -> NotebookNode:
@@ -123,18 +121,16 @@ def create_frontmatter(path: Path, nb_metadata: Dict[str, Dict[str, str]]) -> st
     # that define the tutorial sidebar_label information.
     frontmatter_delimiter = ["---"]
     frontmatter = [
-        f"{key}: {value}"
-        for key, value in nb_metadata.get(
-            path.stem,
-            {
-                "title": "",
-                "sidebar_label": "",
-                "path": "",
-                "nb_path": "",
-                "github": "",
-                "colab": "",
-            },
-        ).items()
+        f"\"{key}\": \"{value}\""
+        for key, value in {
+            "title": metadata["title"],
+            "sidebar_label": metadata["title"],
+            # "displayed_sidebar": "tutorials",
+            # "path": "",
+            # "nb_path": "",
+            # "github": "",
+            # "colab": "",
+        }.items()
     ]
     frontmatter = "\n".join(frontmatter_delimiter + frontmatter + frontmatter_delimiter)
     mdx = mdformat.text(frontmatter, options={"wrap": 88}, extensions={"myst"})
@@ -148,9 +144,9 @@ def create_imports() -> str:
     Returns:
         str: MDX formatted imports.
     """
-    link_btn = "../../../../website/src/components/LinkButtons.jsx"
-    cell_out = "../../../../website/src/components/CellOutput.jsx"
-    plot_out = "../../../../website/src/components/Plotting.jsx"
+    link_btn = "../../../website/src/components/LinkButtons.jsx"
+    cell_out = "../../../website/src/components/CellOutput.jsx"
+    plot_out = "../../../website/src/components/Plotting.jsx"
     imports = f'import LinkButtons from "{link_btn}";\n'
     imports += f'import CellOutput from "{cell_out}";\n'
     imports += f'import {{BokehFigure, PlotlyFigure}} from "{plot_out}";\n'
@@ -173,8 +169,8 @@ def create_buttons(
     Returns:
         str: MDX formatted buttons.
     """
-    github_url = nb_metadata[tutorial_folder_name]["github"]
-    colab_url = nb_metadata[tutorial_folder_name]["colab"]
+    github_url = ""#nb_metadata[tutorial_folder_name]["github"]
+    colab_url = ""#nb_metadata[tutorial_folder_name]["colab"]
     return f'<LinkButtons\n  githubUrl="{github_url}"\n  colabUrl="{colab_url}"\n/>\n\n'
 
 
@@ -304,7 +300,8 @@ def handle_markdown_cell(
     markdown = cell["source"]
 
     # Update image paths in the Markdown and copy them to the Markdown tutorials folder.
-    markdown = handle_images_found_in_markdown(markdown, new_img_dir, lib_dir)
+    # Skip - Our images are base64 encoded, so we don't need to copy them to the docs folder.
+    # markdown = handle_images_found_in_markdown(markdown, new_img_dir, lib_dir)
 
     # We will attempt to handle inline style attributes written in HTML by converting
     # them to something React can consume.
@@ -313,6 +310,12 @@ def handle_markdown_cell(
     # Remove any HTML comments from the Markdown. They are fine to keep in the
     # notebooks, but are not really useful in the MDX.
     markdown = re.sub("(<!--.*?-->)", "", markdown, flags=re.DOTALL)
+    # Remove some lingering HTML tags that break MDX.
+    markdown = markdown.replace("<markdowncell>", "")
+    markdown = markdown.replace("<TODO>", "")
+    # "\" Escape brackets to make the text MDX compatible.
+    markdown = re.sub("([^\\\\]){", "\\g<1>\\{", markdown)
+    markdown = re.sub("([^\\\\])}", "\\g<1>\\}", markdown)
     mdx = mdformat.text(markdown, options={"wrap": 88}, extensions={"myst"})
     return f"{mdx}\n"
 
@@ -552,6 +555,8 @@ def handle_plain(
         data = [datum for datum in data if datum]
         if data:
             data = "\n".join([line for line in str(value["data"]).splitlines() if line])
+            # Remove backticks to make the text MDX compatible.
+            data = data.replace("`", "")
             output.append(
                 (index, f"<CellOutput>\n{{\n  `{data}`\n}}\n</CellOutput>\n\n"),
             )
@@ -922,7 +927,7 @@ def handle_code_cell(cell: NotebookNode, plot_data_folder: Path) -> str:
     return cell_input_mdx + cell_output_mdx
 
 
-def transform_notebook(path: Path) -> str:
+def transform_notebook(path: Path, nb_metadata: object) -> str:
     """
     Transform a notebook located at the given path into MDX.
 
@@ -937,7 +942,6 @@ def transform_notebook(path: Path) -> str:
     plot_data_folder = assets_folder / "plot_data"
     save_folder = assets_folder.joinpath("..").resolve()
     nb = load_notebook(path)
-    nb_metadata = load_nb_metadata()
     mdx = ""
     mdx += create_frontmatter(path, nb_metadata)
     mdx += create_imports()
@@ -954,7 +958,7 @@ def transform_notebook(path: Path) -> str:
             mdx += handle_code_cell(cell, plot_data_folder)
 
     # Write the MDX file to disk.
-    save_path = save_folder / f"{filename}.mdx"
+    save_path = save_folder / "index.mdx"
     with save_path.open("w") as f:
         f.write(mdx)
 
@@ -967,8 +971,11 @@ if __name__ == "__main__":
     print("--------------------------------------------")
     print("Converting tutorial notebooks into mdx files")
     print("--------------------------------------------")
-    for _, value in tutorials_metadata.items():
-        path = (LIB_DIR / value["nb_path"]).resolve()
-        print(f"{path.stem}")
-        mdx = transform_notebook(path)
+    for metadata in tutorials_metadata:
+        if "dir" in metadata:
+            path = (LIB_DIR / "tutorials" / metadata["dir"] / (metadata["id"] + ".ipynb")).resolve()
+        else:
+            path = (LIB_DIR / "tutorials" / (metadata["id"] + ".ipynb")).resolve()
+        # print(f"{path.stem}")
+        mdx = transform_notebook(path, metadata)
     print("")

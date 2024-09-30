@@ -1,3 +1,6 @@
+const remarkMath = require('remark-math');
+const rehypeKatex = require('rehype-katex');
+
 module.exports={
   "title": "Ax",
   "tagline": "Adaptive Experimentation Platform",
@@ -10,7 +13,9 @@ module.exports={
     "/Ax/js/plotUtils.js",
     "https://buttons.github.io/buttons.js",
     "/Ax/js/mathjax.js",
-    "https://cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS_SVG"
+    "https://cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS_SVG",
+    'https://cdn.bokeh.org/bokeh/release/bokeh-2.4.2.min.js',
+    'https://cdn.bokeh.org/bokeh/release/bokeh-widgets-2.4.2.min.js',
   ],
   "favicon": "img/favicon.png",
   "customFields": {
@@ -27,7 +32,9 @@ module.exports={
           "showLastUpdateAuthor": true,
           "showLastUpdateTime": true,
           "path": "../docs",
-          "sidebarPath": "../website/sidebars.json"
+          "sidebarPath": "../website/sidebars.js",
+          remarkPlugins: [remarkMath],
+          rehypePlugins: [rehypeKatex],
         },
         "blog": {},
         "theme": {
@@ -59,7 +66,7 @@ module.exports={
           "position": "left"
         },
         {
-          "href": "/Ax/tutorials/",
+          "to": "docs/tutorials/",
           "label": "Tutorials",
           "position": "left"
         },

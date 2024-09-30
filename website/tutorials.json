@@ -1,0 +1,90 @@
+{
+  "API Comparison": [
+    {
+      "id": "gpei_hartmann_service",
+      "title": "[RECOMMENDED] Service API"
+    },
+    {
+      "id": "gpei_hartmann_loop",
+      "title": "Loop API"
+    },
+    {
+      "id": "gpei_hartmann_developer",
+      "title": "Developer API"
+    }
+  ],
+  "Deep Dives": [
+    {
+      "id": "visualizations",
+      "title": "Visualizations"
+    },
+    {
+      "id": "generation_strategy",
+      "title": "Generation Strategy"
+    },
+    {
+      "id": "scheduler",
+      "title": "Scheduler"
+    },
+    {
+      "id": "modular_botax",
+      "title": "Modular `BoTorchModel`"
+    }
+  ],
+  "Bayesian Optimization": [
+    {
+      "id": "tune_cnn_service",
+      "title": "Hyperparameter Optimization for PyTorch"
+    },
+    {
+      "id": "submitit",
+      "title": "Hyperparameter Optimization on SLURM via SubmitIt"
+    },
+    {
+      "id": "multi_task",
+      "title": "Multi-Task Modeling"
+    },
+    {
+      "id": "multiobjective_optimization",
+      "title": "Multi-Objective Optimization"
+    },
+    {
+      "id": "saasbo",
+      "title": "High-Dimensional Bayesian Optimization with Sparse Axis-Aligned Subspaces (SAASBO)"
+    },
+    {
+      "id": "saasbo_nehvi",
+      "title": "Fully Bayesian, High-Dimensional, Multi-Objective Optimization"
+    },
+    {
+      "id": "sebo",
+      "title": "Sparsity Exploration Bayesian Optimization (SEBO)"
+    },
+    {
+      "dir": "early_stopping",
+      "id": "early_stopping",
+      "title": "Trial-Level Early Stopping"
+    },
+    {
+      "id": "gss",
+      "title": "Global Stopping (Experiment-Level Early Stopping)"
+    }
+  ],
+  "Field Experiments": [
+    {
+      "id": "factorial",
+      "title": "Bandit Optimization"
+    },
+    {
+      "dir": "human_in_the_loop",
+      "id": "human_in_the_loop",
+      "title": "Human-in-the-Loop Optimization"
+    }
+  ],
+  "Integrating External Strategies": [
+    {
+      "id": "external_generation_node",
+      "title": "RandomForest with ExternalGenerationNode"
+    }
+  ]
+}
