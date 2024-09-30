@@ -7,6 +7,7 @@ import json
 import re
 import shutil
 import uuid
+import io
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
@@ -279,6 +280,27 @@ def transform_style_attributes(markdown: str) -> str:
         markdown = markdown.replace('"{{', "{{").replace('}}"', "}}")
     return markdown
 
+def sanitize_mdx(mdx: str) -> str:
+    """
+    Sanitize the given MDX string.
+
+    Args:
+        mdx (str): MDX string to sanitize.
+
+    Returns:
+        str: Sanitized MDX string.
+    """
+    # Remove some lingering HTML tags that break MDX.
+    mdx = mdx.replace("<markdowncell>", "")
+    mdx = mdx.replace("<TODO>", "")
+    # Remove any HTML comments from the Markdown. They are fine to keep in the
+    # notebooks, but are not really useful in the MDX.
+    mdx = re.sub("(<!--.*?-->)", "", mdx, flags=re.DOTALL)
+    # "\" Escape brackets to make the text MDX compatible.
+    mdx = re.sub("([^\\\\]){", "\\g<1>\\{", mdx)
+    mdx = re.sub("([^\\\\])}", "\\g<1>\\}", mdx)
+
+    return mdx
 
 def handle_markdown_cell(
     cell: NotebookNode,
@@ -307,15 +329,7 @@ def handle_markdown_cell(
     # them to something React can consume.
     markdown = transform_style_attributes(markdown)
 
-    # Remove any HTML comments from the Markdown. They are fine to keep in the
-    # notebooks, but are not really useful in the MDX.
-    markdown = re.sub("(<!--.*?-->)", "", markdown, flags=re.DOTALL)
-    # Remove some lingering HTML tags that break MDX.
-    markdown = markdown.replace("<markdowncell>", "")
-    markdown = markdown.replace("<TODO>", "")
-    # "\" Escape brackets to make the text MDX compatible.
-    markdown = re.sub("([^\\\\]){", "\\g<1>\\{", markdown)
-    markdown = re.sub("([^\\\\])}", "\\g<1>\\}", markdown)
+    markdown = sanitize_mdx(markdown)
     mdx = mdformat.text(markdown, options={"wrap": 88}, extensions={"myst"})
     return f"{mdx}\n"
 
@@ -531,7 +545,7 @@ def handle_pandas(
             mdx = md_df.to_markdown(index=False)
         elif not isinstance(md_df.index, pd.RangeIndex):
             mdx = md_df.to_markdown()
-        output.append((index, f"\n{mdx}\n\n"))
+        output.append((index, f"\n{sanitize_mdx(mdx)}\n\n"))
     return output
 
 
