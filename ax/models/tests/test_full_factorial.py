@@ -7,6 +7,8 @@
 # pyre-strict
 
 
+import logging
+
 import numpy as np
 from ax.models.discrete.full_factorial import FullFactorialGenerator
 from ax.utils.common.testutils import TestCase
@@ -44,13 +46,20 @@ class FullFactorialGeneratorTest(TestCase):
         # Raise error because n != -1
         generator = FullFactorialGenerator()
         parameter_values = [[1, 2], ["foo", "bar"]]
-        with self.assertRaises(ValueError):
+        with self.assertLogs(
+            FullFactorialGenerator.__module__, logging.WARNING
+        ) as logger:
             generated_points, weights, _ = generator.gen(
                 n=5,
                 # pyre-fixme[6]: For 2nd param expected `List[List[Union[None, bool,
                 #  float, int, str]]]` but got `List[Union[List[int], List[str]]]`.
                 parameter_values=parameter_values,
                 objective_weights=np.ones(1),
+            )
+            warning_msg = "FullFactorialGenerator will ignore the specified value of n."
+            self.assertTrue(
+                any(warning_msg in output for output in logger.output),
+                logger.output,
             )
 
     def test_FullFactorialFixedFeatures(self) -> None:
