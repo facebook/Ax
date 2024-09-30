@@ -10,6 +10,7 @@ from typing import Optional
 from ax.analysis.analysis import Analysis, AnalysisCard
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
+from IPython.display import display
 from plotly import graph_objects as go, io as pio
 
 
@@ -18,6 +19,13 @@ class PlotlyAnalysisCard(AnalysisCard):
 
     def get_figure(self) -> go.Figure:
         return pio.from_json(self.blob)
+
+    def _ipython_display_(self) -> None:
+        """
+        IPython display hook. This is called when the AnalysisCard is printed in an
+        IPython environment (ex. Jupyter). Here we want to display the Plotly figure.
+        """
+        display(self.get_figure())
 
 
 class PlotlyAnalysis(Analysis):

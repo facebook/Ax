@@ -10,6 +10,7 @@ from typing import Optional
 from ax.analysis.analysis import Analysis, AnalysisCard
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
+from IPython.display import display, Markdown
 
 
 class MarkdownAnalysisCard(AnalysisCard):
@@ -17,6 +18,13 @@ class MarkdownAnalysisCard(AnalysisCard):
 
     def get_markdown(self) -> str:
         return self.blob
+
+    def _ipython_display_(self) -> None:
+        """
+        IPython display hook. This is called when the AnalysisCard is printed in an
+        IPython environment (ex. Jupyter). Here we want to render the Markdown.
+        """
+        display(Markdown(self.blob))
 
 
 class MarkdownAnalysis(Analysis):
