@@ -3,6 +3,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from unittest.mock import patch
+
+import torch
+
 from ax.analysis.analysis import AnalysisCardLevel
 from ax.analysis.plotly.predicted_effects import PredictedEffectsPlot
 from ax.core.base_trial import TrialStatus
@@ -23,6 +27,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_outcome_constraint,
 )
 from ax.utils.testing.mock import fast_botorch_optimize
+from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from pyre_extensions import none_throws
 
 
@@ -161,7 +166,16 @@ class TestParallelCoordinatesPlot(TestCase):
                 # AND THEN it has the right rows and columns in the dataframe
                 self.assertEqual(
                     {*card.df.columns},
-                    {"arm_name", "source", "x1", "x2", "mean", "error_margin"},
+                    {
+                        "arm_name",
+                        "source",
+                        "parameters",
+                        "mean",
+                        "sem",
+                        "error_margin",
+                        "constraints_violated",
+                        "size_column",
+                    },
                 )
                 self.assertIsNotNone(card.blob)
                 self.assertEqual(card.blob_annotation, "plotly")
@@ -293,4 +307,71 @@ class TestParallelCoordinatesPlot(TestCase):
             self.assertIn(
                 none_throws(checked_cast(Trial, trial).arm).name,
                 card.df["arm_name"].unique(),
+            )
+
+    @fast_botorch_optimize
+    def test_constraints(self) -> None:
+        # GIVEN an experiment with metrics and batch trials
+        experiment = get_branin_experiment(with_status_quo=True)
+        none_throws(experiment.optimization_config).outcome_constraints = [
+            get_branin_outcome_constraint(name="constraint_branin_1"),
+            get_branin_outcome_constraint(name="constraint_branin_2"),
+        ]
+        generation_strategy = self.generation_strategy
+        trial = experiment.new_batch_trial(
+            generator_run=generation_strategy.gen(experiment=experiment, n=10),
+        )
+        trial.set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1.0)
+        trial.mark_completed(unsafe=True)
+        experiment.fetch_data()
+        trial = experiment.new_batch_trial(
+            generator_run=generation_strategy.gen(experiment=experiment, n=10),
+        )
+        trial.set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1.0)
+        # WHEN we compute the analysis and constraints are violated
+        analysis = PredictedEffectsPlot(metric_name="branin")
+        with self.subTest("violated"):
+            with patch(
+                f"{compute_log_prob_feas_from_bounds.__module__}.log_ndtr",
+                side_effect=lambda t: torch.as_tensor([[0.25]] * t.size()[0]).log(),
+            ):
+                card = analysis.compute(
+                    experiment=experiment, generation_strategy=generation_strategy
+                )
+            # THEN it marks that constraints are violated for the non-SQ arms
+            non_sq_df = card.df[card.df["arm_name"] != "status_quo"]
+            sq_row = card.df[card.df["arm_name"] == "status_quo"]
+            self.assertTrue(
+                all(non_sq_df["constraints_violated"] != "No constraints violated"),
+                non_sq_df["constraints_violated"],
+            )
+            self.assertTrue(
+                all(
+                    non_sq_df["constraints_violated"]
+                    == (
+                        "<br />  constraint_branin_1: 75.0% chance violated"
+                        "<br />  constraint_branin_2: 75.0% chance violated"
+                    )
+                ),
+                str(non_sq_df["constraints_violated"][0]),
+            )
+            # AND THEN it marks that constraints are not violated for the SQ
+            self.assertEqual(sq_row["size_column"].iloc[0], 100)
+            self.assertEqual(
+                sq_row["constraints_violated"].iloc[0], "No constraints violated"
+            )
+
+        # WHEN we compute the analysis and constraints are violated
+        with self.subTest("not violated"):
+            with patch(
+                f"{compute_log_prob_feas_from_bounds.__module__}.log_ndtr",
+                side_effect=lambda t: torch.as_tensor([[1]] * t.size()[0]).log(),
+            ):
+                card = analysis.compute(
+                    experiment=experiment, generation_strategy=generation_strategy
+                )
+            # THEN it marks that constraints are not violated
+            self.assertTrue(
+                all(card.df["constraints_violated"] == "No constraints violated"),
+                str(card.df["constraints_violated"]),
             )
