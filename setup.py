@@ -42,6 +42,7 @@ DEV_REQUIRES = [
     "pytest-cov",
     "sphinx==8.0.2",
     "sphinx-autodoc-typehints==1.22",
+    "sphinx_rtd_theme",
     "torchvision>=0.5.0",
     "nbconvert",
     "jupyter-client==6.1.12",
