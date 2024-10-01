@@ -237,7 +237,7 @@ class TestBenchmark(TestCase):
             model_cls=SingleTaskGP,
             acquisition_cls=qLogNoisyExpectedImprovement,
             distribute_replications=False,
-            best_point_kwargs={"use_model_predictions": use_model_predictions},
+            use_model_predictions_for_best_point=use_model_predictions,
             num_sobol_trials=3,
         )
 
