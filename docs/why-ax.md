@@ -1,8 +1,10 @@
 ---
 id: why-ax
 title: Why Ax?
-sidebar_label: Why Ax?
 ---
+
+# Why Ax?
+
 Developers and researchers alike face problems which confront them with a large space of possible ways to configure something –– whether those are "magic numbers" used for infrastructure or compiler flags, learning rates or other hyperparameters in machine learning, or images and calls-to-action used in marketing promotions.  Selecting and tuning these configurations can often take time, resources, and can affect the quality of user experiences.  Ax is a machine learning system to help automate this process, so that researchers and developers can determine how to get the most out of their software in an optimally efficient way.
 
 Ax is a platform for optimizing any kind of experiment, including machine learning experiments, A/B tests, and simulations.  Ax can optimize discrete configurations (e.g., variants of an A/B test) using multi-armed bandit optimization, and continuous (e.g., integer or floating point)-valued configurations using Bayesian optimization. This makes it suitable for a wide range of applications.
