@@ -371,12 +371,12 @@ pip3 install ax-platform`}</CodeBlock>
               Why Ax?
             </Link>
             <Link
-              to="/docs/why-ax"
+              to="/docs/installation"
               className="button button--lg button--outline button--primary">
               Get started
             </Link>
             <Link
-              to="/docs/why-ax"
+              to="/docs/tutorials/"
               className="button button--lg button--outline button--primary">
               Tutorials
             </Link>
