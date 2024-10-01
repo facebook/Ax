@@ -63,6 +63,7 @@ module.exports={
         {
           "to": "docs/why-ax",
           "label": "Docs",
+          "activeBaseRegex": "docs\/(?!tutorials\/)", // ignore tutorials subdirectory
           "position": "left"
         },
         {
