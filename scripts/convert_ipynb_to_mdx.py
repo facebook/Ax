@@ -28,6 +28,7 @@ TUTORIALS_DIR = DOCS_DIR.joinpath("tutorials")
 # text/plain if text/html is not working. The below priorities help ensure the output in
 # the MDX file shows the best representation of the cell output.
 priorities = [
+    "error",
     "text/markdown",
     "image/png",  # matplotlib output.
     "application/vnd.jupyter.widget-view+json",  # tqdm progress bars.
@@ -325,12 +326,14 @@ def handle_markdown_cell(
     # Skip - Our images are base64 encoded, so we don't need to copy them to the docs folder.
     # markdown = handle_images_found_in_markdown(markdown, new_img_dir, lib_dir)
 
-    # We will attempt to handle inline style attributes written in HTML by converting
-    # them to something React can consume.
-    markdown = transform_style_attributes(markdown)
-
     markdown = sanitize_mdx(markdown)
     mdx = mdformat.text(markdown, options={"wrap": 88}, extensions={"myst"})
+
+    # We will attempt to handle inline style attributes written in HTML by converting
+    # them to something React can consume. This has to be done after the mdformat.text() step
+    # since mdformat complains about the converted styles.
+    mdx = transform_style_attributes(mdx)
+
     return f"{mdx}\n"
 
 
@@ -854,7 +857,7 @@ def aggregate_output_types(cell_outputs: List[NotebookNode]) -> CELL_OUTPUTS_TO_
         data = (
             cell_output["data"][prioritized_data_dtype]
             if "data" in cell_output
-            else cell_output["text"]
+            else cell_output["text"] if "text" in cell_output else cell_output["evalue"]
         )
         bokeh_check = "bokeh" in prioritized_data_dtype or (
             prioritized_data_dtype == "text/html" and "Bokeh Application" in data
@@ -877,7 +880,7 @@ def aggregate_output_types(cell_outputs: List[NotebookNode]) -> CELL_OUTPUTS_TO_
                 cell_outputs_to_process,
                 i,
             )
-        plain_check = prioritized_data_dtype in ["text/plain", "stream"]
+        plain_check = prioritized_data_dtype in ["text/plain", "stream", "error"]
         if plain_check:
             aggregate_plain_output(
                 prioritized_data_dtype,
