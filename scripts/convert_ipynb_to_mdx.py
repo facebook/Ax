@@ -326,12 +326,14 @@ def handle_markdown_cell(
     # Skip - Our images are base64 encoded, so we don't need to copy them to the docs folder.
     # markdown = handle_images_found_in_markdown(markdown, new_img_dir, lib_dir)
 
-    # We will attempt to handle inline style attributes written in HTML by converting
-    # them to something React can consume.
-    markdown = transform_style_attributes(markdown)
-
     markdown = sanitize_mdx(markdown)
     mdx = mdformat.text(markdown, options={"wrap": 88}, extensions={"myst"})
+
+    # We will attempt to handle inline style attributes written in HTML by converting
+    # them to something React can consume. This has to be done after the mdformat.text() step
+    # since mdformat complains about the converted styles.
+    mdx = transform_style_attributes(mdx)
+
     return f"{mdx}\n"
 
 
