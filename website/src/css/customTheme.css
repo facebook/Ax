@@ -1,19 +1,18 @@
-/* :root{
-  --ifm-color-primary-lightest: #283442;
+:root{
+  /* --ifm-color-primary-lightest: #283442;
   --ifm-color-primary-lighter: #242E3B;
-  --ifm-color-primary-light: #222C38;
-  --ifm-color-primary: #1F2833;
-  --ifm-color-primary-dark: #1C242E;
+  --ifm-color-primary-light: #222C38; */
+  --ifm-color-primary: #4D5CD4;
+  /* --ifm-color-primary-dark: #1C242E;
   --ifm-color-primary-darker: #1A222B;
-  --ifm-color-primary-darkest: #161C24;
+  --ifm-color-primary-darkest: #161C24; */
+}
+
+/* .hero {
+  background: linear-gradient(
+    0deg,
+    rgba(2, 0, 36, 1),
+    rgba(91, 24, 97, 1) 0%,
+    rgba(72, 114, 249, 1) 100%
+  );
 } */
-
-.get-started-section {
-  background-color: #efefef;
-  padding: 30px;
-  padding-top: 40px;
-}
-
-.button {
-  margin: 10px;
-}

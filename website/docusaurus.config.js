@@ -79,7 +79,7 @@ module.exports={
         {
           "href": "https://github.com/cristianlara/Ax",
           "label": "GitHub",
-          "position": "left"
+          "position": "right"
         }
       ]
     },
