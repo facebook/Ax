@@ -8,11 +8,15 @@
   --ifm-color-primary-darkest: #161C24; */
 }
 
-/* .hero {
+.hero {
   background: linear-gradient(
     0deg,
     rgba(2, 0, 36, 1),
     rgba(91, 24, 97, 1) 0%,
     rgba(72, 114, 249, 1) 100%
   );
-} */
+}
+
+.hero .button.button--secondary.button--outline:not(.button--active):not(:hover) {
+  color: var(--ifm-color-secondary);
+}

@@ -90,6 +90,7 @@ const codeExample = `>>> from ax import optimize
 const QuickStart = () => (
   <div
     className="get-started-section padding--xl"
+    style={{'background-color': 'var(--ifm-color-emphasis-100)'}}
     id="quickstart"
   >
     <h2 className="text--center padding--md">Get Started</h2>
@@ -119,32 +120,32 @@ const MyPage = () => {
   const {siteConfig} = useDocusaurusContext();
   return (
     <Layout title={siteConfig.title} description={siteConfig.tagline}>
-      <div className="hero text--center" style={{height: "50rem"}}>
+      <div className="hero text--center" style={{height: "40rem"}}>
         <div className="container">
           <div className="padding-vert--md">
-            <h1 className="hero__title">{siteConfig.title}</h1>
-            <p className="hero__subtitle">{siteConfig.tagline}</p>
+            <img src={useBaseUrl('img/ax_wireframe.svg')} alt="Project Logo" style={{ width: "300px"}} />
+            <p className="hero__subtitle text--secondary">{siteConfig.tagline}</p>
           </div>
           <div>
             <Link
               to="/docs/why-ax"
-              className="button button--lg button--outline button--primary margin--sm">
+              className="button button--lg button--outline button--secondary margin--sm">
               Why Ax?
             </Link>
             <Link
               to="/docs/installation"
-              className="button button--lg button--outline button--primary margin--sm">
+              className="button button--lg button--outline button--secondary margin--sm">
               Get started
             </Link>
             <Link
               to="/docs/tutorials/"
-              className="button button--lg button--outline button--primary margin--sm">
+              className="button button--lg button--outline button--secondary margin--sm">
               Tutorials
             </Link>
           </div>
         </div>
       </div>
-      <div className="padding--xl" style={{'background-color': 'var(--ifm-color-emphasis-100)'}}>
+      <div className="padding--xl">
         <h2 className="text--center padding--md">Key Features</h2>
         {features && features.length > 0 && (
           <div className="row">
