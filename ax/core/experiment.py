@@ -1666,12 +1666,14 @@ class Experiment(Base):
         for trial_index in trial_indices_to_keep.intersection(original_trial_indices):
             trial = self.trials[trial_index]
             if isinstance(trial, BatchTrial) or isinstance(trial, Trial):
-                trial.clone_to(cloned_experiment)
+                new_trial = trial.clone_to(cloned_experiment)
+                new_index = new_trial.index
                 trial_data, timestamp = self.lookup_data_for_trial(trial_index)
                 # Clone the data to avoid overwriting the original in the DB.
                 trial_data = trial_data.clone()
+                trial_data.df["trial_index"] = new_index
                 if timestamp != -1:
-                    data_by_trial[trial_index] = OrderedDict([(timestamp, trial_data)])
+                    data_by_trial[new_index] = OrderedDict([(timestamp, trial_data)])
             else:
                 raise NotImplementedError(f"Cloning of {type(trial)} is not supported.")
         if data is not None:
