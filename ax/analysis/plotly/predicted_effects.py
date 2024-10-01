@@ -133,6 +133,12 @@ def get_constraint_violated_probabilities(
     """
     if len(outcome_constraints) == 0:
         return {"any_constraint_violated": [0.0] * len(predictions)}
+    if any(constraint.relative for constraint in outcome_constraints):
+        raise UserInputError(
+            "`get_constraint_violated_probabilities()` does not support relative "
+            "outcome constraints. Use `Derelativize().transform_optimization_config()` "
+            "before passing constraints to this method."
+        )
 
     metrics = [constraint.metric.name for constraint in outcome_constraints]
     means = torch.as_tensor(
