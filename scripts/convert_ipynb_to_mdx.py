@@ -28,6 +28,7 @@ TUTORIALS_DIR = DOCS_DIR.joinpath("tutorials")
 # text/plain if text/html is not working. The below priorities help ensure the output in
 # the MDX file shows the best representation of the cell output.
 priorities = [
+    "error",
     "text/markdown",
     "image/png",  # matplotlib output.
     "application/vnd.jupyter.widget-view+json",  # tqdm progress bars.
@@ -854,7 +855,7 @@ def aggregate_output_types(cell_outputs: List[NotebookNode]) -> CELL_OUTPUTS_TO_
         data = (
             cell_output["data"][prioritized_data_dtype]
             if "data" in cell_output
-            else cell_output["text"]
+            else cell_output["text"] if "text" in cell_output else cell_output["evalue"]
         )
         bokeh_check = "bokeh" in prioritized_data_dtype or (
             prioritized_data_dtype == "text/html" and "Bokeh Application" in data
@@ -877,7 +878,7 @@ def aggregate_output_types(cell_outputs: List[NotebookNode]) -> CELL_OUTPUTS_TO_
                 cell_outputs_to_process,
                 i,
             )
-        plain_check = prioritized_data_dtype in ["text/plain", "stream"]
+        plain_check = prioritized_data_dtype in ["text/plain", "stream", "error"]
         if plain_check:
             aggregate_plain_output(
                 prioritized_data_dtype,
