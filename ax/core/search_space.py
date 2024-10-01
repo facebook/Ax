@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 import warnings
+from collections import OrderedDict
 from collections.abc import Hashable, Mapping
 from dataclasses import dataclass, field
 from functools import reduce
@@ -79,7 +80,9 @@ class SearchSpace(Base):
         if len({p.name for p in parameters}) < len(parameters):
             raise ValueError("Parameter names must be unique.")
 
-        self._parameters: dict[str, Parameter] = {p.name: p for p in parameters}
+        self._parameters: OrderedDict[str, Parameter] = OrderedDict(
+            [(p.name, p) for p in parameters]
+        )
         self.set_parameter_constraints(parameter_constraints or [])
 
     @property
