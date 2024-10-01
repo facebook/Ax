@@ -35,7 +35,6 @@ const tutorials = () => {
     tutorialsSidebar.push({
       type: 'category',
       label: category,
-      collapsed: false,
       items: items,
     });
   }

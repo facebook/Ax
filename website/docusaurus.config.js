@@ -83,6 +83,12 @@ module.exports={
         }
       ]
     },
+    "docs": {
+        "sidebar": {
+          autoCollapseCategories: true,
+          hideable: true,
+        },
+    },
     "image": "img/ax.svg",
     "footer": {
       style: 'dark',
