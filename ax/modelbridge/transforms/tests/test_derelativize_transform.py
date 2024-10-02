@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+from contextlib import ExitStack
 from copy import deepcopy
 from unittest import mock
 from unittest.mock import Mock, patch
@@ -34,55 +35,91 @@ class DerelativizeTransformTest(TestCase):
         self.addCleanup(m.stop)
         m.start()
 
-    @mock.patch(
-        "ax.modelbridge.base.observations_from_data",
-        autospec=True,
-        return_value=(
-            [
-                Observation(
-                    features=ObservationFeatures(parameters={"x": 2.0, "y": 10.0}),
-                    data=ObservationData(
-                        means=np.array([1.0, 2.0, 6.0]),
-                        covariance=np.array(
-                            [[1.0, 2.0, 0.0], [3.0, 4.0, 0.0], [0.0, 0.0, 4.0]]
+    def test_DerelativizeTransform(self) -> None:
+        for negative_metrics in [False, True]:
+            sq_sign = -1.0 if negative_metrics else 1.0
+            observed_means = sq_sign * np.array([1.0, 2.0, 6.0])
+            sq_b_observed = np.mean(observed_means[1:])
+            predicted_means = sq_sign * np.array([3.0, 5.0])
+            sq_b_predicted = predicted_means[-1]
+            with ExitStack() as es:
+                mock_predict = es.enter_context(
+                    mock.patch(
+                        "ax.modelbridge.base.ModelBridge._predict",
+                        autospec=True,
+                        return_value=(
+                            [
+                                ObservationData(
+                                    means=predicted_means,
+                                    covariance=np.array([[1.0, 0.0], [0.0, 1.0]]),
+                                    metric_names=["a", "b"],
+                                )
+                            ]
                         ),
-                        metric_names=["a", "b", "b"],
-                    ),
-                    arm_name="1_1",
-                ),
-                Observation(
-                    features=ObservationFeatures(parameters={"x": None, "y": None}),
-                    data=ObservationData(
-                        means=np.array([1.0, 2.0, 6.0]),
-                        covariance=np.array(
-                            [[1.0, 2.0, 0.0], [3.0, 4.0, 0.0], [0.0, 0.0, 4.0]]
-                        ),
-                        metric_names=["a", "b", "b"],
-                    ),
-                    arm_name="1_2",
-                ),
-            ]
-        ),
-    )
-    @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
-    @mock.patch(
-        "ax.modelbridge.base.ModelBridge._predict",
-        autospec=True,
-        return_value=(
-            [
-                ObservationData(
-                    means=np.array([3.0, 5.0]),
-                    covariance=np.array([[1.0, 0.0], [0.0, 1.0]]),
-                    metric_names=["a", "b"],
+                    )
                 )
-            ]
-        ),
-    )
-    def test_DerelativizeTransform(
+                mock_fit = es.enter_context(
+                    mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
+                )
+                mock_observations_from_data = es.enter_context(
+                    mock.patch(
+                        "ax.modelbridge.base.observations_from_data",
+                        autospec=True,
+                        return_value=(
+                            [
+                                Observation(
+                                    features=ObservationFeatures(
+                                        parameters={"x": 2.0, "y": 10.0}
+                                    ),
+                                    data=ObservationData(
+                                        means=observed_means,
+                                        covariance=np.array(
+                                            [
+                                                [1.0, 2.0, 0.0],
+                                                [3.0, 4.0, 0.0],
+                                                [0.0, 0.0, 4.0],
+                                            ]
+                                        ),
+                                        metric_names=["a", "b", "b"],
+                                    ),
+                                    arm_name="1_1",
+                                ),
+                                Observation(
+                                    features=ObservationFeatures(
+                                        parameters={"x": None, "y": None}
+                                    ),
+                                    data=ObservationData(
+                                        means=observed_means,
+                                        covariance=np.array(
+                                            [
+                                                [1.0, 2.0, 0.0],
+                                                [3.0, 4.0, 0.0],
+                                                [0.0, 0.0, 4.0],
+                                            ]
+                                        ),
+                                        metric_names=["a", "b", "b"],
+                                    ),
+                                    arm_name="1_2",
+                                ),
+                            ]
+                        ),
+                    )
+                )
+                self._test_DerelativizeTransform(
+                    mock_predict=mock_predict,
+                    mock_fit=mock_fit,
+                    mock_observations_from_data=mock_observations_from_data,
+                    sq_b_observed=sq_b_observed,
+                    sq_b_predicted=sq_b_predicted,
+                )
+
+    def _test_DerelativizeTransform(
         self,
         mock_predict: Mock,
         mock_fit: Mock,
         mock_observations_from_data: Mock,
+        sq_b_observed: float,
+        sq_b_predicted: float,
     ) -> None:
         t = Derelativize(search_space=None, observations=[])
 
@@ -123,6 +160,7 @@ class DerelativizeTransformTest(TestCase):
         self.assertTrue(oc == oc2)
 
         # Test with relative constraint, in-design status quo
+        relative_bound = -10
         oc = OptimizationConfig(
             objective=objective,
             outcome_constraints=[
@@ -130,18 +168,20 @@ class DerelativizeTransformTest(TestCase):
                     Metric("a"), ComparisonOp.LEQ, bound=2, relative=False
                 ),
                 OutcomeConstraint(
-                    Metric("b"), ComparisonOp.LEQ, bound=-10, relative=True
+                    Metric("b"), ComparisonOp.LEQ, bound=relative_bound, relative=True
                 ),
                 ScalarizedOutcomeConstraint(
                     metrics=[Metric("a"), Metric("b")],
                     weights=[0.0, 1.0],
                     op=ComparisonOp.LEQ,
-                    bound=-10,
+                    bound=relative_bound,
                     relative=True,
                 ),
             ],
         )
         oc2 = t.transform_optimization_config(oc, g, None)
+        sq_val = sq_b_predicted
+        absolute_bound = (1 + np.sign(sq_val) * relative_bound / 100.0) * sq_val
         self.assertTrue(
             oc2.outcome_constraints
             == [
@@ -149,13 +189,13 @@ class DerelativizeTransformTest(TestCase):
                     Metric("a"), ComparisonOp.LEQ, bound=2, relative=False
                 ),
                 OutcomeConstraint(
-                    Metric("b"), ComparisonOp.LEQ, bound=4.5, relative=False
+                    Metric("b"), ComparisonOp.LEQ, bound=absolute_bound, relative=False
                 ),
                 ScalarizedOutcomeConstraint(
                     metrics=[Metric("a"), Metric("b")],
                     weights=[0.0, 1.0],
                     op=ComparisonOp.LEQ,
-                    bound=4.5,
+                    bound=absolute_bound,
                     relative=False,
                 ),
             ]
@@ -188,18 +228,20 @@ class DerelativizeTransformTest(TestCase):
                     Metric("a"), ComparisonOp.LEQ, bound=2, relative=False
                 ),
                 OutcomeConstraint(
-                    Metric("b"), ComparisonOp.LEQ, bound=-10, relative=True
+                    Metric("b"), ComparisonOp.LEQ, bound=relative_bound, relative=True
                 ),
                 ScalarizedOutcomeConstraint(
                     metrics=[Metric("a"), Metric("b")],
                     weights=[0.0, 1.0],
                     op=ComparisonOp.LEQ,
-                    bound=-10,
+                    bound=relative_bound,
                     relative=True,
                 ),
             ],
         )
         oc2 = t.transform_optimization_config(oc, g, None)
+        sq_val = sq_b_observed
+        absolute_bound = (1 + np.sign(sq_val) * relative_bound / 100.0) * sq_val
         self.assertTrue(
             oc2.outcome_constraints
             == [
@@ -207,13 +249,13 @@ class DerelativizeTransformTest(TestCase):
                     Metric("a"), ComparisonOp.LEQ, bound=2, relative=False
                 ),
                 OutcomeConstraint(
-                    Metric("b"), ComparisonOp.LEQ, bound=3.6, relative=False
+                    Metric("b"), ComparisonOp.LEQ, bound=absolute_bound, relative=False
                 ),
                 ScalarizedOutcomeConstraint(
                     metrics=[Metric("a"), Metric("b")],
                     weights=[0.0, 1.0],
                     op=ComparisonOp.LEQ,
-                    bound=3.6,
+                    bound=absolute_bound,
                     relative=False,
                 ),
             ]

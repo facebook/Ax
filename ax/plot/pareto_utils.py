@@ -35,6 +35,7 @@ from ax.modelbridge.modelbridge_utils import (
 )
 from ax.modelbridge.registry import Models
 from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.transforms.derelativize import derelativize_bound
 from ax.modelbridge.transforms.search_space_to_float import SearchSpaceToFloat
 from ax.models.torch_base import TorchModel
 from ax.utils.common.logger import get_logger
@@ -267,10 +268,11 @@ def get_observed_pareto_frontiers(
                     sq_sem=np.nan,
                 )[0][0]
         elif name in objective_thresholds and rel_objth[name]:
-            # Metric is not rel but obj th is, so need to derelativize obj th
-            objective_thresholds[name] = (
-                1 + objective_thresholds[name] / 100.0
-            ) * sq_means[name]
+            # Metric is not relative but objective threshold is, so we need to
+            # derelativize the objective threshold.
+            objective_thresholds[name] = derelativize_bound(
+                bound=objective_thresholds[name], sq_val=sq_means[name]
+            )
 
     absolute_metrics = [name for name, val in metric_is_rel.items() if not val]
     # Construct ParetoFrontResults for each pair
