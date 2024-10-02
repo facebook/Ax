@@ -105,7 +105,7 @@ class Derelativize(Transform):
                         f"Status-quo metric value not yet available for metric "
                         f"{c.metric.name}."
                     )
-                c.bound = (1 + c.bound / 100.0) * sq_val
+                c.bound = derelativize_bound(bound=c.bound, sq_val=sq_val)
                 c.relative = False
         return optimization_config
 
@@ -117,3 +117,19 @@ class Derelativize(Transform):
         # We intentionally leave outcome constraints derelativized when
         # untransforming.
         return outcome_constraints
+
+
+def derelativize_bound(
+    bound: float,
+    sq_val: float,
+) -> float:
+    """Derelativize a bound.
+
+    Args:
+        bound: The bound to derelativize.
+        sq_val: The status quo value.
+
+    Returns:
+        The derelativized bound.
+    """
+    return (1 + np.sign(sq_val) * bound / 100.0) * sq_val
