@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 from ax.core.observation import ObservationFeatures
@@ -19,7 +19,7 @@ def predict_at_point(
     model: ModelBridge,
     obsf: ObservationFeatures,
     metric_names: set[str],
-    scalarized_metric_config: Optional[list[dict[str, Any]]] = None,
+    scalarized_metric_config: list[dict[str, Any]] | None = None,
 ) -> tuple[dict[str, float], dict[str, float]]:
     """Make a prediction at a point.
 

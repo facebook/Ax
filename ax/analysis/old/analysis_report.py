@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-from typing import Optional
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -27,15 +26,15 @@ class AnalysisReport:
     analyses: list[BaseAnalysis] = []
     experiment: Experiment
 
-    time_started: Optional[int] = None
-    time_completed: Optional[int] = None
+    time_started: int | None = None
+    time_completed: int | None = None
 
     def __init__(
         self,
         experiment: Experiment,
         analyses: list[BaseAnalysis],
-        time_started: Optional[int] = None,
-        time_completed: Optional[int] = None,
+        time_started: int | None = None,
+        time_completed: int | None = None,
     ) -> None:
         """
         This class is a collection of AnalysisReport.
@@ -65,7 +64,7 @@ class AnalysisReport:
         tuple[
             BaseAnalysis,
             pd.DataFrame,
-            Optional[go.Figure],
+            go.Figure | None,
         ]
     ]:
         """

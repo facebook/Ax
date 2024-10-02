@@ -5,9 +5,10 @@
 
 # pyre-strict
 
+from collections.abc import Callable
 from copy import deepcopy
 
-from typing import Any, Callable, Optional, Union
+from typing import Any
 
 import numpy as np
 
@@ -29,17 +30,17 @@ from botorch.utils.transforms import is_ensemble, unnormalize
 from torch import Tensor
 
 
-class SobolSensitivity(object):
+class SobolSensitivity:
     def __init__(
         self,
         bounds: torch.Tensor,
-        input_function: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
+        input_function: Callable[[torch.Tensor], torch.Tensor] | None = None,
         num_mc_samples: int = 10**4,
         input_qmc: bool = False,
         second_order: bool = False,
         num_bootstrap_samples: int = 1,
         bootstrap_array: bool = False,
-        discrete_features: Optional[list[int]] = None,
+        discrete_features: list[int] | None = None,
     ) -> None:
         r"""Computes three types of Sobol indices:
         first order indices, total indices and second order indices (if specified ).
@@ -102,32 +103,32 @@ class SobolSensitivity(object):
             self.bootstrap_indices = torch.randint(
                 0, num_mc_samples, (self.num_bootstrap_samples, subset_size)
             )
-        self.f_A: Optional[torch.Tensor] = None
-        self.f_B: Optional[torch.Tensor] = None
+        self.f_A: torch.Tensor | None = None
+        self.f_B: torch.Tensor | None = None
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
-        self.f_ABis: Optional[list] = None
-        self.f_total_var: Optional[torch.Tensor] = None
+        self.f_ABis: list | None = None
+        self.f_total_var: torch.Tensor | None = None
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
-        self.f_A_btsp: Optional[list] = None
+        self.f_A_btsp: list | None = None
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
-        self.f_B_btsp: Optional[list] = None
+        self.f_B_btsp: list | None = None
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
-        self.f_ABis_btsp: Optional[list] = None
+        self.f_ABis_btsp: list | None = None
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
-        self.f_total_var_btsp: Optional[list] = None
+        self.f_total_var_btsp: list | None = None
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
-        self.f_BAis: Optional[list] = None
+        self.f_BAis: list | None = None
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
-        self.f_BAis_btsp: Optional[list] = None
-        self.first_order_idxs: Optional[torch.Tensor] = None
-        self.first_order_idxs_btsp: Optional[torch.Tensor] = None
+        self.f_BAis_btsp: list | None = None
+        self.first_order_idxs: torch.Tensor | None = None
+        self.first_order_idxs_btsp: torch.Tensor | None = None
 
     def generate_all_input_matrix(self) -> torch.Tensor:
         A_B_ABi_list = [self.A, self.B]
@@ -143,7 +144,7 @@ class SobolSensitivity(object):
         A_B_ABi = torch.cat(A_B_ABi_list, dim=0)
         return A_B_ABi
 
-    def evalute_function(self, f_A_B_ABi: Optional[torch.Tensor] = None) -> None:
+    def evalute_function(self, f_A_B_ABi: torch.Tensor | None = None) -> None:
         r"""evaluates the objective function and devides the evaluation into
             torch.Tensors needed for the indices computation.
         Args:
@@ -318,8 +319,8 @@ class SobolSensitivity(object):
 
     def second_order_indices(
         self,
-        first_order_idxs: Optional[torch.Tensor] = None,
-        first_order_idxs_btsp: Optional[torch.Tensor] = None,
+        first_order_idxs: torch.Tensor | None = None,
+        first_order_idxs_btsp: torch.Tensor | None = None,
     ) -> Tensor:
         r"""Computes the Second order Sobol indices:
         Args:
@@ -404,7 +405,7 @@ def ProbitLinkMean(mean: torch.Tensor, var: torch.Tensor) -> torch.Tensor:
     return torch.distributions.Normal(0, 1).cdf(a)
 
 
-class SobolSensitivityGPMean(object):
+class SobolSensitivityGPMean:
     def __init__(
         self,
         model: Model,  # TODO: narrow type down. E.g. ModelListGP does not work.
@@ -417,7 +418,7 @@ class SobolSensitivityGPMean(object):
             [torch.Tensor, torch.Tensor], torch.Tensor
         ] = GaussianLinkMean,
         mini_batch_size: int = 128,
-        discrete_features: Optional[list[int]] = None,
+        discrete_features: list[int] | None = None,
     ) -> None:
         r"""Computes three types of Sobol indices:
         first order indices, total indices and second order indices (if specified ).
@@ -506,7 +507,7 @@ class SobolSensitivityGPMean(object):
         return self.sensitivity.second_order_indices()
 
 
-class SobolSensitivityGPSampling(object):
+class SobolSensitivityGPSampling:
     def __init__(
         self,
         model: Model,
@@ -517,7 +518,7 @@ class SobolSensitivityGPSampling(object):
         input_qmc: bool = False,
         gp_sample_qmc: bool = False,
         num_bootstrap_samples: int = 1,
-        discrete_features: Optional[list[int]] = None,
+        discrete_features: list[int] | None = None,
     ) -> None:
         r"""Computes three types of Sobol indices:
         first order indices, total indices and second order indices (if specified ).
@@ -753,7 +754,7 @@ def compute_sobol_indices_from_model_list(
     model_list: list[Model],
     bounds: Tensor,
     order: str = "first",
-    discrete_features: Optional[list[int]] = None,
+    discrete_features: list[int] | None = None,
     **sobol_kwargs: Any,
 ) -> Tensor:
     """
@@ -788,7 +789,7 @@ def compute_sobol_indices_from_model_list(
 
 def ax_parameter_sens(
     model_bridge: TorchModelBridge,
-    metrics: Optional[list[str]] = None,
+    metrics: list[str] | None = None,
     order: str = "first",
     signed: bool = True,
     **sobol_kwargs: Any,
@@ -856,7 +857,7 @@ def ax_parameter_sens(
 
 def _get_torch_model(
     model_bridge: TorchModelBridge,
-) -> Union[BotorchModel, ModularBoTorchModel]:
+) -> BotorchModel | ModularBoTorchModel:
     """Returns the TorchModel of the model_bridge, if it is a type that stores
     SearchSpaceDigest during model fitting. At this point, this is BotorchModel, and
     ModularBoTorchModel.
@@ -875,7 +876,7 @@ def _get_torch_model(
 
 
 def _get_model_per_metric(
-    model: Union[BotorchModel, ModularBoTorchModel], metrics: list[str]
+    model: BotorchModel | ModularBoTorchModel, metrics: list[str]
 ) -> list[Model]:
     """For a given TorchModel model, returns a list of botorch.models.model.Model
     objects corresponding to - and in the same order as - the given metrics.

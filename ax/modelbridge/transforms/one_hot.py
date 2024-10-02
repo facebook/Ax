@@ -87,10 +87,10 @@ class OneHot(Transform):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[list[Observation]] = None,
+        search_space: SearchSpace | None = None,
+        observations: list[Observation] | None = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
-        config: Optional[TConfig] = None,
+        config: TConfig | None = None,
     ) -> None:
         assert search_space is not None, "OneHot requires search space"
         # Identify parameters that should be transformed
@@ -111,8 +111,7 @@ class OneHot(Transform):
                     self.encoded_parameters[p.name] = [p.name + OH_PARAM_INFIX]
                 else:
                     self.encoded_parameters[p.name] = [
-                        "{}{}_{}".format(p.name, OH_PARAM_INFIX, i)
-                        for i in range(encoded_len)
+                        f"{p.name}{OH_PARAM_INFIX}_{i}" for i in range(encoded_len)
                     ]
 
     def transform_observation_features(

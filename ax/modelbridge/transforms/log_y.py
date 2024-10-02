@@ -8,9 +8,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from logging import Logger
 
-from typing import Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -45,10 +47,10 @@ class LogY(Transform):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[list[Observation]] = None,
-        modelbridge: Optional["base_modelbridge.ModelBridge"] = None,
-        config: Optional[TConfig] = None,
+        search_space: SearchSpace | None = None,
+        observations: list[Observation] | None = None,
+        modelbridge: base_modelbridge.ModelBridge | None = None,
+        config: TConfig | None = None,
     ) -> None:
         if config is None:
             raise ValueError("LogY requires a config.")
@@ -79,8 +81,8 @@ class LogY(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional[base_modelbridge.ModelBridge] = None,
-        fixed_features: Optional[ObservationFeatures] = None,
+        modelbridge: base_modelbridge.ModelBridge | None = None,
+        fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         for c in optimization_config.all_constraints:
             if c.metric.name in self.metric_names:
@@ -144,7 +146,7 @@ class LogY(Transform):
     def untransform_outcome_constraints(
         self,
         outcome_constraints: list[OutcomeConstraint],
-        fixed_features: Optional[ObservationFeatures] = None,
+        fixed_features: ObservationFeatures | None = None,
     ) -> list[OutcomeConstraint]:
         for c in outcome_constraints:
             if c.metric.name in self.metric_names:

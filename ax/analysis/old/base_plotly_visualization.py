@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-from typing import Optional
 
 import pandas as pd
 
@@ -25,8 +24,8 @@ class BasePlotlyVisualization(BaseAnalysis):
     def __init__(
         self,
         experiment: Experiment,
-        df_input: Optional[pd.DataFrame] = None,
-        fig_input: Optional[go.Figure] = None,
+        df_input: pd.DataFrame | None = None,
+        fig_input: go.Figure | None = None,
     ) -> None:
         """
         Initialize the analysis with the experiment object.

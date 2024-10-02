@@ -15,7 +15,7 @@ from copy import deepcopy
 from functools import reduce
 from hashlib import md5
 from io import StringIO
-from typing import Any, Optional, TypeVar, Union
+from typing import Any, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -72,8 +72,8 @@ class BaseData(Base, SerializationMixin):
 
     def __init__(
         self: TBaseData,
-        df: Optional[pd.DataFrame] = None,
-        description: Optional[str] = None,
+        df: pd.DataFrame | None = None,
+        description: str | None = None,
     ) -> None:
         """Init Data.
 
@@ -110,7 +110,7 @@ class BaseData(Base, SerializationMixin):
         df: pd.DataFrame,
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
-        extra_column_types: Optional[dict[str, type]] = None,
+        extra_column_types: dict[str, type] | None = None,
     ) -> pd.DataFrame:
         """Function for safely casting df to standard data types.
 
@@ -138,7 +138,7 @@ class BaseData(Base, SerializationMixin):
                 cls.column_data_types(extra_column_types)[col] is int
                 and df.loc[:, col].isnull().any()
             )
-            and not (coltype is Any)
+            and coltype is not Any
         }
 
         return checked_cast(pd.DataFrame, df.astype(dtype=dtype))
@@ -150,7 +150,7 @@ class BaseData(Base, SerializationMixin):
 
     @classmethod
     def supported_columns(
-        cls, extra_column_names: Optional[Iterable[str]] = None
+        cls, extra_column_names: Iterable[str] | None = None
     ) -> set[str]:
         """Names of columns supported (but not necessarily required) by this class."""
         extra_column_names = set(extra_column_names or [])
@@ -164,8 +164,8 @@ class BaseData(Base, SerializationMixin):
         cls,
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
-        extra_column_types: Optional[dict[str, type]] = None,
-        excluded_columns: Optional[Iterable[str]] = None,
+        extra_column_types: dict[str, type] | None = None,
+        excluded_columns: Iterable[str] | None = None,
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
     ) -> dict[str, type]:
@@ -194,8 +194,8 @@ class BaseData(Base, SerializationMixin):
     def deserialize_init_args(
         cls,
         args: dict[str, Any],
-        decoder_registry: Optional[TDecoderRegistry] = None,
-        class_decoder_registry: Optional[TClassDecoderRegistry] = None,
+        decoder_registry: TDecoderRegistry | None = None,
+        class_decoder_registry: TClassDecoderRegistry | None = None,
     ) -> dict[str, Any]:
         """Given a dictionary, extract the properties needed to initialize the object.
         Used for storage.
@@ -292,9 +292,9 @@ class BaseData(Base, SerializationMixin):
         cls: type[TBaseData],
         evaluations: dict[str, TTrialEvaluation],
         trial_index: int,
-        sample_sizes: Optional[dict[str, int]] = None,
-        start_time: Optional[Union[int, str]] = None,
-        end_time: Optional[Union[int, str]] = None,
+        sample_sizes: dict[str, int] | None = None,
+        start_time: int | str | None = None,
+        end_time: int | str | None = None,
     ) -> TBaseData:
         """
         Convert dict of evaluations to Ax data object.
@@ -338,9 +338,9 @@ class BaseData(Base, SerializationMixin):
         cls: type[TBaseData],
         evaluations: dict[str, TFidelityTrialEvaluation],
         trial_index: int,
-        sample_sizes: Optional[dict[str, int]] = None,
-        start_time: Optional[int] = None,
-        end_time: Optional[int] = None,
+        sample_sizes: dict[str, int] | None = None,
+        start_time: int | None = None,
+        end_time: int | None = None,
     ) -> TBaseData:
         """
         Convert dict of fidelity evaluations to Ax data object.
@@ -381,9 +381,9 @@ class BaseData(Base, SerializationMixin):
     @staticmethod
     def _add_cols_to_records(
         records: list[dict[str, Any]],
-        sample_sizes: Optional[dict[str, int]] = None,
-        start_time: Optional[Union[int, str]] = None,
-        end_time: Optional[Union[int, str]] = None,
+        sample_sizes: dict[str, int] | None = None,
+        start_time: int | str | None = None,
+        end_time: int | str | None = None,
     ) -> list[dict[str, Any]]:
         """Adds to records metadata columns that are available for all
         BaseData subclasses.
@@ -477,8 +477,8 @@ class Data(BaseData):
 
     def filter(
         self,
-        trial_indices: Optional[Iterable[int]] = None,
-        metric_names: Optional[Iterable[str]] = None,
+        trial_indices: Iterable[int] | None = None,
+        metric_names: Iterable[str] | None = None,
     ) -> Data:
         """Construct a new object with the subset of rows corresponding to the
         provided trial indices AND metric names. If either trial_indices or
@@ -494,8 +494,8 @@ class Data(BaseData):
     @staticmethod
     def _filter_df(
         df: pd.DataFrame,
-        trial_indices: Optional[Iterable[int]] = None,
-        metric_names: Optional[Iterable[str]] = None,
+        trial_indices: Iterable[int] | None = None,
+        metric_names: Iterable[str] | None = None,
     ) -> pd.DataFrame:
         trial_indices_mask = (
             reduce(
@@ -519,7 +519,7 @@ class Data(BaseData):
 
     @staticmethod
     def from_multiple_data(
-        data: Iterable[Data], subset_metrics: Optional[Iterable[str]] = None
+        data: Iterable[Data], subset_metrics: Iterable[str] | None = None
     ) -> Data:
         """Combines multiple objects into one (with the concatenated
         underlying dataframe).
@@ -582,9 +582,9 @@ def _ms_epoch_to_isoformat(epoch: int) -> str:
 def custom_data_class(
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
-    column_data_types: Optional[dict[str, type]] = None,
-    required_columns: Optional[set[str]] = None,
-    time_columns: Optional[set[str]] = None,
+    column_data_types: dict[str, type] | None = None,
+    required_columns: set[str] | None = None,
+    time_columns: set[str] | None = None,
 ) -> type[Data]:
     """Creates a custom data class with additional columns.
 
@@ -607,7 +607,7 @@ def custom_data_class(
 
         @classmethod
         def column_data_types(
-            cls, extra_column_types: Optional[dict[str, type]] = None
+            cls, extra_column_types: dict[str, type] | None = None
         ) -> dict[str, type]:
             return super().column_data_types(
                 {**(extra_column_types or {}), **(column_data_types or {})}

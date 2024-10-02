@@ -8,7 +8,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractproperty
-from typing import Any, Callable, ChainMap, Optional
+from collections import ChainMap
+from collections.abc import Callable
+from typing import Any
 
 from ax.core.metric import Metric
 from ax.core.runner import Runner
@@ -52,8 +54,8 @@ class RegistryBundleBase(ABC):
 
     def __init__(
         self,
-        metric_clss: dict[type[Metric], Optional[int]],
-        runner_clss: dict[type[Runner], Optional[int]],
+        metric_clss: dict[type[Metric], int | None],
+        runner_clss: dict[type[Runner], int | None],
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
@@ -139,21 +141,17 @@ class RegistryBundleBase(ABC):
             metric_clss={},
             runner_clss={},
             json_encoder_registry=dict(
-                # pyre-ignore[29] `typing._Alias` is not a function.
                 ChainMap(*[bundle.encoder_registry for bundle in registry_bundles])
             ),
             json_class_encoder_registry=dict(
-                # pyre-ignore[29] `typing._Alias` is not a function.
                 ChainMap(
                     *[bundle.class_encoder_registry for bundle in registry_bundles]
                 )
             ),
             json_decoder_registry=dict(
-                # pyre-ignore[29] `typing._Alias` is not a function.
                 ChainMap(*[bundle.decoder_registry for bundle in registry_bundles])
             ),
             json_class_decoder_registry=dict(
-                # pyre-ignore[29] `typing._Alias` is not a function.
                 ChainMap(
                     *[bundle.class_decoder_registry for bundle in registry_bundles]
                 )
@@ -166,8 +164,8 @@ class RegistryBundle(RegistryBundleBase):
 
     def __init__(
         self,
-        metric_clss: dict[type[Metric], Optional[int]],
-        runner_clss: dict[type[Runner], Optional[int]],
+        metric_clss: dict[type[Metric], int | None],
+        runner_clss: dict[type[Runner], int | None],
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.

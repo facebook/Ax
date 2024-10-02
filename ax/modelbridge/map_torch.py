@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -59,18 +59,18 @@ class MapTorchModelBridge(TorchModelBridge):
         data: Data,
         model: TorchModel,
         transforms: list[type[Transform]],
-        transform_configs: Optional[dict[str, TConfig]] = None,
-        torch_dtype: Optional[torch.dtype] = None,
-        torch_device: Optional[torch.device] = None,
-        status_quo_name: Optional[str] = None,
-        status_quo_features: Optional[ObservationFeatures] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
+        transform_configs: dict[str, TConfig] | None = None,
+        torch_dtype: torch.dtype | None = None,
+        torch_device: torch.device | None = None,
+        status_quo_name: str | None = None,
+        status_quo_features: ObservationFeatures | None = None,
+        optimization_config: OptimizationConfig | None = None,
         fit_out_of_design: bool = False,
         fit_on_init: bool = True,
         fit_abandoned: bool = False,
-        default_model_gen_options: Optional[TConfig] = None,
-        map_data_limit_rows_per_metric: Optional[int] = None,
-        map_data_limit_rows_per_group: Optional[int] = None,
+        default_model_gen_options: TConfig | None = None,
+        map_data_limit_rows_per_metric: int | None = None,
+        map_data_limit_rows_per_group: int | None = None,
     ) -> None:
         """
         Applies transforms and fits model.
@@ -183,7 +183,7 @@ class MapTorchModelBridge(TorchModelBridge):
         model: TorchModel,
         search_space: SearchSpace,
         observations: list[Observation],
-        parameters: Optional[list[str]] = None,
+        parameters: list[str] | None = None,
         **kwargs: Any,
     ) -> None:
         """The difference from `TorchModelBridge._fit(...)` is that we use
@@ -205,9 +205,9 @@ class MapTorchModelBridge(TorchModelBridge):
         n: int,
         search_space: SearchSpace,
         pending_observations: dict[str, list[ObservationFeatures]],
-        fixed_features: Optional[ObservationFeatures],
-        model_gen_options: Optional[TConfig] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
+        fixed_features: ObservationFeatures | None,
+        model_gen_options: TConfig | None = None,
+        optimization_config: OptimizationConfig | None = None,
     ) -> GenResults:
         """An updated version of `TorchModelBridge._gen(...) that first injects
         `map_dim_to_target` (e.g., `{-1: 1.0}`) into `model_gen_options` so that
@@ -224,7 +224,7 @@ class MapTorchModelBridge(TorchModelBridge):
         )
 
     def _array_to_observation_features(
-        self, X: np.ndarray, candidate_metadata: Optional[list[TCandidateMetadata]]
+        self, X: np.ndarray, candidate_metadata: list[TCandidateMetadata] | None
     ) -> list[ObservationFeatures]:
         """The difference b/t this method and
         TorchModelBridge._array_to_observation_features(...) is
@@ -237,7 +237,7 @@ class MapTorchModelBridge(TorchModelBridge):
         )
 
     def _prepare_observations(
-        self, experiment: Optional[Experiment], data: Optional[Data]
+        self, experiment: Experiment | None, data: Data | None
     ) -> list[Observation]:
         """The difference b/t this method and ModelBridge._prepare_observations(...)
         is that this one uses `observations_from_map_data`.
@@ -278,7 +278,7 @@ class MapTorchModelBridge(TorchModelBridge):
         search_space: SearchSpace,
         cv_training_data: list[Observation],
         cv_test_points: list[ObservationFeatures],
-        parameters: Optional[list[str]] = None,
+        parameters: list[str] | None = None,
         use_posterior_predictive: bool = False,
         **kwargs: Any,
     ) -> list[ObservationData]:
@@ -321,7 +321,7 @@ class MapTorchModelBridge(TorchModelBridge):
         observation_features: list[ObservationFeatures],
         observation_data: list[ObservationData],
         # pyre-fixme[24]: Generic type `tuple` expects at least 1 type parameter.
-        map_key_ranges: dict[str, dict[str, Optional[tuple]]],
+        map_key_ranges: dict[str, dict[str, tuple | None]],
     ) -> list[ObservationData]:
         """Uses `map_key_ranges` to detect which `observation_features` have
         out-of-range map_keys and filters out the corresponding outcomes in
@@ -361,7 +361,7 @@ class MapTorchModelBridge(TorchModelBridge):
         observation_features: list[ObservationFeatures],
         observation_data: list[ObservationData],
         # pyre-fixme[24]: Generic type `tuple` expects at least 1 type parameter.
-    ) -> dict[str, dict[str, Optional[tuple]]]:
+    ) -> dict[str, dict[str, tuple | None]]:
         """Get ranges of map_key values in observation features. Returns a dict of the
         form: {"outcome": {"map_key": (min_val, max_val)}}.
         """

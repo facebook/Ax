@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-from typing import List, Tuple, Type
 
 import numpy as np
 from ax.core.batch_trial import BatchTrial
@@ -29,7 +28,7 @@ class TransformToNewSQTest(RelativizeDataTest):
     # [Type[TransformToNewSQ]]` is not a subtype of the
     # overridden attribute `List[Type[Transform]]`
     relativize_classes = [TransformToNewSQ]
-    cases: List[Tuple[Type[Transform], List[Tuple[np.ndarray, np.ndarray]]]] = [
+    cases: list[tuple[type[Transform], list[tuple[np.ndarray, np.ndarray]]]] = [
         (
             TransformToNewSQ,
             [

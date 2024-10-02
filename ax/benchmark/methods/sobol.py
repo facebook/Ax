@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-from typing import Optional
 
 from ax.benchmark.benchmark_method import (
     BenchmarkMethod,
@@ -18,7 +17,7 @@ from ax.service.scheduler import SchedulerOptions
 
 def get_sobol_benchmark_method(
     distribute_replications: bool,
-    scheduler_options: Optional[SchedulerOptions] = None,
+    scheduler_options: SchedulerOptions | None = None,
 ) -> BenchmarkMethod:
     generation_strategy = GenerationStrategy(
         name="Sobol",

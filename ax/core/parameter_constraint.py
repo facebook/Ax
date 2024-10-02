@@ -8,8 +8,6 @@
 
 from __future__ import annotations
 
-from typing import Union
-
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
 from ax.core.types import ComparisonOp
 from ax.utils.common.base import SortableBase
@@ -52,7 +50,7 @@ class ParameterConstraint(SortableBase):
         """Set bound."""
         self._bound = bound
 
-    def check(self, parameter_dict: dict[str, Union[int, float]]) -> bool:
+    def check(self, parameter_dict: dict[str, int | float]) -> bool:
         """Whether or not the set of parameter values satisfies the constraint.
 
         Does a weighted sum of the parameter values based on the constraint_dict
@@ -91,10 +89,8 @@ class ParameterConstraint(SortableBase):
     def __repr__(self) -> str:
         return (
             "ParameterConstraint("
-            + " + ".join(
-                "{}*{}".format(v, k) for k, v in sorted(self.constraint_dict.items())
-            )
-            + " <= {})".format(self._bound)
+            + " + ".join(f"{v}*{k}" for k, v in sorted(self.constraint_dict.items()))
+            + f" <= {self._bound})"
         )
 
     @property

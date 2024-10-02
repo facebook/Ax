@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -101,12 +101,12 @@ def plot_feature_importance_by_metric(model: ModelBridge) -> AxPlotConfig:
 
 
 def plot_feature_importance_by_feature_plotly(
-    model: Optional[ModelBridge] = None,
-    sensitivity_values: Optional[dict[str, dict[str, Union[float, np.ndarray]]]] = None,
+    model: ModelBridge | None = None,
+    sensitivity_values: dict[str, dict[str, float | np.ndarray]] | None = None,
     relative: bool = False,
     caption: str = "",
     importance_measure: str = "",
-    label_dict: Optional[dict[str, str]] = None,
+    label_dict: dict[str, str] | None = None,
 ) -> go.Figure:
     """One plot per metric, showing importances by feature.
 
@@ -277,12 +277,12 @@ def plot_feature_importance_by_feature_plotly(
 
 
 def plot_feature_importance_by_feature(
-    model: Optional[ModelBridge] = None,
-    sensitivity_values: Optional[dict[str, dict[str, Union[float, np.ndarray]]]] = None,
+    model: ModelBridge | None = None,
+    sensitivity_values: dict[str, dict[str, float | np.ndarray]] | None = None,
     relative: bool = False,
     caption: str = "",
     importance_measure: str = "",
-    label_dict: Optional[dict[str, str]] = None,
+    label_dict: dict[str, str] | None = None,
 ) -> AxPlotConfig:
     """Wrapper method to convert `plot_feature_importance_by_feature_plotly` to
     AxPlotConfig"""
@@ -311,7 +311,7 @@ def plot_relative_feature_importance_plotly(model: ModelBridge) -> go.Figure:
             importances.append(vals)
         except Exception:
             logger.warning(
-                "Model for {} does not support feature importances.".format(metric_name)
+                f"Model for {metric_name} does not support feature importances."
             )
     df = pd.DataFrame(importances)
     df.set_index("index", inplace=True)

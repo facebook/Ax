@@ -35,10 +35,10 @@ class InverseGaussianCdfY(Transform):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[list[Observation]] = None,
+        search_space: SearchSpace | None = None,
+        observations: list[Observation] | None = None,
         modelbridge: Optional["base_modelbridge.ModelBridge"] = None,
-        config: Optional[TConfig] = None,
+        config: TConfig | None = None,
     ) -> None:
         # pyre-fixme[4]: Attribute must be annotated.
         self.dist = norm(loc=0, scale=1)

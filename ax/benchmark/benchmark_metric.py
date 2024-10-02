@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 from ax.core.base_trial import BaseTrial
@@ -26,7 +26,7 @@ class BenchmarkMetric(Metric):
         name: str,
         lower_is_better: bool,  # TODO: Do we need to define this here?
         observe_noise_sd: bool = True,
-        outcome_index: Optional[int] = None,
+        outcome_index: int | None = None,
     ) -> None:
         """
         Args:

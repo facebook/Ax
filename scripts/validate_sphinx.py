@@ -29,6 +29,8 @@ EXCLUDE_MODULES = {
 }
 
 
+# NOTE: Can't use set[str] here due to internal call site of this module
+# on an ancient (<py3.9) python version.
 def parse_rst(rst_filename: str) -> Set[str]:
     """Extract automodule directives from rst."""
     ret = set()

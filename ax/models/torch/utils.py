@@ -6,9 +6,10 @@
 
 # pyre-strict
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Callable, cast, Optional
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -76,8 +77,8 @@ HYPERSPHERE = "hypersphere"
 class SubsetModelData:
     model: Model
     objective_weights: Tensor
-    outcome_constraints: Optional[tuple[Tensor, Tensor]]
-    objective_thresholds: Optional[Tensor]
+    outcome_constraints: tuple[Tensor, Tensor] | None
+    objective_thresholds: Tensor | None
     indices: Tensor
 
 
@@ -94,11 +95,11 @@ def _filter_X_observed(
     Xs: list[Tensor],
     objective_weights: Tensor,
     bounds: list[tuple[float, float]],
-    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
-    linear_constraints: Optional[tuple[Tensor, Tensor]] = None,
-    fixed_features: Optional[dict[int, float]] = None,
+    outcome_constraints: tuple[Tensor, Tensor] | None = None,
+    linear_constraints: tuple[Tensor, Tensor] | None = None,
+    fixed_features: dict[int, float] | None = None,
     fit_out_of_design: bool = False,
-) -> Optional[Tensor]:
+) -> Tensor | None:
     r"""Filter input points to those appearing in objective or constraints.
 
     Args:
@@ -143,12 +144,12 @@ def _get_X_pending_and_observed(
     Xs: list[Tensor],
     objective_weights: Tensor,
     bounds: list[tuple[float, float]],
-    pending_observations: Optional[list[Tensor]] = None,
-    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
-    linear_constraints: Optional[tuple[Tensor, Tensor]] = None,
-    fixed_features: Optional[dict[int, float]] = None,
+    pending_observations: list[Tensor] | None = None,
+    outcome_constraints: tuple[Tensor, Tensor] | None = None,
+    linear_constraints: tuple[Tensor, Tensor] | None = None,
+    fixed_features: dict[int, float] | None = None,
     fit_out_of_design: bool = False,
-) -> tuple[Optional[Tensor], Optional[Tensor]]:
+) -> tuple[Tensor | None, Tensor | None]:
     r"""Get pending and observed points.
 
     If all points would otherwise be filtered, remove `linear_constraints`
@@ -216,10 +217,10 @@ def _generate_sobol_points(
     n_sobol: int,
     bounds: list[tuple[float, float]],
     device: torch.device,
-    linear_constraints: Optional[tuple[Tensor, Tensor]] = None,
-    fixed_features: Optional[dict[int, float]] = None,
-    rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
-    model_gen_options: Optional[TConfig] = None,
+    linear_constraints: tuple[Tensor, Tensor] | None = None,
+    fixed_features: dict[int, float] | None = None,
+    rounding_func: Callable[[Tensor], Tensor] | None = None,
+    model_gen_options: TConfig | None = None,
 ) -> Tensor:
     linear_constraints_array = None
 
@@ -271,8 +272,8 @@ def normalize_indices(indices: list[int], d: int) -> list[int]:
 def subset_model(
     model: Model,
     objective_weights: Tensor,
-    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
-    objective_thresholds: Optional[Tensor] = None,
+    outcome_constraints: tuple[Tensor, Tensor] | None = None,
+    objective_thresholds: Tensor | None = None,
 ) -> SubsetModelData:
     """Subset a botorch model to the outputs used in the optimization.
 
@@ -344,8 +345,8 @@ def subset_model(
 
 
 def _to_inequality_constraints(
-    linear_constraints: Optional[tuple[Tensor, Tensor]] = None
-) -> Optional[list[tuple[Tensor, Tensor, float]]]:
+    linear_constraints: tuple[Tensor, Tensor] | None = None
+) -> list[tuple[Tensor, Tensor, float]] | None:
     if linear_constraints is not None:
         A, b = linear_constraints
         inequality_constraints = []
@@ -388,8 +389,8 @@ def _get_risk_measure(
     model: Model,
     objective_weights: Tensor,
     risk_measure: RiskMeasureMCObjective,
-    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
-    X_observed: Optional[Tensor] = None,
+    outcome_constraints: tuple[Tensor, Tensor] | None = None,
+    X_observed: Tensor | None = None,
 ) -> RiskMeasureMCObjective:
     r"""Processes the risk measure for `get_botorch_objective_and_transform`.
     See the docstring of `get_botorch_objective_and_transform` for the arguments.
@@ -431,10 +432,10 @@ def get_botorch_objective_and_transform(
     botorch_acqf_class: type[AcquisitionFunction],
     model: Model,
     objective_weights: Tensor,
-    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
-    X_observed: Optional[Tensor] = None,
-    risk_measure: Optional[RiskMeasureMCObjective] = None,
-) -> tuple[Optional[MCAcquisitionObjective], Optional[PosteriorTransform]]:
+    outcome_constraints: tuple[Tensor, Tensor] | None = None,
+    X_observed: Tensor | None = None,
+    risk_measure: RiskMeasureMCObjective | None = None,
+) -> tuple[MCAcquisitionObjective | None, PosteriorTransform | None]:
     """Constructs a BoTorch `AcquisitionObjective` object.
 
     Args:
@@ -481,11 +482,11 @@ def get_botorch_objective_and_transform(
                 "X_observed is required to construct a constrained BoTorch objective."
             )
         # If there are outcome constraints, we use MC Acquisition functions.
-        obj_tf: Callable[[Tensor, Optional[Tensor]], Tensor] = (
+        obj_tf: Callable[[Tensor, Tensor | None], Tensor] = (
             get_objective_weights_transform(objective_weights)
         )
 
-        def objective(samples: Tensor, X: Optional[Tensor] = None) -> Tensor:
+        def objective(samples: Tensor, X: Tensor | None = None) -> Tensor:
             return obj_tf(samples, X)
 
         # SampleReducingMCAcquisitionFunctions take care of the constraint handling
@@ -511,15 +512,15 @@ def get_out_of_sample_best_point_acqf(
     X_observed: Tensor,
     objective_weights: Tensor,
     mc_samples: int = 512,
-    fixed_features: Optional[dict[int, float]] = None,
-    fidelity_features: Optional[list[int]] = None,
-    target_fidelities: Optional[dict[int, float]] = None,
-    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
-    seed_inner: Optional[int] = None,
+    fixed_features: dict[int, float] | None = None,
+    fidelity_features: list[int] | None = None,
+    target_fidelities: dict[int, float] | None = None,
+    outcome_constraints: tuple[Tensor, Tensor] | None = None,
+    seed_inner: int | None = None,
     qmc: bool = True,
-    risk_measure: Optional[RiskMeasureMCObjective] = None,
+    risk_measure: RiskMeasureMCObjective | None = None,
     **kwargs: Any,
-) -> tuple[AcquisitionFunction, Optional[list[int]]]:
+) -> tuple[AcquisitionFunction, list[int] | None]:
     """Picks an appropriate acquisition function to find the best
     out-of-sample (predicted by the given surrogate model) point
     and instantiates it.
@@ -601,11 +602,11 @@ def get_out_of_sample_best_point_acqf(
 
 
 def pick_best_out_of_sample_point_acqf_class(
-    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
+    outcome_constraints: tuple[Tensor, Tensor] | None = None,
     mc_samples: int = 512,
     qmc: bool = True,
-    seed_inner: Optional[int] = None,
-    risk_measure: Optional[RiskMeasureMCObjective] = None,
+    seed_inner: int | None = None,
+    risk_measure: RiskMeasureMCObjective | None = None,
 ) -> tuple[type[AcquisitionFunction], dict[str, Any]]:
     if outcome_constraints is None and risk_measure is None:
         acqf_class = PosteriorMean

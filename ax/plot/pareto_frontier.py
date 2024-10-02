@@ -8,7 +8,6 @@
 
 import warnings
 from collections.abc import Iterable
-from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -36,7 +35,7 @@ VALID_CONSTRAINT_OP_NAMES = {"GEQ", "LEQ"}
 
 
 def _make_label(
-    mean: float, sem: float, name: str, is_relative: bool, Z: Optional[float]
+    mean: float, sem: float, name: str, is_relative: bool, Z: float | None
 ) -> str:
     estimate = str(round(mean, DECIMALS))
     perc = "%" if is_relative else ""
@@ -82,12 +81,12 @@ def scatter_plot_with_hypervolume_trace_plotly(experiment: Experiment) -> go.Fig
 
 def scatter_plot_with_pareto_frontier_plotly(
     Y: np.ndarray,
-    Y_pareto: Optional[np.ndarray],
-    metric_x: Optional[str],
-    metric_y: Optional[str],
-    reference_point: Optional[tuple[float, float]],
-    minimize: Optional[Union[bool, tuple[bool, bool]]] = True,
-    hovertext: Optional[Iterable[str]] = None,
+    Y_pareto: np.ndarray | None,
+    metric_x: str | None,
+    metric_y: str | None,
+    reference_point: tuple[float, float] | None,
+    minimize: bool | tuple[bool, bool] | None = True,
+    hovertext: Iterable[str] | None = None,
 ) -> go.Figure:
     """Plots a scatter of all points in ``Y`` for ``metric_x`` and ``metric_y``
     with a reference point and Pareto frontier from ``Y_pareto``.
@@ -530,7 +529,7 @@ def interact_pareto_frontier(
     frontier_list: list[ParetoFrontierResults],
     CI_level: float = DEFAULT_CI_LEVEL,
     show_parameterization_on_hover: bool = True,
-    label_dict: Optional[dict[str, str]] = None,
+    label_dict: dict[str, str] | None = None,
 ) -> AxPlotConfig:
     """Plot a pareto frontier from a list of objects
 
@@ -778,10 +777,10 @@ def interact_multiple_pareto_frontier(
 
 def _pareto_frontier_plot_input_processing(
     experiment: Experiment,
-    metric_names: Optional[tuple[str, str]] = None,
-    reference_point: Optional[tuple[float, float]] = None,
-    minimize: Optional[Union[bool, tuple[bool, bool]]] = None,
-) -> tuple[tuple[str, str], Optional[tuple[float, float]], Optional[tuple[bool, bool]]]:
+    metric_names: tuple[str, str] | None = None,
+    reference_point: tuple[float, float] | None = None,
+    minimize: bool | tuple[bool, bool] | None = None,
+) -> tuple[tuple[str, str], tuple[float, float] | None, tuple[bool, bool] | None]:
     """Processes inputs for Pareto frontier + scatterplot.
 
     Args:
@@ -830,10 +829,10 @@ def _pareto_frontier_plot_input_processing(
 
 def _validate_experiment_and_get_optimization_config(
     experiment: Experiment,
-    metric_names: Optional[tuple[str, str]] = None,
-    reference_point: Optional[tuple[float, float]] = None,
-    minimize: Optional[Union[bool, tuple[bool, bool]]] = None,
-) -> Optional[OptimizationConfig]:
+    metric_names: tuple[str, str] | None = None,
+    reference_point: tuple[float, float] | None = None,
+    minimize: bool | tuple[bool, bool] | None = None,
+) -> OptimizationConfig | None:
     # If `optimization_config` is unspecified, check what inputs are missing and
     # error/warn accordingly
     if experiment.optimization_config is None:
@@ -856,8 +855,8 @@ def _validate_experiment_and_get_optimization_config(
 
 
 def _validate_and_maybe_get_default_metric_names(
-    metric_names: Optional[tuple[str, str]],
-    optimization_config: Optional[OptimizationConfig],
+    metric_names: tuple[str, str] | None,
+    optimization_config: OptimizationConfig | None,
 ) -> tuple[str, str]:
     # Default metric_names is all metrics, producing an error if more than 2
     if metric_names is None:
@@ -883,9 +882,9 @@ def _validate_and_maybe_get_default_metric_names(
 
 
 def _validate_experiment_and_maybe_get_objective_thresholds(
-    optimization_config: Optional[OptimizationConfig],
+    optimization_config: OptimizationConfig | None,
     metric_names: tuple[str, str],
-    reference_point: Optional[tuple[float, float]],
+    reference_point: tuple[float, float] | None,
 ) -> list[ObjectiveThreshold]:
     objective_thresholds = []
     # Validate `objective_thresholds` if `reference_point` is unspecified.
@@ -920,10 +919,10 @@ def _validate_experiment_and_maybe_get_objective_thresholds(
 
 
 def _validate_and_maybe_get_default_reference_point(
-    reference_point: Optional[tuple[float, float]],
+    reference_point: tuple[float, float] | None,
     objective_thresholds: list[ObjectiveThreshold],
     metric_names: tuple[str, str],
-) -> Optional[tuple[float, float]]:
+) -> tuple[float, float] | None:
     if reference_point is None:
         reference_point = {
             objective_threshold.metric.name: objective_threshold.bound
@@ -953,11 +952,11 @@ def _validate_and_maybe_get_default_reference_point(
 
 
 def _validate_and_maybe_get_default_minimize(
-    minimize: Optional[Union[bool, tuple[bool, bool]]],
+    minimize: bool | tuple[bool, bool] | None,
     objective_thresholds: list[ObjectiveThreshold],
     metric_names: tuple[str, str],
-    optimization_config: Optional[OptimizationConfig] = None,
-) -> Optional[tuple[bool, bool]]:
+    optimization_config: OptimizationConfig | None = None,
+) -> tuple[bool, bool] | None:
     if minimize is None:
         # Determine `minimize` defaults
         minimize = tuple(
@@ -995,8 +994,8 @@ def _validate_and_maybe_get_default_minimize(
 def _maybe_get_default_minimize_single_metric(
     metric_name: str,
     objective_thresholds: list[ObjectiveThreshold],
-    optimization_config: Optional[OptimizationConfig] = None,
-) -> Optional[bool]:
+    optimization_config: OptimizationConfig | None = None,
+) -> bool | None:
     minimize = None
     # First try to get metric_name from optimization_config
     if (

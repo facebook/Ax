@@ -8,7 +8,6 @@
 
 from collections.abc import Iterable
 from logging import Logger
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -28,13 +27,13 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
     def __init__(
         self,
-        metric_names: Optional[Iterable[str]] = None,
+        metric_names: Iterable[str] | None = None,
         seconds_between_polls: int = 300,
         percentile_threshold: float = 50.0,
-        min_progression: Optional[float] = 10,
-        max_progression: Optional[float] = None,
-        min_curves: Optional[int] = 5,
-        trial_indices_to_ignore: Optional[list[int]] = None,
+        min_progression: float | None = 10,
+        max_progression: float | None = None,
+        min_curves: int | None = 5,
+        trial_indices_to_ignore: list[int] | None = None,
         normalize_progressions: bool = False,
     ) -> None:
         """Construct a PercentileEarlyStoppingStrategy instance.
@@ -93,7 +92,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self,
         trial_indices: set[int],
         experiment: Experiment,
-    ) -> dict[int, Optional[str]]:
+    ) -> dict[int, str | None]:
         """Stop a trial if its performance is in the bottom `percentile_threshold`
         of the trials at the same step.
 
@@ -165,7 +164,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         df_raw: pd.DataFrame,
         map_key: str,
         minimize: bool,
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Stop a trial if its performance is in the bottom `percentile_threshold`
         of the trials at the same step.
 

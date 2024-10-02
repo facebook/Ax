@@ -11,7 +11,6 @@ from collections.abc import Iterable
 from functools import reduce
 
 from logging import Logger
-from typing import Optional
 
 import pandas as pd
 import torch
@@ -61,8 +60,8 @@ logger: Logger = get_logger(__name__)
 
 def get_best_raw_objective_point_with_trial_index(
     experiment: Experiment,
-    optimization_config: Optional[OptimizationConfig] = None,
-    trial_indices: Optional[Iterable[int]] = None,
+    optimization_config: OptimizationConfig | None = None,
+    trial_indices: Iterable[int] | None = None,
 ) -> tuple[int, TParameterization, dict[str, tuple[float, float]]]:
     """Given an experiment, identifies the arm that had the best raw objective,
     based on the data fetched from the experiment.
@@ -139,8 +138,8 @@ def get_best_raw_objective_point_with_trial_index(
 
 def get_best_raw_objective_point(
     experiment: Experiment,
-    optimization_config: Optional[OptimizationConfig] = None,
-    trial_indices: Optional[Iterable[int]] = None,
+    optimization_config: OptimizationConfig | None = None,
+    trial_indices: Iterable[int] | None = None,
 ) -> tuple[TParameterization, dict[str, tuple[float, float]]]:
 
     _, parameterization, vals = get_best_raw_objective_point_with_trial_index(
@@ -153,7 +152,7 @@ def get_best_raw_objective_point(
 
 def _gr_to_prediction_with_trial_index(
     idx: int, gr: GeneratorRun
-) -> Optional[tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
     if gr.best_arm_predictions is None:
         return None
 
@@ -177,9 +176,9 @@ def _raw_values_to_model_predict_arm(
 def get_best_parameters_from_model_predictions_with_trial_index(
     experiment: Experiment,
     models_enum: type[ModelRegistryBase],
-    optimization_config: Optional[OptimizationConfig] = None,
-    trial_indices: Optional[Iterable[int]] = None,
-) -> Optional[tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+    optimization_config: OptimizationConfig | None = None,
+    trial_indices: Iterable[int] | None = None,
+) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
     """Given an experiment, returns the best predicted parameterization and
     corresponding prediction based on the most recent Trial with predictions. If no
     trials have predictions returns None.
@@ -283,8 +282,8 @@ def get_best_parameters_from_model_predictions_with_trial_index(
 def get_best_parameters_from_model_predictions(
     experiment: Experiment,
     models_enum: type[ModelRegistryBase],
-    trial_indices: Optional[Iterable[int]] = None,
-) -> Optional[tuple[TParameterization, Optional[TModelPredictArm]]]:
+    trial_indices: Iterable[int] | None = None,
+) -> tuple[TParameterization, TModelPredictArm | None] | None:
     """Given an experiment, returns the best predicted parameterization and
     corresponding prediction based on the most recent Trial with predictions. If no
     trials have predictions returns None.
@@ -320,9 +319,9 @@ def get_best_parameters_from_model_predictions(
 
 def get_best_by_raw_objective_with_trial_index(
     experiment: Experiment,
-    optimization_config: Optional[OptimizationConfig] = None,
-    trial_indices: Optional[Iterable[int]] = None,
-) -> Optional[tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+    optimization_config: OptimizationConfig | None = None,
+    trial_indices: Iterable[int] | None = None,
+) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
     """Given an experiment, identifies the arm that had the best raw objective,
     based on the data fetched from the experiment.
 
@@ -363,9 +362,9 @@ def get_best_by_raw_objective_with_trial_index(
 
 def get_best_by_raw_objective(
     experiment: Experiment,
-    optimization_config: Optional[OptimizationConfig] = None,
-    trial_indices: Optional[Iterable[int]] = None,
-) -> Optional[tuple[TParameterization, Optional[TModelPredictArm]]]:
+    optimization_config: OptimizationConfig | None = None,
+    trial_indices: Iterable[int] | None = None,
+) -> tuple[TParameterization, TModelPredictArm | None] | None:
     """Given an experiment, identifies the arm that had the best raw objective,
     based on the data fetched from the experiment.
 
@@ -398,9 +397,9 @@ def get_best_by_raw_objective(
 def get_best_parameters_with_trial_index(
     experiment: Experiment,
     models_enum: type[ModelRegistryBase],
-    optimization_config: Optional[OptimizationConfig] = None,
-    trial_indices: Optional[Iterable[int]] = None,
-) -> Optional[tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+    optimization_config: OptimizationConfig | None = None,
+    trial_indices: Iterable[int] | None = None,
+) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
     """Given an experiment, identifies the best arm.
 
     First attempts according to do so with models used in optimization and
@@ -454,9 +453,9 @@ def get_best_parameters_with_trial_index(
 def get_best_parameters(
     experiment: Experiment,
     models_enum: type[ModelRegistryBase],
-    optimization_config: Optional[OptimizationConfig] = None,
-    trial_indices: Optional[Iterable[int]] = None,
-) -> Optional[tuple[TParameterization, Optional[TModelPredictArm]]]:
+    optimization_config: OptimizationConfig | None = None,
+    trial_indices: Iterable[int] | None = None,
+) -> tuple[TParameterization, TModelPredictArm | None] | None:
     """Given an experiment, identifies the best arm.
 
     First attempts according to do so with models used in optimization and
@@ -495,8 +494,8 @@ def get_best_parameters(
 def get_pareto_optimal_parameters(
     experiment: Experiment,
     generation_strategy: GenerationStrategy,
-    optimization_config: Optional[OptimizationConfig] = None,
-    trial_indices: Optional[Iterable[int]] = None,
+    optimization_config: OptimizationConfig | None = None,
+    trial_indices: Iterable[int] | None = None,
     use_model_predictions: bool = True,
 ) -> dict[int, tuple[TParameterization, TModelPredictArm]]:
     """Identifies the best parameterizations tried in the experiment so far,
@@ -741,9 +740,9 @@ def _is_all_noiseless(df: pd.DataFrame, metric_name: str) -> bool:
 
 def _derel_opt_config_wrapper(
     optimization_config: OptimizationConfig,
-    modelbridge: Optional[ModelBridge] = None,
-    experiment: Optional[Experiment] = None,
-    observations: Optional[list[Observation]] = None,
+    modelbridge: ModelBridge | None = None,
+    experiment: Experiment | None = None,
+    observations: list[Observation] | None = None,
 ) -> OptimizationConfig:
     """Derelativize optimization_config using raw status-quo values"""
 
@@ -782,7 +781,7 @@ def _derel_opt_config_wrapper(
 def extract_Y_from_data(
     experiment: Experiment,
     metric_names: list[str],
-    data: Optional[Data] = None,
+    data: Data | None = None,
 ) -> tuple[Tensor, Tensor]:
     r"""Converts the experiment observation data into a tensor.
 
@@ -855,7 +854,7 @@ def extract_Y_from_data(
 def _objective_threshold_from_nadir(
     experiment: Experiment,
     objective: Objective,
-    optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
+    optimization_config: MultiObjectiveOptimizationConfig | None = None,
 ) -> ObjectiveThreshold:
     """
     Find the worst value observed for each objective and create an ObjectiveThreshold

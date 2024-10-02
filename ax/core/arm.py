@@ -8,7 +8,6 @@
 
 import hashlib
 import json
-from typing import Optional
 
 from ax.core.types import TParameterization
 from ax.utils.common.base import SortableBase
@@ -23,9 +22,7 @@ class Arm(SortableBase):
     encapsulates the parametrization needed by the unit.
     """
 
-    def __init__(
-        self, parameters: TParameterization, name: Optional[str] = None
-    ) -> None:
+    def __init__(self, parameters: TParameterization, name: str | None = None) -> None:
         """Inits Arm.
 
         Args:

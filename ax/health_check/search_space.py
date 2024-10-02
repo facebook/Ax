@@ -52,7 +52,7 @@ def search_space_update_recommendation(
     # have parameter "a" value equal to a.lower and 20% have parameter "a" value
     # equal to a.upper.
     param_boundary_prop = defaultdict()
-    msg = str()
+    msg = ""
 
     num_suggestions = len(parametrizations)
 

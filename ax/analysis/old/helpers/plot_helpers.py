@@ -43,7 +43,7 @@ def _format_dict(param_dict: TParameterization, name: str = "Parameterization") 
         )
     else:
         blob = "<br><em>{}:</em><br>{}".format(
-            name, "<br>".join("{}: {}".format(n, v) for n, v in param_dict.items())
+            name, "<br>".join(f"{n}: {v}" for n, v in param_dict.items())
         )
     return blob
 

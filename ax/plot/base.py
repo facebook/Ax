@@ -8,7 +8,7 @@
 
 import enum
 import json
-from typing import Any, NamedTuple, Optional, Union
+from typing import Any, NamedTuple
 
 from ax.core.types import TParameterization
 from ax.utils.common.serialization import named_tuple_to_dict
@@ -50,7 +50,7 @@ class AxPlotConfig(_AxPlotConfigBase):
             json.dumps(named_tuple_to_dict(data), cls=utils.PlotlyJSONEncoder)
         )
         # pyre-fixme[7]: Expected `AxPlotConfig` but got `NamedTuple`.
-        return super(AxPlotConfig, cls).__new__(cls, dict_data, plot_type)
+        return super().__new__(cls, dict_data, plot_type)
 
 
 # Structs for plot data
@@ -63,7 +63,7 @@ class PlotInSampleArm(NamedTuple):
     y_hat: dict[str, float]
     se: dict[str, float]
     se_hat: dict[str, float]
-    context_stratum: Optional[dict[str, Union[str, float]]]
+    context_stratum: dict[str, str | float] | None
 
 
 class PlotOutOfSampleArm(NamedTuple):
@@ -73,7 +73,7 @@ class PlotOutOfSampleArm(NamedTuple):
     parameters: TParameterization
     y_hat: dict[str, float]
     se_hat: dict[str, float]
-    context_stratum: Optional[dict[str, Union[str, float]]]
+    context_stratum: dict[str, str | float] | None
 
 
 class PlotData(NamedTuple):
@@ -81,8 +81,8 @@ class PlotData(NamedTuple):
 
     metrics: list[str]
     in_sample: dict[str, PlotInSampleArm]
-    out_of_sample: Optional[dict[str, dict[str, PlotOutOfSampleArm]]]
-    status_quo_name: Optional[str]
+    out_of_sample: dict[str, dict[str, PlotOutOfSampleArm]] | None
+    status_quo_name: str | None
 
 
 class PlotMetric(NamedTuple):

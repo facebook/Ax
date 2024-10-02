@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-from typing import Optional
 
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -20,11 +19,11 @@ class MyGSI(GenerationStrategyInterface):
     def gen_for_multiple_trials_with_multiple_models(
         self,
         experiment: Experiment,
-        data: Optional[Data] = None,
+        data: Data | None = None,
         # TODO[drfreund, danielcohennyc, mgarrard]: Update the format of the arguments
         # below as we find the right one.
         num_generator_runs: int = 1,
-        n: Optional[int] = None,
+        n: int | None = None,
     ) -> list[list[GeneratorRun]]:
         raise NotImplementedError
 

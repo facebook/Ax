@@ -7,7 +7,7 @@
 # pyre-strict
 
 from abc import ABC, abstractmethod
-from typing import Optional, TypeVar, Union
+from typing import TypeVar
 
 import numpy as np
 import torch
@@ -23,12 +23,12 @@ class SyntheticFunction(ABC):
 
     _required_dimensionality: int
     _domain: list[tuple[float, float]]
-    _minimums: Optional[list[tuple[float, ...]]] = None
-    _maximums: Optional[list[tuple[float, ...]]] = None
-    _fmin: Optional[float] = None
-    _fmax: Optional[float] = None
+    _minimums: list[tuple[float, ...]] | None = None
+    _maximums: list[tuple[float, ...]] | None = None
+    _fmin: float | None = None
+    _fmax: float | None = None
 
-    def informative_failure_on_none(self, attr: Optional[T]) -> T:
+    def informative_failure_on_none(self, attr: T | None) -> T:
         if attr is None:
             raise NotImplementedError(f"{self.name} does not specify property.")
         return not_none(attr)
@@ -39,9 +39,9 @@ class SyntheticFunction(ABC):
 
     def __call__(
         self,
-        *args: Union[int, float, np.ndarray],
-        **kwargs: Union[int, float, np.ndarray],
-    ) -> Union[float, np.ndarray]:
+        *args: int | float | np.ndarray,
+        **kwargs: int | float | np.ndarray,
+    ) -> float | np.ndarray:
         """Simplified way to call the synthetic function and pass the argument
         numbers directly, e.g. `branin(2.0, 3.0)`.
         """
@@ -69,7 +69,7 @@ class SyntheticFunction(ABC):
                 x = float(x)
         return checked_cast(float, self.f(np.array(args)))
 
-    def f(self, X: np.ndarray) -> Union[float, np.ndarray]:
+    def f(self, X: np.ndarray) -> float | np.ndarray:
         """Synthetic function implementation.
 
         Args:
@@ -165,7 +165,7 @@ class FromBotorch(SyntheticFunction):
         self._botorch_function = botorch_synthetic_function
         self._required_dimensionality: int = self._botorch_function.dim
         self._domain: list[tuple[float, float]] = self._botorch_function._bounds
-        self._fmin: Optional[float] = self._botorch_function._optimal_value
+        self._fmin: float | None = self._botorch_function._optimal_value
 
     @override
     @property

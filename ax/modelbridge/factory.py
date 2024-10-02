@@ -7,7 +7,6 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Optional
 
 import torch
 from ax.core.data import Data
@@ -57,7 +56,7 @@ optimization model for subsequent trials).
 
 def get_sobol(
     search_space: SearchSpace,
-    seed: Optional[int] = None,
+    seed: int | None = None,
     deduplicate: bool = False,
     init_position: int = 0,
     scramble: bool = True,
@@ -86,7 +85,7 @@ def get_sobol(
 
 
 def get_uniform(
-    search_space: SearchSpace, deduplicate: bool = False, seed: Optional[int] = None
+    search_space: SearchSpace, deduplicate: bool = False, seed: int | None = None
 ) -> RandomModelBridge:
     """Instantiate uniform generator.
 
@@ -106,17 +105,17 @@ def get_uniform(
 def get_botorch(
     experiment: Experiment,
     data: Data,
-    search_space: Optional[SearchSpace] = None,
+    search_space: SearchSpace | None = None,
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
     transforms: list[type[Transform]] = Cont_X_trans + Y_trans,
-    transform_configs: Optional[dict[str, TConfig]] = None,
+    transform_configs: dict[str, TConfig] | None = None,
     model_constructor: TModelConstructor = get_and_fit_model,
     model_predictor: TModelPredictor = predict_from_model,
     acqf_constructor: TAcqfConstructor = get_qLogNEI,
     acqf_optimizer: TOptimizer = scipy_optimizer,  # pyre-ignore[9]
     refit_on_cv: bool = False,
-    optimization_config: Optional[OptimizationConfig] = None,
+    optimization_config: OptimizationConfig | None = None,
 ) -> TorchModelBridge:
     """Instantiates a BotorchModel."""
     if data.df.empty:
@@ -144,7 +143,7 @@ def get_botorch(
 def get_GPEI(
     experiment: Experiment,
     data: Data,
-    search_space: Optional[SearchSpace] = None,
+    search_space: SearchSpace | None = None,
     dtype: torch.dtype = torch.double,
     device: torch.device = DEFAULT_TORCH_DEVICE,
 ) -> TorchModelBridge:
@@ -174,9 +173,9 @@ def get_factorial(search_space: SearchSpace) -> DiscreteModelBridge:
 def get_empirical_bayes_thompson(
     experiment: Experiment,
     data: Data,
-    search_space: Optional[SearchSpace] = None,
+    search_space: SearchSpace | None = None,
     num_samples: int = 10000,
-    min_weight: Optional[float] = None,
+    min_weight: float | None = None,
     uniform_weights: bool = False,
 ) -> DiscreteModelBridge:
     """Instantiates an empirical Bayes / Thompson sampling model."""
@@ -199,9 +198,9 @@ def get_empirical_bayes_thompson(
 def get_thompson(
     experiment: Experiment,
     data: Data,
-    search_space: Optional[SearchSpace] = None,
+    search_space: SearchSpace | None = None,
     num_samples: int = 10000,
-    min_weight: Optional[float] = None,
+    min_weight: float | None = None,
     uniform_weights: bool = False,
 ) -> DiscreteModelBridge:
     """Instantiates a Thompson sampling model."""

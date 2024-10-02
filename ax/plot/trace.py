@@ -7,7 +7,7 @@
 # pyre-strict
 
 from datetime import datetime, timedelta
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -102,7 +102,7 @@ def map_data_multiple_metrics_dropdown_plotly(
     legend_labels_by_metric: dict[str, list[str]],
     stopping_markers_by_metric: dict[str, list[bool]],
     xlabels_by_metric: dict[str, str],
-    lower_is_better_by_metric: dict[str, Optional[bool]],
+    lower_is_better_by_metric: dict[str, bool | None],
     opacity: float = 0.75,
     color_map: str = "viridis",
     autoset_axis_limits: bool = True,
@@ -212,7 +212,7 @@ def mean_trace_scatter(
     y: np.ndarray,
     trace_color: tuple[int] = COLORS.STEELBLUE.value,
     legend_label: str = "mean",
-    hover_labels: Optional[list[str]] = None,
+    hover_labels: list[str] | None = None,
 ) -> go.Scatter:
     """Creates a graph object for trace of the mean of the given series across
     runs.
@@ -288,7 +288,7 @@ def mean_markers_scatter(
     y: np.ndarray,
     marker_color: tuple[int] = COLORS.LIGHT_PURPLE.value,
     legend_label: str = "",
-    hover_labels: Optional[list[str]] = None,
+    hover_labels: list[str] | None = None,
 ) -> go.Scatter:
     """Creates a graph object for trace of the mean of the given series across
     runs, with errorbars.
@@ -347,15 +347,15 @@ def optimum_objective_scatter(
 
 def optimization_trace_single_method_plotly(
     y: np.ndarray,
-    optimum: Optional[float] = None,
-    model_transitions: Optional[list[int]] = None,
+    optimum: float | None = None,
+    model_transitions: list[int] | None = None,
     title: str = "",
     ylabel: str = "",
-    hover_labels: Optional[list[str]] = None,
+    hover_labels: list[str] | None = None,
     trace_color: tuple[int] = COLORS.STEELBLUE.value,
     optimum_color: tuple[int] = COLORS.ORANGE.value,
     generator_change_color: tuple[int] = COLORS.TEAL.value,
-    optimization_direction: Optional[str] = "passthrough",
+    optimization_direction: str | None = "passthrough",
     plot_trial_points: bool = False,
     trial_points_color: tuple[int] = COLORS.LIGHT_PURPLE.value,
     autoset_axis_limits: bool = True,
@@ -451,7 +451,7 @@ def optimization_trace_single_method_plotly(
 def _autoset_axis_limits(
     y: np.ndarray,
     optimization_direction: str,
-    force_include_value: Optional[float] = None,
+    force_include_value: float | None = None,
 ) -> list[float]:
     """Provides automatic axis limits based on the data and optimization direction.
     All best points are included in this range, and by default the worst points are
@@ -482,15 +482,15 @@ def _autoset_axis_limits(
 
 def optimization_trace_single_method(
     y: np.ndarray,
-    optimum: Optional[float] = None,
-    model_transitions: Optional[list[int]] = None,
+    optimum: float | None = None,
+    model_transitions: list[int] | None = None,
     title: str = "",
     ylabel: str = "",
-    hover_labels: Optional[list[str]] = None,
+    hover_labels: list[str] | None = None,
     trace_color: tuple[int] = COLORS.STEELBLUE.value,
     optimum_color: tuple[int] = COLORS.ORANGE.value,
     generator_change_color: tuple[int] = COLORS.TEAL.value,
-    optimization_direction: Optional[str] = "passthrough",
+    optimization_direction: str | None = "passthrough",
     plot_trial_points: bool = False,
     trial_points_color: tuple[int] = COLORS.LIGHT_PURPLE.value,
     autoset_axis_limits: bool = True,
@@ -549,10 +549,10 @@ def optimization_trace_single_method(
 
 def optimization_trace_all_methods(
     y_dict: dict[str, np.ndarray],
-    optimum: Optional[float] = None,
+    optimum: float | None = None,
     title: str = "",
     ylabel: str = "",
-    hover_labels: Optional[list[str]] = None,
+    hover_labels: list[str] | None = None,
     trace_colors: list[tuple[int]] = DISCRETE_COLOR_SCALE,
     optimum_color: tuple[int] = COLORS.ORANGE.value,
 ) -> AxPlotConfig:
@@ -627,12 +627,12 @@ def optimization_times(
     """
     # Compute means and SEs
     methods = list(fit_times.keys())
-    fit_res: dict[str, Union[str, list[float]]] = {"name": "Fitting"}
+    fit_res: dict[str, str | list[float]] = {"name": "Fitting"}
     fit_res["mean"] = [np.mean(fit_times[m]) for m in methods]
     fit_res["2sems"] = [
         2 * np.std(fit_times[m]) / np.sqrt(len(fit_times[m])) for m in methods
     ]
-    gen_res: dict[str, Union[str, list[float]]] = {"name": "Generation"}
+    gen_res: dict[str, str | list[float]] = {"name": "Generation"}
     gen_res["mean"] = [np.mean(gen_times[m]) for m in methods]
     gen_res["2sems"] = [
         2 * np.std(gen_times[m]) / np.sqrt(len(gen_times[m])) for m in methods
@@ -643,7 +643,7 @@ def optimization_times(
         totals = np.array(fit_times[m]) + np.array(gen_times[m])
         total_mean.append(np.mean(totals))
         total_2sems.append(2 * np.std(totals) / np.sqrt(len(totals)))
-    total_res: dict[str, Union[str, list[float]]] = {
+    total_res: dict[str, str | list[float]] = {
         "name": "Total",
         "mean": total_mean,
         "2sems": total_2sems,
@@ -688,7 +688,7 @@ def get_running_trials_per_minute(
     experiment: Experiment,
     show_until_latest_end_plus_timedelta: timedelta = FIVE_MINUTES,
 ) -> AxPlotConfig:
-    trial_runtimes: list[tuple[int, datetime, Optional[datetime]]] = [
+    trial_runtimes: list[tuple[int, datetime, datetime | None]] = [
         (
             trial.index,
             not_none(trial._time_run_started),
@@ -739,8 +739,8 @@ def plot_objective_value_vs_trial_index(
     exp_df: pd.DataFrame,
     metric_colname: str,
     minimize: bool,
-    title: Optional[str] = None,
-    hover_data_colnames: Optional[list[str]] = None,
+    title: str | None = None,
+    hover_data_colnames: list[str] | None = None,
     autoset_axis_limits: bool = True,
 ) -> go.Figure:
     """Returns a plotly figure showing the optimization trace for a single metric.
@@ -818,7 +818,7 @@ def compute_running_feasible_optimum_df(
     exp_df: pd.DataFrame,
     metric_colname: str,
     minimize: bool,
-    is_feasible_colname: Optional[str],
+    is_feasible_colname: str | None,
 ) -> pd.DataFrame:
     """Computes the running feasible optimum for a given metric."""
     # If feasibility column is not provided, assume all arms are feasible.

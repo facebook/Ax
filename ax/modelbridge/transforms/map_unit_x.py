@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.search_space import SearchSpace
@@ -34,10 +34,10 @@ class MapUnitX(UnitX):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[list[Observation]] = None,
-        modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
-        config: Optional[TConfig] = None,
+        search_space: SearchSpace | None = None,
+        observations: list[Observation] | None = None,
+        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        config: TConfig | None = None,
     ) -> None:
         assert observations is not None, "MapUnitX requires observations"
         assert search_space is not None, "MapUnitX requires search space"

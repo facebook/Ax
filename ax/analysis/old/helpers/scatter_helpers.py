@@ -8,7 +8,7 @@
 
 import numbers
 
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -119,7 +119,7 @@ def extract_mean_and_error_from_df(
 
 def make_label(
     arm_name: str,
-    x_axis_values: Optional[tuple[str, float, float]],
+    x_axis_values: tuple[str, float, float] | None,
     y_axis_values: tuple[str, float, float],
     param_blob: TParameterization,
     rel: bool,
@@ -240,8 +240,8 @@ def error_scatter_trace_from_df(
     df: pd.DataFrame,
     show_CI: bool = True,
     visible: bool = True,
-    y_axis_label: Optional[str] = None,
-    x_axis_label: Optional[str] = None,
+    y_axis_label: str | None = None,
+    x_axis_label: str | None = None,
 ) -> dict[str, Any]:
     """Plot scatterplot with error bars.
 

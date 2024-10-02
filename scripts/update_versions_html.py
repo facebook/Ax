@@ -50,12 +50,10 @@ def updateVersionHTML(base_path, base_url=BASE_URL):
         h3.string = v
 
         # output files
-        with open(
-            base_path + "/new-site/versions/{}/versions.html".format(v), "w"
-        ) as outfile:
+        with open(base_path + f"/new-site/versions/{v}/versions.html", "w") as outfile:
             outfile.write(str(soup))
         with open(
-            base_path + "/new-site/versions/{}/en/versions.html".format(v), "w"
+            base_path + f"/new-site/versions/{v}/en/versions.html", "w"
         ) as outfile:
             outfile.write(str(soup))
 

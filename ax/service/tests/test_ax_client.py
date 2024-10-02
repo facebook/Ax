@@ -11,7 +11,7 @@ import sys
 import time
 from itertools import product
 from math import ceil
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from unittest import mock
 from unittest.mock import Mock, patch
 
@@ -130,7 +130,7 @@ def get_branin_currin_optimization_with_N_sobol_trials(
     minimize: bool = False,
     include_objective_thresholds: bool = True,
     random_seed: int = RANDOM_SEED,
-    outcome_constraints: Optional[list[str]] = None,
+    outcome_constraints: list[str] | None = None,
 ) -> tuple[AxClient, BraninCurrin]:
     branin_currin = get_branin_currin(minimize=minimize)
     ax_client = AxClient()
@@ -182,8 +182,8 @@ def get_branin_currin_optimization_with_N_sobol_trials(
 
 
 def get_branin_optimization(
-    generation_strategy: Optional[GenerationStrategy] = None,
-    torch_device: Optional[torch.device] = None,
+    generation_strategy: GenerationStrategy | None = None,
+    torch_device: torch.device | None = None,
 ) -> AxClient:
     ax_client = AxClient(
         generation_strategy=generation_strategy, torch_device=torch_device
@@ -2284,7 +2284,7 @@ class TestAxClient(TestCase):
         self,
         mock_observed_pareto: Mock,
         mock_predicted_pareto: Mock,
-        outcome_constraints: Optional[list[str]] = None,
+        outcome_constraints: list[str] | None = None,
     ) -> None:
         ax_client, branin_currin = get_branin_currin_optimization_with_N_sobol_trials(
             num_trials=20, outcome_constraints=outcome_constraints
@@ -2355,7 +2355,7 @@ class TestAxClient(TestCase):
                 )
 
     def helper_test_get_pareto_optimal_points_from_sobol_step(
-        self, minimize: bool, outcome_constraints: Optional[list[str]] = None
+        self, minimize: bool, outcome_constraints: list[str] | None = None
     ) -> None:
         ax_client, _ = get_branin_currin_optimization_with_N_sobol_trials(
             num_trials=20, minimize=minimize, outcome_constraints=outcome_constraints
@@ -2698,7 +2698,7 @@ class TestAxClient(TestCase):
             )
 
     def test_should_stop_trials_early(self) -> None:
-        expected: dict[int, Optional[str]] = {
+        expected: dict[int, str | None] = {
             1: "Stopped due to testing.",
             3: "Stopped due to testing.",
         }

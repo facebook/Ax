@@ -12,7 +12,7 @@ from enum import Enum
 from inspect import isclass
 from io import StringIO
 from logging import Logger
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -357,7 +357,7 @@ def trial_transition_criteria_from_json(
     transition_criteria_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> Optional[TransitionCriterion]:
+) -> TransitionCriterion | None:
     """Load Ax transition criteria that depend on Trials from JSON.
 
     Since ``TrialBasedCriterion`` contain lists of ``TrialStatus``,
@@ -799,7 +799,7 @@ def model_spec_from_json(
 
 def generation_strategy_from_json(
     generation_strategy_json: dict[str, Any],
-    experiment: Optional[Experiment] = None,
+    experiment: Experiment | None = None,
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> GenerationStrategy:
@@ -924,10 +924,10 @@ def surrogate_from_list_surrogate_json(
 
 
 def get_input_transform_json_components(
-    input_transforms_json: Optional[Union[list[dict[str, Any]], dict[str, Any]]],
+    input_transforms_json: list[dict[str, Any]] | dict[str, Any] | None,
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> tuple[Optional[list[dict[str, Any]]], Optional[dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None]:
     if input_transforms_json is None:
         return None, None
     if isinstance(input_transforms_json, dict):
@@ -952,10 +952,10 @@ def get_input_transform_json_components(
 
 
 def get_outcome_transform_json_components(
-    outcome_transforms_json: Optional[list[dict[str, Any]]],
+    outcome_transforms_json: list[dict[str, Any]] | None,
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> tuple[Optional[list[dict[str, Any]]], Optional[dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None]:
     if outcome_transforms_json is None:
         return None, None
 

@@ -11,7 +11,6 @@ from __future__ import annotations
 import inspect
 import logging
 from collections.abc import Iterable
-from typing import Optional
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
@@ -59,10 +58,10 @@ class OptimizationLoop:
         evaluation_function: TEvaluationFunction,
         total_trials: int = 20,
         arms_per_trial: int = 1,
-        random_seed: Optional[int] = None,
+        random_seed: int | None = None,
         wait_time: int = 0,
         run_async: bool = False,  # TODO[Lena],
-        generation_strategy: Optional[GenerationStrategy] = None,
+        generation_strategy: GenerationStrategy | None = None,
     ) -> None:
         assert not run_async, "OptimizationLoop does not yet support async."
         self.wait_time = wait_time
@@ -91,17 +90,17 @@ class OptimizationLoop:
     def with_evaluation_function(
         parameters: list[TParameterRepresentation],
         evaluation_function: TEvaluationFunction,
-        experiment_name: Optional[str] = None,
-        objective_name: Optional[str] = None,
+        experiment_name: str | None = None,
+        objective_name: str | None = None,
         minimize: bool = False,
-        parameter_constraints: Optional[list[str]] = None,
-        outcome_constraints: Optional[list[str]] = None,
+        parameter_constraints: list[str] | None = None,
+        outcome_constraints: list[str] | None = None,
         total_trials: int = 20,
         arms_per_trial: int = 1,
         wait_time: int = 0,
-        random_seed: Optional[int] = None,
-        generation_strategy: Optional[GenerationStrategy] = None,
-    ) -> "OptimizationLoop":
+        random_seed: int | None = None,
+        generation_strategy: GenerationStrategy | None = None,
+    ) -> OptimizationLoop:
         """Constructs a synchronous `OptimizationLoop` using an evaluation
         function."""
         if objective_name is None:
@@ -129,23 +128,23 @@ class OptimizationLoop:
         parameters: list[TParameterRepresentation],
         path_to_runner: str,
         paths_to_metrics: list[str],
-        experiment_name: Optional[str] = None,
-        objective_name: Optional[str] = None,
+        experiment_name: str | None = None,
+        objective_name: str | None = None,
         minimize: bool = False,
-        parameter_constraints: Optional[list[str]] = None,
-        outcome_constraints: Optional[list[str]] = None,
+        parameter_constraints: list[str] | None = None,
+        outcome_constraints: list[str] | None = None,
         total_trials: int = 20,
         arms_per_trial: int = 1,
         wait_time: int = 0,
-        random_seed: Optional[int] = None,
-    ) -> "OptimizationLoop":
+        random_seed: int | None = None,
+    ) -> OptimizationLoop:
         """Constructs an asynchronous `OptimizationLoop` using Ax runners and
         metrics."""
         # NOTE: Could use `Scheduler` to implement this if needed.
         raise NotImplementedError
 
     def _call_evaluation_function(
-        self, parameterization: TParameterization, weight: Optional[float] = None
+        self, parameterization: TParameterization, weight: float | None = None
     ) -> TEvaluationOutcome:
         signature = inspect.signature(self.evaluation_function)
         num_evaluation_function_params = len(signature.parameters.items())
@@ -186,7 +185,7 @@ class OptimizationLoop:
 
     def _get_weights_by_arm(
         self, trial: BaseTrial
-    ) -> Iterable[tuple[Arm, Optional[float]]]:
+    ) -> Iterable[tuple[Arm, float | None]]:
         if isinstance(trial, Trial):
             if trial.arm is not None:
                 return [(not_none(trial.arm), None)]
@@ -247,7 +246,7 @@ class OptimizationLoop:
                 return self
         return self
 
-    def get_best_point(self) -> tuple[TParameterization, Optional[TModelPredictArm]]:
+    def get_best_point(self) -> tuple[TParameterization, TModelPredictArm | None]:
         """Obtains the best point encountered in the course
         of this optimization."""
         # Find latest trial which has a generator_run attached and get its predictions
@@ -270,7 +269,7 @@ class OptimizationLoop:
             ),
         )
 
-    def get_current_model(self) -> Optional[ModelBridge]:
+    def get_current_model(self) -> ModelBridge | None:
         """Obtain the most recently used model in optimization."""
         return self.generation_strategy.model
 
@@ -278,18 +277,16 @@ class OptimizationLoop:
 def optimize(
     parameters: list[TParameterRepresentation],
     evaluation_function: TEvaluationFunction,
-    experiment_name: Optional[str] = None,
-    objective_name: Optional[str] = None,
+    experiment_name: str | None = None,
+    objective_name: str | None = None,
     minimize: bool = False,
-    parameter_constraints: Optional[list[str]] = None,
-    outcome_constraints: Optional[list[str]] = None,
+    parameter_constraints: list[str] | None = None,
+    outcome_constraints: list[str] | None = None,
     total_trials: int = 20,
     arms_per_trial: int = 1,
-    random_seed: Optional[int] = None,
-    generation_strategy: Optional[GenerationStrategy] = None,
-) -> tuple[
-    TParameterization, Optional[TModelPredictArm], Experiment, Optional[ModelBridge]
-]:
+    random_seed: int | None = None,
+    generation_strategy: GenerationStrategy | None = None,
+) -> tuple[TParameterization, TModelPredictArm | None, Experiment, ModelBridge | None]:
     """Construct and run a full optimization loop."""
     loop = OptimizationLoop.with_evaluation_function(
         parameters=parameters,

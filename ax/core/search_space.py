@@ -10,12 +10,11 @@ from __future__ import annotations
 
 import math
 import warnings
-from collections.abc import Hashable, Mapping
+from collections.abc import Callable, Hashable, Mapping
 from dataclasses import dataclass, field
 from functools import reduce
 from logging import Logger
 from random import choice, uniform
-from typing import Callable, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -68,7 +67,7 @@ class SearchSpace(Base):
     def __init__(
         self,
         parameters: list[Parameter],
-        parameter_constraints: Optional[list[ParameterConstraint]] = None,
+        parameter_constraints: list[ParameterConstraint] | None = None,
     ) -> None:
         """Initialize SearchSpace
 
@@ -326,7 +325,7 @@ class SearchSpace(Base):
         return self.construct_arm()
 
     def construct_arm(
-        self, parameters: Optional[TParameterization] = None, name: Optional[str] = None
+        self, parameters: TParameterization | None = None, name: str | None = None
     ) -> Arm:
         """Construct new arm using given parameters and name. Any missing parameters
         fallback to the experiment defaults, represented as None.
@@ -440,7 +439,7 @@ class HierarchicalSearchSpace(SearchSpace):
     def __init__(
         self,
         parameters: list[Parameter],
-        parameter_constraints: Optional[list[ParameterConstraint]] = None,
+        parameter_constraints: list[ParameterConstraint] | None = None,
     ) -> None:
         super().__init__(
             parameters=parameters, parameter_constraints=parameter_constraints
@@ -626,7 +625,7 @@ class HierarchicalSearchSpace(SearchSpace):
                 representation.
         """
 
-        def _hrepr(param: Optional[Parameter], value: Optional[str], level: int) -> str:
+        def _hrepr(param: Parameter | None, value: str | None, level: int) -> str:
             is_level_param = param and not value
             if is_level_param:
                 param = not_none(param)
@@ -862,8 +861,8 @@ class RobustSearchSpace(SearchSpace):
         parameters: list[Parameter],
         parameter_distributions: list[ParameterDistribution],
         num_samples: int,
-        environmental_variables: Optional[list[Parameter]] = None,
-        parameter_constraints: Optional[list[ParameterConstraint]] = None,
+        environmental_variables: list[Parameter] | None = None,
+        parameter_constraints: list[ParameterConstraint] | None = None,
     ) -> None:
         """Initialize the robust search space.
 
@@ -1072,16 +1071,14 @@ class SearchSpaceDigest:
     """
 
     feature_names: list[str]
-    bounds: list[tuple[Union[int, float], Union[int, float]]]
+    bounds: list[tuple[int | float, int | float]]
     ordinal_features: list[int] = field(default_factory=list)
     categorical_features: list[int] = field(default_factory=list)
-    discrete_choices: Mapping[int, list[Union[int, float]]] = field(
-        default_factory=dict
-    )
+    discrete_choices: Mapping[int, list[int | float]] = field(default_factory=dict)
     task_features: list[int] = field(default_factory=list)
     fidelity_features: list[int] = field(default_factory=list)
-    target_values: dict[int, Union[int, float]] = field(default_factory=dict)
-    robust_digest: Optional[RobustSearchSpaceDigest] = None
+    target_values: dict[int, int | float] = field(default_factory=dict)
+    robust_digest: RobustSearchSpaceDigest | None = None
 
 
 @dataclass
@@ -1105,8 +1102,8 @@ class RobustSearchSpaceDigest:
             Only relevant if paired with a `distribution_sampler`.
     """
 
-    sample_param_perturbations: Optional[Callable[[], np.ndarray]] = None
-    sample_environmental: Optional[Callable[[], np.ndarray]] = None
+    sample_param_perturbations: Callable[[], np.ndarray] | None = None
+    sample_environmental: Callable[[], np.ndarray] | None = None
     environmental_variables: list[str] = field(default_factory=list)
     multiplicative: bool = False
 

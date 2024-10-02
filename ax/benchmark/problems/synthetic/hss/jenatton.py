@@ -7,7 +7,6 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Optional
 
 import torch
 from ax.benchmark.benchmark_metric import BenchmarkMetric
@@ -24,15 +23,15 @@ from pyre_extensions import none_throws
 
 
 def jenatton_test_function(
-    x1: Optional[int] = None,
-    x2: Optional[int] = None,
-    x3: Optional[int] = None,
-    x4: Optional[float] = None,
-    x5: Optional[float] = None,
-    x6: Optional[float] = None,
-    x7: Optional[float] = None,
-    r8: Optional[float] = None,
-    r9: Optional[float] = None,
+    x1: int | None = None,
+    x2: int | None = None,
+    x3: int | None = None,
+    x4: float | None = None,
+    x5: float | None = None,
+    x6: float | None = None,
+    x7: float | None = None,
+    r8: float | None = None,
+    r9: float | None = None,
 ) -> float:
     """Jenatton test function for hierarchical search spaces.
 
@@ -54,7 +53,7 @@ def jenatton_test_function(
 class Jenatton(ParamBasedTestProblem):
     """Jenatton test function for hierarchical search spaces."""
 
-    noise_std: Optional[float] = None
+    noise_std: float | None = None
     negate: bool = False
     num_objectives: int = 1
     optimal_value: float = 0.1

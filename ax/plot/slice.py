@@ -50,9 +50,9 @@ def _get_slice_predictions(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
-    slice_values: Optional[dict[str, Any]] = None,
-    fixed_features: Optional[ObservationFeatures] = None,
-    trial_index: Optional[int] = None,
+    slice_values: dict[str, Any] | None = None,
+    fixed_features: ObservationFeatures | None = None,
+    trial_index: int | None = None,
 ) -> SlicePredictions:
     """Computes slice prediction configuration values for a single metric name.
 
@@ -132,9 +132,9 @@ def plot_slice_plotly(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
-    slice_values: Optional[dict[str, Any]] = None,
-    fixed_features: Optional[ObservationFeatures] = None,
-    trial_index: Optional[int] = None,
+    slice_values: dict[str, Any] | None = None,
+    fixed_features: ObservationFeatures | None = None,
+    trial_index: int | None = None,
 ) -> go.Figure:
     """Plot predictions for a 1-d slice of the parameter space.
 
@@ -246,9 +246,9 @@ def plot_slice(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
-    slice_values: Optional[dict[str, Any]] = None,
-    fixed_features: Optional[ObservationFeatures] = None,
-    trial_index: Optional[int] = None,
+    slice_values: dict[str, Any] | None = None,
+    fixed_features: ObservationFeatures | None = None,
+    trial_index: int | None = None,
 ) -> AxPlotConfig:
     """Plot predictions for a 1-d slice of the parameter space.
 
@@ -295,9 +295,9 @@ def interact_slice_plotly(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
-    slice_values: Optional[dict[str, Any]] = None,
-    fixed_features: Optional[ObservationFeatures] = None,
-    trial_index: Optional[int] = None,
+    slice_values: dict[str, Any] | None = None,
+    fixed_features: ObservationFeatures | None = None,
+    trial_index: int | None = None,
 ) -> go.Figure:
     """Create interactive plot with predictions for a 1-d slice of the parameter
     space.
@@ -545,9 +545,9 @@ def interact_slice(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
-    slice_values: Optional[dict[str, Any]] = None,
-    fixed_features: Optional[ObservationFeatures] = None,
-    trial_index: Optional[int] = None,
+    slice_values: dict[str, Any] | None = None,
+    fixed_features: ObservationFeatures | None = None,
+    trial_index: int | None = None,
 ) -> AxPlotConfig:
     """Create interactive plot with predictions for a 1-d slice of the parameter
     space.

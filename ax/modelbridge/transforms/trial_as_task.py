@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Optional, TYPE_CHECKING, Union
+from typing import Optional, TYPE_CHECKING
 
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType
@@ -54,10 +54,10 @@ class TrialAsTask(Transform):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[list[Observation]] = None,
+        search_space: SearchSpace | None = None,
+        observations: list[Observation] | None = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
-        config: Optional[TConfig] = None,
+        config: TConfig | None = None,
     ) -> None:
         assert observations is not None, "TrialAsTask requires observations"
         # Identify values of trial.
@@ -74,11 +74,11 @@ class TrialAsTask(Transform):
         # Get trial level map
         if config is not None and "trial_level_map" in config:
             # pyre-ignore [9]
-            trial_level_map: dict[str, dict[Union[int, str], Union[int, str]]] = config[
+            trial_level_map: dict[str, dict[int | str, int | str]] = config[
                 "trial_level_map"
             ]
             # Validate
-            self.trial_level_map: dict[str, dict[int, Union[int, str]]] = {}
+            self.trial_level_map: dict[str, dict[int, int | str]] = {}
             for _p_name, level_dict in trial_level_map.items():
                 # cast trial index as an integer
                 int_keyed_level_dict = {
@@ -99,13 +99,13 @@ class TrialAsTask(Transform):
             self.trial_level_map = {TRIAL_PARAM: {int(b): str(b) for b in trials}}
         if len(self.trial_level_map) == 1:
             level_dict = next(iter(self.trial_level_map.values()))
-            self.inverse_map: Optional[dict[Union[int, str], int]] = {
+            self.inverse_map: dict[int | str, int] | None = {
                 v: k for k, v in level_dict.items()
             }
         else:
             self.inverse_map = None
         # Compute target values
-        self.target_values: dict[str, Union[int, str]] = {}
+        self.target_values: dict[str, int | str] = {}
         for p_name, trial_map in self.trial_level_map.items():
             if config is not None and "target_trial" in config:
                 target_trial = int(config["target_trial"])  # pyre-ignore [6]

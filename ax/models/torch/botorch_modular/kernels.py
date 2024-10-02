@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import torch
 from ax.exceptions.core import AxError
@@ -22,12 +22,12 @@ from gpytorch.priors.torch_priors import Prior
 class ScaleMaternKernel(ScaleKernel):
     def __init__(
         self,
-        ard_num_dims: Optional[int] = None,
-        batch_shape: Optional[torch.Size] = None,
-        lengthscale_prior: Optional[Prior] = None,
-        outputscale_prior: Optional[Prior] = None,
-        lengthscale_constraint: Optional[Interval] = None,
-        outputscale_constraint: Optional[Interval] = None,
+        ard_num_dims: int | None = None,
+        batch_shape: torch.Size | None = None,
+        lengthscale_prior: Prior | None = None,
+        outputscale_prior: Prior | None = None,
+        lengthscale_constraint: Interval | None = None,
+        outputscale_constraint: Interval | None = None,
         **kwargs: Any,
     ) -> None:
         r"""
@@ -70,17 +70,17 @@ class TemporalKernel(ScaleKernel):
         self,
         dim: int,
         temporal_features: list[int],
-        matern_ard_num_dims: Optional[int] = None,
-        batch_shape: Optional[torch.Size] = None,
-        lengthscale_prior: Optional[Prior] = None,
-        temporal_lengthscale_prior: Optional[Prior] = None,
-        period_length_prior: Optional[Prior] = None,
-        fixed_period_length: Optional[float] = None,
-        outputscale_prior: Optional[Prior] = None,
-        lengthscale_constraint: Optional[Interval] = None,
-        outputscale_constraint: Optional[Interval] = None,
-        temporal_lengthscale_constraint: Optional[Interval] = None,
-        period_length_constraint: Optional[Interval] = None,
+        matern_ard_num_dims: int | None = None,
+        batch_shape: torch.Size | None = None,
+        lengthscale_prior: Prior | None = None,
+        temporal_lengthscale_prior: Prior | None = None,
+        period_length_prior: Prior | None = None,
+        fixed_period_length: float | None = None,
+        outputscale_prior: Prior | None = None,
+        lengthscale_constraint: Interval | None = None,
+        outputscale_constraint: Interval | None = None,
+        temporal_lengthscale_constraint: Interval | None = None,
+        period_length_constraint: Interval | None = None,
         **kwargs: Any,
     ) -> None:
         r"""

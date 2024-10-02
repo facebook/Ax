@@ -6,11 +6,11 @@
 
 # pyre-strict
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from inspect import Parameter, signature
 
 from logging import Logger
-from typing import Any, Callable, Optional
+from typing import Any
 
 from ax.utils.common.logger import get_logger
 
@@ -20,7 +20,7 @@ TKwargs = dict[str, Any]
 
 
 def consolidate_kwargs(
-    kwargs_iterable: Iterable[Optional[dict[str, Any]]], keywords: Iterable[str]
+    kwargs_iterable: Iterable[dict[str, Any] | None], keywords: Iterable[str]
 ) -> dict[str, Any]:
     """Combine an iterable of kwargs into a single dict of kwargs, where kwargs
     by duplicate keys that appear later in the iterable get priority over the
@@ -42,16 +42,14 @@ def consolidate_kwargs(
 
 
 def get_function_argument_names(
-    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     function: Callable,
-    omit: Optional[list[str]] = None,
+    omit: list[str] | None = None,
 ) -> list[str]:
     """Extract parameter names from function signature."""
     omit = omit or []
     return [p for p in signature(function).parameters.keys() if p not in omit]
 
 
-# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def get_function_default_arguments(function: Callable) -> dict[str, Any]:
     """Extract default arguments from function signature."""
     params = signature(function).parameters
@@ -60,7 +58,6 @@ def get_function_default_arguments(function: Callable) -> dict[str, Any]:
     }
 
 
-# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def warn_on_kwargs(callable_with_kwargs: Callable, **kwargs: Any) -> None:
     """Log a warning when a decoder function receives unexpected kwargs.
 
@@ -80,7 +77,6 @@ def warn_on_kwargs(callable_with_kwargs: Callable, **kwargs: Any) -> None:
 
 
 # pyre-fixme[3]: Return annotation cannot be `Any`.
-# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def filter_kwargs(function: Callable, **kwargs: Any) -> Any:
     """Filter out kwargs that are not applicable for a given function.
     Return a copy of given kwargs dict with only the required kwargs."""

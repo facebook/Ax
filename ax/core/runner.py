@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from ax.utils.common.base import Base
 from ax.utils.common.serialization import SerializationMixin
@@ -129,7 +129,7 @@ class Runner(Base, SerializationMixin, ABC):
         )
 
     def stop(
-        self, trial: core.base_trial.BaseTrial, reason: Optional[str] = None
+        self, trial: core.base_trial.BaseTrial, reason: str | None = None
     ) -> dict[str, Any]:
         """Stop a trial based on custom runner subclass implementation.
 

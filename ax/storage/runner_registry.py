@@ -6,8 +6,9 @@
 
 # pyre-strict
 
+from collections.abc import Callable
 from logging import Logger
-from typing import Any, Callable, Optional
+from typing import Any
 
 from ax.core.runner import Runner
 from ax.runners.synthetic import SyntheticRunner
@@ -45,7 +46,7 @@ def register_runner(
         type, Callable[[Any], dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
-    val: Optional[int] = None,
+    val: int | None = None,
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
     #  avoid runtime subscripting errors.
 ) -> tuple[
@@ -67,7 +68,7 @@ def register_runner(
 
 # pyre-fixme[3]: Return annotation cannot contain `Any`.
 def register_runners(
-    runner_clss: dict[type[Runner], Optional[int]],
+    runner_clss: dict[type[Runner], int | None],
     runner_registry: dict[type[Runner], int] = CORE_RUNNER_REGISTRY,
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use

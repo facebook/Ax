@@ -13,7 +13,7 @@ from collections import OrderedDict
 from collections.abc import Sequence
 from copy import deepcopy
 from logging import Logger
-from typing import Any, Optional, Union
+from typing import Any
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -80,7 +80,7 @@ logger: Logger = get_logger(__name__)
 
 def _extract_model_kwargs(
     search_space_digest: SearchSpaceDigest,
-) -> dict[str, Union[list[int], int]]:
+) -> dict[str, list[int] | int]:
     """
     Extracts keyword arguments that are passed to the `construct_inputs`
     method of a BoTorch `Model` class.
@@ -105,7 +105,7 @@ def _extract_model_kwargs(
     if len(task_features) > 1:
         raise NotImplementedError("Multiple task features are not supported.")
 
-    kwargs: dict[str, Union[list[int], int]] = {}
+    kwargs: dict[str, list[int] | int] = {}
     if len(search_space_digest.categorical_features) > 0:
         kwargs["categorical_features"] = search_space_digest.categorical_features
     if len(fidelity_features) > 0:
@@ -120,7 +120,7 @@ def _make_botorch_input_transform(
     dataset: SupervisedDataset,
     search_space_digest: SearchSpaceDigest,
     input_options: dict[str, dict[str, Any]],
-) -> Optional[InputTransform]:
+) -> InputTransform | None:
     """
     Makes a BoTorch input transform from the provided input classes and options.
     """
@@ -165,7 +165,7 @@ def _make_botorch_outcome_transform(
     input_classes: list[type[OutcomeTransform]],
     input_options: dict[str, dict[str, Any]],
     dataset: SupervisedDataset,
-) -> Optional[OutcomeTransform]:
+) -> OutcomeTransform | None:
     """
     Makes a BoTorch outcome transform from the provided classes and options.
     """
@@ -327,18 +327,18 @@ class Surrogate(Base):
 
     def __init__(
         self,
-        botorch_model_class: Optional[type[Model]] = None,
-        model_options: Optional[dict[str, Any]] = None,
+        botorch_model_class: type[Model] | None = None,
+        model_options: dict[str, Any] | None = None,
         mll_class: type[MarginalLogLikelihood] = ExactMarginalLogLikelihood,
-        mll_options: Optional[dict[str, Any]] = None,
-        outcome_transform_classes: Optional[Sequence[type[OutcomeTransform]]] = None,
-        outcome_transform_options: Optional[dict[str, dict[str, Any]]] = None,
-        input_transform_classes: Optional[Sequence[type[InputTransform]]] = None,
-        input_transform_options: Optional[dict[str, dict[str, Any]]] = None,
-        covar_module_class: Optional[type[Kernel]] = None,
-        covar_module_options: Optional[dict[str, Any]] = None,
-        likelihood_class: Optional[type[Likelihood]] = None,
-        likelihood_options: Optional[dict[str, Any]] = None,
+        mll_options: dict[str, Any] | None = None,
+        outcome_transform_classes: Sequence[type[OutcomeTransform]] | None = None,
+        outcome_transform_options: dict[str, dict[str, Any]] | None = None,
+        input_transform_classes: Sequence[type[InputTransform]] | None = None,
+        input_transform_options: dict[str, dict[str, Any]] | None = None,
+        covar_module_class: type[Kernel] | None = None,
+        covar_module_options: dict[str, Any] | None = None,
+        likelihood_class: type[Likelihood] | None = None,
+        likelihood_options: dict[str, Any] | None = None,
         allow_batched_models: bool = True,
     ) -> None:
         self.botorch_model_class = botorch_model_class
@@ -367,12 +367,12 @@ class Surrogate(Base):
         self._submodels: dict[tuple[str], Model] = {}
         # Store a reference to search space digest used while fitting the cached models.
         # We will re-fit the models if the search space digest changes.
-        self._last_search_space_digest: Optional[SearchSpaceDigest] = None
+        self._last_search_space_digest: SearchSpaceDigest | None = None
 
         # These are later updated during model fitting.
-        self._training_data: Optional[list[SupervisedDataset]] = None
-        self._outcomes: Optional[list[str]] = None
-        self._model: Optional[Model] = None
+        self._training_data: list[SupervisedDataset] | None = None
+        self._outcomes: list[str] | None = None
+        self._model: Model | None = None
 
     def __repr__(self) -> str:
         return (
@@ -432,7 +432,7 @@ class Surrogate(Base):
         dataset: SupervisedDataset,
         search_space_digest: SearchSpaceDigest,
         botorch_model_class: type[Model],
-        state_dict: Optional[OrderedDict[str, Tensor]],
+        state_dict: OrderedDict[str, Tensor] | None,
         refit: bool,
     ) -> Model:
         """Constructs the underlying BoTorch ``Model`` using the training data.
@@ -501,8 +501,8 @@ class Surrogate(Base):
         self,
         datasets: Sequence[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
-        candidate_metadata: Optional[list[list[TCandidateMetadata]]] = None,
-        state_dict: Optional[OrderedDict[str, Tensor]] = None,
+        candidate_metadata: list[list[TCandidateMetadata]] | None = None,
+        state_dict: OrderedDict[str, Tensor] | None = None,
         refit: bool = True,
     ) -> None:
         """Fits the underlying BoTorch ``Model`` to ``m`` outcomes.
@@ -622,7 +622,7 @@ class Surrogate(Base):
         self,
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
-        options: Optional[TConfig] = None,
+        options: TConfig | None = None,
     ) -> tuple[Tensor, float]:
         """Finds the best observed point and the corresponding observed outcome
         values.
@@ -654,7 +654,7 @@ class Surrogate(Base):
         self,
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
-        options: Optional[TConfig] = None,
+        options: TConfig | None = None,
     ) -> tuple[Tensor, Tensor]:
         """Finds the best predicted point and the corresponding value of the
         appropriate best point acquisition function.
@@ -743,7 +743,7 @@ class Surrogate(Base):
 
     def _extract_construct_input_transform_args(
         self, search_space_digest: SearchSpaceDigest
-    ) -> tuple[Optional[Sequence[type[InputTransform]]], dict[str, dict[str, Any]]]:
+    ) -> tuple[Sequence[type[InputTransform]] | None, dict[str, dict[str, Any]]]:
         """
         Extracts input transform classes and input transform options that will
         be used in `_set_formatted_inputs` and ultimately passed to

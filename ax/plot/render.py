@@ -97,7 +97,7 @@ def _get_plot_js(
 
 def _wrap_js(script: str) -> str:
     """Wrap JS in <script></script> tag for injection into HTML."""
-    return "<script type='text/javascript'>{script}</script>".format(script=script)
+    return f"<script type='text/javascript'>{script}</script>"
 
 
 def _plot_js_to_html(js_script: str, plotdivid: str) -> str:

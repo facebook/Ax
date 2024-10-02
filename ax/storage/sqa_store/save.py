@@ -7,11 +7,11 @@
 # pyre-strict
 
 import os
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import datetime
 
 from logging import Logger
-from typing import Any, Callable, cast, Optional, Union
+from typing import Any, cast
 
 from ax.analysis.analysis import AnalysisCard
 
@@ -45,7 +45,7 @@ from ax.utils.common.typeutils import checked_cast, not_none
 logger: Logger = get_logger(__name__)
 
 
-def save_experiment(experiment: Experiment, config: Optional[SQAConfig] = None) -> None:
+def save_experiment(experiment: Experiment, config: SQAConfig | None = None) -> None:
     """Save experiment (using default SQAConfig)."""
     if not isinstance(experiment, Experiment):
         raise ValueError("Can only save instances of Experiment")
@@ -62,8 +62,8 @@ def _save_experiment(
     encoder: Encoder,
     decoder: Decoder,
     return_sqa: bool = False,
-    validation_kwargs: Optional[dict[str, Any]] = None,
-) -> Optional[SQABase]:
+    validation_kwargs: dict[str, Any] | None = None,
+) -> SQABase | None:
     """Save experiment, using given Encoder instance.
 
     1) Convert Ax object to SQLAlchemy object.
@@ -101,7 +101,7 @@ def _save_experiment(
 
 
 def save_generation_strategy(
-    generation_strategy: GenerationStrategy, config: Optional[SQAConfig] = None
+    generation_strategy: GenerationStrategy, config: SQAConfig | None = None
 ) -> int:
     """Save generation strategy (using default SQAConfig if no config is
     specified). If the generation strategy has an experiment set, the experiment
@@ -150,7 +150,7 @@ def _save_generation_strategy(
 
 
 def save_or_update_trial(
-    experiment: Experiment, trial: BaseTrial, config: Optional[SQAConfig] = None
+    experiment: Experiment, trial: BaseTrial, config: SQAConfig | None = None
 ) -> None:
     """Add new trial to the experiment, or update if already exists
     (using default SQAConfig)."""
@@ -182,8 +182,8 @@ def _save_or_update_trial(
 def save_or_update_trials(
     experiment: Experiment,
     trials: list[BaseTrial],
-    config: Optional[SQAConfig] = None,
-    batch_size: Optional[int] = None,
+    config: SQAConfig | None = None,
+    batch_size: int | None = None,
     reduce_state_generator_runs: bool = False,
 ) -> None:
     """Add new trials to the experiment, or update if already exists
@@ -211,7 +211,7 @@ def _save_or_update_trials(
     trials: list[BaseTrial],
     encoder: Encoder,
     decoder: Decoder,
-    batch_size: Optional[int] = None,
+    batch_size: int | None = None,
     reduce_state_generator_runs: bool = False,
 ) -> None:
     """Add new trials to the experiment, or update if they already exist.
@@ -225,7 +225,7 @@ def _save_or_update_trials(
 
     experiment_id: int = experiment._db_id
 
-    def add_experiment_id(sqa: Union[SQATrial, SQAData]) -> None:
+    def add_experiment_id(sqa: SQATrial | SQAData) -> None:
         sqa.experiment_id = experiment_id
 
     if reduce_state_generator_runs:
@@ -304,8 +304,8 @@ def _save_or_update_trials(
 def update_generation_strategy(
     generation_strategy: GenerationStrategy,
     generator_runs: list[GeneratorRun],
-    config: Optional[SQAConfig] = None,
-    batch_size: Optional[int] = None,
+    config: SQAConfig | None = None,
+    batch_size: int | None = None,
     reduce_state_generator_runs: bool = False,
 ) -> None:
     """Update generation strategy's current step and attach generator runs
@@ -328,7 +328,7 @@ def _update_generation_strategy(
     generator_runs: list[GeneratorRun],
     encoder: Encoder,
     decoder: Decoder,
-    batch_size: Optional[int] = None,
+    batch_size: int | None = None,
     reduce_state_generator_runs: bool = False,
 ) -> None:
     """Update generation strategy's current step and attach generator runs."""
@@ -367,7 +367,7 @@ def _update_generation_strategy(
         sqa.generation_strategy_id = gs_id
 
     # pyre-fixme[3]: Return type must be annotated.
-    def generator_run_to_sqa_encoder(gr: GeneratorRun, weight: Optional[float] = None):
+    def generator_run_to_sqa_encoder(gr: GeneratorRun, weight: float | None = None):
         return encoder.generator_run_to_sqa(
             gr,
             weight=weight,
@@ -423,7 +423,7 @@ def update_outcome_constraint_on_experiment(
 ) -> None:
     oc_sqa_class = encoder.config.class_to_sqa_class[Metric]
 
-    exp_id: Optional[int] = experiment.db_id
+    exp_id: int | None = experiment.db_id
     if exp_id is None:
         raise UserInputError("Experiment must be saved before being updated.")
     oc_id = outcome_constraint.db_id
@@ -451,7 +451,7 @@ def update_outcome_constraint_on_experiment(
 
 def update_properties_on_experiment(
     experiment_with_updated_properties: Experiment,
-    config: Optional[SQAConfig] = None,
+    config: SQAConfig | None = None,
 ) -> None:
     config = SQAConfig() if config is None else config
     exp_sqa_class = config.class_to_sqa_class[Experiment]
@@ -470,7 +470,7 @@ def update_properties_on_experiment(
 
 def update_properties_on_trial(
     trial_with_updated_properties: BaseTrial,
-    config: Optional[SQAConfig] = None,
+    config: SQAConfig | None = None,
 ) -> None:
     config = SQAConfig() if config is None else config
     trial_sqa_class = config.class_to_sqa_class[Trial]
@@ -490,7 +490,7 @@ def update_properties_on_trial(
 def save_analysis_cards(
     analysis_cards: list[AnalysisCard],
     experiment: Experiment,
-    config: Optional[SQAConfig] = None,
+    config: SQAConfig | None = None,
 ) -> None:
     # Start up SQA encoder.
     config = SQAConfig() if config is None else config
@@ -535,14 +535,11 @@ def _save_analysis_cards(
 
 def _merge_into_session(
     obj: Base,
-    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     encode_func: Callable,
-    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     decode_func: Callable,
-    encode_args: Optional[dict[str, Any]] = None,
-    decode_args: Optional[dict[str, Any]] = None,
-    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
-    modify_sqa: Optional[Callable] = None,
+    encode_args: dict[str, Any] | None = None,
+    decode_args: dict[str, Any] | None = None,
+    modify_sqa: Callable | None = None,
 ) -> SQABase:
     """Given a user-facing object (that may or may not correspond to an
     existing DB object), perform the following steps to either create or
@@ -577,15 +574,12 @@ def _merge_into_session(
 
 def _bulk_merge_into_session(
     objs: Sequence[Base],
-    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     encode_func: Callable,
-    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     decode_func: Callable,
-    encode_args_list: Optional[Union[list[None], list[dict[str, Any]]]] = None,
-    decode_args_list: Optional[Union[list[None], list[dict[str, Any]]]] = None,
-    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
-    modify_sqa: Optional[Callable] = None,
-    batch_size: Optional[int] = None,
+    encode_args_list: list[None] | list[dict[str, Any]] | None = None,
+    decode_args_list: list[None] | list[dict[str, Any]] | None = None,
+    modify_sqa: Callable | None = None,
+    batch_size: int | None = None,
 ) -> list[SQABase]:
     """Bulk version of _merge_into_session.
 

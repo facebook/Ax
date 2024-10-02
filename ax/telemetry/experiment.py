@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import inf
-from typing import Optional
 
 from ax.core.base_trial import TrialStatus
 
@@ -38,8 +37,8 @@ class ExperimentCreatedRecord:
     bools, and None.
     """
 
-    experiment_name: Optional[str]
-    experiment_type: Optional[str]
+    experiment_name: str | None
+    experiment_type: str | None
 
     # SearchSpace info
     num_continuous_range_parameters: int

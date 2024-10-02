@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from typing import Optional
 
 import numpy as np
 from ax.models.random.base import RandomModel
@@ -24,9 +23,9 @@ class UniformGenerator(RandomModel):
     def __init__(
         self,
         deduplicate: bool = True,
-        seed: Optional[int] = None,
+        seed: int | None = None,
         init_position: int = 0,
-        generated_points: Optional[np.ndarray] = None,
+        generated_points: np.ndarray | None = None,
         fallback_to_sample_polytope: bool = False,
     ) -> None:
         super().__init__(

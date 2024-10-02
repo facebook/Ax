@@ -8,7 +8,6 @@
 
 from collections import defaultdict
 from logging import Logger
-from typing import Optional
 
 import pandas as pd
 from ax.core.base_trial import TrialStatus
@@ -119,7 +118,7 @@ def align_partial_results(
 
 def estimate_early_stopping_savings(
     experiment: Experiment,
-    map_key: Optional[str] = None,
+    map_key: str | None = None,
 ) -> float:
     """Estimate resource savings due to early stopping by considering
     COMPLETED and EARLY_STOPPED trials. First, use the mean of final

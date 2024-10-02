@@ -48,7 +48,7 @@ class Derelativize(Transform):
         self,
         optimization_config: OptimizationConfig,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
-        fixed_features: Optional[ObservationFeatures] = None,
+        fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         use_raw_sq = self.config.get("use_raw_status_quo", False)
         has_relative_constraint = any(
@@ -112,7 +112,7 @@ class Derelativize(Transform):
     def untransform_outcome_constraints(
         self,
         outcome_constraints: list[OutcomeConstraint],
-        fixed_features: Optional[ObservationFeatures] = None,
+        fixed_features: ObservationFeatures | None = None,
     ) -> list[OutcomeConstraint]:
         # We intentionally leave outcome constraints derelativized when
         # untransforming.

@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import json
 import warnings
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Any
 
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -63,23 +64,23 @@ class ModelSpec(SortableBase, SerializationMixin):
     model_cv_kwargs: dict[str, Any] = field(default_factory=dict)
     # An optional override for the model key. Each `ModelSpec` in a
     # `GenerationNode` must have a unique key to ensure identifiability.
-    model_key_override: Optional[str] = None
+    model_key_override: str | None = None
 
     # Fitted model, constructed using specified `model_kwargs` and `Data`
     # on `ModelSpec.fit`
-    _fitted_model: Optional[ModelBridge] = None
+    _fitted_model: ModelBridge | None = None
 
     # Stored cross validation results set in cross validate.
-    _cv_results: Optional[list[CVResult]] = None
+    _cv_results: list[CVResult] | None = None
 
     # Stored cross validation diagnostics set in cross validate.
-    _diagnostics: Optional[CVDiagnostics] = None
+    _diagnostics: CVDiagnostics | None = None
 
     # Stored to check if the CV result & diagnostic cache is safe to reuse.
-    _last_cv_kwargs: Optional[dict[str, Any]] = None
+    _last_cv_kwargs: dict[str, Any] | None = None
 
     # Stored to check if the model can be safely updated in fit.
-    _last_fit_arg_ids: Optional[dict[str, int]] = None
+    _last_fit_arg_ids: dict[str, int] | None = None
 
     def __post_init__(self) -> None:
         self.model_kwargs = self.model_kwargs or {}
@@ -93,14 +94,14 @@ class ModelSpec(SortableBase, SerializationMixin):
         return not_none(self._fitted_model)
 
     @property
-    def fixed_features(self) -> Optional[ObservationFeatures]:
+    def fixed_features(self) -> ObservationFeatures | None:
         """
         Fixed generation features to pass into the Model's `.gen` function.
         """
         return self.model_gen_kwargs.get("fixed_features", None)
 
     @fixed_features.setter
-    def fixed_features(self, value: Optional[ObservationFeatures]) -> None:
+    def fixed_features(self, value: ObservationFeatures | None) -> None:
         """
         Fixed generation features to pass into the Model's `.gen` function.
         """
@@ -155,8 +156,8 @@ class ModelSpec(SortableBase, SerializationMixin):
 
     def cross_validate(
         self,
-        model_cv_kwargs: Optional[dict[str, Any]] = None,
-    ) -> tuple[Optional[list[CVResult]], Optional[CVDiagnostics]]:
+        model_cv_kwargs: dict[str, Any] | None = None,
+    ) -> tuple[list[CVResult] | None, CVDiagnostics | None]:
         """
         Call cross_validate, compute_diagnostics and cache the results.
         If the model cannot be cross validated, warn and return None.
@@ -195,7 +196,7 @@ class ModelSpec(SortableBase, SerializationMixin):
         return self._cv_results, self._diagnostics
 
     @property
-    def cv_results(self) -> Optional[list[CVResult]]:
+    def cv_results(self) -> list[CVResult] | None:
         """
         Cached CV results from `self.cross_validate()`
         if it has been successfully called
@@ -203,7 +204,7 @@ class ModelSpec(SortableBase, SerializationMixin):
         return self._cv_results
 
     @property
-    def diagnostics(self) -> Optional[CVDiagnostics]:
+    def diagnostics(self) -> CVDiagnostics | None:
         """
         Cached CV diagnostics from `self.cross_validate()`
         if it has been successfully called
@@ -327,9 +328,9 @@ class ModelSpec(SortableBase, SerializationMixin):
 
 @dataclass
 class FactoryFunctionModelSpec(ModelSpec):
-    factory_function: Optional[TModelFactory] = None
+    factory_function: TModelFactory | None = None
     # pyre-ignore[15]: `ModelSpec` has this as non-optional
-    model_enum: Optional[ModelRegistryBase] = None
+    model_enum: ModelRegistryBase | None = None
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -366,8 +367,8 @@ class FactoryFunctionModelSpec(ModelSpec):
         self,
         experiment: Experiment,
         data: Data,
-        search_space: Optional[SearchSpace] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
+        search_space: SearchSpace | None = None,
+        optimization_config: OptimizationConfig | None = None,
         **model_kwargs: Any,
     ) -> None:
         """Fits the specified model on the given experiment + data using the

@@ -7,9 +7,10 @@
 # pyre-strict
 
 import functools
+from collections.abc import Callable
 from copy import deepcopy
 from functools import partial
-from typing import Any, Callable, Optional
+from typing import Any
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -56,7 +57,7 @@ class SEBOAcquisition(Acquisition):
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
         botorch_acqf_class: type[AcquisitionFunction],
-        options: Optional[dict[str, Any]] = None,
+        options: dict[str, Any] | None = None,
     ) -> None:
         if len(surrogates) > 1:
             raise ValueError("SEBO does not support support multiple surrogates.")
@@ -210,10 +211,10 @@ class SEBOAcquisition(Acquisition):
         self,
         n: int,
         search_space_digest: SearchSpaceDigest,
-        inequality_constraints: Optional[list[tuple[Tensor, Tensor, float]]] = None,
-        fixed_features: Optional[dict[int, float]] = None,
-        rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
-        optimizer_options: Optional[dict[str, Any]] = None,
+        inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
+        fixed_features: dict[int, float] | None = None,
+        rounding_func: Callable[[Tensor], Tensor] | None = None,
+        optimizer_options: dict[str, Any] | None = None,
     ) -> tuple[Tensor, Tensor, Tensor]:
         """Generate a set of candidates via multi-start optimization. Obtains
         candidates and their associated acquisition function values.
@@ -278,9 +279,9 @@ class SEBOAcquisition(Acquisition):
         self,
         n: int,
         search_space_digest: SearchSpaceDigest,
-        fixed_features: Optional[dict[int, float]] = None,
-        rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
-        optimizer_options: Optional[dict[str, Any]] = None,
+        fixed_features: dict[int, float] | None = None,
+        rounding_func: Callable[[Tensor], Tensor] | None = None,
+        optimizer_options: dict[str, Any] | None = None,
     ) -> tuple[Tensor, Tensor, Tensor]:
         """Optimize SEBO ACQF with L0 norm using homotopy."""
         # extend to fixed a no homotopy_schedule schedule

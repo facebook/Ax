@@ -7,13 +7,12 @@
 # pyre-strict
 
 import warnings
-from typing import Optional, Type
 
 
 def _validate_force_random_search(
-    no_bayesian_optimization: Optional[bool] = None,
+    no_bayesian_optimization: bool | None = None,
     force_random_search: bool = False,
-    exception_cls: Type[Exception] = ValueError,
+    exception_cls: type[Exception] = ValueError,
 ) -> None:
     """Helper function to validate interaction between `force_random_search`
     and `no_bayesian_optimization` (supported until deprecation in [T199632397])

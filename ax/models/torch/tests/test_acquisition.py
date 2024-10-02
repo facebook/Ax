@@ -12,7 +12,7 @@ import dataclasses
 import itertools
 from contextlib import ExitStack
 from itertools import chain
-from typing import Any, Optional
+from typing import Any
 from unittest import mock
 from unittest.mock import Mock
 
@@ -172,7 +172,7 @@ class AcquisitionTest(TestCase):
         )
 
     def get_acquisition_function(
-        self, fixed_features: Optional[dict[int, float]] = None, one_shot: bool = False
+        self, fixed_features: dict[int, float] | None = None, one_shot: bool = False
     ) -> Acquisition:
         return Acquisition(
             botorch_acqf_class=(

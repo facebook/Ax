@@ -8,7 +8,7 @@
 
 import json
 from json import JSONDecodeError
-from typing import Any, Optional
+from typing import Any
 
 from ax.storage.sqa_store.db import JSON_FIELD_LENGTH, LONGTEXT_BYTES, MEDIUMTEXT_BYTES
 from sqlalchemy.ext.mutable import MutableDict, MutableList
@@ -40,7 +40,7 @@ class JSONEncodedObject(TypeDecorator):
         super().__init__(*args, **kwargs)
 
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-    def process_bind_param(self, value: Any, dialect: Any) -> Optional[str]:
+    def process_bind_param(self, value: Any, dialect: Any) -> str | None:
         if value is not None:
             return json.dumps(value)
         else:

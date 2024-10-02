@@ -7,10 +7,10 @@
 # pyre-strict
 
 import inspect
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 
 from logging import Logger
-from typing import Any, Callable, Optional
+from typing import Any
 
 from ax.core import Trial
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -117,13 +117,13 @@ try:
             self,
             tracker_base: str,
             component: Callable[..., AppDef],
-            component_const_params: Optional[dict[str, Any]] = None,
+            component_const_params: dict[str, Any] | None = None,
             scheduler: str = "local",
-            cfg: Optional[Mapping[str, CfgVal]] = None,
+            cfg: Mapping[str, CfgVal] | None = None,
         ) -> None:
             self._component: Callable[..., AppDef] = component
             self._scheduler: str = scheduler
-            self._cfg: Optional[Mapping[str, CfgVal]] = cfg
+            self._cfg: Mapping[str, CfgVal] | None = cfg
             # need to use the same runner in case it has state
             # e.g. torchx's local_scheduler has state hence need to poll status
             # on the same scheduler instance
@@ -180,9 +180,7 @@ try:
 
             return trial_statuses
 
-        def stop(
-            self, trial: BaseTrial, reason: Optional[str] = None
-        ) -> dict[str, Any]:
+        def stop(self, trial: BaseTrial, reason: str | None = None) -> dict[str, Any]:
             """Kill the given trial."""
             app_handle: str = trial.run_metadata[TORCHX_APP_HANDLE]
             self._torchx_runner.stop(app_handle)

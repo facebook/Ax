@@ -7,7 +7,7 @@
 
 import inspect
 from collections import Counter
-from typing import Any, Dict, get_type_hints, Optional
+from typing import Any, get_type_hints
 
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
@@ -165,8 +165,10 @@ class TestInstantiationFromNodeInputConstructor(TestCase):
                     ),
                 )
                 self.assertEqual(
-                    func_parameters["previous_node"], Optional[GenerationNode]
+                    func_parameters["previous_node"], GenerationNode | None
                 )
                 self.assertEqual(func_parameters["next_node"], GenerationNode)
-                self.assertEqual(func_parameters["gs_gen_call_kwargs"], Dict[str, Any])
+                # pyre-ignore [16]: Undefined attribute [16]: `dict` has no attribute
+                # `__getitem__`.¸
+                self.assertEqual(func_parameters["gs_gen_call_kwargs"], dict[str, Any])
                 self.assertEqual(method_signature, inspect.signature(constructor))

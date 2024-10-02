@@ -44,10 +44,10 @@ class TimeAsFeature(Transform):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[list[Observation]] = None,
+        search_space: SearchSpace | None = None,
+        observations: list[Observation] | None = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
-        config: Optional[TConfig] = None,
+        config: TConfig | None = None,
     ) -> None:
         assert observations is not None, "TimeAsFeature requires observations"
         if isinstance(search_space, RobustSearchSpace):
@@ -77,9 +77,7 @@ class TimeAsFeature(Transform):
                 # no need to case-distinguish during normalization
                 self.duration_range = 1.0
 
-    def _get_duration(
-        self, start_time: float, end_time: Optional[pd.Timestamp]
-    ) -> float:
+    def _get_duration(self, start_time: float, end_time: pd.Timestamp | None) -> float:
         return (
             self.current_time if end_time is None else end_time.timestamp()
         ) - start_time

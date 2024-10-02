@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 
 
 T = TypeVar("T")
@@ -15,7 +15,7 @@ X = TypeVar("X")
 Y = TypeVar("Y")
 
 
-def not_none(val: Optional[T], message: Optional[str] = None) -> T:
+def not_none(val: T | None, message: str | None = None) -> T:
     """
     Unbox an optional type.
 
@@ -32,7 +32,7 @@ def not_none(val: Optional[T], message: Optional[str] = None) -> T:
     return val
 
 
-def checked_cast(typ: type[T], val: V, exception: Optional[Exception] = None) -> T:
+def checked_cast(typ: type[T], val: V, exception: Exception | None = None) -> T:
     """
     Cast a value to a type (with a runtime safety check).
 
@@ -61,7 +61,7 @@ def checked_cast(typ: type[T], val: V, exception: Optional[Exception] = None) ->
     return val
 
 
-def checked_cast_optional(typ: type[T], val: Optional[V]) -> Optional[T]:
+def checked_cast_optional(typ: type[T], val: V | None) -> T | None:
     """Calls checked_cast only if value is not None."""
     if val is None:
         return val

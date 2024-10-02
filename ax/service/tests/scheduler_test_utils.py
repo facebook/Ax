@@ -8,13 +8,13 @@
 
 import os
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta
 from logging import WARNING
 from math import ceil
 from random import randint
 from tempfile import NamedTemporaryFile
-from typing import Any, Callable, cast, Optional
+from typing import Any, cast
 from unittest.mock import call, Mock, patch, PropertyMock
 
 import pandas as pd
@@ -348,7 +348,7 @@ class AxSchedulerTestCase(TestCase):
     def _get_generation_strategy_strategy_for_test(
         self,
         experiment: Experiment,
-        generation_strategy: Optional[GenerationStrategy] = None,
+        generation_strategy: GenerationStrategy | None = None,
     ) -> GenerationStrategyInterface:
         return not_none(generation_strategy)
 
@@ -404,7 +404,7 @@ class AxSchedulerTestCase(TestCase):
         return DBSettings(encoder=encoder, decoder=decoder)
 
     @property
-    def db_settings_if_always_needed(self) -> Optional[DBSettings]:
+    def db_settings_if_always_needed(self) -> DBSettings | None:
         if self.ALWAYS_USE_DB:
             return self.db_settings
         return None
@@ -639,7 +639,7 @@ class AxSchedulerTestCase(TestCase):
     def base_run_n_trials(
         self,
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-        idle_callback: Optional[Callable[[Scheduler], Any]],
+        idle_callback: Callable[[Scheduler], Any] | None,
     ) -> None:
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
@@ -1416,7 +1416,7 @@ class AxSchedulerTestCase(TestCase):
                 trial_indices: set[int],
                 experiment: Experiment,
                 **kwargs: dict[str, Any],
-            ) -> dict[int, Optional[str]]:
+            ) -> dict[int, str | None]:
                 # Make sure that we can lookup data for the trial,
                 # even though we won't use it in this dummy strategy
                 data = experiment.lookup_data(trial_indices=trial_indices)
@@ -1616,10 +1616,8 @@ class AxSchedulerTestCase(TestCase):
         self.assertEqual(len(scheduler.experiment.trials), 0)
 
     @patch(
-        (
-            f"{WithDBSettingsBase.__module__}.WithDBSettingsBase."
-            "_save_generation_strategy_to_db_if_possible"
-        )
+        f"{WithDBSettingsBase.__module__}.WithDBSettingsBase."
+        "_save_generation_strategy_to_db_if_possible"
     )
     @patch(
         f"{WithDBSettingsBase.__module__}._save_experiment", side_effect=StaleDataError

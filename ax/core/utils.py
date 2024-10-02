@@ -8,7 +8,7 @@
 
 from collections.abc import Iterable
 from copy import deepcopy
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 import numpy as np
 from ax.core.arm import Arm
@@ -168,7 +168,7 @@ def _extract_generator_runs(trial: BaseTrial) -> list[GeneratorRun]:
 
 def get_model_trace_of_times(
     experiment: Experiment,
-) -> tuple[list[Optional[float]], list[Optional[float]]]:
+) -> tuple[list[float | None], list[float | None]]:
     """
     Get time spent fitting the model and generating candidates during each trial.
     Not cumulative.
@@ -191,8 +191,8 @@ def get_model_times(experiment: Experiment) -> tuple[float, float]:
     course of the experiment.
     """
     fit_times, gen_times = get_model_trace_of_times(experiment)
-    fit_time = sum((t for t in fit_times if t is not None))
-    gen_time = sum((t for t in gen_times if t is not None))
+    fit_time = sum(t for t in fit_times if t is not None)
+    gen_time = sum(t for t in gen_times if t is not None)
     return fit_time, gen_time
 
 
@@ -202,7 +202,7 @@ def get_model_times(experiment: Experiment) -> tuple[float, float]:
 def extract_pending_observations(
     experiment: Experiment,
     include_out_of_design_points: bool = False,
-) -> Optional[dict[str, list[ObservationFeatures]]]:
+) -> dict[str, list[ObservationFeatures]] | None:
     """Computes a list of pending observation features (corresponding to:
     - arms that have been generated and run in the course of the experiment,
     but have not been completed with data,
@@ -240,7 +240,7 @@ def get_pending_observation_features(
     experiment: Experiment,
     *,
     include_out_of_design_points: bool = False,
-) -> Optional[dict[str, list[ObservationFeatures]]]:
+) -> dict[str, list[ObservationFeatures]] | None:
     """Computes a list of pending observation features (corresponding to:
     - arms that have been generated in the course of the experiment,
     but have not been completed with data,
@@ -274,7 +274,7 @@ def get_pending_observation_features(
         arm: Arm,
         trial_index: int,
         trial: BaseTrial,
-    ) -> Optional[ObservationFeatures]:
+    ) -> ObservationFeatures | None:
         if not include_out_of_design_points and not _is_in_design(arm=arm):
             return None
         return ObservationFeatures.from_arm(
@@ -331,7 +331,7 @@ def get_pending_observation_features(
 def get_pending_observation_features_based_on_trial_status(
     experiment: Experiment,
     include_out_of_design_points: bool = False,
-) -> Optional[dict[str, list[ObservationFeatures]]]:
+) -> dict[str, list[ObservationFeatures]] | None:
     """A faster analogue of ``get_pending_observation_features`` that makes
     assumptions about trials in experiment in order to speed up extraction
     of pending points.

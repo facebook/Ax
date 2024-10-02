@@ -12,7 +12,6 @@ import time
 from dataclasses import dataclass
 
 from logging import Logger
-from typing import Optional
 
 from ax.core.base_trial import TrialStatus
 from ax.utils.common.logger import get_logger
@@ -38,11 +37,11 @@ class SimTrial:
     # The simulation runtime in seconds
     sim_runtime: float
     # the start time in seconds
-    sim_start_time: Optional[float] = None
+    sim_start_time: float | None = None
     # the queued time in seconds
-    sim_queued_time: Optional[float] = None
+    sim_queued_time: float | None = None
     # the completed time (used for early stopping)
-    sim_completed_time: Optional[float] = None
+    sim_completed_time: float | None = None
 
 
 @dataclass
@@ -87,7 +86,7 @@ class BackendSimulatorOptions:
     max_concurrency: int = 1
     time_scaling: float = 1.0
     failure_rate: float = 0.0
-    internal_clock: Optional[float] = None
+    internal_clock: float | None = None
     use_update_as_start_time: bool = False
 
 
@@ -106,10 +105,10 @@ class BackendSimulatorState:
 
     options: BackendSimulatorOptions
     verbose_logging: bool
-    queued: list[dict[str, Optional[float]]]
-    running: list[dict[str, Optional[float]]]
-    failed: list[dict[str, Optional[float]]]
-    completed: list[dict[str, Optional[float]]]
+    queued: list[dict[str, float | None]]
+    running: list[dict[str, float | None]]
+    failed: list[dict[str, float | None]]
+    completed: list[dict[str, float | None]]
 
 
 class BackendSimulator:
@@ -117,11 +116,11 @@ class BackendSimulator:
 
     def __init__(
         self,
-        options: Optional[BackendSimulatorOptions] = None,
-        queued: Optional[list[SimTrial]] = None,
-        running: Optional[list[SimTrial]] = None,
-        failed: Optional[list[SimTrial]] = None,
-        completed: Optional[list[SimTrial]] = None,
+        options: BackendSimulatorOptions | None = None,
+        queued: list[SimTrial] | None = None,
+        running: list[SimTrial] | None = None,
+        failed: list[SimTrial] | None = None,
+        completed: list[SimTrial] | None = None,
         verbose_logging: bool = True,
     ) -> None:
         """A simulator for a concurrent dispatch with a queue.
@@ -372,7 +371,7 @@ class BackendSimulator:
             completed=[t.trial_index for t in self._completed],
         )
 
-    def lookup_trial_index_status(self, trial_index: int) -> Optional[TrialStatus]:
+    def lookup_trial_index_status(self, trial_index: int) -> TrialStatus | None:
         """Lookup the trial status of a ``trial_index``.
 
         Args:
@@ -392,7 +391,7 @@ class BackendSimulator:
             return TrialStatus.FAILED
         return None
 
-    def get_sim_trial_by_index(self, trial_index: int) -> Optional[SimTrial]:
+    def get_sim_trial_by_index(self, trial_index: int) -> SimTrial | None:
         """Get a ``SimTrial`` by ``trial_index``.
 
         Args:
@@ -473,7 +472,7 @@ class BackendSimulator:
         self._index_to_trial_map = {t.trial_index: t for t in self.all_trials}
 
 
-def format(trial_list: list[dict[str, Optional[float]]]) -> str:
+def format(trial_list: list[dict[str, float | None]]) -> str:
     """Helper function for formatting a list."""
     trial_list_str = [str(i) for i in trial_list]
     return "\n".join(trial_list_str)

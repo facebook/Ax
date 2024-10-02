@@ -10,7 +10,6 @@
 import functools
 import time
 from logging import WARN
-from typing import Optional
 
 import numpy as np
 from ax.core.types import TEvaluationOutcome
@@ -29,7 +28,7 @@ class TestInteractiveLoop(TestCase):
     def test_interactive_loop(self) -> None:
         def _elicit(
             parameterization_with_trial_index: tuple[TParameterization, int]
-        ) -> Optional[tuple[int, TEvaluationOutcome]]:
+        ) -> tuple[int, TEvaluationOutcome] | None:
             parameterization, trial_index = parameterization_with_trial_index
             x = np.array([parameterization.get(f"x{i+1}") for i in range(6)])
 
@@ -43,7 +42,7 @@ class TestInteractiveLoop(TestCase):
 
         def _aborted_elicit(
             parameterization_with_trial_index: tuple[TParameterization, int]
-        ) -> Optional[tuple[int, TEvaluationOutcome]]:
+        ) -> tuple[int, TEvaluationOutcome] | None:
             return None
 
         ax_client = AxClient()
