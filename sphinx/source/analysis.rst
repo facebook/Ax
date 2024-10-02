@@ -54,3 +54,11 @@ Predicted Effects Analysis
     :members:
     :undoc-members:
     :show-inheritance:
+
+Plotly Anaylsis Utils
+~~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.plotly.utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
