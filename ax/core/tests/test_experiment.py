@@ -1027,6 +1027,8 @@ class ExperimentTest(TestCase):
             with_completed_trial=True,
             with_status_quo=True,
             with_choice_parameter=True,
+            num_batch_trial=3,
+            with_completed_batch=True,
         )
         # Save the experiment to set db_ids.
         save_experiment(experiment)
@@ -1054,7 +1056,7 @@ class ExperimentTest(TestCase):
             status_quo=new_status_quo,
         )
         self.assertEqual(cloned_experiment._data_by_trial, experiment._data_by_trial)
-        self.assertEqual(len(cloned_experiment.trials), 2)
+        self.assertEqual(len(cloned_experiment.trials), 4)
         for trial_index in cloned_experiment.trials.keys():
             cloned_trial = cloned_experiment.trials[trial_index]
             original_trial = experiment.trials[trial_index]
@@ -1098,7 +1100,15 @@ class ExperimentTest(TestCase):
         reloaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, reloaded_experiment)
 
-        # clone specific trials and new data only
+        # Clone specific trials.
+        # With existing data.
+        experiment._data_by_trial
+        cloned_experiment = experiment.clone_with(trial_indices=[1])
+        self.assertEqual(len(cloned_experiment.trials), 1)
+        cloned_df = cloned_experiment.lookup_data_for_trial(0)[0].df
+        self.assertEqual(cloned_df["trial_index"].iloc[0], 0)
+
+        # With new data.
         df = pd.DataFrame(
             {
                 "arm_name": ["1_0"],
@@ -1110,14 +1120,14 @@ class ExperimentTest(TestCase):
         )
         cloned_experiment = experiment.clone_with(trial_indices=[1], data=Data(df=df))
         self.assertEqual(len(cloned_experiment.trials), 1)
-        self.assertEqual(len(experiment.trials), 2)
+        self.assertEqual(len(experiment.trials), 4)
         cloned_df = cloned_experiment.lookup_data_for_trial(1)[0].df
         self.assertEqual(cloned_df.shape[0], 1)
         self.assertEqual(cloned_df["mean"].iloc[0], 100.0)
         self.assertEqual(cloned_df["sem"].iloc[0], 1.0)
         # make sure the original experiment data is unchanged
         df = experiment.lookup_data_for_trial(1)[0].df
-        self.assertEqual(df["sem"].iloc[0], 0.0)
+        self.assertEqual(df["sem"].iloc[0], 0.1)
 
         # Clone with MapData.
         experiment = get_test_map_data_experiment(
