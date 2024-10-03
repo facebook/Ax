@@ -499,6 +499,14 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             and self.options.global_stopping_strategy is not None
         ):
             gss = none_throws(self.options.global_stopping_strategy)
+            if (num_trials := len(self.trials)) > 1000:
+                # When there are many trials, checking the global stopping
+                # strategy can get a little bit slow, so we log when we start it,
+                # to avoid user confusion and to keep a record of the run times.
+                self.logger.info(
+                    f"There are {num_trials} trials; performing "
+                    f"completion criterion check with {gss}..."
+                )
             stop_optimization, global_stopping_msg = gss.should_stop_optimization(
                 experiment=self.experiment
             )
@@ -1006,8 +1014,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         # schedule new trials and poll existing ones in a loop.
         self._num_remaining_requested_trials = max_trials
         while (
-            not self.should_consider_optimization_complete()[0]
-            and self._num_remaining_requested_trials > 0
+            self._num_remaining_requested_trials > 0
+            and not self.should_consider_optimization_complete()[0]
         ):
             if self.should_abort_optimization():
                 yield self._abort_optimization(num_preexisting_trials=n_existing)
@@ -1471,8 +1479,11 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             - prev_completed_trial_idcs
         )
         idcs = make_indices_str(indices=newly_completed)
-        self.logger.info(f"Fetching data for newly completed trials: {idcs}.")
-        trial_indices_to_fetch.update(newly_completed)
+        if newly_completed:
+            self.logger.info(f"Fetching data for newly completed trials: {idcs}.")
+            trial_indices_to_fetch.update(newly_completed)
+        else:
+            self.logger.info("No newly completed trials; not fetching data for any.")
 
         # Fetch data for running trials that have metrics available while running
         if (
