@@ -1828,7 +1828,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         Returns:
             List of trials, empty if generation is not possible.
         """
-        self.poll_and_process_results()
         new_trials = self._get_next_trials(
             num_trials=num_trials,
             n=self.options.batch_size or 1,

@@ -145,10 +145,6 @@ class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):
         self.branin_experiment.update_runner("type1", RunnerWithAllFailedTrials())
         super().test_failure_rate_all_failed()
 
-    def test_generate_candidates_does_not_generate_if_overconstrained(self) -> None:
-        self.branin_experiment.update_runner("type1", InfinitePollRunner())
-        super().test_generate_candidates_does_not_generate_if_overconstrained()
-
     def test_run_trials_and_yield_results_with_early_stopper(self) -> None:
         self.branin_experiment.update_runner("type1", InfinitePollRunner())
         super().test_run_trials_and_yield_results_with_early_stopper()
