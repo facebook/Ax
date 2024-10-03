@@ -7,7 +7,7 @@
 # pyre-strict
 
 from copy import deepcopy
-from typing import Any, cast, Optional
+from typing import Any, cast
 
 import numpy as np
 from ax.core import OptimizationConfig
@@ -54,7 +54,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
                 trial_indices: set[int],
                 experiment: Experiment,
                 **kwargs: dict[str, Any],
-            ) -> dict[int, Optional[str]]:
+            ) -> dict[int, str | None]:
                 return {}
 
         test_experiment = get_test_map_data_experiment(
@@ -142,7 +142,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
                 trial_indices: set[int],
                 experiment: Experiment,
                 **kwargs: dict[str, Any],
-            ) -> dict[int, Optional[str]]:
+            ) -> dict[int, str | None]:
                 return {}
 
         experiment = get_test_map_data_experiment(
@@ -217,7 +217,7 @@ class TestModelBasedEarlyStoppingStrategy(TestCase):
                 trial_indices: set[int],
                 experiment: Experiment,
                 **kwargs: dict[str, Any],
-            ) -> dict[int, Optional[str]]:
+            ) -> dict[int, str | None]:
                 return {}
 
         experiment = get_test_map_data_experiment(
@@ -695,7 +695,7 @@ def _evaluate_early_stopping_with_df(
     early_stopping_strategy: PercentileEarlyStoppingStrategy,
     experiment: Experiment,
     metric_name: str,
-) -> dict[int, Optional[str]]:
+) -> dict[int, str | None]:
     """Helper function for testing PercentileEarlyStoppingStrategy
     on an arbitrary (MapData) df."""
     data = not_none(

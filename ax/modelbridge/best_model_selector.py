@@ -9,9 +9,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from enum import Enum
 from functools import partial
-from typing import Any, Callable, Optional, Union
+from typing import Any, Union
 
 import numpy as np
 from ax.exceptions.core import UserInputError
@@ -85,7 +86,7 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
         diagnostic: str,
         metric_aggregation: ReductionCriterion,
         criterion: ReductionCriterion,
-        model_cv_kwargs: Optional[dict[str, Any]] = None,
+        model_cv_kwargs: dict[str, Any] | None = None,
     ) -> None:
         self.diagnostic = diagnostic
         if not isinstance(metric_aggregation, ReductionCriterion) or not isinstance(

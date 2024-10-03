@@ -9,9 +9,10 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Callable
 from copy import deepcopy
 from logging import Logger
-from typing import Any, Callable, Optional, Union
+from typing import Any, Optional
 
 import numpy as np
 import torch
@@ -232,13 +233,13 @@ class BotorchModel(TorchModel):
     optimization problems. % TODO: refer to an example.
     """
 
-    dtype: Optional[torch.dtype]
-    device: Optional[torch.device]
+    dtype: torch.dtype | None
+    device: torch.device | None
     Xs: list[Tensor]
     Ys: list[Tensor]
     Yvars: list[Tensor]
-    _model: Optional[Model]
-    _search_space_digest: Optional[SearchSpaceDigest] = None
+    _model: Model | None
+    _search_space_digest: SearchSpaceDigest | None = None
 
     def __init__(
         self,
@@ -252,7 +253,7 @@ class BotorchModel(TorchModel):
         warm_start_refitting: bool = True,
         use_input_warping: bool = False,
         use_loocv_pseudo_likelihood: bool = False,
-        prior: Optional[dict[str, Any]] = None,
+        prior: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         warnings.warn(
@@ -277,7 +278,7 @@ class BotorchModel(TorchModel):
         self.use_input_warping = use_input_warping
         self.use_loocv_pseudo_likelihood = use_loocv_pseudo_likelihood
         self.prior = prior
-        self._model: Optional[Model] = None
+        self._model: Model | None = None
         self.Xs = []
         self.Ys = []
         self.Yvars = []
@@ -292,7 +293,7 @@ class BotorchModel(TorchModel):
         self,
         datasets: list[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
-        candidate_metadata: Optional[list[list[TCandidateMetadata]]] = None,
+        candidate_metadata: list[list[TCandidateMetadata]] | None = None,
     ) -> None:
         if len(datasets) == 0:
             raise DataRequiredError("BotorchModel.fit requires non-empty data sets.")
@@ -440,7 +441,7 @@ class BotorchModel(TorchModel):
         self,
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
-    ) -> Optional[Tensor]:
+    ) -> Tensor | None:
         if torch_opt_config.is_moo:
             raise NotImplementedError(
                 "Best observed point is incompatible with MOO problems."
@@ -523,8 +524,8 @@ class BotorchModel(TorchModel):
 
 
 def get_rounding_func(
-    rounding_func: Optional[Callable[[Tensor], Tensor]]
-) -> Optional[Callable[[Tensor], Tensor]]:
+    rounding_func: Callable[[Tensor], Tensor] | None
+) -> Callable[[Tensor], Tensor] | None:
     if rounding_func is None:
         botorch_rounding_func = rounding_func
     else:
@@ -540,7 +541,7 @@ def get_rounding_func(
 
 
 def get_feature_importances_from_botorch_model(
-    model: Union[Model, ModuleList, None],
+    model: Model | ModuleList | None,
 ) -> np.ndarray:
     """Get feature importances from a list of BoTorch models.
 

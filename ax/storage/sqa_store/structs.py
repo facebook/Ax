@@ -6,7 +6,8 @@
 
 # pyre-strict
 
-from typing import Callable, NamedTuple, Optional
+from collections.abc import Callable
+from typing import NamedTuple
 
 from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
@@ -19,8 +20,7 @@ class DBSettings(NamedTuple):
     Either creator or url must be specified as a way to connect to the SQL db.
     """
 
-    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
-    creator: Optional[Callable] = None
+    creator: Callable | None = None
     decoder: Decoder = Decoder(config=SQAConfig())
     encoder: Encoder = Encoder(config=SQAConfig())
-    url: Optional[str] = None
+    url: str | None = None

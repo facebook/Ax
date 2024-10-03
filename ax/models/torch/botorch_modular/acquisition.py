@@ -12,11 +12,11 @@ import dataclasses
 import functools
 import operator
 import warnings
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from functools import partial, reduce
 from itertools import product
 from logging import Logger
-from typing import Any, Callable, Optional
+from typing import Any
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -97,7 +97,7 @@ class Acquisition(Base):
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
         botorch_acqf_class: type[AcquisitionFunction],
-        options: Optional[dict[str, Any]] = None,
+        options: dict[str, Any] | None = None,
     ) -> None:
         self.surrogates = surrogates
         self.options = options or {}
@@ -175,7 +175,7 @@ class Acquisition(Base):
                 )
 
         # Store objective thresholds for all outcomes (including non-objectives).
-        self._objective_thresholds: Optional[Tensor] = (
+        self._objective_thresholds: Tensor | None = (
             torch_opt_config.objective_thresholds
         )
         self._full_objective_weights: Tensor = torch_opt_config.objective_weights
@@ -326,8 +326,8 @@ class Acquisition(Base):
             **{k: v for k, v in input_constructor_kwargs.items() if v is not None},
         )
         self.acqf = botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
-        self.X_pending: Optional[Tensor] = unique_Xs_pending
-        self.X_observed: Optional[Tensor] = unique_Xs_observed
+        self.X_pending: Tensor | None = unique_Xs_pending
+        self.X_observed: Tensor | None = unique_Xs_observed
 
     @property
     def botorch_acqf_class(self) -> type[AcquisitionFunction]:
@@ -335,7 +335,7 @@ class Acquisition(Base):
         return self.acqf.__class__
 
     @property
-    def dtype(self) -> Optional[torch.dtype]:
+    def dtype(self) -> torch.dtype | None:
         """Torch data type of the tensors in the training data used in the model,
         of which this ``Acquisition`` is a subcomponent.
         """
@@ -352,7 +352,7 @@ class Acquisition(Base):
         return dtypes_list[0]
 
     @property
-    def device(self) -> Optional[torch.device]:
+    def device(self) -> torch.device | None:
         """Torch device type of the tensors in the training data used in the model,
         of which this ``Acquisition`` is a subcomponent.
         """
@@ -370,7 +370,7 @@ class Acquisition(Base):
         return devices_list[0]
 
     @property
-    def objective_thresholds(self) -> Optional[Tensor]:
+    def objective_thresholds(self) -> Tensor | None:
         """The objective thresholds for all outcomes.
 
         For non-objective outcomes, the objective thresholds are nans.
@@ -378,7 +378,7 @@ class Acquisition(Base):
         return self._objective_thresholds
 
     @property
-    def objective_weights(self) -> Optional[Tensor]:
+    def objective_weights(self) -> Tensor | None:
         """The objective weights for all outcomes."""
         return self._full_objective_weights
 
@@ -386,10 +386,10 @@ class Acquisition(Base):
         self,
         n: int,
         search_space_digest: SearchSpaceDigest,
-        inequality_constraints: Optional[list[tuple[Tensor, Tensor, float]]] = None,
-        fixed_features: Optional[dict[int, float]] = None,
-        rounding_func: Optional[Callable[[Tensor], Tensor]] = None,
-        optimizer_options: Optional[dict[str, Any]] = None,
+        inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
+        fixed_features: dict[int, float] | None = None,
+        rounding_func: Callable[[Tensor], Tensor] | None = None,
+        optimizer_options: dict[str, Any] | None = None,
     ) -> tuple[Tensor, Tensor, Tensor]:
         """Generate a set of candidates via multi-start optimization. Obtains
         candidates and their associated acquisition function values.
@@ -606,7 +606,7 @@ class Acquisition(Base):
         surrogates: Mapping[str, Surrogate],
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
-        options: Optional[dict[str, Any]] = None,
+        options: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Computes inputs to acquisition function class based on the given
         surrogate model.
@@ -639,11 +639,11 @@ class Acquisition(Base):
         botorch_acqf_class: type[AcquisitionFunction],
         model: Model,
         objective_weights: Tensor,
-        objective_thresholds: Optional[Tensor] = None,
-        outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
-        X_observed: Optional[Tensor] = None,
-        risk_measure: Optional[RiskMeasureMCObjective] = None,
-    ) -> tuple[Optional[MCAcquisitionObjective], Optional[PosteriorTransform]]:
+        objective_thresholds: Tensor | None = None,
+        outcome_constraints: tuple[Tensor, Tensor] | None = None,
+        X_observed: Tensor | None = None,
+        risk_measure: RiskMeasureMCObjective | None = None,
+    ) -> tuple[MCAcquisitionObjective | None, PosteriorTransform | None]:
         return get_botorch_objective_and_transform(
             botorch_acqf_class=botorch_acqf_class,
             model=model,

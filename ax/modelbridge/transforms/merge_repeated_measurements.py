@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from collections import defaultdict
 from copy import deepcopy
-from typing import Optional
 
 import numpy as np
 from ax.core.arm import Arm
@@ -35,10 +34,10 @@ class MergeRepeatedMeasurements(Transform):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[list[Observation]] = None,
-        modelbridge: Optional[ModelBridge] = None,
-        config: Optional[TConfig] = None,
+        search_space: SearchSpace | None = None,
+        observations: list[Observation] | None = None,
+        modelbridge: ModelBridge | None = None,
+        config: TConfig | None = None,
     ) -> None:
         if observations is None:
             raise RuntimeError("MergeRepeatedMeasurements requires observations")

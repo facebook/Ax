@@ -8,7 +8,7 @@
 
 import re
 from copy import deepcopy
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import plotly.graph_objs as go
@@ -58,8 +58,8 @@ def _get_contour_predictions(
     metric: str,
     generator_runs_dict: TNullableGeneratorRunsDict,
     density: int,
-    slice_values: Optional[dict[str, Any]] = None,
-    fixed_features: Optional[ObservationFeatures] = None,
+    slice_values: dict[str, Any] | None = None,
+    fixed_features: ObservationFeatures | None = None,
 ) -> ContourPredictions:
     """
     slice_values is a dictionary {param_name: value} for the parameters that
@@ -114,10 +114,10 @@ def plot_contour_plotly(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
-    slice_values: Optional[dict[str, Any]] = None,
+    slice_values: dict[str, Any] | None = None,
     lower_is_better: bool = False,
-    fixed_features: Optional[ObservationFeatures] = None,
-    trial_index: Optional[int] = None,
+    fixed_features: ObservationFeatures | None = None,
+    trial_index: int | None = None,
 ) -> go.Figure:
     """Plot predictions for a 2-d slice of the parameter space.
 
@@ -287,10 +287,10 @@ def plot_contour(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
-    slice_values: Optional[dict[str, Any]] = None,
+    slice_values: dict[str, Any] | None = None,
     lower_is_better: bool = False,
-    fixed_features: Optional[ObservationFeatures] = None,
-    trial_index: Optional[int] = None,
+    fixed_features: ObservationFeatures | None = None,
+    trial_index: int | None = None,
 ) -> AxPlotConfig:
     """Plot predictions for a 2-d slice of the parameter space.
 
@@ -341,11 +341,11 @@ def interact_contour_plotly(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
-    slice_values: Optional[dict[str, Any]] = None,
+    slice_values: dict[str, Any] | None = None,
     lower_is_better: bool = False,
-    fixed_features: Optional[ObservationFeatures] = None,
-    trial_index: Optional[int] = None,
-    parameters_to_use: Optional[list[str]] = None,
+    fixed_features: ObservationFeatures | None = None,
+    trial_index: int | None = None,
+    parameters_to_use: list[str] | None = None,
 ) -> go.Figure:
     """Create interactive plot with predictions for a 2-d slice of the parameter
     space.
@@ -896,11 +896,11 @@ def interact_contour(
     generator_runs_dict: TNullableGeneratorRunsDict = None,
     relative: bool = False,
     density: int = 50,
-    slice_values: Optional[dict[str, Any]] = None,
+    slice_values: dict[str, Any] | None = None,
     lower_is_better: bool = False,
-    fixed_features: Optional[ObservationFeatures] = None,
-    trial_index: Optional[int] = None,
-    parameters_to_use: Optional[list[str]] = None,
+    fixed_features: ObservationFeatures | None = None,
+    trial_index: int | None = None,
+    parameters_to_use: list[str] | None = None,
 ) -> AxPlotConfig:
     """Create interactive plot with predictions for a 2-d slice of the parameter
     space.

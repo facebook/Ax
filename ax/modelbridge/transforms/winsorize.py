@@ -8,7 +8,7 @@
 
 import warnings
 from logging import Logger
-from typing import Optional, TYPE_CHECKING, Union
+from typing import Optional, TYPE_CHECKING
 
 import numpy as np
 from ax.core.objective import MultiObjective, ScalarizedObjective
@@ -92,10 +92,10 @@ class Winsorize(Transform):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[list[Observation]] = None,
+        search_space: SearchSpace | None = None,
+        observations: list[Observation] | None = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
-        config: Optional[TConfig] = None,
+        config: TConfig | None = None,
     ) -> None:
         if observations is None or len(observations) == 0:
             raise DataRequiredError("`Winsorize` transform requires non-empty data.")
@@ -171,10 +171,10 @@ class Winsorize(Transform):
 def _get_cutoffs(
     metric_name: str,
     metric_values: list[float],
-    winsorization_config: Union[WinsorizationConfig, dict[str, WinsorizationConfig]],
+    winsorization_config: WinsorizationConfig | dict[str, WinsorizationConfig],
     modelbridge: Optional["modelbridge_module.base.ModelBridge"],
-    observations: Optional[list[Observation]],
-    optimization_config: Optional[OptimizationConfig],
+    observations: list[Observation] | None,
+    optimization_config: OptimizationConfig | None,
     use_raw_sq: bool,
 ) -> tuple[float, float]:
     # (1) Use the same config for all metrics if one WinsorizationConfig was specified
@@ -373,7 +373,7 @@ def _get_auto_winsorization_cutoffs_single_objective(
 
 def _get_auto_winsorization_cutoffs_outcome_constraint(
     metric_values: list[float],
-    outcome_constraints: Union[list[ObjectiveThreshold], list[OutcomeConstraint]],
+    outcome_constraints: list[ObjectiveThreshold] | list[OutcomeConstraint],
 ) -> tuple[float, float]:
     """Automatic winsorization to an outcome constraint.
 

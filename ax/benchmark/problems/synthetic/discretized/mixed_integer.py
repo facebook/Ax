@@ -18,8 +18,6 @@ References
     35, 2022.
 """
 
-from typing import Optional, Union
-
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem
@@ -47,7 +45,7 @@ def _get_problem_from_common_inputs(
     benchmark_name: str,
     num_trials: int,
     optimal_value: float,
-    test_problem_bounds: Optional[list[tuple[float, float]]] = None,
+    test_problem_bounds: list[tuple[float, float]] | None = None,
 ) -> BenchmarkProblem:
     """This is a helper that deduplicates common bits of the below problems.
 
@@ -103,7 +101,7 @@ def _get_problem_from_common_inputs(
             minimize=lower_is_better,
         )
     )
-    test_problem_kwargs: dict[str, Union[int, list[tuple[float, float]]]] = {"dim": dim}
+    test_problem_kwargs: dict[str, int | list[tuple[float, float]]] = {"dim": dim}
     if test_problem_bounds is not None:
         test_problem_kwargs["bounds"] = test_problem_bounds
     runner = BotorchTestProblemRunner(
@@ -126,7 +124,7 @@ def _get_problem_from_common_inputs(
 def get_discrete_hartmann(
     num_trials: int = 50,
     observe_noise_sd: bool = False,
-    bounds: Optional[list[tuple[float, float]]] = None,
+    bounds: list[tuple[float, float]] | None = None,
 ) -> BenchmarkProblem:
     """6D Hartmann problem where first 4 dimensions are discretized."""
     dim_int = 4
@@ -158,7 +156,7 @@ def get_discrete_hartmann(
 def get_discrete_ackley(
     num_trials: int = 50,
     observe_noise_sd: bool = False,
-    bounds: Optional[list[tuple[float, float]]] = None,
+    bounds: list[tuple[float, float]] | None = None,
 ) -> BenchmarkProblem:
     """13D Ackley problem where first 10 dimensions are discretized.
 
@@ -191,7 +189,7 @@ def get_discrete_ackley(
 def get_discrete_rosenbrock(
     num_trials: int = 50,
     observe_noise_sd: bool = False,
-    bounds: Optional[list[tuple[float, float]]] = None,
+    bounds: list[tuple[float, float]] | None = None,
 ) -> BenchmarkProblem:
     """10D Rosenbrock problem where first 6 dimensions are discretized."""
     dim_int = 6

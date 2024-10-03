@@ -6,8 +6,9 @@
 
 import ast
 import itertools
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, NamedTuple
+from typing import NamedTuple
 
 
 class Error(NamedTuple):

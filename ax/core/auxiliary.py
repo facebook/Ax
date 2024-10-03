@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from enum import Enum, unique
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from ax.core.data import Data
 from ax.utils.common.base import SortableBase
@@ -25,7 +25,7 @@ class AuxiliaryExperiment(SortableBase):
     def __init__(
         self,
         experiment: core.experiment.Experiment,
-        data: Optional[Data] = None,
+        data: Data | None = None,
     ) -> None:
         """
         Lightweight container of an experiment, and its data,

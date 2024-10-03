@@ -7,13 +7,12 @@
 # pyre-strict
 
 import json
-from typing import Union
 
 import torch
 from ax.utils.common.typeutils import checked_cast
 
 
-def torch_type_to_str(value: Union[torch.dtype, torch.device, torch.Size]) -> str:
+def torch_type_to_str(value: torch.dtype | torch.device | torch.Size) -> str:
     """Converts torch types, commonly used in Ax, to string representations."""
     if isinstance(value, torch.dtype):
         return str(value)
@@ -26,7 +25,7 @@ def torch_type_to_str(value: Union[torch.dtype, torch.device, torch.Size]) -> st
 
 def torch_type_from_str(
     identifier: str, type_name: str
-) -> Union[torch.dtype, torch.device, torch.Size]:
+) -> torch.dtype | torch.device | torch.Size:
     if type_name == "device":
         return torch.device(identifier)
     if type_name == "dtype":

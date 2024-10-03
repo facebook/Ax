@@ -6,7 +6,6 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Optional
 
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -35,9 +34,7 @@ def delete_experiment(exp_name: str) -> None:
     )
 
 
-def delete_generation_strategy(
-    exp_name: str, config: Optional[SQAConfig] = None
-) -> None:
+def delete_generation_strategy(exp_name: str, config: SQAConfig | None = None) -> None:
     """Delete the generation strategy associated with an experiment
 
     Args:

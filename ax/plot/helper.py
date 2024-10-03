@@ -8,9 +8,10 @@
 
 import math
 from collections import Counter
+from collections.abc import Callable
 
 from logging import Logger
-from typing import Any, Callable, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 from ax.core.generator_run import GeneratorRun
@@ -70,7 +71,7 @@ def _format_dict(param_dict: TParameterization, name: str = "Parameterization") 
         )
     else:
         blob = "<br><em>{}:</em><br>{}".format(
-            name, "<br>".join("{}: {}".format(n, v) for n, v in param_dict.items())
+            name, "<br>".join(f"{n}: {v}" for n, v in param_dict.items())
         )
     return blob
 
@@ -108,7 +109,7 @@ def _format_CI(estimate: float, sd: float, relative: bool, zval: float = Z) -> s
     )
 
 
-def arm_name_to_tuple(arm_name: str) -> Union[tuple[int, int], tuple[int]]:
+def arm_name_to_tuple(arm_name: str) -> tuple[int, int] | tuple[int]:
     tup = arm_name.split("_")
     if len(tup) == 2:
         try:
@@ -149,9 +150,9 @@ def _filter_dict(
 def _get_in_sample_arms(
     model: ModelBridge,
     metric_names: set[str],
-    fixed_features: Optional[ObservationFeatures] = None,
-    data_selector: Optional[Callable[[Observation], bool]] = None,
-    scalarized_metric_config: Optional[list[dict[str, dict[str, float]]]] = None,
+    fixed_features: ObservationFeatures | None = None,
+    data_selector: Callable[[Observation], bool] | None = None,
+    scalarized_metric_config: list[dict[str, dict[str, float]]] | None = None,
 ) -> tuple[dict[str, PlotInSampleArm], RawData, dict[str, TParameterization]]:
     """Get in-sample arms from a model with observed and predicted values
     for specified metrics.
@@ -283,8 +284,8 @@ def _get_out_of_sample_arms(
     model: ModelBridge,
     generator_runs_dict: dict[str, GeneratorRun],
     metric_names: set[str],
-    fixed_features: Optional[ObservationFeatures] = None,
-    scalarized_metric_config: Optional[list[dict[str, dict[str, float]]]] = None,
+    fixed_features: ObservationFeatures | None = None,
+    scalarized_metric_config: list[dict[str, dict[str, float]]] | None = None,
 ) -> dict[str, dict[str, PlotOutOfSampleArm]]:
     """Get out-of-sample predictions from a model given a dict of generator runs.
 
@@ -336,10 +337,10 @@ def _get_out_of_sample_arms(
 def get_plot_data(
     model: ModelBridge,
     generator_runs_dict: dict[str, GeneratorRun],
-    metric_names: Optional[set[str]] = None,
-    fixed_features: Optional[ObservationFeatures] = None,
-    data_selector: Optional[Callable[[Observation], bool]] = None,
-    scalarized_metric_config: Optional[list[dict[str, dict[str, float]]]] = None,
+    metric_names: set[str] | None = None,
+    fixed_features: ObservationFeatures | None = None,
+    data_selector: Callable[[Observation], bool] | None = None,
+    scalarized_metric_config: list[dict[str, dict[str, float]]] | None = None,
 ) -> tuple[PlotData, RawData, dict[str, TParameterization]]:
     """Format data object with metrics for in-sample and out-of-sample
     arms.
@@ -482,8 +483,8 @@ def get_grid_for_parameter(parameter: RangeParameter, density: int) -> np.ndarra
 
 def get_fixed_values(
     model: ModelBridge,
-    slice_values: Optional[dict[str, Any]] = None,
-    trial_index: Optional[int] = None,
+    slice_values: dict[str, Any] | None = None,
+    trial_index: int | None = None,
 ) -> TParameterization:
     """Get fixed values for parameters in a slice plot.
 

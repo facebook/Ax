@@ -7,7 +7,7 @@
 
 import warnings
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from ax.core.experiment import Experiment
 from ax.core.parameter import FixedParameter
@@ -32,7 +32,7 @@ DEFAULT_PRODUCT_SURFACE = "unknown"
 
 def _get_max_transformed_dimensionality(
     search_space: SearchSpace, generation_strategy: GenerationStrategy
-) -> Optional[int]:
+) -> int | None:
     """
     Get dimensionality of transformed SearchSpace for all steps in the
     GenerationStrategy and return the maximum.

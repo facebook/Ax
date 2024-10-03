@@ -8,7 +8,7 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from logging import INFO
-from typing import Any, Optional
+from typing import Any
 
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
@@ -121,25 +121,25 @@ class SchedulerOptions:
 
     max_pending_trials: int = 10
     trial_type: TrialType = TrialType.TRIAL
-    batch_size: Optional[int] = None
-    total_trials: Optional[int] = None
+    batch_size: int | None = None
+    total_trials: int | None = None
     tolerated_trial_failure_rate: float = 0.5
     min_failed_trials_for_failure_rate_check: int = 5
-    log_filepath: Optional[str] = None
+    log_filepath: str | None = None
     logging_level: int = INFO
-    ttl_seconds_for_trials: Optional[int] = None
-    init_seconds_between_polls: Optional[int] = 1
+    ttl_seconds_for_trials: int | None = None
+    init_seconds_between_polls: int | None = 1
     min_seconds_before_poll: float = 1.0
     seconds_between_polls_backoff_factor: float = 1.5
-    timeout_hours: Optional[float] = None
+    timeout_hours: float | None = None
     run_trials_in_batches: bool = False
     debug_log_run_metadata: bool = False
-    early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None
-    global_stopping_strategy: Optional[BaseGlobalStoppingStrategy] = None
+    early_stopping_strategy: BaseEarlyStoppingStrategy | None = None
+    global_stopping_strategy: BaseGlobalStoppingStrategy | None = None
     suppress_storage_errors_after_retries: bool = False
     wait_for_running_trials: bool = True
     fetch_kwargs: dict[str, Any] = field(default_factory=dict)
     validate_metrics: bool = True
     status_quo_weight: float = 0.0
     enforce_immutable_search_space_and_opt_config: bool = True
-    mt_experiment_trial_type: Optional[str] = None
+    mt_experiment_trial_type: str | None = None

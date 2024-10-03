@@ -7,7 +7,8 @@
 # pyre-strict
 
 import pathlib
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import torch
 from ax.benchmark.benchmark_method import BenchmarkMethod
@@ -251,7 +252,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     SobolQMCNormalSampler: botorch_component_to_dict,
     SumConstraint: sum_parameter_constraint_to_dict,
     Surrogate: surrogate_to_dict,
-    BenchmarkMetric: metric_to_dict,
     SurrogateRunner: runner_to_dict,
     SyntheticRunner: runner_to_dict,
     ThresholdEarlyStoppingStrategy: threshold_early_stopping_strategy_to_dict,

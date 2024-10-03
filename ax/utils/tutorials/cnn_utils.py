@@ -7,7 +7,6 @@
 # pyre-strict
 
 from itertools import accumulate
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -46,7 +45,7 @@ def load_mnist(
     batch_size: int = 128,
     num_workers: int = 0,
     deterministic_partitions: bool = False,
-    downsample_pct_test: Optional[float] = None,
+    downsample_pct_test: float | None = None,
 ) -> tuple[DataLoader, DataLoader, DataLoader]:
     """
     Load MNIST dataset (download if necessary) and split data into training,
@@ -102,7 +101,7 @@ def get_partition_data_loaders(
     batch_size: int = 128,
     num_workers: int = 0,
     deterministic_partitions: bool = False,
-    downsample_pct_test: Optional[float] = None,
+    downsample_pct_test: float | None = None,
 ) -> tuple[DataLoader, DataLoader, DataLoader]:
     """
     Helper function for partitioning training data into training and validation sets,

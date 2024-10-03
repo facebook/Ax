@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import dataclasses
 import functools
-from typing import Any, Optional, Union
+from typing import Any
 from unittest import mock
 from unittest.mock import Mock
 
@@ -106,8 +106,8 @@ class TestSebo(TestCase):
 
     def get_acquisition_function(
         self,
-        fixed_features: Optional[dict[int, float]] = None,
-        options: Optional[dict[str, Union[str, float]]] = None,
+        fixed_features: dict[int, float] | None = None,
+        options: dict[str, str | float] | None = None,
     ) -> SEBOAcquisition:
         return SEBOAcquisition(
             botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,

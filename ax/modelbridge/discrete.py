@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from typing import Optional
 
 from ax.core.observation import (
     Observation,
@@ -49,7 +48,7 @@ class DiscreteModelBridge(ModelBridge):
     model: DiscreteModel
     outcomes: list[str]
     parameters: list[str]
-    search_space: Optional[SearchSpace]
+    search_space: SearchSpace | None
 
     def _fit(
         self,
@@ -97,11 +96,11 @@ class DiscreteModelBridge(ModelBridge):
     def _validate_gen_inputs(
         self,
         n: int,
-        search_space: Optional[SearchSpace] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
-        pending_observations: Optional[dict[str, list[ObservationFeatures]]] = None,
-        fixed_features: Optional[ObservationFeatures] = None,
-        model_gen_options: Optional[TConfig] = None,
+        search_space: SearchSpace | None = None,
+        optimization_config: OptimizationConfig | None = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
+        fixed_features: ObservationFeatures | None = None,
+        model_gen_options: TConfig | None = None,
     ) -> None:
         """Validate inputs to `ModelBridge.gen`.
 
@@ -118,9 +117,9 @@ class DiscreteModelBridge(ModelBridge):
         n: int,
         search_space: SearchSpace,
         pending_observations: dict[str, list[ObservationFeatures]],
-        fixed_features: Optional[ObservationFeatures],
-        model_gen_options: Optional[TConfig] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
+        fixed_features: ObservationFeatures | None,
+        model_gen_options: TConfig | None = None,
+        optimization_config: OptimizationConfig | None = None,
     ) -> GenResults:
         """Generate new candidates according to search_space and
         optimization_config.
@@ -153,7 +152,7 @@ class DiscreteModelBridge(ModelBridge):
 
         # Pending observations
         if len(pending_observations) == 0:
-            pending_array: Optional[list[list[TParamValueList]]] = None
+            pending_array: list[list[TParamValueList]] | None = None
         else:
             pending_array = [[] for _ in self.outcomes]
             for metric_name, po_list in pending_observations.items():

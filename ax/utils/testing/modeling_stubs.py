@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 from ax.core.base_trial import TrialStatus
@@ -518,7 +518,7 @@ def get_surrogate_as_dict() -> dict[str, Any]:
 
 
 def get_surrogate_spec_as_dict(
-    model_class: Optional[str] = None, with_legacy_input_transform: bool = False
+    model_class: str | None = None, with_legacy_input_transform: bool = False
 ) -> dict[str, Any]:
     """
     For use ensuring backwards compatibility when loading SurrogateSpec
@@ -593,8 +593,8 @@ class transform_1(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional[ModelBridge],
-        fixed_features: Optional[ObservationFeatures],
+        modelbridge: ModelBridge | None,
+        fixed_features: ObservationFeatures | None,
     ) -> OptimizationConfig:
         return (  # pyre-ignore[7]: pyre is right, this is a hack for testing.
             # pyre-fixme[58]: `+` is not supported for operand types
@@ -652,8 +652,8 @@ class transform_2(Transform):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional[ModelBridge],
-        fixed_features: Optional[ObservationFeatures],
+        modelbridge: ModelBridge | None,
+        fixed_features: ObservationFeatures | None,
     ) -> OptimizationConfig:
         return (
             # pyre-fixme[58]: `**` is not supported for operand types

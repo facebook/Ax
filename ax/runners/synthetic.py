@@ -7,7 +7,7 @@
 # pyre-strict
 
 from collections.abc import Iterable
-from typing import Any, Optional
+from typing import Any
 
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.runner import Runner
@@ -19,7 +19,7 @@ class SyntheticRunner(Runner):
     Currently acts as a shell runner, only creating a name.
     """
 
-    def __init__(self, dummy_metadata: Optional[str] = None) -> None:
+    def __init__(self, dummy_metadata: str | None = None) -> None:
         self.dummy_metadata = dummy_metadata
 
     def run(self, trial: BaseTrial) -> dict[str, Any]:

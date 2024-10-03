@@ -11,7 +11,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Iterable
 from logging import Logger
-from typing import Any, Optional
+from typing import Any
 
 from ax.core.metric import Metric
 from ax.exceptions.core import UserInputError
@@ -29,7 +29,7 @@ class Objective(SortableBase):
         minimize: If True, minimize metric.
     """
 
-    def __init__(self, metric: Metric, minimize: Optional[bool] = None) -> None:
+    def __init__(self, metric: Metric, minimize: bool | None = None) -> None:
         """Create a new objective.
 
         Args:
@@ -104,7 +104,7 @@ class MultiObjective(Objective):
 
     def __init__(
         self,
-        objectives: Optional[list[Objective]] = None,
+        objectives: list[Objective] | None = None,
         **extra_kwargs: Any,  # Here to satisfy serialization.
     ) -> None:
         """Create a new objective.
@@ -186,7 +186,7 @@ class ScalarizedObjective(Objective):
     def __init__(
         self,
         metrics: list[Metric],
-        weights: Optional[list[float]] = None,
+        weights: list[float] | None = None,
         minimize: bool = False,
     ) -> None:
         """Create a new objective.

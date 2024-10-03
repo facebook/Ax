@@ -5,9 +5,9 @@
 
 # pyre-strict
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, InitVar
 from functools import lru_cache
-from typing import Mapping
 
 import torch
 from ax.benchmark.benchmark_problem import (

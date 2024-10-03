@@ -12,7 +12,7 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 from copy import deepcopy
 from enum import Enum
 from math import inf
-from typing import cast, Optional, Union
+from typing import cast, Union
 from warnings import warn
 
 from ax.core.types import TNumeric, TParamValue, TParamValueList
@@ -65,7 +65,7 @@ PARAMETER_PYTHON_TYPE_MAP: dict[ParameterType, TParameterType] = {
 }
 
 SUPPORTED_PARAMETER_TYPES: tuple[
-    Union[type[bool], type[float], type[int], type[str]], ...
+    type[bool] | type[float] | type[int] | type[str], ...
 ] = tuple(PARAMETER_PYTHON_TYPE_MAP.values())
 
 
@@ -189,7 +189,7 @@ class Parameter(SortableBase, metaclass=ABCMeta):
     @property
     def summary_dict(
         self,
-    ) -> dict[str, Union[TParamValueList, TParamValue, str, list[str]]]:
+    ) -> dict[str, TParamValueList | TParamValue | str | list[str]]:
 
         # Assemble dict.
         summary_dict = {
@@ -233,7 +233,7 @@ class RangeParameter(Parameter):
         upper: float,
         log_scale: bool = False,
         logit_scale: bool = False,
-        digits: Optional[int] = None,
+        digits: int | None = None,
         is_fidelity: bool = False,
         target_value: TParamValue = None,
     ) -> None:
@@ -269,7 +269,7 @@ class RangeParameter(Parameter):
         self._log_scale = log_scale
         self._logit_scale = logit_scale
         self._is_fidelity = is_fidelity
-        self._target_value: Optional[TNumeric] = self.cast(target_value)
+        self._target_value: TNumeric | None = self.cast(target_value)
 
         self._validate_range_param(
             parameter_type=parameter_type,
@@ -291,7 +291,7 @@ class RangeParameter(Parameter):
         upper: TNumeric,
         log_scale: bool,
         logit_scale: bool,
-        parameter_type: Optional[ParameterType] = None,
+        parameter_type: ParameterType | None = None,
     ) -> None:
         if parameter_type and parameter_type not in (
             ParameterType.INT,
@@ -362,7 +362,7 @@ class RangeParameter(Parameter):
         self._lower = not_none(self.cast(value))
 
     @property
-    def digits(self) -> Optional[int]:
+    def digits(self) -> int | None:
         """Number of digits to round values to for float type.
 
         Upper and lower bound are re-cast after this property is changed.
@@ -380,7 +380,7 @@ class RangeParameter(Parameter):
         return self._logit_scale
 
     def update_range(
-        self, lower: Optional[float] = None, upper: Optional[float] = None
+        self, lower: float | None = None, upper: float | None = None
     ) -> RangeParameter:
         """Set the range to the given values.
 
@@ -479,7 +479,7 @@ class RangeParameter(Parameter):
             target_value=self._target_value,
         )
 
-    def cast(self, value: TParamValue) -> Optional[TNumeric]:
+    def cast(self, value: TParamValue) -> TNumeric | None:
         if value is None:
             return None
         if self.parameter_type is ParameterType.FLOAT and self._digits is not None:
@@ -532,12 +532,12 @@ class ChoiceParameter(Parameter):
         name: str,
         parameter_type: ParameterType,
         values: list[TParamValue],
-        is_ordered: Optional[bool] = None,
+        is_ordered: bool | None = None,
         is_task: bool = False,
         is_fidelity: bool = False,
         target_value: TParamValue = None,
-        sort_values: Optional[bool] = None,
-        dependents: Optional[dict[TParamValue, list[str]]] = None,
+        sort_values: bool | None = None,
+        dependents: dict[TParamValue, list[str]] | None = None,
     ) -> None:
         if (is_fidelity or is_task) and (target_value is None):
             ptype = "fidelity" if is_fidelity else "task"
@@ -750,7 +750,7 @@ class FixedParameter(Parameter):
         value: TParamValue,
         is_fidelity: bool = False,
         target_value: TParamValue = None,
-        dependents: Optional[dict[TParamValue, list[str]]] = None,
+        dependents: dict[TParamValue, list[str]] | None = None,
     ) -> None:
         """Initialize FixedParameter
 

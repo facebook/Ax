@@ -6,7 +6,6 @@
 # pyre-strict
 
 from copy import deepcopy
-from typing import List, Tuple, Type
 from unittest.mock import Mock
 
 import numpy as np
@@ -45,11 +44,11 @@ from hypothesis import assume, given, settings, strategies as st
 
 
 class RelativizeDataTest(TestCase):
-    relativize_classes: List[Type[Transform]] = [
+    relativize_classes: list[type[Transform]] = [
         Relativize,
         RelativizeWithConstantControl,
     ]
-    cases: List[Tuple[Type[Transform], List[Tuple[np.ndarray, np.ndarray]]]] = [
+    cases: list[tuple[type[Transform], list[tuple[np.ndarray, np.ndarray]]]] = [
         (
             Relativize,
             [

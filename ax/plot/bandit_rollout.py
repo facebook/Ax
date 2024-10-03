@@ -44,7 +44,7 @@ def plot_bandit_rollout(experiment: Experiment) -> AxPlotConfig:
 
             arms[arm.name]["x"].append(category)
             arms[arm.name]["y"].append(weight)
-            arms[arm.name]["text"].append("{:.2f}%".format(weight))
+            arms[arm.name]["text"].append(f"{weight:.2f}%")
 
     for key in arms.keys():
         data.append(arms[key])

@@ -122,10 +122,7 @@ def table_view_plot(
             ]
         )
         records.append(
-            [
-                "{:.3f} &plusmn; {:.3f}".format(y, Z * y_se)
-                for (_, y, y_se) in results_by_arm
-            ]
+            [f"{y:.3f} &plusmn; {Z * y_se:.3f}" for (_, y, y_se) in results_by_arm]
         )
         records_with_mean.append({arm_name: y for (arm_name, y, _) in results_by_arm})
         records_with_ci.append(

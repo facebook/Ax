@@ -7,7 +7,7 @@
 # pyre-strict
 
 from math import ceil
-from typing import Any, cast, Optional
+from typing import Any, cast
 
 from ax.analysis.analysis import AnalysisCard
 
@@ -45,9 +45,9 @@ from sqlalchemy.orm.exc import DetachedInstanceError
 
 def load_experiment(
     experiment_name: str,
-    config: Optional[SQAConfig] = None,
+    config: SQAConfig | None = None,
     reduced_state: bool = False,
-    load_trials_in_batches_of_size: Optional[int] = None,
+    load_trials_in_batches_of_size: int | None = None,
     skip_runners_and_metrics: bool = False,
     load_auxiliary_experiments: bool = True,
 ) -> Experiment:
@@ -84,8 +84,8 @@ def _load_experiment(
     experiment_name: str,
     decoder: Decoder,
     reduced_state: bool = False,
-    load_trials_in_batches_of_size: Optional[int] = None,
-    ax_object_field_overrides: Optional[dict[str, Any]] = None,
+    load_trials_in_batches_of_size: int | None = None,
+    ax_object_field_overrides: dict[str, Any] | None = None,
     skip_runners_and_metrics: bool = False,
     load_auxiliary_experiments: bool = True,
 ) -> Experiment:
@@ -180,8 +180,8 @@ def _get_experiment_sqa(
     exp_sqa_class: type[SQAExperiment],
     trial_sqa_class: type[SQATrial],
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    trials_query_options: Optional[list[Any]] = None,
-    load_trials_in_batches_of_size: Optional[int] = None,
+    trials_query_options: list[Any] | None = None,
+    load_trials_in_batches_of_size: int | None = None,
     skip_runners_and_metrics: bool = False,
 ) -> SQAExperiment:
     """Obtains SQLAlchemy experiment object from DB."""
@@ -216,9 +216,9 @@ def _get_experiment_sqa(
 def _get_trials_sqa(
     experiment_id: int,
     trial_sqa_class: type[SQATrial],
-    load_trials_in_batches_of_size: Optional[int] = None,
+    load_trials_in_batches_of_size: int | None = None,
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    trials_query_options: Optional[list[Any]] = None,
+    trials_query_options: list[Any] | None = None,
     skip_runners_and_metrics: bool = False,
 ) -> list[SQATrial]:
     """Obtains SQLAlchemy trial objects for given experiment ID from DB,
@@ -276,7 +276,7 @@ def _get_experiment_sqa_reduced_state(
     experiment_name: str,
     exp_sqa_class: type[SQAExperiment],
     trial_sqa_class: type[SQATrial],
-    load_trials_in_batches_of_size: Optional[int] = None,
+    load_trials_in_batches_of_size: int | None = None,
     skip_runners_and_metrics: bool = False,
 ) -> SQAExperiment:
     """Obtains most of the SQLAlchemy experiment object from DB, with some attributes
@@ -301,7 +301,7 @@ def _get_experiment_sqa_immutable_opt_config_and_search_space(
     experiment_name: str,
     exp_sqa_class: type[SQAExperiment],
     trial_sqa_class: type[SQATrial],
-    load_trials_in_batches_of_size: Optional[int] = None,
+    load_trials_in_batches_of_size: int | None = None,
     skip_runners_and_metrics: bool = False,
 ) -> SQAExperiment:
     """For experiments where the search space and opt config are
@@ -341,7 +341,7 @@ def _get_experiment_immutable_opt_config_and_search_space(
     )
 
 
-def _get_experiment_id(experiment_name: str, config: SQAConfig) -> Optional[int]:
+def _get_experiment_id(experiment_name: str, config: SQAConfig) -> int | None:
     """Get DB ID of the experiment by the given name if its in DB,
     return None otherwise.
     """
@@ -363,8 +363,8 @@ def _get_experiment_id(experiment_name: str, config: SQAConfig) -> Optional[int]
 
 def load_generation_strategy_by_experiment_name(
     experiment_name: str,
-    config: Optional[SQAConfig] = None,
-    experiment: Optional[Experiment] = None,
+    config: SQAConfig | None = None,
+    experiment: Experiment | None = None,
     reduced_state: bool = False,
     skip_runners_and_metrics: bool = False,
 ) -> GenerationStrategy:
@@ -384,8 +384,8 @@ def load_generation_strategy_by_experiment_name(
 
 def load_generation_strategy_by_id(
     gs_id: int,
-    config: Optional[SQAConfig] = None,
-    experiment: Optional[Experiment] = None,
+    config: SQAConfig | None = None,
+    experiment: Experiment | None = None,
     reduced_state: bool = False,
 ) -> GenerationStrategy:
     """Finds a generation strategy stored by a given ID and restores it."""
@@ -399,7 +399,7 @@ def load_generation_strategy_by_id(
 def _load_generation_strategy_by_experiment_name(
     experiment_name: str,
     decoder: Decoder,
-    experiment: Optional[Experiment] = None,
+    experiment: Experiment | None = None,
     reduced_state: bool = False,
     skip_runners_and_metrics: bool = False,
 ) -> GenerationStrategy:
@@ -430,7 +430,7 @@ def _load_generation_strategy_by_experiment_name(
 def _load_generation_strategy_by_id(
     gs_id: int,
     decoder: Decoder,
-    experiment: Optional[Experiment] = None,
+    experiment: Experiment | None = None,
     reduced_state: bool = False,
 ) -> GenerationStrategy:
     """Finds a generation strategy stored by a given ID and restores it."""
@@ -470,7 +470,7 @@ def _load_generation_strategy_by_id(
     )
 
 
-def get_generation_strategy_id(experiment_name: str, decoder: Decoder) -> Optional[int]:
+def get_generation_strategy_id(experiment_name: str, decoder: Decoder) -> int | None:
     """Get DB ID of the generation strategy, associated with the experiment
     with the given name if its in DB, return None otherwise.
     """
@@ -494,7 +494,7 @@ def get_generation_strategy_sqa(
     gs_id: int,
     decoder: Decoder,
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    query_options: Optional[list[Any]] = None,
+    query_options: list[Any] | None = None,
 ) -> SQAGenerationStrategy:
     """Obtains the SQLAlchemy generation strategy object from DB."""
     gs_sqa_class = cast(
@@ -596,7 +596,7 @@ def _get_generation_strategy_sqa_immutable_opt_config_and_search_space(
 
 def load_analysis_cards_by_experiment_name(
     experiment_name: str,
-    config: Optional[SQAConfig] = None,
+    config: SQAConfig | None = None,
 ) -> list[AnalysisCard]:
     """Loads analysis cards for an experiment."""
     config = SQAConfig() if config is None else config

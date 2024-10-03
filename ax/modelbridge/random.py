@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from typing import Optional
 
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -48,7 +47,7 @@ class RandomModelBridge(ModelBridge):
         self,
         model: RandomModel,
         search_space: SearchSpace,
-        observations: Optional[list[Observation]] = None,
+        observations: list[Observation] | None = None,
     ) -> None:
         self.model = model
         # Extract and fix parameters from initial search space.
@@ -59,9 +58,9 @@ class RandomModelBridge(ModelBridge):
         n: int,
         search_space: SearchSpace,
         pending_observations: dict[str, list[ObservationFeatures]],
-        fixed_features: Optional[ObservationFeatures],
-        optimization_config: Optional[OptimizationConfig],
-        model_gen_options: Optional[TConfig],
+        fixed_features: ObservationFeatures | None,
+        optimization_config: OptimizationConfig | None,
+        model_gen_options: TConfig | None,
     ) -> GenResults:
         """Generate new candidates according to a search_space."""
         # Extract parameter values
@@ -106,8 +105,8 @@ class RandomModelBridge(ModelBridge):
 
     def _set_status_quo(
         self,
-        experiment: Optional[Experiment],
-        status_quo_name: Optional[str],
-        status_quo_features: Optional[ObservationFeatures],
+        experiment: Experiment | None,
+        status_quo_name: str | None,
+        status_quo_features: ObservationFeatures | None,
     ) -> None:
         pass

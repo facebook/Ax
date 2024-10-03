@@ -9,9 +9,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Callable
 from math import isnan
 from numbers import Number
-from typing import Any, Callable, Optional, TYPE_CHECKING, Union
+from typing import Any, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -67,7 +68,7 @@ class ClosestLookupDict(dict):
 
 def get_data(
     observation_data: list[ObservationData],
-    metric_names: Union[list[str], None] = None,
+    metric_names: list[str] | None = None,
     raise_on_non_finite_data: bool = True,
 ) -> dict[str, list[float]]:
     """Extract all metrics if `metric_names` is None.
@@ -122,7 +123,7 @@ def match_ci_width_truncated(
 def construct_new_search_space(
     search_space: SearchSpace,
     parameters: list[Parameter],
-    parameter_constraints: Optional[list[ParameterConstraint]] = None,
+    parameter_constraints: list[ParameterConstraint] | None = None,
 ) -> SearchSpace:
     """Construct a search space with the transformed arguments.
 
@@ -154,8 +155,8 @@ def construct_new_search_space(
 
 def derelativize_optimization_config_with_raw_status_quo(
     optimization_config: OptimizationConfig,
-    modelbridge: "modelbridge_module.base.ModelBridge",
-    observations: Optional[list[Observation]],
+    modelbridge: modelbridge_module.base.ModelBridge,
+    observations: list[Observation] | None,
 ) -> OptimizationConfig:
     """Derelativize optimization_config using raw status-quo values"""
     tf = Derelativize(

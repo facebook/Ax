@@ -9,9 +9,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from logging import Logger
-from typing import Any, Callable, Optional, Union
+from typing import Any
 
 # Module-level import to avoid circular dependency b/w this file and
 # generation_strategy.py
@@ -105,35 +105,35 @@ class GenerationNode(SerializationMixin, SortableBase):
     _node_name: str
 
     # Optional specifications
-    _model_spec_to_gen_from: Optional[ModelSpec] = None
+    _model_spec_to_gen_from: ModelSpec | None = None
     # TODO: @mgarrard should this be a dict criterion_class name -> criterion mapping?
     _transition_criteria: Sequence[TransitionCriterion]
     _input_constructors: dict[
         modelbridge.generation_node_input_constructors.InputConstructorPurpose,
         modelbridge.generation_node_input_constructors.NodeInputConstructors,
     ]
-    _previous_node_name: Optional[str] = None
+    _previous_node_name: str | None = None
 
     # [TODO] Handle experiment passing more eloquently by enforcing experiment
     # attribute is set in generation strategies class
-    _generation_strategy: Optional[
+    _generation_strategy: None | (
         modelbridge.generation_strategy.GenerationStrategy
-    ] = None
+    ) = None
 
     def __init__(
         self,
         node_name: str,
         model_specs: list[ModelSpec],
-        best_model_selector: Optional[BestModelSelector] = None,
+        best_model_selector: BestModelSelector | None = None,
         should_deduplicate: bool = False,
-        transition_criteria: Optional[Sequence[TransitionCriterion]] = None,
-        input_constructors: Optional[
+        transition_criteria: Sequence[TransitionCriterion] | None = None,
+        input_constructors: None | (
             dict[
                 modelbridge.generation_node_input_constructors.InputConstructorPurpose,
                 modelbridge.generation_node_input_constructors.NodeInputConstructors,
             ]
-        ] = None,
-        previous_node_name: Optional[str] = None,
+        ) = None,
+        previous_node_name: str | None = None,
     ) -> None:
         self._node_name = node_name
         # Check that the model specs have unique model keys.
@@ -172,7 +172,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         return self._model_spec_to_gen_from
 
     @property
-    def model_to_gen_from_name(self) -> Optional[str]:
+    def model_to_gen_from_name(self) -> str | None:
         """Returns the name of the model that will be used for gen, if there is one.
         Otherwise, returns None.
         """
@@ -232,7 +232,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         return self.node_name
 
     @property
-    def _fitted_model(self) -> Optional[ModelBridge]:
+    def _fitted_model(self) -> ModelBridge | None:
         """Private property to return optional fitted_model from
         self.model_spec_to_gen_from for convenience. If no model is fit,
         will return None. If using the non-private `fitted_model` property,
@@ -244,8 +244,8 @@ class GenerationNode(SerializationMixin, SortableBase):
         self,
         experiment: Experiment,
         data: Data,
-        search_space: Optional[SearchSpace] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
+        search_space: SearchSpace | None = None,
+        optimization_config: OptimizationConfig | None = None,
         **kwargs: Any,
     ) -> None:
         """Fits the specified models to the given experiment + data using
@@ -330,10 +330,10 @@ class GenerationNode(SerializationMixin, SortableBase):
     # TODO [drfreund]: Move this up to `GenerationNodeInterface` once implemented.
     def gen(
         self,
-        n: Optional[int] = None,
-        pending_observations: Optional[dict[str, list[ObservationFeatures]]] = None,
+        n: int | None = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
         max_gen_draws_for_deduplication: int = MAX_GEN_DRAWS,
-        arms_by_signature_for_deduplication: Optional[dict[str, Arm]] = None,
+        arms_by_signature_for_deduplication: dict[str, Arm] | None = None,
         **model_gen_kwargs: Any,
     ) -> GeneratorRun:
         """This method generates candidates using `self._gen` and handles deduplication
@@ -403,8 +403,8 @@ class GenerationNode(SerializationMixin, SortableBase):
 
     def _gen(
         self,
-        n: Optional[int] = None,
-        pending_observations: Optional[dict[str, list[ObservationFeatures]]] = None,
+        n: int | None = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
         **model_gen_kwargs: Any,
     ) -> GeneratorRun:
         """Picks a fitted model, from which to generate candidates (via
@@ -482,7 +482,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         return trials_from_node
 
     @property
-    def node_that_generated_last_gr(self) -> Optional[str]:
+    def node_that_generated_last_gr(self) -> str | None:
         """Returns the name of the node that generated the last generator run.
 
         Returns:
@@ -709,16 +709,16 @@ class GenerationStep(GenerationNode, SortableBase):
 
     def __init__(
         self,
-        model: Union[ModelRegistryBase, Callable[..., ModelBridge]],
+        model: ModelRegistryBase | Callable[..., ModelBridge],
         num_trials: int,
-        model_kwargs: Optional[dict[str, Any]] = None,
-        model_gen_kwargs: Optional[dict[str, Any]] = None,
-        completion_criteria: Optional[Sequence[TransitionCriterion]] = None,
+        model_kwargs: dict[str, Any] | None = None,
+        model_gen_kwargs: dict[str, Any] | None = None,
+        completion_criteria: Sequence[TransitionCriterion] | None = None,
         min_trials_observed: int = 0,
-        max_parallelism: Optional[int] = None,
+        max_parallelism: int | None = None,
         enforce_num_trials: bool = True,
         should_deduplicate: bool = False,
-        model_name: Optional[str] = None,
+        model_name: str | None = None,
         use_update: bool = False,  # DEPRECATED.
         index: int = -1,  # Index of this step, set internally.
     ) -> None:
@@ -851,10 +851,10 @@ class GenerationStep(GenerationNode, SortableBase):
 
     def gen(
         self,
-        n: Optional[int] = None,
-        pending_observations: Optional[dict[str, list[ObservationFeatures]]] = None,
+        n: int | None = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
         max_gen_draws_for_deduplication: int = MAX_GEN_DRAWS,
-        arms_by_signature_for_deduplication: Optional[dict[str, Arm]] = None,
+        arms_by_signature_for_deduplication: dict[str, Arm] | None = None,
         **model_gen_kwargs: Any,
     ) -> GeneratorRun:
         gr = super().gen(

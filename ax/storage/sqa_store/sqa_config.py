@@ -6,9 +6,10 @@
 
 # pyre-strict
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Optional, Union
+from typing import Any
 
 from ax.analysis.analysis import AnalysisCard
 
@@ -85,8 +86,8 @@ class SQAConfig:
     class_to_sqa_class: dict[type[Base], type[SQABase]] = field(
         default_factory=_default_class_to_sqa_class
     )
-    experiment_type_enum: Optional[Union[Enum, type[Enum]]] = None
-    generator_run_type_enum: Optional[Union[Enum, type[Enum]]] = GeneratorRunType
+    experiment_type_enum: Enum | type[Enum] | None = None
+    generator_run_type_enum: Enum | type[Enum] | None = GeneratorRunType
     auxiliary_experiment_purpose_enum: type[Enum] = AuxiliaryExperimentPurpose
 
     # pyre-fixme[4]: Attribute annotation cannot contain `Any`.

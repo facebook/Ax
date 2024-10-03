@@ -12,7 +12,6 @@
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 from ax.core.experiment import Experiment
@@ -87,8 +86,8 @@ class BenchmarkResult(Base):
     fit_time: float
     gen_time: float
 
-    experiment: Optional[Experiment] = None
-    experiment_storage_id: Optional[str] = None
+    experiment: Experiment | None = None
+    experiment_storage_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.experiment is not None and self.experiment_storage_id is not None:

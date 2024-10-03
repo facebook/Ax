@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -186,7 +186,7 @@ def diagonal_trace(min_: float, max_: float, visible: bool = True) -> dict[str, 
     )
 
 
-def default_value_se_raw(se_raw: Optional[list[float]], out_length: int) -> list[float]:
+def default_value_se_raw(se_raw: list[float] | None, out_length: int) -> list[float]:
     """
     Takes a list of standard errors and maps edge cases to default list
     of floats.

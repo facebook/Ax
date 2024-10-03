@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-from typing import Optional
 
 from ax.core.experiment import Experiment
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
@@ -13,10 +12,10 @@ from ax.utils.common.typeutils import not_none
 
 
 def should_stop_trials_early(
-    early_stopping_strategy: Optional[BaseEarlyStoppingStrategy],
+    early_stopping_strategy: BaseEarlyStoppingStrategy | None,
     trial_indices: set[int],
     experiment: Experiment,
-) -> dict[int, Optional[str]]:
+) -> dict[int, str | None]:
     """Evaluate whether to early-stop running trials.
 
     Args:
@@ -39,7 +38,7 @@ def should_stop_trials_early(
 
 
 def get_early_stopping_metrics(
-    experiment: Experiment, early_stopping_strategy: Optional[BaseEarlyStoppingStrategy]
+    experiment: Experiment, early_stopping_strategy: BaseEarlyStoppingStrategy | None
 ) -> list[str]:
     """A helper function that returns a list of metric names on which a given
     `early_stopping_strategy` is operating."""

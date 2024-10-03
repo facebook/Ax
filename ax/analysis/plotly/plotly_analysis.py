@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-from typing import Optional
 
 from ax.analysis.analysis import Analysis, AnalysisCard
 from ax.core.experiment import Experiment
@@ -35,6 +34,6 @@ class PlotlyAnalysis(Analysis):
 
     def compute(
         self,
-        experiment: Optional[Experiment] = None,
-        generation_strategy: Optional[GenerationStrategyInterface] = None,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategyInterface | None = None,
     ) -> PlotlyAnalysisCard: ...

@@ -57,6 +57,7 @@ __all__ = [
     "MultiObjectiveOptimizationConfig",
     "Objective",
     "ObjectiveThreshold",
+    "ObservationFeatures",
     "OptimizationConfig",
     "OrderConstraint",
     "OutcomeConstraint",

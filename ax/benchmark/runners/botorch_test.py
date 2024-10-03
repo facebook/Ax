@@ -9,7 +9,7 @@ import importlib
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any
 
 import torch
 from ax.benchmark.runners.base import BenchmarkRunner
@@ -36,8 +36,8 @@ class ParamBasedTestProblem(ABC):
     # Constraints could easily be supported similar to BoTorch test problems,
     # but haven't been hooked up.
     _is_constrained: bool = False
-    constraint_noise_std: Optional[Union[float, list[float]]] = None
-    noise_std: Optional[Union[float, list[float]]] = None
+    constraint_noise_std: float | list[float] | None = None
+    noise_std: float | list[float] | None = None
     negate: bool = False
 
     @abstractmethod
@@ -65,18 +65,18 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
     problem such as the noise_std.
     """
 
-    test_problem: Union[BaseTestProblem, ParamBasedTestProblem]
+    test_problem: BaseTestProblem | ParamBasedTestProblem
     _is_constrained: bool
-    _test_problem_class: type[Union[BaseTestProblem, ParamBasedTestProblem]]
-    _test_problem_kwargs: Optional[dict[str, Any]]
+    _test_problem_class: type[BaseTestProblem | ParamBasedTestProblem]
+    _test_problem_kwargs: dict[str, Any] | None
 
     def __init__(
         self,
         *,
-        test_problem_class: type[Union[BaseTestProblem, ParamBasedTestProblem]],
+        test_problem_class: type[BaseTestProblem | ParamBasedTestProblem],
         test_problem_kwargs: dict[str, Any],
         outcome_names: list[str],
-        modified_bounds: Optional[list[tuple[float, float]]] = None,
+        modified_bounds: list[tuple[float, float]] | None = None,
         search_space_digest: SearchSpaceDigest | None = None,
     ) -> None:
         """Initialize the test problem runner.
@@ -127,7 +127,7 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
             == other.test_problem.__class__.__name__
         )
 
-    def get_noise_stds(self) -> Union[None, float, dict[str, float]]:
+    def get_noise_stds(self) -> None | float | dict[str, float]:
         noise_std = self.test_problem.noise_std
         noise_std_dict: dict[str, float] = {}
         num_obj = 1 if not self._is_moo else self.test_problem.num_objectives
@@ -184,8 +184,8 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
     def deserialize_init_args(
         cls,
         args: dict[str, Any],
-        decoder_registry: Optional[TDecoderRegistry] = None,
-        class_decoder_registry: Optional[TClassDecoderRegistry] = None,
+        decoder_registry: TDecoderRegistry | None = None,
+        class_decoder_registry: TClassDecoderRegistry | None = None,
     ) -> dict[str, Any]:
         """Given a dictionary, deserialize the properties needed to initialize the
         runner. Used for storage.
@@ -228,7 +228,7 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
         test_problem_class: type[BaseTestProblem],
         test_problem_kwargs: dict[str, Any],
         outcome_names: list[str],
-        modified_bounds: Optional[list[tuple[float, float]]] = None,
+        modified_bounds: list[tuple[float, float]] | None = None,
         search_space_digest: SearchSpaceDigest | None = None,
     ) -> None:
         super().__init__(
@@ -303,7 +303,7 @@ class ParamBasedTestProblemRunner(SyntheticProblemRunner):
         test_problem_class: type[ParamBasedTestProblem],
         test_problem_kwargs: dict[str, Any],
         outcome_names: list[str],
-        modified_bounds: Optional[list[tuple[float, float]]] = None,
+        modified_bounds: list[tuple[float, float]] | None = None,
         search_space_digest: SearchSpaceDigest | None = None,
     ) -> None:
         if modified_bounds is not None:

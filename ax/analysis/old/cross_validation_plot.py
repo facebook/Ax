@@ -6,7 +6,7 @@
 # pyre-strict
 
 from copy import deepcopy
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -43,7 +43,7 @@ class CrossValidationPlot(BasePlotlyVisualization):
         self,
         experiment: Experiment,
         model: ModelBridge,
-        label_dict: Optional[dict[str, str]] = None,
+        label_dict: dict[str, str] | None = None,
         caption: str = CROSS_VALIDATION_CAPTION,
     ) -> None:
         """
@@ -56,7 +56,7 @@ class CrossValidationPlot(BasePlotlyVisualization):
         self.model = model
         self.cv: list[CVResult] = cross_validate(model=model)
 
-        self.label_dict: Optional[dict[str, str]] = label_dict
+        self.label_dict: dict[str, str] | None = label_dict
         if self.label_dict:
             self.cv = self.remap_label(cv_results=self.cv, label_dict=self.label_dict)
 

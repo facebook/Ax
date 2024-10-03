@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, Optional
+from typing import Any
 from warnings import warn
 
 from ax.modelbridge.cross_validation import (
@@ -35,15 +35,15 @@ class SchedulerCreatedRecord:
     generation_strategy_created_record: GenerationStrategyCreatedRecord
 
     # SchedulerOptions info
-    scheduler_total_trials: Optional[int]
+    scheduler_total_trials: int | None
     scheduler_max_pending_trials: int
     arms_per_trial: int
-    early_stopping_strategy_cls: Optional[str]
-    global_stopping_strategy_cls: Optional[str]
+    early_stopping_strategy_cls: str | None
+    global_stopping_strategy_cls: str | None
 
     # Dimensionality of transformed SearchSpace can often be much higher due to one-hot
     # encoding of unordered ChoiceParameters
-    transformed_dimensionality: Optional[int]
+    transformed_dimensionality: int | None
 
     @classmethod
     def from_scheduler(cls, scheduler: Scheduler) -> SchedulerCreatedRecord:
@@ -104,10 +104,10 @@ class SchedulerCompletedRecord:
     experiment_completed_record: ExperimentCompletedRecord
 
     best_point_quality: float
-    model_fit_quality: Optional[float]
-    model_std_quality: Optional[float]
-    model_fit_generalization: Optional[float]
-    model_std_generalization: Optional[float]
+    model_fit_quality: float | None
+    model_std_quality: float | None
+    model_fit_generalization: float | None
+    model_std_generalization: float | None
 
     improvement_over_baseline: float
 

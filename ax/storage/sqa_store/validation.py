@@ -6,8 +6,9 @@
 
 # pyre-strict
 
+from collections.abc import Callable
 from logging import Logger
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from ax.storage.sqa_store.db import SQABase
 from ax.storage.sqa_store.reduced_state import GR_LARGE_MODEL_ATTRS
@@ -37,15 +38,12 @@ def listens_for_multiple(
     identifier: str,
     *args: Any,
     **kwargs: Any,
-    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 ) -> Callable:
     """Analogue of SQLAlchemy `listen_for`, but applies the same listening handler
     function to multiple instrumented attributes.
     """
 
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
-    def wrapper(fn: Callable):
+    def wrapper(fn: Callable) -> Callable:
         for target in targets:
             event.listen(target, identifier, fn, *args, **kwargs)
         return fn

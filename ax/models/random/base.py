@@ -6,8 +6,9 @@
 
 # pyre-strict
 
+from collections.abc import Callable
 from logging import Logger
-from typing import Any, Callable, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -62,9 +63,9 @@ class RandomModel(Model):
     def __init__(
         self,
         deduplicate: bool = True,
-        seed: Optional[int] = None,
+        seed: int | None = None,
         init_position: int = 0,
-        generated_points: Optional[np.ndarray] = None,
+        generated_points: np.ndarray | None = None,
         fallback_to_sample_polytope: bool = False,
     ) -> None:
         super().__init__()
@@ -84,10 +85,10 @@ class RandomModel(Model):
         self,
         n: int,
         bounds: list[tuple[float, float]],
-        linear_constraints: Optional[tuple[np.ndarray, np.ndarray]] = None,
-        fixed_features: Optional[dict[int, float]] = None,
-        model_gen_options: Optional[TConfig] = None,
-        rounding_func: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+        linear_constraints: tuple[np.ndarray, np.ndarray] | None = None,
+        fixed_features: dict[int, float] | None = None,
+        model_gen_options: TConfig | None = None,
+        rounding_func: Callable[[np.ndarray], np.ndarray] | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Generate new candidates.
 
@@ -200,7 +201,7 @@ class RandomModel(Model):
         n: int,
         d: int,
         tunable_feature_indices: np.ndarray,
-        fixed_features: Optional[dict[int, float]] = None,
+        fixed_features: dict[int, float] | None = None,
     ) -> np.ndarray:
         """Generate n points, from an unconstrained parameter space, using _gen_samples.
 
@@ -237,8 +238,8 @@ class RandomModel(Model):
         raise NotImplementedError("Base RandomModel can't generate samples.")
 
     def _convert_inequality_constraints(
-        self, linear_constraints: Optional[tuple[np.ndarray, np.ndarray]]
-    ) -> Optional[tuple[Tensor, Tensor]]:
+        self, linear_constraints: tuple[np.ndarray, np.ndarray] | None
+    ) -> tuple[Tensor, Tensor] | None:
         """Helper method to convert inequality constraints used by the rejection
         sampler to the format required for the polytope sampler.
 
@@ -258,8 +259,8 @@ class RandomModel(Model):
             return A, b
 
     def _convert_equality_constraints(
-        self, d: int, fixed_features: Optional[dict[int, float]]
-    ) -> Optional[tuple[Tensor, Tensor]]:
+        self, d: int, fixed_features: dict[int, float] | None
+    ) -> tuple[Tensor, Tensor] | None:
         """Helper method to convert the fixed feature dictionary used by the rejection
         sampler to the corresponding matrix representation required for the polytope
         sampler.
@@ -286,7 +287,7 @@ class RandomModel(Model):
             constraint_matrix[index, fixed_indices[index]] = 1.0
         return constraint_matrix, fixed_vals
 
-    def _convert_bounds(self, bounds: list[tuple[float, float]]) -> Optional[Tensor]:
+    def _convert_bounds(self, bounds: list[tuple[float, float]]) -> Tensor | None:
         """Helper method to convert bounds list used by the rejectionsampler to the
         tensor format required for the polytope sampler.
 
@@ -302,7 +303,7 @@ class RandomModel(Model):
         else:
             return torch.tensor(bounds, dtype=torch.double).transpose(-1, -2)
 
-    def _get_last_point(self) -> Optional[Tensor]:
+    def _get_last_point(self) -> Tensor | None:
         # Return the last sampled point when points have been sampled
         if self.generated_points is None:
             return None

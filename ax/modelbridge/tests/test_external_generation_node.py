@@ -7,7 +7,6 @@
 # pyre-strict
 
 from copy import deepcopy
-from typing import Optional
 from unittest.mock import MagicMock
 
 from ax.core.data import Data
@@ -32,7 +31,7 @@ class DummyNode(ExternalGenerationNode):
         super().__init__(node_name="dummy")
         self.update_count = 0
         self.gen_count = 0
-        self.generator: Optional[RandomModelBridge] = None
+        self.generator: RandomModelBridge | None = None
         self.last_pending: list[TParameterization] = []
 
     def update_generator_state(self, experiment: Experiment, data: Data) -> None:

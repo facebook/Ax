@@ -7,7 +7,7 @@
 # pyre-strict
 
 from enum import Enum
-from typing import cast, Optional, Union
+from typing import cast
 
 import numpy as np
 from ax.core.data import Data
@@ -102,8 +102,8 @@ def data_and_evaluations_from_raw_data(
     trial_index: int,
     sample_sizes: dict[str, int],
     data_type: DataType,
-    start_time: Optional[Union[int, str]] = None,
-    end_time: Optional[Union[int, str]] = None,
+    start_time: int | str | None = None,
+    end_time: int | str | None = None,
 ) -> tuple[dict[str, TEvaluationOutcome], Data]:
     """Transforms evaluations into Ax Data.
 

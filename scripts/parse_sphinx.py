@@ -47,7 +47,7 @@ def parse_sphinx(input_dir: str, output_dir: str) -> None:
     for cur, _, files in os.walk(input_dir):
         for fname in files:
             if fname.endswith(".html"):
-                with open(os.path.join(cur, fname), "r") as f:
+                with open(os.path.join(cur, fname)) as f:
                     soup = BeautifulSoup(f.read(), "html.parser")
                     doc = soup.find("div", {"class": "document"})
                     wrapped_doc = doc.wrap(soup.new_tag("div", **{"class": "sphinx"}))
@@ -62,7 +62,7 @@ def parse_sphinx(input_dir: str, output_dir: str) -> None:
                     fout.write(out)
 
     # update reference in JS file
-    with open(os.path.join(input_dir, "_static/searchtools.js"), "r") as js_file:
+    with open(os.path.join(input_dir, "_static/searchtools.js")) as js_file:
         js = js_file.read()
     js = js.replace(
         "DOCUMENTATION_OPTIONS.URL_ROOT + '_sources/'", "'_sphinx-sources/'"

@@ -7,7 +7,6 @@
 # pyre-strict
 
 from contextlib import ExitStack
-from typing import Optional
 from unittest.mock import patch
 
 import numpy as np
@@ -69,7 +68,7 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
     )
     @fast_botorch_optimize
     def helper_test_pareto_frontier(
-        self, _, outcome_constraints: Optional[list[OutcomeConstraint]]
+        self, _, outcome_constraints: list[OutcomeConstraint] | None
     ) -> None:
         """
         Make sure Pareto-related functions run.

@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from typing import Optional
 
 from ax.exceptions.core import AxError, OptimizationComplete
 
@@ -28,8 +27,8 @@ class MaxParallelismReachedException(AxGenerationException):
         self,
         model_name: str,
         num_running: int,
-        step_index: Optional[int] = None,
-        node_name: Optional[str] = None,
+        step_index: int | None = None,
+        node_name: str | None = None,
     ) -> None:
         if node_name is not None:
             msg_start = (
@@ -67,7 +66,7 @@ class GenerationStrategyRepeatedPoints(GenerationStrategyCompleted):
 class GenerationStrategyMisconfiguredException(AxGenerationException):
     """Special exception indicating that the generation strategy is misconfigured."""
 
-    def __init__(self, error_info: Optional[str]) -> None:
+    def __init__(self, error_info: str | None) -> None:
         super().__init__(
             "This GenerationStrategy was unable to be initialized properly. Please "
             + "check the documentation, and adjust the configuration accordingly. "

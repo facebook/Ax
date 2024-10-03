@@ -10,7 +10,6 @@ from __future__ import annotations
 import warnings
 from dataclasses import dataclass
 from math import inf
-from typing import Optional
 
 from ax.exceptions.core import AxWarning
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -29,14 +28,14 @@ class GenerationStrategyCreatedRecord:
     generation_strategy_name: str
 
     # -1 indicates unlimited trials requested, 0 indicates no trials requested
-    num_requested_initialization_trials: Optional[
+    num_requested_initialization_trials: None | (
         int  # Typically the number of Sobol trials
-    ]
-    num_requested_bayesopt_trials: Optional[int]
-    num_requested_other_trials: Optional[int]
+    )
+    num_requested_bayesopt_trials: int | None
+    num_requested_other_trials: int | None
 
     # Minimum `max_parallelism` across GenerationSteps, i.e. the bottleneck
-    max_parallelism: Optional[int]
+    max_parallelism: int | None
 
     @classmethod
     def from_generation_strategy(

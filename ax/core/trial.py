@@ -12,7 +12,7 @@ from functools import partial
 
 from logging import Logger
 
-from typing import Any, Optional, TYPE_CHECKING, Union
+from typing import Any, TYPE_CHECKING
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, immutable_once_run
@@ -66,10 +66,10 @@ class Trial(BaseTrial):
     def __init__(
         self,
         experiment: core.experiment.Experiment,
-        generator_run: Optional[GeneratorRun] = None,
-        trial_type: Optional[str] = None,
-        ttl_seconds: Optional[int] = None,
-        index: Optional[int] = None,
+        generator_run: GeneratorRun | None = None,
+        trial_type: str | None = None,
+        ttl_seconds: int | None = None,
+        index: int | None = None,
     ) -> None:
         super().__init__(
             experiment=experiment,
@@ -83,7 +83,7 @@ class Trial(BaseTrial):
             self.add_generator_run(generator_run=generator_run)
 
     @property
-    def generator_run(self) -> Optional[GeneratorRun]:
+    def generator_run(self) -> GeneratorRun | None:
         """Generator run attached to this trial."""
         return self._generator_run
 
@@ -95,7 +95,7 @@ class Trial(BaseTrial):
         return [gr] if gr is not None else []
 
     @property
-    def arm(self) -> Optional[Arm]:
+    def arm(self) -> Arm | None:
         """The arm associated with this batch."""
         if self.generator_run is None:
             return None
@@ -112,7 +112,7 @@ class Trial(BaseTrial):
 
     @immutable_once_run
     def add_arm(
-        self, arm: Arm, candidate_metadata: Optional[dict[str, Any]] = None
+        self, arm: Arm, candidate_metadata: dict[str, Any] | None = None
     ) -> Trial:
         """Add arm to the trial.
 
@@ -286,8 +286,8 @@ class Trial(BaseTrial):
     def update_trial_data(
         self,
         raw_data: TEvaluationOutcome,
-        metadata: Optional[dict[str, Union[str, int]]] = None,
-        sample_size: Optional[int] = None,
+        metadata: dict[str, str | int] | None = None,
+        sample_size: int | None = None,
         combine_with_last_data: bool = False,
     ) -> str:
         """Utility method that attaches data to a trial and
@@ -333,7 +333,7 @@ class Trial(BaseTrial):
 
     def clone_to(
         self,
-        experiment: Optional[core.experiment.Experiment] = None,
+        experiment: core.experiment.Experiment | None = None,
     ) -> Trial:
         """Clone the trial and attach it to the specified experiment.
         If no experiment is provided, the original experiment will be used.

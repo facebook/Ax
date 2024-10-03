@@ -10,11 +10,11 @@ import asyncio
 import functools
 import threading
 import time
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from functools import partial
 from logging import Logger
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, TypeVar
 
 
 MAX_WAIT_SECONDS: int = 600
@@ -23,17 +23,17 @@ T = TypeVar("T")
 
 # pyre-fixme[3]: Return annotation cannot be `Any`.
 def retry_on_exception(
-    exception_types: Optional[tuple[type[Exception], ...]] = None,
-    no_retry_on_exception_types: Optional[tuple[type[Exception], ...]] = None,
-    check_message_contains: Optional[list[str]] = None,
+    exception_types: tuple[type[Exception], ...] | None = None,
+    no_retry_on_exception_types: tuple[type[Exception], ...] | None = None,
+    check_message_contains: list[str] | None = None,
     retries: int = 3,
     suppress_all_errors: bool = False,
-    logger: Optional[Logger] = None,
+    logger: Logger | None = None,
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-    default_return_on_suppression: Optional[Any] = None,
-    wrap_error_message_in: Optional[str] = None,
-    initial_wait_seconds: Optional[int] = None,
-) -> Optional[Any]:
+    default_return_on_suppression: Any | None = None,
+    wrap_error_message_in: str | None = None,
+    initial_wait_seconds: int | None = None,
+) -> Any | None:
     """
     A decorator for instance methods or standalone functions that makes them
     retry on failure and allows to specify on which types of exceptions the
@@ -180,10 +180,10 @@ def handle_exceptions_in_retries(
     no_retry_exceptions: tuple[type[Exception], ...],
     retry_exceptions: tuple[type[Exception], ...],
     suppress_errors: bool,
-    check_message_contains: Optional[str],
+    check_message_contains: str | None,
     last_retry: bool,
-    logger: Optional[Logger],
-    wrap_error_message_in: Optional[str],
+    logger: Logger | None,
+    wrap_error_message_in: str | None,
 ) -> Generator[None, None, None]:
     try:
         yield  # Perform action within the context manager.
@@ -218,8 +218,8 @@ def handle_exceptions_in_retries(
 
 
 def _validate_and_fill_defaults(
-    retry_on_exception_types: Optional[tuple[type[Exception], ...]],
-    no_retry_on_exception_types: Optional[tuple[type[Exception], ...]],
+    retry_on_exception_types: tuple[type[Exception], ...] | None,
+    no_retry_on_exception_types: tuple[type[Exception], ...] | None,
     suppress_errors: bool,
     **kwargs: Any,
 ) -> tuple[tuple[type[Exception], ...], tuple[type[Exception], ...], bool]:

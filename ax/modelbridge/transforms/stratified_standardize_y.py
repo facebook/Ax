@@ -8,7 +8,7 @@
 
 from collections import defaultdict
 from logging import Logger
-from typing import Optional, TYPE_CHECKING, Union
+from typing import Optional, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import Observation, ObservationFeatures, separate_observations
@@ -49,10 +49,10 @@ class StratifiedStandardizeY(Transform):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[list[Observation]] = None,
+        search_space: SearchSpace | None = None,
+        observations: list[Observation] | None = None,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
-        config: Optional[TConfig] = None,
+        config: TConfig | None = None,
     ) -> None:
         """Initialize StratifiedStandardizeY.
 
@@ -83,7 +83,7 @@ class StratifiedStandardizeY(Transform):
             if "strata_mapping" in config:
                 # pyre-ignore [8]
                 self.strata_mapping: dict[
-                    Union[bool, float, int, str], Union[bool, float, int, str]
+                    bool | float | int | str, bool | float | int | str
                 ] = config["strata_mapping"]
                 if set(strat_p.values) != set(self.strata_mapping.keys()):
                     raise ValueError(
@@ -149,7 +149,7 @@ class StratifiedStandardizeY(Transform):
         self,
         optimization_config: OptimizationConfig,
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
-        fixed_features: Optional[ObservationFeatures] = None,
+        fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         if len(optimization_config.all_constraints) == 0:
             return optimization_config
@@ -187,7 +187,7 @@ class StratifiedStandardizeY(Transform):
     def untransform_outcome_constraints(
         self,
         outcome_constraints: list[OutcomeConstraint],
-        fixed_features: Optional[ObservationFeatures] = None,
+        fixed_features: ObservationFeatures | None = None,
     ) -> list[OutcomeConstraint]:
         if fixed_features is None or self.p_name not in fixed_features.parameters:
             raise ValueError(

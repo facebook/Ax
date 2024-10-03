@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from typing import Optional
 
 from ax.core import Objective, OptimizationConfig
 from ax.core.objective import MultiObjective
@@ -35,9 +34,9 @@ class TestRobust(TestCase):
     @fast_botorch_optimize
     def test_robust(
         self,
-        risk_measure: Optional[RiskMeasure] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
-        acqf_class: Optional[str] = None,
+        risk_measure: RiskMeasure | None = None,
+        optimization_config: OptimizationConfig | None = None,
+        acqf_class: str | None = None,
     ) -> None:
         exp = get_robust_branin_experiment(
             risk_measure=risk_measure,

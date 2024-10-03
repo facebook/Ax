@@ -101,12 +101,12 @@ class PredictedOutcomesDotPlot(BasePlotlyVisualization):
                 reverse=True,
             )
 
-            name_order_axes["xaxis{}".format(i + 1)] = {
+            name_order_axes[f"xaxis{i + 1}"] = {
                 "categoryorder": "array",
                 "categoryarray": names_by_arm,
                 "type": "category",
             }
-            name_order_axes["yaxis{}".format(i + 1)] = {
+            name_order_axes[f"yaxis{i + 1}"] = {
                 "ticksuffix": "%",
                 "zerolinecolor": "red",
             }

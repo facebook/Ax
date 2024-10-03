@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from ax.core.observation import (
     Observation,
@@ -53,14 +53,14 @@ class Transform:
     """
 
     config: TConfig
-    modelbridge: Optional[modelbridge_module.base.ModelBridge]
+    modelbridge: modelbridge_module.base.ModelBridge | None
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[list[Observation]] = None,
-        modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
-        config: Optional[TConfig] = None,
+        search_space: SearchSpace | None = None,
+        observations: list[Observation] | None = None,
+        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        config: TConfig | None = None,
     ) -> None:
         """Do any initial computations for preparing the transform.
 
@@ -109,8 +109,8 @@ class Transform:
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
-        fixed_features: Optional[ObservationFeatures] = None,
+        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         """Transform optimization config.
 
@@ -241,7 +241,7 @@ class Transform:
     def untransform_outcome_constraints(
         self,
         outcome_constraints: list[OutcomeConstraint],
-        fixed_features: Optional[ObservationFeatures] = None,
+        fixed_features: ObservationFeatures | None = None,
     ) -> list[OutcomeConstraint]:
         """Untransform outcome constraints.
 

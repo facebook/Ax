@@ -9,9 +9,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 
 from math import sqrt
-from typing import Callable, Optional, Tuple, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -49,10 +50,10 @@ class BaseRelativize(Transform, ABC):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[list[Observation]] = None,
-        modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
-        config: Optional[TConfig] = None,
+        search_space: SearchSpace | None = None,
+        observations: list[Observation] | None = None,
+        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        config: TConfig | None = None,
     ) -> None:
         cls_name = self.__class__.__name__
         assert observations is not None, f"{cls_name} requires observations"
@@ -84,8 +85,8 @@ class BaseRelativize(Transform, ABC):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
-        fixed_features: Optional[ObservationFeatures] = None,
+        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         r"""
         Change the relative flag of the given relative optimization configuration
@@ -144,7 +145,7 @@ class BaseRelativize(Transform, ABC):
     def untransform_outcome_constraints(
         self,
         outcome_constraints: list[OutcomeConstraint],
-        fixed_features: Optional[ObservationFeatures] = None,
+        fixed_features: ObservationFeatures | None = None,
     ) -> list[OutcomeConstraint]:
         for c in outcome_constraints:
             c.relative = True
@@ -253,7 +254,7 @@ class BaseRelativize(Transform, ABC):
         sem_c: float,
         metric: str,
         rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
-    ) -> Tuple[Union[float, np.ndarray], Union[float, np.ndarray]]:
+    ) -> tuple[float | np.ndarray, float | np.ndarray]:
         """Compute (un)relativized mean and sem for a single metric."""
         # if the is the status quo
         if means_t == mean_c and sems_t == sem_c:

@@ -13,7 +13,7 @@ import logging
 from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, TYPE_CHECKING, Union
+from typing import Any, TYPE_CHECKING
 
 import torch
 from ax.core.arm import Arm
@@ -55,29 +55,29 @@ if TYPE_CHECKING:
 def batch_trial_from_json(
     experiment: core.experiment.Experiment,
     index: int,
-    trial_type: Optional[str],
+    trial_type: str | None,
     status: TrialStatus,
     time_created: datetime,
-    time_completed: Optional[datetime],
-    time_staged: Optional[datetime],
-    time_run_started: Optional[datetime],
-    abandoned_reason: Optional[str],
-    run_metadata: Optional[dict[str, Any]],
+    time_completed: datetime | None,
+    time_staged: datetime | None,
+    time_run_started: datetime | None,
+    abandoned_reason: str | None,
+    run_metadata: dict[str, Any] | None,
     generator_run_structs: list[GeneratorRunStruct],
-    runner: Optional[Runner],
+    runner: Runner | None,
     abandoned_arms_metadata: dict[str, AbandonedArm],
     num_arms_created: int,
-    status_quo: Optional[Arm],
+    status_quo: Arm | None,
     status_quo_weight_override: float,
-    optimize_for_power: Optional[bool],
+    optimize_for_power: bool | None,
     # Allowing default values for backwards compatibility with
     # objects stored before these fields were added.
-    failed_reason: Optional[str] = None,
-    ttl_seconds: Optional[int] = None,
-    generation_step_index: Optional[int] = None,
-    properties: Optional[dict[str, Any]] = None,
-    stop_metadata: Optional[dict[str, Any]] = None,
-    lifecycle_stage: Optional[LifecycleStage] = None,
+    failed_reason: str | None = None,
+    ttl_seconds: int | None = None,
+    generation_step_index: int | None = None,
+    properties: dict[str, Any] | None = None,
+    stop_metadata: dict[str, Any] | None = None,
+    lifecycle_stage: LifecycleStage | None = None,
     **kwargs: Any,
 ) -> BatchTrial:
     """Load Ax BatchTrial from JSON.
@@ -117,24 +117,24 @@ def batch_trial_from_json(
 def trial_from_json(
     experiment: core.experiment.Experiment,
     index: int,
-    trial_type: Optional[str],
+    trial_type: str | None,
     status: TrialStatus,
     time_created: datetime,
-    time_completed: Optional[datetime],
-    time_staged: Optional[datetime],
-    time_run_started: Optional[datetime],
-    abandoned_reason: Optional[str],
-    run_metadata: Optional[dict[str, Any]],
+    time_completed: datetime | None,
+    time_staged: datetime | None,
+    time_run_started: datetime | None,
+    abandoned_reason: str | None,
+    run_metadata: dict[str, Any] | None,
     generator_run: GeneratorRun,
-    runner: Optional[Runner],
+    runner: Runner | None,
     num_arms_created: int,
     # Allowing default values for backwards compatibility with
     # objects stored before these fields were added.
-    failed_reason: Optional[str] = None,
-    ttl_seconds: Optional[int] = None,
-    generation_step_index: Optional[int] = None,
-    properties: Optional[dict[str, Any]] = None,
-    stop_metadata: Optional[dict[str, Any]] = None,
+    failed_reason: str | None = None,
+    ttl_seconds: int | None = None,
+    generation_step_index: int | None = None,
+    properties: dict[str, Any] | None = None,
+    stop_metadata: dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> Trial:
     """Load Ax trial from JSON.
@@ -241,7 +241,7 @@ def tensor_from_json(json: dict[str, Any]) -> torch.Tensor:
         )
 
 
-def tensor_or_size_from_json(json: dict[str, Any]) -> Union[torch.Tensor, torch.Size]:
+def tensor_or_size_from_json(json: dict[str, Any]) -> torch.Tensor | torch.Size:
     if json["__type"] == "Tensor":
         return tensor_from_json(json)
     elif json["__type"] == "torch_Size":
@@ -322,7 +322,7 @@ def botorch_component_from_json(botorch_class: Any, json: dict[str, Any]) -> typ
     )
 
 
-def pathlib_from_json(pathsegments: Union[str, Iterable[str]]) -> Path:
+def pathlib_from_json(pathsegments: str | Iterable[str]) -> Path:
     if isinstance(pathsegments, str):
         return Path(pathsegments)
 

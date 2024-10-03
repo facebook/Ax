@@ -87,7 +87,7 @@ def local_version(version):
 def setup_package() -> None:
     """Used for installing the Ax package."""
 
-    with open("README.md", "r") as fh:
+    with open("README.md") as fh:
         long_description = fh.read()
 
     setup(

@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Union
 
 from ax.core.experiment import Experiment
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -37,8 +36,8 @@ class OptimizationCreatedRecord:
     owner: str
 
     # ExperimentCreatedRecord fields
-    experiment_name: Optional[str]
-    experiment_type: Optional[str]
+    experiment_name: str | None
+    experiment_type: str | None
     num_continuous_range_parameters: int
     num_int_range_parameters_small: int
     num_int_range_parameters_medium: int
@@ -59,17 +58,17 @@ class OptimizationCreatedRecord:
     runner_cls: str
 
     # GenerationStrategyCreatedRecord fields
-    generation_strategy_name: Optional[str]
-    num_requested_initialization_trials: Optional[int]
-    num_requested_bayesopt_trials: Optional[int]
-    num_requested_other_trials: Optional[int]
-    max_parallelism: Optional[int]
+    generation_strategy_name: str | None
+    num_requested_initialization_trials: int | None
+    num_requested_bayesopt_trials: int | None
+    num_requested_other_trials: int | None
+    max_parallelism: int | None
 
     # {AxClient, Scheduler}CreatedRecord fields
-    early_stopping_strategy_cls: Optional[str]
-    global_stopping_strategy_cls: Optional[str]
-    transformed_dimensionality: Optional[int]
-    scheduler_total_trials: Optional[int]
+    early_stopping_strategy_cls: str | None
+    global_stopping_strategy_cls: str | None
+    transformed_dimensionality: int | None
+    scheduler_total_trials: int | None
     scheduler_max_pending_trials: int
     arms_per_trial: int
 
@@ -78,11 +77,11 @@ class OptimizationCreatedRecord:
     launch_surface: str
 
     deployed_job_id: int
-    trial_evaluation_identifier: Optional[str]
+    trial_evaluation_identifier: str | None
 
     # Miscellaneous product info
     is_manual_generation_strategy: bool
-    warm_started_from: Optional[str]
+    warm_started_from: str | None
     num_custom_trials: int
     support_tier: str
 
@@ -95,9 +94,9 @@ class OptimizationCreatedRecord:
         product_surface: str,
         launch_surface: str,
         deployed_job_id: int,
-        trial_evaluation_identifier: Optional[str],
+        trial_evaluation_identifier: str | None,
         is_manual_generation_strategy: bool,
-        warm_started_from: Optional[str],
+        warm_started_from: str | None,
         num_custom_trials: int,
         support_tier: str,
     ) -> OptimizationCreatedRecord:
@@ -197,9 +196,9 @@ class OptimizationCreatedRecord:
         product_surface: str,
         launch_surface: str,
         deployed_job_id: int,
-        trial_evaluation_identifier: Optional[str],
+        trial_evaluation_identifier: str | None,
         is_manual_generation_strategy: bool,
-        warm_started_from: Optional[str],
+        warm_started_from: str | None,
         num_custom_trials: int,
     ) -> OptimizationCreatedRecord:
         ax_client_created_record = AxClientCreatedRecord.from_ax_client(
@@ -294,7 +293,7 @@ class OptimizationCreatedRecord:
     def from_experiment(
         cls,
         experiment: Experiment,
-        generation_strategy: Optional[GenerationStrategy],
+        generation_strategy: GenerationStrategy | None,
         unique_identifier: str,
         owner: str,
         product_surface: str,
@@ -302,9 +301,9 @@ class OptimizationCreatedRecord:
         deployed_job_id: int,
         is_manual_generation_strategy: bool,
         num_custom_trials: int,
-        warm_started_from: Optional[str] = None,
-        arms_per_trial: Optional[int] = None,
-        trial_evaluation_identifier: Optional[str] = None,
+        warm_started_from: str | None = None,
+        arms_per_trial: int | None = None,
+        trial_evaluation_identifier: str | None = None,
     ) -> OptimizationCreatedRecord:
         experiment_created_record = ExperimentCreatedRecord.from_experiment(
             experiment=experiment,
@@ -453,7 +452,7 @@ class OptimizationCompletedRecord:
     num_trials_bad_due_to_err: int
 
     # TODO[mpolson64] Deprecate this field as it is redundant with unique_identifier
-    deployed_job_id: Optional[int]
+    deployed_job_id: int | None
 
     # Miscellaneous deployment specific info
     estimated_early_stopping_savings: float
@@ -464,7 +463,7 @@ class OptimizationCompletedRecord:
         cls,
         scheduler: Scheduler,
         unique_identifier: str,
-        deployed_job_id: Optional[int],
+        deployed_job_id: int | None,
         estimated_early_stopping_savings: float,
         estimated_global_stopping_savings: float,
     ) -> OptimizationCompletedRecord:
@@ -511,7 +510,7 @@ class OptimizationCompletedRecord:
         cls,
         ax_client: AxClient,
         unique_identifier: str,
-        deployed_job_id: Optional[int],
+        deployed_job_id: int | None,
         estimated_early_stopping_savings: float,
         estimated_global_stopping_savings: float,
     ) -> OptimizationCompletedRecord:
@@ -550,7 +549,7 @@ class OptimizationCompletedRecord:
 
 
 def _extract_model_fit_dict(
-    completed_record: Union[SchedulerCompletedRecord, AxClientCompletedRecord],
+    completed_record: SchedulerCompletedRecord | AxClientCompletedRecord,
 ) -> dict[str, float]:
     model_fit_names = [
         "model_fit_quality",

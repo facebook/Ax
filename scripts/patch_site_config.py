@@ -11,10 +11,10 @@ import re
 def patch_config(
     config_file: str, base_url: str = None, disable_algolia: bool = True
 ) -> None:
-    config = open(config_file, "r").read()
+    config = open(config_file).read()
 
     if base_url is not None:
-        config = re.sub("baseUrl = '/';", "baseUrl = '{}';".format(base_url), config)
+        config = re.sub("baseUrl = '/';", f"baseUrl = '{base_url}';", config)
     if disable_algolia is True:
         config = re.sub(
             "const includeAlgolia = true;", "const includeAlgolia = false;", config

@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 
 from logging import Logger
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -46,7 +46,7 @@ try:
             self,
             name: str,
             tag: str,
-            lower_is_better: Optional[bool] = True,
+            lower_is_better: bool | None = True,
             smoothing: float = SMOOTHING_DEFAULT,
             cumulative_best: bool = False,
         ) -> None:

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable
-from typing import Optional
 
 from ax.core.metric import Metric
 from ax.core.types import ComparisonOp
@@ -123,7 +122,7 @@ class OutcomeConstraint(SortableBase):
             msg = CONSTRAINT_WARNING_MESSAGE.format(**fmt_data)
             logger.debug(msg)
             return False, msg
-        return True, str()
+        return True, ""
 
     def _validate_constraint(self) -> tuple[bool, str]:
         """Ensure constraint is compatible with metric definition.
@@ -146,7 +145,7 @@ class OutcomeConstraint(SortableBase):
             return False, msg
 
         if not self.relative:
-            return True, str()
+            return True, ""
 
         fmt_data = None
         if self.metric.lower_is_better is not None:
@@ -160,7 +159,7 @@ class OutcomeConstraint(SortableBase):
             logger.debug(msg)
             return False, msg
 
-        return True, str()
+        return True, ""
 
     def __repr__(self) -> str:
         op = ">=" if self.op == ComparisonOp.GEQ else "<="
@@ -200,14 +199,12 @@ class ObjectiveThreshold(OutcomeConstraint):
         metric: Metric,
         bound: float,
         relative: bool = True,
-        op: Optional[ComparisonOp] = None,
+        op: ComparisonOp | None = None,
     ) -> None:
         if metric.lower_is_better is None and op is None:
             raise ValueError(
-                (
-                    f"Metric {metric} must have attribute `lower_is_better` set or "
-                    f"op {op} must be manually specified."
-                )
+                f"Metric {metric} must have attribute `lower_is_better` set or "
+                f"op {op} must be manually specified."
             )
         elif op is None:
             op = ComparisonOp.LEQ if metric.lower_is_better else ComparisonOp.GEQ
@@ -259,7 +256,7 @@ class ScalarizedOutcomeConstraint(OutcomeConstraint):
         op: ComparisonOp,
         bound: float,
         relative: bool = True,
-        weights: Optional[list[float]] = None,
+        weights: list[float] | None = None,
     ) -> None:
         for metric in metrics:
             self._validate_metric_constraint_op(metric=metric, op=op)

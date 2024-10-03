@@ -8,7 +8,6 @@
 
 import logging
 from collections.abc import Sequence
-from typing import Union
 
 import numpy as np
 
@@ -54,7 +53,7 @@ class TestAxClient(TestCase):
         # Test with HSS & MOO.
         ax_client = AxClient()
         parameters: list[
-            dict[str, Union[TParamValue, Sequence[TParamValue], dict[str, list[str]]]]
+            dict[str, TParamValue | Sequence[TParamValue] | dict[str, list[str]]]
         ] = [
             {
                 "name": "SearchSpace.optimizer",

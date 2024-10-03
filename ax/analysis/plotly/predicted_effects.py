@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from itertools import chain
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardLevel
@@ -43,8 +43,8 @@ class PredictedEffectsPlot(PlotlyAnalysis):
 
     def compute(
         self,
-        experiment: Optional[Experiment] = None,
-        generation_strategy: Optional[GenerationStrategyInterface] = None,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategyInterface | None = None,
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("PredictedEffectsPlot requires an Experiment.")
@@ -116,8 +116,8 @@ def _get_predictions(
     model: ModelBridge,
     metric_name: str,
     outcome_constraints: list[OutcomeConstraint],
-    gr: Optional[GeneratorRun] = None,
-    trial_index: Optional[int] = None,
+    gr: GeneratorRun | None = None,
+    trial_index: int | None = None,
 ) -> list[dict[str, Any]]:
     if gr is None:
         observations = model.get_training_data()
@@ -187,7 +187,7 @@ def _get_predictions(
     ]
 
 
-def _get_max_observed_trial_index(model: ModelBridge) -> Optional[int]:
+def _get_max_observed_trial_index(model: ModelBridge) -> int | None:
     """Returns the max observed trial index to appease multitask models for prediction
     by giving fixed features. This is not necessarily accurate and should eventually
     come from the generation strategy.

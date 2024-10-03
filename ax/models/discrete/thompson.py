@@ -8,7 +8,6 @@
 
 import hashlib
 import json
-from typing import Optional
 
 import numpy as np
 from ax.core.types import TGenMetadata, TParamValue, TParamValueList
@@ -30,7 +29,7 @@ class ThompsonSampler(DiscreteModel):
     def __init__(
         self,
         num_samples: int = 10000,
-        min_weight: Optional[float] = None,
+        min_weight: float | None = None,
         uniform_weights: bool = False,
     ) -> None:
         """
@@ -77,11 +76,11 @@ class ThompsonSampler(DiscreteModel):
         self,
         n: int,
         parameter_values: list[TParamValueList],
-        objective_weights: Optional[np.ndarray],
-        outcome_constraints: Optional[tuple[np.ndarray, np.ndarray]] = None,
-        fixed_features: Optional[dict[int, TParamValue]] = None,
-        pending_observations: Optional[list[list[TParamValueList]]] = None,
-        model_gen_options: Optional[TConfig] = None,
+        objective_weights: np.ndarray | None,
+        outcome_constraints: tuple[np.ndarray, np.ndarray] | None = None,
+        fixed_features: dict[int, TParamValue] | None = None,
+        pending_observations: list[list[TParamValueList]] | None = None,
+        model_gen_options: TConfig | None = None,
     ) -> tuple[list[TParamValueList], list[float], TGenMetadata]:
         if objective_weights is None:
             raise ValueError("ThompsonSampler requires objective weights.")
@@ -143,7 +142,7 @@ class ThompsonSampler(DiscreteModel):
     def _generate_weights(
         self,
         objective_weights: np.ndarray,
-        outcome_constraints: Optional[tuple[np.ndarray, np.ndarray]] = None,
+        outcome_constraints: tuple[np.ndarray, np.ndarray] | None = None,
     ) -> list[float]:
         samples, fraction_all_infeasible = self._produce_samples(
             num_samples=self.num_samples,
@@ -192,7 +191,7 @@ class ThompsonSampler(DiscreteModel):
         self,
         num_samples: int,
         objective_weights: np.ndarray,
-        outcome_constraints: Optional[tuple[np.ndarray, np.ndarray]],
+        outcome_constraints: tuple[np.ndarray, np.ndarray] | None,
     ) -> tuple[np.ndarray, float]:
         k = len(self.X)
         samples_per_metric = self._generate_samples_per_metric(num_samples=num_samples)

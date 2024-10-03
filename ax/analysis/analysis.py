@@ -5,9 +5,10 @@
 
 # pyre-strict
 
+from collections.abc import Iterable
 from enum import Enum
 from logging import Logger
-from typing import Iterable, Optional, Protocol
+from typing import Protocol
 
 import pandas as pd
 from ax.core.experiment import Experiment
@@ -105,8 +106,8 @@ class Analysis(Protocol):
 
     def compute(
         self,
-        experiment: Optional[Experiment] = None,
-        generation_strategy: Optional[GenerationStrategyInterface] = None,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategyInterface | None = None,
     ) -> AnalysisCard:
         # Note: when implementing compute always prefer experiment.lookup_data() to
         # experiment.fetch_data() to avoid unintential data fetching within the report
@@ -115,8 +116,8 @@ class Analysis(Protocol):
 
     def compute_result(
         self,
-        experiment: Optional[Experiment] = None,
-        generation_strategy: Optional[GenerationStrategyInterface] = None,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategyInterface | None = None,
     ) -> Result[AnalysisCard, ExceptionE]:
         """
         Utility method to compute an AnalysisCard as a Result. This can be useful for

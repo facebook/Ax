@@ -13,7 +13,6 @@ import warnings
 from collections.abc import Iterable
 from copy import deepcopy
 from logging import Logger
-from typing import Optional
 
 import ax.core.experiment as experiment
 import numpy as np
@@ -69,10 +68,10 @@ class ObservationFeatures(Base):
     def __init__(
         self,
         parameters: TParameterization,
-        trial_index: Optional[int] = None,
-        start_time: Optional[pd.Timestamp] = None,
-        end_time: Optional[pd.Timestamp] = None,
-        random_split: Optional[int] = None,
+        trial_index: int | None = None,
+        start_time: pd.Timestamp | None = None,
+        end_time: pd.Timestamp | None = None,
+        random_split: int | None = None,
         metadata: TCandidateMetadata = None,
     ) -> None:
         self.parameters = parameters
@@ -85,10 +84,10 @@ class ObservationFeatures(Base):
     @staticmethod
     def from_arm(
         arm: Arm,
-        trial_index: Optional[int] = None,
-        start_time: Optional[pd.Timestamp] = None,
-        end_time: Optional[pd.Timestamp] = None,
-        random_split: Optional[int] = None,
+        trial_index: int | None = None,
+        start_time: pd.Timestamp | None = None,
+        end_time: pd.Timestamp | None = None,
+        random_split: int | None = None,
         metadata: TCandidateMetadata = None,
     ) -> ObservationFeatures:
         """Convert a Arm to an ObservationFeatures, including additional
@@ -123,7 +122,7 @@ class ObservationFeatures(Base):
         return self
 
     def clone(
-        self, replace_parameters: Optional[TParameterization] = None
+        self, replace_parameters: TParameterization | None = None
     ) -> ObservationFeatures:
         """Make a copy of these ``ObservationFeatures``.
 
@@ -150,7 +149,7 @@ class ObservationFeatures(Base):
         strs = []
         for attr in ["trial_index", "start_time", "end_time", "random_split"]:
             if getattr(self, attr) is not None:
-                strs.append(", {attr}={val}".format(attr=attr, val=getattr(self, attr)))
+                strs.append(f", {attr}={getattr(self, attr)}")
         repr_str = "ObservationFeatures(parameters={parameters}".format(
             parameters=self.parameters
         )
@@ -192,9 +191,7 @@ class ObservationData(Base):
     ) -> None:
         k = len(metric_names)
         if means.shape != (k,):
-            raise ValueError(
-                "Shape of means should be {}, is {}.".format((k,), (means.shape))
-            )
+            raise ValueError(f"Shape of means should be {(k,)}, is {(means.shape)}.")
         if covariance.shape != (k, k):
             raise ValueError(
                 "Shape of covariance should be {}, is {}.".format(
@@ -248,7 +245,7 @@ class Observation(Base):
         self,
         features: ObservationFeatures,
         data: ObservationData,
-        arm_name: Optional[str] = None,
+        arm_name: str | None = None,
     ) -> None:
         self.features = features
         self.data = data
@@ -371,7 +368,7 @@ def _observations_from_dataframe(
 def _filter_data_on_status(
     df: pd.DataFrame,
     experiment: experiment.Experiment,
-    trial_status: Optional[TrialStatus],
+    trial_status: TrialStatus | None,
     # Arms on a BatchTrial can be abandoned even if the BatchTrial is not.
     # Data will be filtered out if is_arm_abandoned is True and the corresponding
     # statuses_to_include does not contain TrialStatus.ABANDONED.
@@ -436,8 +433,8 @@ def get_feature_cols(data: Data, is_map_data: bool = False) -> list[str]:
 def observations_from_data(
     experiment: experiment.Experiment,
     data: Data,
-    statuses_to_include: Optional[set[TrialStatus]] = None,
-    statuses_to_include_map_metric: Optional[set[TrialStatus]] = None,
+    statuses_to_include: set[TrialStatus] | None = None,
+    statuses_to_include_map_metric: set[TrialStatus] | None = None,
 ) -> list[Observation]:
     """Convert Data to observations.
 
@@ -515,11 +512,11 @@ def observations_from_data(
 def observations_from_map_data(
     experiment: experiment.Experiment,
     map_data: MapData,
-    statuses_to_include: Optional[set[TrialStatus]] = None,
-    statuses_to_include_map_metric: Optional[set[TrialStatus]] = None,
+    statuses_to_include: set[TrialStatus] | None = None,
+    statuses_to_include_map_metric: set[TrialStatus] | None = None,
     map_keys_as_parameters: bool = False,
-    limit_rows_per_metric: Optional[int] = None,
-    limit_rows_per_group: Optional[int] = None,
+    limit_rows_per_metric: int | None = None,
+    limit_rows_per_group: int | None = None,
 ) -> list[Observation]:
     """Convert MapData to observations.
 
@@ -645,7 +642,7 @@ def separate_observations(
 def recombine_observations(
     observation_features: list[ObservationFeatures],
     observation_data: list[ObservationData],
-    arm_names: Optional[list[str]] = None,
+    arm_names: list[str] | None = None,
 ) -> list[Observation]:
     """
     Construct a list of `Observation`s from the given arguments.

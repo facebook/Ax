@@ -6,8 +6,9 @@
 
 # pyre-strict
 
+from collections.abc import Callable
 from logging import Logger
-from typing import Any, Callable, Optional
+from typing import Any
 
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
@@ -51,7 +52,7 @@ CORE_METRIC_REGISTRY: dict[type[Metric], int] = {
 
 # pyre-fixme[3]: Return annotation cannot contain `Any`.
 def register_metrics(
-    metric_clss: dict[type[Metric], Optional[int]],
+    metric_clss: dict[type[Metric], int | None],
     # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
