@@ -8,7 +8,7 @@
 from collections.abc import Iterable
 from enum import Enum
 from logging import Logger
-from typing import Protocol
+from typing import Any, Optional, Protocol
 
 import pandas as pd
 from ax.core.experiment import Experiment
@@ -50,6 +50,8 @@ class AnalysisCard(Base):
     # How to interpret the blob (ex. "dataframe", "plotly", "markdown")
     blob_annotation = "dataframe"
 
+    attributes: dict[str, Any]
+
     def __init__(
         self,
         name: str,
@@ -58,6 +60,7 @@ class AnalysisCard(Base):
         level: AnalysisCardLevel,
         df: pd.DataFrame,
         blob: str,
+        attributes: Optional[dict[str, Any]] = None,
     ) -> None:
         self.name = name
         self.title = title
@@ -65,6 +68,7 @@ class AnalysisCard(Base):
         self.level = level
         self.df = df
         self.blob = blob
+        self.attributes = {} if attributes is None else attributes
 
     def _ipython_display_(self) -> None:
         """
