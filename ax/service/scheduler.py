@@ -14,7 +14,7 @@ from copy import deepcopy
 from datetime import datetime
 from logging import LoggerAdapter
 from time import sleep
-from typing import Any, cast, NamedTuple
+from typing import Any, cast, NamedTuple, Optional
 
 import ax.service.utils.early_stopping as early_stopping_utils
 from ax.analysis.analysis import Analysis, AnalysisCard
@@ -180,7 +180,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         experiment: Experiment,
         generation_strategy: GenerationStrategyInterface,
         options: SchedulerOptions,
-        db_settings: DBSettings | None = None,
+        db_settings: Optional[DBSettings] = None,
         _skip_experiment_save: bool = False,
     ) -> None:
         self.experiment = experiment
@@ -242,7 +242,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         cls,
         experiment_name: str,
         options: SchedulerOptions,
-        db_settings: DBSettings | None = None,
+        db_settings: Optional[DBSettings] = None,
         generation_strategy: GenerationStrategy | None = None,
         reduced_state: bool = True,
         **kwargs: Any,
