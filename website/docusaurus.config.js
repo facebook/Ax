@@ -82,6 +82,11 @@ module.exports={
           "className": "header-github-link",
           "aria-label": "GitHub",
           "position": "right"
+        },
+        {
+          to: 'blog',
+          label: 'Blog',
+          position: 'left'
         }
       ]
     },
@@ -114,6 +119,10 @@ module.exports={
             {
               label: 'GitHub',
               href: 'https://github.com/cristianlara/ax',
+            },
+            {
+              label: 'Blog',
+              href: 'https://github.com/cristianlara/ax/blog',
             },
           ],
         },
