@@ -450,6 +450,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             "grs_this_gen": grs,
             "n": n,
         }
+        pending_observations = deepcopy(pending_observations) or {}
         while continue_gen_for_trial:
             gen_kwargs["grs_this_gen"] = grs
             should_transition, node_to_gen_from_name = (
@@ -476,6 +477,15 @@ class GenerationStrategy(GenerationStrategyInterface):
                     n=arms_from_node,
                     pending_observations=pending_observations,
                 )
+            )
+            # ensure that the points generated from each node are marked as pending
+            # points for future calls to gen
+            pending_observations = extend_pending_observations(
+                experiment=experiment,
+                pending_observations=pending_observations,
+                # only pass in the most recent generator run to avoid unnecessary
+                # deduplication in extend_pending_observations
+                generator_runs=[grs[-1]],
             )
             continue_gen_for_trial = self._should_continue_gen_for_trial()
         return grs
@@ -856,10 +866,10 @@ class GenerationStrategy(GenerationStrategyInterface):
 
             # Extend the `pending_observation` with newly generated point(s)
             # to avoid repeating them.
-            extend_pending_observations(
+            pending_observations = extend_pending_observations(
                 experiment=experiment,
                 pending_observations=pending_observations,
-                generator_run=generator_run,
+                generator_runs=[generator_run],
             )
         return generator_runs
 

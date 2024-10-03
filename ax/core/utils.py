@@ -393,14 +393,31 @@ def get_pending_observation_features_based_on_trial_status(
 def extend_pending_observations(
     experiment: Experiment,
     pending_observations: dict[str, list[ObservationFeatures]],
-    generator_run: GeneratorRun,
-) -> None:
+    generator_runs: list[GeneratorRun],
+) -> dict[str, list[ObservationFeatures]]:
     """Extend given pending observations dict (from metric name to observations
     that are pending for that metric), with arms in a given generator run.
+
+    Args:
+        experiment: Experiment, for which the generation strategy is producing
+            ``GeneratorRun``s.
+        pending_observations: Dict from metric name to pending observations for
+            that metric, used to avoid resuggesting arms that will be explored soon.
+        generator_runs: List of ``GeneratorRun``s currently produced by the
+            ``GenerationStrategy``.
+
+    Returns:
+        A new dictionary of pending observations to avoid in-place modification
     """
+    # TODO: T203665729 @mgarrard add arm signature to ObservationFeatures and then use
+    # that to compare to arm signature in GR to speed up this method
+    extended_obs = deepcopy(pending_observations)
     for m in experiment.metrics:
-        if m not in pending_observations:
-            pending_observations[m] = []
-        pending_observations[m].extend(
-            ObservationFeatures.from_arm(a) for a in generator_run.arms
-        )
+        if m not in extended_obs:
+            extended_obs[m] = []
+        for generator_run in generator_runs:
+            for a in generator_run.arms:
+                ob_ft = ObservationFeatures.from_arm(a)
+                if ob_ft not in extended_obs[m]:
+                    extended_obs[m].append(ob_ft)
+    return extended_obs
