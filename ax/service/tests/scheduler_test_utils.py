@@ -14,7 +14,7 @@ from logging import WARNING
 from math import ceil
 from random import randint
 from tempfile import NamedTemporaryFile
-from typing import Any, cast
+from typing import Any, cast, Optional
 from unittest.mock import call, Mock, patch, PropertyMock
 
 import pandas as pd
@@ -404,7 +404,7 @@ class AxSchedulerTestCase(TestCase):
         return DBSettings(encoder=encoder, decoder=decoder)
 
     @property
-    def db_settings_if_always_needed(self) -> DBSettings | None:
+    def db_settings_if_always_needed(self) -> Optional[DBSettings]:
         if self.ALWAYS_USE_DB:
             return self.db_settings
         return None

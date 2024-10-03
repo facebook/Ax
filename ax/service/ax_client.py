@@ -13,7 +13,7 @@ from collections.abc import Callable, Iterable, Sequence
 from functools import partial
 
 from logging import Logger
-from typing import Any, TypeVar
+from typing import Any, Optional, TypeVar
 
 import ax.service.utils.early_stopping as early_stopping_utils
 import numpy as np
@@ -179,7 +179,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     def __init__(
         self,
         generation_strategy: GenerationStrategy | None = None,
-        db_settings: DBSettings | None = None,
+        db_settings: Optional[DBSettings] = None,
         enforce_sequential_optimization: bool = True,
         random_seed: int | None = None,
         torch_device: torch.device | None = None,
