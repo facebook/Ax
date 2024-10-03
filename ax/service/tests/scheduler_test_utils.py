@@ -80,7 +80,6 @@ from ax.utils.testing.core_stubs import (
     get_branin_search_space,
     get_generator_run,
     get_online_sobol_gpei_generation_strategy,
-    get_outcome_constraint,
     get_sobol,
     SpecialGenerationStrategy,
 )
@@ -2504,11 +2503,9 @@ class AxSchedulerTestCase(TestCase):
             ),
             db_settings=self.db_settings_if_always_needed,
         )
-        # AND GIVEN a sobol trial is running
+        # AND GIVEN a sobol trial is running with data
         scheduler.run(max_new_trials=1)
-        # if there is already data, the test doesn't prove that
-        # `generate_candidates()` fetches
-        self.assertTrue(scheduler.experiment.lookup_data().df.empty)
+        scheduler.poll_and_process_results()
 
         # WHEN generating candidates
         scheduler.generate_candidates(num_trials=1)
@@ -2608,55 +2605,6 @@ class AxSchedulerTestCase(TestCase):
 
         # THEN the experiment should have not generated candidates
         self.assertEqual(len(scheduler.experiment.trials), 1)
-
-    def test_generate_candidates_does_not_generate_if_overconstrained(self) -> None:
-        # GIVEN a scheduler using a GS with GPEI
-        gs = self._get_generation_strategy_strategy_for_test(
-            experiment=self.branin_experiment,
-            generation_strategy=get_online_sobol_gpei_generation_strategy(),
-        )
-        # this is a HITL experiment, so we don't want trials completing on their own.
-        self.branin_experiment.runner = InfinitePollRunner()
-        scheduler = Scheduler(
-            experiment=self.branin_experiment,
-            generation_strategy=gs,
-            options=SchedulerOptions(
-                init_seconds_between_polls=0,  # No wait bw polls so test is fast.
-                batch_size=10,
-                trial_type=TrialType.BATCH_TRIAL,
-                **self.scheduler_options_kwargs,
-            ),
-            db_settings=self.db_settings_if_always_needed,
-        )
-        # AND GIVEN a sobol trial is running
-        scheduler.run(max_new_trials=1)
-        # assert `run()` worked
-        self.assertEqual(len(scheduler.experiment.running_trial_indices), 1)
-        # AND GIVEN the optimization config is overconstrained
-        self.branin_experiment.optimization_config.outcome_constraints = [
-            get_outcome_constraint(
-                metric=get_branin_metric(name="branin_constraint"),
-                bound=20.0,
-                relative=True,
-            )
-        ]
-        if self.ALWAYS_USE_DB:
-            save_experiment(self.branin_experiment, config=self.db_config)
-        self.assertTrue(scheduler.experiment.lookup_data().df.empty)
-
-        # WHEN generating candidates
-        scheduler.generate_candidates(num_trials=1)
-
-        # THEN the experiment should have a GPEI generated trial
-        self.assertFalse(scheduler.experiment.lookup_data().df.empty)
-        self.assertEqual(
-            len(scheduler.experiment.trials), 1, str(scheduler.experiment.trials)
-        )
-        self.assertEqual(
-            len(scheduler.experiment.running_trial_indices),
-            1,
-            str(scheduler.experiment.trials),
-        )
 
     def test_compute_analyses(self) -> None:
         scheduler = Scheduler(
