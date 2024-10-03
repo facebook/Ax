@@ -146,7 +146,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
                 # self._inferred_objective_thresholds is cached and only computed once.
                 if self._inferred_objective_thresholds is None:
                     # only infer reference point if there is data on the experiment.
-                    data = experiment.fetch_data()
+                    data = experiment.lookup_data()
                     if not data.df.empty:
                         # We infer the nadir reference point to be used by the GSS.
                         self._inferred_objective_thresholds = (
@@ -201,7 +201,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
                 and a str declaring the reason for stopping.
         """
         reference_trial_index = trial_to_check - self.window_size + 1
-        data_df = experiment.fetch_data().df
+        data_df = experiment.lookup_data().df
         data_df_reference = data_df[data_df["trial_index"] <= reference_trial_index]
         data_df = data_df[data_df["trial_index"] <= trial_to_check]
 
