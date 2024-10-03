@@ -1205,6 +1205,108 @@ class TestGenerationStrategy(TestCase):
                 logger.output,
             )
 
+    def test_gen_with_multiple_nodes_pending_points(self) -> None:
+        exp = get_experiment_with_multi_objective()
+        gs = GenerationStrategy(
+            nodes=[
+                GenerationNode(
+                    node_name="sobol_1",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=[
+                        AutoTransitionAfterGen(
+                            transition_to="sobol_2",
+                        )
+                    ],
+                ),
+                GenerationNode(
+                    node_name="sobol_2",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=[
+                        AutoTransitionAfterGen(transition_to="sobol_3")
+                    ],
+                ),
+                GenerationNode(
+                    node_name="sobol_3",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=[
+                        AutoTransitionAfterGen(
+                            transition_to="sobol_1",
+                            block_transition_if_unmet=True,
+                            continue_trial_generation=False,
+                        ),
+                    ],
+                ),
+            ]
+        )
+        gs.experiment = exp
+        arms_per_node = {
+            "sobol_1": 2,
+            "sobol_2": 1,
+            "sobol_3": 3,
+        }
+        with mock_patch_method_original(
+            mock_path=f"{ModelSpec.__module__}.ModelSpec.gen",
+            original_method=ModelSpec.gen,
+        ) as model_spec_gen_mock:
+            # Generate a trial that should be composed of arms from 3 nodes
+            grs = gs.gen_with_multiple_nodes(
+                experiment=exp, arms_per_node=arms_per_node
+            )
+
+            self.assertEqual(len(grs), 3)  # len == 3 due to 3 nodes contributing
+            pending_in_each_gen = enumerate(
+                call_kwargs.get("pending_observations")
+                for _, call_kwargs in model_spec_gen_mock.call_args_list
+            )
+
+            # for each call to gen after the first call to gen, which should have no
+            # pending points the number of pending points should be equal to the sum of
+            # the number of arms we suspect from the previous nodes
+            expected_pending_per_call = [2, 3]
+            for idx, pending in pending_in_each_gen:
+                # the first pending call will be empty because we didn't pass in any
+                # additional points, start checking after the first position
+                # that the pending points we expect are present
+                if idx > 0:
+                    self.assertEqual(
+                        len(pending["m2"]), expected_pending_per_call[idx - 1]
+                    )
+                    prev_gr = grs[idx - 1]
+                    for arm in prev_gr.arms:
+                        for m in pending:
+                            self.assertIn(ObservationFeatures.from_arm(arm), pending[m])
+
+            exp.new_batch_trial(generator_runs=grs).mark_running(
+                no_runner_required=True
+            )
+            model_spec_gen_mock.reset_mock()
+
+            # check that the pending points line up
+            original_pending = not_none(get_pending(experiment=exp))
+            first_3_trials_obs_feats = [
+                ObservationFeatures.from_arm(arm=a, trial_index=idx)
+                for idx, trial in exp.trials.items()
+                for a in trial.arms
+            ]
+            for m in original_pending:
+                self.assertTrue(
+                    same_elements(original_pending[m], first_3_trials_obs_feats)
+                )
+
+            # check that we can pass in pending points
+            grs = gs.gen_with_multiple_nodes(
+                experiment=exp,
+                arms_per_node=arms_per_node,
+                pending_observations=original_pending,
+            )
+            self.assertEqual(len(grs), 3)  # len == 3 due to 3 nodes contributing
+            pending_in_each_gen = enumerate(
+                call_kwargs.get("pending_observations")
+                for _, call_kwargs in model_spec_gen_mock.call_args_list
+            )
+            # check first call is 6 (from the previous trial having 6 arms)
+            self.assertEqual(len(list(pending_in_each_gen)[0][1]["m1"]), 6)
+
     def test_gs_initializes_all_previous_node_to_none(self) -> None:
         """Test that all previous nodes are initialized to None"""
         node_1 = GenerationNode(
