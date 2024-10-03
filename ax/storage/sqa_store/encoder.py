@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+import json
 from datetime import datetime
 from enum import Enum
 
@@ -1088,4 +1089,5 @@ class Encoder:
             blob_annotation=analysis_card.blob_annotation,
             time_created=timestamp,
             experiment_id=experiment_id,
+            attributes=json.dumps(analysis_card.attributes),
         )

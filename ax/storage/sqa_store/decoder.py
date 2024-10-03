@@ -1055,6 +1055,11 @@ class Decoder:
             level=AnalysisCardLevel(analysis_card_sqa.level),
             df=read_json(analysis_card_sqa.dataframe_json),
             blob=analysis_card_sqa.blob,
+            attributes=(
+                {}
+                if analysis_card_sqa.attributes == ""
+                else json.loads(analysis_card_sqa.attributes)
+            ),
         )
 
     def _metric_from_sqa_util(self, metric_sqa: SQAMetric) -> Metric:

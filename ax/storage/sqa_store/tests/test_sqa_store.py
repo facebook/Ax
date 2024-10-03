@@ -2109,6 +2109,7 @@ class SQAStoreTest(TestCase):
             level=AnalysisCardLevel.DEBUG,
             df=test_df,
             blob="test blob",
+            attributes={"foo": "bar"},
         )
         markdown_analysis_card = MarkdownAnalysisCard(
             name="test_markdown_analysis_card",
@@ -2117,6 +2118,7 @@ class SQAStoreTest(TestCase):
             level=AnalysisCardLevel.DEBUG,
             df=test_df,
             blob="This is some **really cool** markdown",
+            attributes={"foo": "baz"},
         )
         plotly_analysis_card = PlotlyAnalysisCard(
             name="test_plotly_analysis_card",
@@ -2125,6 +2127,7 @@ class SQAStoreTest(TestCase):
             level=AnalysisCardLevel.DEBUG,
             df=test_df,
             blob=pio.to_json(go.Figure()),
+            attributes={"foo": "bad"},
         )
         with self.subTest("test_save_analysis_cards"):
             save_experiment(self.experiment)

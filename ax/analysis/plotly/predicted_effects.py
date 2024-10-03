@@ -109,6 +109,7 @@ class PredictedEffectsPlot(PlotlyAnalysis):
             level=level,
             df=df,
             blob=pio.to_json(fig),
+            attributes={"trial_index": candidate_trial.index},
         )
 
 
