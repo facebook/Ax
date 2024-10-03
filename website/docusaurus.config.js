@@ -51,7 +51,8 @@ module.exports={
           "html"
         ]
       }
-    ]
+    ],
+    'docusaurus-lunr-search'
   ],
   "themeConfig": {
     "navbar": {
