@@ -52,7 +52,6 @@ module.exports={
         ]
       }
     ],
-    'docusaurus-lunr-search'
   ],
   "themeConfig": {
     "navbar": {
@@ -138,6 +137,11 @@ module.exports={
         },
       ],
       copyright: `Copyright © ${new Date().getFullYear()} Meta Platforms, Inc.`,
-    }
+    },
+    algolia: {
+      appId: '8X3RTPIIL1',
+      apiKey: 'df847ece5bb2b557f7f1ce9f73f32387',
+      indexName: 'cristianlara',
+    },
   }
 }
