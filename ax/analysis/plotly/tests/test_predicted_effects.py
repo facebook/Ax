@@ -17,6 +17,7 @@ from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_node import GenerationNode
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
+from ax.modelbridge.prediction_utils import predict_at_point
 from ax.modelbridge.registry import Models
 from ax.modelbridge.transition_criterion import MaxTrials
 from ax.utils.common.testutils import TestCase
@@ -124,7 +125,9 @@ class TestParallelCoordinatesPlot(TestCase):
         experiment.add_tracking_metric(get_branin_metric(name="tracking_branin"))
         generation_strategy = self.generation_strategy
         experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(experiment=experiment, n=10)
+            generator_runs=generation_strategy.gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            )
         ).set_status_quo_with_weight(
             status_quo=experiment.status_quo, weight=1.0
         ).mark_completed(
@@ -132,9 +135,13 @@ class TestParallelCoordinatesPlot(TestCase):
         )
         experiment.fetch_data()
         experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(experiment=experiment, n=10)
+            generator_runs=generation_strategy.gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            )
         ).set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1.0)
         experiment.fetch_data()
+        # Ensure the current model is Botorch
+        self.assertEqual(none_throws(generation_strategy.model)._model_key, "BoTorch")
         for metric in experiment.metrics:
             with self.subTest(metric=metric):
                 # WHEN we compute the analysis for a metric
@@ -186,15 +193,23 @@ class TestParallelCoordinatesPlot(TestCase):
     @fast_botorch_optimize
     def test_compute_multitask(self) -> None:
         # GIVEN an experiment with candidates generated with a multitask model
-        experiment = get_branin_experiment()
+        experiment = get_branin_experiment(with_status_quo=True)
         generation_strategy = self.generation_strategy
         experiment.new_batch_trial(
             generator_run=generation_strategy.gen(experiment=experiment, n=10)
-        ).mark_completed(unsafe=True)
+        ).set_status_quo_with_weight(
+            status_quo=experiment.status_quo, weight=1
+        ).mark_completed(
+            unsafe=True
+        )
         experiment.fetch_data()
         experiment.new_batch_trial(
             generator_run=generation_strategy.gen(experiment=experiment, n=10)
-        ).mark_completed(unsafe=True)
+        ).set_status_quo_with_weight(
+            status_quo=experiment.status_quo, weight=1
+        ).mark_completed(
+            unsafe=True
+        )
         experiment.fetch_data()
         # leave as a candidate
         experiment.new_batch_trial(
@@ -203,20 +218,24 @@ class TestParallelCoordinatesPlot(TestCase):
                 n=10,
                 fixed_features=ObservationFeatures(parameters={}, trial_index=1),
             )
-        )
+        ).set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1)
         experiment.new_batch_trial(
             generator_run=generation_strategy.gen(
                 experiment=experiment,
                 n=10,
                 fixed_features=ObservationFeatures(parameters={}, trial_index=1),
             )
-        )
+        ).set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1)
         self.assertEqual(none_throws(generation_strategy.model)._model_key, "ST_MTGP")
         # WHEN we compute the analysis
         analysis = PredictedEffectsPlot(metric_name="branin")
-        card = analysis.compute(
-            experiment=experiment, generation_strategy=generation_strategy
-        )
+        with patch(
+            f"{PredictedEffectsPlot.__module__}.predict_at_point",
+            wraps=predict_at_point,
+        ) as predict_at_point_spy:
+            card = analysis.compute(
+                experiment=experiment, generation_strategy=generation_strategy
+            )
         # THEN it has the right rows for arms with data, as well as the latest trial
         arms_with_data = set(experiment.lookup_data().df["arm_name"].unique())
         max_trial_index = max(experiment.trials.keys())
@@ -235,6 +254,16 @@ class TestParallelCoordinatesPlot(TestCase):
                         or arm.name in experiment.trials[max_trial_index].arms_by_name,
                         arm.name,
                     )
+        # AND THEN it always predicts for the target trial
+        self.assertEqual(
+            len(
+                {
+                    call[1]["obsf"].trial_index
+                    for call in predict_at_point_spy.call_args_list
+                }
+            ),
+            1,
+        )
 
     @fast_botorch_optimize
     def test_it_does_not_plot_abandoned_trials(self) -> None:
