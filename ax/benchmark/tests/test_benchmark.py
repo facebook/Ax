@@ -7,6 +7,7 @@
 
 import tempfile
 from itertools import product
+from time import monotonic
 from unittest.mock import patch
 
 import numpy as np
@@ -448,6 +449,7 @@ class TestBenchmark(TestCase):
             num_sobol_trials=1000,  # Ensures we don't use BO
         ).generation_strategy
 
+        timeout_seconds = 2.0
         method = BenchmarkMethod(
             name=generation_strategy.name,
             generation_strategy=generation_strategy,
@@ -455,13 +457,21 @@ class TestBenchmark(TestCase):
                 max_pending_trials=1,
                 init_seconds_between_polls=0,
                 min_seconds_before_poll=0,
-                timeout_hours=0.0001,  # Strict timeout of 0.36 seconds
+                timeout_hours=timeout_seconds / 3600,
             ),
         )
 
         # Each replication will have a different number of trials
-        result = benchmark_one_method_problem(
-            problem=problem, method=method, seeds=(0, 1)
+
+        start = monotonic()
+        with self.assertLogs("ax.benchmark.benchmark", level="WARNING") as cm:
+            result = benchmark_one_method_problem(
+                problem=problem, method=method, seeds=(0, 1)
+            )
+        elapsed = monotonic() - start
+        self.assertGreater(elapsed, timeout_seconds)
+        self.assertIn(
+            "WARNING:ax.benchmark.benchmark:The optimization loop timed out.", cm.output
         )
 
         # Test the traces get composited correctly. The AggregatedResult's traces

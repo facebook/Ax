@@ -125,7 +125,6 @@ def benchmark_replication(
         generation_strategy=method.generation_strategy.clone_reset(),
         options=method.scheduler_options,
     )
-    timeout_hours = scheduler.options.timeout_hours
 
     # list of parameters for each trial
     best_params_by_trial: list[list[TParameterization]] = []
@@ -133,18 +132,20 @@ def benchmark_replication(
     is_mf_or_mt = len(problem.runner.target_fidelity_and_task) > 0
     # Run the optimization loop.
     timeout_hours = scheduler.options.timeout_hours
+    remaining_hours = timeout_hours
     with with_rng_seed(seed=seed):
         start = monotonic()
         for _ in range(problem.num_trials):
             next(
                 scheduler.run_trials_and_yield_results(
-                    max_trials=1, timeout_hours=timeout_hours
+                    max_trials=1, timeout_hours=remaining_hours
                 )
             )
             if timeout_hours is not None:
                 elapsed_hours = (monotonic() - start) / 3600
-                timeout_hours = timeout_hours - elapsed_hours
-                if timeout_hours <= 0:
+                remaining_hours = timeout_hours - elapsed_hours
+                if remaining_hours <= 0.0:
+                    logger.warning("The optimization loop timed out.")
                     break
 
             if problem.is_moo or is_mf_or_mt:
