@@ -7,6 +7,7 @@ import numpy as np
 import torch
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.exceptions.core import UserInputError
+from ax.modelbridge.base import ModelBridge
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 
 # Because normal distributions have long tails, every arm has a non-zero
@@ -118,3 +119,18 @@ def format_constraint_violated_probabilities(
         constraints_violated_str = "<br />  " + constraints_violated_str
 
     return constraints_violated_str
+
+
+def is_predictive(model: ModelBridge) -> bool:
+    """Check if a model is predictive.  Basically, we're checking if
+    predict() is implemented.
+
+    NOTE: This does not mean it's capable of out of sample prediction.
+    """
+    try:
+        model.predict(observation_features=[])
+    except NotImplementedError:
+        return False
+    except Exception:
+        return True
+    return True

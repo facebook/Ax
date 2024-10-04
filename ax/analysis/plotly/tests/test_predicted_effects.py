@@ -8,7 +8,8 @@ from unittest.mock import patch
 import torch
 
 from ax.analysis.analysis import AnalysisCardLevel
-from ax.analysis.plotly.predicted_effects import PredictedEffectsPlot
+from ax.analysis.plotly.arm_effects.predicted_effects import PredictedEffectsPlot
+from ax.analysis.plotly.arm_effects.utils import get_predictions_by_arm
 from ax.core.base_trial import TrialStatus
 from ax.core.observation import ObservationFeatures
 from ax.core.trial import Trial
@@ -32,7 +33,7 @@ from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from pyre_extensions import none_throws
 
 
-class TestParallelCoordinatesPlot(TestCase):
+class TestPredictedEffectsPlot(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.generation_strategy = GenerationStrategy(
@@ -230,7 +231,7 @@ class TestParallelCoordinatesPlot(TestCase):
         # WHEN we compute the analysis
         analysis = PredictedEffectsPlot(metric_name="branin")
         with patch(
-            f"{PredictedEffectsPlot.__module__}.predict_at_point",
+            f"{get_predictions_by_arm.__module__}.predict_at_point",
             wraps=predict_at_point,
         ) as predict_at_point_spy:
             card = analysis.compute(
@@ -404,3 +405,8 @@ class TestParallelCoordinatesPlot(TestCase):
                 all(card.df["constraints_violated"] == "No constraints violated"),
                 str(card.df["constraints_violated"]),
             )
+
+        # AND THEN it has not modified the constraints
+        opt_config = none_throws(experiment.optimization_config)
+        self.assertTrue(opt_config.outcome_constraints[0].relative)
+        self.assertTrue(opt_config.outcome_constraints[1].relative)
