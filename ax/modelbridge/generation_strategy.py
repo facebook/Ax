@@ -424,6 +424,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         Returns:
             A list of ``GeneratorRuns`` for a single trial.
         """
+        self.experiment = experiment
         # TODO: @mgarrard merge into gen method, just starting here to derisk
         # Validate `arms_per_node` if specified, otherwise construct the default
         # behavior with keys being node names and values being 1 to represent

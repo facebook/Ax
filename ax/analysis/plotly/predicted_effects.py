@@ -118,12 +118,18 @@ def _get_predictions(
     metric_name: str,
     outcome_constraints: list[OutcomeConstraint],
     gr: GeneratorRun | None = None,
-    trial_index: int | None = None,
 ) -> list[dict[str, Any]]:
+    trial_index = (
+        _get_max_observed_trial_index(model)
+        if model.status_quo is None
+        else model.status_quo.features.trial_index
+    )
     if gr is None:
         observations = model.get_training_data()
         features = [o.features for o in observations]
         arm_names = [o.arm_name for o in observations]
+        for feature in features:
+            feature.trial_index = trial_index
     else:
         features = [
             ObservationFeatures(parameters=arm.parameters, trial_index=trial_index)
@@ -226,7 +232,6 @@ def _prepare_data(
         metric_name: Name of metric to plot
         candidate_trial: Trial to plot candidates for by generator run
     """
-    trial_index = _get_max_observed_trial_index(model)
     df = pd.DataFrame.from_records(
         list(
             chain(
@@ -245,7 +250,6 @@ def _prepare_data(
                                 metric_name=metric_name,
                                 outcome_constraints=outcome_constraints,
                                 gr=gr,
-                                trial_index=trial_index,
                             )
                             for gr in candidate_trial.generator_runs
                         ]
