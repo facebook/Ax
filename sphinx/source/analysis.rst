@@ -32,7 +32,7 @@ Plotly Analysis
     :show-inheritance:
 
 Healthcheck Analysis
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.analysis.healthcheck.healthcheck_analysis
     :members:
@@ -48,7 +48,7 @@ InSample Effects Analysis
     :show-inheritance:
 
 Parallel Coordinates Analysis
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.analysis.plotly.parallel_coordinates
     :members:
@@ -56,7 +56,7 @@ Parallel Coordinates Analysis
     :show-inheritance:
 
 Predicted Effects Analysis
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.analysis.plotly.arm_effects.predicted_effects
     :members:
@@ -75,6 +75,14 @@ Plotly Anaylsis Utils
 ~~~~~~~~~~~~~~~
 
 .. automodule:: ax.analysis.plotly.utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Scatter Plot Analysis
+~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.plotly.scatter
     :members:
     :undoc-members:
     :show-inheritance:
