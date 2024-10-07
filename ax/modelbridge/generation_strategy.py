@@ -431,21 +431,8 @@ class GenerationStrategy(GenerationStrategyInterface):
         """
         self.experiment = experiment
         # TODO: @mgarrard merge into gen method, just starting here to derisk
-        # Validate `arms_per_node` if specified, otherwise construct the default
-        # behavior with keys being node names and values being 1 to represent
-        # generating a single GR from each node.
         n = self._get_n(experiment=experiment, n=n)
-        if arms_per_node is not None and not set(self.nodes_dict).issubset(
-            arms_per_node
-        ):
-            raise UserInputError(
-                f"""
-                Each node defined in the GenerationStrategy must have an associated
-                number of arms to generate from that node defined in `arms_per_node`.
-                {arms_per_node} does not include all of {self.nodes_dict.keys()}. It
-                may be helpful to double check the spelling.
-                """
-            )
+        self._validate_arms_per_node(arms_per_node=arms_per_node)
         grs = []
         continue_gen_for_trial = True
         # TODO: @mgarrard update this when gen methods are merged
@@ -796,6 +783,25 @@ class GenerationStrategy(GenerationStrategyInterface):
         step_str_rep = step_str_rep[:-2]
         step_str_rep += "])"
         return step_str_rep
+
+    def _validate_arms_per_node(self, arms_per_node: dict[str, int] | None) -> None:
+        """Validate that the arms_per_node argument is valid if it is provided.
+
+        Args:
+            arms_per_node: A map from node name to the number of arms to
+                generate from that node.
+        """
+        if arms_per_node is not None and not set(self.nodes_dict).issubset(
+            arms_per_node
+        ):
+            raise UserInputError(
+                f"""
+                Each node defined in the GenerationStrategy must have an associated
+                number of arms to generate from that node defined in `arms_per_node`.
+                {arms_per_node} does not include all of {self.nodes_dict.keys()}. It
+                may be helpful to double check the spelling.
+                """
+            )
 
     def _make_default_name(self) -> str:
         """Make a default name for this generation strategy; used when no name is passed
