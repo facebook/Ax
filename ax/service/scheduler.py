@@ -1882,10 +1882,11 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         ``_gen_multiple`` method of the scheduler's ``generation_strategy``, taking
         into account any ``pending`` observations.
         """
+        self.generation_strategy.experiment = self.experiment
         # TODO: pass self.trial_type to GS.gen for multi-type experiments
         return self.generation_strategy.gen_for_multiple_trials_with_multiple_models(
             experiment=self.experiment,
-            num_generator_runs=num_trials,
+            num_trials=num_trials,
             n=n,
         )
 

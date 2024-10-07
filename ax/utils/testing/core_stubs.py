@@ -2443,9 +2443,11 @@ class SpecialGenerationStrategy(GenerationStrategyInterface):
     def gen_for_multiple_trials_with_multiple_models(
         self,
         experiment: Experiment,
-        num_generator_runs: int,
         data: Data | None = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
         n: int | None = None,
+        num_trials: int = 1,
+        arms_per_node: dict[str, int] | None = None,
     ) -> list[list[GeneratorRun]]:
         return []
 
