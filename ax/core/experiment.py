@@ -16,7 +16,7 @@ from collections.abc import Hashable, Iterable, Mapping
 from datetime import datetime
 from functools import partial, reduce
 
-from typing import Any, Optional
+from typing import Any
 
 import ax.core.observation as observation
 import pandas as pd
@@ -71,19 +71,19 @@ class Experiment(Base):
     def __init__(
         self,
         search_space: SearchSpace,
-        name: Optional[str] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
-        tracking_metrics: Optional[list[Metric]] = None,
-        runner: Optional[Runner] = None,
-        status_quo: Optional[Arm] = None,
-        description: Optional[str] = None,
+        name: str | None = None,
+        optimization_config: OptimizationConfig | None = None,
+        tracking_metrics: list[Metric] | None = None,
+        runner: Runner | None = None,
+        status_quo: Arm | None = None,
+        description: str | None = None,
         is_test: bool = False,
-        experiment_type: Optional[str] = None,
-        properties: Optional[dict[str, Any]] = None,
-        default_data_type: Optional[DataType] = None,
-        auxiliary_experiments_by_purpose: Optional[
+        experiment_type: str | None = None,
+        properties: dict[str, Any] | None = None,
+        default_data_type: DataType | None = None,
+        auxiliary_experiments_by_purpose: None | (
             dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]
-        ] = None,
+        ) = None,
     ) -> None:
         """Inits Experiment.
 
@@ -104,7 +104,7 @@ class Experiment(Base):
         """
         # appease pyre
         self._search_space: SearchSpace
-        self._status_quo: Optional[Arm] = None
+        self._status_quo: Arm | None = None
         self._is_test: bool
 
         self._name = name
@@ -113,7 +113,7 @@ class Experiment(Base):
         self.is_test = is_test
 
         self._data_by_trial: dict[int, OrderedDict[int, Data]] = {}
-        self._experiment_type: Optional[str] = experiment_type
+        self._experiment_type: str | None = experiment_type
         # pyre-fixme[4]: Attribute must be annotated.
         self._optimization_config = None
         self._tracking_metrics: dict[str, Metric] = {}
@@ -181,12 +181,12 @@ class Experiment(Base):
         return self._time_created
 
     @property
-    def experiment_type(self) -> Optional[str]:
+    def experiment_type(self) -> str | None:
         """The type of the experiment."""
         return self._experiment_type
 
     @experiment_type.setter
-    def experiment_type(self, experiment_type: Optional[str]) -> None:
+    def experiment_type(self, experiment_type: str | None) -> None:
         """Set the type of the experiment."""
         self._experiment_type = experiment_type
 
@@ -237,12 +237,12 @@ class Experiment(Base):
         self._search_space = search_space
 
     @property
-    def status_quo(self) -> Optional[Arm]:
+    def status_quo(self) -> Arm | None:
         """The existing arm that new arms will be compared against."""
         return self._status_quo
 
     @status_quo.setter
-    def status_quo(self, status_quo: Optional[Arm]) -> None:
+    def status_quo(self, status_quo: Arm | None) -> None:
         if status_quo is not None:
             self.search_space.check_types(
                 parameterization=status_quo.parameters, raise_error=True
@@ -329,7 +329,7 @@ class Experiment(Base):
         return len(abandoned)
 
     @property
-    def optimization_config(self) -> Optional[OptimizationConfig]:
+    def optimization_config(self) -> OptimizationConfig | None:
         """The experiment's optimization config."""
         return self._optimization_config
 
@@ -464,7 +464,7 @@ class Experiment(Base):
         return {**self._tracking_metrics, **optimization_config_metrics}
 
     def _metrics_by_class(
-        self, metrics: Optional[list[Metric]] = None
+        self, metrics: list[Metric] | None = None
     ) -> dict[type[Metric], list[Metric]]:
         metrics_by_class: dict[type[Metric], list[Metric]] = defaultdict(list)
         for metric in metrics or list(self.metrics.values()):
@@ -478,7 +478,7 @@ class Experiment(Base):
 
     def fetch_data_results(
         self,
-        metrics: Optional[list[Metric]] = None,
+        metrics: list[Metric] | None = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
         **kwargs: Any,
@@ -516,7 +516,7 @@ class Experiment(Base):
     def fetch_trials_data_results(
         self,
         trial_indices: Iterable[int],
-        metrics: Optional[list[Metric]] = None,
+        metrics: list[Metric] | None = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
         **kwargs: Any,
@@ -551,7 +551,7 @@ class Experiment(Base):
 
     def fetch_data(
         self,
-        metrics: Optional[list[Metric]] = None,
+        metrics: list[Metric] | None = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
         **kwargs: Any,
@@ -597,7 +597,7 @@ class Experiment(Base):
     def fetch_trials_data(
         self,
         trial_indices: Iterable[int],
-        metrics: Optional[list[Metric]] = None,
+        metrics: list[Metric] | None = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
         **kwargs: Any,
@@ -641,7 +641,7 @@ class Experiment(Base):
     def _lookup_or_fetch_trials_results(
         self,
         trials: list[BaseTrial],
-        metrics: Optional[Iterable[Metric]] = None,
+        metrics: Iterable[Metric] | None = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
         **kwargs: Any,
@@ -704,7 +704,7 @@ class Experiment(Base):
 
     @copy_doc(BaseTrial.fetch_data)
     def _fetch_trial_data(
-        self, trial_index: int, metrics: Optional[list[Metric]] = None, **kwargs: Any
+        self, trial_index: int, metrics: list[Metric] | None = None, **kwargs: Any
     ) -> dict[str, MetricFetchResult]:
         trial = self.trials[trial_index]
 
@@ -882,7 +882,7 @@ class Experiment(Base):
         results: Mapping[int, Mapping[str, MetricFetchResult]],
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
-    ) -> Optional[int]:
+    ) -> int | None:
         """
         UNSAFE: Prefer to use attach_data directly instead.
 
@@ -977,7 +977,7 @@ class Experiment(Base):
 
     def lookup_data(
         self,
-        trial_indices: Optional[Iterable[int]] = None,
+        trial_indices: Iterable[int] | None = None,
     ) -> Data:
         """Lookup stored data for trials on this experiment.
 
@@ -1068,9 +1068,9 @@ class Experiment(Base):
 
     def new_trial(
         self,
-        generator_run: Optional[GeneratorRun] = None,
-        trial_type: Optional[str] = None,
-        ttl_seconds: Optional[int] = None,
+        generator_run: GeneratorRun | None = None,
+        trial_type: str | None = None,
+        ttl_seconds: int | None = None,
     ) -> Trial:
         """Create a new trial associated with this experiment.
 
@@ -1099,12 +1099,12 @@ class Experiment(Base):
 
     def new_batch_trial(
         self,
-        generator_run: Optional[GeneratorRun] = None,
-        generator_runs: Optional[list[GeneratorRun]] = None,
-        trial_type: Optional[str] = None,
-        optimize_for_power: Optional[bool] = False,
-        ttl_seconds: Optional[int] = None,
-        lifecycle_stage: Optional[LifecycleStage] = None,
+        generator_run: GeneratorRun | None = None,
+        generator_runs: list[GeneratorRun] | None = None,
+        trial_type: str | None = None,
+        optimize_for_power: bool | None = False,
+        ttl_seconds: int | None = None,
+        lifecycle_stage: LifecycleStage | None = None,
     ) -> BatchTrial:
         """Create a new batch trial associated with this experiment.
 
@@ -1166,7 +1166,7 @@ class Experiment(Base):
                 trial.runner = runner
         self.runner = runner
 
-    def _attach_trial(self, trial: BaseTrial, index: Optional[int] = None) -> int:
+    def _attach_trial(self, trial: BaseTrial, index: int | None = None) -> int:
         """Attach a trial to this experiment.
 
         Should only be called within the trial constructor.
@@ -1217,8 +1217,8 @@ class Experiment(Base):
     def warm_start_from_old_experiment(
         self,
         old_experiment: Experiment,
-        copy_run_metadata_keys: Optional[list[str]] = None,
-        trial_statuses_to_copy: Optional[list[TrialStatus]] = None,
+        copy_run_metadata_keys: list[str] | None = None,
+        trial_statuses_to_copy: list[TrialStatus] | None = None,
         search_space_check_membership_raise_error: bool = True,
     ) -> list[Trial]:
         """Copy all completed trials with data from an old Ax expeirment to this one.
@@ -1433,7 +1433,7 @@ class Experiment(Base):
     # overridden in the MultiTypeExperiment class.
 
     @property
-    def default_trial_type(self) -> Optional[str]:
+    def default_trial_type(self) -> str | None:
         """Default trial type assigned to trials in this experiment.
 
         In the base experiment class this is always None. For experiments
@@ -1441,7 +1441,7 @@ class Experiment(Base):
         """
         return None
 
-    def runner_for_trial(self, trial: BaseTrial) -> Optional[Runner]:
+    def runner_for_trial(self, trial: BaseTrial) -> Runner | None:
         """The default runner to use for a given trial.
 
         In the base experiment class, this is always the default experiment runner.
@@ -1449,7 +1449,7 @@ class Experiment(Base):
         """
         return self.runner
 
-    def supports_trial_type(self, trial_type: Optional[str]) -> bool:
+    def supports_trial_type(self, trial_type: str | None) -> bool:
         """Whether this experiment allows trials of the given type.
 
         The base experiment class only supports None. For experiments
@@ -1460,9 +1460,9 @@ class Experiment(Base):
     def attach_trial(
         self,
         parameterizations: list[TParameterization],
-        arm_names: Optional[list[str]] = None,
-        ttl_seconds: Optional[int] = None,
-        run_metadata: Optional[dict[str, Any]] = None,
+        arm_names: list[str] | None = None,
+        ttl_seconds: int | None = None,
+        run_metadata: dict[str, Any] | None = None,
         optimize_for_power: bool = False,
     ) -> tuple[dict[str, TParameterization], int]:
         """Attach a new trial with the given parameterization to the experiment.
@@ -1560,17 +1560,17 @@ class Experiment(Base):
 
     def clone_with(
         self,
-        search_space: Optional[SearchSpace] = None,
-        name: Optional[str] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
-        tracking_metrics: Optional[list[Metric]] = None,
-        runner: Optional[Runner] = None,
-        status_quo: Optional[Arm] = None,
-        description: Optional[str] = None,
-        is_test: Optional[bool] = None,
-        properties: Optional[dict[str, Any]] = None,
-        trial_indices: Optional[list[int]] = None,
-        data: Optional[Data] = None,
+        search_space: SearchSpace | None = None,
+        name: str | None = None,
+        optimization_config: OptimizationConfig | None = None,
+        tracking_metrics: list[Metric] | None = None,
+        runner: Runner | None = None,
+        status_quo: Arm | None = None,
+        description: str | None = None,
+        is_test: bool | None = None,
+        properties: dict[str, Any] | None = None,
+        trial_indices: list[int] | None = None,
+        data: Data | None = None,
     ) -> Experiment:
         r"""
         Return a copy of this experiment with some attributes replaced.
@@ -1666,12 +1666,14 @@ class Experiment(Base):
         for trial_index in trial_indices_to_keep.intersection(original_trial_indices):
             trial = self.trials[trial_index]
             if isinstance(trial, BatchTrial) or isinstance(trial, Trial):
-                trial.clone_to(cloned_experiment)
+                new_trial = trial.clone_to(cloned_experiment)
+                new_index = new_trial.index
                 trial_data, timestamp = self.lookup_data_for_trial(trial_index)
                 # Clone the data to avoid overwriting the original in the DB.
                 trial_data = trial_data.clone()
+                trial_data.df["trial_index"] = new_index
                 if timestamp != -1:
-                    data_by_trial[trial_index] = OrderedDict([(timestamp, trial_data)])
+                    data_by_trial[new_index] = OrderedDict([(timestamp, trial_data)])
             else:
                 raise NotImplementedError(f"Cloning of {type(trial)} is not supported.")
         if data is not None:
@@ -1751,7 +1753,7 @@ class Experiment(Base):
 
 
 def add_arm_and_prevent_naming_collision(
-    new_trial: Trial, old_trial: Trial, old_experiment_name: Optional[str] = None
+    new_trial: Trial, old_trial: Trial, old_experiment_name: str | None = None
 ) -> None:
     # Add all of an old trial's arms to a new trial. Rename any arm with auto-generated
     # naming format to prevent naming collisions during warm-start. If an old

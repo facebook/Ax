@@ -67,7 +67,7 @@ def plot_marginal_effects(model: ModelBridge, metric: str) -> AxPlotConfig:
     fig.layout.title = "Marginal Effects by Factor"
     fig.layout.yaxis = {
         "title": "% higher than experiment average",
-        "hoverformat": ".{}f".format(DECIMALS),
+        "hoverformat": f".{DECIMALS}f",
     }
     # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)

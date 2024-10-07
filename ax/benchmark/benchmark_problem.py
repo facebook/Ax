@@ -7,7 +7,7 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Optional, Union
+from typing import Any
 
 import pandas as pd
 
@@ -38,7 +38,7 @@ from botorch.test_functions.base import (
 def _get_name(
     test_problem: BaseTestProblem,
     observe_noise_sd: bool,
-    dim: Optional[int] = None,
+    dim: int | None = None,
 ) -> str:
     """
     Get a string name describing the problem, in a format such as
@@ -86,7 +86,7 @@ class BenchmarkProblem(Base):
     name: str
     optimization_config: OptimizationConfig
     num_trials: int
-    observe_noise_stds: Union[bool, dict[str, bool]] = False
+    observe_noise_stds: bool | dict[str, bool] = False
     optimal_value: float
 
     search_space: SearchSpace = field(repr=False)

@@ -7,7 +7,7 @@
 # pyre-strict
 
 from contextlib import ExitStack
-from typing import Any, Optional
+from typing import Any
 from unittest import mock
 from unittest.mock import Mock
 
@@ -58,8 +58,8 @@ from botorch.utils.datasets import (
 
 
 def _get_mock_modelbridge(
-    dtype: Optional[torch.dtype] = None,
-    device: Optional[torch.device] = None,
+    dtype: torch.dtype | None = None,
+    device: torch.device | None = None,
     fit_out_of_design: bool = False,
 ) -> TorchModelBridge:
     return TorchModelBridge(
@@ -83,8 +83,8 @@ class TorchModelBridgeTest(TestCase):
     def test_TorchModelBridge(
         self,
         mock_init: Mock,
-        dtype: Optional[torch.dtype] = None,
-        device: Optional[torch.device] = None,
+        dtype: torch.dtype | None = None,
+        device: torch.device | None = None,
     ) -> None:
         ma = _get_mock_modelbridge(dtype=dtype, device=device)
         ma._fit_tracking_metrics = True

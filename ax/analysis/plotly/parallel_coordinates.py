@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -32,7 +32,7 @@ class ParallelCoordinatesPlot(PlotlyAnalysis):
         - **PARAMETER_NAME: The value of said parameter for the arm, for each parameter
     """
 
-    def __init__(self, metric_name: Optional[str] = None) -> None:
+    def __init__(self, metric_name: str | None = None) -> None:
         """
         Args:
             metric_name: The name of the metric to plot. If not specified the objective
@@ -44,8 +44,8 @@ class ParallelCoordinatesPlot(PlotlyAnalysis):
 
     def compute(
         self,
-        experiment: Optional[Experiment] = None,
-        generation_strategy: Optional[GenerationStrategyInterface] = None,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategyInterface | None = None,
     ) -> PlotlyAnalysisCard:
         if experiment is None:
             raise UserInputError("ParallelCoordinatesPlot requires an Experiment")

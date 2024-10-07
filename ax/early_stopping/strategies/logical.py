@@ -7,7 +7,7 @@
 
 from collections.abc import Sequence
 from functools import reduce
-from typing import Any, Optional
+from typing import Any
 
 from ax.core.experiment import Experiment
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
@@ -35,7 +35,7 @@ class AndEarlyStoppingStrategy(LogicalEarlyStoppingStrategy):
         trial_indices: set[int],
         experiment: Experiment,
         **kwargs: dict[str, Any],
-    ) -> dict[int, Optional[str]]:
+    ) -> dict[int, str | None]:
 
         left = self.left.should_stop_trials_early(
             trial_indices=trial_indices, experiment=experiment, **kwargs
@@ -68,7 +68,7 @@ class OrEarlyStoppingStrategy(LogicalEarlyStoppingStrategy):
         trial_indices: set[int],
         experiment: Experiment,
         **kwargs: dict[str, Any],
-    ) -> dict[int, Optional[str]]:
+    ) -> dict[int, str | None]:
         return {
             **self.left.should_stop_trials_early(
                 trial_indices=trial_indices, experiment=experiment, **kwargs

@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import numpy as np
 import torch
@@ -32,10 +32,10 @@ class SobolGenerator(RandomModel):
     def __init__(
         self,
         deduplicate: bool = True,
-        seed: Optional[int] = None,
+        seed: int | None = None,
         init_position: int = 0,
         scramble: bool = True,
-        generated_points: Optional[np.ndarray] = None,
+        generated_points: np.ndarray | None = None,
         fallback_to_sample_polytope: bool = False,
     ) -> None:
         super().__init__(
@@ -47,7 +47,7 @@ class SobolGenerator(RandomModel):
         )
         self.scramble = scramble
         # Initialize engine on gen.
-        self._engine: Optional[SobolEngine] = None
+        self._engine: SobolEngine | None = None
 
     def init_engine(self, n_tunable_features: int) -> SobolEngine:
         """Initialize singleton SobolEngine, only on gen.
@@ -67,7 +67,7 @@ class SobolGenerator(RandomModel):
         return self._engine
 
     @property
-    def engine(self) -> Optional[SobolEngine]:
+    def engine(self) -> SobolEngine | None:
         """Return a singleton SobolEngine."""
         return self._engine
 
@@ -75,10 +75,10 @@ class SobolGenerator(RandomModel):
         self,
         n: int,
         bounds: list[tuple[float, float]],
-        linear_constraints: Optional[tuple[np.ndarray, np.ndarray]] = None,
-        fixed_features: Optional[dict[int, float]] = None,
-        model_gen_options: Optional[TConfig] = None,
-        rounding_func: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+        linear_constraints: tuple[np.ndarray, np.ndarray] | None = None,
+        fixed_features: dict[int, float] | None = None,
+        model_gen_options: TConfig | None = None,
+        rounding_func: Callable[[np.ndarray], np.ndarray] | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Generate new candidates.
 

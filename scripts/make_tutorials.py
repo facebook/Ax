@@ -10,7 +10,6 @@ import os
 import tarfile
 import time
 from pathlib import Path
-from typing import Optional
 
 import nbformat
 import papermill
@@ -66,7 +65,7 @@ function require(deps, fxn) {
 """
 
 
-def _get_paths(repo_dir: str, t_dir: Optional[str], tid: str) -> dict[str, str]:
+def _get_paths(repo_dir: str, t_dir: str | None, tid: str) -> dict[str, str]:
     if t_dir is not None:
         tutorial_dir = os.path.join(repo_dir, "tutorials", t_dir)
         html_dir = os.path.join(repo_dir, "website", "_tutorials", t_dir)
@@ -76,26 +75,20 @@ def _get_paths(repo_dir: str, t_dir: Optional[str], tid: str) -> dict[str, str]:
         for d in [tutorial_dir, html_dir, js_dir, py_dir]:
             os.makedirs(d, exist_ok=True)
 
-        tutorial_path = os.path.join(tutorial_dir, "{}.ipynb".format(tid))
-        html_path = os.path.join(html_dir, "{}.html".format(tid))
-        js_path = os.path.join(js_dir, "{}.js".format(tid))
-        ipynb_path = os.path.join(py_dir, "{}.ipynb".format(tid))
-        py_path = os.path.join(py_dir, "{}.py".format(tid))
+        tutorial_path = os.path.join(tutorial_dir, f"{tid}.ipynb")
+        html_path = os.path.join(html_dir, f"{tid}.html")
+        js_path = os.path.join(js_dir, f"{tid}.js")
+        ipynb_path = os.path.join(py_dir, f"{tid}.ipynb")
+        py_path = os.path.join(py_dir, f"{tid}.py")
     else:
         tutorial_dir = os.path.join(repo_dir, "tutorials")
-        tutorial_path = os.path.join(repo_dir, "tutorials", "{}.ipynb".format(tid))
-        html_path = os.path.join(
-            repo_dir, "website", "_tutorials", "{}.html".format(tid)
-        )
-        js_path = os.path.join(
-            repo_dir, "website", "pages", "tutorials", "{}.js".format(tid)
-        )
+        tutorial_path = os.path.join(repo_dir, "tutorials", f"{tid}.ipynb")
+        html_path = os.path.join(repo_dir, "website", "_tutorials", f"{tid}.html")
+        js_path = os.path.join(repo_dir, "website", "pages", "tutorials", f"{tid}.js")
         ipynb_path = os.path.join(
-            repo_dir, "website", "static", "files", "{}.ipynb".format(tid)
+            repo_dir, "website", "static", "files", f"{tid}.ipynb"
         )
-        py_path = os.path.join(
-            repo_dir, "website", "static", "files", "{}.py".format(tid)
-        )
+        py_path = os.path.join(repo_dir, "website", "static", "files", f"{tid}.py")
 
     paths = {
         "tutorial_dir": tutorial_dir,
@@ -106,12 +99,12 @@ def _get_paths(repo_dir: str, t_dir: Optional[str], tid: str) -> dict[str, str]:
         "py_path": py_path,
     }
     if t_dir is not None:
-        paths["tar_path"] = os.path.join(py_dir, "{}.tar.gz".format(tid))
+        paths["tar_path"] = os.path.join(py_dir, f"{tid}.tar.gz")
     return paths
 
 
 def run_script(
-    tutorial: Path, timeout_minutes: int, env: Optional[dict[str, str]] = None
+    tutorial: Path, timeout_minutes: int, env: dict[str, str] | None = None
 ) -> None:
     if env is not None:
         os.environ.update(env)
@@ -126,7 +119,7 @@ def run_script(
 def gen_tutorials(
     repo_dir: str,
     exec_tutorials: bool,
-    name: Optional[str] = None,
+    name: str | None = None,
     smoke_test: bool = False,
 ) -> None:
     """Generate HTML tutorials for Docusaurus Ax site from Jupyter notebooks.
@@ -136,7 +129,7 @@ def gen_tutorials(
     """
     has_errors = False
 
-    with open(os.path.join(repo_dir, "website", "tutorials.json"), "r") as infile:
+    with open(os.path.join(repo_dir, "website", "tutorials.json")) as infile:
         tutorial_config = json.loads(infile.read())
     # flatten config dict
     tutorial_configs = [
@@ -156,7 +149,7 @@ def gen_tutorials(
         tid = config["id"]
         t_dir = config.get("dir")
         exec_on_build = config.get("exec_on_build", True)
-        print("Generating {} tutorial".format(tid))
+        print(f"Generating {tid} tutorial")
         paths = _get_paths(repo_dir=repo_dir, t_dir=t_dir, tid=tid)
 
         total_time = None
@@ -166,7 +159,7 @@ def gen_tutorials(
             continue
         elif exec_tutorials and exec_on_build:
             tutorial_path = Path(paths["tutorial_path"])
-            print("Executing tutorial {}".format(tid))
+            print(f"Executing tutorial {tid}")
             start_time = time.monotonic()
 
             # Try / catch failures for now. We will re-raise at the end.
@@ -193,7 +186,7 @@ def gen_tutorials(
                 print(f"Encountered error running tutorial {tid}: \n {e}")
 
         # load notebook
-        with open(paths["tutorial_path"], "r") as infile:
+        with open(paths["tutorial_path"]) as infile:
             nb_str = infile.read()
             nb = nbformat.reads(nb_str, nbformat.NO_CONVERT)
         # convert notebook to HTML

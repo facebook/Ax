@@ -10,9 +10,10 @@ from __future__ import annotations
 import traceback
 
 from abc import ABC, abstractmethod, abstractproperty
+from collections.abc import Callable
 from functools import reduce
 
-from typing import Any, Callable, cast, Generic, NoReturn, Optional, TypeVar, Union
+from typing import Any, cast, Generic, NoReturn, TypeVar
 
 
 T = TypeVar("T", covariant=True)
@@ -37,15 +38,15 @@ class Result(Generic[T, E], ABC):
         pass
 
     @abstractproperty
-    def ok(self) -> Optional[T]:
+    def ok(self) -> T | None:
         pass
 
     @abstractproperty
-    def err(self) -> Optional[E]:
+    def err(self) -> E | None:
         pass
 
     @abstractproperty
-    def value(self) -> Union[T, E]:
+    def value(self) -> T | E:
         pass
 
     @abstractmethod
@@ -281,7 +282,7 @@ class ExceptionE:
             f"with Traceback:\n {self.tb_str()}"
         )
 
-    def tb_str(self) -> Optional[str]:
+    def tb_str(self) -> str | None:
         if self.exception is None:
             return None
 

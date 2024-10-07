@@ -7,7 +7,7 @@
 import sys
 from enum import Enum, unique
 from math import ceil
-from typing import Any, Dict, Optional
+from typing import Any
 
 from ax.modelbridge.generation_node import GenerationNode
 
@@ -27,9 +27,9 @@ class NodeInputConstructors(Enum):
 
     def __call__(
         self,
-        previous_node: Optional[GenerationNode],
+        previous_node: GenerationNode | None,
         next_node: GenerationNode,
-        gs_gen_call_kwargs: Dict[str, Any],
+        gs_gen_call_kwargs: dict[str, Any],
     ) -> int:
         """Defines a callable method for the Enum as all values are methods"""
         try:
@@ -61,9 +61,9 @@ class InputConstructorPurpose(Enum):
 
 
 def consume_all_n(
-    previous_node: Optional[GenerationNode],
+    previous_node: GenerationNode | None,
     next_node: GenerationNode,
-    gs_gen_call_kwargs: Dict[str, Any],
+    gs_gen_call_kwargs: dict[str, Any],
 ) -> int:
     """Generate total requested number of arms from the next node.
 
@@ -91,9 +91,9 @@ def consume_all_n(
 
 
 def repeat_arm_n(
-    previous_node: Optional[GenerationNode],
+    previous_node: GenerationNode | None,
     next_node: GenerationNode,
-    gs_gen_call_kwargs: Dict[str, Any],
+    gs_gen_call_kwargs: dict[str, Any],
 ) -> int:
     """Generate a small percentage of arms requested to be used for repeat arms in
     the next trial.
@@ -125,9 +125,9 @@ def repeat_arm_n(
 
 
 def remaining_n(
-    previous_node: Optional[GenerationNode],
+    previous_node: GenerationNode | None,
     next_node: GenerationNode,
-    gs_gen_call_kwargs: Dict[str, Any],
+    gs_gen_call_kwargs: dict[str, Any],
 ) -> int:
     """Generate the remaining number of arms requested for this trial in gs.gen().
 

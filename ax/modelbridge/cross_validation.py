@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import warnings
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from copy import deepcopy
 from logging import Logger
-from typing import Callable, NamedTuple, Optional
+from typing import NamedTuple
 from warnings import warn
 
 import numpy as np
@@ -71,8 +71,7 @@ class AssessModelFitResult(NamedTuple):
 def cross_validate(
     model: ModelBridge,
     folds: int = -1,
-    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
-    test_selector: Optional[Callable] = None,
+    test_selector: Callable | None = None,
     untransform: bool = True,
     use_posterior_predictive: bool = False,
 ) -> list[CVResult]:
@@ -432,7 +431,7 @@ def _gen_train_test_split(
 
 def get_fit_and_std_quality_and_generalization_dict(
     fitted_model_bridge: ModelBridge,
-) -> dict[str, Optional[float]]:
+) -> dict[str, float | None]:
     """
     Get stats and gen from a fitted ModelBridge for analytics purposes.
     """
@@ -471,7 +470,7 @@ def get_fit_and_std_quality_and_generalization_dict(
 
 def compute_model_fit_metrics_from_modelbridge(
     model_bridge: ModelBridge,
-    fit_metrics_dict: Optional[dict[str, ModelFitMetricProtocol]] = None,
+    fit_metrics_dict: dict[str, ModelFitMetricProtocol] | None = None,
     generalization: bool = False,
     untransform: bool = False,
 ) -> dict[str, dict[str, float]]:

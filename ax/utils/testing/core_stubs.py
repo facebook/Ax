@@ -14,7 +14,7 @@ from collections.abc import Iterable, MutableMapping
 from datetime import datetime, timedelta
 from logging import Logger
 from pathlib import Path
-from typing import Any, cast, Optional
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -242,7 +242,7 @@ def get_branin_experiment(
     with_fidelity_parameter: bool = False,
     with_choice_parameter: bool = False,
     with_str_choice_param: bool = False,
-    search_space: Optional[SearchSpace] = None,
+    search_space: SearchSpace | None = None,
     minimize: bool = False,
     named: bool = True,
     num_batch_trial: int = 1,
@@ -316,8 +316,8 @@ def get_branin_experiment_with_status_quo_trials(
 
 
 def get_robust_branin_experiment(
-    risk_measure: Optional[RiskMeasure] = None,
-    optimization_config: Optional[OptimizationConfig] = None,
+    risk_measure: RiskMeasure | None = None,
+    optimization_config: OptimizationConfig | None = None,
     num_sobol_trials: int = 2,
 ) -> Experiment:
     x1_dist = ParameterDistribution(
@@ -375,7 +375,7 @@ def get_map_metric(name: str, rate: float | None = None) -> BraninTimestampMapMe
 
 def get_branin_experiment_with_timestamp_map_metric(
     with_status_quo: bool = False,
-    rate: Optional[float] = None,
+    rate: float | None = None,
     map_tracking_metric: bool = False,
 ) -> Experiment:
     tracking_metric = (
@@ -405,7 +405,7 @@ def get_branin_experiment_with_timestamp_map_metric(
 def run_branin_experiment_with_generation_strategy(
     generation_strategy: GenerationStrategy,
     num_trials: int = 6,
-    kwargs_for_get_branin_experiment: Optional[dict[str, Any]] = None,
+    kwargs_for_get_branin_experiment: dict[str, Any] | None = None,
 ) -> Experiment:
     """Gets a Branin experiment using any given kwargs and runs
     num_trials trials using the given generation strategy."""
@@ -738,7 +738,7 @@ def get_experiment_with_observations(
     scalarized: bool = False,
     constrained: bool = False,
     with_tracking_metrics: bool = False,
-    search_space: Optional[SearchSpace] = None,
+    search_space: SearchSpace | None = None,
 ) -> Experiment:
     if observations:
         multi_objective = (len(observations[0]) - constrained) > 1
@@ -1213,7 +1213,7 @@ def get_robust_search_space_environmental(
 
 def get_batch_trial(
     abandon_arm: bool = True,
-    experiment: Optional[Experiment] = None,
+    experiment: Experiment | None = None,
     constrain_search_space: bool = True,
 ) -> BatchTrial:
     experiment = experiment or get_experiment(
@@ -1321,12 +1321,12 @@ class TestTrial(BaseTrial):
     def __repr__(self) -> str:
         return "test"
 
-    def _get_candidate_metadata(self, arm_name: str) -> Optional[dict[str, Any]]:
+    def _get_candidate_metadata(self, arm_name: str) -> dict[str, Any] | None:
         return None
 
     def _get_candidate_metadata_from_all_generator_runs(
         self,
-    ) -> dict[str, Optional[dict[str, Any]]]:
+    ) -> dict[str, dict[str, Any] | None]:
         return {"test": None}
 
     def abandoned_arms(self) -> str:
@@ -1527,7 +1527,7 @@ def get_objective_threshold(
 
 
 def get_outcome_constraint(
-    metric: Optional[Metric] = None, relative: bool = True, bound: float = -0.25
+    metric: Metric | None = None, relative: bool = True, bound: float = -0.25
 ) -> OutcomeConstraint:
     if metric is None:
         metric = Metric(name="m2")
@@ -1962,8 +1962,8 @@ def get_map_key_info() -> MapKeyInfo:
 
 
 def get_branin_data(
-    trial_indices: Optional[Iterable[int]] = None,
-    trials: Optional[Iterable[Trial]] = None,
+    trial_indices: Iterable[int] | None = None,
+    trials: Iterable[Trial] | None = None,
 ) -> Data:
     if trial_indices and trials:
         raise ValueError("Expected `trial_indices` or `trials`, not both.")
@@ -2021,7 +2021,7 @@ def get_branin_data_batch(batch: BatchTrial) -> Data:
 
 
 def get_branin_data_multi_objective(
-    trial_indices: Optional[Iterable[int]] = None, num_objectives: int = 2
+    trial_indices: Iterable[int] | None = None, num_objectives: int = 2
 ) -> Data:
     _validate_num_objectives(num_objectives=num_objectives)
     suffixes = ["a", "b"]
@@ -2088,10 +2088,8 @@ def get_or_early_stopping_strategy() -> OrEarlyStoppingStrategy:
 
 
 class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
-    def __init__(
-        self, early_stop_trials: Optional[dict[int, Optional[str]]] = None
-    ) -> None:
-        self.early_stop_trials: dict[int, Optional[str]] = early_stop_trials or {}
+    def __init__(self, early_stop_trials: dict[int, str | None] | None = None) -> None:
+        self.early_stop_trials: dict[int, str | None] = early_stop_trials or {}
         self.seconds_between_polls = 1
 
     def should_stop_trials_early(
@@ -2099,7 +2097,7 @@ class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         trial_indices: set[int],
         experiment: Experiment,
         **kwargs: dict[str, Any],
-    ) -> dict[int, Optional[str]]:
+    ) -> dict[int, str | None]:
         return self.early_stop_trials
 
 
@@ -2321,10 +2319,10 @@ def get_dataset(
     d: int = 2,
     m: int = 2,
     has_observation_noise: bool = False,
-    feature_names: Optional[list[str]] = None,
-    outcome_names: Optional[list[str]] = None,
-    tkwargs: Optional[dict[str, Any]] = None,
-    seed: Optional[int] = None,
+    feature_names: list[str] | None = None,
+    outcome_names: list[str] | None = None,
+    tkwargs: dict[str, Any] | None = None,
+    seed: int | None = None,
 ) -> SupervisedDataset:
     """Constructs a SupervisedDataset based on the given arguments.
 
@@ -2427,7 +2425,7 @@ class CustomTestMetric(Metric):
         self,
         name: str,
         test_attribute: str,
-        lower_is_better: Optional[bool] = None,
+        lower_is_better: bool | None = None,
     ) -> None:
         self.test_attribute = test_attribute
         super().__init__(name=name, lower_is_better=lower_is_better)
@@ -2446,8 +2444,8 @@ class SpecialGenerationStrategy(GenerationStrategyInterface):
         self,
         experiment: Experiment,
         num_generator_runs: int,
-        data: Optional[Data] = None,
-        n: Optional[int] = None,
+        data: Data | None = None,
+        n: int | None = None,
     ) -> list[list[GeneratorRun]]:
         return []
 

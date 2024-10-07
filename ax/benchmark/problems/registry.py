@@ -6,8 +6,9 @@
 # pyre-strict
 
 import copy
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
 from ax.benchmark.problems.hd_embedding import embed_higher_dimension

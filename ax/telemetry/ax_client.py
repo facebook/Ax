@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, Optional
+from typing import Any
 
 from ax.service.ax_client import AxClient
 from ax.telemetry.common import _get_max_transformed_dimensionality
@@ -29,12 +29,12 @@ class AxClientCreatedRecord:
     generation_strategy_created_record: GenerationStrategyCreatedRecord
 
     arms_per_trial: int
-    early_stopping_strategy_cls: Optional[str]
-    global_stopping_strategy_cls: Optional[str]
+    early_stopping_strategy_cls: str | None
+    global_stopping_strategy_cls: str | None
 
     # Dimensionality of transformed SearchSpace can often be much higher due to one-hot
     # encoding of unordered ChoiceParameters
-    transformed_dimensionality: Optional[int]
+    transformed_dimensionality: int | None
 
     @classmethod
     def from_ax_client(cls, ax_client: AxClient) -> AxClientCreatedRecord:

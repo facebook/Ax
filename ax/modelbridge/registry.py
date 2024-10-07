@@ -22,7 +22,7 @@ import warnings
 from enum import Enum
 from inspect import isfunction, signature
 from logging import Logger
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 import torch
 from ax.core.data import Data
@@ -146,9 +146,9 @@ class ModelSetup(NamedTuple):
     bridge_class: type[ModelBridge]
     model_class: type[Model]
     transforms: list[type[Transform]]
-    default_model_kwargs: Optional[dict[str, Any]] = None
-    standard_bridge_kwargs: Optional[dict[str, Any]] = None
-    not_saved_model_kwargs: Optional[list[str]] = None
+    default_model_kwargs: dict[str, Any] | None = None
+    standard_bridge_kwargs: dict[str, Any] | None = None
+    not_saved_model_kwargs: list[str] | None = None
 
 
 """A mapping of string keys that indicate a model, to the corresponding
@@ -275,9 +275,9 @@ class ModelRegistryBase(Enum):
 
     def __call__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        experiment: Optional[Experiment] = None,
-        data: Optional[Data] = None,
+        search_space: SearchSpace | None = None,
+        experiment: Experiment | None = None,
+        data: Data | None = None,
         silently_filter_kwargs: bool = False,
         **kwargs: Any,
     ) -> ModelBridge:
@@ -392,7 +392,7 @@ class ModelRegistryBase(Enum):
 
     @staticmethod
     def _get_model_kwargs(
-        info: ModelSetup, kwargs: Optional[dict[str, Any]] = None
+        info: ModelSetup, kwargs: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return consolidate_kwargs(
             [get_function_default_arguments(info.model_class), kwargs],
@@ -401,7 +401,7 @@ class ModelRegistryBase(Enum):
 
     @staticmethod
     def _get_bridge_kwargs(
-        info: ModelSetup, kwargs: Optional[dict[str, Any]] = None
+        info: ModelSetup, kwargs: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return consolidate_kwargs(
             [
@@ -548,7 +548,7 @@ def get_model_from_generator_run(
 def _combine_model_kwargs_and_state(
     generator_run: GeneratorRun,
     model_class: type[Model],
-    model_kwargs: Optional[dict[str, Any]] = None,
+    model_kwargs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Produces a combined dict of model kwargs and model state after gen,
     extracted from generator run. If model kwargs are not specified,

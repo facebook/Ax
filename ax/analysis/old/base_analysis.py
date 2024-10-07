@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-from typing import Optional
 
 import pandas as pd
 from ax.core.experiment import Experiment
@@ -21,7 +20,7 @@ class BaseAnalysis:
     def __init__(
         self,
         experiment: Experiment,
-        df_input: Optional[pd.DataFrame] = None,
+        df_input: pd.DataFrame | None = None,
         # TODO: add support for passing in experiment name, and markdown message
     ) -> None:
         """
@@ -30,7 +29,7 @@ class BaseAnalysis:
         we can pass the dataframe as an input.
         """
         self._experiment = experiment
-        self._df: Optional[pd.DataFrame] = df_input
+        self._df: pd.DataFrame | None = df_input
 
     @property
     def experiment(self) -> Experiment:

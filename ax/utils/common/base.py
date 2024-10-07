@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import abc
-from typing import Optional
 
 from ax.utils.common.equality import equality_typechecker, object_attribute_dicts_equal
 
@@ -19,10 +18,10 @@ class Base:
     property for SQA storage.
     """
 
-    _db_id: Optional[int] = None
+    _db_id: int | None = None
 
     @property
-    def db_id(self) -> Optional[int]:
+    def db_id(self) -> int | None:
         return self._db_id
 
     @db_id.setter

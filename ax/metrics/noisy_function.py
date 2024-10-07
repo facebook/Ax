@@ -8,7 +8,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -28,8 +30,8 @@ class NoisyFunctionMetric(Metric):
         self,
         name: str,
         param_names: list[str],
-        noise_sd: Optional[float] = 0.0,
-        lower_is_better: Optional[bool] = None,
+        noise_sd: float | None = 0.0,
+        lower_is_better: bool | None = None,
     ) -> None:
         """
         Metric is computed by evaluating a deterministic function, implemented
@@ -112,8 +114,8 @@ class GenericNoisyFunctionMetric(NoisyFunctionMetric):
         self,
         name: str,
         f: Callable[[TParameterization], float],
-        noise_sd: Optional[float] = 0.0,
-        lower_is_better: Optional[bool] = None,
+        noise_sd: float | None = 0.0,
+        lower_is_better: bool | None = None,
     ) -> None:
         """
         Metric is computed by evaluating a deterministic function, implemented in f.

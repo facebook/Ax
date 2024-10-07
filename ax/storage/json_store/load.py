@@ -7,7 +7,8 @@
 # pyre-strict
 
 import json
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from ax.core.experiment import Experiment
 from ax.storage.json_store.decoder import object_from_json
@@ -31,7 +32,7 @@ def load_experiment(
     1) Read file.
     2) Convert dictionary to Ax experiment instance.
     """
-    with open(filepath, "r") as file:
+    with open(filepath) as file:
         json_experiment = json.loads(file.read())
         return object_from_json(
             json_experiment, decoder_registry, class_decoder_registry

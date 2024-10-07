@@ -3,8 +3,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from unittest.mock import patch
+
+import torch
+
 from ax.analysis.analysis import AnalysisCardLevel
-from ax.analysis.plotly.predicted_effects import PredictedEffectsPlot
+from ax.analysis.plotly.arm_effects.predicted_effects import PredictedEffectsPlot
+from ax.analysis.plotly.arm_effects.utils import get_predictions_by_arm
 from ax.core.base_trial import TrialStatus
 from ax.core.observation import ObservationFeatures
 from ax.core.trial import Trial
@@ -13,6 +18,7 @@ from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_node import GenerationNode
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
+from ax.modelbridge.prediction_utils import predict_at_point
 from ax.modelbridge.registry import Models
 from ax.modelbridge.transition_criterion import MaxTrials
 from ax.utils.common.testutils import TestCase
@@ -23,10 +29,11 @@ from ax.utils.testing.core_stubs import (
     get_branin_outcome_constraint,
 )
 from ax.utils.testing.mock import fast_botorch_optimize
+from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from pyre_extensions import none_throws
 
 
-class TestParallelCoordinatesPlot(TestCase):
+class TestPredictedEffectsPlot(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.generation_strategy = GenerationStrategy(
@@ -119,7 +126,9 @@ class TestParallelCoordinatesPlot(TestCase):
         experiment.add_tracking_metric(get_branin_metric(name="tracking_branin"))
         generation_strategy = self.generation_strategy
         experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(experiment=experiment, n=10)
+            generator_runs=generation_strategy.gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            )
         ).set_status_quo_with_weight(
             status_quo=experiment.status_quo, weight=1.0
         ).mark_completed(
@@ -127,9 +136,13 @@ class TestParallelCoordinatesPlot(TestCase):
         )
         experiment.fetch_data()
         experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(experiment=experiment, n=10)
+            generator_runs=generation_strategy.gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            )
         ).set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1.0)
         experiment.fetch_data()
+        # Ensure the current model is Botorch
+        self.assertEqual(none_throws(generation_strategy.model)._model_key, "BoTorch")
         for metric in experiment.metrics:
             with self.subTest(metric=metric):
                 # WHEN we compute the analysis for a metric
@@ -161,7 +174,16 @@ class TestParallelCoordinatesPlot(TestCase):
                 # AND THEN it has the right rows and columns in the dataframe
                 self.assertEqual(
                     {*card.df.columns},
-                    {"arm_name", "source", "x1", "x2", "mean", "error_margin"},
+                    {
+                        "arm_name",
+                        "source",
+                        "parameters",
+                        "mean",
+                        "sem",
+                        "error_margin",
+                        "constraints_violated",
+                        "size_column",
+                    },
                 )
                 self.assertIsNotNone(card.blob)
                 self.assertEqual(card.blob_annotation, "plotly")
@@ -172,15 +194,23 @@ class TestParallelCoordinatesPlot(TestCase):
     @fast_botorch_optimize
     def test_compute_multitask(self) -> None:
         # GIVEN an experiment with candidates generated with a multitask model
-        experiment = get_branin_experiment()
+        experiment = get_branin_experiment(with_status_quo=True)
         generation_strategy = self.generation_strategy
         experiment.new_batch_trial(
             generator_run=generation_strategy.gen(experiment=experiment, n=10)
-        ).mark_completed(unsafe=True)
+        ).set_status_quo_with_weight(
+            status_quo=experiment.status_quo, weight=1
+        ).mark_completed(
+            unsafe=True
+        )
         experiment.fetch_data()
         experiment.new_batch_trial(
             generator_run=generation_strategy.gen(experiment=experiment, n=10)
-        ).mark_completed(unsafe=True)
+        ).set_status_quo_with_weight(
+            status_quo=experiment.status_quo, weight=1
+        ).mark_completed(
+            unsafe=True
+        )
         experiment.fetch_data()
         # leave as a candidate
         experiment.new_batch_trial(
@@ -189,20 +219,24 @@ class TestParallelCoordinatesPlot(TestCase):
                 n=10,
                 fixed_features=ObservationFeatures(parameters={}, trial_index=1),
             )
-        )
+        ).set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1)
         experiment.new_batch_trial(
             generator_run=generation_strategy.gen(
                 experiment=experiment,
                 n=10,
                 fixed_features=ObservationFeatures(parameters={}, trial_index=1),
             )
-        )
+        ).set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1)
         self.assertEqual(none_throws(generation_strategy.model)._model_key, "ST_MTGP")
         # WHEN we compute the analysis
         analysis = PredictedEffectsPlot(metric_name="branin")
-        card = analysis.compute(
-            experiment=experiment, generation_strategy=generation_strategy
-        )
+        with patch(
+            f"{get_predictions_by_arm.__module__}.predict_at_point",
+            wraps=predict_at_point,
+        ) as predict_at_point_spy:
+            card = analysis.compute(
+                experiment=experiment, generation_strategy=generation_strategy
+            )
         # THEN it has the right rows for arms with data, as well as the latest trial
         arms_with_data = set(experiment.lookup_data().df["arm_name"].unique())
         max_trial_index = max(experiment.trials.keys())
@@ -221,6 +255,16 @@ class TestParallelCoordinatesPlot(TestCase):
                         or arm.name in experiment.trials[max_trial_index].arms_by_name,
                         arm.name,
                     )
+        # AND THEN it always predicts for the target trial
+        self.assertEqual(
+            len(
+                {
+                    call[1]["obsf"].trial_index
+                    for call in predict_at_point_spy.call_args_list
+                }
+            ),
+            1,
+        )
 
     @fast_botorch_optimize
     def test_it_does_not_plot_abandoned_trials(self) -> None:
@@ -294,3 +338,75 @@ class TestParallelCoordinatesPlot(TestCase):
                 none_throws(checked_cast(Trial, trial).arm).name,
                 card.df["arm_name"].unique(),
             )
+
+    @fast_botorch_optimize
+    def test_constraints(self) -> None:
+        # GIVEN an experiment with metrics and batch trials
+        experiment = get_branin_experiment(with_status_quo=True)
+        none_throws(experiment.optimization_config).outcome_constraints = [
+            get_branin_outcome_constraint(name="constraint_branin_1"),
+            get_branin_outcome_constraint(name="constraint_branin_2"),
+        ]
+        generation_strategy = self.generation_strategy
+        trial = experiment.new_batch_trial(
+            generator_run=generation_strategy.gen(experiment=experiment, n=10),
+        )
+        trial.set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1.0)
+        trial.mark_completed(unsafe=True)
+        experiment.fetch_data()
+        trial = experiment.new_batch_trial(
+            generator_run=generation_strategy.gen(experiment=experiment, n=10),
+        )
+        trial.set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1.0)
+        # WHEN we compute the analysis and constraints are violated
+        analysis = PredictedEffectsPlot(metric_name="branin")
+        with self.subTest("violated"):
+            with patch(
+                f"{compute_log_prob_feas_from_bounds.__module__}.log_ndtr",
+                side_effect=lambda t: torch.as_tensor([[0.25]] * t.size()[0]).log(),
+            ):
+                card = analysis.compute(
+                    experiment=experiment, generation_strategy=generation_strategy
+                )
+            # THEN it marks that constraints are violated for the non-SQ arms
+            non_sq_df = card.df[card.df["arm_name"] != "status_quo"]
+            sq_row = card.df[card.df["arm_name"] == "status_quo"]
+            self.assertTrue(
+                all(non_sq_df["constraints_violated"] != "No constraints violated"),
+                non_sq_df["constraints_violated"],
+            )
+            self.assertTrue(
+                all(
+                    non_sq_df["constraints_violated"]
+                    == (
+                        "<br />  constraint_branin_1: 75.0% chance violated"
+                        "<br />  constraint_branin_2: 75.0% chance violated"
+                    )
+                ),
+                str(non_sq_df["constraints_violated"][0]),
+            )
+            # AND THEN it marks that constraints are not violated for the SQ
+            self.assertEqual(sq_row["size_column"].iloc[0], 100)
+            self.assertEqual(
+                sq_row["constraints_violated"].iloc[0], "No constraints violated"
+            )
+
+        # WHEN we compute the analysis and constraints are violated
+        with self.subTest("not violated"):
+            with patch(
+                f"{compute_log_prob_feas_from_bounds.__module__}.log_ndtr",
+                side_effect=lambda t: torch.as_tensor([[1]] * t.size()[0]).log(),
+            ):
+                card = analysis.compute(
+                    experiment=experiment, generation_strategy=generation_strategy
+                )
+            # THEN it marks that constraints are not violated
+            self.assertTrue(
+                all(card.df["constraints_violated"] == "No constraints violated"),
+                str(card.df["constraints_violated"]),
+            )
+
+        # AND THEN it has not modified the constraints
+        opt_config = none_throws(experiment.optimization_config)
+        self.assertTrue(opt_config.outcome_constraints[0].relative)
+        self.assertTrue(opt_config.outcome_constraints[1].relative)

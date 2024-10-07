@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from typing import Optional
 from unittest import mock
 
 from ax.core.arm import Arm
@@ -38,7 +37,7 @@ def get_modelbridge(
     mock_gen_arms,
     # pyre-fixme[2]: Parameter must be annotated.
     mock_observations_from_data,
-    status_quo_name: Optional[str] = None,
+    status_quo_name: str | None = None,
 ) -> ModelBridge:
     exp = get_experiment()
     modelbridge = ModelBridge(

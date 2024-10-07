@@ -7,7 +7,6 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Optional
 
 import numpy as np
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -80,13 +79,13 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         self.window_size = window_size
         self.improvement_bar = improvement_bar
         self.hv_by_trial: dict[int, float] = {}
-        self._inferred_objective_thresholds: Optional[list[ObjectiveThreshold]] = None
+        self._inferred_objective_thresholds: list[ObjectiveThreshold] | None = None
 
     def _should_stop_optimization(
         self,
         experiment: Experiment,
-        trial_to_check: Optional[int] = None,
-        objective_thresholds: Optional[list[ObjectiveThreshold]] = None,
+        trial_to_check: int | None = None,
+        objective_thresholds: list[ObjectiveThreshold] | None = None,
     ) -> tuple[bool, str]:
         """
         Check if the objective has improved significantly in the past

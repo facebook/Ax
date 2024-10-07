@@ -12,7 +12,7 @@ from collections.abc import Iterable, Mapping
 
 from logging import Logger
 
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -38,7 +38,7 @@ class NoisyFunctionMapMetric(MapMetric):
         name: str,
         param_names: Iterable[str],
         noise_sd: float = 0.0,
-        lower_is_better: Optional[bool] = None,
+        lower_is_better: bool | None = None,
         cache_evaluations: bool = True,
     ) -> None:
         """

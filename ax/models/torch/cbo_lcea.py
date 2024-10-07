@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Any, cast, Optional, Union
+from typing import Any, cast, Union
 
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
@@ -38,14 +38,14 @@ def get_map_model(
     train_embedding: bool = True,
     # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
     #  `typing.Dict` to avoid runtime subscripting errors.
-    cat_feature_dict: Optional[dict] = None,
+    cat_feature_dict: dict | None = None,
     # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
     #  `typing.Dict` to avoid runtime subscripting errors.
-    embs_feature_dict: Optional[dict] = None,
-    embs_dim_list: Optional[list[int]] = None,
+    embs_feature_dict: dict | None = None,
+    embs_dim_list: list[int] | None = None,
     # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
     #  `typing.Dict` to avoid runtime subscripting errors.
-    context_weight_dict: Optional[dict] = None,
+    context_weight_dict: dict | None = None,
 ) -> tuple[LCEAGP, ExactMarginalLogLikelihood]:
     """Obtain MAP fitting of Latent Context Embedding Additive (LCE-A) GP."""
     # assert train_X is non-batched
@@ -85,15 +85,15 @@ class LCEABO(BotorchModel):
         decomposition: dict[str, list[str]],
         # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
         #  `typing.Dict` to avoid runtime subscripting errors.
-        cat_feature_dict: Optional[dict] = None,
+        cat_feature_dict: dict | None = None,
         # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
         #  `typing.Dict` to avoid runtime subscripting errors.
-        embs_feature_dict: Optional[dict] = None,
+        embs_feature_dict: dict | None = None,
         # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
         #  `typing.Dict` to avoid runtime subscripting errors.
-        context_weight_dict: Optional[dict] = None,
-        embs_dim_list: Optional[list[int]] = None,
-        gp_model_args: Optional[dict[str, Any]] = None,
+        context_weight_dict: dict | None = None,
+        embs_dim_list: list[int] | None = None,
+        gp_model_args: dict[str, Any] | None = None,
     ) -> None:
         # add validation for input decomposition
         for param_list in list(decomposition.values()):
@@ -119,7 +119,7 @@ class LCEABO(BotorchModel):
         self,
         datasets: list[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
-        candidate_metadata: Optional[list[list[TCandidateMetadata]]] = None,
+        candidate_metadata: list[list[TCandidateMetadata]] | None = None,
     ) -> None:
         if len(search_space_digest.feature_names) == 0:
             raise ValueError("feature names are required for LCEABO")
@@ -134,7 +134,7 @@ class LCEABO(BotorchModel):
         self,
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
-    ) -> Optional[Tensor]:
+    ) -> Tensor | None:
         raise NotImplementedError
 
     def get_and_fit_model(
@@ -145,8 +145,8 @@ class LCEABO(BotorchModel):
         task_features: list[int],
         fidelity_features: list[int],
         metric_names: list[str],
-        state_dict: Optional[dict[str, Tensor]] = None,
-        fidelity_model_id: Optional[int] = None,
+        state_dict: dict[str, Tensor] | None = None,
+        fidelity_model_id: int | None = None,
         **kwargs: Any,
     ) -> GPyTorchModel:
         """Get a fitted LCEAGP model for each outcome.
@@ -185,5 +185,5 @@ class LCEABO(BotorchModel):
         return model
 
     @property
-    def model(self) -> Union[LCEAGP, ModelListGP]:
+    def model(self) -> LCEAGP | ModelListGP:
         return cast(Union[LCEAGP, ModelListGP], super().model)

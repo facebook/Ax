@@ -8,8 +8,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Any
 
 import torch
 from ax.core.metric import Metric
@@ -78,16 +80,16 @@ class TorchOptConfig:
     """
 
     objective_weights: Tensor
-    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None
-    objective_thresholds: Optional[Tensor] = None
-    linear_constraints: Optional[tuple[Tensor, Tensor]] = None
-    fixed_features: Optional[dict[int, float]] = None
-    pending_observations: Optional[list[Tensor]] = None
+    outcome_constraints: tuple[Tensor, Tensor] | None = None
+    objective_thresholds: Tensor | None = None
+    linear_constraints: tuple[Tensor, Tensor] | None = None
+    fixed_features: dict[int, float] | None = None
+    pending_observations: list[Tensor] | None = None
     model_gen_options: TConfig = field(default_factory=dict)
-    rounding_func: Optional[Callable[[Tensor], Tensor]] = None
-    opt_config_metrics: Optional[dict[str, Metric]] = None
+    rounding_func: Callable[[Tensor], Tensor] | None = None
+    opt_config_metrics: dict[str, Metric] | None = None
     is_moo: bool = False
-    risk_measure: Optional[RiskMeasureMCObjective] = None
+    risk_measure: RiskMeasureMCObjective | None = None
     fit_out_of_design: bool = False
 
 
@@ -105,7 +107,7 @@ class TorchGenResults:
     points: Tensor  # (n x d)-dim
     weights: Tensor  # n-dim
     gen_metadata: dict[str, Any] = field(default_factory=dict)
-    candidate_metadata: Optional[list[TCandidateMetadata]] = None
+    candidate_metadata: list[TCandidateMetadata] | None = None
 
 
 class TorchModel(BaseModel):
@@ -115,15 +117,15 @@ class TorchModel(BaseModel):
     of Ax.
     """
 
-    dtype: Optional[torch.dtype] = None
-    device: Optional[torch.device] = None
+    dtype: torch.dtype | None = None
+    device: torch.device | None = None
     _supports_robust_optimization: bool = False
 
     def fit(
         self,
         datasets: list[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
-        candidate_metadata: Optional[list[list[TCandidateMetadata]]] = None,
+        candidate_metadata: list[list[TCandidateMetadata]] | None = None,
     ) -> None:
         """Fit model to m outcomes.
 
@@ -177,7 +179,7 @@ class TorchModel(BaseModel):
         self,
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
-    ) -> Optional[Tensor]:
+    ) -> Tensor | None:
         """
         Identify the current best point, satisfying the constraints in the same
         format as to gen.
@@ -231,7 +233,7 @@ class TorchModel(BaseModel):
         datasets: list[SupervisedDataset],
         metric_names: list[str],
         search_space_digest: SearchSpaceDigest,
-        candidate_metadata: Optional[list[list[TCandidateMetadata]]] = None,
+        candidate_metadata: list[list[TCandidateMetadata]] | None = None,
     ) -> None:
         """Update the model.
 
@@ -257,7 +259,7 @@ class TorchModel(BaseModel):
         X: Tensor,
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
-        acq_options: Optional[dict[str, Any]] = None,
+        acq_options: dict[str, Any] | None = None,
     ) -> Tensor:
         """Evaluate the acquisition function on the candidate set `X`.
 

@@ -7,7 +7,8 @@
 # pyre-strict
 
 import json
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from ax.core.experiment import Experiment
 from ax.storage.json_store.encoder import object_to_json

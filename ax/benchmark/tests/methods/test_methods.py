@@ -146,7 +146,7 @@ class TestMethods(TestCase):
             model_cls=SingleTaskGP,
             acquisition_cls=qLogExpectedImprovement,
             distribute_replications=False,
-            best_point_kwargs={"use_model_predictions": use_model_predictions},
+            use_model_predictions_for_best_point=use_model_predictions,
             num_sobol_trials=1,
         )
 
@@ -191,10 +191,7 @@ class TestMethods(TestCase):
         self.assertEqual(len(best_params), 1)
 
     def test_get_best_parameters(self) -> None:
-        for use_model_predictions, as_batch in product(
-            [False, True],
-            [False, True],
-        ):
+        for use_model_predictions, as_batch in product([False, True], [False, True]):
             with self.subTest(f"{use_model_predictions=}, {as_batch=}"):
                 self._test_get_best_parameters(
                     use_model_predictions=use_model_predictions, as_batch=as_batch

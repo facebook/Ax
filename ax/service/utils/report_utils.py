@@ -9,10 +9,10 @@
 import itertools
 import logging
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import timedelta
 from logging import Logger
-from typing import Any, Callable, cast, Optional, TYPE_CHECKING, Union
+from typing import Any, cast, TYPE_CHECKING
 
 import gpytorch
 import numpy as np
@@ -99,7 +99,7 @@ def _get_cross_validation_plots(model: ModelBridge) -> list[go.Figure]:
 def _get_objective_trace_plot(
     experiment: Experiment,
     data: Data,
-    true_objective_metric_name: Optional[str] = None,
+    true_objective_metric_name: str | None = None,
 ) -> Iterable[go.Figure]:
     if experiment.is_moo_problem:
         return [
@@ -146,9 +146,9 @@ def _get_objective_trace_plot(
 def _get_objective_v_param_plots(
     experiment: Experiment,
     model: ModelBridge,
-    importance: Optional[
-        Union[dict[str, dict[str, np.ndarray]], dict[str, dict[str, float]]]
-    ] = None,
+    importance: None | (
+        dict[str, dict[str, np.ndarray]] | dict[str, dict[str, float]]
+    ) = None,
     # Chosen to take ~1min on local benchmarks.
     max_num_slice_plots: int = 200,
     # Chosen to take ~2min on local benchmarks.
@@ -311,11 +311,11 @@ def _get_shortest_unique_suffix_dict(
 
 def get_standard_plots(
     experiment: Experiment,
-    model: Optional[ModelBridge],
-    data: Optional[Data] = None,
-    true_objective_metric_name: Optional[str] = None,
-    early_stopping_strategy: Optional[BaseEarlyStoppingStrategy] = None,
-    limit_points_per_plot: Optional[int] = None,
+    model: ModelBridge | None,
+    data: Data | None = None,
+    true_objective_metric_name: str | None = None,
+    early_stopping_strategy: BaseEarlyStoppingStrategy | None = None,
+    limit_points_per_plot: int | None = None,
     global_sensitivity_analysis: bool = True,
 ) -> list[go.Figure]:
     """Extract standard plots for single-objective optimization.
@@ -522,7 +522,7 @@ def get_standard_plots(
 
 def _transform_progression_to_walltime(
     progressions: np.ndarray, exp_df: pd.DataFrame, trial_idx: int
-) -> Optional[np.ndarray]:
+) -> np.ndarray | None:
     try:
         trial_df = exp_df[exp_df["trial_index"] == trial_idx]
         time_run_started = trial_df["time_run_started"].iloc[0]
@@ -542,10 +542,10 @@ def _get_curve_plot_dropdown(
     experiment: Experiment,
     map_metrics: Iterable[MapMetric],
     data: MapData,
-    early_stopping_strategy: Optional[BaseEarlyStoppingStrategy],
+    early_stopping_strategy: BaseEarlyStoppingStrategy | None,
     by_walltime: bool = False,
-    limit_points_per_plot: Optional[int] = None,
-) -> Optional[go.Figure]:
+    limit_points_per_plot: int | None = None,
+) -> go.Figure | None:
     """Plot curve metrics by either progression or walltime.
 
     Args:
@@ -763,13 +763,13 @@ def _merge_results_if_no_duplicates(
 
 def exp_to_df(
     exp: Experiment,
-    metrics: Optional[list[Metric]] = None,
-    run_metadata_fields: Optional[list[str]] = None,
-    trial_properties_fields: Optional[list[str]] = None,
-    trial_attribute_fields: Optional[list[str]] = None,
-    additional_fields_callables: Optional[
-        dict[str, Callable[[Experiment], dict[int, Union[str, float]]]]
-    ] = None,
+    metrics: list[Metric] | None = None,
+    run_metadata_fields: list[str] | None = None,
+    trial_properties_fields: list[str] | None = None,
+    trial_attribute_fields: list[str] | None = None,
+    additional_fields_callables: None | (
+        dict[str, Callable[[Experiment], dict[int, str | float]]]
+    ) = None,
     always_include_field_columns: bool = False,
     **kwargs: Any,
 ) -> pd.DataFrame:
@@ -1001,7 +1001,7 @@ def exp_to_df(
 
 
 def compute_maximum_map_values(
-    experiment: Experiment, map_key: Optional[str] = None
+    experiment: Experiment, map_key: str | None = None
 ) -> dict[int, float]:
     """A function that returns a map from trial_index to the maximum map value
     reached. If map_key is not specified, it uses the first map_key."""
@@ -1030,9 +1030,9 @@ def compute_maximum_map_values(
 
 def _pairwise_pareto_plotly_scatter(
     experiment: Experiment,
-    metric_names: Optional[tuple[str, str]] = None,
-    reference_point: Optional[tuple[float, float]] = None,
-    minimize: Optional[Union[bool, tuple[bool, bool]]] = None,
+    metric_names: tuple[str, str] | None = None,
+    reference_point: tuple[float, float] | None = None,
+    minimize: bool | tuple[bool, bool] | None = None,
 ) -> Iterable[go.Figure]:
     metric_name_pairs = _get_metric_name_pairs(experiment=experiment)
     return [
@@ -1073,9 +1073,9 @@ def _get_metric_name_pairs(
 
 def _pareto_frontier_scatter_2d_plotly(
     experiment: Experiment,
-    metric_names: Optional[tuple[str, str]] = None,
-    reference_point: Optional[tuple[float, float]] = None,
-    minimize: Optional[Union[bool, tuple[bool, bool]]] = None,
+    metric_names: tuple[str, str] | None = None,
+    reference_point: tuple[float, float] | None = None,
+    minimize: bool | tuple[bool, bool] | None = None,
 ) -> go.Figure:
 
     # Determine defaults for unspecified inputs using `optimization_config`
@@ -1094,8 +1094,8 @@ def _pareto_frontier_scatter_2d_plotly(
 def pareto_frontier_scatter_2d_plotly(
     experiment: Experiment,
     metric_names: tuple[str, str],
-    reference_point: Optional[tuple[float, float]] = None,
-    minimize: Optional[Union[bool, tuple[bool, bool]]] = None,
+    reference_point: tuple[float, float] | None = None,
+    minimize: bool | tuple[bool, bool] | None = None,
 ) -> go.Figure:
 
     df = exp_to_df(experiment)
@@ -1224,7 +1224,7 @@ def _construct_comparison_message(
     comparison_arm_name: str,
     comparison_value: float,
     digits: int = 2,
-) -> Optional[str]:
+) -> str | None:
     # TODO: allow for user configured digits value
     if baseline_value == 0:
         logger.info(
@@ -1287,7 +1287,7 @@ def _build_result_tuple(
 
 
 def select_baseline_arm(
-    experiment: Experiment, arms_df: pd.DataFrame, baseline_arm_name: Optional[str]
+    experiment: Experiment, arms_df: pd.DataFrame, baseline_arm_name: str | None
 ) -> tuple[str, bool]:
     """
     Choose a baseline arm that is found in arms_df
@@ -1332,10 +1332,10 @@ def select_baseline_arm(
 
 def maybe_extract_baseline_comparison_values(
     experiment: Experiment,
-    optimization_config: Optional[OptimizationConfig],
-    comparison_arm_names: Optional[list[str]],
-    baseline_arm_name: Optional[str],
-) -> Optional[list[tuple[str, bool, str, float, str, float]]]:
+    optimization_config: OptimizationConfig | None,
+    comparison_arm_names: list[str] | None,
+    baseline_arm_name: str | None,
+) -> list[tuple[str, bool, str, float, str, float]] | None:
     """
     Extracts the baseline values from the experiment, for use in
     comparing the baseline arm to the optimal results.
@@ -1431,7 +1431,7 @@ def maybe_extract_baseline_comparison_values(
 
 def compare_to_baseline_impl(
     comparison_list: list[tuple[str, bool, str, float, str, float]]
-) -> Optional[str]:
+) -> str | None:
     """Implementation of compare_to_baseline, taking in a
     list of arm comparisons.
     Can be used directly with the output of
@@ -1457,10 +1457,10 @@ def compare_to_baseline_impl(
 
 def compare_to_baseline(
     experiment: Experiment,
-    optimization_config: Optional[OptimizationConfig],
-    comparison_arm_names: Optional[list[str]],
-    baseline_arm_name: Optional[str] = None,
-) -> Optional[str]:
+    optimization_config: OptimizationConfig | None,
+    comparison_arm_names: list[str] | None,
+    baseline_arm_name: str | None = None,
+) -> str | None:
     """Calculate metric improvement of the experiment against baseline.
     Returns the message(s) added to markdown_messages."""
 
@@ -1480,9 +1480,9 @@ def warn_if_unpredictable_metrics(
     experiment: Experiment,
     generation_strategy: GenerationStrategy,
     model_fit_threshold: float,
-    metric_names: Optional[list[str]] = None,
+    metric_names: list[str] | None = None,
     model_fit_metric_name: str = "coefficient_of_determination",
-) -> Optional[str]:
+) -> str | None:
     """Warn if any optimization config metrics are considered unpredictable,
     i.e., their coefficient of determination is less than model_fit_threshold.
     Args:

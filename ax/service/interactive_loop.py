@@ -6,10 +6,11 @@
 # pyre-strict
 
 import time
+from collections.abc import Callable
 from logging import Logger
 from queue import Queue
 from threading import Event, Lock, Thread
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Tuple
 
 from ax.core.types import TEvaluationOutcome, TParameterization
 
@@ -30,9 +31,9 @@ def interactive_optimize(
     data_attacher_function: Callable[..., None],
     # pyre-ignore[2]: Missing parameter annotation
     elicitation_function: Callable[..., Any],
-    candidate_generator_kwargs: Optional[dict[str, Any]] = None,
-    data_attacher_kwargs: Optional[dict[str, Any]] = None,
-    elicitation_function_kwargs: Optional[dict[str, Any]] = None,
+    candidate_generator_kwargs: dict[str, Any] | None = None,
+    data_attacher_kwargs: dict[str, Any] | None = None,
+    elicitation_function_kwargs: dict[str, Any] | None = None,
 ) -> bool:
     """
     Function to facilitate running Ax experiments with candidate pregeneration (the

@@ -7,7 +7,8 @@
 # pyre-strict
 
 import dataclasses
-from typing import Any, Callable, Optional, Union
+from collections.abc import Callable
+from typing import Any
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -209,13 +210,13 @@ class KnowledgeGradient(BotorchModel):
         X_observed: Tensor,
         objective_weights: Tensor,
         mc_samples: int = 512,
-        fixed_features: Optional[dict[int, float]] = None,
-        target_fidelities: Optional[dict[int, float]] = None,
-        outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
-        seed_inner: Optional[int] = None,
+        fixed_features: dict[int, float] | None = None,
+        target_fidelities: dict[int, float] | None = None,
+        outcome_constraints: tuple[Tensor, Tensor] | None = None,
+        seed_inner: int | None = None,
         qmc: bool = True,
         **kwargs: Any,
-    ) -> tuple[AcquisitionFunction, Optional[list[int]]]:
+    ) -> tuple[AcquisitionFunction, list[int] | None]:
         return get_out_of_sample_best_point_acqf(
             model=not_none(self.model),
             Xs=self.Xs,
@@ -235,7 +236,7 @@ class KnowledgeGradient(BotorchModel):
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
         X_observed: Tensor,
-        seed_inner: Optional[int],
+        seed_inner: int | None,
         qmc: bool,
     ) -> Tensor:
         r"""Computes the value of the current best point. This is the current_value
@@ -281,18 +282,18 @@ class KnowledgeGradient(BotorchModel):
 
 def _instantiate_KG(
     model: Model,
-    objective: Optional[MCAcquisitionObjective] = None,
-    posterior_transform: Optional[PosteriorTransform] = None,
+    objective: MCAcquisitionObjective | None = None,
+    posterior_transform: PosteriorTransform | None = None,
     qmc: bool = True,
     n_fantasies: int = 64,
     mc_samples: int = 256,
     num_trace_observations: int = 0,
-    seed_inner: Optional[int] = None,
-    seed_outer: Optional[int] = None,
-    X_pending: Optional[Tensor] = None,
-    current_value: Optional[Tensor] = None,
-    target_fidelities: Optional[dict[int, float]] = None,
-    fidelity_weights: Optional[dict[int, float]] = None,
+    seed_inner: int | None = None,
+    seed_outer: int | None = None,
+    X_pending: Tensor | None = None,
+    current_value: Tensor | None = None,
+    target_fidelities: dict[int, float] | None = None,
+    fidelity_weights: dict[int, float] | None = None,
     cost_intercept: float = 1.0,
 ) -> qKnowledgeGradient:
     r"""Instantiate either a `qKnowledgeGradient` or `qMultiFidelityKnowledgeGradient`
@@ -367,9 +368,9 @@ def _optimize_and_get_candidates(
     # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
     #  `typing.Dict` to avoid runtime subscripting errors.
     optimizer_options: dict,
-    rounding_func: Optional[Callable[[Tensor], Tensor]],
-    inequality_constraints: Optional[list[tuple[Tensor, Tensor, float]]],
-    fixed_features: Optional[dict[int, float]],
+    rounding_func: Callable[[Tensor], Tensor] | None,
+    inequality_constraints: list[tuple[Tensor, Tensor, float]] | None,
+    fixed_features: dict[int, float] | None,
 ) -> Tensor:
     r"""Generates initial conditions for optimization, optimize the acquisition
     function, and return the candidates.
@@ -389,7 +390,7 @@ def _optimize_and_get_candidates(
 
     botorch_rounding_func = get_rounding_func(rounding_func)
 
-    opt_options: dict[str, Union[bool, float, int, str]] = {
+    opt_options: dict[str, bool | float | int | str] = {
         "batch_limit": 8,
         "maxiter": 200,
         "method": "L-BFGS-B",

@@ -6,8 +6,8 @@
 # pyre-strict
 
 import warnings
-from collections.abc import Mapping
-from typing import Any, Callable, Optional, Union
+from collections.abc import Callable, Mapping
+from typing import Any
 
 import torch
 from ax.benchmark.runners.base import BenchmarkRunner
@@ -30,12 +30,12 @@ class SurrogateRunner(BenchmarkRunner):
         name: str,
         search_space: SearchSpace,
         outcome_names: list[str],
-        surrogate: Optional[TorchModelBridge] = None,
-        datasets: Optional[list[SupervisedDataset]] = None,
-        noise_stds: Union[float, dict[str, float]] = 0.0,
-        get_surrogate_and_datasets: Optional[
+        surrogate: TorchModelBridge | None = None,
+        datasets: list[SupervisedDataset] | None = None,
+        noise_stds: float | dict[str, float] = 0.0,
+        get_surrogate_and_datasets: None | (
             Callable[[], tuple[TorchModelBridge, list[SupervisedDataset]]]
-        ] = None,
+        ) = None,
         search_space_digest: SearchSpaceDigest | None = None,
     ) -> None:
         """Runner for surrogate benchmark problems.
@@ -92,7 +92,7 @@ class SurrogateRunner(BenchmarkRunner):
             self.set_surrogate_and_datasets()
         return none_throws(self._datasets)
 
-    def get_noise_stds(self) -> Union[None, float, dict[str, float]]:
+    def get_noise_stds(self) -> None | float | dict[str, float]:
         return self.noise_stds
 
     # pyre-fixme[14]: Inconsistent override
@@ -158,8 +158,8 @@ class SurrogateRunner(BenchmarkRunner):
     def deserialize_init_args(
         cls,
         args: dict[str, Any],
-        decoder_registry: Optional[TDecoderRegistry] = None,
-        class_decoder_registry: Optional[TClassDecoderRegistry] = None,
+        decoder_registry: TDecoderRegistry | None = None,
+        class_decoder_registry: TClassDecoderRegistry | None = None,
     ) -> dict[str, Any]:
         return {}
 

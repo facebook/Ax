@@ -8,10 +8,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from copy import deepcopy
 from functools import wraps
 from logging import Logger
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, TypeVar
 
 import pandas as pd
 from ax.core.data import Data
@@ -59,9 +61,7 @@ def step_based_gs_only(f: Callable[..., T]) -> Callable[..., T]:
     """
 
     @wraps(f)
-    def impl(
-        self: "GenerationStrategy", *args: list[Any], **kwargs: dict[str, Any]
-    ) -> T:
+    def impl(self: GenerationStrategy, *args: list[Any], **kwargs: dict[str, Any]) -> T:
         if self.is_node_based:
             raise UnsupportedError(
                 f"{f.__name__} is not supported for GenerationNode based"
@@ -104,14 +104,14 @@ class GenerationStrategy(GenerationStrategyInterface):
     _generator_runs: list[GeneratorRun]
     # Experiment, for which this generation strategy has generated trials, if
     # it exists.
-    _experiment: Optional[Experiment] = None
-    _model: Optional[ModelBridge] = None  # Current model.
+    _experiment: Experiment | None = None
+    _model: ModelBridge | None = None  # Current model.
 
     def __init__(
         self,
-        steps: Optional[list[GenerationStep]] = None,
-        name: Optional[str] = None,
-        nodes: Optional[list[GenerationNode]] = None,
+        steps: list[GenerationStep] | None = None,
+        name: str | None = None,
+        nodes: list[GenerationNode] | None = None,
     ) -> None:
         # Validate that one and only one of steps or nodes is provided
         if not ((steps is None) ^ (nodes is None)):
@@ -162,6 +162,11 @@ class GenerationStrategy(GenerationStrategyInterface):
         return not any(isinstance(n, GenerationStep) for n in self._nodes) and all(
             isinstance(n, GenerationNode) for n in self._nodes
         )
+
+    @property
+    def nodes_dict(self) -> dict[str, GenerationNode]:
+        """Returns a dictionary mapping node names to nodes."""
+        return {node.node_name: node for node in self._nodes}
 
     @property
     def name(self) -> str:
@@ -227,7 +232,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         return node_names_for_all_steps.index(self._curr.node_name)
 
     @property
-    def model(self) -> Optional[ModelBridge]:
+    def model(self) -> ModelBridge | None:
         """Current model in this strategy. Returns None if no model has been set
         yet (i.e., if no generator runs have been produced from this GS).
         """
@@ -258,7 +263,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             )
 
     @property
-    def last_generator_run(self) -> Optional[GeneratorRun]:
+    def last_generator_run(self) -> GeneratorRun | None:
         """Latest generator run produced by this generation strategy.
         Returns None if no generator runs have been produced yet.
         """
@@ -272,7 +277,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         return not self._uses_registered_models
 
     @property
-    def trials_as_df(self) -> Optional[pd.DataFrame]:
+    def trials_as_df(self) -> pd.DataFrame | None:
         """Puts information on individual trials into a data frame for easy
         viewing.
 
@@ -339,9 +344,9 @@ class GenerationStrategy(GenerationStrategyInterface):
     def gen(
         self,
         experiment: Experiment,
-        data: Optional[Data] = None,
+        data: Data | None = None,
         n: int = 1,
-        pending_observations: Optional[dict[str, list[ObservationFeatures]]] = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
         **kwargs: Any,
     ) -> GeneratorRun:
         """Produce the next points in the experiment. Additional kwargs passed to
@@ -383,10 +388,10 @@ class GenerationStrategy(GenerationStrategyInterface):
     def gen_with_multiple_nodes(
         self,
         experiment: Experiment,
-        data: Optional[Data] = None,
-        pending_observations: Optional[dict[str, list[ObservationFeatures]]] = None,
-        arms_per_node: Optional[dict[str, int]] = None,
-        n: Optional[int] = None,
+        data: Data | None = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
+        arms_per_node: dict[str, int] | None = None,
+        n: int | None = None,
     ) -> list[GeneratorRun]:
         """Produces a List of GeneratorRuns for a single trial, either ``Trial`` or
         ``BatchTrial``, and if producing a ``BatchTrial`` allows for multiple
@@ -419,22 +424,21 @@ class GenerationStrategy(GenerationStrategyInterface):
         Returns:
             A list of ``GeneratorRuns`` for a single trial.
         """
+        self.experiment = experiment
         # TODO: @mgarrard merge into gen method, just starting here to derisk
         # Validate `arms_per_node` if specified, otherwise construct the default
         # behavior with keys being node names and values being 1 to represent
         # generating a single GR from each node.
         n = self._get_n(experiment=experiment, n=n)
-        node_names = [node.node_name for node in self._nodes]
-        if arms_per_node is not None and not all(
-            node_name in arms_per_node for node_name in node_names
+        if arms_per_node is not None and not set(self.nodes_dict).issubset(
+            arms_per_node
         ):
             raise UserInputError(
                 f"""
-                Each node defined in the GenerationStrategy must have
-                an associated number of arms to generate from that node
-                defined in `arms_per_node`. {arms_per_node} does not
-                include all of {node_names}. It may be helpful to double check
-                the spelling.
+                Each node defined in the GenerationStrategy must have an associated
+                number of arms to generate from that node defined in `arms_per_node`.
+                {arms_per_node} does not include all of {self.nodes_dict.keys()}. It
+                may be helpful to double check the spelling.
                 """
             )
         grs = []
@@ -447,6 +451,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             "grs_this_gen": grs,
             "n": n,
         }
+        pending_observations = deepcopy(pending_observations) or {}
         while continue_gen_for_trial:
             gen_kwargs["grs_this_gen"] = grs
             should_transition, node_to_gen_from_name = (
@@ -454,7 +459,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                     raise_data_required_error=False
                 )
             )
-            node_to_gen_from = self._nodes[node_names.index(node_to_gen_from_name)]
+            node_to_gen_from = self.nodes_dict[node_to_gen_from_name]
             if should_transition:
                 node_to_gen_from._previous_node_name = node_to_gen_from_name
             arms_from_node = self._determine_arms_from_node(
@@ -462,7 +467,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                 arms_per_node=arms_per_node,
                 node_to_gen_from_name=node_to_gen_from_name,
                 n=n,
-                node_names=node_names,
+                node_names=list(self.nodes_dict.keys()),
                 gen_kwargs=gen_kwargs,
             )
             grs.extend(
@@ -474,6 +479,15 @@ class GenerationStrategy(GenerationStrategyInterface):
                     pending_observations=pending_observations,
                 )
             )
+            # ensure that the points generated from each node are marked as pending
+            # points for future calls to gen
+            pending_observations = extend_pending_observations(
+                experiment=experiment,
+                pending_observations=pending_observations,
+                # only pass in the most recent generator run to avoid unnecessary
+                # deduplication in extend_pending_observations
+                generator_runs=[grs[-1]],
+            )
             continue_gen_for_trial = self._should_continue_gen_for_trial()
         return grs
 
@@ -481,8 +495,8 @@ class GenerationStrategy(GenerationStrategyInterface):
         self,
         experiment: Experiment,
         num_generator_runs: int,
-        data: Optional[Data] = None,
-        n: Optional[int] = None,
+        data: Data | None = None,
+        n: int | None = None,
     ) -> list[list[GeneratorRun]]:
         """Produce GeneratorRuns for multiple trials at once with the possibility of
         ensembling, or using multiple models per trial, getting multiple
@@ -561,7 +575,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             name=self.name, steps=checked_cast_list(GenerationStep, cloned_nodes)
         )
 
-    def _get_n(self, experiment: Experiment, n: Optional[int]) -> int:
+    def _get_n(self, experiment: Experiment, n: int | None) -> int:
         """Get the number of arms to generate from the current generation node.
 
         Args:
@@ -778,9 +792,9 @@ class GenerationStrategy(GenerationStrategyInterface):
         self,
         experiment: Experiment,
         num_generator_runs: int,
-        data: Optional[Data] = None,
+        data: Data | None = None,
         n: int = 1,
-        pending_observations: Optional[dict[str, list[ObservationFeatures]]] = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
         **model_gen_kwargs: Any,
     ) -> list[GeneratorRun]:
         """Produce multiple generator runs at once, to be made into multiple
@@ -853,10 +867,10 @@ class GenerationStrategy(GenerationStrategyInterface):
 
             # Extend the `pending_observation` with newly generated point(s)
             # to avoid repeating them.
-            extend_pending_observations(
+            pending_observations = extend_pending_observations(
                 experiment=experiment,
                 pending_observations=pending_observations,
-                generator_run=generator_run,
+                generator_runs=[generator_run],
             )
         return generator_runs
 
@@ -892,7 +906,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         node_to_gen_from_name: str,
         node_names: list[str],
         gen_kwargs: dict[str, Any],
-        arms_per_node: Optional[dict[str, int]] = None,
+        arms_per_node: dict[str, int] | None = None,
     ) -> int:
         """Calculates the number of arms to generate from the node that will be used
         during generation.
@@ -928,7 +942,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             arms_from_node = n
         else:
             previous_node = (
-                self._nodes[node_names.index(node_to_gen_from._previous_node_name)]
+                self.nodes_dict[node_to_gen_from._previous_node_name]
                 if node_to_gen_from._previous_node_name is not None
                 else None
             )
@@ -944,7 +958,7 @@ class GenerationStrategy(GenerationStrategyInterface):
 
     # ------------------------- Model selection logic helpers. -------------------------
 
-    def _fit_current_model(self, data: Optional[Data]) -> None:
+    def _fit_current_model(self, data: Data | None) -> None:
         """Fits or update the model on the current generation node (does not move
         between generation nodes).
 

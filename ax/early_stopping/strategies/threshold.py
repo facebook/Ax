@@ -8,7 +8,6 @@
 
 from collections.abc import Iterable
 from logging import Logger
-from typing import Optional
 
 import pandas as pd
 from ax.core.experiment import Experiment
@@ -25,13 +24,13 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
     def __init__(
         self,
-        metric_names: Optional[Iterable[str]] = None,
+        metric_names: Iterable[str] | None = None,
         seconds_between_polls: int = 300,
         metric_threshold: float = 0.2,
-        min_progression: Optional[float] = 10,
-        max_progression: Optional[float] = None,
-        min_curves: Optional[int] = 5,
-        trial_indices_to_ignore: Optional[list[int]] = None,
+        min_progression: float | None = 10,
+        max_progression: float | None = None,
+        min_curves: int | None = 5,
+        trial_indices_to_ignore: list[int] | None = None,
         normalize_progressions: bool = False,
     ) -> None:
         """Construct a ThresholdEarlyStoppingStrategy instance.
@@ -85,7 +84,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self,
         trial_indices: set[int],
         experiment: Experiment,
-    ) -> dict[int, Optional[str]]:
+    ) -> dict[int, str | None]:
         """Stop a trial if its performance doesn't reach a pre-specified threshold
         by `min_progression`.
 
@@ -142,7 +141,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         df: pd.DataFrame,
         map_key: str,
         minimize: bool,
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Stop a trial if its performance doesn't reach a pre-specified threshold
         by `min_progression`.
 

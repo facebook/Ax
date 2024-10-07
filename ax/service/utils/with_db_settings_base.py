@@ -8,9 +8,10 @@
 
 import re
 import time
+from collections.abc import Iterable
 
 from logging import INFO, Logger
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
 
 from ax.analysis.analysis import AnalysisCard
 
@@ -142,7 +143,7 @@ class WithDBSettingsBase:
 
     def _get_experiment_and_generation_strategy_db_id(
         self, experiment_name: str
-    ) -> tuple[Optional[int], Optional[int]]:
+    ) -> tuple[int | None, int | None]:
         """Retrieve DB ids of experiment by the given name and the associated
         generation strategy. Each ID is None if corresponding object is not
         found.
@@ -221,7 +222,7 @@ class WithDBSettingsBase:
         experiment_name: str,
         reduced_state: bool = False,
         skip_runners_and_metrics: bool = False,
-    ) -> tuple[Optional[Experiment], Optional[GenerationStrategy]]:
+    ) -> tuple[Experiment | None, GenerationStrategy | None]:
         """Loads experiment and its corresponding generation strategy from database
         if DB settings are set on this `WithDBSettingsBase` instance.
 
@@ -380,7 +381,7 @@ class WithDBSettingsBase:
 
     def _save_generation_strategy_to_db_if_possible(
         self,
-        generation_strategy: Optional[GenerationStrategyInterface] = None,
+        generation_strategy: GenerationStrategyInterface | None = None,
     ) -> bool:
         """Saves given generation strategy if DB settings are set on this
         `WithDBSettingsBase` instance and the generation strategy is an
@@ -617,9 +618,9 @@ def _save_analysis_cards_to_db_if_possible(
 def try_load_generation_strategy(
     experiment_name: str,
     decoder: Decoder,
-    experiment: Optional[Experiment] = None,
+    experiment: Experiment | None = None,
     reduced_state: bool = False,
-) -> Optional[GenerationStrategy]:
+) -> GenerationStrategy | None:
     """Load generation strategy by experiment name, if it exists."""
     try:
         start_time = time.time()

@@ -11,7 +11,6 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from logging import Logger
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -58,7 +57,7 @@ class EarlyStoppingTrainingData:
     X: np.ndarray
     Y: np.ndarray
     Yvar: np.ndarray
-    arm_names: list[Optional[str]]
+    arm_names: list[str | None]
 
 
 class BaseEarlyStoppingStrategy(ABC, Base):
@@ -67,12 +66,12 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
     def __init__(
         self,
-        metric_names: Optional[Iterable[str]] = None,
+        metric_names: Iterable[str] | None = None,
         seconds_between_polls: int = 300,
-        min_progression: Optional[float] = None,
-        max_progression: Optional[float] = None,
-        min_curves: Optional[int] = None,
-        trial_indices_to_ignore: Optional[list[int]] = None,
+        min_progression: float | None = None,
+        max_progression: float | None = None,
+        min_curves: int | None = None,
+        trial_indices_to_ignore: list[int] | None = None,
         normalize_progressions: bool = False,
     ) -> None:
         """A BaseEarlyStoppingStrategy class.
@@ -116,7 +115,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         self,
         trial_indices: set[int],
         experiment: Experiment,
-    ) -> dict[int, Optional[str]]:
+    ) -> dict[int, str | None]:
         """Decide whether to complete trials before evaluation is fully concluded.
 
         Typical examples include stopping a machine learning model's training, or
@@ -134,7 +133,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
     def _check_validity_and_get_data(
         self, experiment: Experiment, metric_names: list[str]
-    ) -> Optional[MapData]:
+    ) -> MapData | None:
         """Validity checks and returns the `MapData` used for early stopping that
         is associated with `metric_names`. This function also handles normalizing
         progressions.
@@ -212,8 +211,8 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         logger: logging.Logger,
         trial_index: int,
         trial_last_progression: float,
-        min_progression: Optional[float],
-        max_progression: Optional[float],
+        min_progression: float | None,
+        max_progression: float | None,
         metric_name: str,
     ) -> tuple[bool, str]:
         """Helper function for logging/constructing a reason when min progression
@@ -273,7 +272,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         trial_indices: set[int],
         experiment: Experiment,
         df: pd.DataFrame,
-        map_key: Optional[str] = None,
+        map_key: str | None = None,
     ) -> bool:
         """Perform a series of default checks for a set of trials `trial_indices` and
         determine if at least one of them is eligible for further stopping logic:
@@ -317,7 +316,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         experiment: Experiment,
         df: pd.DataFrame,
         map_key: str,
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Perform a series of default checks for a specific trial `trial_index` and
         determines whether it is eligible for further stopping logic:
             1. Check for ignored indices based on `self.trial_indices_to_ignore`
@@ -411,14 +410,14 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
     def __init__(
         self,
-        metric_names: Optional[Iterable[str]] = None,
+        metric_names: Iterable[str] | None = None,
         seconds_between_polls: int = 300,
-        min_progression: Optional[float] = None,
-        max_progression: Optional[float] = None,
-        min_curves: Optional[int] = None,
-        trial_indices_to_ignore: Optional[list[int]] = None,
+        min_progression: float | None = None,
+        max_progression: float | None = None,
+        min_curves: int | None = None,
+        trial_indices_to_ignore: list[int] | None = None,
         normalize_progressions: bool = False,
-        min_progression_modeling: Optional[float] = None,
+        min_progression_modeling: float | None = None,
     ) -> None:
         """A ModelBasedEarlyStoppingStrategy class.
 
@@ -462,7 +461,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
     def _check_validity_and_get_data(
         self, experiment: Experiment, metric_names: list[str]
-    ) -> Optional[MapData]:
+    ) -> MapData | None:
         """Validity checks and returns the `MapData` used for early stopping that
         is associated with `metric_names`. This function also handles normalizing
         progressions.
@@ -486,9 +485,9 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self,
         experiment: Experiment,
         map_data: MapData,
-        max_training_size: Optional[int] = None,
-        outcomes: Optional[Sequence[str]] = None,
-        parameters: Optional[list[str]] = None,
+        max_training_size: int | None = None,
+        outcomes: Sequence[str] | None = None,
+        parameters: list[str] | None = None,
     ) -> EarlyStoppingTrainingData:
         """Processes the raw (untransformed) training data into arrays for
         use in modeling. The trailing dimensions of `X` are the map keys, in
@@ -544,7 +543,7 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 def get_transform_helper_model(
     experiment: Experiment,
     data: Data,
-    transforms: Optional[list[type[Transform]]] = None,
+    transforms: list[type[Transform]] | None = None,
 ) -> MapTorchModelBridge:
     """
     Constructs a TorchModelBridge, to be used as a helper for transforming parameters.

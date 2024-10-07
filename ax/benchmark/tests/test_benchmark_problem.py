@@ -8,7 +8,6 @@
 import math
 from itertools import product
 from math import pi
-from typing import Optional, Union
 
 import torch
 
@@ -203,8 +202,8 @@ class TestBenchmarkProblem(TestCase):
     def _test_constrained_from_botorch(
         self,
         observe_noise_sd: bool,
-        objective_noise_std: Optional[float],
-        constraint_noise_std: Optional[Union[float, list[float]]],
+        objective_noise_std: float | None,
+        constraint_noise_std: float | list[float] | None,
         test_problem_class: type[ConstrainedBaseTestProblem],
     ) -> None:
         ax_problem = create_problem_from_botorch(

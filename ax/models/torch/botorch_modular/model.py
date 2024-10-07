@@ -8,12 +8,12 @@
 
 import dataclasses
 from collections import OrderedDict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from functools import wraps
 from itertools import chain
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, TypeVar
 
 import numpy as np
 import torch
@@ -82,23 +82,23 @@ class SurrogateSpec:
     If ``outcomes`` is left empty then no outcomes will be fit to the Surrogate.
     """
 
-    botorch_model_class: Optional[type[Model]] = None
+    botorch_model_class: type[Model] | None = None
     botorch_model_kwargs: dict[str, Any] = field(default_factory=dict)
 
     mll_class: type[MarginalLogLikelihood] = ExactMarginalLogLikelihood
     mll_kwargs: dict[str, Any] = field(default_factory=dict)
 
-    covar_module_class: Optional[type[Kernel]] = None
-    covar_module_kwargs: Optional[dict[str, Any]] = None
+    covar_module_class: type[Kernel] | None = None
+    covar_module_kwargs: dict[str, Any] | None = None
 
-    likelihood_class: Optional[type[Likelihood]] = None
-    likelihood_kwargs: Optional[dict[str, Any]] = None
+    likelihood_class: type[Likelihood] | None = None
+    likelihood_kwargs: dict[str, Any] | None = None
 
-    input_transform_classes: Optional[list[type[InputTransform]]] = None
-    input_transform_options: Optional[dict[str, dict[str, Any]]] = None
+    input_transform_classes: list[type[InputTransform]] | None = None
+    input_transform_options: dict[str, dict[str, Any]] | None = None
 
-    outcome_transform_classes: Optional[list[type[OutcomeTransform]]] = None
-    outcome_transform_options: Optional[dict[str, dict[str, Any]]] = None
+    outcome_transform_classes: list[type[OutcomeTransform]] | None = None
+    outcome_transform_options: dict[str, dict[str, Any]] | None = None
 
     allow_batched_models: bool = True
 
@@ -144,19 +144,19 @@ class BoTorchModel(TorchModel, Base):
 
     surrogate_specs: dict[str, SurrogateSpec]
     _surrogates: dict[str, Surrogate]
-    _output_order: Optional[list[int]] = None
+    _output_order: list[int] | None = None
 
-    _botorch_acqf_class: Optional[type[AcquisitionFunction]]
-    _search_space_digest: Optional[SearchSpaceDigest] = None
+    _botorch_acqf_class: type[AcquisitionFunction] | None
+    _search_space_digest: SearchSpaceDigest | None = None
     _supports_robust_optimization: bool = True
 
     def __init__(
         self,
-        surrogate_specs: Optional[Mapping[str, SurrogateSpec]] = None,
-        surrogate: Optional[Surrogate] = None,
-        acquisition_class: Optional[type[Acquisition]] = None,
-        acquisition_options: Optional[dict[str, Any]] = None,
-        botorch_acqf_class: Optional[type[AcquisitionFunction]] = None,
+        surrogate_specs: Mapping[str, SurrogateSpec] | None = None,
+        surrogate: Surrogate | None = None,
+        acquisition_class: type[Acquisition] | None = None,
+        acquisition_options: dict[str, Any] | None = None,
+        botorch_acqf_class: type[AcquisitionFunction] | None = None,
         # TODO: [T168715924] Revisit these "refit" arguments.
         refit_on_cv: bool = False,
         warm_start_refit: bool = True,
@@ -242,9 +242,9 @@ class BoTorchModel(TorchModel, Base):
         self,
         datasets: Sequence[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
-        candidate_metadata: Optional[list[list[TCandidateMetadata]]] = None,
+        candidate_metadata: list[list[TCandidateMetadata]] | None = None,
         # state dict by surrogate label
-        state_dicts: Optional[Mapping[str, OrderedDict[str, Tensor]]] = None,
+        state_dicts: Mapping[str, OrderedDict[str, Tensor]] | None = None,
         refit: bool = True,
         **additional_model_inputs: Any,
     ) -> None:
@@ -469,7 +469,7 @@ class BoTorchModel(TorchModel, Base):
         self,
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
-    ) -> Optional[Tensor]:
+    ) -> Tensor | None:
         try:
             return self.surrogate.best_in_sample_point(
                 search_space_digest=search_space_digest,
@@ -484,7 +484,7 @@ class BoTorchModel(TorchModel, Base):
         X: Tensor,
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
-        acq_options: Optional[dict[str, Any]] = None,
+        acq_options: dict[str, Any] | None = None,
     ) -> Tensor:
         acqf = self._instantiate_acquisition(
             search_space_digest=search_space_digest,
@@ -606,7 +606,7 @@ class BoTorchModel(TorchModel, Base):
         self,
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
-        acq_options: Optional[dict[str, Any]] = None,
+        acq_options: dict[str, Any] | None = None,
     ) -> Acquisition:
         """Set a BoTorch acquisition function class for this model if needed and
         instantiate it.

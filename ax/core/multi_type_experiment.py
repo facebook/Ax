@@ -7,7 +7,8 @@
 # pyre-strict
 
 import logging
-from typing import Any, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
@@ -47,13 +48,13 @@ class MultiTypeExperiment(Experiment):
         search_space: SearchSpace,
         default_trial_type: str,
         default_runner: Runner,
-        optimization_config: Optional[OptimizationConfig] = None,
-        status_quo: Optional[Arm] = None,
-        description: Optional[str] = None,
+        optimization_config: OptimizationConfig | None = None,
+        status_quo: Arm | None = None,
+        description: str | None = None,
         is_test: bool = False,
-        experiment_type: Optional[str] = None,
-        properties: Optional[dict[str, Any]] = None,
-        default_data_type: Optional[DataType] = None,
+        experiment_type: str | None = None,
+        properties: dict[str, Any] | None = None,
+        default_data_type: DataType | None = None,
     ) -> None:
         """Inits Experiment.
 
@@ -90,7 +91,7 @@ class MultiTypeExperiment(Experiment):
 
         # call super.__init__() after defining fields above, because we need
         # them to be populated before optimization config is set
-        super(MultiTypeExperiment, self).__init__(
+        super().__init__(
             name=name,
             search_space=search_space,
             optimization_config=optimization_config,
@@ -144,7 +145,7 @@ class MultiTypeExperiment(Experiment):
     # pyre-fixme[14]: `add_tracking_metric` overrides method defined in `Experiment`
     #  inconsistently.
     def add_tracking_metric(
-        self, metric: Metric, trial_type: str, canonical_name: Optional[str] = None
+        self, metric: Metric, trial_type: str, canonical_name: str | None = None
     ) -> "MultiTypeExperiment":
         """Add a new metric to the experiment.
 
@@ -156,7 +157,7 @@ class MultiTypeExperiment(Experiment):
         if not self.supports_trial_type(trial_type):
             raise ValueError(f"`{trial_type}` is not a supported trial type.")
 
-        super(MultiTypeExperiment, self).add_tracking_metric(metric)
+        super().add_tracking_metric(metric)
         self._metric_to_trial_type[metric.name] = trial_type
         if canonical_name is not None:
             self._metric_to_canonical_name[metric.name] = canonical_name
@@ -165,7 +166,7 @@ class MultiTypeExperiment(Experiment):
     # pyre-fixme[14]: `update_tracking_metric` overrides method defined in
     #  `Experiment` inconsistently.
     def update_tracking_metric(
-        self, metric: Metric, trial_type: str, canonical_name: Optional[str] = None
+        self, metric: Metric, trial_type: str, canonical_name: str | None = None
     ) -> "MultiTypeExperiment":
         """Update an existing metric on the experiment.
 
@@ -184,7 +185,7 @@ class MultiTypeExperiment(Experiment):
         elif not self.supports_trial_type(trial_type):
             raise ValueError(f"`{trial_type}` is not a supported trial type.")
 
-        super(MultiTypeExperiment, self).update_tracking_metric(metric)
+        super().update_tracking_metric(metric)
         self._metric_to_trial_type[metric.name] = trial_type
         if canonical_name is not None:
             self._metric_to_canonical_name[metric.name] = canonical_name
@@ -207,7 +208,7 @@ class MultiTypeExperiment(Experiment):
     @copy_doc(Experiment.fetch_data)
     def fetch_data(
         self,
-        metrics: Optional[list[Metric]] = None,
+        metrics: list[Metric] | None = None,
         combine_with_last_data: bool = False,
         overwrite_existing_data: bool = False,
         **kwargs: Any,
@@ -228,7 +229,7 @@ class MultiTypeExperiment(Experiment):
 
     @copy_doc(Experiment._fetch_trial_data)
     def _fetch_trial_data(
-        self, trial_index: int, metrics: Optional[list[Metric]] = None, **kwargs: Any
+        self, trial_index: int, metrics: list[Metric] | None = None, **kwargs: Any
     ) -> dict[str, MetricFetchResult]:
         trial = self.trials[trial_index]
         metrics = [
@@ -262,18 +263,18 @@ class MultiTypeExperiment(Experiment):
 
     # -- Overridden functions from Base Experiment Class --
     @property
-    def default_trial_type(self) -> Optional[str]:
+    def default_trial_type(self) -> str | None:
         """Default trial type assigned to trials in this experiment."""
         return self._default_trial_type
 
-    def runner_for_trial(self, trial: BaseTrial) -> Optional[Runner]:
+    def runner_for_trial(self, trial: BaseTrial) -> Runner | None:
         """The default runner to use for a given trial.
 
         Looks up the appropriate runner for this trial type in the trial_type_to_runner.
         """
         return self.runner_for_trial_type(trial_type=none_throws(trial.trial_type))
 
-    def runner_for_trial_type(self, trial_type: str) -> Optional[Runner]:
+    def runner_for_trial_type(self, trial_type: str) -> Runner | None:
         """The default runner to use for a given trial type.
 
         Looks up the appropriate runner for this trial type in the trial_type_to_runner.
@@ -282,7 +283,7 @@ class MultiTypeExperiment(Experiment):
             raise ValueError(f"Trial type `{trial_type}` is not supported.")
         return self._trial_type_to_runner[trial_type]
 
-    def supports_trial_type(self, trial_type: Optional[str]) -> bool:
+    def supports_trial_type(self, trial_type: str | None) -> bool:
         """Whether this experiment allows trials of the given type.
 
         Only trial types defined in the trial_type_to_runner are allowed.
@@ -296,7 +297,7 @@ class MultiTypeExperiment(Experiment):
 
 
 def filter_trials_by_type(
-    trials: Sequence[BaseTrial], trial_type: Optional[str]
+    trials: Sequence[BaseTrial], trial_type: str | None
 ) -> list[BaseTrial]:
     """Filter trials by trial type if provided.
 

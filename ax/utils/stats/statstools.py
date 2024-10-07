@@ -142,12 +142,12 @@ def positive_part_james_stein(
 
 
 def relativize(
-    means_t: Union[np.ndarray, list[float], float],
-    sems_t: Union[np.ndarray, list[float], float],
+    means_t: np.ndarray | list[float] | float,
+    sems_t: np.ndarray | list[float] | float,
     mean_c: float,
     sem_c: float,
     bias_correction: bool = True,
-    cov_means: Union[np.ndarray, list[float], float] = 0.0,
+    cov_means: np.ndarray | list[float] | float = 0.0,
     as_percent: bool = False,
     control_as_constant: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -213,7 +213,7 @@ def relativize(
     epsilon = 1e-10
     if np.any(np.abs(mean_c) < epsilon):
         raise ValueError(
-            "mean_control ({0} +/- {1}) is smaller than 1 in 10 billion, "
+            "mean_control ({} +/- {}) is smaller than 1 in 10 billion, "
             "which is too small to reliably analyze ratios using the delta "
             "method. This usually occurs because winsorization has truncated "
             "all values down to zero. Try using a delta type that applies "
@@ -243,12 +243,12 @@ def relativize(
 
 
 def unrelativize(
-    means_t: Union[np.ndarray, list[float], float],
-    sems_t: Union[np.ndarray, list[float], float],
+    means_t: np.ndarray | list[float] | float,
+    sems_t: np.ndarray | list[float] | float,
     mean_c: float,
     sem_c: float,
     bias_correction: bool = True,
-    cov_means: Union[np.ndarray, list[float], float] = 0.0,
+    cov_means: np.ndarray | list[float] | float = 0.0,
     as_percent: bool = False,
     control_as_constant: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -309,11 +309,11 @@ def unrelativize(
 
 
 def agresti_coull_sem(
-    n_numer: Union[pd.Series, np.ndarray, int],
-    n_denom: Union[pd.Series, np.ndarray, int],
+    n_numer: pd.Series | np.ndarray | int,
+    n_denom: pd.Series | np.ndarray | int,
     prior_successes: int = 2,
     prior_failures: int = 2,
-) -> Union[np.ndarray, float]:
+) -> np.ndarray | float:
     """Compute the Agresti-Coull style standard error for a binomial proportion.
 
     Reference:

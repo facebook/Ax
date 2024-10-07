@@ -7,7 +7,7 @@
 
 from collections.abc import Mapping
 from logging import Logger
-from typing import Optional, Protocol
+from typing import Protocol
 
 import numpy as np
 
@@ -71,7 +71,7 @@ def compute_model_fit_metrics(
 def coefficient_of_determination(
     y_obs: np.ndarray,
     y_pred: np.ndarray,
-    se_pred: Optional[np.ndarray] = None,
+    se_pred: np.ndarray | None = None,
     eps: float = 1e-12,
 ) -> float:
     """Computes coefficient of determination, the proportion of variance in `y_obs`

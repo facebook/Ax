@@ -8,10 +8,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 
 from contextlib import contextmanager
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, TypeVar
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine.base import Engine
@@ -34,7 +34,7 @@ MEDIUMTEXT_BYTES: int = 2**24 - 1
 LONGTEXT_BYTES: int = 2**32 - 1
 
 # global database variables
-SESSION_FACTORY: Optional[Session] = None
+SESSION_FACTORY: Session | None = None
 
 # set this to false to prevent SQLAlchemy for automatically expiring objects
 # on commit, which essentially makes them unusable outside of a session
@@ -54,7 +54,6 @@ Base = declarative_base(cls=SQABase)
 
 
 def create_mysql_engine_from_creator(
-    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
     creator: Callable,
     echo: bool = False,
     pool_recycle: int = 10,
@@ -99,7 +98,7 @@ def create_mysql_engine_from_url(
     return create_engine(url, pool_recycle=pool_recycle, echo=echo, **kwargs)
 
 
-def create_test_engine(path: Optional[str] = None, echo: bool = True) -> Engine:
+def create_test_engine(path: str | None = None, echo: bool = True) -> Engine:
     """Creates a SQLAlchemy engine object for use in unit tests.
 
     Args:
@@ -118,14 +117,13 @@ def create_test_engine(path: Optional[str] = None, echo: bool = True) -> Engine:
         # (https://docs.sqlalchemy.org/en/14/core/engines.html#sqlite)
         db_path = "sqlite://"
     else:
-        db_path = "sqlite:///{path}".format(path=path)
+        db_path = f"sqlite:///{path}"
     return create_engine(db_path, echo=echo)
 
 
 def init_engine_and_session_factory(
-    url: Optional[str] = None,
-    # pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
-    creator: Optional[Callable] = None,
+    url: str | None = None,
+    creator: Callable | None = None,
     echo: bool = False,
     force_init: bool = False,
     **kwargs: Any,
@@ -169,7 +167,7 @@ def init_engine_and_session_factory(
 
 
 def init_test_engine_and_session_factory(
-    tier_or_path: Optional[str] = None,
+    tier_or_path: str | None = None,
     echo: bool = False,
     force_init: bool = False,
     **kwargs: Any,

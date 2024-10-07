@@ -10,7 +10,6 @@ import itertools
 import logging
 from functools import reduce
 from operator import mul
-from typing import Optional
 
 import numpy as np
 from ax.core.types import TGenMetadata, TParamValue, TParamValueList
@@ -53,14 +52,14 @@ class FullFactorialGenerator(DiscreteModel):
         self,
         n: int,
         parameter_values: list[TParamValueList],
-        objective_weights: Optional[np.ndarray],
-        outcome_constraints: Optional[tuple[np.ndarray, np.ndarray]] = None,
-        fixed_features: Optional[dict[int, TParamValue]] = None,
-        pending_observations: Optional[list[list[TParamValueList]]] = None,
-        model_gen_options: Optional[TConfig] = None,
+        objective_weights: np.ndarray | None,
+        outcome_constraints: tuple[np.ndarray, np.ndarray] | None = None,
+        fixed_features: dict[int, TParamValue] | None = None,
+        pending_observations: list[list[TParamValueList]] | None = None,
+        model_gen_options: TConfig | None = None,
     ) -> tuple[list[TParamValueList], list[float], TGenMetadata]:
         if n != -1:
-            raise ValueError(
+            logger.warning(
                 "FullFactorialGenerator will ignore the specified value of n. "
                 "The generator automatically determines how many arms to "
                 "generate."

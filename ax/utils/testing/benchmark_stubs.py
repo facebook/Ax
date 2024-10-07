@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -45,7 +45,7 @@ from torch.utils.data import Dataset
 def get_single_objective_benchmark_problem(
     observe_noise_sd: bool = False,
     num_trials: int = 4,
-    test_problem_kwargs: Optional[dict[str, Any]] = None,
+    test_problem_kwargs: dict[str, Any] | None = None,
     report_inference_value_as_trace: bool = False,
 ) -> BenchmarkProblem:
     return create_problem_from_botorch(
@@ -230,7 +230,7 @@ class TestParamBasedTestProblem(ParamBasedTestProblem):
     def __init__(
         self,
         num_objectives: int,
-        noise_std: Optional[Union[float, list[float]]] = None,
+        noise_std: float | list[float] | None = None,
         dim: int = 6,
     ) -> None:
         self.num_objectives = num_objectives

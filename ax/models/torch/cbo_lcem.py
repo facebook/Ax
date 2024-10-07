@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from typing import Any, Optional
+from typing import Any
 
 import torch
 from ax.models.torch.botorch import BotorchModel
@@ -25,9 +25,9 @@ class LCEMBO(BotorchModel):
 
     def __init__(
         self,
-        context_cat_feature: Optional[Tensor] = None,
-        context_emb_feature: Optional[Tensor] = None,
-        embs_dim_list: Optional[list[int]] = None,
+        context_cat_feature: Tensor | None = None,
+        context_emb_feature: Tensor | None = None,
+        embs_dim_list: list[int] | None = None,
     ) -> None:
         self.context_cat_feature = context_cat_feature
         self.context_emb_feature = context_emb_feature
@@ -42,8 +42,8 @@ class LCEMBO(BotorchModel):
         task_features: list[int],
         fidelity_features: list[int],
         metric_names: list[str],
-        state_dict: Optional[dict[str, Tensor]] = None,
-        fidelity_model_id: Optional[int] = None,
+        state_dict: dict[str, Tensor] | None = None,
+        fidelity_model_id: int | None = None,
         **kwargs: Any,
     ) -> ModelListGP:
         """Get a fitted multi-task contextual GP model for each outcome.

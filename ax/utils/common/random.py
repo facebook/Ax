@@ -9,7 +9,6 @@
 import random
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Optional
 
 import numpy as np
 import torch
@@ -28,7 +27,7 @@ def set_rng_seed(seed: int) -> None:
 
 
 @contextmanager
-def with_rng_seed(seed: Optional[int]) -> Generator[None, None, None]:
+def with_rng_seed(seed: int | None) -> Generator[None, None, None]:
     """Context manager that sets the random number generator seeds
     to a given value and restores the previous state on exit.
 

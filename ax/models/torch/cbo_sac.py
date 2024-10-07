@@ -7,7 +7,7 @@
 # pyre-strict
 
 from logging import Logger
-from typing import Any, Optional
+from typing import Any
 
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
@@ -53,7 +53,7 @@ class SACBO(BotorchModel):
         self,
         datasets: list[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
-        candidate_metadata: Optional[list[list[TCandidateMetadata]]] = None,
+        candidate_metadata: list[list[TCandidateMetadata]] | None = None,
     ) -> None:
         if len(search_space_digest.feature_names) == 0:
             raise ValueError("feature names are required for SACBO")
@@ -71,8 +71,8 @@ class SACBO(BotorchModel):
         task_features: list[int],
         fidelity_features: list[int],
         metric_names: list[str],
-        state_dict: Optional[dict[str, Tensor]] = None,
-        fidelity_model_id: Optional[int] = None,
+        state_dict: dict[str, Tensor] | None = None,
+        fidelity_model_id: int | None = None,
         **kwargs: Any,
     ) -> GPyTorchModel:
         """Get a fitted StructuralAdditiveContextualGP model for each outcome.

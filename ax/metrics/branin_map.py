@@ -12,7 +12,7 @@ import math
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from random import random
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -34,8 +34,8 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
         name: str,
         param_names: Iterable[str],
         noise_sd: float = 0.0,
-        lower_is_better: Optional[bool] = None,
-        rate: Optional[float] = None,
+        lower_is_better: bool | None = None,
+        rate: float | None = None,
         cache_evaluations: bool = True,
     ) -> None:
         """A Branin map metric with an optional multiplicative factor
@@ -139,7 +139,7 @@ class BraninFidelityMapMetric(NoisyFunctionMapMetric):
         name: str,
         param_names: Iterable[str],
         noise_sd: float = 0.0,
-        lower_is_better: Optional[bool] = None,
+        lower_is_better: bool | None = None,
     ) -> None:
         super().__init__(
             name=name,

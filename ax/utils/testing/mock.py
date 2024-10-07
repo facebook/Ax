@@ -5,10 +5,10 @@
 
 # pyre-strict
 
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any
 from unittest import mock
 
 from botorch.fit import fit_fully_bayesian_model_nuts
@@ -48,7 +48,7 @@ def fast_botorch_optimize_context_manager(
 
         return gen_batch_initial_conditions(*args, **kwargs)
 
-    def minimal_gen_os_ics(*args: Any, **kwargs: Any) -> Optional[Tensor]:
+    def minimal_gen_os_ics(*args: Any, **kwargs: Any) -> Tensor | None:
         kwargs["num_restarts"] = 2
         kwargs["raw_samples"] = 4
 
@@ -111,7 +111,6 @@ def fast_botorch_optimize_context_manager(
         )
 
 
-# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def fast_botorch_optimize(f: Callable) -> Callable:
     """Wraps f in the fast_botorch_optimize_context_manager for use as a decorator."""
 
@@ -141,7 +140,6 @@ def skip_fit_gpytorch_mll_context_manager() -> Generator[None, None, None]:
         )
 
 
-# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def skip_fit_gpytorch_mll(f: Callable) -> Callable:
     """Wraps f in the skip_fit_gpytorch_mll_context_manager for use as a decorator."""
 

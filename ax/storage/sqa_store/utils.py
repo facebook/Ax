@@ -7,7 +7,7 @@
 # pyre-strict
 
 import warnings
-from typing import Any, Optional
+from typing import Any
 
 from ax.core.experiment import Experiment
 from ax.core.search_space import SearchSpace
@@ -48,7 +48,7 @@ def is_foreign_key_field(field: str) -> bool:
 
 
 # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-def copy_db_ids(source: Any, target: Any, path: Optional[list[str]] = None) -> None:
+def copy_db_ids(source: Any, target: Any, path: list[str] | None = None) -> None:
     """Takes as input two objects, `source` and `target`, that should be identical,
     except that `source` has _db_ids set and `target` doesn't. Recursively copies the
     _db_ids from `source` to `target`.

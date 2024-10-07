@@ -7,7 +7,6 @@
 # pyre-strict
 
 import datetime
-from typing import Optional
 
 from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.types import Integer, TypeDecorator
@@ -20,14 +19,14 @@ class IntTimestamp(TypeDecorator):
     # pyre-fixme[15]: `process_bind_param` overrides method defined in
     #  `TypeDecorator` inconsistently.
     def process_bind_param(
-        self, value: Optional[datetime.datetime], dialect: Dialect
-    ) -> Optional[int]:
+        self, value: datetime.datetime | None, dialect: Dialect
+    ) -> int | None:
         if value is None:
             return None
         else:
             return int(value.timestamp())
 
     def process_result_value(
-        self, value: Optional[int], dialect: Dialect
-    ) -> Optional[datetime.datetime]:
+        self, value: int | None, dialect: Dialect
+    ) -> datetime.datetime | None:
         return None if value is None else datetime.datetime.fromtimestamp(value)

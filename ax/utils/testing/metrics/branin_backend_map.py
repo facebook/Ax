@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from typing import Optional
 
 import numpy as np
 from ax.metrics.branin_map import BraninTimestampMapMetric
@@ -26,7 +25,7 @@ class BraninBackendMapMetric(
         name: str,
         param_names: list[str],
         noise_sd: float = 0.0,
-        lower_is_better: Optional[bool] = True,
+        lower_is_better: bool | None = True,
         cache_evaluations: bool = True,
         rate: float = 0.5,
         delta_t: float = 1.0,
@@ -56,7 +55,7 @@ class BraninBackendMapMetric(
         self._timestamp = -1
 
     def convert_to_timestamps(
-        self, start_time: Optional[float], end_time: float
+        self, start_time: float | None, end_time: float
     ) -> list[float]:
         """Given a starting and current time, get the list of intermediate
         timestamps at which we have observations."""

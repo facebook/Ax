@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import Any, Optional, Union
+from typing import Any
 
 from ax.benchmark.benchmark_method import (
     BenchmarkMethod,
@@ -44,11 +44,11 @@ def get_sobol_botorch_modular_acquisition(
     model_cls: type[Model],
     acquisition_cls: type[AcquisitionFunction],
     distribute_replications: bool,
-    scheduler_options: Optional[SchedulerOptions] = None,
-    name: Optional[str] = None,
+    scheduler_options: SchedulerOptions | None = None,
+    name: str | None = None,
     num_sobol_trials: int = 5,
-    model_gen_kwargs: Optional[dict[str, Any]] = None,
-    best_point_kwargs: dict[str, bool] | None = None,
+    model_gen_kwargs: dict[str, Any] | None = None,
+    use_model_predictions_for_best_point: bool = False,
 ) -> BenchmarkMethod:
     """Get a `BenchmarkMethod` that uses Sobol followed by MBM.
 
@@ -65,7 +65,7 @@ def get_sobol_botorch_modular_acquisition(
             `BatchTrial`s.
         model_gen_kwargs: Passed to the BoTorch `GenerationStep` and ultimately
             to the BoTorch `Model`.
-        best_point_kwargs: Passed to the created `BenchmarkMethod`.
+        use_model_predictions_for_best_point: Passed to the created `BenchmarkMethod`.
 
     Example:
         >>> # A simple example
@@ -96,7 +96,7 @@ def get_sobol_botorch_modular_acquisition(
         ... )
     """
     model_kwargs: dict[
-        str, Union[type[AcquisitionFunction], dict[str, SurrogateSpec], bool]
+        str, type[AcquisitionFunction] | dict[str, SurrogateSpec] | bool
     ] = {
         "botorch_acqf_class": acquisition_cls,
         "surrogate_specs": {"BoTorch": SurrogateSpec(botorch_model_class=model_cls)},
@@ -140,5 +140,5 @@ def get_sobol_botorch_modular_acquisition(
         generation_strategy=generation_strategy,
         scheduler_options=scheduler_options or get_benchmark_scheduler_options(),
         distribute_replications=distribute_replications,
-        best_point_kwargs={} if best_point_kwargs is None else best_point_kwargs,
+        use_model_predictions_for_best_point=use_model_predictions_for_best_point,
     )

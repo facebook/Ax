@@ -10,7 +10,7 @@ import time
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from logging import Logger
-from typing import Any, Optional
+from typing import Any
 
 from ax.core.arm import Arm
 from ax.core.data import Data
@@ -56,7 +56,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
         self,
         node_name: str,
         should_deduplicate: bool = True,
-        transition_criteria: Optional[Sequence[TransitionCriterion]] = None,
+        transition_criteria: Sequence[TransitionCriterion] | None = None,
     ) -> None:
         """Initialize an external generation node.
 
@@ -129,8 +129,8 @@ class ExternalGenerationNode(GenerationNode, ABC):
         self,
         experiment: Experiment,
         data: Data,
-        search_space: Optional[SearchSpace] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
+        search_space: SearchSpace | None = None,
+        optimization_config: OptimizationConfig | None = None,
         **kwargs: Any,
     ) -> None:
         """A method used to initialize or update the experiment state / data
@@ -164,8 +164,8 @@ class ExternalGenerationNode(GenerationNode, ABC):
 
     def _gen(
         self,
-        n: Optional[int] = None,
-        pending_observations: Optional[dict[str, list[ObservationFeatures]]] = None,
+        n: int | None = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
         **model_gen_kwargs: Any,
     ) -> GeneratorRun:
         """Generate new candidates for evaluation.

@@ -17,7 +17,7 @@ from datetime import timedelta
 from functools import reduce
 from logging import Logger
 
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from ax.core.data import Data
 from ax.utils.common.base import SortableBase
@@ -38,7 +38,7 @@ class MetricFetchE:
     # TODO[mpolson64] Replace this with ExceptionE
 
     message: str
-    exception: Optional[Exception]
+    exception: Exception | None
 
     def __post_init__(self) -> None:
         logger.info(msg=f"MetricFetchE INFO: Initialized {self}")
@@ -52,7 +52,7 @@ class MetricFetchE:
             f"with Traceback:\n {self.tb_str()}"
         )
 
-    def tb_str(self) -> Optional[str]:
+    def tb_str(self) -> str | None:
         if self.exception is None:
             return None
 
@@ -86,8 +86,8 @@ class Metric(SortableBase, SerializationMixin):
     def __init__(
         self,
         name: str,
-        lower_is_better: Optional[bool] = None,
-        properties: Optional[dict[str, Any]] = None,
+        lower_is_better: bool | None = None,
+        properties: dict[str, Any] | None = None,
     ) -> None:
         """Inits Metric.
 
@@ -226,7 +226,7 @@ class Metric(SortableBase, SerializationMixin):
         self,
         experiment: core.experiment.Experiment,
         metrics: list[Metric],
-        trials: Optional[list[core.base_trial.BaseTrial]] = None,
+        trials: list[core.base_trial.BaseTrial] | None = None,
         **kwargs: Any,
     ) -> dict[int, dict[str, MetricFetchResult]]:
         """Fetch multiple metrics data for multiple trials on an experiment, using
@@ -271,7 +271,7 @@ class Metric(SortableBase, SerializationMixin):
         self,
         experiment: core.experiment.Experiment,
         metrics: list[Metric],
-        trials: Optional[list[core.base_trial.BaseTrial]] = None,
+        trials: list[core.base_trial.BaseTrial] | None = None,
         **kwargs: Any,
     ) -> tuple[dict[int, dict[str, MetricFetchResult]], bool]:
         """Fetch or lookup (with fallback to fetching) data for given metrics,
@@ -392,7 +392,7 @@ class Metric(SortableBase, SerializationMixin):
         cls,
         experiment: core.experiment.Experiment,
         metrics: Iterable[Metric],
-        trials: Optional[Iterable[core.base_trial.BaseTrial]] = None,
+        trials: Iterable[core.base_trial.BaseTrial] | None = None,
         **kwargs: Any,
     ) -> dict[int, dict[str, MetricFetchResult]]:
         """Fetch multiple metrics data for an experiment.
@@ -489,7 +489,7 @@ class Metric(SortableBase, SerializationMixin):
         cls,
         results: Mapping[str, MetricFetchResult],
         # TODO[mpolson64] Add critical_metric_names to other unwrap methods
-        critical_metric_names: Optional[list[str]] = None,
+        critical_metric_names: list[str] | None = None,
     ) -> Data:
         # NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and
         # lose rows)if some MetricFetchResults contain Data not of type

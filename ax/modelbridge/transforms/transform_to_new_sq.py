@@ -8,8 +8,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from math import sqrt
-from typing import Callable, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -41,10 +43,10 @@ class TransformToNewSQ(BaseRelativize):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[list[Observation]] = None,
-        modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
-        config: Optional[TConfig] = None,
+        search_space: SearchSpace | None = None,
+        observations: list[Observation] | None = None,
+        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        config: TConfig | None = None,
     ) -> None:
         super().__init__(
             search_space=search_space,
@@ -69,15 +71,15 @@ class TransformToNewSQ(BaseRelativize):
     def transform_optimization_config(
         self,
         optimization_config: OptimizationConfig,
-        modelbridge: Optional[modelbridge_module.base.ModelBridge] = None,
-        fixed_features: Optional[ObservationFeatures] = None,
+        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         return optimization_config
 
     def untransform_outcome_constraints(
         self,
         outcome_constraints: list[OutcomeConstraint],
-        fixed_features: Optional[ObservationFeatures] = None,
+        fixed_features: ObservationFeatures | None = None,
     ) -> list[OutcomeConstraint]:
         return outcome_constraints
 
@@ -170,7 +172,7 @@ class TransformToNewSQ(BaseRelativize):
         sem_c: float,
         metric: str,
         rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """Compute (un)transformed mean and sem for a single metric."""
         target_status_quo_data = self.status_quo_data_by_trial[self.default_trial_idx]
         j = get_metric_index(data=target_status_quo_data, metric_name=metric)

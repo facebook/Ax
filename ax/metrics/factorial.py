@@ -41,7 +41,7 @@ class FactorialMetric(Metric):
             noise_var: used in calculating the probability of
                 each arm.
         """
-        super(FactorialMetric, self).__init__(name)
+        super().__init__(name)
 
         self.coefficients = coefficients
         self.batch_size = batch_size
@@ -122,9 +122,9 @@ def _parameterization_probability(
     z = 0.0
     for factor, level in parameterization.items():
         if factor not in coefficients.keys():
-            raise ValueError("{} not in supplied coefficients".format(factor))
+            raise ValueError(f"{factor} not in supplied coefficients")
         if level not in coefficients[factor].keys():
-            raise ValueError("{} not a valid level of {}".format(level, factor))
+            raise ValueError(f"{level} not a valid level of {factor}")
         z += coefficients[factor][level]
     z += np.sqrt(noise_var) * np.random.randn()
     return np.exp(z) / (1 + np.exp(z))

@@ -8,7 +8,7 @@
 
 from collections.abc import Iterable
 from copy import deepcopy
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 import numpy as np
 from ax.core.arm import Arm
@@ -168,7 +168,7 @@ def _extract_generator_runs(trial: BaseTrial) -> list[GeneratorRun]:
 
 def get_model_trace_of_times(
     experiment: Experiment,
-) -> tuple[list[Optional[float]], list[Optional[float]]]:
+) -> tuple[list[float | None], list[float | None]]:
     """
     Get time spent fitting the model and generating candidates during each trial.
     Not cumulative.
@@ -191,8 +191,8 @@ def get_model_times(experiment: Experiment) -> tuple[float, float]:
     course of the experiment.
     """
     fit_times, gen_times = get_model_trace_of_times(experiment)
-    fit_time = sum((t for t in fit_times if t is not None))
-    gen_time = sum((t for t in gen_times if t is not None))
+    fit_time = sum(t for t in fit_times if t is not None)
+    gen_time = sum(t for t in gen_times if t is not None)
     return fit_time, gen_time
 
 
@@ -202,7 +202,7 @@ def get_model_times(experiment: Experiment) -> tuple[float, float]:
 def extract_pending_observations(
     experiment: Experiment,
     include_out_of_design_points: bool = False,
-) -> Optional[dict[str, list[ObservationFeatures]]]:
+) -> dict[str, list[ObservationFeatures]] | None:
     """Computes a list of pending observation features (corresponding to:
     - arms that have been generated and run in the course of the experiment,
     but have not been completed with data,
@@ -240,7 +240,7 @@ def get_pending_observation_features(
     experiment: Experiment,
     *,
     include_out_of_design_points: bool = False,
-) -> Optional[dict[str, list[ObservationFeatures]]]:
+) -> dict[str, list[ObservationFeatures]] | None:
     """Computes a list of pending observation features (corresponding to:
     - arms that have been generated in the course of the experiment,
     but have not been completed with data,
@@ -274,7 +274,7 @@ def get_pending_observation_features(
         arm: Arm,
         trial_index: int,
         trial: BaseTrial,
-    ) -> Optional[ObservationFeatures]:
+    ) -> ObservationFeatures | None:
         if not include_out_of_design_points and not _is_in_design(arm=arm):
             return None
         return ObservationFeatures.from_arm(
@@ -331,7 +331,7 @@ def get_pending_observation_features(
 def get_pending_observation_features_based_on_trial_status(
     experiment: Experiment,
     include_out_of_design_points: bool = False,
-) -> Optional[dict[str, list[ObservationFeatures]]]:
+) -> dict[str, list[ObservationFeatures]] | None:
     """A faster analogue of ``get_pending_observation_features`` that makes
     assumptions about trials in experiment in order to speed up extraction
     of pending points.
@@ -393,14 +393,31 @@ def get_pending_observation_features_based_on_trial_status(
 def extend_pending_observations(
     experiment: Experiment,
     pending_observations: dict[str, list[ObservationFeatures]],
-    generator_run: GeneratorRun,
-) -> None:
+    generator_runs: list[GeneratorRun],
+) -> dict[str, list[ObservationFeatures]]:
     """Extend given pending observations dict (from metric name to observations
     that are pending for that metric), with arms in a given generator run.
+
+    Args:
+        experiment: Experiment, for which the generation strategy is producing
+            ``GeneratorRun``s.
+        pending_observations: Dict from metric name to pending observations for
+            that metric, used to avoid resuggesting arms that will be explored soon.
+        generator_runs: List of ``GeneratorRun``s currently produced by the
+            ``GenerationStrategy``.
+
+    Returns:
+        A new dictionary of pending observations to avoid in-place modification
     """
+    # TODO: T203665729 @mgarrard add arm signature to ObservationFeatures and then use
+    # that to compare to arm signature in GR to speed up this method
+    extended_obs = deepcopy(pending_observations)
     for m in experiment.metrics:
-        if m not in pending_observations:
-            pending_observations[m] = []
-        pending_observations[m].extend(
-            ObservationFeatures.from_arm(a) for a in generator_run.arms
-        )
+        if m not in extended_obs:
+            extended_obs[m] = []
+        for generator_run in generator_runs:
+            for a in generator_run.arms:
+                ob_ft = ObservationFeatures.from_arm(a)
+                if ob_ft not in extended_obs[m]:
+                    extended_obs[m].append(ob_ft)
+    return extended_obs

@@ -8,8 +8,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 import torch
 from ax.core.observation import ObservationData, ObservationFeatures
@@ -31,9 +29,9 @@ class PairwiseModelBridge(TorchModelBridge):
         observation_features: list[ObservationFeatures],
         outcomes: list[str],
         parameters: list[str],
-        search_space_digest: Optional[SearchSpaceDigest],
+        search_space_digest: SearchSpaceDigest | None,
     ) -> tuple[
-        list[SupervisedDataset], list[str], Optional[list[list[TCandidateMetadata]]]
+        list[SupervisedDataset], list[str], list[list[TCandidateMetadata]] | None
     ]:
         """Converts observations to a dictionary of `Dataset` containers and (optional)
         candidate metadata.

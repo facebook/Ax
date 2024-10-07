@@ -7,7 +7,6 @@
 # pyre-strict
 
 from dataclasses import dataclass
-from typing import Union
 
 import numpy as np
 import torch
@@ -43,7 +42,7 @@ class TestModelBridgeUtils(TestCase):
 
         @dataclass
         class MockModelbridge(ModelBridge):
-            def _array_to_tensor(self, array: Union[np.ndarray, list[float]]):
+            def _array_to_tensor(self, array: np.ndarray | list[float]):
                 return _array_to_tensor(array=array)
 
         mock_modelbridge = MockModelbridge()

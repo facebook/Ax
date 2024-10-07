@@ -7,7 +7,6 @@
 # pyre-strict
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -31,5 +30,5 @@ class WinsorizationConfig:
 
     lower_quantile_margin: float = 0.0
     upper_quantile_margin: float = 0.0
-    lower_boundary: Optional[float] = None
-    upper_boundary: Optional[float] = None
+    lower_boundary: float | None = None
+    upper_boundary: float | None = None

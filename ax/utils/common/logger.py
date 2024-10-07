@@ -9,9 +9,9 @@
 import logging
 import os
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from ax.utils.common.decorator import ClassDecorator
 
@@ -57,9 +57,7 @@ def get_logger(
         The logging.Logger object.
     """
     # because handlers are attached to the "ax" module
-    if not force_name and not re.search(
-        r"^{ax_root}(\.|$)".format(ax_root=AX_ROOT_LOGGER_NAME), name
-    ):
+    if not force_name and not re.search(rf"^{AX_ROOT_LOGGER_NAME}(\.|$)", name):
         name = f"{AX_ROOT_LOGGER_NAME}.{name}"
     logger = logging.getLogger(name)
     logger.setLevel(level)

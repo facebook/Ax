@@ -8,15 +8,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
 from ax.utils.common.typeutils_nonnative import numpy_type_to_python_type
 
 
-# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def equality_typechecker(eq_func: Callable) -> Callable:
     """A decorator to wrap all __eq__ methods to ensure that the inputs
     are of the right type.
@@ -100,7 +101,7 @@ def is_ax_equal(one_val: Any, other_val: Any) -> bool:
             return False
 
 
-def datetime_equals(dt1: Optional[datetime], dt2: Optional[datetime]) -> bool:
+def datetime_equals(dt1: datetime | None, dt2: datetime | None) -> bool:
     """Compare equality of two datetimes, ignoring microseconds."""
     if not dt1 and not dt2:
         return True

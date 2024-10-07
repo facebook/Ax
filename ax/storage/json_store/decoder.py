@@ -12,7 +12,7 @@ from enum import Enum
 from inspect import isclass
 from io import StringIO
 from logging import Logger
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -31,6 +31,7 @@ from ax.core.parameter_constraint import (
 )
 from ax.core.search_space import SearchSpace
 from ax.exceptions.storage import JSONDecodeError, STORAGE_DOCS_SUFFIX
+from ax.modelbridge.generation_node_input_constructors import InputConstructorPurpose
 from ax.modelbridge.generation_strategy import (
     GenerationNode,
     GenerationStep,
@@ -356,7 +357,7 @@ def trial_transition_criteria_from_json(
     transition_criteria_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> Optional[TransitionCriterion]:
+) -> TransitionCriterion | None:
     """Load Ax transition criteria that depend on Trials from JSON.
 
     Since ``TrialBasedCriterion`` contain lists of ``TrialStatus``,
@@ -649,6 +650,20 @@ def generation_node_from_json(
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> GenerationNode:
     """Load GenerationNode object from JSON."""
+    # Due to input_constructors being a dictionary with both keys and values being of
+    # type enum, we must manually decode them here because object_from_json doesn't
+    # recursively decode dictionary key values.
+    decoded_input_constructors = None
+    if "input_constructors" in generation_node_json.keys():
+        decoded_input_constructors = {
+            InputConstructorPurpose[key]: object_from_json(
+                value,
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
+            )
+            for key, value in generation_node_json.pop("input_constructors").items()
+        }
+
     return GenerationNode(
         node_name=generation_node_json.pop("node_name"),
         model_specs=object_from_json(
@@ -671,15 +686,7 @@ def generation_node_from_json(
             if "transition_criteria" in generation_node_json.keys()
             else None
         ),
-        input_constructors=(
-            object_from_json(
-                generation_node_json.pop("input_constructors"),
-                decoder_registry=decoder_registry,
-                class_decoder_registry=class_decoder_registry,
-            )
-            if "input_constructors" in generation_node_json.keys()
-            else None
-        ),
+        input_constructors=decoded_input_constructors,
         previous_node_name=(
             generation_node_json.pop("previous_node_name")
             if "previous_node_name" in generation_node_json.keys()
@@ -792,7 +799,7 @@ def model_spec_from_json(
 
 def generation_strategy_from_json(
     generation_strategy_json: dict[str, Any],
-    experiment: Optional[Experiment] = None,
+    experiment: Experiment | None = None,
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> GenerationStrategy:
@@ -917,10 +924,10 @@ def surrogate_from_list_surrogate_json(
 
 
 def get_input_transform_json_components(
-    input_transforms_json: Optional[Union[list[dict[str, Any]], dict[str, Any]]],
+    input_transforms_json: list[dict[str, Any]] | dict[str, Any] | None,
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> tuple[Optional[list[dict[str, Any]]], Optional[dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None]:
     if input_transforms_json is None:
         return None, None
     if isinstance(input_transforms_json, dict):
@@ -945,10 +952,10 @@ def get_input_transform_json_components(
 
 
 def get_outcome_transform_json_components(
-    outcome_transforms_json: Optional[list[dict[str, Any]]],
+    outcome_transforms_json: list[dict[str, Any]] | None,
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
-) -> tuple[Optional[list[dict[str, Any]]], Optional[dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None]:
     if outcome_transforms_json is None:
         return None, None
 

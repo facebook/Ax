@@ -9,7 +9,7 @@
 from copy import deepcopy
 from itertools import combinations
 from logging import Logger
-from typing import NamedTuple, Optional, Union
+from typing import NamedTuple
 
 import numpy as np
 import torch
@@ -54,8 +54,8 @@ logger: Logger = get_logger(__name__)
 
 def _extract_observed_pareto_2d(
     Y: np.ndarray,
-    reference_point: Optional[tuple[float, float]],
-    minimize: Union[bool, tuple[bool, bool]] = True,
+    reference_point: tuple[float, float] | None,
+    minimize: bool | tuple[bool, bool] = True,
 ) -> np.ndarray:
     if Y.shape[1] != 2:
         raise NotImplementedError("Currently only the 2-dim case is handled.")
@@ -113,8 +113,8 @@ class ParetoFrontierResults(NamedTuple):
     primary_metric: str
     secondary_metric: str
     absolute_metrics: list[str]
-    objective_thresholds: Optional[dict[str, float]]
-    arm_names: Optional[list[Optional[str]]]
+    objective_thresholds: dict[str, float] | None
+    arm_names: list[str | None] | None
 
 
 def _extract_sq_data(
@@ -162,9 +162,9 @@ def _relativize_values(
 
 def get_observed_pareto_frontiers(
     experiment: Experiment,
-    data: Optional[Data] = None,
-    rel: Optional[bool] = None,
-    arm_names: Optional[list[str]] = None,
+    data: Data | None = None,
+    rel: bool | None = None,
+    arm_names: list[str] | None = None,
 ) -> list[ParetoFrontierResults]:
     """
     Find all Pareto points from an experiment.
@@ -342,11 +342,11 @@ def compute_posterior_pareto_frontier(
     experiment: Experiment,
     primary_objective: Metric,
     secondary_objective: Metric,
-    data: Optional[Data] = None,
-    outcome_constraints: Optional[list[OutcomeConstraint]] = None,
-    absolute_metrics: Optional[list[str]] = None,
+    data: Data | None = None,
+    outcome_constraints: list[OutcomeConstraint] | None = None,
+    absolute_metrics: list[str] | None = None,
     num_points: int = 10,
-    trial_index: Optional[int] = None,
+    trial_index: int | None = None,
 ) -> ParetoFrontierResults:
     """Compute the Pareto frontier between two objectives. For experiments
     with batch trials, a trial index or data object must be provided.
@@ -489,8 +489,8 @@ def _extract_pareto_frontier_results(
     primary_metric: str,
     secondary_metric: str,
     absolute_metrics: list[str],
-    outcome_constraints: Optional[list[OutcomeConstraint]],
-    status_quo_prediction: Optional[tuple[Mu, Cov]],
+    outcome_constraints: list[OutcomeConstraint] | None,
+    status_quo_prediction: tuple[Mu, Cov] | None,
 ) -> ParetoFrontierResults:
     """Extract prediction results into ParetoFrontierResults struture."""
     metrics = list(means.keys())
@@ -548,7 +548,7 @@ def _build_scalarized_optimization_config(
     weights: np.ndarray,
     primary_objective: Metric,
     secondary_objective: Metric,
-    outcome_constraints: Optional[list[OutcomeConstraint]] = None,
+    outcome_constraints: list[OutcomeConstraint] | None = None,
 ) -> MultiObjectiveOptimizationConfig:
     obj = ScalarizedObjective(
         metrics=[primary_objective, secondary_objective],

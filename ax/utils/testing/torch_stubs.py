@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import torch
 
@@ -17,7 +17,7 @@ def get_torch_test_data(
     dtype: torch.dtype = torch.float,
     cuda: bool = False,
     constant_noise: bool = True,
-    task_features: Optional[list[int]] = None,
+    task_features: list[int] | None = None,
     offset: float = 0.0,
 ) -> tuple[
     list[torch.Tensor],

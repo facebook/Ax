@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import inspect
 import pydoc
+from collections.abc import Callable
 from types import FunctionType
-from typing import Any, Callable, Optional, TypeVar, Union
+from typing import Any, TypeVar, Union
 
 
 T = TypeVar("T")
@@ -53,7 +54,6 @@ def _is_named_tuple(x: Any) -> bool:
     return all(isinstance(n, str) for n in f)
 
 
-# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def callable_to_reference(callable: Callable) -> str:
     """Obtains path to the callable of form <module>.<name>."""
     if not isinstance(callable, (FunctionType, type)):
@@ -69,7 +69,6 @@ def callable_to_reference(callable: Callable) -> str:
         )
 
 
-# pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.
 def callable_from_reference(path: str) -> Callable:
     """Retrieves a callable by its path."""
     return pydoc.locate(path)  # pyre-ignore[7]
@@ -78,7 +77,7 @@ def callable_from_reference(path: str) -> Callable:
 def serialize_init_args(
     # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     obj: Any,
-    exclude_fields: Optional[list[str]] = None,
+    exclude_fields: list[str] | None = None,
 ) -> dict[str, Any]:
     """Given an object, return a dictionary of the arguments that are
     needed by its constructor.
@@ -158,8 +157,8 @@ class SerializationMixin:
     def deserialize_init_args(
         cls,
         args: dict[str, Any],
-        decoder_registry: Optional[TDecoderRegistry] = None,
-        class_decoder_registry: Optional[TClassDecoderRegistry] = None,
+        decoder_registry: TDecoderRegistry | None = None,
+        class_decoder_registry: TClassDecoderRegistry | None = None,
     ) -> dict[str, Any]:
         """Given a dictionary, deserialize the properties needed to initialize the
         object. Used for storage.

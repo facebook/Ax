@@ -9,9 +9,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Callable
 from copy import deepcopy
 from logging import Logger
-from typing import Any, Callable, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -90,11 +91,11 @@ class TorchModelBridge(ModelBridge):
     them to the model.
     """
 
-    model: Optional[TorchModel] = None
+    model: TorchModel | None = None
     outcomes: list[str]
     parameters: list[str]
     _default_model_gen_options: TConfig
-    _last_observations: Optional[list[Observation]] = None
+    _last_observations: list[Observation] | None = None
 
     def __init__(
         self,
@@ -103,17 +104,17 @@ class TorchModelBridge(ModelBridge):
         data: Data,
         model: TorchModel,
         transforms: list[type[Transform]],
-        transform_configs: Optional[dict[str, TConfig]] = None,
-        torch_dtype: Optional[torch.dtype] = None,
-        torch_device: Optional[torch.device] = None,
-        status_quo_name: Optional[str] = None,
-        status_quo_features: Optional[ObservationFeatures] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
+        transform_configs: dict[str, TConfig] | None = None,
+        torch_dtype: torch.dtype | None = None,
+        torch_device: torch.device | None = None,
+        status_quo_name: str | None = None,
+        status_quo_features: ObservationFeatures | None = None,
+        optimization_config: OptimizationConfig | None = None,
         fit_out_of_design: bool = False,
         fit_abandoned: bool = False,
         fit_tracking_metrics: bool = True,
         fit_on_init: bool = True,
-        default_model_gen_options: Optional[TConfig] = None,
+        default_model_gen_options: TConfig | None = None,
     ) -> None:
         self.dtype: torch.dtype = torch.double if torch_dtype is None else torch_dtype
         self.device = torch_device
@@ -153,9 +154,9 @@ class TorchModelBridge(ModelBridge):
 
     def infer_objective_thresholds(
         self,
-        search_space: Optional[SearchSpace] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
-        fixed_features: Optional[ObservationFeatures] = None,
+        search_space: SearchSpace | None = None,
+        optimization_config: OptimizationConfig | None = None,
+        fixed_features: ObservationFeatures | None = None,
     ) -> list[ObjectiveThreshold]:
         """Infer objective thresholds.
 
@@ -227,12 +228,12 @@ class TorchModelBridge(ModelBridge):
 
     def model_best_point(
         self,
-        search_space: Optional[SearchSpace] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
-        pending_observations: Optional[dict[str, list[ObservationFeatures]]] = None,
-        fixed_features: Optional[ObservationFeatures] = None,
-        model_gen_options: Optional[TConfig] = None,
-    ) -> Optional[tuple[Arm, Optional[TModelPredictArm]]]:
+        search_space: SearchSpace | None = None,
+        optimization_config: OptimizationConfig | None = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
+        fixed_features: ObservationFeatures | None = None,
+        model_gen_options: TConfig | None = None,
+    ) -> tuple[Arm, TModelPredictArm | None] | None:
         # Get modifiable versions
         if search_space is None:
             search_space = self._model_space
@@ -292,7 +293,7 @@ class TorchModelBridge(ModelBridge):
     def _array_list_to_tensors(self, arrays: list[np.ndarray]) -> list[Tensor]:
         return [self._array_to_tensor(x) for x in arrays]
 
-    def _array_to_tensor(self, array: Union[np.ndarray, list[float]]) -> Tensor:
+    def _array_to_tensor(self, array: np.ndarray | list[float]) -> Tensor:
         return torch.as_tensor(array, dtype=self.dtype, device=self.device)
 
     def _convert_observations(
@@ -301,9 +302,9 @@ class TorchModelBridge(ModelBridge):
         observation_features: list[ObservationFeatures],
         outcomes: list[str],
         parameters: list[str],
-        search_space_digest: Optional[SearchSpaceDigest],
+        search_space_digest: SearchSpaceDigest | None,
     ) -> tuple[
-        list[SupervisedDataset], list[str], Optional[list[list[TCandidateMetadata]]]
+        list[SupervisedDataset], list[str], list[list[TCandidateMetadata]] | None
     ]:
         """Converts observations to a dictionary of `Dataset` containers and (optional)
         candidate metadata.
@@ -428,7 +429,7 @@ class TorchModelBridge(ModelBridge):
         search_space: SearchSpace,
         cv_training_data: list[Observation],
         cv_test_points: list[ObservationFeatures],
-        parameters: Optional[list[str]] = None,
+        parameters: list[str] | None = None,
         use_posterior_predictive: bool = False,
         **kwargs: Any,
     ) -> list[ObservationData]:
@@ -467,14 +468,14 @@ class TorchModelBridge(ModelBridge):
 
     def evaluate_acquisition_function(
         self,
-        observation_features: Union[
-            list[ObservationFeatures], list[list[ObservationFeatures]]
-        ],
-        search_space: Optional[SearchSpace] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
-        pending_observations: Optional[dict[str, list[ObservationFeatures]]] = None,
-        fixed_features: Optional[ObservationFeatures] = None,
-        acq_options: Optional[dict[str, Any]] = None,
+        observation_features: (
+            list[ObservationFeatures] | list[list[ObservationFeatures]]
+        ),
+        search_space: SearchSpace | None = None,
+        optimization_config: OptimizationConfig | None = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
+        fixed_features: ObservationFeatures | None = None,
+        acq_options: dict[str, Any] | None = None,
     ) -> list[float]:
         """Evaluate the acquisition function for given set of observation
         features.
@@ -537,9 +538,9 @@ class TorchModelBridge(ModelBridge):
         observation_features: list[list[ObservationFeatures]],
         search_space: SearchSpace,
         optimization_config: OptimizationConfig,
-        pending_observations: Optional[dict[str, list[ObservationFeatures]]] = None,
-        fixed_features: Optional[ObservationFeatures] = None,
-        acq_options: Optional[dict[str, Any]] = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
+        fixed_features: ObservationFeatures | None = None,
+        acq_options: dict[str, Any] | None = None,
     ) -> list[float]:
         if self.model is None:
             raise RuntimeError(
@@ -569,11 +570,11 @@ class TorchModelBridge(ModelBridge):
         self,
         search_space: SearchSpace,
         observations: list[Observation],
-        parameters: Optional[list[str]],
+        parameters: list[str] | None,
         update_outcomes_and_parameters: bool,
     ) -> tuple[
         list[SupervisedDataset],
-        Optional[list[list[TCandidateMetadata]]],
+        list[list[TCandidateMetadata]] | None,
         SearchSpaceDigest,
     ]:
         """Helper for consolidating some common argument processing between
@@ -633,7 +634,7 @@ class TorchModelBridge(ModelBridge):
         model: TorchModel,
         search_space: SearchSpace,
         observations: list[Observation],
-        parameters: Optional[list[str]] = None,
+        parameters: list[str] | None = None,
         **kwargs: Any,
     ) -> None:
         if self.model is not None and observations == self._last_observations:
@@ -662,9 +663,9 @@ class TorchModelBridge(ModelBridge):
         n: int,
         search_space: SearchSpace,
         pending_observations: dict[str, list[ObservationFeatures]],
-        fixed_features: Optional[ObservationFeatures],
-        model_gen_options: Optional[TConfig] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
+        fixed_features: ObservationFeatures | None,
+        model_gen_options: TConfig | None = None,
+        optimization_config: OptimizationConfig | None = None,
     ) -> GenResults:
         """Generate new candidates according to search_space and
         optimization_config.
@@ -764,7 +765,7 @@ class TorchModelBridge(ModelBridge):
         return array_to_observation_data(f=f, cov=cov, outcomes=self.outcomes)
 
     def _array_to_observation_features(
-        self, X: np.ndarray, candidate_metadata: Optional[list[TCandidateMetadata]]
+        self, X: np.ndarray, candidate_metadata: list[TCandidateMetadata] | None
     ) -> list[ObservationFeatures]:
         return parse_observation_features(
             X=X, param_names=self.parameters, candidate_metadata=candidate_metadata
@@ -793,9 +794,9 @@ class TorchModelBridge(ModelBridge):
         self,
         search_space: SearchSpace,
         pending_observations: dict[str, list[ObservationFeatures]],
-        fixed_features: Optional[ObservationFeatures],
-        model_gen_options: Optional[TConfig] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
+        fixed_features: ObservationFeatures | None,
+        model_gen_options: TConfig | None = None,
+        optimization_config: OptimizationConfig | None = None,
     ) -> tuple[SearchSpaceDigest, TorchOptConfig]:
         # Validation
         if not self.parameters:
@@ -900,9 +901,9 @@ class TorchModelBridge(ModelBridge):
         self,
         objective_thresholds: Tensor,
         objective_weights: Tensor,
-        bounds: list[tuple[Union[int, float], Union[int, float]]],
+        bounds: list[tuple[int | float, int | float]],
         opt_config_metrics: dict[str, Metric],
-        fixed_features: Optional[dict[int, float]],
+        fixed_features: dict[int, float] | None,
     ) -> list[ObjectiveThreshold]:
         thresholds_np = objective_thresholds.cpu().numpy()
         idxs = objective_weights.nonzero().view(-1).tolist()

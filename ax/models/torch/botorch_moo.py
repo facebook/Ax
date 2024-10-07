@@ -6,8 +6,9 @@
 
 # pyre-strict
 
+from collections.abc import Callable
 from logging import Logger
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -180,8 +181,8 @@ class MultiObjectiveBotorchModel(BotorchModel):
     a tuple of tensors describing the (linear) outcome constraints.
     """
 
-    dtype: Optional[torch.dtype]
-    device: Optional[torch.device]
+    dtype: torch.dtype | None
+    device: torch.device | None
     Xs: list[Tensor]
     Ys: list[Tensor]
     Yvars: list[Tensor]
@@ -209,7 +210,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
         warm_start_refitting: bool = False,
         use_input_warping: bool = False,
         use_loocv_pseudo_likelihood: bool = False,
-        prior: Optional[dict[str, Any]] = None,
+        prior: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         self.model_constructor = model_constructor
@@ -225,7 +226,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
         self.use_input_warping = use_input_warping
         self.use_loocv_pseudo_likelihood = use_loocv_pseudo_likelihood
         self.prior = prior
-        self.model: Optional[Model] = None
+        self.model: Model | None = None
         self.Xs = []
         self.Ys = []
         self.Yvars = []

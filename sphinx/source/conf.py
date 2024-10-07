@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 #
 # This source code is licensed under the MIT license found in the
@@ -61,9 +60,9 @@ source_suffix = ".rst"
 index_doc = "index"
 
 # General information about the project.
-project = u"Ax"
-copyright = u"2019, Facebook Inc."
-author = u"Facebook Inc."
+project = "Ax"
+copyright = "2019, Facebook Inc."
+author = "Facebook Inc."
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -214,14 +213,14 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (index_doc, "Ax.tex", u"Ax Documentation", u"Facebook Inc.", "manual")
+    (index_doc, "Ax.tex", "Ax Documentation", "Facebook Inc.", "manual")
 ]
 
 # -- Options for manual page output ---------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(index_doc, "ax", u"Ax Documentation", [author], 1)]
+man_pages = [(index_doc, "ax", "Ax Documentation", [author], 1)]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False
@@ -236,7 +235,7 @@ texinfo_documents = [
     (
         index_doc,
         "Ax",
-        u"Ax Documentation",
+        "Ax Documentation",
         author,
         "Ax",
         "Platform for automated optimization and experimentation.",

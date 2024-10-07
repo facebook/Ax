@@ -8,9 +8,9 @@
 
 import warnings
 from collections import OrderedDict
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from logging import Logger
-from typing import Any, Callable, Optional
+from typing import Any
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
@@ -130,12 +130,12 @@ def choose_model_class(
 
 
 def choose_botorch_acqf_class(
-    pending_observations: Optional[list[Tensor]] = None,
-    outcome_constraints: Optional[tuple[Tensor, Tensor]] = None,
-    linear_constraints: Optional[tuple[Tensor, Tensor]] = None,
-    fixed_features: Optional[dict[int, float]] = None,
-    objective_thresholds: Optional[Tensor] = None,
-    objective_weights: Optional[Tensor] = None,
+    pending_observations: list[Tensor] | None = None,
+    outcome_constraints: tuple[Tensor, Tensor] | None = None,
+    linear_constraints: tuple[Tensor, Tensor] | None = None,
+    fixed_features: dict[int, float] | None = None,
+    objective_thresholds: Tensor | None = None,
+    objective_weights: Tensor | None = None,
 ) -> type[AcquisitionFunction]:
     """Chooses a BoTorch `AcquisitionFunction` class."""
     if objective_thresholds is not None or (
@@ -154,7 +154,7 @@ def choose_botorch_acqf_class(
 
 
 def construct_acquisition_and_optimizer_options(
-    acqf_options: TConfig, model_gen_options: Optional[TConfig] = None
+    acqf_options: TConfig, model_gen_options: TConfig | None = None
 ) -> tuple[TConfig, TConfig]:
     """Extract acquisition and optimizer options from `model_gen_options`."""
     acq_options = acqf_options.copy()
@@ -282,7 +282,7 @@ def _get_shared_rows(Xs: list[Tensor]) -> tuple[Tensor, list[Tensor]]:
 def fit_botorch_model(
     model: Model,
     mll_class: type[MarginalLogLikelihood],
-    mll_options: Optional[dict[str, Any]] = None,
+    mll_options: dict[str, Any] | None = None,
 ) -> None:
     """Fit a BoTorch model."""
     mll_options = mll_options or {}
@@ -317,9 +317,9 @@ def _tensor_difference(A: Tensor, B: Tensor) -> Tensor:
 
 
 def get_post_processing_func(
-    rounding_func: Optional[Callable[[Tensor], Tensor]],
+    rounding_func: Callable[[Tensor], Tensor] | None,
     optimizer_options: dict[str, Any],
-) -> Optional[Callable[[Tensor], Tensor]]:
+) -> Callable[[Tensor], Tensor] | None:
     """Get the post processing function by combining the rounding function
     with the post processing function provided as part of the optimizer
     options. If both are given, the post processing function is applied before

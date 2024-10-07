@@ -5,9 +5,10 @@
 
 # pyre-strict
 
+from collections.abc import Iterable
 from enum import Enum
 from logging import Logger
-from typing import Optional, Protocol
+from typing import Any, Optional, Protocol
 
 import pandas as pd
 from ax.core.experiment import Experiment
@@ -15,6 +16,7 @@ from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, ExceptionE, Ok, Result
+from IPython.display import display
 
 logger: Logger = get_logger(__name__)
 
@@ -48,6 +50,8 @@ class AnalysisCard(Base):
     # How to interpret the blob (ex. "dataframe", "plotly", "markdown")
     blob_annotation = "dataframe"
 
+    attributes: dict[str, Any]
+
     def __init__(
         self,
         name: str,
@@ -56,6 +60,7 @@ class AnalysisCard(Base):
         level: AnalysisCardLevel,
         df: pd.DataFrame,
         blob: str,
+        attributes: Optional[dict[str, Any]] = None,
     ) -> None:
         self.name = name
         self.title = title
@@ -63,6 +68,25 @@ class AnalysisCard(Base):
         self.level = level
         self.df = df
         self.blob = blob
+        self.attributes = {} if attributes is None else attributes
+
+    def _ipython_display_(self) -> None:
+        """
+        IPython display hook. This is called when the AnalysisCard is printed in an
+        IPython environment (ex. Jupyter). This method should be implemented by
+        subclasses of Analysis to display the AnalysisCard in a useful way.
+
+        By default, this method displays the raw data in a pandas DataFrame.
+        """
+        display(self.df)
+
+
+def display_cards(cards: Iterable[AnalysisCard]) -> None:
+    """
+    Display a collection of AnalysisCards in IPython environments (ex. Jupyter).
+    """
+    for card in cards:
+        display(card)
 
 
 class Analysis(Protocol):
@@ -86,8 +110,8 @@ class Analysis(Protocol):
 
     def compute(
         self,
-        experiment: Optional[Experiment] = None,
-        generation_strategy: Optional[GenerationStrategyInterface] = None,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategyInterface | None = None,
     ) -> AnalysisCard:
         # Note: when implementing compute always prefer experiment.lookup_data() to
         # experiment.fetch_data() to avoid unintential data fetching within the report
@@ -96,8 +120,8 @@ class Analysis(Protocol):
 
     def compute_result(
         self,
-        experiment: Optional[Experiment] = None,
-        generation_strategy: Optional[GenerationStrategyInterface] = None,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategyInterface | None = None,
     ) -> Result[AnalysisCard, ExceptionE]:
         """
         Utility method to compute an AnalysisCard as a Result. This can be useful for

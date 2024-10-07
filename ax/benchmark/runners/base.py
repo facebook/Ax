@@ -8,7 +8,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping
 from math import sqrt
-from typing import Any, Union
+from typing import Any
 
 import torch
 
@@ -81,7 +81,7 @@ class BenchmarkRunner(Runner, ABC):
         return self.get_Y_true(params=params).numpy()
 
     @abstractmethod
-    def get_noise_stds(self) -> Union[None, float, dict[str, float]]:
+    def get_noise_stds(self) -> None | float | dict[str, float]:
         """
         Return the standard errors for the synthetic noise to be applied to the
         observed values.

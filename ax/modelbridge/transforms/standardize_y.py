@@ -8,7 +8,7 @@
 
 from collections import defaultdict
 from logging import Logger
-from typing import Optional, TYPE_CHECKING, Union
+from typing import Optional, TYPE_CHECKING
 
 import numpy as np
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
@@ -39,10 +39,10 @@ class StandardizeY(Transform):
 
     def __init__(
         self,
-        search_space: Optional[SearchSpace] = None,
-        observations: Optional[list[Observation]] = None,
+        search_space: SearchSpace | None = None,
+        observations: list[Observation] | None = None,
         modelbridge: Optional["base_modelbridge.ModelBridge"] = None,
-        config: Optional[TConfig] = None,
+        config: TConfig | None = None,
     ) -> None:
         if observations is None or len(observations) == 0:
             raise DataRequiredError("`StandardizeY` transform requires non-empty data.")
@@ -69,7 +69,7 @@ class StandardizeY(Transform):
         self,
         optimization_config: OptimizationConfig,
         modelbridge: Optional["base_modelbridge.ModelBridge"] = None,
-        fixed_features: Optional[ObservationFeatures] = None,
+        fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         for c in optimization_config.all_constraints:
             if c.relative:
@@ -131,7 +131,7 @@ class StandardizeY(Transform):
     def untransform_outcome_constraints(
         self,
         outcome_constraints: list[OutcomeConstraint],
-        fixed_features: Optional[ObservationFeatures] = None,
+        fixed_features: ObservationFeatures | None = None,
     ) -> list[OutcomeConstraint]:
         for c in outcome_constraints:
             if c.relative:
@@ -147,10 +147,8 @@ class StandardizeY(Transform):
 
 
 def compute_standardization_parameters(
-    Ys: defaultdict[Union[str, tuple[str, TParamValue]], list[float]]
-) -> tuple[
-    dict[Union[str, tuple[str, str]], float], dict[Union[str, tuple[str, str]], float]
-]:
+    Ys: defaultdict[str | tuple[str, TParamValue], list[float]]
+) -> tuple[dict[str | tuple[str, str], float], dict[str | tuple[str, str], float]]:
     """Compute mean and std. dev of Ys."""
     Ymean = {k: np.mean(y) for k, y in Ys.items()}
     # We use the Bessel correction term (divide by N-1) here in order to

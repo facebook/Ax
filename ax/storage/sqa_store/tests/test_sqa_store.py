@@ -123,7 +123,10 @@ from ax.utils.testing.core_stubs import (
     get_sum_constraint2,
     get_synthetic_runner,
 )
-from ax.utils.testing.modeling_stubs import get_generation_strategy
+from ax.utils.testing.modeling_stubs import (
+    get_generation_strategy,
+    sobol_gpei_generation_node_gs,
+)
 from plotly import graph_objects as go, io as pio
 
 logger: Logger = get_logger(__name__)
@@ -1500,6 +1503,61 @@ class SQAStoreTest(TestCase):
             not_none(new_generation_strategy._experiment)._name, experiment._name
         )
 
+    def test_EncodeDecodeGenerationNodeGSWithAdvancedSettings(self) -> None:
+        """Test to ensure that GenerationNode based GenerationStrategies are
+        able to be encoded/decoded correctly. This test adds transition criteria
+        and input constructors to the nodes in the generation strategy.
+        """
+        generation_strategy = sobol_gpei_generation_node_gs(
+            with_input_constructors_all_n=True
+        )
+
+        # Try restoring this generation strategy by its ID in the DB.
+        save_generation_strategy(generation_strategy=generation_strategy)
+        new_generation_strategy = load_generation_strategy_by_id(
+            # pyre-fixme[6]: For 1st param expected `int` but got `Optional[int]`.
+            gs_id=generation_strategy._db_id
+        )
+
+        # Some fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._unset_non_persistent_state_fields()
+        self.assertEqual(generation_strategy, new_generation_strategy)
+        self.assertIsNone(generation_strategy._experiment)
+        experiment = get_branin_experiment()
+        save_experiment(experiment)
+
+        # Check that we can encode and decode the generation strategy *after*
+        # it has generated some trials and been updated with some data.
+        # Since we now need to `gen`, we remove the fake callable kwarg we added,
+        # since model does not expect it.
+        generation_strategy = sobol_gpei_generation_node_gs(
+            with_input_constructors_all_n=True
+        )
+        experiment.new_trial(generation_strategy.gen(experiment=experiment))
+        generation_strategy.gen(experiment, data=get_branin_data())
+        save_experiment(experiment)
+        save_generation_strategy(generation_strategy=generation_strategy)
+
+        # Try restoring the generation strategy using the experiment its
+        # attached to.
+        new_generation_strategy = load_generation_strategy_by_experiment_name(
+            experiment_name=experiment.name
+        )
+        # Some fields of the reloaded GS are not expected to be set (both will be
+        # set during next model fitting call), so we unset them on the original GS as
+        # well.
+        generation_strategy._unset_non_persistent_state_fields()
+        self.assertEqual(generation_strategy, new_generation_strategy)
+        self.assertIsInstance(
+            new_generation_strategy._nodes[0].model_spec_to_gen_from.model_enum, Models
+        )
+        self.assertEqual(len(new_generation_strategy._generator_runs), 2)
+        self.assertEqual(
+            not_none(new_generation_strategy._experiment)._name, experiment._name
+        )
+
     def test_EncodeDecodeGenerationNodeBasedGenerationStrategy(self) -> None:
         """Test to ensure that GenerationNode based GenerationStrategies are
         able to be encoded/decoded correctly.
@@ -1537,7 +1595,7 @@ class SQAStoreTest(TestCase):
         experiment.new_trial(generation_strategy.gen(experiment=experiment))
         generation_strategy.gen(experiment, data=get_branin_data())
         save_experiment(experiment)
-        # TODO @mgarrard passes up until this point
+
         save_generation_strategy(generation_strategy=generation_strategy)
         # Try restoring the generation strategy using the experiment its
         # attached to.
@@ -2051,6 +2109,7 @@ class SQAStoreTest(TestCase):
             level=AnalysisCardLevel.DEBUG,
             df=test_df,
             blob="test blob",
+            attributes={"foo": "bar"},
         )
         markdown_analysis_card = MarkdownAnalysisCard(
             name="test_markdown_analysis_card",
@@ -2059,6 +2118,7 @@ class SQAStoreTest(TestCase):
             level=AnalysisCardLevel.DEBUG,
             df=test_df,
             blob="This is some **really cool** markdown",
+            attributes={"foo": "baz"},
         )
         plotly_analysis_card = PlotlyAnalysisCard(
             name="test_plotly_analysis_card",
@@ -2067,6 +2127,7 @@ class SQAStoreTest(TestCase):
             level=AnalysisCardLevel.DEBUG,
             df=test_df,
             blob=pio.to_json(go.Figure()),
+            attributes={"foo": "bad"},
         )
         with self.subTest("test_save_analysis_cards"):
             save_experiment(self.experiment)

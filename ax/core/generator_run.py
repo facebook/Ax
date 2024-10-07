@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from logging import Logger
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 from ax.core.arm import Arm
@@ -89,24 +89,24 @@ class GeneratorRun(SortableBase):
     def __init__(
         self,
         arms: list[Arm],
-        weights: Optional[list[float]] = None,
-        optimization_config: Optional[OptimizationConfig] = None,
-        search_space: Optional[SearchSpace] = None,
-        model_predictions: Optional[TModelPredict] = None,
-        best_arm_predictions: Optional[tuple[Arm, Optional[TModelPredictArm]]] = None,
-        type: Optional[str] = None,
-        fit_time: Optional[float] = None,
-        gen_time: Optional[float] = None,
-        model_key: Optional[str] = None,
-        model_kwargs: Optional[dict[str, Any]] = None,
-        bridge_kwargs: Optional[dict[str, Any]] = None,
-        gen_metadata: Optional[TGenMetadata] = None,
-        model_state_after_gen: Optional[dict[str, Any]] = None,
-        generation_step_index: Optional[int] = None,
-        candidate_metadata_by_arm_signature: Optional[
+        weights: list[float] | None = None,
+        optimization_config: OptimizationConfig | None = None,
+        search_space: SearchSpace | None = None,
+        model_predictions: TModelPredict | None = None,
+        best_arm_predictions: tuple[Arm, TModelPredictArm | None] | None = None,
+        type: str | None = None,
+        fit_time: float | None = None,
+        gen_time: float | None = None,
+        model_key: str | None = None,
+        model_kwargs: dict[str, Any] | None = None,
+        bridge_kwargs: dict[str, Any] | None = None,
+        gen_metadata: TGenMetadata | None = None,
+        model_state_after_gen: dict[str, Any] | None = None,
+        generation_step_index: int | None = None,
+        candidate_metadata_by_arm_signature: None | (
             dict[str, TCandidateMetadata]
-        ] = None,
-        generation_node_name: Optional[str] = None,
+        ) = None,
+        generation_node_name: str | None = None,
     ) -> None:
         """
         Inits GeneratorRun.
@@ -178,13 +178,13 @@ class GeneratorRun(SortableBase):
         for arm, weight in zip(arms, weights):
             self.add_arm(arm=arm, weight=weight)
 
-        self._generator_run_type: Optional[str] = type
+        self._generator_run_type: str | None = type
         self._time_created: datetime = datetime.now()
         self._optimization_config = optimization_config
         self._search_space = search_space
         self._model_predictions = model_predictions
         self._best_arm_predictions = best_arm_predictions
-        self._index: Optional[int] = None
+        self._index: int | None = None
         self._fit_time = fit_time
         self._gen_time = gen_time
         self._model_key = model_key
@@ -239,7 +239,7 @@ class GeneratorRun(SortableBase):
         return OrderedDict(zip(self.arms, self.weights))
 
     @property
-    def generator_run_type(self) -> Optional[str]:
+    def generator_run_type(self) -> str | None:
         """The type of the generator run."""
         return self._generator_run_type
 
@@ -249,7 +249,7 @@ class GeneratorRun(SortableBase):
         return self._time_created
 
     @property
-    def index(self) -> Optional[int]:
+    def index(self) -> int | None:
         """The index of this generator run within a trial's list of generator run
         structs. This field is set when the generator run is added to a trial.
         """
@@ -267,34 +267,34 @@ class GeneratorRun(SortableBase):
         self._index = index
 
     @property
-    def optimization_config(self) -> Optional[OptimizationConfig]:
+    def optimization_config(self) -> OptimizationConfig | None:
         """The optimization config used during generation of this run."""
         return self._optimization_config
 
     @property
-    def search_space(self) -> Optional[SearchSpace]:
+    def search_space(self) -> SearchSpace | None:
         """The search used during generation of this run."""
         return self._search_space
 
     @property
-    def model_predictions(self) -> Optional[TModelPredict]:
+    def model_predictions(self) -> TModelPredict | None:
         """Means and covariances for the arms in this run recorded at
         the time the run was executed.
         """
         return self._model_predictions
 
     @property
-    def fit_time(self) -> Optional[float]:
+    def fit_time(self) -> float | None:
         """Time taken to fit the model in seconds."""
         return self._fit_time
 
     @property
-    def gen_time(self) -> Optional[float]:
+    def gen_time(self) -> float | None:
         """Time taken to generate in seconds."""
         return self._gen_time
 
     @property
-    def model_predictions_by_arm(self) -> Optional[dict[str, TModelPredictArm]]:
+    def model_predictions_by_arm(self) -> dict[str, TModelPredictArm] | None:
         """Model predictions for each arm in this run, at the time the run was
         executed.
         """
@@ -309,21 +309,21 @@ class GeneratorRun(SortableBase):
         return predictions
 
     @property
-    def best_arm_predictions(self) -> Optional[tuple[Arm, Optional[TModelPredictArm]]]:
+    def best_arm_predictions(self) -> tuple[Arm, TModelPredictArm | None] | None:
         """Best arm in this run (according to the optimization config) and its
         optional respective model predictions.
         """
         return self._best_arm_predictions
 
     @property
-    def gen_metadata(self) -> Optional[TGenMetadata]:
+    def gen_metadata(self) -> TGenMetadata | None:
         """Returns metadata generated by this run."""
         return self._gen_metadata
 
     @property
     def candidate_metadata_by_arm_signature(
         self,
-    ) -> Optional[dict[str, TCandidateMetadata]]:
+    ) -> dict[str, TCandidateMetadata] | None:
         """Retrieves model-produced candidate metadata as a mapping from arm name (for
         the arm the candidate became when added to experiment) to the metadata dict.
         """

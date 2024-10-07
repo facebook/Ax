@@ -11,7 +11,7 @@ from collections import defaultdict, OrderedDict
 from enum import Enum
 from io import StringIO
 from logging import Logger
-from typing import Any, cast, Optional, Union
+from typing import Any, cast, Union
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCard, AnalysisCardLevel
@@ -90,8 +90,8 @@ class Decoder:
         self.config = config
 
     def get_enum_name(
-        self, value: Optional[int], enum: Optional[Union[Enum, type[Enum]]]
-    ) -> Optional[str]:
+        self, value: int | None, enum: Enum | type[Enum] | None
+    ) -> str | None:
         """Given an enum value (int) and an enum (of ints), return the
         corresponding enum name. If the value is not present in the enum,
         throw an error.
@@ -106,7 +106,7 @@ class Decoder:
 
     def _auxiliary_experiments_by_purpose_from_experiment_sqa(
         self, experiment_sqa: SQAExperiment
-    ) -> Optional[dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]]:
+    ) -> dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]] | None:
         auxiliary_experiments_by_purpose = None
         if experiment_sqa.auxiliary_experiments_by_purpose:
             from ax.storage.sqa_store.load import load_experiment
@@ -138,7 +138,7 @@ class Decoder:
     def _init_experiment_from_sqa(
         self,
         experiment_sqa: SQAExperiment,
-        ax_object_field_overrides: Optional[dict[str, Any]] = None,
+        ax_object_field_overrides: dict[str, Any] | None = None,
         load_auxiliary_experiments: bool = True,
     ) -> Experiment:
         """First step of conversion within experiment_from_sqa."""
@@ -259,7 +259,7 @@ class Decoder:
         self,
         experiment_sqa: SQAExperiment,
         reduced_state: bool = False,
-        ax_object_field_overrides: Optional[dict[str, Any]] = None,
+        ax_object_field_overrides: dict[str, Any] | None = None,
         load_auxiliary_experiments: bool = True,
     ) -> Experiment:
         """Convert SQLAlchemy Experiment to Ax Experiment.
@@ -455,7 +455,7 @@ class Decoder:
     def parameter_distributions_from_sqa(
         self,
         parameter_constraint_sqa_list: list[SQAParameterConstraint],
-    ) -> tuple[list[ParameterDistribution], Optional[int]]:
+    ) -> tuple[list[ParameterDistribution], int | None]:
         """Convert SQLAlchemy ParameterConstraints to Ax ParameterDistributions."""
         parameter_distributions: list[ParameterDistribution] = []
         num_samples = None
@@ -506,7 +506,7 @@ class Decoder:
         self,
         parameters_sqa: list[SQAParameter],
         parameter_constraints_sqa: list[SQAParameterConstraint],
-    ) -> Optional[SearchSpace]:
+    ) -> SearchSpace | None:
         """Convert a list of SQLAlchemy Parameters and ParameterConstraints to an
         Ax SearchSpace.
         """
@@ -555,7 +555,7 @@ class Decoder:
 
     def metric_from_sqa(
         self, metric_sqa: SQAMetric
-    ) -> Union[Metric, Objective, OutcomeConstraint, RiskMeasure]:
+    ) -> Metric | Objective | OutcomeConstraint | RiskMeasure:
         """Convert SQLAlchemy Metric to Ax Metric, Objective, or OutcomeConstraint."""
 
         metric = self._metric_from_sqa_util(metric_sqa)
@@ -596,7 +596,7 @@ class Decoder:
 
     def opt_config_and_tracking_metrics_from_sqa(
         self, metrics_sqa: list[SQAMetric]
-    ) -> tuple[Optional[OptimizationConfig], list[Metric]]:
+    ) -> tuple[OptimizationConfig | None, list[Metric]]:
         """Convert a list of SQLAlchemy Metrics to a a tuple of Ax OptimizationConfig
         and tracking metrics.
         """
@@ -793,7 +793,7 @@ class Decoder:
     def generation_strategy_from_sqa(
         self,
         gs_sqa: SQAGenerationStrategy,
-        experiment: Optional[Experiment] = None,
+        experiment: Experiment | None = None,
         reduced_state: bool = False,
     ) -> GenerationStrategy:
         """Convert SQALchemy generation strategy to Ax `GenerationStrategy`."""
@@ -812,6 +812,11 @@ class Decoder:
         # Determine which to use to initialize this GenerationStrategy.
         if len(steps) > 0:
             gs = GenerationStrategy(name=gs_sqa.name, steps=steps)
+            if gs_sqa.curr_index is None:
+                raise SQADecodeError(
+                    "Current index must be specified for "
+                    "step-based Generation Strategies."
+                )
             gs._curr = gs._steps[gs_sqa.curr_index]
         else:
             gs = GenerationStrategy(name=gs_sqa.name, nodes=nodes)
@@ -866,7 +871,7 @@ class Decoder:
         return gs
 
     def runner_from_sqa(
-        self, runner_sqa: SQARunner, runner_kwargs: Optional[dict[str, Any]] = None
+        self, runner_sqa: SQARunner, runner_kwargs: dict[str, Any] | None = None
     ) -> Runner:
         """Convert SQLAlchemy Runner to Ax Runner."""
         if runner_sqa.runner_type not in self.config.reverse_runner_registry:
@@ -892,7 +897,7 @@ class Decoder:
         trial_sqa: SQATrial,
         experiment: Experiment,
         reduced_state: bool = False,
-        ax_object_field_overrides: Optional[dict[str, Any]] = None,
+        ax_object_field_overrides: dict[str, Any] | None = None,
     ) -> BaseTrial:
         """Convert SQLAlchemy Trial to Ax Trial.
 
@@ -1050,6 +1055,11 @@ class Decoder:
             level=AnalysisCardLevel(analysis_card_sqa.level),
             df=read_json(analysis_card_sqa.dataframe_json),
             blob=analysis_card_sqa.blob,
+            attributes=(
+                {}
+                if analysis_card_sqa.attributes == ""
+                else json.loads(analysis_card_sqa.attributes)
+            ),
         )
 
     def _metric_from_sqa_util(self, metric_sqa: SQAMetric) -> Metric:

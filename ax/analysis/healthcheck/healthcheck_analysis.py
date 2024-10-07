@@ -6,7 +6,6 @@
 # pyre-strict
 import json
 from enum import IntEnum
-from typing import Optional
 
 from ax.analysis.analysis import AnalysisCard
 from ax.core.experiment import Experiment
@@ -33,6 +32,6 @@ class HealthcheckAnalysis:
 
     def compute(
         self,
-        experiment: Optional[Experiment] = None,
-        generation_strategy: Optional[GenerationStrategy] = None,
+        experiment: Experiment | None = None,
+        generation_strategy: GenerationStrategy | None = None,
     ) -> HealthcheckAnalysisCard: ...

@@ -5,7 +5,8 @@
 
 # pyre-strict
 
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -75,8 +76,8 @@ def experimental_metric_eval(
 def get_pbo_experiment(
     num_parameters: int = 2,
     num_experimental_metrics: int = 3,
-    parameter_names: Optional[list[str]] = None,
-    tracking_metric_names: Optional[list[str]] = None,
+    parameter_names: list[str] | None = None,
+    tracking_metric_names: list[str] | None = None,
     num_experimental_trials: int = 3,
     num_preference_trials: int = 3,
     num_preference_trials_w_repeated_arm: int = 5,

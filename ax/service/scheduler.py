@@ -9,12 +9,12 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Generator, Iterable
+from collections.abc import Callable, Generator, Iterable
 from copy import deepcopy
 from datetime import datetime
 from logging import LoggerAdapter
 from time import sleep
-from typing import Any, Callable, cast, NamedTuple, Optional
+from typing import Any, cast, NamedTuple, Optional
 
 import ax.service.utils.early_stopping as early_stopping_utils
 from ax.analysis.analysis import Analysis, AnalysisCard
@@ -158,11 +158,11 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     _num_trials_bad_due_to_err: int = 0
     # Timestamp of last optimization start time (milliseconds since Unix epoch);
     # recorded in each `run_n_trials`.
-    _latest_optimization_start_timestamp: Optional[int] = None
+    _latest_optimization_start_timestamp: int | None = None
     # Timeout setting for current optimization.
-    _timeout_hours: Optional[float] = None
+    _timeout_hours: float | None = None
     # Timestamp of when the last deployed trial started running.
-    _latest_trial_start_timestamp: Optional[float] = None
+    _latest_trial_start_timestamp: float | None = None
     # Will be set to `True` if generation strategy signals that the optimization
     # is complete, in which case the optimization should gracefully exit early.
     _optimization_complete: bool = False
@@ -243,7 +243,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         experiment_name: str,
         options: SchedulerOptions,
         db_settings: Optional[DBSettings] = None,
-        generation_strategy: Optional[GenerationStrategy] = None,
+        generation_strategy: GenerationStrategy | None = None,
         reduced_state: bool = True,
         **kwargs: Any,
     ) -> Scheduler:
@@ -321,7 +321,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self._validate_runner_and_implemented_metrics(experiment=self.experiment)
 
     @property
-    def trial_type(self) -> Optional[str]:
+    def trial_type(self) -> str | None:
         """Trial type for the experiment this scheduler is running.
 
         This returns None if the experiment is not a MultitypeExperiment
@@ -499,6 +499,14 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             and self.options.global_stopping_strategy is not None
         ):
             gss = none_throws(self.options.global_stopping_strategy)
+            if (num_trials := len(self.trials)) > 1000:
+                # When there are many trials, checking the global stopping
+                # strategy can get a little bit slow, so we log when we start it,
+                # to avoid user confusion and to keep a record of the run times.
+                self.logger.info(
+                    f"There are {num_trials} trials; performing "
+                    f"completion criterion check with {gss}..."
+                )
             stop_optimization, global_stopping_msg = gss.should_stop_optimization(
                 experiment=self.experiment
             )
@@ -518,10 +526,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     @copy_doc(BestPointMixin.get_best_trial)
     def get_best_trial(
         self,
-        optimization_config: Optional[OptimizationConfig] = None,
-        trial_indices: Optional[Iterable[int]] = None,
+        optimization_config: OptimizationConfig | None = None,
+        trial_indices: Iterable[int] | None = None,
         use_model_predictions: bool = True,
-    ) -> Optional[tuple[int, TParameterization, Optional[TModelPredictArm]]]:
+    ) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
         return self._get_best_trial(
             experiment=self.experiment,
             generation_strategy=self.standard_generation_strategy,
@@ -533,8 +541,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     @copy_doc(BestPointMixin.get_pareto_optimal_parameters)
     def get_pareto_optimal_parameters(
         self,
-        optimization_config: Optional[OptimizationConfig] = None,
-        trial_indices: Optional[Iterable[int]] = None,
+        optimization_config: OptimizationConfig | None = None,
+        trial_indices: Iterable[int] | None = None,
         use_model_predictions: bool = True,
     ) -> dict[int, tuple[TParameterization, TModelPredictArm]]:
         return self._get_pareto_optimal_parameters(
@@ -548,8 +556,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     @copy_doc(BestPointMixin.get_hypervolume)
     def get_hypervolume(
         self,
-        optimization_config: Optional[MultiObjectiveOptimizationConfig] = None,
-        trial_indices: Optional[Iterable[int]] = None,
+        optimization_config: MultiObjectiveOptimizationConfig | None = None,
+        trial_indices: Iterable[int] | None = None,
         use_model_predictions: bool = True,
     ) -> float:
         return BestPointMixin._get_hypervolume(
@@ -563,7 +571,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     @copy_doc(BestPointMixin.get_trace)
     def get_trace(
         self,
-        optimization_config: Optional[OptimizationConfig] = None,
+        optimization_config: OptimizationConfig | None = None,
     ) -> list[float]:
         return BestPointMixin._get_trace(
             experiment=self.experiment,
@@ -573,8 +581,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     @copy_doc(BestPointMixin.get_trace_by_progression)
     def get_trace_by_progression(
         self,
-        optimization_config: Optional[OptimizationConfig] = None,
-        bins: Optional[list[float]] = None,
+        optimization_config: OptimizationConfig | None = None,
+        bins: list[float] | None = None,
         final_progression_only: bool = False,
     ) -> tuple[list[float], list[float]]:
         return BestPointMixin._get_trace_by_progression(
@@ -609,7 +617,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     def get_improvement_over_baseline(
         self,
-        baseline_arm_name: Optional[str] = None,
+        baseline_arm_name: str | None = None,
     ) -> float:
         """Returns the scalarized improvement over baseline, if applicable.
 
@@ -727,7 +735,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
     def stop_trial_runs(
-        self, trials: list[BaseTrial], reasons: Optional[list[Optional[str]]] = None
+        self, trials: list[BaseTrial], reasons: list[str | None] | None = None
     ) -> None:
         """Stops the jobs that execute given trials.
 
@@ -754,7 +762,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     def wait_for_completed_trials_and_report_results(
         self,
-        idle_callback: Optional[Callable[[Scheduler], None]] = None,
+        idle_callback: Callable[[Scheduler], None] | None = None,
         force_refit: bool = False,
     ) -> dict[str, Any]:
         """Continuously poll for successful trials, with limited exponential
@@ -955,7 +963,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         max_trials: int,
         ignore_global_stopping_strategy: bool = False,
         timeout_hours: int | float | None = None,
-        idle_callback: Optional[Callable[[Scheduler], None]] = None,
+        idle_callback: Callable[[Scheduler], None] | None = None,
     ) -> Generator[dict[str, Any], None, None]:
         """Make continuous calls to `run` and `process_results` to run up to
         ``max_trials`` trials, until completion criterion is reached. This is the 'main'
@@ -1006,8 +1014,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         # schedule new trials and poll existing ones in a loop.
         self._num_remaining_requested_trials = max_trials
         while (
-            not self.should_consider_optimization_complete()[0]
-            and self._num_remaining_requested_trials > 0
+            self._num_remaining_requested_trials > 0
+            and not self.should_consider_optimization_complete()[0]
         ):
             if self.should_abort_optimization():
                 yield self._abort_optimization(num_preexisting_trials=n_existing)
@@ -1072,9 +1080,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def _check_exit_status_and_report_results(
         self,
         n_existing: int,
-        idle_callback: Optional[Callable[[Scheduler], None]],
+        idle_callback: Callable[[Scheduler], None] | None,
         force_refit: bool,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         if not self.should_wait_for_running_trials:
             return None
         return self.wait_for_completed_trials_and_report_results(
@@ -1085,9 +1093,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self,
         max_trials: int,
         ignore_global_stopping_strategy: bool = False,
-        timeout_hours: Optional[int] = None,
+        timeout_hours: int | None = None,
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-        idle_callback: Optional[Callable[[Scheduler], Any]] = None,
+        idle_callback: Callable[[Scheduler], Any] | None = None,
     ) -> OptimizationResult:
         """Run up to ``max_trials`` trials; will run all ``max_trials`` unless
         completion criterion is reached. For base ``Scheduler``, completion criterion
@@ -1135,9 +1143,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     def run_all_trials(
         self,
-        timeout_hours: Optional[int] = None,
+        timeout_hours: int | None = None,
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-        idle_callback: Optional[Callable[[Scheduler], Any]] = None,
+        idle_callback: Callable[[Scheduler], Any] | None = None,
     ) -> OptimizationResult:
         """Run all trials until ``completion_criterion`` is reached (by default,
         completion criterion is reaching the ``num_trials`` setting, passed to
@@ -1471,8 +1479,11 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             - prev_completed_trial_idcs
         )
         idcs = make_indices_str(indices=newly_completed)
-        self.logger.info(f"Fetching data for newly completed trials: {idcs}.")
-        trial_indices_to_fetch.update(newly_completed)
+        if newly_completed:
+            self.logger.info(f"Fetching data for newly completed trials: {idcs}.")
+            trial_indices_to_fetch.update(newly_completed)
+        else:
+            self.logger.info("No newly completed trials; not fetching data for any.")
 
         # Fetch data for running trials that have metrics available while running
         if (
@@ -1529,7 +1540,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             trial_indices=newly_completed,
         )
 
-    def estimate_early_stopping_savings(self, map_key: Optional[str] = None) -> float:
+    def estimate_early_stopping_savings(self, map_key: str | None = None) -> float:
         """Estimate early stopping savings using progressions of the MapMetric present
         on the EarlyStoppingConfig as a proxy for resource usage.
 
@@ -1599,7 +1610,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self,
         num_preexisting_trials: int,
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-        idle_callback: Optional[Callable[[Scheduler], Any]] = None,
+        idle_callback: Callable[[Scheduler], Any] | None = None,
     ) -> dict[str, Any]:
         """Conclude optimization with waiting for anymore running trials and
         return final results via `wait_for_completed_trials_and_report_results`.
@@ -1709,7 +1720,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         return existing_candidate_trials, new_trials
 
     def _get_next_trials(
-        self, num_trials: int = 1, n: Optional[int] = None
+        self, num_trials: int = 1, n: int | None = None
     ) -> list[BaseTrial]:
         """Produce up to `num_trials` new generator runs from the underlying
         generation strategy and create new trials with them. Logs errors
@@ -1817,7 +1828,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         Returns:
             List of trials, empty if generation is not possible.
         """
-        self.poll_and_process_results()
         new_trials = self._get_next_trials(
             num_trials=num_trials,
             n=self.options.batch_size or 1,
@@ -1834,7 +1844,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         return new_trials
 
     def compute_analyses(
-        self, analyses: Optional[Iterable[Analysis]] = None
+        self, analyses: Iterable[Analysis] | None = None
     ) -> list[AnalysisCard]:
         analyses = analyses if analyses is not None else self._choose_analyses()
 
@@ -1866,7 +1876,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def _gen_new_trials_from_generation_strategy(
         self,
         num_trials: int,
-        n: Optional[int] = None,
+        n: int | None = None,
     ) -> list[list[GeneratorRun]]:
         """Generates a list ``GeneratorRun``s of length of ``num_trials`` using the
         ``_gen_multiple`` method of the scheduler's ``generation_strategy``, taking
@@ -2169,8 +2179,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def _mark_err_trial_status(
         self,
         trial: BaseTrial,
-        metric_name: Optional[str] = None,
-        metric_fetch_e: Optional[MetricFetchE] = None,
+        metric_name: str | None = None,
+        metric_fetch_e: MetricFetchE | None = None,
     ) -> TrialStatus:
         trial.mark_failed(unsafe=True)
 
