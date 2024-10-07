@@ -23,7 +23,7 @@ from ax.benchmark.runners.botorch_test import (
 from ax.benchmark.runners.surrogate import SurrogateRunner
 from ax.core import Experiment, ObservationFeatures
 from ax.core.arm import Arm
-from ax.core.auxiliary import AuxiliaryExperiment
+from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import (
     AbandonedArm,
@@ -285,6 +285,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "AndEarlyStoppingStrategy": AndEarlyStoppingStrategy,
     "AutoTransitionAfterGen": AutoTransitionAfterGen,
     "AuxiliaryExperiment": AuxiliaryExperiment,
+    "AuxiliaryExperimentPurpose": AuxiliaryExperimentPurpose,
     "Arm": Arm,
     "AggregatedBenchmarkResult": AggregatedBenchmarkResult,
     "BatchTrial": BatchTrial,
