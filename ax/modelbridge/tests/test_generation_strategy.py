@@ -930,7 +930,7 @@ class TestGenerationStrategy(TestCase):
         gs = self.sobol_GS
         gs.experiment = exp
         exp._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS.value] = 3
-        grs = gs.gen_for_multiple_trials_with_multiple_models(exp, num_generator_runs=2)
+        grs = gs.gen_for_multiple_trials_with_multiple_models(exp, num_trials=2)
         self.assertEqual(len(grs), 2)
         for gr_list in grs:
             self.assertEqual(len(gr_list), 1)
@@ -939,26 +939,21 @@ class TestGenerationStrategy(TestCase):
     def test_gen_for_multiple_trials_with_multiple_models(self) -> None:
         exp = get_experiment_with_multi_objective()
         sobol_MBM_gs = self.sobol_MBM_step_GS
+        sobol_MBM_gs.experiment = exp
         with mock_patch_method_original(
             mock_path=f"{ModelSpec.__module__}.ModelSpec.gen",
             original_method=ModelSpec.gen,
-        ) as model_spec_gen_mock, mock_patch_method_original(
-            mock_path=f"{ModelSpec.__module__}.ModelSpec.fit",
-            original_method=ModelSpec.fit,
-        ) as model_spec_fit_mock:
+        ) as model_spec_gen_mock:
             # Generate first four Sobol GRs (one more to gen after that if
             # first four become trials.
             grs = sobol_MBM_gs.gen_for_multiple_trials_with_multiple_models(
-                experiment=exp, num_generator_runs=3
+                experiment=exp, num_trials=3
             )
         self.assertEqual(len(grs), 3)
         for gr in grs:
             self.assertEqual(len(gr), 1)
             self.assertIsInstance(gr[0], GeneratorRun)
 
-        # We should only fit once; refitting for each `gen` would be
-        # wasteful as there is no new data.
-        model_spec_fit_mock.assert_called_once()
         self.assertEqual(model_spec_gen_mock.call_count, 3)
         pending_in_each_gen = enumerate(
             args_and_kwargs.kwargs.get("pending_observations")
@@ -988,7 +983,7 @@ class TestGenerationStrategy(TestCase):
 
         grs = sobol_MBM_gs.gen_for_multiple_trials_with_multiple_models(
             experiment=exp,
-            num_generator_runs=3,
+            num_trials=3,
         )
         self.assertEqual(len(grs), 2)
         for gr in grs:
@@ -1040,10 +1035,11 @@ class TestGenerationStrategy(TestCase):
                 ),
             ]
         )
+        gs.experiment = exp
         for _ in range(3):
             grs = gs.gen_for_multiple_trials_with_multiple_models(
                 experiment=exp,
-                num_generator_runs=1,
+                num_trials=1,
                 n=2,
             )
             exp.new_batch_trial(generator_runs=grs[0]).mark_running(

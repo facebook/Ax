@@ -390,8 +390,9 @@ class GenerationStrategy(GenerationStrategyInterface):
         experiment: Experiment,
         data: Data | None = None,
         pending_observations: dict[str, list[ObservationFeatures]] | None = None,
-        arms_per_node: dict[str, int] | None = None,
         n: int | None = None,
+        fixed_features: ObservationFeatures | None = None,
+        arms_per_node: dict[str, int] | None = None,
     ) -> list[GeneratorRun]:
         """Produces a List of GeneratorRuns for a single trial, either ``Trial`` or
         ``BatchTrial``, and if producing a ``BatchTrial`` allows for multiple
@@ -411,15 +412,19 @@ class GenerationStrategy(GenerationStrategyInterface):
             pending_observations: A map from metric name to pending
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
-            arms_per_node: An optional map from node name to the number of arms to
-                generate from that node. If not provided, will default to the number
-                of arms specified in the node's ``InputConstructors`` or n if no
-                ``InputConstructors`` are defined on the node.
             n: Integer representing how many arms should be in the generator run
                 produced by this method. NOTE: Some underlying models may ignore
                 the `n` and produce a model-determined number of arms. In that
                 case this method will also output a generator run with number of
                 arms that can differ from `n`.
+            fixed_features: An optional set of ``ObservationFeatures`` that will be
+                passed down to the underlying models.
+            arms_per_node: An optional map from node name to the number of arms to
+                generate from that node. If not provided, will default to the number
+                of arms specified in the node's ``InputConstructors`` or n if no
+                ``InputConstructors`` are defined on the node. We expect either n or
+                arms_per_node to be provided, but not both, and this is an advanced
+                argument that should only be used by advanced users.
 
         Returns:
             A list of ``GeneratorRuns`` for a single trial.
@@ -477,6 +482,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                     data=data,
                     n=arms_from_node,
                     pending_observations=pending_observations,
+                    fixed_features=fixed_features,
                 )
             )
             # ensure that the points generated from each node are marked as pending
@@ -494,49 +500,82 @@ class GenerationStrategy(GenerationStrategyInterface):
     def gen_for_multiple_trials_with_multiple_models(
         self,
         experiment: Experiment,
-        num_generator_runs: int,
         data: Data | None = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
         n: int | None = None,
+        num_trials: int = 1,
+        arms_per_node: dict[str, int] | None = None,
     ) -> list[list[GeneratorRun]]:
         """Produce GeneratorRuns for multiple trials at once with the possibility of
-        ensembling, or using multiple models per trial, getting multiple
-        GeneratorRuns per trial.
-
-        NOTE: This method is in development.  Please do not use it yet.
+        using multiple models per trial, getting multiple GeneratorRuns per trial.
 
         Args:
-            experiment: Experiment, for which the generation strategy is producing
-                a new generator run in the course of `gen`, and to which that
+            experiment: ``Experiment``, for which the generation strategy is producing
+                a new generator run in the course of ``gen``, and to which that
                 generator run will be added as trial(s). Information stored on the
                 experiment (e.g., trial statuses) is used to determine which model
                 will be used to produce the generator run returned from this method.
-            data: Optional data to be passed to the underlying model's `gen`, which
+            data: Optional data to be passed to the underlying model's ``gen``, which
                 is called within this method and actually produces the resulting
-                generator run. By default, data is all data on the `experiment`.
-            n: Integer representing how many trials should be in the generator run
-                produced by this method. NOTE: Some underlying models may ignore
-                the ``n`` and produce a model-determined number of arms. In that
-                case this method will also output a generator run with number of
-                arms that can differ from ``n``.
+                generator run. By default, data is all data on the ``experiment``.
+            pending_observations: A map from metric name to pending
+                observations for that metric, used by some models to avoid
+                resuggesting points that are currently being evaluated.
+            n: Integer representing how many total arms should be in the generator
+                runs produced by this method. NOTE: Some underlying models may ignore
+                the `n` and produce a model-determined number of arms. In that
+                case this method will also output generator runs with number of
+                arms that can differ from `n`.
+            num_trials: Number of trials to generate generator runs for in this call.
+                If not provided, defaults to 1.
+            arms_per_node: An optional map from node name to the number of arms to
+                generate from that node. If not provided, will default to the number
+                of arms specified in the node's ``InputConstructors`` or n if no
+                ``InputConstructors`` are defined on the node. We expect either n or
+                arms_per_node to be provided, but not both, and this is an advanced
+                argument that should only be used by advanced users.
 
         Returns:
             A list of lists of lists generator runs. Each outer list represents
             a trial being suggested and  each inner list represents a generator
             run for that trial.
         """
-        # TODO: use gen_with_multiple_nodes() and get `n` there
-        n = self._get_n(experiment=experiment, n=n)
-        grs = self._gen_multiple(
-            experiment=experiment,
-            num_generator_runs=num_generator_runs,
-            data=data,
-            n=n,
-            pending_observations=get_pending_observation_features_based_on_trial_status(
+        trial_grs = []
+        pending_observations = (
+            get_pending_observation_features_based_on_trial_status(
                 experiment=experiment
-            ),
-            fixed_features=get_fixed_features_from_experiment(experiment=experiment),
+            )
+            or {}
+            if pending_observations is None
+            else deepcopy(pending_observations)
         )
-        return [[gr] for gr in grs]
+        gr_limit = self._curr.generator_run_limit(raise_generation_errors=False)
+        if gr_limit == -1:
+            num_trials = max(num_trials, 1)
+        else:
+            num_trials = max(min(num_trials, gr_limit), 1)
+        for _i in range(num_trials):
+            trial_grs.append(
+                self.gen_with_multiple_nodes(
+                    experiment=experiment,
+                    data=data,
+                    n=n,
+                    pending_observations=pending_observations,
+                    arms_per_node=arms_per_node,
+                    fixed_features=get_fixed_features_from_experiment(
+                        experiment=experiment
+                    ),
+                )
+            )
+
+            extend_pending_observations(
+                experiment=experiment,
+                pending_observations=pending_observations,
+                # pass in the most recently generated grs each time to avoid
+                # duplication
+                generator_runs=trial_grs[-1],
+            )
+        return trial_grs
 
     def current_generator_run_limit(
         self,
@@ -605,6 +644,8 @@ class GenerationStrategy(GenerationStrategyInterface):
         self._model = None
         for s in self._nodes:
             s._model_spec_to_gen_from = None
+            if not self.is_node_based:
+                s._previous_node_name = None
 
     @step_based_gs_only
     def _validate_and_set_step_sequence(self, steps: list[GenerationStep]) -> None:
