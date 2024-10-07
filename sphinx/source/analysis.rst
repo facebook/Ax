@@ -78,3 +78,11 @@ Plotly Anaylsis Utils
     :members:
     :undoc-members:
     :show-inheritance:
+
+Summary
+~~~~~~~
+
+.. automodule:: ax.analysis.summary
+    :members:
+    :undoc-members:
+    :show-inheritance:
