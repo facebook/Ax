@@ -164,6 +164,7 @@ from ax.storage.json_store.encoders import (
     winsorization_config_to_dict,
 )
 from ax.storage.utils import DomainType, ParameterConstraintType
+from ax.utils.common.constants import Keys
 from ax.utils.common.serialization import TDecoderRegistry
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
@@ -318,6 +319,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "ImprovementGlobalStoppingStrategy": ImprovementGlobalStoppingStrategy,
     "InputConstructorPurpose": InputConstructorPurpose,
     "Interval": Interval,
+    "Keys": Keys,
     "LifecycleStage": LifecycleStage,
     "ListSurrogate": Surrogate,  # For backwards compatibility
     "L2NormMetric": L2NormMetric,

@@ -43,6 +43,7 @@ from ax.modelbridge.transition_criterion import (
     MinTrials,
 )
 from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.testing.core_stubs import (
     get_experiment,
@@ -224,6 +225,7 @@ def sobol_gpei_generation_node_gs(
     with_input_constructors_remaining_n: bool = False,
     with_input_constructors_repeat_n: bool = False,
     with_unlimited_gen_mbm: bool = False,
+    with_trial_type: bool = False,
 ) -> GenerationStrategy:
     """Returns a basic SOBOL+MBM GS using GenerationNodes for testing.
 
@@ -324,6 +326,9 @@ def sobol_gpei_generation_node_gs(
     if with_previous_node:
         mbm_node._previous_node_name = sobol_node.node_name
 
+    if with_trial_type:
+        sobol_node._trial_type = Keys.LONG_RUN
+        mbm_node._trial_type = Keys.SHORT_RUN
     # test input constructors, this also leaves the mbm node with no input
     # constructors which validates encoding/decoding of instances with no
     # input constructors
