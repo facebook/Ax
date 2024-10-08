@@ -413,6 +413,15 @@ class GenerationNode(SerializationMixin, SortableBase):
             " GenerationStrategy. This occurred on GenerationNode: {self.node_name}."
         )
         generator_run._generation_node_name = self.node_name
+        # TODO: @mgarrard determine a more refined way to indicate trial type
+        if self._trial_type is not None:
+            gen_metadata = (
+                generator_run.gen_metadata
+                if generator_run.gen_metadata is not None
+                else {}
+            )
+            gen_metadata["trial_type"] = self._trial_type
+            generator_run._gen_metadata = gen_metadata
         return generator_run
 
     def _gen(
