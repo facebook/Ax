@@ -64,31 +64,6 @@ def compute_score_trace(
     return score_trace.clip(min=0, max=100)
 
 
-def _create_benchmark_experiment(
-    problem: BenchmarkProblem, method_name: str
-) -> Experiment:
-    """Creates an empty experiment for the given problem and method.
-
-    If the problem is "noiseless" (i.e. evaluations prior to adding artificial
-    noise to the outcomes are determinstic), also adds the respective ground
-    truth metrics as tracking metrics for each metric defined on the problem
-    (including tracking metrics and the metrics in the OptimizationConfig).
-
-    Args:
-        problem: The BenchmarkProblem to test against (can be synthetic or real).
-        method_name: Name of the method being tested.
-
-    Returns:
-        The Experiment object to be used for benchmarking.
-    """
-    return Experiment(
-        name=f"{problem.name}|{method_name}_{int(time())}",
-        search_space=problem.search_space,
-        optimization_config=problem.optimization_config,
-        runner=problem.runner,
-    )
-
-
 def benchmark_replication(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
