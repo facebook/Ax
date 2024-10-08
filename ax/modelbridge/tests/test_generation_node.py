@@ -50,6 +50,12 @@ class TestGenerationNode(TestCase):
             node_name="test", model_specs=[self.sobol_model_spec]
         )
         self.branin_experiment = get_branin_experiment(with_completed_trial=True)
+        self.branin_data = self.branin_experiment.lookup_data()
+        self.node_short = GenerationNode(
+            node_name="test",
+            model_specs=[self.sobol_model_spec],
+            trial_type=Keys.SHORT_RUN,
+        )
 
     def test_init(self) -> None:
         self.assertEqual(
@@ -95,11 +101,6 @@ class TestGenerationNode(TestCase):
             )
 
     def test_init_with_trial_type(self) -> None:
-        node_short = GenerationNode(
-            node_name="test",
-            model_specs=[self.sobol_model_spec],
-            trial_type=Keys.SHORT_RUN,
-        )
         node_long = GenerationNode(
             node_name="test",
             model_specs=[self.sobol_model_spec],
@@ -109,7 +110,7 @@ class TestGenerationNode(TestCase):
             node_name="test",
             model_specs=[self.sobol_model_spec],
         )
-        self.assertEqual(node_short._trial_type, Keys.SHORT_RUN)
+        self.assertEqual(self.node_short._trial_type, Keys.SHORT_RUN)
         self.assertEqual(node_long._trial_type, Keys.LONG_RUN)
         self.assertIsNone(node_default._trial_type)
 
@@ -129,26 +130,24 @@ class TestGenerationNode(TestCase):
         )
 
     def test_fit(self) -> None:
-        dat = self.branin_experiment.lookup_data()
         with patch.object(
             self.sobol_model_spec, "fit", wraps=self.sobol_model_spec.fit
         ) as mock_model_spec_fit:
             self.sobol_generation_node.fit(
                 experiment=self.branin_experiment,
-                data=dat,
+                data=self.branin_data,
             )
         mock_model_spec_fit.assert_called_with(
             experiment=self.branin_experiment,
-            data=dat,
+            data=self.branin_data,
             search_space=None,
             optimization_config=None,
         )
 
     def test_gen(self) -> None:
-        dat = self.branin_experiment.lookup_data()
         self.sobol_generation_node.fit(
             experiment=self.branin_experiment,
-            data=dat,
+            data=self.branin_data,
         )
         with patch.object(
             self.sobol_model_spec, "gen", wraps=self.sobol_model_spec.gen
@@ -160,6 +159,45 @@ class TestGenerationNode(TestCase):
         self.assertEqual(gr._model_key, self.sobol_model_spec.model_key)
         # pyre-fixme[16]: Optional type has no attribute `get`.
         self.assertEqual(gr._model_kwargs.get("init_position"), 3)
+
+    @fast_botorch_optimize
+    def test_gen_with_trial_type(self) -> None:
+        mbm_short = GenerationNode(
+            node_name="test",
+            model_specs=[
+                ModelSpec(
+                    model_enum=Models.BOTORCH_MODULAR,
+                    model_kwargs={},
+                    model_gen_kwargs={
+                        "n": 1,
+                        "fixed_features": ObservationFeatures(
+                            parameters={},
+                            trial_index=0,
+                        ),
+                    },
+                ),
+            ],
+            trial_type=Keys.SHORT_RUN,
+        )
+        mbm_short.fit(
+            experiment=self.branin_experiment,
+            data=self.branin_data,
+        )
+        gr = mbm_short.gen(n=2)
+        gen_metadata = gr.gen_metadata
+        self.assertIsNotNone(gen_metadata)
+        self.assertEqual(gen_metadata["trial_type"], Keys.SHORT_RUN)
+        # validate that other fields in gen_metadata are preserved
+        self.assertIsNotNone(gen_metadata[Keys.EXPECTED_ACQF_VAL])
+
+    def test_gen_with_no_trial_type(self) -> None:
+        self.sobol_generation_node.fit(
+            experiment=self.branin_experiment,
+            data=self.branin_data,
+        )
+        gr = self.sobol_generation_node.gen(n=2)
+        self.assertIsNotNone(gr.gen_metadata)
+        self.assertFalse("trial_type" in gr.gen_metadata)
 
     @fast_botorch_optimize
     def test_properties(self) -> None:
@@ -180,10 +218,9 @@ class TestGenerationNode(TestCase):
             ],
         )
         self.assertIsNone(node.model_to_gen_from_name)
-        dat = self.branin_experiment.lookup_data()
         node.fit(
             experiment=self.branin_experiment,
-            data=dat,
+            data=self.branin_data,
         )
         self.assertEqual(
             node.model_spec_to_gen_from.model_enum, node.model_specs[0].model_enum
