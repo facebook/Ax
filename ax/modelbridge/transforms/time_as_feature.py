@@ -6,6 +6,8 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 from logging import Logger
 from time import time
 from typing import Optional, TYPE_CHECKING
