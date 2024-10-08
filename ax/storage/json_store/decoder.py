@@ -692,6 +692,15 @@ def generation_node_from_json(
             if "previous_node_name" in generation_node_json.keys()
             else None
         ),
+        trial_type=(
+            object_from_json(
+                generation_node_json.pop("trial_type"),
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
+            )
+            if "trial_type" in generation_node_json.keys()
+            else None
+        ),
     )
 
 
