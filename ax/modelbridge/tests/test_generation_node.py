@@ -29,6 +29,7 @@ from ax.modelbridge.generation_node_input_constructors import (
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import Models
 from ax.modelbridge.transition_criterion import MaxTrials
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
@@ -84,6 +85,33 @@ class TestGenerationNode(TestCase):
     def test_input_constructor_none(self) -> None:
         self.assertEqual(self.sobol_generation_node._input_constructors, {})
         self.assertEqual(self.sobol_generation_node.input_constructors, {})
+
+    def test_incorrect_trial_type(self) -> None:
+        with self.assertRaisesRegex(NotImplementedError, "Trial type must be either"):
+            GenerationNode(
+                node_name="test",
+                model_specs=[self.sobol_model_spec],
+                trial_type="foo",
+            )
+
+    def test_init_with_trial_type(self) -> None:
+        node_short = GenerationNode(
+            node_name="test",
+            model_specs=[self.sobol_model_spec],
+            trial_type=Keys.SHORT_RUN,
+        )
+        node_long = GenerationNode(
+            node_name="test",
+            model_specs=[self.sobol_model_spec],
+            trial_type=Keys.LONG_RUN,
+        )
+        node_default = GenerationNode(
+            node_name="test",
+            model_specs=[self.sobol_model_spec],
+        )
+        self.assertEqual(node_short._trial_type, Keys.SHORT_RUN)
+        self.assertEqual(node_long._trial_type, Keys.LONG_RUN)
+        self.assertIsNone(node_default._trial_type)
 
     def test_input_constructor(self) -> None:
         node = GenerationNode(
