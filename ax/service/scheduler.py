@@ -1830,7 +1830,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         """
         new_trials = self._get_next_trials(
             num_trials=num_trials,
-            n=self.options.batch_size or 1,
+            n=self.options.batch_size,
         )
         if len(new_trials) > 0:
             new_generator_runs = [gr for t in new_trials for gr in t.generator_runs]
