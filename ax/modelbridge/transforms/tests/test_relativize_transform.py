@@ -271,6 +271,7 @@ class RelativizeDataTest(TestCase):
             status_quo=Mock(
                 data=obs_data[2], features=obs_features[2], arm_name=arm_names[2]
             ),
+            status_quo_name=arm_names[2],
             status_quo_data_by_trial={0: obs_data[0], 1: obs_data[2]},
         )
 

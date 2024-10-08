@@ -454,6 +454,14 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         return self._status_quo
 
     @property
+    def status_quo_name(self) -> str | None:
+        """Name of status quo, if any."""
+        if self._status_quo is not None:
+            if self._status_quo.arm_name is not None:
+                return self._status_quo.arm_name
+        return self._status_quo_name
+
+    @property
     def metric_names(self) -> set[str]:
         """Metric names present in training data."""
         return self._metric_names

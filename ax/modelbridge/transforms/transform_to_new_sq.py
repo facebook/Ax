@@ -20,8 +20,9 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.relativize import BaseRelativize, get_metric_index
 from ax.models.types import TConfig
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.stats.statstools import relativize, unrelativize
+from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -54,9 +55,8 @@ class TransformToNewSQ(BaseRelativize):
             modelbridge=modelbridge,
             config=config,
         )
-        self.status_quo: Observation = not_none(
-            self.modelbridge.status_quo,
-            f"Status quo must be set on modelbridge for {self.__class__.__name__}.",
+        self._status_quo_name: str = none_throws(
+            none_throws(modelbridge).status_quo_name
         )
         if config is not None:
             target_trial_index = config.get("target_trial_index")
@@ -115,7 +115,7 @@ class TransformToNewSQ(BaseRelativize):
             for obs in rel_observations
             # drop SQ observations
             if (
-                obs.arm_name != self.status_quo.arm_name
+                obs.arm_name != self._status_quo_name
                 or obs.features.trial_index == self.default_trial_idx
             )
         ]
