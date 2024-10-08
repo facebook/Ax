@@ -71,7 +71,7 @@ Plotly Arm Effects Utils
     :undoc-members:
     :show-inheritance:
 
-Plotly Anaylsis Utils
+Plotly Analysis Utils
 ~~~~~~~~~~~~~~~
 
 .. automodule:: ax.analysis.plotly.utils
@@ -83,6 +83,14 @@ Scatter Plot Analysis
 ~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.analysis.plotly.scatter
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Summary
+~~~~~~~
+
+.. automodule:: ax.analysis.summary
     :members:
     :undoc-members:
     :show-inheritance:
