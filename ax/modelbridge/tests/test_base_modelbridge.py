@@ -510,6 +510,7 @@ class BaseModelBridgeTest(TestCase):
             status_quo_name="1_1",
         )
         self.assertEqual(modelbridge.status_quo, get_observation1())
+        self.assertEqual(modelbridge.status_quo_name, "1_1")
 
         # Alternatively, we can specify by features
         modelbridge = ModelBridge(
@@ -522,6 +523,7 @@ class BaseModelBridgeTest(TestCase):
             status_quo_features=get_observation1().features,
         )
         self.assertEqual(modelbridge.status_quo, get_observation1())
+        self.assertEqual(modelbridge.status_quo_name, "1_1")
 
         # Alternatively, we can specify on experiment
         # Put a dummy arm with SQ name 1_1 on the dummy experiment.
@@ -532,6 +534,7 @@ class BaseModelBridgeTest(TestCase):
         # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
         modelbridge = ModelBridge(get_search_space_for_value(), 0, [], exp, 0)
         self.assertEqual(modelbridge.status_quo, get_observation1())
+        self.assertEqual(modelbridge.status_quo_name, "1_1")
 
         # Errors if features and name both specified
         with self.assertRaises(ValueError):
@@ -557,6 +560,7 @@ class BaseModelBridgeTest(TestCase):
             status_quo_name="1_0",
         )
         self.assertIsNone(modelbridge.status_quo)
+        self.assertIsNone(modelbridge.status_quo_name)
         modelbridge = ModelBridge(
             get_search_space_for_value(),
             0,

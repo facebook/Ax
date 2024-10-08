@@ -73,11 +73,12 @@ class TransformToNewSQSpecificTest(TestCase):
             status_quo_name="status_quo",
         )
 
-    def test_modelbridge_without_status_quo(self) -> None:
+    def test_modelbridge_without_status_quo_name(self) -> None:
         self.modelbridge._status_quo = None
+        self.modelbridge._status_quo_name = None
 
         with self.assertRaisesRegex(
-            ValueError, "Status quo must be set on modelbridge for TransformToNewSQ."
+            ValueError, "TransformToNewSQ requires status quo data."
         ):
             TransformToNewSQ(
                 search_space=None,

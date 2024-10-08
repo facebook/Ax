@@ -391,12 +391,11 @@ def get_plot_data(
         fixed_features=fixed_features,
         scalarized_metric_config=scalarized_metric_config,
     )
-    status_quo_name = None if model.status_quo is None else model.status_quo.arm_name
     plot_data = PlotData(
         metrics=list(metrics_plot),
         in_sample=in_sample_plot,
         out_of_sample=out_of_sample_plot,
-        status_quo_name=status_quo_name,
+        status_quo_name=model.status_quo_name,
     )
     return plot_data, raw_data, cond_name_to_parameters
 
