@@ -39,6 +39,7 @@ from ax.modelbridge.transition_criterion import (
     TrialBasedCriterion,
 )
 from ax.utils.common.base import SortableBase
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import SerializationMixin
 from ax.utils.common.typeutils import not_none
@@ -87,6 +88,9 @@ class GenerationNode(SerializationMixin, SortableBase):
         input_constructors: A dictionary mapping input constructor purpose enum to the
             input constructor enum. Each input constructor maps to a method which
             encodes the logic for determining dynamic inputs to the ``GenerationNode``
+        trial_type: Specifies the type of trial to generate, is limited to either
+            ``Keys.SHORT_RUN`` or ``Keys.LONG_RUN`` for now. If not specified, will
+            default to None and not be used during generation.
         previous_node_name: The previous ``GenerationNode`` name in the
             ``GenerationStrategy``, if any. Initialized to None for all nodes, and is
             set during transition from one ``GenerationNode`` to the next. Can be
@@ -113,6 +117,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         modelbridge.generation_node_input_constructors.NodeInputConstructors,
     ]
     _previous_node_name: str | None = None
+    _trial_type: str | None = None
 
     # [TODO] Handle experiment passing more eloquently by enforcing experiment
     # attribute is set in generation strategies class
@@ -134,6 +139,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             ]
         ) = None,
         previous_node_name: str | None = None,
+        trial_type: str | None = None,
     ) -> None:
         self._node_name = node_name
         # Check that the model specs have unique model keys.
@@ -144,6 +150,13 @@ class GenerationNode(SerializationMixin, SortableBase):
             )
         if len(model_specs) > 1 and best_model_selector is None:
             raise UserInputError(MISSING_MODEL_SELECTOR_MESSAGE)
+        if trial_type is not None and (
+            trial_type != Keys.SHORT_RUN and trial_type != Keys.LONG_RUN
+        ):
+            raise NotImplementedError(
+                f"Trial type must be either {Keys.SHORT_RUN} or {Keys.LONG_RUN},"
+                f" got {trial_type}."
+            )
         self.model_specs = model_specs
         self.best_model_selector = best_model_selector
         self.should_deduplicate = should_deduplicate
@@ -154,6 +167,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             input_constructors if input_constructors is not None else {}
         )
         self._previous_node_name = previous_node_name
+        self._trial_type = trial_type
 
     @property
     def node_name(self) -> str:
