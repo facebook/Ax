@@ -104,6 +104,13 @@ class BaseModelBridgeTest(TestCase):
         with self.assertRaisesRegex(DeprecationWarning, "ModelBridge.update"):
             modelbridge.update(Mock(), Mock())
 
+        # Test prediction with arms.
+        with self.assertRaisesRegex(
+            UserInputError, "Input to predict must be a list of `ObservationFeatures`."
+        ):
+            # pyre-ignore[6]: Intentionally wrong argument type.
+            modelbridge.predict([Arm(parameters={"x": 1.0})])
+
         # Test prediction on out of design features.
         modelbridge._predict = mock.MagicMock(
             "ax.modelbridge.base.ModelBridge._predict",
