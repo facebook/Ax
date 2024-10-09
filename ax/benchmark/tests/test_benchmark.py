@@ -12,7 +12,6 @@ from unittest.mock import patch
 
 import numpy as np
 from ax.benchmark.benchmark import (
-    _create_benchmark_experiment,
     benchmark_multiple_problems_methods,
     benchmark_one_method_problem,
     benchmark_replication,
@@ -51,6 +50,7 @@ from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.optim.optimize import optimize_acqf
 from botorch.test_functions.synthetic import Branin
+from pyre_extensions import none_throws
 
 
 class TestBenchmark(TestCase):
@@ -145,52 +145,6 @@ class TestBenchmark(TestCase):
                 gen_time=0.0,
             )
 
-    def test_create_benchmark_experiment(self) -> None:
-
-        with self.subTest("noiseless"):
-            problem = get_single_objective_benchmark_problem(observe_noise_sd=False)
-            experiment = _create_benchmark_experiment(
-                problem=problem, method_name="test_method"
-            )
-            self.assertTrue("|test_method_" in experiment.name)
-            self.assertFalse("_observed_noise" in experiment.name)
-            self.assertEqual(experiment.search_space, problem.search_space)
-            self.assertEqual(
-                experiment.optimization_config, problem.optimization_config
-            )
-            self.assertEqual(len(experiment.tracking_metrics), 0)
-            self.assertEqual(experiment.runner, problem.runner)
-
-        with self.subTest("noisy, unobserved noise std"):
-            problem = get_single_objective_benchmark_problem(
-                observe_noise_sd=False, test_problem_kwargs={"noise_std": 0.1}
-            )
-            experiment = _create_benchmark_experiment(
-                problem=problem, method_name="test_method"
-            )
-            self.assertTrue("|test_method_" in experiment.name)
-            self.assertFalse("_observed_noise" in experiment.name)
-            self.assertEqual(experiment.search_space, problem.search_space)
-            self.assertEqual(
-                experiment.optimization_config, problem.optimization_config
-            )
-            self.assertEqual(experiment.runner, problem.runner)
-
-        with self.subTest("noisy, observed noise std"):
-            problem = get_single_objective_benchmark_problem(
-                observe_noise_sd=True, test_problem_kwargs={"noise_std": 0.1}
-            )
-            experiment = _create_benchmark_experiment(
-                problem=problem, method_name="test_method"
-            )
-            self.assertTrue("|test_method_" in experiment.name)
-            self.assertTrue("_observed_noise" in experiment.name)
-            self.assertEqual(experiment.search_space, problem.search_space)
-            self.assertEqual(
-                experiment.optimization_config, problem.optimization_config
-            )
-            self.assertEqual(experiment.runner, problem.runner)
-
     def test_replication_sobol_synthetic(self) -> None:
         method = get_sobol_benchmark_method(distribute_replications=False)
         problems = [
@@ -203,6 +157,12 @@ class TestBenchmark(TestCase):
             self.assertEqual(problem.num_trials, len(not_none(res.experiment).trials))
             self.assertTrue(np.isfinite(res.score_trace).all())
             self.assertTrue(np.all(res.score_trace <= 100))
+            experiment = none_throws(res.experiment)
+            self.assertIn(f"{problem.name}|Sobol", experiment.name)
+            self.assertEqual(experiment.search_space, problem.search_space)
+            self.assertEqual(
+                experiment.optimization_config, problem.optimization_config
+            )
 
     def test_replication_sobol_surrogate(self) -> None:
         method = get_sobol_benchmark_method(distribute_replications=False)
