@@ -250,7 +250,15 @@ TEST_CASES = [
     ("SchedulerOptions", get_default_scheduler_options),
     ("SchedulerOptions", get_scheduler_options_batch_trial),
     ("SearchSpace", get_search_space),
-    ("SingleObjectiveBenchmarkProblem", get_single_objective_benchmark_problem),
+    (
+        "SingleObjectiveBenchmarkProblem",
+        lambda: get_single_objective_benchmark_problem(
+            test_problem_kwargs={
+                "noise_std": 2.0,
+                "bounds": [(-10.0, 10.0) for _ in range(2)],
+            }
+        ),
+    ),
     ("SumConstraint", get_sum_constraint1),
     ("SumConstraint", get_sum_constraint2),
     ("Surrogate", get_surrogate),

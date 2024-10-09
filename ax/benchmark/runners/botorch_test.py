@@ -8,7 +8,7 @@
 import importlib
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 import torch
@@ -56,6 +56,7 @@ class ParamBasedTestProblem(ABC):
         return self.__class__.__name__ == other.__class__.__name__
 
 
+@dataclass(kw_only=True)
 class SyntheticProblemRunner(BenchmarkRunner, ABC):
     """A Runner for evaluating synthetic problems, either BoTorch
     `BaseTestProblem`s or Ax benchmarking `ParamBasedTestProblem`s.
@@ -63,70 +64,40 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
     Given a trial, the Runner will evaluate the problem noiselessly for each
     arm in the trial, as well as return some metadata about the underlying
     problem such as the noise_std.
+
+    Args:
+        test_problem_class: A BoTorch `BaseTestProblem` class or Ax
+            `ParamBasedTestProblem` class.
+        test_problem_kwargs: The keyword arguments used for initializing the
+            test problem.
+        outcome_names: The names of the outcomes returned by the problem.
+        modified_bounds: The bounds that are used by the Ax search space
+            while optimizing the problem. If different from the bounds of the
+            test problem, we project the parameters into the test problem
+            bounds before evaluating the test problem.
+            For example, if the test problem is defined on [0, 1] but the Ax
+            search space is integers in [0, 10], an Ax parameter value of
+            5 will correspond to 0.5 while evaluating the test problem.
+            If modified bounds are not provided, the test problem will be
+            evaluated using the raw parameter values.
+        search_space_digest: Used to extract target fidelity and task.
     """
 
-    test_problem: BaseTestProblem | ParamBasedTestProblem
-    _is_constrained: bool
-    _test_problem_class: type[BaseTestProblem | ParamBasedTestProblem]
-    _test_problem_kwargs: dict[str, Any] | None
+    test_problem_class: type[BaseTestProblem | ParamBasedTestProblem]
+    test_problem_kwargs: dict[str, Any] = field(default_factory=dict)
+    modified_bounds: list[tuple[float, float]] | None = None
+    test_problem: BaseTestProblem | ParamBasedTestProblem = field(init=False)
 
-    def __init__(
-        self,
-        *,
-        test_problem_class: type[BaseTestProblem | ParamBasedTestProblem],
-        test_problem_kwargs: dict[str, Any],
-        outcome_names: list[str],
-        modified_bounds: list[tuple[float, float]] | None = None,
-        search_space_digest: SearchSpaceDigest | None = None,
-    ) -> None:
-        """Initialize the test problem runner.
+    def __post_init__(self, search_space_digest: SearchSpaceDigest | None) -> None:
+        super().__post_init__(search_space_digest=search_space_digest)
 
-        Args:
-            test_problem_class: A BoTorch `BaseTestProblem` class or Ax
-                `ParamBasedTestProblem` class.
-            test_problem_kwargs: The keyword arguments used for initializing the
-                test problem.
-            outcome_names: The names of the outcomes returned by the problem.
-            modified_bounds: The bounds that are used by the Ax search space
-                while optimizing the problem. If different from the bounds of the
-                test problem, we project the parameters into the test problem
-                bounds before evaluating the test problem.
-                For example, if the test problem is defined on [0, 1] but the Ax
-                search space is integers in [0, 10], an Ax parameter value of
-                5 will correspond to 0.5 while evaluating the test problem.
-                If modified bounds are not provided, the test problem will be
-                evaluated using the raw parameter values.
-            search_space_digest: Used to extract target fidelity and task.
-        """
-        super().__init__(
-            outcome_names=outcome_names, search_space_digest=search_space_digest
-        )
-        self._test_problem_class = test_problem_class
-        self._test_problem_kwargs = test_problem_kwargs
-        self.test_problem = (
-            # pyre-fixme: Invalid class instantiation [45]: Cannot instantiate
-            # abstract class with abstract method `evaluate_true`.
-            test_problem_class(**test_problem_kwargs)
-        )
-        if isinstance(self.test_problem, BaseTestProblem):
-            self.test_problem = self.test_problem.to(dtype=torch.double)
-        # A `ConstrainedBaseTestProblem` is a type of `BaseTestProblem`; a
-        # `ParamBasedTestProblem` is never constrained.
-        self._is_constrained: bool = isinstance(
-            self.test_problem, ConstrainedBaseTestProblem
-        )
-        self._is_moo: bool = self.test_problem.num_objectives > 1
-        self._modified_bounds = modified_bounds
+    @property
+    def _is_moo(self) -> bool:
+        return self.test_problem.num_objectives > 1
 
-    @equality_typechecker
-    def __eq__(self, other: Base) -> bool:
-        if not isinstance(other, type(self)):
-            return False
-
-        return (
-            self.test_problem.__class__.__name__
-            == other.test_problem.__class__.__name__
-        )
+    @property
+    def _is_constrained(self) -> bool:
+        return issubclass(self.test_problem_class, ConstrainedBaseTestProblem)
 
     def get_noise_stds(self) -> None | float | dict[str, float]:
         noise_std = self.test_problem.noise_std
@@ -174,11 +145,11 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
         runner = assert_is_instance(obj, cls)
 
         return {
-            "test_problem_module": runner._test_problem_class.__module__,
-            "test_problem_class_name": runner._test_problem_class.__name__,
-            "test_problem_kwargs": runner._test_problem_kwargs,
+            "test_problem_module": runner.test_problem_class.__module__,
+            "test_problem_class_name": runner.test_problem_class.__name__,
+            "test_problem_kwargs": runner.test_problem_kwargs,
             "outcome_names": runner.outcome_names,
-            "modified_bounds": runner._modified_bounds,
+            "modified_bounds": runner.modified_bounds,
         }
 
     @classmethod
@@ -202,6 +173,7 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
         }
 
 
+@dataclass(kw_only=True)
 class BotorchTestProblemRunner(SyntheticProblemRunner):
     """
     A `SyntheticProblemRunner` for BoTorch `BaseTestProblem`s.
@@ -223,25 +195,14 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
         search_space_digest: Used to extract target fidelity and task.
     """
 
-    def __init__(
-        self,
-        *,
-        test_problem_class: type[BaseTestProblem],
-        test_problem_kwargs: dict[str, Any],
-        outcome_names: list[str],
-        modified_bounds: list[tuple[float, float]] | None = None,
-        search_space_digest: SearchSpaceDigest | None = None,
-    ) -> None:
-        super().__init__(
-            test_problem_class=test_problem_class,
-            test_problem_kwargs=test_problem_kwargs,
-            outcome_names=outcome_names,
-            modified_bounds=modified_bounds,
-            search_space_digest=search_space_digest,
-        )
-        self.test_problem: BaseTestProblem = self.test_problem.to(dtype=torch.double)
-        self._is_constrained: bool = isinstance(
-            self.test_problem, ConstrainedBaseTestProblem
+    test_problem_class: type[BaseTestProblem]
+    test_problem: BaseTestProblem = field(init=False)
+
+    def __post_init__(self, search_space_digest: SearchSpaceDigest | None) -> None:
+        super().__post_init__(search_space_digest)
+        # pyre-fixme[45]: Can't instantiate abstract class `BaseTestProblem`.
+        self.test_problem = self.test_problem_class(**self.test_problem_kwargs).to(
+            torch.double
         )
 
     def get_Y_true(self, params: Mapping[str, TParamValue]) -> Tensor:
@@ -265,10 +226,10 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
             dtype=torch.double,
         )
 
-        if self._modified_bounds is not None:
+        if self.modified_bounds is not None:
             # Normalize from modified bounds to unit cube.
             unit_X = normalize(
-                X, torch.tensor(self._modified_bounds, dtype=torch.double).T
+                X, torch.tensor(self.modified_bounds, dtype=torch.double).T
             )
             # Unnormalize from unit cube to original problem bounds.
             X = unnormalize(unit_X, self.test_problem.bounds)
@@ -288,37 +249,42 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
 
         return Y_true
 
+    @equality_typechecker
+    def __eq__(self, other: Base) -> bool:
+        """
+        Compare equality by comparing dicts, except for `test_problem`.
 
+        Dataclasses are compared by comparing the results of calling asdict on
+        them. However, equality checks don't work as needed with BoTorch test
+        problems, e.g. Branin() == Branin() is False. To get around that, the
+        test problem is stripped from the dictionary. This doesn't make the
+        check less sensitive, as long as the problem has not been modified,
+        because the test problem class and keyword arguments will still be
+        compared.
+        """
+        if not isinstance(other, type(self)):
+            return False
+        self_as_dict = asdict(self)
+        other_as_dict = asdict(other)
+        self_as_dict.pop("test_problem")
+        other_as_dict.pop("test_problem")
+        return self_as_dict == other_as_dict
+
+
+@dataclass(kw_only=True)
 class ParamBasedTestProblemRunner(SyntheticProblemRunner):
     """
     A `SyntheticProblemRunner` for `ParamBasedTestProblem`s. See
     `SyntheticProblemRunner` for more information.
     """
 
-    # This could easily be supported, but hasn't been hooked up
-    _is_constrained: bool = False
+    test_problem_class: type[ParamBasedTestProblem]
+    test_problem: ParamBasedTestProblem = field(init=False)
 
-    def __init__(
-        self,
-        *,
-        test_problem_class: type[ParamBasedTestProblem],
-        test_problem_kwargs: dict[str, Any],
-        outcome_names: list[str],
-        modified_bounds: list[tuple[float, float]] | None = None,
-        search_space_digest: SearchSpaceDigest | None = None,
-    ) -> None:
-        if modified_bounds is not None:
-            raise NotImplementedError(
-                f"modified_bounds is not supported for {test_problem_class.__name__}"
-            )
-        super().__init__(
-            test_problem_class=test_problem_class,
-            test_problem_kwargs=test_problem_kwargs,
-            outcome_names=outcome_names,
-            modified_bounds=modified_bounds,
-            search_space_digest=search_space_digest,
-        )
-        self.test_problem: ParamBasedTestProblem = self.test_problem
+    def __post_init__(self, search_space_digest: SearchSpaceDigest | None) -> None:
+        super().__post_init__(search_space_digest=search_space_digest)
+        # pyre-fixme[45]: Can't instantiate abstract class `ParamBasedTestProblem`.
+        self.test_problem = self.test_problem_class(**self.test_problem_kwargs)
 
     def get_Y_true(self, params: Mapping[str, TParamValue]) -> Tensor:
         """Evaluates the test problem.

@@ -37,7 +37,7 @@ class MixedIntegerProblemsTest(TestCase):
             self.assertEqual(
                 checked_cast(
                     BotorchTestProblemRunner, problem.runner
-                )._test_problem_class.__name__,
+                ).test_problem_class.__name__,
                 name,
             )
             self.assertEqual(len(problem.search_space.parameters), dim)
