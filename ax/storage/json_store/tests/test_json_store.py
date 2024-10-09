@@ -210,6 +210,10 @@ TEST_CASES = [
         "GenerationStrategy",
         partial(sobol_gpei_generation_node_gs, with_unlimited_gen_mbm=True),
     ),
+    (
+        "GenerationStrategy",
+        partial(sobol_gpei_generation_node_gs, with_is_SOO_transition=True),
+    ),
     ("GeneratorRun", get_generator_run),
     ("Hartmann6Metric", get_hartmann_metric),
     ("HierarchicalSearchSpace", get_hierarchical_search_space),

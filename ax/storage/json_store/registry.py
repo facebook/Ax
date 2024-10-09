@@ -93,6 +93,7 @@ from ax.modelbridge.registry import ModelRegistryBase
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transition_criterion import (
     AutoTransitionAfterGen,
+    IsSingleObjective,
     MaxGenerationParallelism,
     MaxTrials,
     MinimumPreferenceOccurances,
@@ -205,6 +206,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     Hartmann6Metric: metric_to_dict,
     ImprovementGlobalStoppingStrategy: improvement_global_stopping_strategy_to_dict,
     Interval: botorch_component_to_dict,
+    IsSingleObjective: transition_criterion_to_dict,
     L2NormMetric: metric_to_dict,
     LogNormalPrior: botorch_component_to_dict,
     MapData: map_data_to_dict,
@@ -320,6 +322,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "ImprovementGlobalStoppingStrategy": ImprovementGlobalStoppingStrategy,
     "InputConstructorPurpose": InputConstructorPurpose,
     "Interval": Interval,
+    "IsSingleObjective": IsSingleObjective,
     "Keys": Keys,
     "LifecycleStage": LifecycleStage,
     "ListSurrogate": Surrogate,  # For backwards compatibility
