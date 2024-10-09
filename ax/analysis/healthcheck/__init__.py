@@ -5,6 +5,9 @@
 
 # pyre-strict
 
+from ax.analysis.healthcheck.can_generate_candidates import (
+    CanGenerateCandidatesAnalysis,
+)
 from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysis,
     HealthcheckAnalysisCard,
@@ -12,6 +15,7 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
 )
 
 __all__ = [
+    "CanGenerateCandidatesAnalysis",
     "HealthcheckAnalysis",
     "HealthcheckAnalysisCard",
     "HealthcheckStatus",

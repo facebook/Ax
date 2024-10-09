@@ -9,6 +9,8 @@
 from logging import Logger
 from unittest.mock import MagicMock, patch
 
+import torch
+
 from ax.core.base_trial import TrialStatus
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import UserInputError
@@ -34,6 +36,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import fast_botorch_optimize
+from botorch.sampling.normal import SobolQMCNormalSampler
 
 logger: Logger = get_logger(__name__)
 
@@ -198,6 +201,40 @@ class TestGenerationNode(TestCase):
         gr = self.sobol_generation_node.gen(n=2)
         self.assertIsNotNone(gr.gen_metadata)
         self.assertFalse("trial_type" in gr.gen_metadata)
+
+    def test_model_gen_kwargs_deepcopy(self) -> None:
+        sampler = SobolQMCNormalSampler(torch.Size([1]))
+        node = GenerationNode(
+            node_name="test",
+            model_specs=[
+                ModelSpec(
+                    model_enum=Models.BOTORCH_MODULAR,
+                    model_kwargs={},
+                    model_gen_kwargs={
+                        "n": 1,
+                        "fixed_features": ObservationFeatures(
+                            parameters={},
+                            trial_index=0,
+                        ),
+                        "model_gen_options": {Keys.ACQF_KWARGS: {"sampler": sampler}},
+                    },
+                ),
+            ],
+        )
+        dat = self.branin_experiment.lookup_data()
+        node.fit(
+            experiment=self.branin_experiment,
+            data=dat,
+        )
+        node.gen(n=1, pending_observations={"branin": []})
+        # verify that sampler is not modified in-place by checking base samples
+        self.assertIs(
+            node.model_spec_to_gen_from.model_gen_kwargs["model_gen_options"][
+                Keys.ACQF_KWARGS
+            ]["sampler"],
+            sampler,
+        )
+        self.assertIsNone(sampler.base_samples)
 
     @fast_botorch_optimize
     def test_properties(self) -> None:
