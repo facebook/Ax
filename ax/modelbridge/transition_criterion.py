@@ -5,19 +5,25 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 from abc import abstractmethod
 from logging import Logger
+from typing import Collection
 
 from ax.core import MultiObjectiveOptimizationConfig
 
+from ax.core.auxiliary import AuxiliaryExperimentPurpose
+
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
-from ax.exceptions.core import DataRequiredError
+from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import SerializationMixin, serialize_init_args
+from ax.utils.common.typeutils import not_none
 
 logger: Logger = get_logger(__name__)
 
@@ -673,6 +679,138 @@ class MinimumPreferenceOccurances(TransitionCriterion):
         trials_from_node: set[int] | None = None,
     ) -> None:
         pass
+
+
+class AuxiliaryExperimentCheck(TransitionCriterion):
+    """A class to transition from one GenerationNode to another by checking if certain
+    types of Auxiliary Experiment purposes exists.
+
+    A common use case is to use auxiliary_experiment_purposes_to_include to transition
+    to a node and auxiliary_experiment_purposes_to_exclude to transition away from it.
+
+    Example usage: In Bayesian optimization with preference exploration (BOPE), we
+    check if the preference exploration (PE) auxiliary experiment exists to indicate
+    transition to the node that will generate candidates based on the learned
+    objective.Since preference exploration is usually conducted after the exploratory
+    batch is completed, we do not know at experiment creation time if the PE node
+    should be used during the GenerationStrategy.
+
+    Args:
+        transition_to: The name of the GenerationNode the GenerationStrategy should
+            transition to when this criterion is met, if it exists.
+        auxiliary_experiment_purposes_to_include: Optional list of auxiliary experiment
+            purposes we expect to have. This can be helpful when need to transition to
+            a node based on AuxiliaryExperimentPurpose. Criterion is met when all
+            inclusion and exclusion checks pass.
+        auxiliary_experiment_purposes_to_exclude: Optional list of auxiliary experiment
+            purpose we expect to not have. This can be helpful when need to transition
+            out of a node based on AuxiliaryExperimentPurpose. Criterion is met when
+            all inclusion and exclusion checks pass.
+        block_gen_if_met: A flag to prevent continued generation from the
+            associated GenerationNode if this criterion is met but other criterion
+            remain unmet. Ex: MinimumTrialsInStatus has not been met yet, but
+            MaxTrials has been reached. If this flag is set to true on MaxTrials then
+            we will raise an error, otherwise we will continue to generate trials
+            until MinimumTrialsInStatus is met (thus overriding MaxTrials).
+        block_transition_if_unmet: A flag to prevent the node from completing and
+            being able to transition to another node. Ex: MaxGenerationParallelism
+            defaults to setting this to False since we can complete and move on from
+            this node without ever reaching its threshold.
+        complete_trial_generation: A flag to indicate that all generation for a given
+            trial is completed. This is necessary because in ``BatchTrial`` there
+            are multiple arms per trial, and we enable generation of arms within a
+            batch from different ``GenerationNodes``. This flag should be set to
+            True for the last node in a set of ``GenerationNodes`` expected to
+            create a given ``BatchTrial``.
+    """
+
+    def __init__(
+        self,
+        transition_to: str,
+        auxiliary_experiment_purposes_to_include: (
+            list[AuxiliaryExperimentPurpose] | None
+        ) = None,
+        auxiliary_experiment_purposes_to_exclude: (
+            list[AuxiliaryExperimentPurpose] | None
+        ) = None,
+        block_transition_if_unmet: bool | None = True,
+        block_gen_if_met: bool | None = False,
+        continue_trial_generation: bool | None = True,
+    ) -> None:
+        super().__init__(
+            transition_to=transition_to,
+            block_transition_if_unmet=block_transition_if_unmet,
+            block_gen_if_met=block_gen_if_met,
+            continue_trial_generation=continue_trial_generation,
+        )
+
+        if (
+            auxiliary_experiment_purposes_to_include is None
+            and auxiliary_experiment_purposes_to_exclude is None
+        ):
+            raise UserInputError(
+                f"{self.__class__} cannot have both "
+                "`auxiliary_experiment_purposes_to_include` and "
+                "`auxiliary_experiment_purposes_to_exclude` be None."
+            )
+        self.auxiliary_experiment_purposes_to_include = (
+            auxiliary_experiment_purposes_to_include
+        )
+        self.auxiliary_experiment_purposes_to_exclude = (
+            auxiliary_experiment_purposes_to_exclude
+        )
+
+    def check_aux_exp_purposes(
+        self,
+        aux_exp_purposes: Collection[AuxiliaryExperimentPurpose],
+        include: bool,
+        expected_aux_exp_purposes: list[AuxiliaryExperimentPurpose] | None = None,
+    ) -> bool:
+        """Helper method to check if all elements in expected_aux_exp_purposes
+        are in (or not in) aux_exp_purposes"""
+        if expected_aux_exp_purposes is not None:
+            for purpose in not_none(expected_aux_exp_purposes):
+                purpose_present = purpose in aux_exp_purposes
+                if purpose_present != include:
+                    return False
+        return True
+
+    def is_met(
+        self,
+        experiment: Experiment,
+        trials_from_node: set[int] | None = None,
+        node_that_generated_last_gr: str | None = None,
+        curr_node_name: str | None = None,
+    ) -> bool:
+        """Check if the experiment has auxiliary experiments for certain purpose."""
+        aux_exp_purposes = set(experiment.auxiliary_experiments_by_purpose.keys())
+        inclusion_check = self.check_aux_exp_purposes(
+            aux_exp_purposes=aux_exp_purposes,
+            include=True,
+            expected_aux_exp_purposes=self.auxiliary_experiment_purposes_to_include,
+        )
+        exclusion_check = self.check_aux_exp_purposes(
+            aux_exp_purposes=aux_exp_purposes,
+            include=False,
+            expected_aux_exp_purposes=self.auxiliary_experiment_purposes_to_exclude,
+        )
+        return inclusion_check and exclusion_check
+
+    def block_continued_generation_error(
+        self,
+        node_name: str | None,
+        model_name: str | None,
+        experiment: Experiment | None,
+        trials_from_node: set[int] | None = None,
+    ) -> None:
+        """If the enforce flag is set, raises an error because the remaining
+        TransitionCriterion cannot be completed in the current state.
+        """
+        if self.block_gen_if_met:
+            raise DataRequiredError(
+                f"This criterion, {self.criterion_class} has been met but cannot "
+                "continue generation from its associated GenerationNode."
+            )
 
 
 # TODO: Deprecate once legacy usecase is updated

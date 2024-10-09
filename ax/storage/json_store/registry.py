@@ -93,6 +93,7 @@ from ax.modelbridge.registry import ModelRegistryBase
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transition_criterion import (
     AutoTransitionAfterGen,
+    AuxiliaryExperimentCheck,
     IsSingleObjective,
     MaxGenerationParallelism,
     MaxTrials,
@@ -218,6 +219,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     MinTrials: transition_criterion_to_dict,
     MinimumTrialsInStatus: transition_criterion_to_dict,
     MinimumPreferenceOccurances: transition_criterion_to_dict,
+    AuxiliaryExperimentCheck: transition_criterion_to_dict,
     ModelSpec: model_spec_to_dict,
     MultiObjective: multi_objective_to_dict,
     MultiObjectiveOptimizationConfig: multi_objective_optimization_config_to_dict,
@@ -337,6 +339,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "MinTrials": MinTrials,
     "MinimumTrialsInStatus": MinimumTrialsInStatus,
     "MinimumPreferenceOccurances": MinimumPreferenceOccurances,
+    "AuxiliaryExperimentCheck": AuxiliaryExperimentCheck,
     "Models": Models,
     "ModelRegistryBase": ModelRegistryBase,
     "ModelSpec": ModelSpec,

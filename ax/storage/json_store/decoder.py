@@ -39,7 +39,11 @@ from ax.modelbridge.generation_strategy import (
 )
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import _decode_callables_from_references
-from ax.modelbridge.transition_criterion import TransitionCriterion, TrialBasedCriterion
+from ax.modelbridge.transition_criterion import (
+    AuxiliaryExperimentCheck,
+    TransitionCriterion,
+    TrialBasedCriterion,
+)
 from ax.models.torch.botorch_modular.model import SurrogateSpec
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.storage.json_store.decoders import (
@@ -165,7 +169,6 @@ def object_from_json(
         # pyre-fixme[9, 24]: Generic type `type` expects 1 type parameter, use
         # `typing.Type[<base type>]` to avoid runtime subscripting errors.
         _class: type = decoder_registry[_type]
-
         if isclass(_class) and issubclass(_class, Enum):
             # to access enum members by name, use item access
             return _class[object_json["name"]]
@@ -252,10 +255,14 @@ def object_from_json(
                 object_json["outcome_transform_options"] = (
                     outcome_transform_options_json
                 )
-        elif isclass(_class) and issubclass(_class, TrialBasedCriterion):
-            # TrialBasedCriterion contain a list of `TrialStatus` for args.
-            # This list needs to be unpacked by hand to properly retain the types.
-            return trial_transition_criteria_from_json(
+        elif isclass(_class) and (
+            issubclass(_class, TrialBasedCriterion)
+            or issubclass(_class, AuxiliaryExperimentCheck)
+        ):
+            # TrialBasedCriterion contains a list of `TrialStatus` for args.
+            # AuxiliaryExperimentCheck contains AuxiliaryExperimentPurpose objects
+            # They need to be unpacked by hand to properly retain the types.
+            return unpack_transition_criteria_from_json(
                 class_=_class,
                 transition_criteria_json=object_json,
                 decoder_registry=decoder_registry,
@@ -350,7 +357,7 @@ def generator_run_from_json(
     return generator_run
 
 
-def trial_transition_criteria_from_json(
+def unpack_transition_criteria_from_json(
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
     #  avoid runtime subscripting errors.
     class_: type,

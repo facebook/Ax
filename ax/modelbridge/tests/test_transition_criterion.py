@@ -6,12 +6,15 @@
 # pyre-strict
 
 import logging
+from enum import unique
 from logging import Logger
 from unittest.mock import patch
 
 import pandas as pd
+from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.generation_strategy import (
     GenerationNode,
     GenerationStep,
@@ -21,6 +24,7 @@ from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
 from ax.modelbridge.transition_criterion import (
     AutoTransitionAfterGen,
+    AuxiliaryExperimentCheck,
     IsSingleObjective,
     MaxGenerationParallelism,
     MaxTrials,
@@ -38,6 +42,11 @@ from ax.utils.testing.core_stubs import (
 )
 
 logger: Logger = get_logger(__name__)
+
+
+@unique
+class TestAuxiliaryExperimentPurpose(AuxiliaryExperimentPurpose):
+    TestAuxExpPurpose = "test_aux_exp_purpose"
 
 
 class TestTransitionCriterion(TestCase):
@@ -100,6 +109,80 @@ class TestTransitionCriterion(TestCase):
                 generation_strategy._curr.model_spec_to_gen_from.model_enum,
                 Models.BOTORCH_MODULAR,
             )
+
+    def test_aux_experiment_check(self) -> None:
+        """Tests that the aux experiment check transition."""
+        # Test incorrect instantiation
+        with self.assertRaisesRegex(UserInputError, r"cannot have both .* None"):
+            AuxiliaryExperimentCheck(
+                transition_to="some_node",
+                auxiliary_experiment_purposes_to_include=None,
+                auxiliary_experiment_purposes_to_exclude=None,
+            )
+
+    def test_aux_experiment_check_in_gs(self) -> None:
+        """Tests that the aux experiment check transition works as expected in a GS."""
+        experiment = self.branin_experiment
+        gs = GenerationStrategy(
+            name="test",
+            nodes=[
+                GenerationNode(
+                    node_name="sobol_1",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=[
+                        AuxiliaryExperimentCheck(
+                            transition_to="sobol_2",
+                            auxiliary_experiment_purposes_to_include=[
+                                TestAuxiliaryExperimentPurpose.TestAuxExpPurpose
+                            ],
+                        )
+                    ],
+                ),
+                GenerationNode(
+                    node_name="sobol_2",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=[
+                        AuxiliaryExperimentCheck(
+                            transition_to="sobol_1",
+                            auxiliary_experiment_purposes_to_exclude=[
+                                TestAuxiliaryExperimentPurpose.TestAuxExpPurpose
+                            ],
+                        )
+                    ],
+                ),
+            ],
+        )
+        gs._experiment = experiment
+        aux_exp = AuxiliaryExperiment(experiment=get_experiment())
+        # Initial check
+        self.assertEqual(gs.current_node_name, "sobol_1")
+
+        # Do not transition because no aux experiment
+        grs = gs.gen_with_multiple_nodes(experiment=experiment, n=5)
+        self.assertEqual(gs.current_node_name, "sobol_1")
+        self.assertEqual(len(grs), 1)
+        self.assertEqual(len(grs[0].arms), 5)
+
+        # Transition because auxiliary_experiment_purposes_to_include is met
+        experiment.auxiliary_experiments_by_purpose = {
+            TestAuxiliaryExperimentPurpose.TestAuxExpPurpose: [aux_exp],
+        }
+        grs = gs.gen_with_multiple_nodes(experiment=experiment, n=5)
+        self.assertEqual(gs.current_node_name, "sobol_2")
+        self.assertEqual(len(grs), 1)
+        self.assertEqual(len(grs[0].arms), 5)
+        # Do not move even when the aux exp is still there
+        grs = gs.gen_with_multiple_nodes(experiment=experiment, n=5)
+        self.assertEqual(gs.current_node_name, "sobol_2")
+        self.assertEqual(len(grs), 1)
+        self.assertEqual(len(grs[0].arms), 5)
+
+        # Remove the aux experiment and move back to sobol_1
+        experiment.auxiliary_experiments_by_purpose = {}
+        grs = gs.gen_with_multiple_nodes(experiment=experiment, n=5)
+        self.assertEqual(gs.current_node_name, "sobol_1")
+        self.assertEqual(len(grs), 1)
+        self.assertEqual(len(grs[0].arms), 5)
 
     def test_default_step_criterion_setup(self) -> None:
         """This test ensures that the default completion criterion for GenerationSteps
