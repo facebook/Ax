@@ -16,6 +16,7 @@ from ax.core.observation import Observation, ObservationData, ObservationFeature
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.best_model_selector import (
     ReductionCriterion,
@@ -37,6 +38,7 @@ from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.modelbridge.transition_criterion import (
     AutoTransitionAfterGen,
+    IsSingleObjective,
     MaxGenerationParallelism,
     MaxTrials,
     MinimumPreferenceOccurances,
@@ -226,6 +228,7 @@ def sobol_gpei_generation_node_gs(
     with_input_constructors_repeat_n: bool = False,
     with_unlimited_gen_mbm: bool = False,
     with_trial_type: bool = False,
+    with_is_SOO_transition: bool = False,
 ) -> GenerationStrategy:
     """Returns a basic SOBOL+MBM GS using GenerationNodes for testing.
 
@@ -233,6 +236,11 @@ def sobol_gpei_generation_node_gs(
         with_model_selection: If True, will add a second ModelSpec in the MBM node.
             This can be used for testing model selection.
     """
+    if sum([with_auto_transition, with_unlimited_gen_mbm, with_is_SOO_transition]) > 1:
+        raise UserInputError(
+            "Only one of with_auto_transition, with_unlimited_gen_mbm, "
+            "with_is_SOO_transition can be set to True."
+        )
     sobol_criterion = [
         MaxTrials(
             threshold=5,
@@ -269,7 +277,8 @@ def sobol_gpei_generation_node_gs(
             not_in_statuses=None,
         ),
     ]
-    alt_mbm_criterion = [AutoTransitionAfterGen(transition_to="MBM_node")]
+    auto_mbm_criterion = [AutoTransitionAfterGen(transition_to="MBM_node")]
+    is_SOO_mbm_criterion = [IsSingleObjective(transition_to="MBM_node")]
     step_model_kwargs = {"silently_filter_kwargs": True}
     sobol_model_spec = ModelSpec(
         model_enum=Models.SOBOL,
@@ -302,7 +311,7 @@ def sobol_gpei_generation_node_gs(
     if with_auto_transition:
         mbm_node = GenerationNode(
             node_name="MBM_node",
-            transition_criteria=alt_mbm_criterion,
+            transition_criteria=auto_mbm_criterion,
             model_specs=mbm_model_specs,
             best_model_selector=best_model_selector,
         )
@@ -313,6 +322,14 @@ def sobol_gpei_generation_node_gs(
             model_specs=mbm_model_specs,
             best_model_selector=best_model_selector,
         )
+    elif with_is_SOO_transition:
+        mbm_node = GenerationNode(
+            node_name="MBM_node",
+            transition_criteria=is_SOO_mbm_criterion,
+            model_specs=mbm_model_specs,
+            best_model_selector=best_model_selector,
+        )
+
     else:
         mbm_node = GenerationNode(
             node_name="MBM_node",
