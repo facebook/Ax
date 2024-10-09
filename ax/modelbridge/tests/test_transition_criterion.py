@@ -21,6 +21,7 @@ from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
 from ax.modelbridge.transition_criterion import (
     AutoTransitionAfterGen,
+    IsSingleObjective,
     MaxGenerationParallelism,
     MaxTrials,
     MinimumPreferenceOccurances,
@@ -30,7 +31,11 @@ from ax.modelbridge.transition_criterion import (
 )
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_branin_experiment, get_experiment
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
+    get_branin_multi_objective_optimization_config,
+    get_experiment,
+)
 
 logger: Logger = get_logger(__name__)
 
@@ -254,6 +259,58 @@ class TestTransitionCriterion(TestCase):
         self.assertEqual(gs.current_node_name, "sobol_1")
         gs.gen(experiment=experiment)
         gs.gen(experiment=experiment)
+        self.assertEqual(gs.current_node_name, "sobol_2")
+
+    def test_is_single_obejective_does_not_transition(self) -> None:
+        exp = self.branin_experiment
+        exp.optimization_config = get_branin_multi_objective_optimization_config()
+        gs = GenerationStrategy(
+            name="test",
+            nodes=[
+                GenerationNode(
+                    node_name="sobol_1",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=[IsSingleObjective(transition_to="sobol_2")],
+                ),
+                GenerationNode(
+                    node_name="sobol_2", model_specs=[self.sobol_model_spec]
+                ),
+            ],
+        )
+        self.assertEqual(gs.current_node_name, "sobol_1")
+        # Should not transition because this is a MOO experiment
+        gr = gs.gen(experiment=exp)
+        gr2 = gs.gen(experiment=exp)
+        self.assertEqual(gr._generation_node_name, "sobol_1")
+        self.assertEqual(gr2._generation_node_name, "sobol_1")
+        self.assertEqual(gs.current_node_name, "sobol_1")
+
+    def test_is_single_obejective_transitions(self) -> None:
+        exp = self.branin_experiment
+        gs = GenerationStrategy(
+            name="test",
+            nodes=[
+                GenerationNode(
+                    node_name="sobol_1",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=[
+                        IsSingleObjective(transition_to="sobol_2"),
+                        AutoTransitionAfterGen(
+                            transition_to="sobol_2", continue_trial_generation=False
+                        ),
+                    ],
+                ),
+                GenerationNode(
+                    node_name="sobol_2", model_specs=[self.sobol_model_spec]
+                ),
+            ],
+        )
+        self.assertEqual(gs.current_node_name, "sobol_1")
+        gr = gs.gen(experiment=exp)
+        gr2 = gs.gen(experiment=exp)
+        # First generation should use sobol_1, then transition to sobol_2
+        self.assertEqual(gr._generation_node_name, "sobol_1")
+        self.assertEqual(gr2._generation_node_name, "sobol_2")
         self.assertEqual(gs.current_node_name, "sobol_2")
 
     def test_max_trials_is_met(self) -> None:
