@@ -7,7 +7,8 @@
 
 from ax.analysis.analysis import AnalysisCardLevel
 from ax.analysis.plotly.scatter import _prepare_data, ScatterPlot
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import DataRequiredError, UserInputError
+from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment_with_multi_objective,
@@ -86,3 +87,77 @@ class TestParallelCoordinatesPlot(TestCase):
                 self.assertTrue(row["is_optimal"])
             else:
                 self.assertFalse(row["is_optimal"])
+
+    def test_it_only_has_observations_with_data_for_both_metrics(self) -> None:
+        # GIVEN an experiment with multiple trials and metrics
+        experiment = get_branin_experiment_with_multi_objective()
+        sobol = Models.SOBOL(search_space=experiment.search_space)
+
+        t0 = experiment.new_batch_trial(generator_run=sobol.gen(3)).mark_completed(
+            unsafe=True
+        )
+        t1 = experiment.new_batch_trial(generator_run=sobol.gen(3)).mark_completed(
+            unsafe=True
+        )
+        t2 = experiment.new_batch_trial(generator_run=sobol.gen(3)).mark_completed(
+            unsafe=True
+        )
+
+        # AND given some trials have data for one metric and not the other
+        t0.fetch_data(
+            metrics=[experiment.metrics["branin_a"]],
+        )
+        t1.fetch_data(
+            metrics=[experiment.metrics["branin_a"], experiment.metrics["branin_b"]],
+        )
+        t2.fetch_data(
+            metrics=[experiment.metrics["branin_b"]],
+        )
+
+        # WHEN we call `compute`
+        analysis = ScatterPlot(
+            x_metric_name="branin_a",
+            y_metric_name="branin_b",
+            show_pareto_frontier=True,
+        )
+        card = analysis.compute(experiment=experiment)
+
+        # THEN it only has observations with data for both metrics
+        self.assertEqual(
+            card.df["trial_index"].unique(),
+            [t1.index],
+        )
+
+    def test_it_must_have_some_observations_with_data_for_both_metrics(self) -> None:
+        # GIVEN an experiment with multiple trials and metrics
+        experiment = get_branin_experiment_with_multi_objective()
+        sobol = Models.SOBOL(search_space=experiment.search_space)
+
+        t0 = experiment.new_batch_trial(generator_run=sobol.gen(3)).mark_completed(
+            unsafe=True
+        )
+        t1 = experiment.new_batch_trial(generator_run=sobol.gen(3)).mark_completed(
+            unsafe=True
+        )
+
+        # AND given some trials have data for one metric and not the other
+        t0.fetch_data(
+            metrics=[experiment.metrics["branin_a"]],
+        )
+        t1.fetch_data(
+            metrics=[experiment.metrics["branin_b"]],
+        )
+
+        # WHEN we call `compute`
+        analysis = ScatterPlot(
+            x_metric_name="branin_a",
+            y_metric_name="branin_b",
+            show_pareto_frontier=True,
+        )
+
+        # THEN it raises an error
+        with self.assertRaisesRegex(
+            DataRequiredError,
+            "No observations have data for both branin_a and branin_b.",
+        ):
+            analysis.compute(experiment=experiment)
