@@ -13,7 +13,7 @@ from ax.analysis.analysis import AnalysisCardLevel
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import DataRequiredError, UserInputError
 from plotly import express as px, graph_objects as go, io as pio
 
 
@@ -104,9 +104,16 @@ def _prepare_data(
     # Pivot the data so that each row is an arm and the columns are the metric names
     pivoted: pd.DataFrame = filtered.pivot_table(
         index=["trial_index", "arm_name"], columns="metric_name", values="mean"
-    )
+    ).dropna()
     pivoted.reset_index(inplace=True)
     pivoted.columns.name = None
+
+    if pivoted.empty:
+        raise DataRequiredError(
+            f"No observations have data for both {x_metric_name} and {y_metric_name}. "
+            "Please ensure that the data has been fetched and attached to the "
+            "experiment."
+        )
 
     # Add a column indicating whether the arm is on the Pareto frontier. This is
     # calculated by comparing each arm to all other arms in the experiment and
