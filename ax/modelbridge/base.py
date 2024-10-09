@@ -627,6 +627,14 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
             - Nested dictionary with cov['metric1']['metric2'] a list of
               cov(metric1@x, metric2@x) for x in observation_features.
         """
+        # Make sure that input is a list of ObservationFeatures. If you pass in
+        # arms, the code runs but it doesn't apply the transforms.
+        if not all(
+            isinstance(obsf, ObservationFeatures) for obsf in observation_features
+        ):
+            raise UserInputError(
+                "Input to predict must be a list of `ObservationFeatures`."
+            )
         observation_data = self._predict_observation_data(
             observation_features=observation_features
         )
