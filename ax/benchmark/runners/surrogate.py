@@ -13,7 +13,7 @@ import torch
 from ax.benchmark.runners.base import BenchmarkRunner
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.observation import ObservationFeatures
-from ax.core.search_space import SearchSpace, SearchSpaceDigest
+from ax.core.search_space import SearchSpaceDigest
 from ax.modelbridge.torch import TorchModelBridge
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
@@ -28,7 +28,6 @@ class SurrogateRunner(BenchmarkRunner):
         self,
         *,
         name: str,
-        search_space: SearchSpace,
         outcome_names: list[str],
         surrogate: TorchModelBridge | None = None,
         datasets: list[SupervisedDataset] | None = None,
@@ -44,8 +43,6 @@ class SurrogateRunner(BenchmarkRunner):
             name: The name of the runner.
             surrogate: The modular BoTorch model `Surrogate` to use for
                 generating observations.
-            search_space: The search space of the problem (used for
-                parameter transforms).
             datasets: The data sets used to fit the surrogate model.
             outcome_names: The names of the outcomes of the Surrogate.
             noise_stds: Noise standard deviations to add to the surrogate output(s).
@@ -67,13 +64,13 @@ class SurrogateRunner(BenchmarkRunner):
                 "If get_surrogate_and_datasets is not provided, surrogate and "
                 "datasets must be provided, and vice versa."
             )
-        super().__init__(search_space_digest=search_space_digest)
+        super().__init__(
+            search_space_digest=search_space_digest, outcome_names=outcome_names
+        )
         self.get_surrogate_and_datasets = get_surrogate_and_datasets
         self.name = name
         self._surrogate = surrogate
-        self.outcome_names = outcome_names
         self._datasets = datasets
-        self.search_space = search_space
         self.noise_stds = noise_stds
         self.statuses: dict[int, TrialStatus] = {}
 

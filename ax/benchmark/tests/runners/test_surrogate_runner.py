@@ -40,7 +40,6 @@ class TestSurrogateRunner(TestCase):
                     name="test runner",
                     surrogate=surrogate,
                     datasets=[],
-                    search_space=self.search_space,
                     outcome_names=["dummy_metric"],
                     noise_stds=noise_std,
                 )
@@ -80,7 +79,6 @@ class TestSurrogateRunner(TestCase):
         ):
             SurrogateRunner(
                 name="test runner",
-                search_space=self.search_space,
                 outcome_names=[],
                 noise_stds=0.0,
             )
@@ -92,7 +90,6 @@ class TestSurrogateRunner(TestCase):
                 name=name,
                 surrogate=MagicMock(),
                 datasets=[],
-                search_space=self.search_space,
                 outcome_names=["dummy_metric"],
                 noise_stds=0.0,
             )
