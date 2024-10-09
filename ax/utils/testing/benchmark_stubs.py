@@ -83,7 +83,6 @@ def get_soo_surrogate() -> SurrogateBenchmarkProblem:
     )
     runner = SurrogateRunner(
         name="test",
-        search_space=experiment.search_space,
         outcome_names=["branin"],
         get_surrogate_and_datasets=lambda: (surrogate, []),
     )
@@ -119,7 +118,6 @@ def get_moo_surrogate() -> SurrogateBenchmarkProblem:
 
     runner = SurrogateRunner(
         name="test",
-        search_space=experiment.search_space,
         outcome_names=["branin_a", "branin_b"],
         get_surrogate_and_datasets=lambda: (surrogate, []),
     )

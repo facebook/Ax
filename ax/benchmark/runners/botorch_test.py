@@ -98,7 +98,9 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
                 evaluated using the raw parameter values.
             search_space_digest: Used to extract target fidelity and task.
         """
-        super().__init__(search_space_digest=search_space_digest)
+        super().__init__(
+            outcome_names=outcome_names, search_space_digest=search_space_digest
+        )
         self._test_problem_class = test_problem_class
         self._test_problem_kwargs = test_problem_kwargs
         self.test_problem = (
@@ -114,7 +116,6 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
             self.test_problem, ConstrainedBaseTestProblem
         )
         self._is_moo: bool = self.test_problem.num_objectives > 1
-        self.outcome_names = outcome_names
         self._modified_bounds = modified_bounds
 
     @equality_typechecker
