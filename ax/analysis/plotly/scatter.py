@@ -64,6 +64,7 @@ class ScatterPlot(PlotlyAnalysis):
         fig = _prepare_plot(
             df=df,
             x_metric_name=self.x_metric_name,
+            y_metric_name=self.y_metric_name,
             show_pareto_frontier=self.show_pareto_frontier,
             x_lower_is_better=experiment.metrics[self.x_metric_name].lower_is_better
             or False,
@@ -140,8 +141,9 @@ def _prepare_data(
 def _prepare_plot(
     df: pd.DataFrame,
     x_metric_name: str,
-    x_lower_is_better: bool,
+    y_metric_name: str,
     show_pareto_frontier: bool,
+    x_lower_is_better: bool,
 ) -> go.Figure:
     """
     Prepare a scatter plot for the given DataFrame.
@@ -154,16 +156,12 @@ def _prepare_plot(
             - Y_METRIC_NAME: The observed mean of the metric to plot on the y-axis
             - is_optimal: Whether the arm is on the Pareto frontier (this can be
                 omitted if show_pareto_frontier=False)
-        x_metric_name: The name of the metric to plot on the x-axis (the other metric
-            will be plotted on the y-axis)
+        x_metric_name: The name of the metric to plot on the x-axis
+        y_metric_name: The name of the metric to plot on the y-axis
+        show_pareto_frontier: Whether to draw the Pareto frontier for the two metrics
         x_lower_is_better: Whether the metric on the x-axis is being minimized (only
             relevant if show_pareto_frontier=True)
-        show_pareto_frontier: Whether to draw the Pareto frontier for the two metrics
-
     """
-    # Infer y metric name based on expected columns
-    y_metric_name = ({*df.columns} - {x_metric_name, "trial_index", "arm_name"}).pop()
-
     fig = px.scatter(
         df,
         x=x_metric_name,
