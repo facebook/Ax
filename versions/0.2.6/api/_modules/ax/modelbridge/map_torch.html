@@ -1,0 +1,452 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.6/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.6/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.6/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.6/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.6/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.6/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.6/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.6/css/main.css"/><script src="/versions/0.2.6/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.6/"><img class="logo" src="/versions/0.2.6/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.6/versions.html"><h3>0.2.6</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.6/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.6/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.6/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.modelbridge.map_torch</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.map_data</span> <span class="kn">import</span> <span class="n">MapData</span>
+<span class="kn">from</span> <span class="nn">ax.core.observation</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Observation</span><span class="p">,</span>
+    <span class="n">ObservationData</span><span class="p">,</span>
+    <span class="n">ObservationFeatures</span><span class="p">,</span>
+    <span class="n">observations_from_map_data</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">TCandidateMetadata</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.base</span> <span class="kn">import</span> <span class="n">GenResults</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.modelbridge_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">array_to_observation_data</span><span class="p">,</span>
+    <span class="n">observation_features_to_array</span><span class="p">,</span>
+    <span class="n">parse_observation_features</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.torch</span> <span class="kn">import</span> <span class="n">FIT_MODEL_ERROR</span><span class="p">,</span> <span class="n">TorchModelBridge</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.base</span> <span class="kn">import</span> <span class="n">Transform</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch_base</span> <span class="kn">import</span> <span class="n">TorchModel</span>
+<span class="kn">from</span> <span class="nn">ax.models.types</span> <span class="kn">import</span> <span class="n">TConfig</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.constants</span> <span class="kn">import</span> <span class="n">Keys</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">not_none</span>
+
+
+<span class="c1"># A mapping from map_key to its target (or final) value; by default,</span>
+<span class="c1"># we assume normalization to [0, 1], making 1.0 the target value.</span>
+<span class="c1"># Used in both generation and prediction.</span>
+<span class="n">DEFAULT_TARGET_MAP_VALUES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"steps"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">}</span>
+
+
+<div class="viewcode-block" id="MapTorchModelBridge"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.map_torch.MapTorchModelBridge">[docs]</a><span class="k">class</span> <span class="nc">MapTorchModelBridge</span><span class="p">(</span><span class="n">TorchModelBridge</span><span class="p">):</span>
+    <span class="sd">"""A model bridge for using torch-based models that fit on MapData. Most</span>
+<span class="sd">    of the `TorchModelBridge` functionality is retained, except that this</span>
+<span class="sd">    class should be used in the case where `model` makes use of map_key values.</span>
+<span class="sd">    For example, the use case of fitting a joint surrogate model on</span>
+<span class="sd">    `(parameters, map_key)`, while candidate generation is only for `parameters`.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">TorchModel</span><span class="p">,</span>
+        <span class="n">transforms</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">Transform</span><span class="p">]],</span>
+        <span class="n">transform_configs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">torch_dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">torch_device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">status_quo_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">status_quo_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">fit_out_of_design</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">default_model_gen_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">map_data_limit_total_rows</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Applies transforms and fits model.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            experiment: Is used to get arm parameters. Is not mutated.</span>
+<span class="sd">            search_space: Search space for fitting the model. Constraints need</span>
+<span class="sd">                not be the same ones used in gen.</span>
+<span class="sd">            data: Ax Data.</span>
+<span class="sd">            model: Interface will be specified in subclass. If model requires</span>
+<span class="sd">                initialization, that should be done prior to its use here.</span>
+<span class="sd">            transforms: List of uninitialized transform classes. Forward</span>
+<span class="sd">                transforms will be applied in this order, and untransforms in</span>
+<span class="sd">                the reverse order.</span>
+<span class="sd">            transform_configs: A dictionary from transform name to the</span>
+<span class="sd">                transform config dictionary.</span>
+<span class="sd">            torch_dtype: Torch data type.</span>
+<span class="sd">            torch_device: Torch device.</span>
+<span class="sd">            status_quo_name: Name of the status quo arm. Can only be used if</span>
+<span class="sd">                Data has a single set of ObservationFeatures corresponding to</span>
+<span class="sd">                that arm.</span>
+<span class="sd">            status_quo_features: ObservationFeatures to use as status quo.</span>
+<span class="sd">                Either this or status_quo_name should be specified, not both.</span>
+<span class="sd">            optimization_config: Optimization config defining how to optimize</span>
+<span class="sd">                the model.</span>
+<span class="sd">            fit_out_of_design: If specified, all training data is returned.</span>
+<span class="sd">                Otherwise, only in design points are returned.</span>
+<span class="sd">            default_model_gen_options: Options passed down to `model.gen(...)`.</span>
+<span class="sd">            map_data_limit_total_rows: Subsample the map data so that the total</span>
+<span class="sd">                number of rows is limited by this value.</span>
+<span class="sd">        """</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">MapData</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"`MapTorchModelBridge expects `MapData` instead of `Data`."</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_map_key_features</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">map_keys</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_map_data_limit_total_rows</span> <span class="o">=</span> <span class="n">map_data_limit_total_rows</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+            <span class="n">transforms</span><span class="o">=</span><span class="n">transforms</span><span class="p">,</span>
+            <span class="n">transform_configs</span><span class="o">=</span><span class="n">transform_configs</span><span class="p">,</span>
+            <span class="n">torch_dtype</span><span class="o">=</span><span class="n">torch_dtype</span><span class="p">,</span>
+            <span class="n">torch_device</span><span class="o">=</span><span class="n">torch_device</span><span class="p">,</span>
+            <span class="n">status_quo_name</span><span class="o">=</span><span class="n">status_quo_name</span><span class="p">,</span>
+            <span class="n">status_quo_features</span><span class="o">=</span><span class="n">status_quo_features</span><span class="p">,</span>
+            <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+            <span class="n">fit_out_of_design</span><span class="o">=</span><span class="n">fit_out_of_design</span><span class="p">,</span>
+            <span class="n">default_model_gen_options</span><span class="o">=</span><span class="n">default_model_gen_options</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parameters_with_map_keys</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_map_key_features</span>
+
+    <span class="k">def</span> <span class="nf">_predict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">]:</span>
+        <span class="sd">"""This method is updated from `TorchModelBridge._predict(...) in that it</span>
+<span class="sd">        will accept observation features with or without map_keys. If observation</span>
+<span class="sd">        features do not contain map_keys, it will insert them based on</span>
+<span class="sd">        `target_map_values`.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">FIT_MODEL_ERROR</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">action</span><span class="o">=</span><span class="s2">"_model_predict"</span><span class="p">))</span>
+        <span class="c1"># The fitted model expects map_keys. If they do not exist, we use the</span>
+        <span class="c1"># target values.</span>
+        <span class="n">target_map_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_model_gen_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="s2">"target_map_values"</span><span class="p">,</span> <span class="n">DEFAULT_TARGET_MAP_VALUES</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_map_key_features</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">obsf</span> <span class="ow">in</span> <span class="n">observation_features</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">p</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">obsf</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>
+                    <span class="n">obsf</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">target_map_values</span><span class="p">[</span><span class="n">p</span><span class="p">]</span>  <span class="c1"># pyre-ignore[16]</span>
+
+        <span class="c1"># Convert observation features to array</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">observation_features_to_array</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parameters_with_map_keys</span><span class="p">,</span> <span class="n">observation_features</span>
+        <span class="p">)</span>
+        <span class="n">f</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_array_to_tensor</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="n">cov</span> <span class="o">=</span> <span class="n">cov</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="c1"># Convert resulting arrays to observations</span>
+        <span class="k">return</span> <span class="n">array_to_observation_data</span><span class="p">(</span><span class="n">f</span><span class="o">=</span><span class="n">f</span><span class="p">,</span> <span class="n">cov</span><span class="o">=</span><span class="n">cov</span><span class="p">,</span> <span class="n">outcomes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">outcomes</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">TorchModel</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span>
+        <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+        <span class="n">observation_data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""The difference from `TorchModelBridge._fit(...)` is that we use</span>
+<span class="sd">        `self.parameters_with_map_keys` instead of `self.parameters`.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">parameters</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">parameters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters_with_map_keys</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_fit</span><span class="p">(</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+            <span class="n">observation_features</span><span class="o">=</span><span class="n">observation_features</span><span class="p">,</span>
+            <span class="n">observation_data</span><span class="o">=</span><span class="n">observation_data</span><span class="p">,</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_gen</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span>
+        <span class="n">pending_observations</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]],</span>
+        <span class="n">fixed_features</span><span class="p">:</span> <span class="n">ObservationFeatures</span><span class="p">,</span>
+        <span class="n">model_gen_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GenResults</span><span class="p">:</span>
+        <span class="sd">"""An updated version of `TorchModelBridge._gen(...) that first injects</span>
+<span class="sd">        `map_dim_to_target` (e.g., `{-1: 1.0}`) into `model_gen_options` so that</span>
+<span class="sd">        the target values of the map_keys are known during candidate generation.</span>
+<span class="sd">        """</span>
+        <span class="n">model_gen_options</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_map_dim_to_target</span><span class="p">(</span><span class="n">options</span><span class="o">=</span><span class="n">model_gen_options</span> <span class="ow">or</span> <span class="p">{})</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_gen</span><span class="p">(</span>
+            <span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+            <span class="n">pending_observations</span><span class="o">=</span><span class="n">pending_observations</span><span class="p">,</span>
+            <span class="n">fixed_features</span><span class="o">=</span><span class="n">fixed_features</span><span class="p">,</span>
+            <span class="n">model_gen_options</span><span class="o">=</span><span class="n">model_gen_options</span><span class="p">,</span>
+            <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_array_to_observation_features</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">candidate_metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">TCandidateMetadata</span><span class="p">]]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]:</span>
+        <span class="sd">"""The difference b/t this method and TorchModelBridge._update(...) is</span>
+<span class="sd">        that this one makes use of `self.parameters_with_map_keys`.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">parse_observation_features</span><span class="p">(</span>
+            <span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">,</span>
+            <span class="n">param_names</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters_with_map_keys</span><span class="p">,</span>
+            <span class="n">candidate_metadata</span><span class="o">=</span><span class="n">candidate_metadata</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_update</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span>
+        <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+        <span class="n">observation_data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""The difference b/t this method and TorchModelBridge._update(...) is</span>
+<span class="sd">        that this one makes use of `self.parameters_with_map_keys`.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_update</span><span class="p">(</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+            <span class="n">observation_features</span><span class="o">=</span><span class="n">observation_features</span><span class="p">,</span>
+            <span class="n">observation_data</span><span class="o">=</span><span class="n">observation_data</span><span class="p">,</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters_with_map_keys</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_prepare_observations</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">experiment</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Experiment</span><span class="p">],</span> <span class="n">data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Data</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Observation</span><span class="p">]:</span>
+        <span class="sd">"""The difference b/t this method and ModelBridge._prepare_observations(...)</span>
+<span class="sd">        is that this one uses `observations_from_map_data`.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">experiment</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+        <span class="k">return</span> <span class="n">observations_from_map_data</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+            <span class="n">map_data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>  <span class="c1"># pyre-ignore[6]: Checked in __init__.</span>
+            <span class="n">map_keys_as_parameters</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">include_abandoned</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_fit_abandoned</span><span class="p">,</span>
+            <span class="n">limit_total_rows</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_map_data_limit_total_rows</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_compute_in_design</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span> <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">bool</span><span class="p">]:</span>
+        <span class="sd">"""The difference b/t this method and ModelBridge._compute_in_design(...)</span>
+<span class="sd">        is that this one correctly excludes map_keys when checking membership in</span>
+<span class="sd">        search space (as map_keys are not explicitly in the search space).</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="n">search_space</span><span class="o">.</span><span class="n">check_membership</span><span class="p">(</span>
+                <span class="c1"># Exclude map key features when checking</span>
+                <span class="p">{</span>
+                    <span class="n">p</span><span class="p">:</span> <span class="n">v</span>
+                    <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obsf</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">p</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_map_key_features</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">obsf</span> <span class="ow">in</span> <span class="n">observation_features</span>
+        <span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">_cross_validate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span>
+        <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+        <span class="n">observation_data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span>
+        <span class="n">cv_test_points</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">]:</span>
+        <span class="sd">"""Make predictions at cv_test_points using only the data in obs_feats</span>
+<span class="sd">        and obs_data. The difference from `TorchModelBridge._cross_validate`</span>
+<span class="sd">        is that here we do cross validation on the parameters + map_keys. There</span>
+<span class="sd">        is some extra logic to filter out out-of-design points in the map_key</span>
+<span class="sd">        dimension.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">parameters</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">parameters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters_with_map_keys</span>
+        <span class="n">cv_test_data</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_cross_validate</span><span class="p">(</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+            <span class="n">observation_features</span><span class="o">=</span><span class="n">observation_features</span><span class="p">,</span>
+            <span class="n">observation_data</span><span class="o">=</span><span class="n">observation_data</span><span class="p">,</span>
+            <span class="n">cv_test_points</span><span class="o">=</span><span class="n">cv_test_points</span><span class="p">,</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span><span class="p">,</span>  <span class="c1"># we pass the map_keys too by default</span>
+        <span class="p">)</span>
+        <span class="c1"># Since map_keys are used as features, there can be the possibility that</span>
+        <span class="c1"># models for different outcomes were fit on different ranges of map_key</span>
+        <span class="c1"># values; for example, this is the case if we (1) mix learning curve data with</span>
+        <span class="c1"># standard data (taking default map value), or (2) are in a situation where</span>
+        <span class="c1"># some learning curves start later than others. These prediction results are</span>
+        <span class="c1"># "out-of-design" in the map_key dimension, so we should filter them out.</span>
+        <span class="n">map_key_ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_map_key_ranges</span><span class="p">(</span>
+            <span class="n">observation_features</span><span class="o">=</span><span class="n">observation_features</span><span class="p">,</span>
+            <span class="n">observation_data</span><span class="o">=</span><span class="n">observation_data</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">cv_test_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filter_outcomes_out_of_map_range</span><span class="p">(</span>
+            <span class="n">observation_features</span><span class="o">=</span><span class="n">cv_test_points</span><span class="p">,</span>
+            <span class="n">observation_data</span><span class="o">=</span><span class="n">cv_test_data</span><span class="p">,</span>
+            <span class="n">map_key_ranges</span><span class="o">=</span><span class="n">map_key_ranges</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">cv_test_data</span>
+
+    <span class="k">def</span> <span class="nf">_filter_outcomes_out_of_map_range</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+        <span class="n">observation_data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span>
+        <span class="n">map_key_ranges</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]]],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">]:</span>
+        <span class="sd">"""Uses `map_key_ranges` to detect which `observation_features` have</span>
+<span class="sd">        out-of-range map_keys and filters out the corresponding outcomes in</span>
+<span class="sd">        `observation_data`.</span>
+<span class="sd">        """</span>
+        <span class="n">filtered_observation_data</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">obsf</span><span class="p">,</span> <span class="n">obsd</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">observation_features</span><span class="p">,</span> <span class="n">observation_data</span><span class="p">):</span>
+            <span class="n">metric_names</span> <span class="o">=</span> <span class="n">obsd</span><span class="o">.</span><span class="n">metric_names</span>
+            <span class="n">means</span> <span class="o">=</span> <span class="n">obsd</span><span class="o">.</span><span class="n">means</span>
+            <span class="n">covariance</span> <span class="o">=</span> <span class="n">obsd</span><span class="o">.</span><span class="n">covariance</span>
+            <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">outcomes</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">metric_names</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_map_key_features</span><span class="p">:</span>
+                        <span class="n">map_key_value</span> <span class="o">=</span> <span class="n">obsf</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p</span><span class="p">]</span>
+                        <span class="n">map_key_range</span> <span class="o">=</span> <span class="n">map_key_ranges</span><span class="p">[</span><span class="n">o</span><span class="p">][</span><span class="n">p</span><span class="p">]</span>
+                        <span class="k">if</span> <span class="n">map_key_range</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                            <span class="n">range_min</span><span class="p">,</span> <span class="n">range_max</span> <span class="o">=</span> <span class="n">map_key_range</span>
+                            <span class="k">if</span> <span class="n">map_key_value</span> <span class="o">&lt;</span> <span class="n">range_min</span> <span class="ow">or</span> <span class="n">map_key_value</span> <span class="o">&gt;</span> <span class="n">range_max</span><span class="p">:</span>
+                                <span class="n">p_idx</span> <span class="o">=</span> <span class="n">metric_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+                                <span class="n">metric_names</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">p_idx</span><span class="p">)</span>
+                                <span class="n">means</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">means</span><span class="p">,</span> <span class="n">p_idx</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                                <span class="n">covariance</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">covariance</span><span class="p">,</span> <span class="n">p_idx</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                                <span class="n">covariance</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">covariance</span><span class="p">,</span> <span class="n">p_idx</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                                <span class="k">break</span>
+            <span class="n">new_obsd</span> <span class="o">=</span> <span class="n">ObservationData</span><span class="p">(</span>
+                <span class="n">metric_names</span><span class="o">=</span><span class="n">metric_names</span><span class="p">,</span> <span class="n">means</span><span class="o">=</span><span class="n">means</span><span class="p">,</span> <span class="n">covariance</span><span class="o">=</span><span class="n">covariance</span>
+            <span class="p">)</span>
+            <span class="n">filtered_observation_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_obsd</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">filtered_observation_data</span>
+
+    <span class="k">def</span> <span class="nf">_get_map_key_ranges</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+        <span class="n">observation_data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]]]:</span>
+        <span class="sd">"""Get ranges of map_key values in observation features. Returns a dict of the</span>
+<span class="sd">        form: {"outcome": {"map_key": (min_val, max_val)}}.</span>
+<span class="sd">        """</span>
+        <span class="n">map_values</span> <span class="o">=</span> <span class="p">{</span><span class="n">o</span><span class="p">:</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="p">[]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_map_key_features</span><span class="p">}</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">outcomes</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">obsd</span><span class="p">,</span> <span class="n">obsf</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">observation_data</span><span class="p">,</span> <span class="n">observation_features</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_map_key_features</span><span class="p">:</span>
+                <span class="n">param_value</span> <span class="o">=</span> <span class="n">obsf</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">obsd</span><span class="o">.</span><span class="n">metric_names</span><span class="p">:</span>
+                    <span class="n">map_values</span><span class="p">[</span><span class="n">o</span><span class="p">][</span><span class="n">p</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">param_value</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">get_range</span><span class="p">(</span><span class="n">values</span><span class="p">:</span> <span class="n">List</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">values</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">values</span><span class="p">))</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">o</span><span class="p">:</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="n">get_range</span><span class="p">(</span><span class="n">map_values</span><span class="p">[</span><span class="n">o</span><span class="p">][</span><span class="n">p</span><span class="p">])</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_map_key_features</span><span class="p">}</span>
+            <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">outcomes</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">_add_map_dim_to_target</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="n">TConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TConfig</span><span class="p">:</span>
+        <span class="sd">"""Convert `target_map_values` to `map_dim_to_target`, a form useable</span>
+<span class="sd">        by the acquisition function and insert into options dict.</span>
+<span class="sd">        """</span>
+        <span class="n">target_map_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_model_gen_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"target_map_values"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">target_map_values</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">target_map_values</span> <span class="o">=</span> <span class="n">DEFAULT_TARGET_MAP_VALUES</span>
+        <span class="n">param_and_map</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters_with_map_keys</span>
+        <span class="n">map_dim_to_target</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">param_and_map</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">p</span><span class="p">):</span> <span class="n">target_map_values</span><span class="p">[</span><span class="n">p</span><span class="p">]</span>  <span class="c1"># pyre-ignore[16]</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_map_key_features</span>
+        <span class="p">}</span>
+        <span class="n">options</span><span class="p">[</span><span class="n">Keys</span><span class="o">.</span><span class="n">ACQF_KWARGS</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>  <span class="c1"># pyre-ignore[32]</span>
+            <span class="o">**</span><span class="n">options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">ACQF_KWARGS</span><span class="p">,</span> <span class="p">{}),</span>
+            <span class="s2">"map_dim_to_target"</span><span class="p">:</span> <span class="n">map_dim_to_target</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">options</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.6/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

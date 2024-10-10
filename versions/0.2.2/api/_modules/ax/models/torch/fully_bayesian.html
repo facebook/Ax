@@ -1,0 +1,771 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.2/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.2/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.2/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.2/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.2/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.2/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.2/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.2/css/main.css"/><script src="/versions/0.2.2/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.2/"><img class="logo" src="/versions/0.2.2/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.2/versions.html"><h3>0.2.2</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.2/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.2/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.2/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.models.torch.fully_bayesian</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+
+<span class="sd">"""</span>
+<span class="sd">Models and utilities for fully bayesian inference.</span>
+
+<span class="sd">TODO: move some of this into botorch.</span>
+
+<span class="sd">References</span>
+
+<span class="sd">.. [Eriksson2021saasbo]</span>
+<span class="sd">    D. Eriksson, M. Jankowiak. High-Dimensional Bayesian Optimization</span>
+<span class="sd">    with Sparse Axis-Aligned Subspaces. Proceedings of the Thirty-</span>
+<span class="sd">    Seventh Conference on Uncertainty in Artificial Intelligence, 2021.</span>
+
+<span class="sd">.. [Eriksson2021nas]</span>
+<span class="sd">    D. Eriksson, P. Chuang, S. Daulton, et al. Latency-Aware Neural</span>
+<span class="sd">    Architecture Search with Multi-Objective Bayesian Optimization.</span>
+<span class="sd">    ICML AutoML Workshop, 2021.</span>
+
+<span class="sd">"""</span>
+
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">types</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.core</span> <span class="kn">import</span> <span class="n">AxError</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">BotorchModel</span><span class="p">,</span>
+    <span class="n">TModelConstructor</span><span class="p">,</span>
+    <span class="n">TModelPredictor</span><span class="p">,</span>
+    <span class="n">TAcqfConstructor</span><span class="p">,</span>
+    <span class="n">TOptimizer</span><span class="p">,</span>
+    <span class="n">TBestPointRecommender</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_defaults</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_get_model</span><span class="p">,</span>
+    <span class="n">get_NEI</span><span class="p">,</span>
+    <span class="n">MIN_OBSERVED_NOISE_LEVEL</span><span class="p">,</span>
+    <span class="n">recommend_best_observed_point</span><span class="p">,</span>
+    <span class="n">scipy_optimizer</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_moo</span> <span class="kn">import</span> <span class="n">MultiObjectiveBotorchModel</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_moo_defaults</span> <span class="kn">import</span> <span class="n">get_NEHVI</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_moo_defaults</span> <span class="kn">import</span> <span class="n">pareto_frontier_evaluator</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.frontier_utils</span> <span class="kn">import</span> <span class="n">TFrontierEvaluator</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.docutils</span> <span class="kn">import</span> <span class="n">copy_doc</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition</span> <span class="kn">import</span> <span class="n">AcquisitionFunction</span>
+<span class="kn">from</span> <span class="nn">botorch.models.gp_regression</span> <span class="kn">import</span> <span class="n">MIN_INFERRED_NOISE_LEVEL</span>
+<span class="kn">from</span> <span class="nn">botorch.models.gpytorch</span> <span class="kn">import</span> <span class="n">GPyTorchModel</span>
+<span class="kn">from</span> <span class="nn">botorch.models.model</span> <span class="kn">import</span> <span class="n">Model</span>
+<span class="kn">from</span> <span class="nn">botorch.models.model_list_gp_regression</span> <span class="kn">import</span> <span class="n">ModelListGP</span>
+<span class="kn">from</span> <span class="nn">gpytorch.kernels</span> <span class="kn">import</span> <span class="n">RBFKernel</span><span class="p">,</span> <span class="n">ScaleKernel</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">SAAS_DEPRECATION_MSG</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">"Passing `use_saas` is no longer supported and has no effect. "</span>
+    <span class="s2">"SAAS priors are used by default. "</span>
+    <span class="s2">"This will become an error in the future."</span>
+<span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_rbf_kernel</span><span class="p">(</span><span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ScaleKernel</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">ScaleKernel</span><span class="p">(</span>
+        <span class="n">base_kernel</span><span class="o">=</span><span class="n">RBFKernel</span><span class="p">(</span><span class="n">ard_num_dims</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">batch_shape</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="n">num_samples</span><span class="p">])),</span>
+        <span class="n">batch_shape</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="n">num_samples</span><span class="p">]),</span>
+    <span class="p">)</span>
+
+
+<div class="viewcode-block" id="get_and_fit_model_mcmc"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.fully_bayesian.get_and_fit_model_mcmc">[docs]</a><span class="k">def</span> <span class="nf">get_and_fit_model_mcmc</span><span class="p">(</span>
+    <span class="n">Xs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+    <span class="n">Ys</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+    <span class="n">Yvars</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+    <span class="n">task_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="n">fidelity_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="n">metric_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">state_dict</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">refit_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">use_input_warping</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">use_loocv_pseudo_likelihood</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">512</span><span class="p">,</span>
+    <span class="n">warmup_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
+    <span class="n">thinning</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
+    <span class="n">max_tree_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+    <span class="n">disable_progbar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">gp_kernel</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"matern"</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GPyTorchModel</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">task_features</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"Currently do not support MT-GP models with MCMC!"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fidelity_features</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">"Fidelity MF-GP models are not currently supported with MCMC!"</span>
+        <span class="p">)</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># TODO: Better logic for deciding when to use a ModelListGP. Currently the</span>
+    <span class="c1"># logic is unclear. The two cases in which ModelListGP is used are</span>
+    <span class="c1"># (i) the training inputs (Xs) are not the same for the different outcomes, and</span>
+    <span class="c1"># (ii) a multi-task model is used</span>
+
+    <span class="n">num_mcmc_samples</span> <span class="o">=</span> <span class="n">num_samples</span> <span class="o">//</span> <span class="n">thinning</span>
+    <span class="n">covar_modules</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">_get_rbf_kernel</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="n">num_mcmc_samples</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">Xs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">gp_kernel</span> <span class="o">==</span> <span class="s2">"rbf"</span>
+        <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Xs</span><span class="p">))</span>
+    <span class="p">]</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">Xs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="c1"># Use single output, single task GP</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">_get_model</span><span class="p">(</span>
+            <span class="n">X</span><span class="o">=</span><span class="n">Xs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">num_mcmc_samples</span><span class="p">,</span> <span class="n">Xs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span>
+            <span class="n">Y</span><span class="o">=</span><span class="n">Ys</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">num_mcmc_samples</span><span class="p">,</span> <span class="n">Xs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span>
+            <span class="n">Yvar</span><span class="o">=</span><span class="n">Yvars</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">num_mcmc_samples</span><span class="p">,</span> <span class="n">Xs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span>
+            <span class="n">fidelity_features</span><span class="o">=</span><span class="n">fidelity_features</span><span class="p">,</span>
+            <span class="n">use_input_warping</span><span class="o">=</span><span class="n">use_input_warping</span><span class="p">,</span>
+            <span class="n">covar_module</span><span class="o">=</span><span class="n">covar_modules</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">models</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">_get_model</span><span class="p">(</span>
+                <span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">num_mcmc_samples</span><span class="p">,</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">clone</span><span class="p">(),</span>
+                <span class="n">Y</span><span class="o">=</span><span class="n">Y</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">num_mcmc_samples</span><span class="p">,</span> <span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">clone</span><span class="p">(),</span>
+                <span class="n">Yvar</span><span class="o">=</span><span class="n">Yvar</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                <span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">num_mcmc_samples</span><span class="p">,</span> <span class="n">Yvar</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+                <span class="o">.</span><span class="n">clone</span><span class="p">(),</span>
+                <span class="n">use_input_warping</span><span class="o">=</span><span class="n">use_input_warping</span><span class="p">,</span>
+                <span class="n">covar_module</span><span class="o">=</span><span class="n">covar_module</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Yvar</span><span class="p">,</span> <span class="n">covar_module</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">Xs</span><span class="p">,</span> <span class="n">Ys</span><span class="p">,</span> <span class="n">Yvars</span><span class="p">,</span> <span class="n">covar_modules</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">ModelListGP</span><span class="p">(</span><span class="o">*</span><span class="n">models</span><span class="p">)</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">Xs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">ModelListGP</span><span class="p">):</span>
+        <span class="n">models</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">models</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">models</span> <span class="o">=</span> <span class="p">[</span><span class="n">model</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">state_dict</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># pyre-fixme[6]: Expected `OrderedDict[typing.Any, typing.Any]` for 1st param</span>
+        <span class="c1"># but got `Dict[str, Tensor]`.</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">state_dict</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">state_dict</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">refit_model</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Yvar</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">Xs</span><span class="p">,</span> <span class="n">Ys</span><span class="p">,</span> <span class="n">Yvars</span><span class="p">,</span> <span class="n">models</span><span class="p">):</span>
+            <span class="n">samples</span> <span class="o">=</span> <span class="n">run_inference</span><span class="p">(</span>
+                <span class="n">pyro_model</span><span class="o">=</span><span class="n">pyro_model</span><span class="p">,</span>  <span class="c1"># pyre-ignore [6]</span>
+                <span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">,</span>
+                <span class="n">Y</span><span class="o">=</span><span class="n">Y</span><span class="p">,</span>
+                <span class="n">Yvar</span><span class="o">=</span><span class="n">Yvar</span><span class="p">,</span>
+                <span class="n">num_samples</span><span class="o">=</span><span class="n">num_samples</span><span class="p">,</span>
+                <span class="n">warmup_steps</span><span class="o">=</span><span class="n">warmup_steps</span><span class="p">,</span>
+                <span class="n">thinning</span><span class="o">=</span><span class="n">thinning</span><span class="p">,</span>
+                <span class="n">use_input_warping</span><span class="o">=</span><span class="n">use_input_warping</span><span class="p">,</span>
+                <span class="n">max_tree_depth</span><span class="o">=</span><span class="n">max_tree_depth</span><span class="p">,</span>
+                <span class="n">disable_progbar</span><span class="o">=</span><span class="n">disable_progbar</span><span class="p">,</span>
+                <span class="n">gp_kernel</span><span class="o">=</span><span class="n">gp_kernel</span><span class="p">,</span>
+                <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="s2">"noise"</span> <span class="ow">in</span> <span class="n">samples</span><span class="p">:</span>
+                <span class="n">m</span><span class="o">.</span><span class="n">likelihood</span><span class="o">.</span><span class="n">noise_covar</span><span class="o">.</span><span class="n">noise</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">samples</span><span class="p">[</span><span class="s2">"noise"</span><span class="p">]</span>
+                    <span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                    <span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+                    <span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">likelihood</span><span class="o">.</span><span class="n">noise_covar</span><span class="o">.</span><span class="n">noise</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+                    <span class="o">.</span><span class="n">clamp_min</span><span class="p">(</span><span class="n">MIN_INFERRED_NOISE_LEVEL</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="n">m</span><span class="o">.</span><span class="n">covar_module</span><span class="o">.</span><span class="n">base_kernel</span><span class="o">.</span><span class="n">lengthscale</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">samples</span><span class="p">[</span><span class="s2">"lengthscale"</span><span class="p">]</span>
+                <span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                <span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+                <span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">covar_module</span><span class="o">.</span><span class="n">base_kernel</span><span class="o">.</span><span class="n">lengthscale</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">m</span><span class="o">.</span><span class="n">covar_module</span><span class="o">.</span><span class="n">outputscale</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">samples</span><span class="p">[</span><span class="s2">"outputscale"</span><span class="p">]</span>
+                <span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                <span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+                <span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">covar_module</span><span class="o">.</span><span class="n">outputscale</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">m</span><span class="o">.</span><span class="n">mean_module</span><span class="o">.</span><span class="n">constant</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">samples</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">mean_module</span><span class="o">.</span><span class="n">constant</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="s2">"c0"</span> <span class="ow">in</span> <span class="n">samples</span><span class="p">:</span>
+                <span class="n">m</span><span class="o">.</span><span class="n">input_transform</span><span class="o">.</span><span class="n">_set_concentration</span><span class="p">(</span>
+                    <span class="n">i</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                    <span class="n">value</span><span class="o">=</span><span class="n">samples</span><span class="p">[</span><span class="s2">"c0"</span><span class="p">]</span>
+                    <span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                    <span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+                    <span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">input_transform</span><span class="o">.</span><span class="n">concentration0</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span>
+                <span class="p">)</span>
+                <span class="n">m</span><span class="o">.</span><span class="n">input_transform</span><span class="o">.</span><span class="n">_set_concentration</span><span class="p">(</span>
+                    <span class="n">i</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                    <span class="n">value</span><span class="o">=</span><span class="n">samples</span><span class="p">[</span><span class="s2">"c1"</span><span class="p">]</span>
+                    <span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                    <span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+                    <span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">input_transform</span><span class="o">.</span><span class="n">concentration1</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span>
+                <span class="p">)</span>
+    <span class="k">return</span> <span class="n">model</span></div>
+
+
+<div class="viewcode-block" id="predict_from_model_mcmc"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.fully_bayesian.predict_from_model_mcmc">[docs]</a><span class="k">def</span> <span class="nf">predict_from_model_mcmc</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+    <span class="sa">r</span><span class="sd">"""Predicts outcomes given a model and input tensor.</span>
+
+<span class="sd">    This method integrates over the hyperparameter posterior.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: A batched botorch Model where the batch dimension corresponds</span>
+<span class="sd">            to sampled hyperparameters.</span>
+<span class="sd">        X: A `n x d` tensor of input parameters.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tensor: The predicted posterior mean as an `n x o`-dim tensor.</span>
+<span class="sd">        Tensor: The predicted posterior covariance as a `n x o x o`-dim tensor.</span>
+<span class="sd">    """</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="c1"># compute the batch (independent posterior over the inputs)</span>
+        <span class="n">posterior</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">posterior</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">))</span>
+    <span class="c1"># the mean and variance both have shape: n x num_samples x m (after squeezing)</span>
+    <span class="n">mean</span> <span class="o">=</span> <span class="n">posterior</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+    <span class="c1"># TODO: Allow Posterior to (optionally) return the full covariance matrix</span>
+    <span class="c1"># pyre-ignore</span>
+    <span class="n">variance</span> <span class="o">=</span> <span class="n">posterior</span><span class="o">.</span><span class="n">variance</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">clamp_min</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="c1"># marginalize over samples</span>
+    <span class="n">t1</span> <span class="o">=</span> <span class="n">variance</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="n">variance</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">t2</span> <span class="o">=</span> <span class="n">mean</span><span class="o">.</span><span class="n">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="n">variance</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">t3</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">mean</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="n">variance</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">variance</span> <span class="o">=</span> <span class="n">t1</span> <span class="o">+</span> <span class="n">t2</span> <span class="o">+</span> <span class="n">t3</span>
+    <span class="n">mean</span> <span class="o">=</span> <span class="n">mean</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">cov</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">diag_embed</span><span class="p">(</span><span class="n">variance</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mean</span><span class="p">,</span> <span class="n">cov</span></div>
+
+
+<div class="viewcode-block" id="compute_dists"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.fully_bayesian.compute_dists">[docs]</a><span class="k">def</span> <span class="nf">compute_dists</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Z</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">lengthscale</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+    <span class="sd">"""Compute kernel distances.</span>
+
+<span class="sd">    TODO: use gpytorch `Distance` module. This will require some care to make sure</span>
+<span class="sd">    jit compilation works as expected.</span>
+<span class="sd">    """</span>
+    <span class="n">mean</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">X_</span> <span class="o">=</span> <span class="p">(</span><span class="n">X</span> <span class="o">-</span> <span class="n">mean</span><span class="p">)</span><span class="o">.</span><span class="n">div</span><span class="p">(</span><span class="n">lengthscale</span><span class="p">)</span>
+    <span class="n">Z_</span> <span class="o">=</span> <span class="p">(</span><span class="n">Z</span> <span class="o">-</span> <span class="n">mean</span><span class="p">)</span><span class="o">.</span><span class="n">div</span><span class="p">(</span><span class="n">lengthscale</span><span class="p">)</span>
+    <span class="n">x1</span> <span class="o">=</span> <span class="n">X_</span>
+    <span class="n">x2</span> <span class="o">=</span> <span class="n">Z_</span>
+    <span class="n">adjustment</span> <span class="o">=</span> <span class="n">x1</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">x1</span> <span class="o">=</span> <span class="n">x1</span> <span class="o">-</span> <span class="n">adjustment</span>
+    <span class="c1"># x1 and x2 should be identical in all dims except -2 at this point</span>
+    <span class="n">x2</span> <span class="o">=</span> <span class="n">x2</span> <span class="o">-</span> <span class="n">adjustment</span>
+    <span class="n">x1_eq_x2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">equal</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">x2</span><span class="p">)</span>
+
+    <span class="c1"># Compute squared distance matrix using quadratic expansion</span>
+    <span class="n">x1_norm</span> <span class="o">=</span> <span class="n">x1</span><span class="o">.</span><span class="n">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">x1_pad</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">x1_norm</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">x1_eq_x2</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">x1</span><span class="o">.</span><span class="n">requires_grad</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">x2</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">:</span>
+        <span class="n">x2_norm</span><span class="p">,</span> <span class="n">x2_pad</span> <span class="o">=</span> <span class="n">x1_norm</span><span class="p">,</span> <span class="n">x1_pad</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">x2_norm</span> <span class="o">=</span> <span class="n">x2</span><span class="o">.</span><span class="n">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">x2_pad</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">x2_norm</span><span class="p">)</span>
+    <span class="n">x2_norm</span> <span class="o">=</span> <span class="n">x2</span><span class="o">.</span><span class="n">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">x2_pad</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">x2_norm</span><span class="p">)</span>
+    <span class="n">x1_</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="o">-</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">x1</span><span class="p">,</span> <span class="n">x1_norm</span><span class="p">,</span> <span class="n">x1_pad</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">x2_</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">x2</span><span class="p">,</span> <span class="n">x2_pad</span><span class="p">,</span> <span class="n">x2_norm</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">x1_</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">x2_</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">x1_eq_x2</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">x1</span><span class="o">.</span><span class="n">requires_grad</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">x2</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">:</span>
+        <span class="n">res</span><span class="o">.</span><span class="n">diagonal</span><span class="p">(</span><span class="n">dim1</span><span class="o">=-</span><span class="mi">2</span><span class="p">,</span> <span class="n">dim2</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">fill_</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># pyre-ignore [16]</span>
+
+    <span class="c1"># Zero out negative values</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">clamp_min_</span><span class="p">(</span><span class="mf">1e-30</span><span class="p">)</span><span class="o">.</span><span class="n">sqrt</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">dist</span></div>
+
+
+<div class="viewcode-block" id="matern_kernel"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.fully_bayesian.matern_kernel">[docs]</a><span class="k">def</span> <span class="nf">matern_kernel</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Z</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">lengthscale</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">nu</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+    <span class="sd">"""Scaled Matern kernel."""</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="n">compute_dists</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="n">Z</span><span class="p">,</span> <span class="n">lengthscale</span><span class="o">=</span><span class="n">lengthscale</span><span class="p">)</span>
+    <span class="n">exp_component</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">nu</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">dist</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">nu</span> <span class="o">==</span> <span class="mf">0.5</span><span class="p">:</span>
+        <span class="n">constant_component</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">elif</span> <span class="n">nu</span> <span class="o">==</span> <span class="mf">1.5</span><span class="p">:</span>
+        <span class="n">constant_component</span> <span class="o">=</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="n">dist</span><span class="p">)</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># pyre-ignore [16]</span>
+    <span class="k">elif</span> <span class="n">nu</span> <span class="o">==</span> <span class="mf">2.5</span><span class="p">:</span>
+        <span class="n">constant_component</span> <span class="o">=</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span> <span class="o">*</span> <span class="n">dist</span><span class="p">)</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mf">5.0</span> <span class="o">/</span> <span class="mf">3.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">dist</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">AxError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unsupported value of nu: </span><span class="si">{</span><span class="n">nu</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">constant_component</span> <span class="o">*</span> <span class="n">exp_component</span></div>
+
+
+<div class="viewcode-block" id="rbf_kernel"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.fully_bayesian.rbf_kernel">[docs]</a><span class="k">def</span> <span class="nf">rbf_kernel</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Z</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">lengthscale</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+    <span class="sd">"""Scaled RBF kernel."""</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="n">compute_dists</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="n">Z</span><span class="p">,</span> <span class="n">lengthscale</span><span class="o">=</span><span class="n">lengthscale</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">dist</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="pyro_model"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.fully_bayesian.pyro_model">[docs]</a><span class="k">def</span> <span class="nf">pyro_model</span><span class="p">(</span>
+    <span class="n">X</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">Y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">Yvar</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">use_input_warping</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">eps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-7</span><span class="p">,</span>
+    <span class="n">gp_kernel</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"matern"</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">pyro</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Cannot call pyro_model without pyro installed!"</span><span class="p">)</span>
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">Y</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">Yvar</span> <span class="o">=</span> <span class="n">Yvar</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">tkwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"dtype"</span><span class="p">:</span> <span class="n">X</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="s2">"device"</span><span class="p">:</span> <span class="n">X</span><span class="o">.</span><span class="n">device</span><span class="p">}</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="c1"># TODO: test alternative outputscale priors</span>
+    <span class="n">outputscale</span> <span class="o">=</span> <span class="n">pyro</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span>
+        <span class="s2">"outputscale"</span><span class="p">,</span>
+        <span class="n">pyro</span><span class="o">.</span><span class="n">distributions</span><span class="o">.</span><span class="n">Gamma</span><span class="p">(</span>  <span class="c1"># pyre-ignore [16]</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">2.0</span><span class="p">,</span> <span class="o">**</span><span class="n">tkwargs</span><span class="p">),</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.15</span><span class="p">,</span> <span class="o">**</span><span class="n">tkwargs</span><span class="p">),</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">mean</span> <span class="o">=</span> <span class="n">pyro</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span>
+        <span class="s2">"mean"</span><span class="p">,</span>
+        <span class="n">pyro</span><span class="o">.</span><span class="n">distributions</span><span class="o">.</span><span class="n">Normal</span><span class="p">(</span>  <span class="c1"># pyre-ignore [16]</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">**</span><span class="n">tkwargs</span><span class="p">),</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">**</span><span class="n">tkwargs</span><span class="p">),</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">Yvar</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
+        <span class="c1"># infer noise level</span>
+        <span class="n">noise</span> <span class="o">=</span> <span class="n">pyro</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span>
+            <span class="s2">"noise"</span><span class="p">,</span>
+            <span class="n">pyro</span><span class="o">.</span><span class="n">distributions</span><span class="o">.</span><span class="n">Gamma</span><span class="p">(</span>  <span class="c1"># pyre-ignore [16]</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.9</span><span class="p">,</span> <span class="o">**</span><span class="n">tkwargs</span><span class="p">),</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="o">**</span><span class="n">tkwargs</span><span class="p">),</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># pyre-ignore [16]</span>
+        <span class="n">noise</span> <span class="o">=</span> <span class="n">Yvar</span><span class="o">.</span><span class="n">clamp_min</span><span class="p">(</span><span class="n">MIN_OBSERVED_NOISE_LEVEL</span><span class="p">)</span>
+    <span class="c1"># use SAAS priors</span>
+    <span class="n">tausq</span> <span class="o">=</span> <span class="n">pyro</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span>
+        <span class="s2">"kernel_tausq"</span><span class="p">,</span>
+        <span class="n">pyro</span><span class="o">.</span><span class="n">distributions</span><span class="o">.</span><span class="n">HalfCauchy</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="o">**</span><span class="n">tkwargs</span><span class="p">)),</span>  <span class="c1"># pyre-ignore [16]</span>
+    <span class="p">)</span>
+    <span class="n">inv_length_sq</span> <span class="o">=</span> <span class="n">pyro</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span>
+        <span class="s2">"_kernel_inv_length_sq"</span><span class="p">,</span>
+        <span class="n">pyro</span><span class="o">.</span><span class="n">distributions</span><span class="o">.</span><span class="n">HalfCauchy</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="o">**</span><span class="n">tkwargs</span><span class="p">)),</span>  <span class="c1"># pyre-ignore [16]</span>
+    <span class="p">)</span>
+    <span class="n">inv_length_sq</span> <span class="o">=</span> <span class="n">pyro</span><span class="o">.</span><span class="n">deterministic</span><span class="p">(</span><span class="s2">"kernel_inv_length_sq"</span><span class="p">,</span> <span class="n">tausq</span> <span class="o">*</span> <span class="n">inv_length_sq</span><span class="p">)</span>
+    <span class="n">lengthscale</span> <span class="o">=</span> <span class="n">pyro</span><span class="o">.</span><span class="n">deterministic</span><span class="p">(</span>
+        <span class="s2">"lengthscale"</span><span class="p">,</span>
+        <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">inv_length_sq</span><span class="p">)</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(),</span>  <span class="c1"># pyre-ignore [16]</span>
+    <span class="p">)</span>
+
+    <span class="c1"># transform inputs through kumaraswamy cdf</span>
+    <span class="k">if</span> <span class="n">use_input_warping</span><span class="p">:</span>
+        <span class="n">c0</span> <span class="o">=</span> <span class="n">pyro</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span>
+            <span class="s2">"c0"</span><span class="p">,</span>
+            <span class="n">pyro</span><span class="o">.</span><span class="n">distributions</span><span class="o">.</span><span class="n">LogNormal</span><span class="p">(</span>  <span class="c1"># pyre-ignore [16]</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">0.0</span><span class="p">]</span> <span class="o">*</span> <span class="n">dim</span><span class="p">,</span> <span class="o">**</span><span class="n">tkwargs</span><span class="p">),</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">0.75</span> <span class="o">**</span> <span class="mf">0.5</span><span class="p">]</span> <span class="o">*</span> <span class="n">dim</span><span class="p">,</span> <span class="o">**</span><span class="n">tkwargs</span><span class="p">),</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+        <span class="n">c1</span> <span class="o">=</span> <span class="n">pyro</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span>
+            <span class="s2">"c1"</span><span class="p">,</span>
+            <span class="n">pyro</span><span class="o">.</span><span class="n">distributions</span><span class="o">.</span><span class="n">LogNormal</span><span class="p">(</span>  <span class="c1"># pyre-ignore [16]</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">0.0</span><span class="p">]</span> <span class="o">*</span> <span class="n">dim</span><span class="p">,</span> <span class="o">**</span><span class="n">tkwargs</span><span class="p">),</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">0.75</span> <span class="o">**</span> <span class="mf">0.5</span><span class="p">]</span> <span class="o">*</span> <span class="n">dim</span><span class="p">,</span> <span class="o">**</span><span class="n">tkwargs</span><span class="p">),</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+        <span class="c1"># unnormalize X from [0, 1] to [eps, 1-eps]</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="p">(</span><span class="n">X</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">eps</span><span class="p">)</span> <span class="o">+</span> <span class="n">eps</span><span class="p">)</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">eps</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">eps</span><span class="p">)</span>
+        <span class="n">X_tf</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">torch</span><span class="o">.</span><span class="n">pow</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">torch</span><span class="o">.</span><span class="n">pow</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">c1</span><span class="p">)),</span> <span class="n">c0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">X_tf</span> <span class="o">=</span> <span class="n">X</span>
+    <span class="c1"># compute kernel</span>
+    <span class="k">if</span> <span class="n">gp_kernel</span> <span class="o">==</span> <span class="s2">"matern"</span><span class="p">:</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="n">matern_kernel</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">X_tf</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="n">X_tf</span><span class="p">,</span> <span class="n">lengthscale</span><span class="o">=</span><span class="n">lengthscale</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">gp_kernel</span> <span class="o">==</span> <span class="s2">"rbf"</span><span class="p">:</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="n">rbf_kernel</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="n">X_tf</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="n">X_tf</span><span class="p">,</span> <span class="n">lengthscale</span><span class="o">=</span><span class="n">lengthscale</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Expected kernel to be 'rbf' or 'matern', got </span><span class="si">{</span><span class="n">gp_kernel</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="c1"># add noise</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="n">outputscale</span> <span class="o">*</span> <span class="n">k</span> <span class="o">+</span> <span class="n">noise</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">X</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">X</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="n">pyro</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span>
+        <span class="s2">"Y"</span><span class="p">,</span>
+        <span class="n">pyro</span><span class="o">.</span><span class="n">distributions</span><span class="o">.</span><span class="n">MultivariateNormal</span><span class="p">(</span>  <span class="c1"># pyre-ignore [16]</span>
+            <span class="n">loc</span><span class="o">=</span><span class="n">mean</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+            <span class="n">covariance_matrix</span><span class="o">=</span><span class="n">k</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">obs</span><span class="o">=</span><span class="n">Y</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="run_inference"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.fully_bayesian.run_inference">[docs]</a><span class="k">def</span> <span class="nf">run_inference</span><span class="p">(</span>
+    <span class="n">pyro_model</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">X</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">Y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">Yvar</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">512</span><span class="p">,</span>
+    <span class="n">warmup_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
+    <span class="n">thinning</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
+    <span class="n">use_input_warping</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">max_tree_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+    <span class="n">disable_progbar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">gp_kernel</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"matern"</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">pyro.infer.mcmc</span> <span class="kn">import</span> <span class="n">NUTS</span><span class="p">,</span> <span class="n">MCMC</span>
+        <span class="kn">from</span> <span class="nn">pyro.infer.mcmc.util</span> <span class="kn">import</span> <span class="n">print_summary</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Cannot call run_inference without pyro installed!"</span><span class="p">)</span>
+    <span class="n">kernel</span> <span class="o">=</span> <span class="n">NUTS</span><span class="p">(</span>
+        <span class="n">pyro_model</span><span class="p">,</span>
+        <span class="n">jit_compile</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">full_mass</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">ignore_jit_warnings</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">max_tree_depth</span><span class="o">=</span><span class="n">max_tree_depth</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span>
+        <span class="n">kernel</span><span class="p">,</span>
+        <span class="n">warmup_steps</span><span class="o">=</span><span class="n">warmup_steps</span><span class="p">,</span>
+        <span class="n">num_samples</span><span class="o">=</span><span class="n">num_samples</span><span class="p">,</span>
+        <span class="n">disable_progbar</span><span class="o">=</span><span class="n">disable_progbar</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">mcmc</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+        <span class="n">X</span><span class="p">,</span>
+        <span class="n">Y</span><span class="p">,</span>
+        <span class="n">Yvar</span><span class="p">,</span>
+        <span class="n">use_input_warping</span><span class="o">=</span><span class="n">use_input_warping</span><span class="p">,</span>
+        <span class="n">gp_kernel</span><span class="o">=</span><span class="n">gp_kernel</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># compute the true lengthscales and get rid of the temporary variables</span>
+    <span class="n">samples</span> <span class="o">=</span> <span class="n">mcmc</span><span class="o">.</span><span class="n">get_samples</span><span class="p">()</span>
+    <span class="n">inv_length_sq</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">samples</span><span class="p">[</span><span class="s2">"kernel_tausq"</span><span class="p">]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">samples</span><span class="p">[</span><span class="s2">"_kernel_inv_length_sq"</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">samples</span><span class="p">[</span><span class="s2">"lengthscale"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">inv_length_sq</span><span class="p">)</span><span class="o">.</span><span class="n">sqrt</span><span class="p">()</span>  <span class="c1"># pyre-ignore [16]</span>
+    <span class="k">del</span> <span class="n">samples</span><span class="p">[</span><span class="s2">"kernel_tausq"</span><span class="p">],</span> <span class="n">samples</span><span class="p">[</span><span class="s2">"_kernel_inv_length_sq"</span><span class="p">]</span>
+
+    <span class="c1"># this prints the summary</span>
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="n">orig_std_out</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">write</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">write</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">info</span>
+        <span class="n">print_summary</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">prob</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">group_by_chain</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">write</span> <span class="o">=</span> <span class="n">orig_std_out</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"MCMC elapsed time: </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">samples</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">samples</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="p">[::</span><span class="n">thinning</span><span class="p">]</span>  <span class="c1"># apply thinning</span>
+    <span class="k">return</span> <span class="n">samples</span></div>
+
+
+<div class="viewcode-block" id="get_fully_bayesian_acqf"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.fully_bayesian.get_fully_bayesian_acqf">[docs]</a><span class="k">def</span> <span class="nf">get_fully_bayesian_acqf</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span>
+    <span class="n">objective_weights</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">X_observed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">X_pending</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="c1"># pyre-fixme[9]: acqf_constructor has type `Callable[[Model, Tensor,</span>
+    <span class="c1">#  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor], Any],</span>
+    <span class="c1">#  AcquisitionFunction]`; used as `Callable[[Model, Tensor,</span>
+    <span class="c1">#  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor],</span>
+    <span class="c1">#  **(Any)], AcquisitionFunction]`.</span>
+    <span class="n">acqf_constructor</span><span class="p">:</span> <span class="n">TAcqfConstructor</span> <span class="o">=</span> <span class="n">get_NEI</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AcquisitionFunction</span><span class="p">:</span>
+    <span class="n">kwargs</span><span class="p">[</span><span class="s2">"marginalize_dim"</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">3</span>
+    <span class="c1"># pyre-ignore [28]</span>
+    <span class="n">acqf</span> <span class="o">=</span> <span class="n">acqf_constructor</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+        <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+        <span class="n">X_observed</span><span class="o">=</span><span class="n">X_observed</span><span class="p">,</span>
+        <span class="n">X_pending</span><span class="o">=</span><span class="n">X_pending</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">base_forward</span> <span class="o">=</span> <span class="n">acqf</span><span class="o">.</span><span class="n">forward</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+        <span class="c1"># unsqueeze dim for GP hyperparameter samples</span>
+        <span class="k">return</span> <span class="n">base_forward</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">))</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">acqf</span><span class="o">.</span><span class="n">forward</span> <span class="o">=</span> <span class="n">types</span><span class="o">.</span><span class="n">MethodType</span><span class="p">(</span><span class="n">forward</span><span class="p">,</span> <span class="n">acqf</span><span class="p">)</span>  <span class="c1"># pyre-ignore[8]</span>
+    <span class="k">return</span> <span class="n">acqf</span></div>
+
+
+<div class="viewcode-block" id="get_fully_bayesian_acqf_nehvi"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.fully_bayesian.get_fully_bayesian_acqf_nehvi">[docs]</a><span class="k">def</span> <span class="nf">get_fully_bayesian_acqf_nehvi</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span>
+    <span class="n">objective_weights</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">X_observed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">X_pending</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AcquisitionFunction</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">get_fully_bayesian_acqf</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+        <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+        <span class="n">X_observed</span><span class="o">=</span><span class="n">X_observed</span><span class="p">,</span>
+        <span class="n">X_pending</span><span class="o">=</span><span class="n">X_pending</span><span class="p">,</span>
+        <span class="n">acqf_constructor</span><span class="o">=</span><span class="n">get_NEHVI</span><span class="p">,</span>  <span class="c1"># pyre-ignore [6]</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FullyBayesianBotorchModelMixin"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.fully_bayesian.FullyBayesianBotorchModelMixin">[docs]</a><span class="k">class</span> <span class="nc">FullyBayesianBotorchModelMixin</span><span class="p">:</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Model</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="FullyBayesianBotorchModelMixin.feature_importances"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.fully_bayesian.FullyBayesianBotorchModelMixin.feature_importances">[docs]</a>    <span class="k">def</span> <span class="nf">feature_importances</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">"Cannot calculate feature_importances without a fitted model"</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">ModelListGP</span><span class="p">):</span>
+            <span class="n">models</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">models</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">models</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">]</span>
+        <span class="n">lengthscales</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># pyre-fixme[29]: `Union[BoundMethod[typing.Callable(Tensor.__iter__)[[Named(...</span>
+        <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">models</span><span class="p">:</span>
+            <span class="n">ls</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">covar_module</span><span class="o">.</span><span class="n">base_kernel</span><span class="o">.</span><span class="n">lengthscale</span>
+            <span class="n">lengthscales</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ls</span><span class="p">)</span>
+        <span class="n">lengthscales</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">lengthscales</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="c1"># take mean over MCMC samples</span>
+        <span class="n">lengthscales</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">lengthscales</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># pyre-ignore [16]</span>
+        <span class="k">return</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">lengthscales</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="FullyBayesianBotorchModel"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.fully_bayesian.FullyBayesianBotorchModel">[docs]</a><span class="k">class</span> <span class="nc">FullyBayesianBotorchModel</span><span class="p">(</span><span class="n">FullyBayesianBotorchModelMixin</span><span class="p">,</span> <span class="n">BotorchModel</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sd">"""Fully Bayesian Model that uses NUTS to sample from hyperparameter posterior.</span>
+
+<span class="sd">    This includes support for using sparse axis-aligned subspace priors (SAAS). See</span>
+<span class="sd">    [Eriksson2021saasbo]_ for details.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model_constructor</span><span class="p">:</span> <span class="n">TModelConstructor</span> <span class="o">=</span> <span class="n">get_and_fit_model_mcmc</span><span class="p">,</span>
+        <span class="n">model_predictor</span><span class="p">:</span> <span class="n">TModelPredictor</span> <span class="o">=</span> <span class="n">predict_from_model_mcmc</span><span class="p">,</span>
+        <span class="n">acqf_constructor</span><span class="p">:</span> <span class="n">TAcqfConstructor</span> <span class="o">=</span> <span class="n">get_fully_bayesian_acqf</span><span class="p">,</span>
+        <span class="c1"># pyre-fixme[9]: acqf_optimizer declared/used type mismatch</span>
+        <span class="n">acqf_optimizer</span><span class="p">:</span> <span class="n">TOptimizer</span> <span class="o">=</span> <span class="n">scipy_optimizer</span><span class="p">,</span>
+        <span class="n">best_point_recommender</span><span class="p">:</span> <span class="n">TBestPointRecommender</span> <span class="o">=</span> <span class="n">recommend_best_observed_point</span><span class="p">,</span>
+        <span class="n">refit_on_cv</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">refit_on_update</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">warm_start_refitting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">use_input_warping</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="c1"># use_saas is deprecated. TODO: remove</span>
+        <span class="n">use_saas</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">512</span><span class="p">,</span>
+        <span class="n">warmup_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
+        <span class="n">thinning</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
+        <span class="n">max_tree_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+        <span class="n">disable_progbar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">gp_kernel</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"matern"</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Initialize Fully Bayesian Botorch Model.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            model_constructor: A callable that instantiates and fits a model on data,</span>
+<span class="sd">                with signature as described below.</span>
+<span class="sd">            model_predictor: A callable that predicts using the fitted model, with</span>
+<span class="sd">                signature as described below.</span>
+<span class="sd">            acqf_constructor: A callable that creates an acquisition function from a</span>
+<span class="sd">                fitted model, with signature as described below.</span>
+<span class="sd">            acqf_optimizer: A callable that optimizes the acquisition function, with</span>
+<span class="sd">                signature as described below.</span>
+<span class="sd">            best_point_recommender: A callable that recommends the best point, with</span>
+<span class="sd">                signature as described below.</span>
+<span class="sd">            refit_on_cv: If True, refit the model for each fold when performing</span>
+<span class="sd">                cross-validation.</span>
+<span class="sd">            refit_on_update: If True, refit the model after updating the training</span>
+<span class="sd">                data using the `update` method.</span>
+<span class="sd">            warm_start_refitting: If True, start model refitting from previous</span>
+<span class="sd">                model parameters in order to speed up the fitting process.</span>
+<span class="sd">            use_input_warping: A boolean indicating whether to use input warping</span>
+<span class="sd">            use_saas: [deprecated] A boolean indicating whether to use the SAAS model</span>
+<span class="sd">            num_samples: The number of MCMC samples. Note that with thinning,</span>
+<span class="sd">                num_samples/thinning samples are retained.</span>
+<span class="sd">            warmup_steps: The number of burn-in steps for NUTS.</span>
+<span class="sd">            thinning: The amount of thinning. Every nth sample is retained.</span>
+<span class="sd">            max_tree_depth: The max_tree_depth for NUTS.</span>
+<span class="sd">            disable_progbar: A boolean indicating whether to print the progress</span>
+<span class="sd">                bar and diagnostics during MCMC.</span>
+<span class="sd">            gp_kernel: The type of ARD base kernel. "matern" corresponds to a Matern-5/2</span>
+<span class="sd">                kernel and "rbf" corresponds to an RBF kernel.</span>
+<span class="sd">            verbose: A boolean indicating whether to print summary stats from MCMC.</span>
+<span class="sd">        """</span>
+        <span class="c1"># use_saas is deprecated. TODO: remove</span>
+        <span class="k">if</span> <span class="n">use_saas</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">SAAS_DEPRECATION_MSG</span><span class="p">,</span> <span class="ne">DeprecationWarning</span><span class="p">)</span>
+        <span class="n">BotorchModel</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">model_constructor</span><span class="o">=</span><span class="n">model_constructor</span><span class="p">,</span>
+            <span class="n">model_predictor</span><span class="o">=</span><span class="n">model_predictor</span><span class="p">,</span>
+            <span class="n">acqf_constructor</span><span class="o">=</span><span class="n">acqf_constructor</span><span class="p">,</span>
+            <span class="n">acqf_optimizer</span><span class="o">=</span><span class="n">acqf_optimizer</span><span class="p">,</span>
+            <span class="n">best_point_recommender</span><span class="o">=</span><span class="n">best_point_recommender</span><span class="p">,</span>
+            <span class="n">refit_on_cv</span><span class="o">=</span><span class="n">refit_on_cv</span><span class="p">,</span>
+            <span class="n">refit_on_update</span><span class="o">=</span><span class="n">refit_on_update</span><span class="p">,</span>
+            <span class="n">warm_start_refitting</span><span class="o">=</span><span class="n">warm_start_refitting</span><span class="p">,</span>
+            <span class="n">use_input_warping</span><span class="o">=</span><span class="n">use_input_warping</span><span class="p">,</span>
+            <span class="n">num_samples</span><span class="o">=</span><span class="n">num_samples</span><span class="p">,</span>
+            <span class="n">warmup_steps</span><span class="o">=</span><span class="n">warmup_steps</span><span class="p">,</span>
+            <span class="n">thinning</span><span class="o">=</span><span class="n">thinning</span><span class="p">,</span>
+            <span class="n">max_tree_depth</span><span class="o">=</span><span class="n">max_tree_depth</span><span class="p">,</span>
+            <span class="n">disable_progbar</span><span class="o">=</span><span class="n">disable_progbar</span><span class="p">,</span>
+            <span class="n">gp_kernel</span><span class="o">=</span><span class="n">gp_kernel</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FullyBayesianMOOBotorchModel"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.fully_bayesian.FullyBayesianMOOBotorchModel">[docs]</a><span class="k">class</span> <span class="nc">FullyBayesianMOOBotorchModel</span><span class="p">(</span>
+    <span class="n">FullyBayesianBotorchModelMixin</span><span class="p">,</span> <span class="n">MultiObjectiveBotorchModel</span>
+<span class="p">):</span>
+    <span class="sa">r</span><span class="sd">"""Fully Bayesian Model that uses qNEHVI.</span>
+
+<span class="sd">    This includes support for using qNEHVI + SAASBO as in [Eriksson2021nas]_.</span>
+<span class="sd">    """</span>
+
+    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">FullyBayesianBotorchModel</span><span class="o">.</span><span class="fm">__init__</span><span class="p">)</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model_constructor</span><span class="p">:</span> <span class="n">TModelConstructor</span> <span class="o">=</span> <span class="n">get_and_fit_model_mcmc</span><span class="p">,</span>
+        <span class="n">model_predictor</span><span class="p">:</span> <span class="n">TModelPredictor</span> <span class="o">=</span> <span class="n">predict_from_model_mcmc</span><span class="p">,</span>
+        <span class="c1"># pyre-fixme[9]: acqf_constructor has type `Callable[[Model, Tensor,</span>
+        <span class="c1">#  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor], Any],</span>
+        <span class="c1">#  AcquisitionFunction]`; used as `Callable[[Model, Tensor,</span>
+        <span class="c1">#  Optional[Tuple[Tensor, Tensor]], Optional[Tensor], Optional[Tensor],</span>
+        <span class="c1">#  **(Any)], AcquisitionFunction]`.</span>
+        <span class="n">acqf_constructor</span><span class="p">:</span> <span class="n">TAcqfConstructor</span> <span class="o">=</span> <span class="n">get_fully_bayesian_acqf_nehvi</span><span class="p">,</span>
+        <span class="c1"># pyre-fixme[9]: acqf_optimizer has type `Callable[[AcquisitionFunction,</span>
+        <span class="c1">#  Tensor, int, Optional[Dict[int, float]], Optional[Callable[[Tensor],</span>
+        <span class="c1">#  Tensor]], Any], Tensor]`; used as `Callable[[AcquisitionFunction, Tensor,</span>
+        <span class="c1">#  int, Optional[Dict[int, float]], Optional[Callable[[Tensor], Tensor]],</span>
+        <span class="c1">#  **(Any)], Tensor]`.</span>
+        <span class="n">acqf_optimizer</span><span class="p">:</span> <span class="n">TOptimizer</span> <span class="o">=</span> <span class="n">scipy_optimizer</span><span class="p">,</span>
+        <span class="c1"># TODO: Remove best_point_recommender for botorch_moo. Used in modelbridge._gen.</span>
+        <span class="n">best_point_recommender</span><span class="p">:</span> <span class="n">TBestPointRecommender</span> <span class="o">=</span> <span class="n">recommend_best_observed_point</span><span class="p">,</span>
+        <span class="n">frontier_evaluator</span><span class="p">:</span> <span class="n">TFrontierEvaluator</span> <span class="o">=</span> <span class="n">pareto_frontier_evaluator</span><span class="p">,</span>
+        <span class="n">refit_on_cv</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">refit_on_update</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">warm_start_refitting</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">use_input_warping</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">512</span><span class="p">,</span>
+        <span class="n">warmup_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
+        <span class="n">thinning</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
+        <span class="n">max_tree_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+        <span class="c1"># use_saas is deprecated. TODO: remove</span>
+        <span class="n">use_saas</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">disable_progbar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">gp_kernel</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"matern"</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># use_saas is deprecated. TODO: remove</span>
+        <span class="k">if</span> <span class="n">use_saas</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">SAAS_DEPRECATION_MSG</span><span class="p">,</span> <span class="ne">DeprecationWarning</span><span class="p">)</span>
+        <span class="n">MultiObjectiveBotorchModel</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">model_constructor</span><span class="o">=</span><span class="n">model_constructor</span><span class="p">,</span>
+            <span class="n">model_predictor</span><span class="o">=</span><span class="n">model_predictor</span><span class="p">,</span>
+            <span class="n">acqf_constructor</span><span class="o">=</span><span class="n">acqf_constructor</span><span class="p">,</span>
+            <span class="n">acqf_optimizer</span><span class="o">=</span><span class="n">acqf_optimizer</span><span class="p">,</span>
+            <span class="n">best_point_recommender</span><span class="o">=</span><span class="n">best_point_recommender</span><span class="p">,</span>
+            <span class="n">frontier_evaluator</span><span class="o">=</span><span class="n">frontier_evaluator</span><span class="p">,</span>
+            <span class="n">refit_on_cv</span><span class="o">=</span><span class="n">refit_on_cv</span><span class="p">,</span>
+            <span class="n">refit_on_update</span><span class="o">=</span><span class="n">refit_on_update</span><span class="p">,</span>
+            <span class="n">warm_start_refitting</span><span class="o">=</span><span class="n">warm_start_refitting</span><span class="p">,</span>
+            <span class="n">use_input_warping</span><span class="o">=</span><span class="n">use_input_warping</span><span class="p">,</span>
+            <span class="n">num_samples</span><span class="o">=</span><span class="n">num_samples</span><span class="p">,</span>
+            <span class="n">warmup_steps</span><span class="o">=</span><span class="n">warmup_steps</span><span class="p">,</span>
+            <span class="n">thinning</span><span class="o">=</span><span class="n">thinning</span><span class="p">,</span>
+            <span class="n">max_tree_depth</span><span class="o">=</span><span class="n">max_tree_depth</span><span class="p">,</span>
+            <span class="n">disable_progbar</span><span class="o">=</span><span class="n">disable_progbar</span><span class="p">,</span>
+            <span class="n">gp_kernel</span><span class="o">=</span><span class="n">gp_kernel</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+        <span class="p">)</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.2/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2021 Facebook Inc.</section></footer></div></body></html>
