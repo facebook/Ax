@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+import itertools
 from collections.abc import Callable
 from copy import deepcopy
 
@@ -38,6 +39,7 @@ class SobolSensitivity:
         num_mc_samples: int = 10**4,
         input_qmc: bool = False,
         second_order: bool = False,
+        first_order_idcs: torch.Tensor | None = None,
         num_bootstrap_samples: int = 1,
         bootstrap_array: bool = False,
         discrete_features: list[int] | None = None,
@@ -52,6 +54,8 @@ class SobolSensitivity:
             input_qmc: If True, a qmc Sobol grid is use instead of uniformly random.
             second_order: If True, the second order indices are computed.
             bootstrap: If true, the MC error is returned.
+            first_order_idcs: Tensor of previously computed first order indices, where
+                first_order_idcs.shape = torch.Size([dim]).
             num_bootstrap_samples: If bootstrap is true, the number of bootstraps has
                 to be specified.
             bootstrap_array: If true, all the num_bootstrap_samples extimated indices
@@ -127,10 +131,13 @@ class SobolSensitivity:
         # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
         #  `typing.List` to avoid runtime subscripting errors.
         self.f_BAis_btsp: list | None = None
-        self.first_order_idxs: torch.Tensor | None = None
-        self.first_order_idxs_btsp: torch.Tensor | None = None
+        self.first_order_idcs: torch.Tensor | None = first_order_idcs
+        self.first_order_idcs_btsp: torch.Tensor | None = None
 
     def generate_all_input_matrix(self) -> torch.Tensor:
+        # NOTE Sobol samples of A are ablated with samples of B, and vice versa
+        # so baselies are A and B, but each one is ablated by the other for each
+        # dimension. First all of A, then (optionally) all of B.
         A_B_ABi_list = [self.A, self.B]
         for i in range(self.dim):
             AB_i = deepcopy(self.A)
@@ -155,12 +162,18 @@ class SobolSensitivity:
         # for multiple output models, average the outcomes
         if len(f_A_B_ABi.shape) == 3:
             f_A_B_ABi = f_A_B_ABi.mean(dim=0)
+
         self.f_A = f_A_B_ABi[: self.num_mc_samples]
         self.f_B = f_A_B_ABi[self.num_mc_samples : self.num_mc_samples * 2]
+
+        # first, there is simply A and B, and then there are all the ablated variants
+        # of each (which are retrieved here by slicing the input matrix)
+        # but this only retrieves the ablations of A (and not B)
         self.f_ABis = [
             f_A_B_ABi[self.num_mc_samples * (i + 2) : self.num_mc_samples * (i + 3)]
             for i in range(self.dim)
         ]
+        # Get the variances of A and B (so simply the variance of 2 num_mc samples)
         self.f_total_var = torch.var(f_A_B_ABi[: self.num_mc_samples * 2])
         if self.bootstrap:
             self.f_A_btsp = [
@@ -187,6 +200,9 @@ class SobolSensitivity:
                 for i in range(self.num_bootstrap_samples)
             ]
         if self.second_order:
+            # If second order, we also need to retrieve the ablations of B
+            # In total, we have f_ABis and f_BAis which are both of size M(d), and are
+            # the ablations of each other
             self.f_BAis = [
                 f_A_B_ABi[
                     self.num_mc_samples
@@ -210,20 +226,22 @@ class SobolSensitivity:
             else
                 Tensor: (values)x dim
         """
-        first_order_idxs = []
+        first_order_idcs = []
         for i in range(self.dim):
+            # The only difference between self.f_ABis[i] and self.f_A is in dimension i
+            # So we get the variance in the component that corresponds to dimension i
             vi = (
                 torch.mean(self.f_B * (self.f_ABis[i] - self.f_A))  # pyre-ignore
                 / self.f_total_var
             )
-            first_order_idxs.append(vi.unsqueeze(0))
-        self.first_order_idxs = torch.cat(first_order_idxs, dim=0).detach()
-        if not (self.bootstrap):
-            return self.first_order_idxs
+            first_order_idcs.append(vi.unsqueeze(0))
+        self.first_order_idcs = torch.cat(first_order_idcs, dim=0).detach()
+        if not self.bootstrap:
+            return self.first_order_idcs
         else:
-            first_order_idxs_btsp = [torch.cat(first_order_idxs, dim=0).unsqueeze(0)]
+            first_order_idcs_btsp = [torch.cat(first_order_idcs, dim=0).unsqueeze(0)]
             for b in range(self.num_bootstrap_samples):
-                first_order_idxs = []
+                first_order_idcs = []
                 for i in range(self.dim):
                     vi = (
                         torch.mean(
@@ -232,23 +250,23 @@ class SobolSensitivity:
                         )
                         / self.f_total_var_btsp[b]
                     )
-                    first_order_idxs.append(vi.unsqueeze(0))
-                first_order_idxs_btsp.append(
-                    torch.cat(first_order_idxs, dim=0).unsqueeze(0)
+                    first_order_idcs.append(vi.unsqueeze(0))
+                first_order_idcs_btsp.append(
+                    torch.cat(first_order_idcs, dim=0).unsqueeze(0)
                 )
-            self.first_order_idxs_btsp = torch.cat(first_order_idxs_btsp, dim=0)
+            self.first_order_idcs_btsp = torch.cat(first_order_idcs_btsp, dim=0)
             if self.bootstrap_array:
-                return self.first_order_idxs_btsp.detach()
+                return self.first_order_idcs_btsp.detach()
             else:
                 return (
                     torch.cat(
                         [
-                            self.first_order_idxs_btsp.mean(dim=0).unsqueeze(0),
-                            self.first_order_idxs_btsp.var(  # pyre-ignore
+                            self.first_order_idcs_btsp.mean(dim=0).unsqueeze(0),
+                            self.first_order_idcs_btsp.var(  # pyre-ignore
                                 dim=0
                             ).unsqueeze(0),
                             torch.sqrt(
-                                self.first_order_idxs_btsp.var(dim=0)
+                                self.first_order_idcs_btsp.var(dim=0)
                                 / (self.num_bootstrap_samples + 1)
                             ).unsqueeze(0),
                         ],
@@ -267,7 +285,7 @@ class SobolSensitivity:
             else
                 Tensor: (values)x dim
         """
-        total_order_idxs = []
+        total_order_idcs = []
         for i in range(self.dim):
             vti = (
                 0.5
@@ -277,14 +295,14 @@ class SobolSensitivity:
                 * torch.mean(torch.pow(self.f_A - self.f_ABis[i], 2))
                 / self.f_total_var
             )
-            total_order_idxs.append(vti.unsqueeze(0))
+            total_order_idcs.append(vti.unsqueeze(0))
         if not (self.bootstrap):
-            total_order_idxs = torch.cat(total_order_idxs, dim=0).detach()
-            return total_order_idxs
+            total_order_idcs = torch.cat(total_order_idcs, dim=0).detach()
+            return total_order_idcs
         else:
-            total_order_idxs_btsp = [torch.cat(total_order_idxs, dim=0).unsqueeze(0)]
+            total_order_idcs_btsp = [torch.cat(total_order_idcs, dim=0).unsqueeze(0)]
             for b in range(self.num_bootstrap_samples):
-                total_order_idxs = []
+                total_order_idcs = []
                 for i in range(self.dim):
                     vti = (
                         0.5
@@ -293,21 +311,21 @@ class SobolSensitivity:
                         )
                         / self.f_total_var_btsp[b]
                     )
-                    total_order_idxs.append(vti.unsqueeze(0))
-                total_order_idxs_btsp.append(
-                    torch.cat(total_order_idxs, dim=0).unsqueeze(0)
+                    total_order_idcs.append(vti.unsqueeze(0))
+                total_order_idcs_btsp.append(
+                    torch.cat(total_order_idcs, dim=0).unsqueeze(0)
                 )
-            total_order_idxs_btsp = torch.cat(total_order_idxs_btsp, dim=0)
+            total_order_idcs_btsp = torch.cat(total_order_idcs_btsp, dim=0)
             if self.bootstrap_array:
-                return total_order_idxs_btsp.detach()
+                return total_order_idcs_btsp.detach()
             else:
                 return (
                     torch.cat(
                         [
-                            total_order_idxs_btsp.mean(dim=0).unsqueeze(0),
-                            total_order_idxs_btsp.var(dim=0).unsqueeze(0),
+                            total_order_idcs_btsp.mean(dim=0).unsqueeze(0),
+                            total_order_idcs_btsp.var(dim=0).unsqueeze(0),
                             torch.sqrt(
-                                total_order_idxs_btsp.var(dim=0)
+                                total_order_idcs_btsp.var(dim=0)
                                 / (self.num_bootstrap_samples + 1)
                             ).unsqueeze(0),
                         ],
@@ -319,27 +337,31 @@ class SobolSensitivity:
 
     def second_order_indices(
         self,
-        first_order_idxs: torch.Tensor | None = None,
-        first_order_idxs_btsp: torch.Tensor | None = None,
+        first_order_idcs: torch.Tensor | None = None,
+        first_order_idcs_btsp: torch.Tensor | None = None,
     ) -> Tensor:
         r"""Computes the Second order Sobol indices:
         Args:
-            first_order_idxs: Tensor of first order indices.
-            first_order_idxs_btsp: Tensor of all first order indices given by bootstrap.
+            first_order_idcs: Tensor of previously computed first order indices, where
+                first_order_idcs.shape = torch.Size([dim]).
+            first_order_idcs_btsp: Tensor of all first order indices given by bootstrap.
         Returns:
             if num_bootstrap_samples>1
                 Tensor: (values,var_mc,stderr_mc)x dim
             else
                 Tensor: (values)x dim
         """
-
         if not self.second_order:
             raise ValueError(
                 "Second order indices has to be specified in the sensitivity definition"
             )
-        if first_order_idxs is None:
-            first_order_idxs = self.first_order_idxs
-        second_order_idxs = []
+
+        # TODO Improve this part of the code by vectorization T204291129
+        if first_order_idcs is None:
+            if self.first_order_idcs is None:
+                self.first_order_indices()
+            first_order_idcs = self.first_order_idcs
+        second_order_idcs = []
         for i in range(self.dim):
             for j in range(i + 1, self.dim):
                 vij = torch.mean(
@@ -347,19 +369,19 @@ class SobolSensitivity:
                 )
                 vij = (
                     (vij / self.f_total_var)
-                    - first_order_idxs[i]  # pyre-ignore
-                    - first_order_idxs[j]
+                    - first_order_idcs[i]  # pyre-ignore
+                    - first_order_idcs[j]
                 )
-                second_order_idxs.append(vij.unsqueeze(0))
-        if not (self.bootstrap):
-            second_order_idxs = torch.cat(second_order_idxs, dim=0).detach()
-            return second_order_idxs
+                second_order_idcs.append(vij.unsqueeze(0))
+        if not self.bootstrap:
+            second_order_idcs = torch.cat(second_order_idcs, dim=0).detach()
+            return second_order_idcs
         else:
-            second_order_idxs_btsp = [torch.cat(second_order_idxs, dim=0).unsqueeze(0)]
-            if first_order_idxs_btsp is None:
-                first_order_idxs_btsp = self.first_order_idxs_btsp
+            second_order_idcs_btsp = [torch.cat(second_order_idcs, dim=0).unsqueeze(0)]
+            if first_order_idcs_btsp is None:
+                first_order_idcs_btsp = self.first_order_idcs_btsp
             for b in range(self.num_bootstrap_samples):
-                second_order_idxs = []
+                second_order_idcs = []
                 for i in range(self.dim):
                     for j in range(i + 1, self.dim):
                         vij = torch.mean(
@@ -368,24 +390,24 @@ class SobolSensitivity:
                         )
                         vij = (
                             (vij / self.f_total_var_btsp[b])
-                            - first_order_idxs_btsp[b][i]
-                            - first_order_idxs_btsp[b][j]
+                            - first_order_idcs_btsp[b][i]
+                            - first_order_idcs_btsp[b][j]
                         )
-                        second_order_idxs.append(vij.unsqueeze(0))
-                second_order_idxs_btsp.append(
-                    torch.cat(second_order_idxs, dim=0).unsqueeze(0)
+                        second_order_idcs.append(vij.unsqueeze(0))
+                second_order_idcs_btsp.append(
+                    torch.cat(second_order_idcs, dim=0).unsqueeze(0)
                 )
-            second_order_idxs_btsp = torch.cat(second_order_idxs_btsp, dim=0)
+            second_order_idcs_btsp = torch.cat(second_order_idcs_btsp, dim=0)
             if self.bootstrap_array:
-                return second_order_idxs_btsp.detach()
+                return second_order_idcs_btsp.detach()
             else:
                 return (
                     torch.cat(
                         [
-                            second_order_idxs_btsp.mean(dim=0).unsqueeze(0),
-                            second_order_idxs_btsp.var(dim=0).unsqueeze(0),
+                            second_order_idcs_btsp.mean(dim=0).unsqueeze(0),
+                            second_order_idcs_btsp.var(dim=0).unsqueeze(0),
                             torch.sqrt(
-                                second_order_idxs_btsp.var(dim=0)
+                                second_order_idcs_btsp.var(dim=0)
                                 / (self.num_bootstrap_samples + 1)
                             ).unsqueeze(0),
                         ],
@@ -414,6 +436,7 @@ class SobolSensitivityGPMean:
         second_order: bool = False,
         input_qmc: bool = False,
         num_bootstrap_samples: int = 1,
+        first_order_idcs: torch.Tensor | None = None,
         link_function: Callable[
             [torch.Tensor, torch.Tensor], torch.Tensor
         ] = GaussianLinkMean,
@@ -433,6 +456,11 @@ class SobolSensitivityGPMean:
             input_qmc: If True, a qmc Sobol grid is use instead of uniformly random.
             num_bootstrap_samples: If bootstrap is true, the number of bootstraps has
                 to be specified.
+            first_order_idcs: Tensor of previously computed first order indices, where
+                first_order_idcs.shape = torch.Size([dim]).
+            link_function: The link function to be used when computing the indices.
+                Indices can be computed for the mean or on samples of the posterior,
+                predictive, but defaults to computing on the mean (GaussianLinkMean).
             mini_batch_size: The size of the mini-batches used while evaluating the
                 model posterior. Increasing this will increase the memory usage.
             discrete_features: If specified, the inputs associated with the indices in
@@ -584,42 +612,42 @@ class SobolSensitivityGPSampling:
             else
                 Tensor: (values, var, stderr) x dim
         """
-        first_order_idxs_list = []
+        first_order_idcs_list = []
         for j in range(self.num_gp_samples):
             self.sensitivity.evalute_function(self.samples[j])
-            first_order_idxs = self.sensitivity.first_order_indices()
-            first_order_idxs_list.append(first_order_idxs.unsqueeze(0))
+            first_order_idcs = self.sensitivity.first_order_indices()
+            first_order_idcs_list.append(first_order_idcs.unsqueeze(0))
         # pyre-fixme[16]: `SobolSensitivityGPSampling` has no attribute
-        #  `first_order_idxs_list`.
-        self.first_order_idxs_list = torch.cat(first_order_idxs_list, dim=0)
+        #  `first_order_idcs_list`.
+        self.first_order_idcs_list = torch.cat(first_order_idcs_list, dim=0)
         if not (self.bootstrap):
-            first_order_idxs_mean_var_se = []
+            first_order_idcs_mean_var_se = []
             for i in range(self.dim):
-                first_order_idxs_mean_var_se.append(
+                first_order_idcs_mean_var_se.append(
                     torch.tensor(
                         [
-                            torch.mean(self.first_order_idxs_list[:, i]),
-                            torch.var(self.first_order_idxs_list[:, i]),
+                            torch.mean(self.first_order_idcs_list[:, i]),
+                            torch.var(self.first_order_idcs_list[:, i]),
                             torch.sqrt(
-                                torch.var(self.first_order_idxs_list[:, i])
+                                torch.var(self.first_order_idcs_list[:, i])
                                 / self.num_gp_samples
                             ),
                         ]
                     ).unsqueeze(0)
                 )
-            first_order_idxs_mean_var_se = torch.cat(
-                first_order_idxs_mean_var_se, dim=0
+            first_order_idcs_mean_var_se = torch.cat(
+                first_order_idcs_mean_var_se, dim=0
             )
-            return first_order_idxs_mean_var_se
+            return first_order_idcs_mean_var_se
         else:
-            var_per_bootstrap = torch.var(self.first_order_idxs_list, dim=0)
+            var_per_bootstrap = torch.var(self.first_order_idcs_list, dim=0)
             gp_var = torch.mean(var_per_bootstrap, dim=0)
             gp_se = torch.sqrt(gp_var / self.num_gp_samples)
-            var_per_gp_sample = torch.var(self.first_order_idxs_list, dim=1)
+            var_per_gp_sample = torch.var(self.first_order_idcs_list, dim=1)
             mc_var = torch.mean(var_per_gp_sample, dim=0)
             mc_se = torch.sqrt(mc_var / (self.num_bootstrap_samples + 1))
-            total_mean = self.first_order_idxs_list.reshape(-1, self.dim).mean(dim=0)
-            first_order_idxs_mean_vargp_segp_varmc_segp = torch.cat(
+            total_mean = self.first_order_idcs_list.reshape(-1, self.dim).mean(dim=0)
+            first_order_idcs_mean_vargp_segp_varmc_segp = torch.cat(
                 [
                     torch.tensor(
                         [total_mean[i], gp_var[i], gp_se[i], mc_var[i], mc_se[i]]
@@ -628,7 +656,7 @@ class SobolSensitivityGPSampling:
                 ],
                 dim=0,
             )
-            return first_order_idxs_mean_vargp_segp_varmc_segp
+            return first_order_idcs_mean_vargp_segp_varmc_segp
 
     def total_order_indices(self) -> Tensor:
         r"""Computes the total Sobol indices:
@@ -639,38 +667,38 @@ class SobolSensitivityGPSampling:
             else
                 Tensor: (values, var, stderr) x dim
         """
-        total_order_idxs_list = []
+        total_order_idcs_list = []
         for j in range(self.num_gp_samples):
             self.sensitivity.evalute_function(self.samples[j])
-            total_order_idxs = self.sensitivity.total_order_indices()
-            total_order_idxs_list.append(total_order_idxs.unsqueeze(0))
-        total_order_idxs_list = torch.cat(total_order_idxs_list, dim=0)
+            total_order_idcs = self.sensitivity.total_order_indices()
+            total_order_idcs_list.append(total_order_idcs.unsqueeze(0))
+        total_order_idcs_list = torch.cat(total_order_idcs_list, dim=0)
         if not (self.bootstrap):
-            total_order_idxs_mean_var = []
+            total_order_idcs_mean_var = []
             for i in range(self.dim):
-                total_order_idxs_mean_var.append(
+                total_order_idcs_mean_var.append(
                     torch.tensor(
                         [
-                            torch.mean(total_order_idxs_list[:, i]),
-                            torch.var(total_order_idxs_list[:, i]),
+                            torch.mean(total_order_idcs_list[:, i]),
+                            torch.var(total_order_idcs_list[:, i]),
                             torch.sqrt(
-                                torch.var(total_order_idxs_list[:, i])
+                                torch.var(total_order_idcs_list[:, i])
                                 / self.num_gp_samples
                             ),
                         ]
                     ).unsqueeze(0)
                 )
-            total_order_idxs_mean_var = torch.cat(total_order_idxs_mean_var, dim=0)
-            return total_order_idxs_mean_var
+            total_order_idcs_mean_var = torch.cat(total_order_idcs_mean_var, dim=0)
+            return total_order_idcs_mean_var
         else:
-            var_per_bootstrap = torch.var(total_order_idxs_list, dim=0)
+            var_per_bootstrap = torch.var(total_order_idcs_list, dim=0)
             gp_var = torch.mean(var_per_bootstrap, dim=0)
             gp_se = torch.sqrt(gp_var / self.num_gp_samples)
-            var_per_gp_sample = torch.var(total_order_idxs_list, dim=1)
+            var_per_gp_sample = torch.var(total_order_idcs_list, dim=1)
             mc_var = torch.mean(var_per_gp_sample, dim=0)
             mc_se = torch.sqrt(mc_var / (self.num_bootstrap_samples + 1))
-            total_mean = total_order_idxs_list.reshape(-1, self.dim).mean(dim=0)
-            total_order_idxs_mean_vargp_segp_varmc_segp = torch.cat(
+            total_mean = total_order_idcs_list.reshape(-1, self.dim).mean(dim=0)
+            total_order_idcs_mean_vargp_segp_varmc_segp = torch.cat(
                 [
                     torch.tensor(
                         [total_mean[i], gp_var[i], gp_se[i], mc_var[i], mc_se[i]]
@@ -679,7 +707,7 @@ class SobolSensitivityGPSampling:
                 ],
                 dim=0,
             )
-            return total_order_idxs_mean_vargp_segp_varmc_segp
+            return total_order_idcs_mean_vargp_segp_varmc_segp
 
     def second_order_indices(self) -> Tensor:
         r"""Computes the Second order Sobol indices:
@@ -691,54 +719,54 @@ class SobolSensitivityGPSampling:
                 Tensor: (values, var, stderr) x dim(dim-1) / 2
         """
         if not (self.bootstrap):
-            second_order_idxs_list = []
+            second_order_idcs_list = []
             for j in range(self.num_gp_samples):
                 self.sensitivity.evalute_function(self.samples[j])
-                second_order_idxs = self.sensitivity.second_order_indices(
+                second_order_idcs = self.sensitivity.second_order_indices(
                     # pyre-fixme[16]: `SobolSensitivityGPSampling` has no attribute
-                    #  `first_order_idxs_list`.
-                    self.first_order_idxs_list[j]
+                    #  `first_order_idcs_list`.
+                    self.first_order_idcs_list[j]
                 )
-                second_order_idxs_list.append(second_order_idxs.unsqueeze(0))
-            second_order_idxs_list = torch.cat(second_order_idxs_list, dim=0)
-            second_order_idxs_mean_var = []
-            # pyre-fixme[61]: `second_order_idxs` is undefined, or not always defined.
-            for i in range(len(second_order_idxs)):
-                second_order_idxs_mean_var.append(
+                second_order_idcs_list.append(second_order_idcs.unsqueeze(0))
+            second_order_idcs_list = torch.cat(second_order_idcs_list, dim=0)
+            second_order_idcs_mean_var = []
+            # pyre-fixme[61]: `second_order_idcs` is undefined, or not always defined.
+            for i in range(len(second_order_idcs)):
+                second_order_idcs_mean_var.append(
                     torch.tensor(
                         [
-                            torch.mean(second_order_idxs_list[:, i]),
-                            torch.var(second_order_idxs_list[:, i]),
+                            torch.mean(second_order_idcs_list[:, i]),
+                            torch.var(second_order_idcs_list[:, i]),
                             torch.sqrt(
-                                torch.var(second_order_idxs_list[:, i])
+                                torch.var(second_order_idcs_list[:, i])
                                 / self.num_gp_samples
                             ),
                         ]
                     ).unsqueeze(0)
                 )
-            second_order_idxs_mean_var = torch.cat(second_order_idxs_mean_var, dim=0)
-            return second_order_idxs_mean_var
+            second_order_idcs_mean_var = torch.cat(second_order_idcs_mean_var, dim=0)
+            return second_order_idcs_mean_var
         else:
-            second_order_idxs_list = []
+            second_order_idcs_list = []
             for j in range(self.num_gp_samples):
                 self.sensitivity.evalute_function(self.samples[j])
-                second_order_idxs = self.sensitivity.second_order_indices(
-                    self.first_order_idxs_list[j][0],
-                    self.first_order_idxs_list[j][1:],
+                second_order_idcs = self.sensitivity.second_order_indices(
+                    self.first_order_idcs_list[j][0],
+                    self.first_order_idcs_list[j][1:],
                 )
-                second_order_idxs_list.append(second_order_idxs.unsqueeze(0))
-            second_order_idxs_list = torch.cat(second_order_idxs_list, dim=0)
-            var_per_bootstrap = torch.var(second_order_idxs_list, dim=0)
+                second_order_idcs_list.append(second_order_idcs.unsqueeze(0))
+            second_order_idcs_list = torch.cat(second_order_idcs_list, dim=0)
+            var_per_bootstrap = torch.var(second_order_idcs_list, dim=0)
             gp_var = torch.mean(var_per_bootstrap, dim=0)
             gp_se = torch.sqrt(gp_var / self.num_gp_samples)
-            var_per_gp_sample = torch.var(second_order_idxs_list, dim=1)
+            var_per_gp_sample = torch.var(second_order_idcs_list, dim=1)
             mc_var = torch.mean(var_per_gp_sample, dim=0)
             mc_se = torch.sqrt(mc_var / (self.num_bootstrap_samples + 1))
-            num_second_order = second_order_idxs_list.shape[-1]
-            total_mean = second_order_idxs_list.reshape(-1, num_second_order).mean(
+            num_second_order = second_order_idcs_list.shape[-1]
+            total_mean = second_order_idcs_list.reshape(-1, num_second_order).mean(
                 dim=0
             )
-            second_order_idxs_mean_vargp_segp_varmc_segp = torch.cat(
+            second_order_idcs_mean_vargp_segp_varmc_segp = torch.cat(
                 [
                     torch.tensor(
                         [total_mean[i], gp_var[i], gp_se[i], mc_var[i], mc_se[i]]
@@ -747,7 +775,7 @@ class SobolSensitivityGPSampling:
                 ],
                 dim=0,
             )
-            return second_order_idxs_mean_vargp_segp_varmc_segp
+            return second_order_idcs_mean_vargp_segp_varmc_segp
 
 
 def compute_sobol_indices_from_model_list(
@@ -765,7 +793,11 @@ def compute_sobol_indices_from_model_list(
             the Sobol indices.
         bounds: A 2 x d Tensor of lower and upper bounds of the domain of the models.
         order: A string specifying the order of the Sobol indices to be computed.
-            Supports "first" and "total" and defaults to "first".
+            Supports "first", "second" and "total" and defaults to "first". "total"
+            computes the importance of a variable considering its main effect and
+            all of its higher-order interactions, whereas "first" and "second"
+            the variance when altering the variable in isolation or with one other
+            variable, respectively.
         discrete_features: If specified, the inputs associated with the indices in
             this list are generated using an integer-valued uniform distribution,
             rather than the default (pseudo-)random continuous uniform distribution.
@@ -774,13 +806,20 @@ def compute_sobol_indices_from_model_list(
     Returns:
         With m GPs, returns a (m x d) tensor of `order`-order Sobol indices.
     """
+    if order not in ["first", "total", "second"]:
+        raise NotImplementedError(
+            f"Order {order} is not supported. Plese choose one of"
+            " 'first', 'total' or 'second'."
+        )
     indices = []
     method = getattr(SobolSensitivityGPMean, f"{order}_order_indices")
+    second_order = order == "second"
     for model in model_list:
         sens_class = SobolSensitivityGPMean(
             model=model,
             bounds=bounds,
             discrete_features=discrete_features,
+            second_order=second_order,
             **sobol_kwargs,
         )
         indices.append(method(sens_class))
@@ -816,10 +855,18 @@ def ax_parameter_sens(
             signed, GpDGSMGpMean.
 
     Returns:
-        Dictionary {'metric_name': {'parameter_name': sensitivity_value}}, where the
-            `sensitivity` value is cast to a Numpy array in order to be compatible with
-            `plot_feature_importance_by_feature`.
+        Dictionary {'metric_name': {'parameter_name' or
+        (parameter_name_1, 'parameter_name_2'): sensitivity_value}}, where the
+        `sensitivity` value is cast to a Numpy array in order to be compatible with
+        `plot_feature_importance_by_feature`.
     """
+    if order not in ["first", "total", "second"]:
+        raise NotImplementedError(
+            f"Order {order} is not supported. Plese choose one of"
+            " 'first', 'total' or 'second'."
+        )
+    if order == "second" and signed:
+        raise NotImplementedError("Second order is not supported for signed indices.")
     if metrics is None:
         metrics = model_bridge.outcomes
     # can safely access _search_space_digest after type check
@@ -827,10 +874,14 @@ def ax_parameter_sens(
     digest = torch_model.search_space_digest
     model_list = _get_model_per_metric(torch_model, metrics)
     bounds = torch.tensor(digest.bounds).T  # transposing to make it 2 x d
+
+    # for second order indices, we need to compute first order indices first
+    # which is what is done here. With the first order indices, we can then subtract
+    # appropriately using the first-order indices to extract the second-order indices.
     ind = compute_sobol_indices_from_model_list(
         model_list=model_list,
         bounds=bounds,
-        order=order,
+        order="first" if order == "second" else order,
         discrete_features=digest.categorical_features + digest.ordinal_features,
         **sobol_kwargs,
     )
@@ -850,9 +901,33 @@ def ax_parameter_sens(
         for i in digest.categorical_features:
             ind_deriv[:, i] = 1.0
         ind *= torch.sign(ind_deriv)
-    return _array_with_string_indices_to_dict(
-        rows=metrics, cols=digest.feature_names, A=ind.numpy()
+
+    feature_names = digest.feature_names
+    indices = array_with_string_indices_to_dict(
+        rows=metrics, cols=feature_names, A=ind.numpy()
     )
+    if order == "second":
+        second_order_values = compute_sobol_indices_from_model_list(
+            model_list=model_list,
+            bounds=bounds,
+            order="second",
+            discrete_features=digest.categorical_features + digest.ordinal_features,
+            first_order_idcs=indices,
+            **sobol_kwargs,
+        )
+        second_order_feature_names = [
+            f"{f1} & {f2}" for f1, f2 in itertools.combinations(digest.feature_names, 2)
+        ]
+
+        second_order_dict = array_with_string_indices_to_dict(
+            rows=metrics,
+            cols=second_order_feature_names,
+            A=second_order_values.numpy(),
+        )
+        for metric in metrics:
+            indices[metric].update(second_order_dict[metric])
+
+    return indices
 
 
 def _get_torch_model(
@@ -910,14 +985,14 @@ def _get_model_per_metric(
         return model_list
 
 
-def _array_with_string_indices_to_dict(
+def array_with_string_indices_to_dict(
     rows: list[str], cols: list[str], A: np.ndarray
 ) -> dict[str, dict[str, np.ndarray]]:
     """
     Args:
-        - rows: A list of strings with which to index rows of A.
-        - cols: A list of strings with which to index columns of A.
-        - A: A matrix, with `len(rows)` rows and `len(cols)` columns.
+        rows: A list of strings with which to index rows of A.
+        cols: A list of strings with which to index columns of A.
+        A: A matrix, with `len(rows)` rows and `len(cols)` columns.
 
     Returns:
         A dictionary dict that satisfies dict[rows[i]][cols[j]] = A[i, j].
