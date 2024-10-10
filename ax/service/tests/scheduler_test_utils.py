@@ -1264,19 +1264,10 @@ class AxSchedulerTestCase(TestCase):
             ),
             db_settings=self.db_settings,
         )
-        # Hack "resumed from storage timestamp" into `exp` to make sure all other fields
-        # are equal, since difference in resumed from storage timestamps is expected.
-        exp._properties[Keys.RESUMED_FROM_STORAGE_TS] = (
-            new_scheduler.experiment._properties[Keys.RESUMED_FROM_STORAGE_TS]
-        )
         self.assertEqual(new_scheduler.experiment, exp)
         self.assertLessEqual(
             len(gs._generator_runs),
             len(new_scheduler.generation_strategy._generator_runs),
-        )
-        self.assertEqual(
-            len(new_scheduler.experiment._properties[Keys.RESUMED_FROM_STORAGE_TS]),
-            1,
         )
 
     def test_from_stored_experiment(self) -> None:

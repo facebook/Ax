@@ -56,7 +56,7 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
-from ax.utils.common.constants import Keys, TS_FMT
+from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import (
@@ -304,7 +304,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             # provided to this function.
             **kwargs,
         )
-        scheduler._record_experiment_resumption_from_storage()
         return scheduler
 
     @property
@@ -2063,18 +2062,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             self.markdown_messages["Optimization complete"] += "\n\n" + completion_msg
         else:
             self.markdown_messages["Optimization complete"] = completion_msg
-
-    def _record_experiment_resumption_from_storage(self) -> None:
-        """Adds a timestamp for resumption-from-storage, to the experiment properties.
-        Useful for debugging purposes and for keeping track of resumption events.
-        """
-        resumption_timestamps = self.experiment._properties.setdefault(
-            Keys.RESUMED_FROM_STORAGE_TS.value, []
-        )
-        resumption_timestamps.append(datetime.strftime(datetime.now(), TS_FMT))
-        self._update_experiment_properties_in_db(
-            experiment_with_updated_properties=self.experiment
-        )
 
     def _fetch_and_process_trials_data_results(
         self,
