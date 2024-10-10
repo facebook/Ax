@@ -1455,7 +1455,14 @@ class Experiment(Base):
         The base experiment class only supports None. For experiments
         with multiple trial types, use the MultiTypeExperiment class.
         """
-        return trial_type is None
+        return (
+            trial_type is None
+            # We temporarily allow "short run" and "long run" trial
+            # types in single-type experiments during development of
+            # a new ``GenerationStrategy`` that needs them.
+            or trial_type == Keys.SHORT_RUN
+            or trial_type == Keys.LONG_RUN
+        )
 
     def attach_trial(
         self,
