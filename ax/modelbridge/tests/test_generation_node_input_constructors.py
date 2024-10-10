@@ -11,6 +11,7 @@ from typing import Any, get_type_hints
 
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
+from ax.core.observation import ObservationFeatures
 from ax.modelbridge.generation_node import GenerationNode
 from ax.modelbridge.generation_node_input_constructors import (
     InputConstructorPurpose,
@@ -133,6 +134,22 @@ class TestGenerationNodeInputConstructors(TestCase):
                 next_node=self.sobol_generation_node,
                 gs_gen_call_kwargs={},
             )
+
+    def test_set_target_trial(self) -> None:
+        """Test that set_target_trial returns the correct trial index."""
+        # should return 1 because 4 arms already exist and 5 are requested
+        target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
+            previous_node=None,
+            next_node=self.sobol_generation_node,
+            gs_gen_call_kwargs={},
+        )
+        self.assertEqual(
+            target_trial,
+            ObservationFeatures(
+                parameters={},
+                trial_index=0,
+            ),
+        )
 
 
 class TestInstantiationFromNodeInputConstructor(TestCase):

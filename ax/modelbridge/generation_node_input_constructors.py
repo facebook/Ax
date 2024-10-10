@@ -9,6 +9,8 @@ from enum import Enum, unique
 from math import ceil
 from typing import Any
 
+from ax.core import ObservationFeatures
+
 from ax.modelbridge.generation_node import GenerationNode
 
 
@@ -24,6 +26,7 @@ class NodeInputConstructors(Enum):
     ALL_N = "consume_all_n"
     REPEAT_N = "repeat_arm_n"
     REMAINING_N = "remaining_n"
+    TARGET_TRIAL_FIXED_FEATURES = "set_target_trial"
 
     def __call__(
         self,
@@ -58,6 +61,35 @@ class InputConstructorPurpose(Enum):
     """
 
     N = "n"
+    FIXED_FEATURES = "fixed_features"
+
+
+def set_target_trial(
+    previous_node: GenerationNode | None,
+    next_node: GenerationNode,
+    gs_gen_call_kwargs: dict[str, Any],
+) -> ObservationFeatures | None:
+    """Determine the target trial for the next node based on the current state of the
+    ``Experiment``.
+
+     Args:
+        previous_node: The previous node in the ``GenerationStrategy``. This is the node
+            that is being transition away from, and is provided for easy access to
+            properties of this node.
+        next_node: The next node in the ``GenerationStrategy``. This is the node that
+            will leverage the inputs defined by this input constructor.
+        gs_gen_call_kwargs: The kwargs passed to the ``GenerationStrategy``'s
+            gen call.
+    Returns:
+        An ``ObservationFeatures`` object that defines the target trial for the next
+        node.
+    """
+
+    # TODO: @mgarrard implement logic in follow-up diff
+    return ObservationFeatures(
+        parameters={},
+        trial_index=0,
+    )
 
 
 def consume_all_n(
