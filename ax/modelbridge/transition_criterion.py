@@ -735,7 +735,7 @@ class AuxiliaryExperimentCheck(TransitionCriterion):
         ) = None,
         block_transition_if_unmet: bool | None = True,
         block_gen_if_met: bool | None = False,
-        continue_trial_generation: bool | None = True,
+        continue_trial_generation: bool | None = False,
     ) -> None:
         super().__init__(
             transition_to=transition_to,
