@@ -31,6 +31,7 @@ from ax.utils.common.serialization import (
 from ax.utils.common.typeutils import checked_cast, not_none
 
 TBaseData = TypeVar("TBaseData", bound="BaseData")
+DF_REPR_MAX_LENGTH = 1000
 
 
 class BaseData(Base, SerializationMixin):
@@ -210,10 +211,9 @@ class BaseData(Base, SerializationMixin):
 
     @property
     def true_df(self) -> pd.DataFrame:
-        """Return the `DataFrame` being used as the source of truth (avoid using
+        """Return the ``DataFrame`` being used as the source of truth (avoid using
         except for caching).
         """
-
         return self._df
 
     @property
@@ -409,6 +409,13 @@ class BaseData(Base, SerializationMixin):
         """
         cls = type(self)
         return cls(df=df, **cls.serialize_init_args(self))
+
+    def __repr__(self) -> str:
+        """String representation of the subclass, inheriting from this base."""
+        df_markdown = self.df.to_markdown()
+        if len(df_markdown) > DF_REPR_MAX_LENGTH:
+            df_markdown = df_markdown[:DF_REPR_MAX_LENGTH] + "..."
+        return f"{self.__class__.__name__}(df=\n{df_markdown})"
 
 
 class Data(BaseData):
