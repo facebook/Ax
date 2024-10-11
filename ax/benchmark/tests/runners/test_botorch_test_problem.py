@@ -7,7 +7,6 @@
 # pyre-strict
 
 
-from dataclasses import replace
 from itertools import product
 from unittest.mock import Mock
 
@@ -102,20 +101,14 @@ class TestSyntheticRunner(TestCase):
                     runner._is_constrained,
                     issubclass(test_problem_class, ConstrainedBaseTestProblem),
                 )
-                self.assertEqual(runner.modified_bounds, modified_bounds)
+                self.assertEqual(runner._modified_bounds, modified_bounds)
                 if noise_std is not None:
                     self.assertEqual(runner.get_noise_stds(), noise_std)
                 else:
                     self.assertIsNone(runner.get_noise_stds())
 
-                # check equality
-                self.assertNotEqual(
-                    runner,
-                    replace(
-                        runner,
-                        test_problem_kwargs={**test_problem_kwargs, "noise_std": 200.0},
-                    ),
-                )
+                # check equality with different class
+                self.assertNotEqual(runner, Hartmann(dim=6))
                 self.assertEqual(runner, runner)
                 self.assertEqual(runner._is_moo, num_objectives > 1)
                 if issubclass(test_problem_class, BaseTestProblem):
@@ -187,11 +180,11 @@ class TestSyntheticRunner(TestCase):
                 self.assertEqual(
                     serialize_init_args,
                     {
-                        "test_problem_module": runner.test_problem_class.__module__,
-                        "test_problem_class_name": runner.test_problem_class.__name__,
-                        "test_problem_kwargs": runner.test_problem_kwargs,
+                        "test_problem_module": runner._test_problem_class.__module__,
+                        "test_problem_class_name": runner._test_problem_class.__name__,
+                        "test_problem_kwargs": runner._test_problem_kwargs,
                         "outcome_names": runner.outcome_names,
-                        "modified_bounds": runner.modified_bounds,
+                        "modified_bounds": runner._modified_bounds,
                     },
                 )
                 # test deserialize args

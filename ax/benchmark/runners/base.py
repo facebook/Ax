@@ -7,7 +7,6 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field, InitVar
 from math import sqrt
 from typing import Any
 
@@ -25,7 +24,6 @@ from numpy import ndarray
 from torch import Tensor
 
 
-@dataclass(kw_only=True)
 class BenchmarkRunner(Runner, ABC):
     """
     A Runner that produces both observed and ground-truth values.
@@ -45,12 +43,19 @@ class BenchmarkRunner(Runner, ABC):
           not over-engineer for that before such a use case arrives.
     """
 
-    outcome_names: list[str]
-    # pyre-fixme[8]: Pyre doesn't understand InitVars
-    search_space_digest: InitVar[SearchSpaceDigest | None] = None
-    target_fidelity_and_task: Mapping[str, float | int] = field(init=False)
-
-    def __post_init__(self, search_space_digest: SearchSpaceDigest | None) -> None:
+    def __init__(
+        self,
+        *,
+        outcome_names: list[str],
+        search_space_digest: SearchSpaceDigest | None = None
+    ) -> None:
+        """
+        Args:
+            outcome_names: Outcome names, needed for going between tensors and
+                data in formats used by Ax.
+            search_space_digest: Used to extract target fidelity and task.
+        """
+        self.outcome_names = outcome_names
         if search_space_digest is not None:
             self.target_fidelity_and_task: dict[str, float | int] = {
                 search_space_digest.feature_names[i]: target

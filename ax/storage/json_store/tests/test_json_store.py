@@ -148,6 +148,10 @@ TEST_CASES = [
     ("BoTorchModel", get_botorch_model),
     ("BoTorchModel", get_botorch_model_with_default_acquisition_class),
     ("BoTorchModel", get_botorch_model_with_surrogate_specs),
+    (
+        "BoTorchTestProblemRunner",
+        lambda: get_single_objective_benchmark_problem().runner,
+    ),
     ("BraninMetric", get_branin_metric),
     ("ChainedInputTransform", get_chained_input_transform),
     ("ChoiceParameter", get_choice_parameter),
@@ -241,6 +245,7 @@ TEST_CASES = [
         "PercentileEarlyStoppingStrategy",
         get_percentile_early_stopping_strategy_with_non_objective_metric_name,
     ),
+    ("ParamBasedTestProblemRunner", lambda: get_jenatton_benchmark_problem().runner),
     ("ParameterConstraint", get_parameter_constraint),
     ("ParameterDistribution", get_parameter_distribution),
     ("RangeParameter", get_range_parameter),
@@ -250,15 +255,7 @@ TEST_CASES = [
     ("SchedulerOptions", get_default_scheduler_options),
     ("SchedulerOptions", get_scheduler_options_batch_trial),
     ("SearchSpace", get_search_space),
-    (
-        "SingleObjectiveBenchmarkProblem",
-        lambda: get_single_objective_benchmark_problem(
-            test_problem_kwargs={
-                "noise_std": 2.0,
-                "bounds": [(-10.0, 10.0) for _ in range(2)],
-            }
-        ),
-    ),
+    ("SingleObjectiveBenchmarkProblem", get_single_objective_benchmark_problem),
     ("SumConstraint", get_sum_constraint1),
     ("SumConstraint", get_sum_constraint2),
     ("Surrogate", get_surrogate),
