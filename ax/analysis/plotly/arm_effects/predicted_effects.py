@@ -24,7 +24,6 @@ from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.utils.common.typeutils import checked_cast
-from plotly import io as pio
 from pyre_extensions import none_throws
 
 
@@ -132,14 +131,12 @@ class PredictedEffectsPlot(PlotlyAnalysis):
         else:
             level = AnalysisCardLevel.MID
 
-        return PlotlyAnalysisCard(
-            name="PredictedEffectsPlot",
+        return self._create_plotly_analysis_card(
             title=f"Predicted Effects for {self.metric_name}",
             subtitle="View a candidate trial and its arms' predicted metric values",
             level=level,
             df=df,
-            blob=pio.to_json(fig),
-            attributes={"trial_index": candidate_trial.index},
+            fig=fig,
         )
 
 

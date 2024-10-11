@@ -30,7 +30,7 @@ class TestParallelCoordinatesPlot(TestCase):
             analysis.compute()
 
         card = analysis.compute(experiment=experiment)
-        self.assertEqual(card.name, "ParallelCoordinatesPlot(metric_name=branin)")
+        self.assertEqual(card.name, "ParallelCoordinatesPlot")
         self.assertEqual(card.title, "Parallel Coordinates for branin")
         self.assertEqual(
             card.subtitle,

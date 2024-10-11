@@ -6,7 +6,8 @@
 # pyre-strict
 
 
-from ax.analysis.analysis import Analysis, AnalysisCard
+import pandas as pd
+from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardLevel
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from IPython.display import display, Markdown
@@ -36,3 +37,25 @@ class MarkdownAnalysis(Analysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategyInterface | None = None,
     ) -> MarkdownAnalysisCard: ...
+
+    def _create_markdown_analysis_card(
+        self,
+        title: str,
+        subtitle: str,
+        level: AnalysisCardLevel,
+        df: pd.DataFrame,
+        message: str,
+    ) -> MarkdownAnalysisCard:
+        """
+        Make a MarkdownAnalysisCard from this Analysis using provided fields and
+        details about the Analysis class.
+        """
+        return MarkdownAnalysisCard(
+            name=self.__class__.__name__,
+            attributes=self.__dict__,
+            title=title,
+            subtitle=subtitle,
+            level=level,
+            df=df,
+            blob=message,
+        )

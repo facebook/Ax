@@ -25,7 +25,6 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.utils.common.logger import get_logger
-from plotly import io as pio
 from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
@@ -128,8 +127,7 @@ class InSampleEffectsPlot(PlotlyAnalysis):
             f"{'predicted' if self.use_modeled_effects else 'observed'} "
             "metric values"
         )
-        return PlotlyAnalysisCard(
-            name=f"{plot_type}EffectsPlot",
+        return self._create_plotly_analysis_card(
             title=(
                 f"{plot_type} Effects for {self.metric_name} "
                 f"on trial {self.trial_index}"
@@ -137,8 +135,7 @@ class InSampleEffectsPlot(PlotlyAnalysis):
             subtitle=subtitle,
             level=level,
             df=df,
-            blob=pio.to_json(fig),
-            attributes={"trial_index": self.trial_index},
+            fig=fig,
         )
 
 

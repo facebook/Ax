@@ -14,7 +14,7 @@ from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCar
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.exceptions.core import DataRequiredError, UserInputError
-from plotly import express as px, graph_objects as go, io as pio
+from plotly import express as px, graph_objects as go
 
 
 class ScatterPlot(PlotlyAnalysis):
@@ -70,13 +70,12 @@ class ScatterPlot(PlotlyAnalysis):
             or False,
         )
 
-        return PlotlyAnalysisCard(
-            name=str(self),
+        return self._create_plotly_analysis_card(
             title=f"Observed {self.x_metric_name} vs. {self.y_metric_name}",
             subtitle="Compare arms by their observed metric values",
             level=AnalysisCardLevel.HIGH,
             df=df,
-            blob=pio.to_json(fig),
+            fig=fig,
         )
 
 
