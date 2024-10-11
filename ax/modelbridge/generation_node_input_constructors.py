@@ -219,32 +219,11 @@ def _get_target_trial_index(experiment: Experiment, next_node: GenerationNode) -
     # TODO: @mgarrard improve logic to include trial_obsolete_threshold that
     # takes into account the age of the trial, and consider more heavily weighting
     # long run trials.
-    default_time_run_started = datetime.now()
-    twelve_hours_in_secs = 12 * 60 * 60
     running_trials = [
         checked_cast(BatchTrial, trial)
         for trial in experiment.trials_by_status[TrialStatus.RUNNING]
     ]
-
-    # Sort by duration and number of arms
-    sorted_running_trials = sorted(
-        running_trials,
-        key=lambda
-        # consider trials that are started within 12 hours of one another to be a tie
-        t: int(
-            (
-                _time_trial_started_safe(
-                    trial=t, default_time_run_started=default_time_run_started
-                )
-            ).timestamp()
-            // twelve_hours_in_secs
-        )
-        # in event of a tie, we want the trial with the most arms to be
-        # higher priority
-        - len(t.arms_by_name),
-        reverse=False,
-    )
-
+    sorted_running_trials = _sort_trials(trials=running_trials, trials_are_running=True)
     # Priority 1: Any running long-run trial
     target_trial_idx = next(
         (
@@ -268,24 +247,8 @@ def _get_target_trial_index(experiment: Experiment, next_node: GenerationNode) -
         for trial in experiment.trials_expecting_data
         if trial.status != TrialStatus.RUNNING
     ]
-
-    sorted_trials_expecting_data = sorted(
-        trials_expecting_data,
-        key=lambda t: (
-            # First sorting criterion: Duration of the trial in twelve-hour blocks
-            int(
-                (
-                    _time_trial_completed_safe(trial=t).timestamp()
-                    - _time_trial_started_safe(
-                        trial=t, default_time_run_started=default_time_run_started
-                    ).timestamp()
-                )
-                // twelve_hours_in_secs
-            ),
-            # In event of a tie, we want the trial with the most arms
-            +len(t.arms_by_name),
-        ),
-        reverse=True,
+    sorted_trials_expecting_data = _sort_trials(
+        trials=trials_expecting_data, trials_are_running=False
     )
     if len(sorted_trials_expecting_data) > 0:
         return sorted_trials_expecting_data[0].index
@@ -297,6 +260,49 @@ def _get_target_trial_index(experiment: Experiment, next_node: GenerationNode) -
         f"on this experiment are: {experiment.trials}."
     )
     return 0
+
+
+def _sort_trials(
+    trials: list[BatchTrial],
+    trials_are_running: bool,
+) -> list[BatchTrial]:
+    """Sort a list of trials by (1) duration of trial, (2) number of arms in trial.
+
+    Args:
+        trials: The trials to sort.
+        trials_are_running: Whether the trials are running or not, used to determine
+            the trial duration for sorting
+
+    Returns:
+        The sorted trials.
+    """
+    default_time_run_started = datetime.now()
+    twelve_hours_in_secs = 12 * 60 * 60
+    sorted_trials_expecting_data = sorted(
+        trials,
+        key=lambda t: (
+            # First sorting criterion: trial duration, if a trial's duration is within
+            # 12 hours of another trial, we consider them to be a tie
+            int(
+                (
+                    # if the trial is running, we set end time to now for sorting ease
+                    (
+                        _time_trial_completed_safe(trial=t).timestamp()
+                        if not trials_are_running
+                        else default_time_run_started.timestamp()
+                    )
+                    - _time_trial_started_safe(
+                        trial=t, default_time_run_started=default_time_run_started
+                    ).timestamp()
+                )
+                // twelve_hours_in_secs
+            ),
+            # In event of a tie, we want the trial with the most arms
+            +len(t.arms_by_name),
+        ),
+        reverse=True,
+    )
+    return sorted_trials_expecting_data
 
 
 def _time_trial_started_safe(
