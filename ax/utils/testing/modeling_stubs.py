@@ -226,6 +226,7 @@ def sobol_gpei_generation_node_gs(
     with_input_constructors_all_n: bool = False,
     with_input_constructors_remaining_n: bool = False,
     with_input_constructors_repeat_n: bool = False,
+    with_input_constructors_target_trial: bool = False,
     with_unlimited_gen_mbm: bool = False,
     with_trial_type: bool = False,
     with_is_SOO_transition: bool = False,
@@ -241,6 +242,21 @@ def sobol_gpei_generation_node_gs(
             "Only one of with_auto_transition, with_unlimited_gen_mbm, "
             "with_is_SOO_transition can be set to True."
         )
+    if (
+        sum(
+            [
+                with_input_constructors_all_n,
+                with_input_constructors_remaining_n,
+                with_input_constructors_repeat_n,
+                with_input_constructors_target_trial,
+            ]
+        )
+        > 1
+    ):
+        raise UserInputError(
+            "Only one of the input_constructors kwargs can be set to True."
+        )
+
     sobol_criterion = [
         MaxTrials(
             threshold=5,
@@ -360,6 +376,11 @@ def sobol_gpei_generation_node_gs(
     elif with_input_constructors_repeat_n:
         sobol_node._input_constructors = {
             InputConstructorPurpose.N: NodeInputConstructors.REPEAT_N,
+        }
+    elif with_input_constructors_target_trial:
+        purpose = InputConstructorPurpose.FIXED_FEATURES
+        sobol_node._input_constructors = {
+            purpose: NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES,
         }
 
     sobol_mbm_GS_nodes = GenerationStrategy(
