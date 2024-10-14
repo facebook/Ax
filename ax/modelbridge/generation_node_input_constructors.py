@@ -40,6 +40,7 @@ class NodeInputConstructors(Enum):
         previous_node: GenerationNode | None,
         next_node: GenerationNode,
         gs_gen_call_kwargs: dict[str, Any],
+        experiment: Experiment,
     ) -> int:
         """Defines a callable method for the Enum as all values are methods"""
         try:
@@ -54,6 +55,7 @@ class NodeInputConstructors(Enum):
             previous_node=previous_node,
             next_node=next_node,
             gs_gen_call_kwargs=gs_gen_call_kwargs,
+            experiment=experiment,
         )
 
 
@@ -75,6 +77,7 @@ def set_target_trial(
     previous_node: GenerationNode | None,
     next_node: GenerationNode,
     gs_gen_call_kwargs: dict[str, Any],
+    experiment: Experiment,
 ) -> ObservationFeatures | None:
     """Determine the target trial for the next node based on the current state of the
     ``Experiment``.
@@ -87,12 +90,11 @@ def set_target_trial(
             will leverage the inputs defined by this input constructor.
         gs_gen_call_kwargs: The kwargs passed to the ``GenerationStrategy``'s
             gen call.
+        experiment: The experiment associated with this ``GenerationStrategy``.
     Returns:
         An ``ObservationFeatures`` object that defines the target trial for the next
         node.
     """
-    # TODO: @mgarrard add experiment to input constructor signatures
-    experiment = gs_gen_call_kwargs.get("experiment")
     target_trial_idx = _get_target_trial_index(
         experiment=experiment, next_node=next_node
     )
@@ -106,6 +108,7 @@ def consume_all_n(
     previous_node: GenerationNode | None,
     next_node: GenerationNode,
     gs_gen_call_kwargs: dict[str, Any],
+    experiment: Experiment,
 ) -> int:
     """Generate total requested number of arms from the next node.
 
@@ -120,6 +123,7 @@ def consume_all_n(
             will leverage the inputs defined by this input constructor.
         gs_gen_call_kwargs: The kwargs passed to the ``GenerationStrategy``'s
             gen call.
+        experiment: The experiment associated with this ``GenerationStrategy``.
     Returns:
         The total number of requested arms from the next node.
     """
@@ -136,6 +140,7 @@ def repeat_arm_n(
     previous_node: GenerationNode | None,
     next_node: GenerationNode,
     gs_gen_call_kwargs: dict[str, Any],
+    experiment: Experiment,
 ) -> int:
     """Generate a small percentage of arms requested to be used for repeat arms in
     the next trial.
@@ -148,6 +153,7 @@ def repeat_arm_n(
             will leverage the inputs defined by this input constructor.
         gs_gen_call_kwargs: The kwargs passed to the ``GenerationStrategy``'s
             gen call.
+        experiment: The experiment associated with this ``GenerationStrategy``.
     Returns:
         The number of requested arms from the next node
     """
@@ -170,6 +176,7 @@ def remaining_n(
     previous_node: GenerationNode | None,
     next_node: GenerationNode,
     gs_gen_call_kwargs: dict[str, Any],
+    experiment: Experiment,
 ) -> int:
     """Generate the remaining number of arms requested for this trial in gs.gen().
 
@@ -181,6 +188,7 @@ def remaining_n(
             will leverage the inputs defined by this input constructor.
         gs_gen_call_kwargs: The kwargs passed to the ``GenerationStrategy``'s
             gen call.
+        experiment: The experiment associated with this ``GenerationStrategy``.
     Returns:
         The number of requested arms from the next node
     """

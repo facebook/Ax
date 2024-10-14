@@ -53,6 +53,7 @@ class TestGenerationNodeInputConstructors(TestCase):
             previous_node=None,
             next_node=self.sobol_generation_node,
             gs_gen_call_kwargs={"n": 5},
+            experiment=self.experiment,
         )
         self.assertEqual(num_to_gen, 5)
 
@@ -62,16 +63,19 @@ class TestGenerationNodeInputConstructors(TestCase):
             previous_node=None,
             next_node=self.sobol_generation_node,
             gs_gen_call_kwargs={"n": 5},
+            experiment=self.experiment,
         )
         medium_n = NodeInputConstructors.REPEAT_N(
             previous_node=None,
             next_node=self.sobol_generation_node,
             gs_gen_call_kwargs={"n": 8},
+            experiment=self.experiment,
         )
         large_n = NodeInputConstructors.REPEAT_N(
             previous_node=None,
             next_node=self.sobol_generation_node,
             gs_gen_call_kwargs={"n": 11},
+            experiment=self.experiment,
         )
         self.assertEqual(small_n, 0)
         self.assertEqual(medium_n, 1)
@@ -84,6 +88,7 @@ class TestGenerationNodeInputConstructors(TestCase):
             previous_node=None,
             next_node=self.sobol_generation_node,
             gs_gen_call_kwargs={"n": 5, "grs_this_gen": self.grs},
+            experiment=self.experiment,
         )
         self.assertEqual(expect_1, 1)
 
@@ -93,6 +98,7 @@ class TestGenerationNodeInputConstructors(TestCase):
             previous_node=None,
             next_node=self.sobol_generation_node,
             gs_gen_call_kwargs={"n": 4, "grs_this_gen": self.grs},
+            experiment=self.experiment,
         )
         self.assertEqual(expect_0, 0)
 
@@ -104,6 +110,7 @@ class TestGenerationNodeInputConstructors(TestCase):
             previous_node=None,
             next_node=self.sobol_generation_node,
             gs_gen_call_kwargs={"n": 3, "grs_this_gen": self.grs},
+            experiment=self.experiment,
         )
         self.assertEqual(expect_0, 0)
 
@@ -117,6 +124,7 @@ class TestGenerationNodeInputConstructors(TestCase):
                 previous_node=None,
                 next_node=self.sobol_generation_node,
                 gs_gen_call_kwargs={},
+                experiment=self.experiment,
             )
 
     def test_no_n_provided_error_repeat_n(self) -> None:
@@ -128,6 +136,7 @@ class TestGenerationNodeInputConstructors(TestCase):
                 previous_node=None,
                 next_node=self.sobol_generation_node,
                 gs_gen_call_kwargs={},
+                experiment=self.experiment,
             )
 
     def test_no_n_provided_error_remaining_n(self) -> None:
@@ -138,6 +147,7 @@ class TestGenerationNodeInputConstructors(TestCase):
                 previous_node=None,
                 next_node=self.sobol_generation_node,
                 gs_gen_call_kwargs={},
+                experiment=self.experiment,
             )
 
     def test_set_target_trial_long_run_wins(self) -> None:
@@ -156,7 +166,8 @@ class TestGenerationNodeInputConstructors(TestCase):
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
             previous_node=None,
             next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={"experiment": self.experiment},
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
         )
         self.assertEqual(
             target_trial,
@@ -183,7 +194,8 @@ class TestGenerationNodeInputConstructors(TestCase):
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
             previous_node=None,
             next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={"experiment": self.experiment},
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
         )
         self.assertEqual(
             target_trial,
@@ -211,7 +223,8 @@ class TestGenerationNodeInputConstructors(TestCase):
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
             previous_node=None,
             next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={"experiment": self.experiment},
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
         )
         self.assertEqual(
             target_trial,
@@ -239,7 +252,8 @@ class TestGenerationNodeInputConstructors(TestCase):
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
             previous_node=None,
             next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={"experiment": self.experiment},
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
         )
         self.assertEqual(
             target_trial,
@@ -265,7 +279,8 @@ class TestGenerationNodeInputConstructors(TestCase):
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
             previous_node=None,
             next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={"experiment": self.experiment},
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
         )
         self.assertEqual(
             target_trial,
@@ -293,7 +308,8 @@ class TestGenerationNodeInputConstructors(TestCase):
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
             previous_node=None,
             next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={"experiment": self.experiment},
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
         )
         self.assertEqual(
             target_trial,
@@ -319,7 +335,8 @@ class TestGenerationNodeInputConstructors(TestCase):
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
             previous_node=None,
             next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={"experiment": self.experiment},
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
         )
         self.assertEqual(
             target_trial,
@@ -345,7 +362,8 @@ class TestGenerationNodeInputConstructors(TestCase):
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
             previous_node=None,
             next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={"experiment": self.experiment},
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
         )
         self.assertEqual(
             target_trial,
@@ -373,7 +391,8 @@ class TestGenerationNodeInputConstructors(TestCase):
         target_trial = NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
             previous_node=None,
             next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={"experiment": self.experiment},
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
         )
         self.assertEqual(
             target_trial,
@@ -391,7 +410,8 @@ class TestGenerationNodeInputConstructors(TestCase):
             NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES(
                 previous_node=None,
                 next_node=self.sobol_generation_node,
-                gs_gen_call_kwargs={"experiment": self.experiment},
+                gs_gen_call_kwargs={},
+                experiment=self.experiment,
             )
 
     def _add_sobol_trial(
@@ -442,7 +462,13 @@ class TestInstantiationFromNodeInputConstructor(TestCase):
                 self.assertEqual(
                     Counter(list(func_parameters.keys())),
                     Counter(
-                        ["previous_node", "next_node", "gs_gen_call_kwargs", "return"]
+                        [
+                            "previous_node",
+                            "next_node",
+                            "gs_gen_call_kwargs",
+                            "experiment",
+                            "return",
+                        ]
                     ),
                 )
                 self.assertEqual(
@@ -452,4 +478,5 @@ class TestInstantiationFromNodeInputConstructor(TestCase):
                 # pyre-ignore [16]: Undefined attribute [16]: `dict` has no attribute
                 # `__getitem__`.¸
                 self.assertEqual(func_parameters["gs_gen_call_kwargs"], dict[str, Any])
+                self.assertEqual(func_parameters["experiment"], Experiment)
                 self.assertEqual(method_signature, inspect.signature(constructor))
