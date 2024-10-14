@@ -21,6 +21,7 @@ from ax.modelbridge.generation_node_input_constructors import (
     InputConstructorPurpose,
     NodeInputConstructors,
 )
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
 from ax.utils.common.constants import Keys
@@ -46,6 +47,7 @@ class TestGenerationNodeInputConstructors(TestCase):
             GeneratorRun(arms=[Arm(parameters={"x1": 1, "x2": 5})]),
             GeneratorRun(arms=[Arm(parameters={"x1": 1, "x2": y}) for y in range(3)]),
         ]
+        self.gs = GenerationStrategy(nodes=[self.sobol_generation_node], name="test")
 
     def test_consume_all_n_constructor(self) -> None:
         """Test that the consume_all_n_constructor returns full n."""
@@ -114,41 +116,62 @@ class TestGenerationNodeInputConstructors(TestCase):
         )
         self.assertEqual(expect_0, 0)
 
-    def test_no_n_provided_error_all_n(self) -> None:
-        """Test raise error if n is not specified."""
-        with self.assertRaisesRegex(
-            NotImplementedError,
-            "`consume_all_n` only supports cases where n is specified",
-        ):
-            _ = NodeInputConstructors.ALL_N(
-                previous_node=None,
-                next_node=self.sobol_generation_node,
-                gs_gen_call_kwargs={},
-                experiment=self.experiment,
-            )
+    def test_no_n_provided_all_n(self) -> None:
+        num_to_gen = NodeInputConstructors.ALL_N(
+            previous_node=None,
+            next_node=self.sobol_generation_node,
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
+        )
+        self.assertEqual(num_to_gen, 10)
 
-    def test_no_n_provided_error_repeat_n(self) -> None:
-        with self.assertRaisesRegex(
-            NotImplementedError,
-            " `repeat_arm_n` only supports cases where n is specified",
-        ):
-            _ = NodeInputConstructors.REPEAT_N(
-                previous_node=None,
-                next_node=self.sobol_generation_node,
-                gs_gen_call_kwargs={},
-                experiment=self.experiment,
-            )
+    def test_no_n_provided_all_n_with_exp_prop(self) -> None:
+        self.experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = 12
+        num_to_gen = NodeInputConstructors.ALL_N(
+            previous_node=None,
+            next_node=self.sobol_generation_node,
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
+        )
+        self.assertEqual(num_to_gen, 12)
 
-    def test_no_n_provided_error_remaining_n(self) -> None:
-        with self.assertRaisesRegex(
-            NotImplementedError, "only supports cases where n is specified"
-        ):
-            _ = NodeInputConstructors.REMAINING_N(
-                previous_node=None,
-                next_node=self.sobol_generation_node,
-                gs_gen_call_kwargs={},
-                experiment=self.experiment,
-            )
+    def test_no_n_provided_repeat_n(self) -> None:
+        num_to_gen = NodeInputConstructors.REPEAT_N(
+            previous_node=None,
+            next_node=self.sobol_generation_node,
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
+        )
+        self.assertEqual(num_to_gen, 1)
+
+    def test_no_n_provided_repeat_n_with_exp_prop(self) -> None:
+        self.experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = 18
+        num_to_gen = NodeInputConstructors.REPEAT_N(
+            previous_node=None,
+            next_node=self.sobol_generation_node,
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
+        )
+        self.assertEqual(num_to_gen, 2)
+
+    def test_no_n_provided_remaining_n(self) -> None:
+        num_to_gen = NodeInputConstructors.REMAINING_N(
+            previous_node=None,
+            next_node=self.sobol_generation_node,
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
+        )
+        self.assertEqual(num_to_gen, 10)
+
+    def test_no_n_provided_remaining_n_with_exp_prop(self) -> None:
+        self.experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = 8
+        num_to_gen = NodeInputConstructors.REMAINING_N(
+            previous_node=None,
+            next_node=self.sobol_generation_node,
+            gs_gen_call_kwargs={"grs_this_gen": self.grs},
+            experiment=self.experiment,
+        )
+        self.assertEqual(num_to_gen, 4)
 
     def test_set_target_trial_long_run_wins(self) -> None:
         self._add_sobol_trial(
