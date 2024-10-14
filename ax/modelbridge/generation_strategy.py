@@ -457,9 +457,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             arms_from_node = self._determine_arms_from_node(
                 node_to_gen_from=node_to_gen_from,
                 arms_per_node=arms_per_node,
-                node_to_gen_from_name=node_to_gen_from_name,
                 n=n,
-                node_names=list(self.nodes_dict.keys()),
                 gen_kwargs=gen_kwargs,
             )
             grs.extend(
@@ -950,8 +948,6 @@ class GenerationStrategy(GenerationStrategyInterface):
         self,
         n: int,
         node_to_gen_from: GenerationNode,
-        node_to_gen_from_name: str,
-        node_names: list[str],
         gen_kwargs: dict[str, Any],
         arms_per_node: dict[str, int] | None = None,
     ) -> int:
@@ -965,8 +961,6 @@ class GenerationStrategy(GenerationStrategyInterface):
                 case this method will also output a generator run with number of
                 arms that can differ from `n`.
             node_to_gen_from: The node from which to generate from
-            node_to_gen_from_name: The name of the node from which to generate from.
-            node_names: The names of all nodes in this generation strategy.
             gs_kwargs: The kwargs passed to the ``GenerationStrategy``'s
             gen call.
             arms_per_node: An optional map from node name to the number of arms to
@@ -982,7 +976,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             # arms_per_node provides a way to manually override input
             # constructors. This should be used with caution, and only
             # if you really know what you're doing. :)
-            arms_from_node = arms_per_node[node_to_gen_from_name]
+            arms_from_node = arms_per_node[node_to_gen_from.node_name]
         elif InputConstructorPurpose.N not in node_to_gen_from.input_constructors:
             # if the node does not have an input constructor for N, then we
             # assume a default of generating n arms from this node.
