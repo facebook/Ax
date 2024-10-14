@@ -763,6 +763,26 @@ def _merge_results_if_no_duplicates(
     return pd.merge(metrics_df, arms_df, on=key_components, how="outer")
 
 
+def _get_relative_results(
+    results_df: pd.DataFrame, status_quo_arm_name: str
+) -> pd.DataFrame:
+    """Returns a dataframe with relative results, i.e. % change in metric values
+    relative to the status quo arm.
+    """
+    baseline_df = results_df[results_df["arm_name"] == status_quo_arm_name]
+    relative_results_df = pd.merge(
+        results_df,
+        baseline_df[["metric_name", "mean"]],
+        on="metric_name",
+        suffixes=("", "_baseline"),
+    )
+    relative_results_df["mean"] = (
+        1.0 * relative_results_df["mean"] / relative_results_df["mean_baseline"] - 1.0
+    ) * 100.0
+    relative_results_df["metric_name"] = relative_results_df["metric_name"] + "_%CH"
+    return relative_results_df
+
+
 def exp_to_df(
     exp: Experiment,
     metrics: list[Metric] | None = None,
@@ -773,6 +793,7 @@ def exp_to_df(
         dict[str, Callable[[Experiment], dict[int, str | float]]]
     ) = None,
     always_include_field_columns: bool = False,
+    show_relative_metrics: bool = False,
     **kwargs: Any,
 ) -> pd.DataFrame:
     """Transforms an experiment to a DataFrame with rows keyed by trial_index
@@ -803,6 +824,9 @@ def exp_to_df(
         always_include_field_columns: If `True`, even if all trials have missing
             values, include field columns anyway. Such columns are by default
             omitted (False).
+        show_relative_metrics: If `True`, show % metric changes relative to the provided
+            status quo arm. If no status quo arm is provided, raise a warning and show
+            raw metric values. If `False`, show raw metric values (default).
     Returns:
         DataFrame: A dataframe of inputs, metadata and metrics by trial and arm (and
         ``map_keys``, if present). If no trials are available, returns an empty
@@ -849,6 +873,23 @@ def exp_to_df(
     if metrics is not None:
         metric_names = [m.name for m in metrics]
         results = results[results["metric_name"].isin(metric_names)]
+
+    # Calculate relative metrics if `show_relative_metrics` is True.
+    if show_relative_metrics:
+        if exp.status_quo is None:
+            logger.warning(
+                "No status quo arm found. Showing raw metric values instead of "
+                "relative metric values."
+            )
+        else:
+            status_quo_arm_name = exp.status_quo.name
+            try:
+                results = _get_relative_results(results, status_quo_arm_name)
+            except Exception:
+                logger.warning(
+                    "Failed to calculate relative metrics. Showing raw metric values "
+                    "instead of relative metric values."
+                )
 
     # Add `FEASIBLE_COL_NAME` column according to constraints if any.
     if (
