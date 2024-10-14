@@ -16,7 +16,7 @@ from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.exceptions.core import UnsupportedError, UserInputError
-from plotly import graph_objects as go, io as pio
+from plotly import graph_objects as go
 
 
 class ParallelCoordinatesPlot(PlotlyAnalysis):
@@ -55,13 +55,12 @@ class ParallelCoordinatesPlot(PlotlyAnalysis):
         df = _prepare_data(experiment=experiment, metric=metric_name)
         fig = _prepare_plot(df=df, metric_name=metric_name)
 
-        return PlotlyAnalysisCard(
-            name=str(self),
+        return self._create_plotly_analysis_card(
             title=f"Parallel Coordinates for {metric_name}",
             subtitle="View arm parameterizations with their respective metric values",
             level=AnalysisCardLevel.HIGH,
             df=df,
-            blob=pio.to_json(fig),
+            fig=fig,
         )
 
 

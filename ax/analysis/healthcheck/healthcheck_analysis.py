@@ -7,9 +7,9 @@
 import json
 from enum import IntEnum
 
-from ax.analysis.analysis import AnalysisCard
+from ax.analysis.analysis import Analysis, AnalysisCard
 from ax.core.experiment import Experiment
-from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.core.generation_strategy_interface import GenerationStrategyInterface
 
 
 class HealthcheckStatus(IntEnum):
@@ -25,7 +25,7 @@ class HealthcheckAnalysisCard(AnalysisCard):
         return HealthcheckStatus(json.loads(self.blob)["status"])
 
 
-class HealthcheckAnalysis:
+class HealthcheckAnalysis(Analysis):
     """
     An analysis that performs a health check.
     """
@@ -33,5 +33,5 @@ class HealthcheckAnalysis:
     def compute(
         self,
         experiment: Experiment | None = None,
-        generation_strategy: GenerationStrategy | None = None,
+        generation_strategy: GenerationStrategyInterface | None = None,
     ) -> HealthcheckAnalysisCard: ...

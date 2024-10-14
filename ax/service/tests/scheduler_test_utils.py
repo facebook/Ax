@@ -2617,7 +2617,7 @@ class AxSchedulerTestCase(TestCase):
             self.assertTrue(
                 any(
                     (
-                        "Failed to compute ParallelCoordinatesPlot(metric_name=None): "
+                        "Failed to compute ParallelCoordinatesPlot: "
                         "No data found for metric "
                     )
                     in msg
@@ -2645,7 +2645,7 @@ class AxSchedulerTestCase(TestCase):
         cards = scheduler.compute_analyses(analyses=[ParallelCoordinatesPlot()])
 
         self.assertEqual(len(cards), 1)
-        self.assertEqual(cards[0].name, "ParallelCoordinatesPlot(metric_name=None)")
+        self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
 
     def test_validate_options_not_none_mt_trial_type(
         self, msg: str | None = None

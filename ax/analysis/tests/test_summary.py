@@ -25,7 +25,7 @@ class TestSummary(TestCase):
         card = analysis.compute(experiment=experiment)
 
         # Test metadata
-        self.assertEqual(card.name, "Summary(omit_empty_columns=True)")
+        self.assertEqual(card.name, "Summary")
         self.assertEqual(card.title, "Summary for branin_test_experiment")
         self.assertEqual(
             card.subtitle,

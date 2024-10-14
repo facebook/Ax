@@ -8,7 +8,7 @@
 from collections.abc import Iterable
 from enum import Enum
 from logging import Logger
-from typing import Any, Optional, Protocol
+from typing import Any, Protocol
 
 import pandas as pd
 from ax.core.experiment import Experiment
@@ -34,9 +34,13 @@ class AnalysisCard(Base):
     # produced the card. Useful for grouping by when querying a large collection of
     # cards.
     name: str
+    # Arguments passed to the Analysis which produced the card, or their eventual
+    # values if they were inferred.
+    attributes: dict[str, Any]
 
     title: str
     subtitle: str
+
     level: AnalysisCardLevel
 
     df: pd.DataFrame  # Raw data produced by the Analysis
@@ -46,11 +50,8 @@ class AnalysisCard(Base):
     # the blob and presenting it to the user (ex. PlotlyAnalysisCard.get_figure()
     # decodes the blob into a go.Figure object).
     blob: str
-
     # How to interpret the blob (ex. "dataframe", "plotly", "markdown")
     blob_annotation = "dataframe"
-
-    attributes: dict[str, Any]
 
     def __init__(
         self,
@@ -60,7 +61,7 @@ class AnalysisCard(Base):
         level: AnalysisCardLevel,
         df: pd.DataFrame,
         blob: str,
-        attributes: Optional[dict[str, Any]] = None,
+        attributes: dict[str, Any] | None = None,
     ) -> None:
         self.name = name
         self.title = title
@@ -134,16 +135,32 @@ class Analysis(Protocol):
             )
             return Ok(value=card)
         except Exception as e:
-            logger.error(f"Failed to compute {self}: {e}")
+            logger.error(f"Failed to compute {self.__class__.__name__}: {e}")
 
             return Err(
                 value=ExceptionE(
-                    message=f"Failed to compute {self}",
+                    message=f"Failed to compute {self.__class__.__name__}",
                     exception=e,
                 )
             )
 
-    def __str__(self) -> str:
-        args = ", ".join([f"{key}={value}" for key, value in self.__dict__.items()])
-
-        return f"{self.__class__.__name__}({args})"
+    def _create_analysis_card(
+        self,
+        title: str,
+        subtitle: str,
+        level: AnalysisCardLevel,
+        df: pd.DataFrame,
+    ) -> AnalysisCard:
+        """
+        Make an AnalysisCard from this Analysis using provided fields and
+        details about the Analysis class.
+        """
+        return AnalysisCard(
+            name=self.__class__.__name__,
+            attributes=self.__dict__,
+            title=title,
+            subtitle=subtitle,
+            level=level,
+            df=df,
+            blob=df.to_json(),
+        )

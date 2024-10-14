@@ -97,11 +97,9 @@ class Summary(Analysis):
         if self.omit_empty_columns:
             df = df.loc[:, df.notnull().all()]
 
-        return AnalysisCard(
-            name=str(self),
+        return self._create_analysis_card(
             title=f"Summary for {experiment.name}",
             subtitle="High-level summary of the `Trial`-s in this `Experiment`",
             level=AnalysisCardLevel.MID,
             df=df,
-            blob=str(df),
         )

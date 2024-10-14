@@ -31,13 +31,7 @@ class TestParallelCoordinatesPlot(TestCase):
             analysis.compute()
 
         card = analysis.compute(experiment=experiment)
-        self.assertEqual(
-            card.name,
-            (
-                "ScatterPlot(x_metric_name=branin_a, y_metric_name=branin_b, "
-                "show_pareto_frontier=True)"
-            ),
-        )
+        self.assertEqual(card.name, "ScatterPlot")
         self.assertEqual(card.title, "Observed branin_a vs. branin_b")
         self.assertEqual(
             card.subtitle,
