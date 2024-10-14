@@ -115,6 +115,10 @@ def consume_all_n(
     Example: Initial exploration with Sobol will generate all arms from a
     single sobol node.
 
+    Note: If no `n` is provided to the ``GenerationStrategy`` gen call, we will use
+    the default number of arms for the next node, defined as a constant `DEFAULT_N`
+    in the ``GenerationStrategy`` file.
+
     Args:
         previous_node: The previous node in the ``GenerationStrategy``. This is the node
             that is being transition away from, and is provided for easy access to
@@ -127,13 +131,11 @@ def consume_all_n(
     Returns:
         The total number of requested arms from the next node.
     """
-    # TODO: @mgarrard handle case where n isn't specified
-    if gs_gen_call_kwargs.get("n") is None:
-        raise NotImplementedError(
-            f"Currently `{consume_all_n.__name__}` only supports cases where n is "
-            "specified"
-        )
-    return gs_gen_call_kwargs.get("n")
+    return (
+        gs_gen_call_kwargs.get("n")
+        if gs_gen_call_kwargs.get("n") is not None
+        else _get_default_n(experiment=experiment, next_node=next_node)
+    )
 
 
 def repeat_arm_n(
@@ -144,6 +146,10 @@ def repeat_arm_n(
 ) -> int:
     """Generate a small percentage of arms requested to be used for repeat arms in
     the next trial.
+
+    Note: If no `n` is provided to the ``GenerationStrategy`` gen call, we will use
+    the default number of arms for the next node, defined as a constant `DEFAULT_N`
+    in the ``GenerationStrategy`` file.
 
     Args:
         previous_node: The previous node in the ``GenerationStrategy``. This is the node
@@ -157,12 +163,11 @@ def repeat_arm_n(
     Returns:
         The number of requested arms from the next node
     """
-    if gs_gen_call_kwargs.get("n") is None:
-        raise NotImplementedError(
-            f"Currently `{repeat_arm_n.__name__}` only supports cases where n is "
-            "specified"
-        )
-    total_n = gs_gen_call_kwargs.get("n")
+    total_n = (
+        gs_gen_call_kwargs.get("n")
+        if gs_gen_call_kwargs.get("n") is not None
+        else _get_default_n(experiment=experiment, next_node=next_node)
+    )
     if total_n < 6:
         # if the next trial is small, we don't want to waste allocation on repeat arms
         # users can still manually add repeat arms if they want before allocation
@@ -180,6 +185,10 @@ def remaining_n(
 ) -> int:
     """Generate the remaining number of arms requested for this trial in gs.gen().
 
+    Note: If no `n` is provided to the ``GenerationStrategy`` gen call, we will use
+    the default number of arms for the next node, defined as a constant `DEFAULT_N`
+    in the ``GenerationStrategy`` file.
+
     Args:
         previous_node: The previous node in the ``GenerationStrategy``. This is the node
             that is being transition away from, and is provided for easy access to
@@ -192,19 +201,42 @@ def remaining_n(
     Returns:
         The number of requested arms from the next node
     """
-    if gs_gen_call_kwargs.get("n") is None:
-        raise NotImplementedError(
-            f"Currently `{remaining_n.__name__}` only supports cases where n is "
-            "specified"
-        )
     # TODO: @mgarrard improve this logic to be more robust
-    grs_this_gen = gs_gen_call_kwargs.get("grs_this_gen")
-    total_n = gs_gen_call_kwargs.get("n")
+    grs_this_gen = gs_gen_call_kwargs.get("grs_this_gen", [])
+    total_n = (
+        gs_gen_call_kwargs.get("n")
+        if gs_gen_call_kwargs.get("n") is not None
+        else _get_default_n(experiment=experiment, next_node=next_node)
+    )
     # if all arms have been generated, return 0
     return max(total_n - sum(len(gr.arms) for gr in grs_this_gen), 0)
 
 
 # Helper methods for input constructors
+def _get_default_n(experiment: Experiment, next_node: GenerationNode) -> int:
+    """Get the default number of arms to generate from the next node.
+
+    Args:
+        experiment: The experiment associated with this ``GenerationStrategy``.
+        next_node: The next node in the ``GenerationStrategy``. This is the node that
+            will leverage the inputs defined by this input constructor.
+
+    Returns:
+        The default number of arms to generate from the next node, used if no n is
+        provided to the ``GenerationStrategy``'s gen call.
+    """
+    total_concurrent_arms = experiment._properties.get(
+        Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS.value
+    )
+    return (
+        total_concurrent_arms
+        if total_concurrent_arms is not None
+        # GS default n is 1, but these input constructors are used for nodes that
+        # should generate more than 1 arm per trial, default to 10
+        else next_node.generation_strategy.DEFAULT_N * 10
+    )
+
+
 def _get_target_trial_index(experiment: Experiment, next_node: GenerationNode) -> int:
     """Get the index of the target trial in the ``Experiment``.
 
