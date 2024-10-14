@@ -6,7 +6,7 @@
 # pyre-strict
 
 import copy
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -236,8 +236,30 @@ BENCHMARK_PROBLEM_REGISTRY = {
 }
 
 
-def get_problem(problem_name: str, **additional_kwargs: Any) -> BenchmarkProblem:
-    entry = BENCHMARK_PROBLEM_REGISTRY[problem_name]
+def get_problem(
+    problem_key: str,
+    registry: Mapping[str, BenchmarkProblemRegistryEntry] | None = None,
+    **additional_kwargs: Any
+) -> BenchmarkProblem:
+    """
+    Generate a benchmark problem from a key, registry, and additional arguments.
+
+    Args:
+        problem_key: The key by which a `BenchmarkProblemRegistryEntry` is
+            looked up in the registry; a problem will then be generated from
+            that entry and `additional_kwargs`. Note that this is not
+            necessarily the same as the `name` attribute of the problem, and
+            that one `problem_key` can generate several different
+            `BenchmarkProblem`s by passing `additional_kwargs`. However, it is a
+            good practice to maintain a 1:1 mapping between `problem_key` and
+            the name.
+        registry: If not provided, uses `BENCHMARK_PROBLEM_REGISTRY` to use
+            problems defined within Ax.
+        additional_kwargs: Additional kwargs to pass to the factory function of
+            the `BenchmarkProblemRegistryEntry`.
+    """
+    registry = BENCHMARK_PROBLEM_REGISTRY if registry is None else registry
+    entry = registry[problem_key]
     kwargs = copy.copy(entry.factory_kwargs)
     kwargs.update(additional_kwargs)
     return entry.factory_fn(**kwargs)

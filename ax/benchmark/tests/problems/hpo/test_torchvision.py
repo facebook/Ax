@@ -38,11 +38,11 @@ class TestPyTorchCNNTorchvision(TestCase):
         ):
 
             self.assertEqual(
-                get_problem(problem_name="hpo_pytorch_cnn_MNIST").name,
+                get_problem(problem_key="hpo_pytorch_cnn_MNIST").name,
                 "HPO_PyTorchCNN_Torchvision::MNIST",
             )
             problem = get_problem(
-                problem_name="hpo_pytorch_cnn_FashionMNIST", num_trials=num_trials
+                problem_key="hpo_pytorch_cnn_FashionMNIST", num_trials=num_trials
             )
 
         self.assertEqual(problem.name, "HPO_PyTorchCNN_Torchvision::FashionMNIST")
@@ -62,7 +62,7 @@ class TestPyTorchCNNTorchvision(TestCase):
             "ax.benchmark.problems.hpo.torchvision._REGISTRY",
             {problem_name: TestDataset},
         ):
-            problem = get_problem(problem_name=f"hpo_pytorch_cnn_{problem_name}")
+            problem = get_problem(problem_key=f"hpo_pytorch_cnn_{problem_name}")
         # pyre-fixme[6]: complaining that the annotation for Arm.parameters is
         # too broad because it's not immutable
         arm = Arm(parameters=self.parameters, name="0")

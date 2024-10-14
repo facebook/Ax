@@ -78,7 +78,7 @@ class TestMethods(TestCase):
     def _test_benchmark_replication_runs(
         self, scheduler_options: SchedulerOptions, acqf_cls: type[AcquisitionFunction]
     ) -> None:
-        problem = get_problem(problem_name="ackley4")
+        problem = get_problem(problem_key="ackley4")
         method = get_sobol_botorch_modular_acquisition(
             model_cls=SingleTaskGP,
             scheduler_options=scheduler_options,
@@ -92,7 +92,7 @@ class TestMethods(TestCase):
         self.assertEqual(method.name, "test")
         # Only run one non-Sobol trial
         n_total_trials = n_sobol_trials + 1
-        problem = get_problem(problem_name="ackley4", num_trials=n_total_trials)
+        problem = get_problem(problem_key="ackley4", num_trials=n_total_trials)
         result = benchmark_replication(problem=problem, method=method, seed=0)
         self.assertTrue(np.isfinite(result.score_trace).all())
         self.assertEqual(result.optimization_trace.shape, (n_total_trials,))
@@ -131,7 +131,7 @@ class TestMethods(TestCase):
         gs = method.generation_strategy
         self.assertEqual(len(gs._steps), 1)
         self.assertEqual(gs._steps[0].model, Models.SOBOL)
-        problem = get_problem(problem_name="ackley4", num_trials=3)
+        problem = get_problem(problem_key="ackley4", num_trials=3)
         result = benchmark_replication(problem=problem, method=method, seed=0)
         self.assertTrue(np.isfinite(result.score_trace).all())
 
@@ -139,7 +139,7 @@ class TestMethods(TestCase):
         self, use_model_predictions: bool, as_batch: bool
     ) -> None:
         problem = get_problem(
-            problem_name="ackley4", num_trials=2, test_problem_kwargs={"noise_std": 1.0}
+            problem_key="ackley4", num_trials=2, test_problem_kwargs={"noise_std": 1.0}
         )
 
         method = get_sobol_botorch_modular_acquisition(
