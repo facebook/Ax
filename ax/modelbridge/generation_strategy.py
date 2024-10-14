@@ -993,6 +993,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                 previous_node=previous_node,
                 next_node=node_to_gen_from,
                 gs_gen_call_kwargs=gen_kwargs,
+                experiment=self.experiment,
             )
 
         return arms_from_node
