@@ -333,6 +333,27 @@ class ReportUtilsTest(TestCase):
         df = exp_to_df(exp)
         self.assertListEqual(list(df[FEASIBLE_COL_NAME]), [False, False, False])
 
+    def test_exp_to_df_relative_metrics(self) -> None:
+        # set up experiment
+        exp = get_branin_experiment(with_trial=True, with_status_quo=False)
+
+        # no status quo arm
+        with self.assertLogs(logger="ax", level=WARN) as log:
+            exp_to_df(exp, show_relative_metrics=True)
+            self.assertIn(
+                "No status quo arm found",
+                log.output[0],
+            )
+
+        # add status quo arm
+        exp._status_quo = exp.arms_by_name["0_0"]
+        exp.trials[0].run()
+        exp.fetch_data()
+        relative_df = exp_to_df(exp=exp, show_relative_metrics=True)
+        print(relative_df)
+        self.assertTrue(f"{OBJECTIVE_NAME}_%CH" in relative_df.columns.tolist())
+        self.assertEqual(relative_df[f"{OBJECTIVE_NAME}_%CH"].values[0], 0.0)
+
     def test_get_shortest_unique_suffix_dict(self) -> None:
         expected_output = {
             "abc.123": "abc.123",
