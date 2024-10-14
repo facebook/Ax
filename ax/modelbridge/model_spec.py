@@ -233,6 +233,8 @@ class ModelSpec(SortableBase, SerializationMixin):
             kwargs_iterable=[self.model_gen_kwargs, model_gen_kwargs],
             keywords=get_function_argument_names(fitted_model.gen),
         )
+        # copy to ensure there is no in-place modification
+        model_gen_kwargs = deepcopy(model_gen_kwargs)
         generator_run = fitted_model.gen(**model_gen_kwargs)
         fit_and_std_quality_and_generalization_dict = (
             get_fit_and_std_quality_and_generalization_dict(
