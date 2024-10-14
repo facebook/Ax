@@ -927,7 +927,11 @@ class TestGenerationStrategy(TestCase):
         self,
     ) -> None:
         exp = get_branin_experiment()
-        gs = self.sobol_GS
+        self.sobol_node._input_constructors = {
+            InputConstructorPurpose.N: NodeInputConstructors.ALL_N
+        }
+        self.sobol_node._transition_criteria = []
+        gs = GenerationStrategy(nodes=[self.sobol_node], name="test")
         gs.experiment = exp
         exp._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS.value] = 3
         grs = gs.gen_for_multiple_trials_with_multiple_models(exp, num_trials=2)
@@ -1585,7 +1589,11 @@ class TestGenerationStrategy(TestCase):
 
     def test_gen_with_multiple_uses_total_concurrent_arms_for_a_default(self) -> None:
         exp = get_branin_experiment()
-        gs = self.sobol_GS
+        self.sobol_node._input_constructors = {
+            InputConstructorPurpose.N: NodeInputConstructors.ALL_N
+        }
+        self.sobol_node._transition_criteria = []
+        gs = GenerationStrategy(nodes=[self.sobol_node], name="test")
         gs.experiment = exp
         exp._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS.value] = 3
         grs = gs.gen_with_multiple_nodes(exp)

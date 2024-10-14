@@ -36,7 +36,6 @@ from ax.modelbridge.generation_node_input_constructors import InputConstructorPu
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec
 from ax.modelbridge.modelbridge_utils import get_fixed_features_from_experiment
 from ax.modelbridge.transition_criterion import TrialBasedCriterion
-from ax.utils.common.constants import Keys
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import checked_cast_list, not_none
 from pyre_extensions import none_throws
@@ -429,13 +428,14 @@ class GenerationStrategy(GenerationStrategyInterface):
         Returns:
             A list of ``GeneratorRuns`` for a single trial.
         """
-        self.experiment = experiment
         # TODO: @mgarrard merge into gen method, just starting here to derisk
-        n = self._get_n(experiment=experiment, n=n)
-        self._validate_arms_per_node(arms_per_node=arms_per_node)
         grs = []
         continue_gen_for_trial = True
+        pending_observations = deepcopy(pending_observations) or {}
+        self.experiment = experiment
+        self._validate_arms_per_node(arms_per_node=arms_per_node)
         # TODO: @mgarrard update this when gen methods are merged
+        gen_kwargs: dict[str, Any] = {}
         gen_kwargs = {
             "experiment": experiment,
             "data": data,
@@ -443,7 +443,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             "grs_this_gen": grs,
             "n": n,
         }
-        pending_observations = deepcopy(pending_observations) or {}
+
         while continue_gen_for_trial:
             gen_kwargs["grs_this_gen"] = grs
             should_transition, node_to_gen_from_name = (
@@ -597,26 +597,6 @@ class GenerationStrategy(GenerationStrategyInterface):
 
         return GenerationStrategy(
             name=self.name, steps=checked_cast_list(GenerationStep, cloned_nodes)
-        )
-
-    def _get_n(self, experiment: Experiment, n: int | None) -> int:
-        """Get the number of arms to generate from the current generation node.
-
-        Args:
-            experiment: Experiment, for which the generation strategy is producing
-                a new generator run, which will be used to check for
-                ``total_concurrent_arms`` if n is None.
-            n: Optional number of arms passed in by the user.
-        """
-        total_concurrent_arms = experiment._properties.get(
-            Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS.value
-        )
-        # TODO: implement logic for determining n based on total_concurrent_arms
-        calculated_n = total_concurrent_arms
-        return (
-            (self.DEFAULT_N if calculated_n is None else calculated_n)
-            if n is None
-            else n
         )
 
     def _unset_non_persistent_state_fields(self) -> None:
@@ -946,9 +926,9 @@ class GenerationStrategy(GenerationStrategyInterface):
 
     def _determine_arms_from_node(
         self,
-        n: int,
         node_to_gen_from: GenerationNode,
         gen_kwargs: dict[str, Any],
+        n: int | None = None,
         arms_per_node: dict[str, int] | None = None,
     ) -> int:
         """Calculates the number of arms to generate from the node that will be used
@@ -980,7 +960,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         elif InputConstructorPurpose.N not in node_to_gen_from.input_constructors:
             # if the node does not have an input constructor for N, then we
             # assume a default of generating n arms from this node.
-            arms_from_node = n
+            arms_from_node = n if n is not None else self.DEFAULT_N
         else:
             previous_node = (
                 self.nodes_dict[node_to_gen_from._previous_node_name]

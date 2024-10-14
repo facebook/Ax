@@ -85,6 +85,10 @@ from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol, Models
+from ax.modelbridge.generation_node_input_constructors import (
+    InputConstructorPurpose,
+    NodeInputConstructors,
+)
 from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.transition_criterion import (
@@ -2361,6 +2365,7 @@ def get_online_sobol_gpei_generation_strategy(
     online optimization.
     """
     # Set up the node-based generation strategy for testing.
+    # TODO: @mgarrard make this more realistic of an actual online gs
     step_model_kwargs = {"silently_filter_kwargs": True}
     sobol_criterion = [
         MaxTrials(
@@ -2395,11 +2400,13 @@ def get_online_sobol_gpei_generation_strategy(
         node_name="sobol_node",
         transition_criteria=sobol_criterion,
         model_specs=[sobol_model_spec],
+        input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
     )
     gpei_node = GenerationNode(
         node_name="GPEI_node",
         transition_criteria=[],
         model_specs=[gpei_model_spec],
+        input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
     )
     return GenerationStrategy(
         name="Sobol+GPEI_Nodes",
