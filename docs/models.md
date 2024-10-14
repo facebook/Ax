@@ -202,9 +202,7 @@ The [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) obj
 
 If none of the existing Model interfaces work are suitable for the new model type, then a new interface will have to be created. This involves two steps: creating the new model interface and creating the new model bridge. The new model bridge must be a subclass of [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) that implements `ModelBridge._fit`,  `ModelBridge._predict`, `ModelBridge._gen`, and  `ModelBridge._cross_validate`. The implementation of each of these methods will transform the Ax objects in the inputs into objects required for the interface with the new model type. The model bridge will then call out to the new model interface to do the actual modeling work. All of the ModelBridge/Model pairs in the table above provide examples of how this interface can be defined. The main key is that the inputs on the [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) side are fixed, but those inputs can then be transformed in whatever way is desired for the downstream Model interface to be that which is most convenient for implementing the model.
 
-```html
 <script type="text/javascript" src="assets/slice.js"></script>
 <script type="text/javascript" src="assets/contour.js"></script>
 <script type="text/javascript" src="assets/cv.js"></script>
 <script type="text/javascript" src="assets/fitted.js"></script>
-```
