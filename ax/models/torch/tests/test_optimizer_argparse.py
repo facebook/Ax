@@ -12,6 +12,7 @@ from importlib import reload
 from itertools import product
 from unittest.mock import patch
 
+from ax.exceptions.core import UnsupportedError
 from ax.models.torch.botorch_modular import optimizer_argparse as Argparse
 from ax.models.torch.botorch_modular.optimizer_argparse import (
     _argparse_base,
@@ -55,6 +56,14 @@ class OptimizerArgparseTest(TestCase):
             },
             "optimize_acqf_discrete": {},
             "optimize_acqf_mixed": {
+                "num_restarts": NUM_RESTARTS,
+                "raw_samples": RAW_SAMPLES,
+                "options": {
+                    "init_batch_limit": INIT_BATCH_LIMIT,
+                    "batch_limit": BATCH_LIMIT,
+                },
+            },
+            "optimize_acqf_mixed_alternating": {
                 "num_restarts": NUM_RESTARTS,
                 "raw_samples": RAW_SAMPLES,
                 "options": {
@@ -128,7 +137,7 @@ class OptimizerArgparseTest(TestCase):
             for optimizer in [
                 "optimize_acqf",
                 "optimize_acqf_mixed",
-                "optimize_acqf_discrete",
+                "optimize_acqf_mixed_alternating",
             ]:
                 default = self.default_expected_options[optimizer]
                 parsed_options = func(
@@ -144,12 +153,33 @@ class OptimizerArgparseTest(TestCase):
                     expected_options["options"] = inner_options
                 self.assertDictEqual(expected_options, parsed_options)
 
-            parsed_options = func(
-                None,
-                optimizer_options={"options": {"batch_limit": 10, "maxiter": 20}},
-                optimizer="optimize_acqf_discrete_local_search",
-            )
-            self.assertNotIn("options", parsed_options)
+            # Error out if options is specified for an optimizer that does
+            # not support the arg.
+            for optimizer in [
+                "optimize_acqf_discrete",
+                "optimize_acqf_discrete_local_search",
+            ]:
+                with self.assertRaisesRegex(UnsupportedError, "`options` argument"):
+                    func(
+                        None,
+                        optimizer_options={
+                            "options": {"batch_limit": 10, "maxiter": 20}
+                        },
+                        optimizer=optimizer,
+                    )
+
+            # `sequential=False` with optimizers other than `optimize_acqf`.
+            for optimizer in [
+                "optimize_acqf_homotopy",
+                "optimize_acqf_mixed",
+                "optimize_acqf_mixed_alternating",
+                "optimize_acqf_discrete",
+                "optimize_acqf_discrete_local_search",
+            ]:
+                with self.assertRaisesRegex(
+                    UnsupportedError, "does not support `sequential=False`"
+                ):
+                    func(None, sequential=False, optimizer=optimizer)
 
     def test_kg(self) -> None:
         with patch(
