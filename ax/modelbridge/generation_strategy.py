@@ -417,7 +417,9 @@ class GenerationStrategy(GenerationStrategyInterface):
                 case this method will also output a generator run with number of
                 arms that can differ from `n`.
             fixed_features: An optional set of ``ObservationFeatures`` that will be
-                passed down to the underlying models.
+                passed down to the underlying models. Note: if provided this will
+                override any algorithmically determined fixed features so it is
+                important to specify all necessary fixed features.
             arms_per_node: An optional map from node name to the number of arms to
                 generate from that node. If not provided, will default to the number
                 of arms specified in the node's ``InputConstructors`` or n if no
@@ -460,6 +462,11 @@ class GenerationStrategy(GenerationStrategyInterface):
                 n=n,
                 gen_kwargs=gen_kwargs,
             )
+            fixed_features_from_node = self._determine_fixed_features_from_node(
+                node_to_gen_from=node_to_gen_from,
+                gen_kwargs=gen_kwargs,
+                passed_fixed_features=fixed_features,
+            )
             grs.extend(
                 self._gen_multiple(
                     experiment=experiment,
@@ -467,7 +474,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                     data=data,
                     n=arms_from_node,
                     pending_observations=pending_observations,
-                    fixed_features=fixed_features,
+                    fixed_features=fixed_features_from_node,
                 )
             )
             # ensure that the points generated from each node are marked as pending
@@ -488,6 +495,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         data: Data | None = None,
         pending_observations: dict[str, list[ObservationFeatures]] | None = None,
         n: int | None = None,
+        fixed_features: ObservationFeatures | None = None,
         num_trials: int = 1,
         arms_per_node: dict[str, int] | None = None,
     ) -> list[list[GeneratorRun]]:
@@ -511,6 +519,10 @@ class GenerationStrategy(GenerationStrategyInterface):
                 the `n` and produce a model-determined number of arms. In that
                 case this method will also output generator runs with number of
                 arms that can differ from `n`.
+            fixed_features: An optional set of ``ObservationFeatures`` that will be
+                passed down to the underlying models. Note: if provided this will
+                override any algorithmically determined fixed features so it is
+                important to specify all necessary fixed features.
             num_trials: Number of trials to generate generator runs for in this call.
                 If not provided, defaults to 1.
             arms_per_node: An optional map from node name to the number of arms to
@@ -547,9 +559,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                     n=n,
                     pending_observations=pending_observations,
                     arms_per_node=arms_per_node,
-                    fixed_features=get_fixed_features_from_experiment(
-                        experiment=experiment
-                    ),
+                    fixed_features=fixed_features,
                 )
             )
 
@@ -924,6 +934,52 @@ class GenerationStrategy(GenerationStrategyInterface):
             for tc in self._curr.transition_edges[next_node]
         )
 
+    def _determine_fixed_features_from_node(
+        self,
+        node_to_gen_from: GenerationNode,
+        gen_kwargs: dict[str, Any],
+        passed_fixed_features: ObservationFeatures | None = None,
+    ) -> ObservationFeatures | None:
+        """Uses the ``InputConstructors`` on the node to determine the fixed features
+        to pass into the model. If fixed_features are provided, the will take
+        precedence over the fixed_features from the node.
+
+        Args:
+            node_to_gen_from: The node from which to generate from
+            gen_kwargs: The kwargs passed to the ``GenerationStrategy``'s
+                gen call.
+            passed_fixed_features: The fixed features passed to the ``gen`` method if
+                any.
+
+        Returns:
+            An object of ObservationFeatures that represents the fixed features to
+            pass into the model.
+        """
+        # passed_fixed_features represents the fixed features that were passed by the
+        # user to the gen method as overrides.
+        if passed_fixed_features is not None:
+            return passed_fixed_features
+
+        if (
+            InputConstructorPurpose.FIXED_FEATURES
+            in node_to_gen_from.input_constructors
+        ):
+            node_fixed_features = node_to_gen_from.input_constructors[
+                InputConstructorPurpose.FIXED_FEATURES
+            ](
+                previous_node=None,  # not needed for this constructor
+                next_node=node_to_gen_from,
+                gs_gen_call_kwargs=gen_kwargs,
+                experiment=self.experiment,
+            )
+        else:
+            # TODO: @mgarrard remove this special casing once rt gs is converted to
+            # nodes from steps.
+            node_fixed_features = get_fixed_features_from_experiment(
+                experiment=self.experiment
+            )
+        return node_fixed_features
+
     def _determine_arms_from_node(
         self,
         node_to_gen_from: GenerationNode,
@@ -941,8 +997,8 @@ class GenerationStrategy(GenerationStrategyInterface):
                 case this method will also output a generator run with number of
                 arms that can differ from `n`.
             node_to_gen_from: The node from which to generate from
-            gs_kwargs: The kwargs passed to the ``GenerationStrategy``'s
-            gen call.
+            gen_kwargs: The kwargs passed to the ``GenerationStrategy``'s
+                gen call.
             arms_per_node: An optional map from node name to the number of arms to
                 generate from that node. If not provided, will default to the number
                 of arms specified in the node's ``InputConstructors`` or n if no
