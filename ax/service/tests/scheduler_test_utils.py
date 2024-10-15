@@ -284,7 +284,11 @@ class AxSchedulerTestCase(TestCase):
     GENERATION_STRATEGY_INTERFACE_CLASS: type[GenerationStrategyInterface] = (
         GenerationStrategy
     )
-    PENDING_FEATURES_CALL_LOCATION: str = str(GenerationStrategy.__module__)
+    # TODO[@mgarrard]: Change this to `str(GenerationStrategy.__module__)`
+    # once we are no longer splitting which `GS.gen` to call into based on
+    # `Trial` vs. `BatchTrial`
+    PENDING_FEATURES_CALL_LOCATION: str = str(Scheduler.__module__)
+    PENDING_FEATURES_CALL_LOCATION_BATCH: str = str(GenerationStrategy.__module__)
     ALWAYS_USE_DB = False
     EXPECTED_SCHEDULER_REPR: str = (
         "Scheduler(experiment=Experiment(branin_test_experiment), "
@@ -548,9 +552,9 @@ class AxSchedulerTestCase(TestCase):
         )
         with patch.object(
             type(branin_gs),
-            "gen_for_multiple_trials_with_multiple_models",
-            return_value=[[get_generator_run()]],
-        ):
+            "_gen_multiple",
+            return_value=[get_generator_run()],
+        ) as patch_gen_multiple:
             scheduler = Scheduler(
                 experiment=self.branin_experiment,
                 generation_strategy=branin_gs,
@@ -564,6 +568,7 @@ class AxSchedulerTestCase(TestCase):
                 SchedulerInternalError, ".* only one was expected"
             ):
                 scheduler.run_all_trials()
+            patch_gen_multiple.assert_called_once()
 
     def test_run_all_trials_using_runner_and_metrics(self) -> None:
         branin_gs = self._get_generation_strategy_strategy_for_test(
@@ -1300,7 +1305,7 @@ class AxSchedulerTestCase(TestCase):
         scheduler.run_n_trials(max_trials=1)
         with patch.object(
             GenerationStrategy,
-            "gen_for_multiple_trials_with_multiple_models",
+            "_gen_multiple",
             side_effect=AxGenerationException("model error"),
         ):
             with self.assertRaises(SchedulerInternalError):
@@ -1598,11 +1603,12 @@ class AxSchedulerTestCase(TestCase):
         )
         with patch.object(
             self.GENERATION_STRATEGY_INTERFACE_CLASS,
-            "gen_for_multiple_trials_with_multiple_models",
+            "_gen_multiple",
             side_effect=OptimizationComplete("test error"),
-        ):
+        ) as mock_gen_multiple:
             scheduler.run_n_trials(max_trials=1)
         # no trials should run if _gen_multiple throws an OptimizationComplete error
+        mock_gen_multiple.assert_called_once()
         self.assertEqual(len(scheduler.experiment.trials), 0)
 
     @patch(
@@ -1778,7 +1784,27 @@ class AxSchedulerTestCase(TestCase):
             db_settings=self.db_settings_if_always_needed,
         )
         self.branin_experiment.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
-        scheduler.run_n_trials(max_trials=1)
+        gm = scheduler.generation_strategy.gen_for_multiple_trials_with_multiple_models
+        with patch(  # Record calls to functions, but still execute them.
+            (
+                f"{self.PENDING_FEATURES_CALL_LOCATION_BATCH}."
+                "get_pending_observation_features_based_on_trial_status"
+            ),
+            side_effect=get_pending_observation_features_based_on_trial_status,
+        ) as mock_get_pending, patch.object(
+            scheduler.generation_strategy,
+            "gen_for_multiple_trials_with_multiple_models",
+            wraps=gm,
+        ) as mock_gen_multi_from_multi:
+            scheduler.run_n_trials(max_trials=1)
+            mock_gen_multi_from_multi.assert_called_once()
+            if self.PENDING_FEATURES_CALL_LOCATION_BATCH.endswith("remote_gen"):
+                # TODO: Address how RCG currently ends up extracting
+                # pending points twice in `set_batch_size` and then again in
+                # `get_next_trial`, then remove this if-condition.
+                self.assertEqual(mock_get_pending.call_count, 2)
+            else:
+                mock_get_pending.assert_called_once()
         self.assertEqual(len(scheduler.experiment.trials), 1)
         trial = checked_cast(BatchTrial, scheduler.experiment.trials[0])
         self.assertEqual(
@@ -1998,6 +2024,7 @@ class AxSchedulerTestCase(TestCase):
         self.assertTrue(should_stop)
         self.assertEqual(message, "Exceeding the total number of trials.")
 
+    @fast_botorch_optimize
     def test_get_fitted_model_bridge(self) -> None:
         self.branin_experiment._properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF] = (
             True
