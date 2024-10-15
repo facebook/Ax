@@ -5,20 +5,18 @@
 
 # pyre-strict
 import sys
-from datetime import datetime
 from enum import Enum, unique
 from math import ceil
 from typing import Any
 
 from ax.core import ObservationFeatures
-from ax.core.base_trial import STATUSES_EXPECTING_DATA, TrialStatus
-from ax.core.batch_trial import BatchTrial
+from ax.core.base_trial import STATUSES_EXPECTING_DATA
 from ax.core.experiment import Experiment
+from ax.core.utils import get_target_trial_index
 from ax.exceptions.generation_strategy import AxGenerationException
 
 from ax.modelbridge.generation_node import GenerationNode
 from ax.utils.common.constants import Keys
-from ax.utils.common.typeutils import checked_cast
 
 
 @unique
@@ -95,9 +93,14 @@ def set_target_trial(
         An ``ObservationFeatures`` object that defines the target trial for the next
         node.
     """
-    target_trial_idx = _get_target_trial_index(
-        experiment=experiment, next_node=next_node
-    )
+    target_trial_idx = get_target_trial_index(experiment=experiment)
+    if target_trial_idx is None:
+        raise AxGenerationException(
+            f"Attempting to construct for input into {next_node} but no trials match "
+            "the expected conditions. Often this could be due to no trials on the "
+            f"experiment that are in status {STATUSES_EXPECTING_DATA} on the "
+            f"experiment. The trials on this experiment are: {experiment.trials}."
+        )
     return ObservationFeatures(
         parameters={},
         trial_index=target_trial_idx,
@@ -234,147 +237,4 @@ def _get_default_n(experiment: Experiment, next_node: GenerationNode) -> int:
         # GS default n is 1, but these input constructors are used for nodes that
         # should generate more than 1 arm per trial, default to 10
         else next_node.generation_strategy.DEFAULT_N * 10
-    )
-
-
-def _get_target_trial_index(experiment: Experiment, next_node: GenerationNode) -> int:
-    """Get the index of the target trial in the ``Experiment``.
-
-    Find the target trial giving priority in the following order:
-        1. a running long-run trial
-        2. Most recent trial expecting data with running trials be considered the most
-            recent
-
-    In the event of any ties, the tie breaking order is:
-        a. longest running trial by duration
-        b. trial with most arms
-        c. arbitraty selection
-
-    Args:
-        experiment: The experiment associated with this ``GenerationStrategy``.
-
-    Returns:
-        The index of the target trial in the ``Experiment``.
-    """
-    # TODO: @mgarrard improve logic to include trial_obsolete_threshold that
-    # takes into account the age of the trial, and consider more heavily weighting
-    # long run trials.
-    running_trials = [
-        checked_cast(BatchTrial, trial)
-        for trial in experiment.trials_by_status[TrialStatus.RUNNING]
-    ]
-    sorted_running_trials = _sort_trials(trials=running_trials, trials_are_running=True)
-    # Priority 1: Any running long-run trial
-    target_trial_idx = next(
-        (
-            trial.index
-            for trial in sorted_running_trials
-            if trial.trial_type == Keys.LONG_RUN
-        ),
-        None,
-    )
-    if target_trial_idx is not None:
-        return target_trial_idx
-
-    # Priority 2: longest running currently running trial
-    if len(sorted_running_trials) > 0:
-        return sorted_running_trials[0].index
-
-    # Priortiy 3: the longest running trial expecting data, discounting running trials
-    # as we handled those above
-    trials_expecting_data = [
-        checked_cast(BatchTrial, trial)
-        for trial in experiment.trials_expecting_data
-        if trial.status != TrialStatus.RUNNING
-    ]
-    sorted_trials_expecting_data = _sort_trials(
-        trials=trials_expecting_data, trials_are_running=False
-    )
-    if len(sorted_trials_expecting_data) > 0:
-        return sorted_trials_expecting_data[0].index
-
-    raise AxGenerationException(
-        f"Attempting to construct for input into {next_node} but no trials match the "
-        "expected conditions. Often this could be due to no trials on the experiment "
-        f"that are in status {STATUSES_EXPECTING_DATA} on the experiment. The trials "
-        f"on this experiment are: {experiment.trials}."
-    )
-    return 0
-
-
-def _sort_trials(
-    trials: list[BatchTrial],
-    trials_are_running: bool,
-) -> list[BatchTrial]:
-    """Sort a list of trials by (1) duration of trial, (2) number of arms in trial.
-
-    Args:
-        trials: The trials to sort.
-        trials_are_running: Whether the trials are running or not, used to determine
-            the trial duration for sorting
-
-    Returns:
-        The sorted trials.
-    """
-    default_time_run_started = datetime.now()
-    twelve_hours_in_secs = 12 * 60 * 60
-    sorted_trials_expecting_data = sorted(
-        trials,
-        key=lambda t: (
-            # First sorting criterion: trial duration, if a trial's duration is within
-            # 12 hours of another trial, we consider them to be a tie
-            int(
-                (
-                    # if the trial is running, we set end time to now for sorting ease
-                    (
-                        _time_trial_completed_safe(trial=t).timestamp()
-                        if not trials_are_running
-                        else default_time_run_started.timestamp()
-                    )
-                    - _time_trial_started_safe(
-                        trial=t, default_time_run_started=default_time_run_started
-                    ).timestamp()
-                )
-                // twelve_hours_in_secs
-            ),
-            # In event of a tie, we want the trial with the most arms
-            +len(t.arms_by_name),
-        ),
-        reverse=True,
-    )
-    return sorted_trials_expecting_data
-
-
-def _time_trial_started_safe(
-    trial: BatchTrial, default_time_run_started: datetime
-) -> datetime:
-    """Not all RUNNING trials have ``time_run_started`` defined.
-    This function accepts, but penalizes those trials by using a
-    default ``time_run_started``, which moves them to the end of
-    the sort because they would be running a very short time.
-
-    Args:
-        trial: The trial to check.
-        default_time_run_started: The time to use if `time_run_started` is not defined.
-            Do not use ``default_time_run_started=datetime.now()`` as it will be
-            slightly different for each trial.  Instead set ``val = datetime.now()``
-            and then pass ``val`` as the ``default_time_run_started`` argument.
-    """
-    return (
-        trial.time_run_started
-        if trial.time_run_started is not None
-        else default_time_run_started
-    )
-
-
-def _time_trial_completed_safe(trial: BatchTrial) -> datetime:
-    """Not all COMPLETED trials have `time_completed` defined.
-    This functions accepts, but penalizes those trials by
-    choosing epoch 0 as the completed time,
-    which moves them to the end of the sort because
-    they would be running a very short time."""
-    return (
-        trial.time_completed
-        if trial.time_completed is not None
-        else datetime.fromtimestamp(0)
     )
