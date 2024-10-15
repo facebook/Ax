@@ -14,7 +14,7 @@ from logging import Logger
 from typing import Any, cast, Union
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCard, AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCard
 
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
@@ -1052,7 +1052,7 @@ class Decoder:
             name=analysis_card_sqa.name,
             title=analysis_card_sqa.title,
             subtitle=analysis_card_sqa.subtitle,
-            level=AnalysisCardLevel(analysis_card_sqa.level),
+            level=analysis_card_sqa.level,
             df=read_json(analysis_card_sqa.dataframe_json),
             blob=analysis_card_sqa.blob,
             attributes=(

@@ -12,8 +12,6 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from ax.analysis.analysis import AnalysisCardLevel
-
 from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import LifecycleStage
 from ax.core.parameter import ParameterType
@@ -341,9 +339,7 @@ class SQAAnalysisCard(Base):
     name: Column[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
     title: Column[str] = Column(String(LONG_STRING_FIELD_LENGTH), nullable=False)
     subtitle: Column[str] = Column(Text, nullable=False)
-    level: Column[AnalysisCardLevel] = Column(
-        IntEnum(AnalysisCardLevel), nullable=False
-    )
+    level: Column[int] = Column(Integer, nullable=False)
     dataframe_json: Column[str] = Column(Text(LONGTEXT_BYTES), nullable=False)
     blob: Column[str] = Column(Text(LONGTEXT_BYTES), nullable=False)
     blob_annotation: Column[str] = Column(
