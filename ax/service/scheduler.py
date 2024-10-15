@@ -484,204 +484,285 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             f"{self.options})"
         )
 
-    # ----------------- User-defined, optional. -----------------
+    # ---------- Methods below should generally not be modified in subclasses! ---------
+    # ---------- I. Methods that are often called outside the `Scheduler`. ---------
 
-    def completion_criterion(self) -> tuple[bool, str]:
-        """Optional stopping criterion for optimization, which checks whether
-        ``total_trials`` trials have been run or the ``global_stopping_strategy``
-        suggests stopping the optimization.
-
-        Returns:
-            A boolean representing whether the optimization should be stopped,
-            and a string describing the reason for stopping.
-        """
-        if (
-            not self.__ignore_global_stopping_strategy
-            and self.options.global_stopping_strategy is not None
-        ):
-            gss = none_throws(self.options.global_stopping_strategy)
-            if (num_trials := len(self.trials)) > 1000:
-                # When there are many trials, checking the global stopping
-                # strategy can get a little bit slow, so we log when we start it,
-                # to avoid user confusion and to keep a record of the run times.
-                self.logger.info(
-                    f"There are {num_trials} trials; performing "
-                    f"completion criterion check with {gss}..."
-                )
-            stop_optimization, global_stopping_msg = gss.should_stop_optimization(
-                experiment=self.experiment
-            )
-            if stop_optimization:
-                return True, global_stopping_msg
-
-        if self.options.total_trials is None:
-            # We validate that `total_trials` is set in `run_all_trials`,
-            # so it will not run indefinitely.
-            return False, ""
-
-        num_trials = len(self.trials)
-        should_stop = num_trials >= none_throws(self.options.total_trials)
-        message = "Exceeding the total number of trials." if should_stop else ""
-        return should_stop, message
-
-    @copy_doc(BestPointMixin.get_best_trial)
-    def get_best_trial(
+    def generate_candidates(
         self,
-        optimization_config: OptimizationConfig | None = None,
-        trial_indices: Iterable[int] | None = None,
-        use_model_predictions: bool = True,
-    ) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
-        return self._get_best_trial(
-            experiment=self.experiment,
-            generation_strategy=self.standard_generation_strategy,
-            optimization_config=optimization_config,
-            trial_indices=trial_indices,
-            use_model_predictions=use_model_predictions,
-        )
-
-    @copy_doc(BestPointMixin.get_pareto_optimal_parameters)
-    def get_pareto_optimal_parameters(
-        self,
-        optimization_config: OptimizationConfig | None = None,
-        trial_indices: Iterable[int] | None = None,
-        use_model_predictions: bool = True,
-    ) -> dict[int, tuple[TParameterization, TModelPredictArm]]:
-        return self._get_pareto_optimal_parameters(
-            experiment=self.experiment,
-            generation_strategy=self.standard_generation_strategy,
-            optimization_config=optimization_config,
-            trial_indices=trial_indices,
-            use_model_predictions=use_model_predictions,
-        )
-
-    @copy_doc(BestPointMixin.get_hypervolume)
-    def get_hypervolume(
-        self,
-        optimization_config: MultiObjectiveOptimizationConfig | None = None,
-        trial_indices: Iterable[int] | None = None,
-        use_model_predictions: bool = True,
-    ) -> float:
-        return BestPointMixin._get_hypervolume(
-            experiment=self.experiment,
-            generation_strategy=self.standard_generation_strategy,
-            optimization_config=optimization_config,
-            trial_indices=trial_indices,
-            use_model_predictions=use_model_predictions,
-        )
-
-    @copy_doc(BestPointMixin.get_trace)
-    def get_trace(
-        self,
-        optimization_config: OptimizationConfig | None = None,
-    ) -> list[float]:
-        return BestPointMixin._get_trace(
-            experiment=self.experiment,
-            optimization_config=optimization_config,
-        )
-
-    @copy_doc(BestPointMixin.get_trace_by_progression)
-    def get_trace_by_progression(
-        self,
-        optimization_config: OptimizationConfig | None = None,
-        bins: list[float] | None = None,
-        final_progression_only: bool = False,
-    ) -> tuple[list[float], list[float]]:
-        return BestPointMixin._get_trace_by_progression(
-            experiment=self.experiment,
-            optimization_config=optimization_config,
-            bins=bins,
-            final_progression_only=final_progression_only,
-        )
-
-    def report_results(self, force_refit: bool = False) -> dict[str, Any]:
-        """Optional user-defined function for reporting intermediate
-        and final optimization results (e.g. make some API call, write to some
-        other db). This function is called whenever new results are available during
-        the optimization.
+        num_trials: int = 1,
+        reduce_state_generator_runs: bool = False,
+    ) -> list[BaseTrial]:
+        """Fetch the latest data and generate new candidate trials.
 
         Args:
-            force_refit: Whether to force the implementation of this method to
-                refit the model on generation strategy before using it to produce
-                results to report (e.g. if using model to visualize data).
+            num_trials: Number of candidate trials to generate.
+            reduce_state_generator_runs: Flag to determine
+                whether to save model state for every generator run (default)
+                or to only save model state on the final generator run of each
+                batch.
 
         Returns:
-            An optional dictionary with any relevant data about optimization.
+            List of trials, empty if generation is not possible.
         """
-        # TODO[T61776778]: add utility to get best trial from arbitrary exp.
-        return {}
+        new_trials = self._get_next_trials(
+            num_trials=num_trials,
+            n=self.options.batch_size,
+        )
+        if len(new_trials) > 0:
+            new_generator_runs = [gr for t in new_trials for gr in t.generator_runs]
+            self._save_or_update_trials_and_generation_strategy_if_possible(
+                experiment=self.experiment,
+                trials=new_trials,
+                generation_strategy=self.generation_strategy,
+                new_generator_runs=new_generator_runs,
+                reduce_state_generator_runs=reduce_state_generator_runs,
+            )
+        return new_trials
 
-    def summarize_final_result(self) -> OptimizationResult:
-        """Get some summary of result: which trial did best, what
-        were the metric values, what were encountered failures, etc.
-        """
-        return OptimizationResult()
-
-    def get_improvement_over_baseline(
+    def run_n_trials(
         self,
-        baseline_arm_name: str | None = None,
-    ) -> float:
-        """Returns the scalarized improvement over baseline, if applicable.
+        max_trials: int,
+        ignore_global_stopping_strategy: bool = False,
+        timeout_hours: int | None = None,
+        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+        idle_callback: Callable[[Scheduler], Any] | None = None,
+    ) -> OptimizationResult:
+        """Run up to ``max_trials`` trials; will run all ``max_trials`` unless
+        completion criterion is reached. For base ``Scheduler``, completion criterion
+        is reaching total number of trials set in ``SchedulerOptions``, so if that
+        option is not specified, this function will run exactly ``max_trials`` trials
+        always.
 
-        Returns:
-            For Single Objective cases, returns % improvement of objective.
-            Positive indicates improvement over baseline. Negative indicates regression.
-            For Multi Objective cases, throws NotImplementedError
+        Args:
+            max_trials: Maximum number of trials to run.
+            ignore_global_stopping_strategy: If set, Scheduler will skip the global
+                stopping strategy in completion_criterion.
+            timeout_hours: Limit on length of ths optimization; if reached, the
+                optimization will abort even if completon criterion is not yet reached.
+            idle_callback: Callable that takes a Scheduler instance as an argument to
+                deliver information while the trials are still running. Any output of
+                `idle_callback` will not be returned, so `idle_callback` must expose
+                information in some other way. For example, it could print something
+                about the state of the scheduler or underlying experiment to STDOUT,
+                write something to a database, or modify a Plotly figure or other object
+                in place. `ax.service.utils.report_utils.get_figure_and_callback` is a
+                helper function for generating a callback that will update a Plotly
+                figure.
+
+        Example:
+            >>> trials_info = {"n_completed": None}
+            >>>
+            >>> def write_n_trials(scheduler: Scheduler) -> None:
+            ...     trials_info["n_completed"] = len(scheduler.experiment.trials)
+            >>>
+            >>> scheduler.run_n_trials(
+            ...     max_trials=3, idle_callback=write_n_trials
+            ... )
+            >>> print(trials_info["n_completed"])
+            3
         """
-        if self.experiment.is_moo_problem:
-            raise NotImplementedError(
-                "`get_improvement_over_baseline` not yet implemented"
-                + " for multi-objective problems."
-            )
-        if not baseline_arm_name:
-            raise UserInputError(
-                "`get_improvement_over_baseline` missing required parameter: "
-                + f"{baseline_arm_name=}, "
-            )
+        self.poll_and_process_results()
+        for _ in self.run_trials_and_yield_results(
+            max_trials=max_trials,
+            ignore_global_stopping_strategy=ignore_global_stopping_strategy,
+            timeout_hours=timeout_hours,
+            idle_callback=idle_callback,
+        ):
+            pass
+        return self.summarize_final_result()
 
-        optimization_config = self.experiment.optimization_config
-        if not optimization_config:
-            raise ValueError("No optimization config found.")
+    def run_all_trials(
+        self,
+        timeout_hours: int | None = None,
+        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
+        idle_callback: Callable[[Scheduler], Any] | None = None,
+    ) -> OptimizationResult:
+        """Run all trials until ``completion_criterion`` is reached (by default,
+        completion criterion is reaching the ``num_trials`` setting, passed to
+        scheduler on instantiation as part of ``SchedulerOptions``).
 
-        objective_metric_name = optimization_config.objective.metric.name
+        NOTE: This function is available only when ``SchedulerOptions.num_trials`` is
+        specified.
 
-        # get the baseline trial
-        data = self.experiment.lookup_data().df
-        data = data[data["arm_name"] == baseline_arm_name]
-        if len(data) == 0:
-            raise UserInputError(
-                "`get_improvement_over_baseline`"
-                " could not find baseline arm"
-                f" `{baseline_arm_name}` in the experiment data."
+        Args:
+            timeout_hours: Limit on length of ths optimization; if reached, the
+                optimization will abort even if completon criterion is not yet reached.
+            idle_callback: Callable that takes a Scheduler instance as an argument to
+                deliver information while the trials are still running. Any output of
+                `idle_callback` will not be returned, so `idle_callback` must expose
+                information in some other way. For example, it could print something
+                about the state of the scheduler or underlying experiment to STDOUT,
+                write something to a database, or modify a Plotly figure or other object
+                in place. `ax.service.utils.report_utils.get_figure_and_callback` is a
+                helper function for generating a callback that will update a Plotly
+                figure.
+
+        Example:
+            >>> trials_info = {"n_completed": None}
+            >>>
+            >>> def write_n_trials(scheduler: Scheduler) -> None:
+            ...     trials_info["n_completed"] = len(scheduler.experiment.trials)
+            >>>
+            >>> scheduler.run_all_trials(
+            ...     timeout_hours=0.1, idle_callback=write_n_trials
+            ... )
+            >>> print(trials_info["n_completed"])
+        """
+        if self.options.total_trials is None:
+            # NOTE: Capping on number of trials will likely be needed as fallback
+            # for most stopping criteria, so we ensure `num_trials` is specified.
+            raise ValueError(
+                "Please either specify `num_trials` in `SchedulerOptions` input "
+                "to the `Scheduler` or use `run_n_trials` instead of `run_all_trials`."
             )
-        data = data[data["metric_name"] == objective_metric_name]
-        baseline_value = data.iloc[0]["mean"]
-
-        # Find objective value of the best trial
-        idx, param, best_arm = none_throws(
-            self.get_best_trial(
-                optimization_config=optimization_config, use_model_predictions=False
-            )
+        return self.run_n_trials(
+            max_trials=none_throws(self.options.total_trials),
+            timeout_hours=timeout_hours,
+            idle_callback=idle_callback,
         )
-        best_arm = none_throws(best_arm)
-        best_obj_value = best_arm[0][objective_metric_name]
 
-        def percent_change(x: float, y: float, minimize: bool) -> float:
-            if x == 0:
-                raise ZeroDivisionError(
-                    "Cannot compute percent improvement when denom is zero"
+    def compute_analyses(
+        self, analyses: Iterable[Analysis] | None = None
+    ) -> list[AnalysisCard]:
+        analyses = analyses if analyses is not None else self._choose_analyses()
+
+        results = [
+            analysis.compute_result(
+                experiment=self.experiment, generation_strategy=self.generation_strategy
+            )
+            for analysis in analyses
+        ]
+
+        # TODO Accumulate Es into their own card, perhaps via unwrap_or_else
+        cards = [result.unwrap() for result in results if result.is_ok()]
+
+        self._save_analysis_cards_to_db_if_possible(
+            analysis_cards=cards,
+            experiment=self.experiment,
+        )
+
+        return cards
+
+    def run_trials_and_yield_results(
+        self,
+        max_trials: int,
+        ignore_global_stopping_strategy: bool = False,
+        timeout_hours: int | float | None = None,
+        idle_callback: Callable[[Scheduler], None] | None = None,
+    ) -> Generator[dict[str, Any], None, None]:
+        """Make continuous calls to `run` and `process_results` to run up to
+        ``max_trials`` trials, until completion criterion is reached. This is the 'main'
+        method of a ``Scheduler``.
+
+        Args:
+            max_trials: Maximum number of trials to run in this generator. The
+                generator will run trials until a completion criterion is reached,
+                a completion signal is received from the generation strategy, or
+                ``max_trials`` trials have been run (whichever happens first).
+            ignore_global_stopping_strategy: If set, Scheduler will skip the global
+                stopping strategy in completion_criterion.
+            timeout_hours: Maximum number of hours, for which
+                to run the optimization. This function will abort after running
+                for `timeout_hours` even if stopping criterion has not been reached.
+                If set to `None`, no optimization timeout will be applied.
+            idle_callback: Callable that takes a Scheduler instance as an argument to
+                deliver information while the trials are still running. Any output of
+                `idle_callback` will not be returned, so `idle_callback` must expose
+                information in some other way. For example, it could print something
+                about the state of the scheduler or underlying experiment to STDOUT,
+                write something to a database, or modify a Plotly figure or other object
+                in place. `ax.service.utils.report_utils.get_figure_and_callback` is a
+                helper function for generating a callback that will update a Plotly
+                figure.
+        """
+        if max_trials < 0:
+            raise ValueError(f"Expected `max_trials` >= 0, got {max_trials}.")
+
+        if timeout_hours is not None:
+            if timeout_hours < 0:
+                raise UserInputError(
+                    f"Expected `timeout_hours` >= 0, got {timeout_hours}."
                 )
-            percent_change = (y - x) / abs(x) * 100
-            if minimize:
-                percent_change = -percent_change
-            return percent_change
+            self._timeout_hours = timeout_hours
 
-        return percent_change(
-            x=baseline_value,
-            y=best_obj_value,
-            minimize=optimization_config.objective.minimize,
+        self._latest_optimization_start_timestamp = current_timestamp_in_millis()
+        self.__ignore_global_stopping_strategy = ignore_global_stopping_strategy
+
+        n_initial_candidate_trials = len(self.candidate_trials)
+        if n_initial_candidate_trials == 0 and max_trials < 0:
+            raise UserInputError(f"Expected `max_trials` >= 0, got {max_trials}.")
+
+        # trials are pre-existing only if they do not still require running
+        n_existing = len(self.trials) - n_initial_candidate_trials
+
+        # Until completion criterion is reached or `max_trials` is scheduled,
+        # schedule new trials and poll existing ones in a loop.
+        self._num_remaining_requested_trials = max_trials
+        while (
+            self._num_remaining_requested_trials > 0
+            and not self.should_consider_optimization_complete()[0]
+        ):
+            if self.should_abort_optimization():
+                yield self._abort_optimization(num_preexisting_trials=n_existing)
+                return
+
+            # Run new trial evaluations until `run` returns `False`, which
+            # means that there was a reason not to run more evaluations yet.
+            # Also check that `max_trials` is not reached to not exceed it.
+            n_remaining_to_generate = self._num_remaining_requested_trials - len(
+                self.candidate_trials
+            )
+            while self._num_remaining_requested_trials > 0 and self.run(
+                max_new_trials=n_remaining_to_generate
+            ):
+                # Not checking `should_abort_optimization` on every trial for perf.
+                # reasons.
+                n_already_run_by_scheduler = (
+                    len(self.trials) - n_existing - len(self.candidate_trials)
+                )
+                self._num_remaining_requested_trials = (
+                    max_trials - n_already_run_by_scheduler
+                )
+                n_remaining_to_generate = self._num_remaining_requested_trials - len(
+                    self.candidate_trials
+                )
+            # this is safeguard in case no trial statuses have been updated, and
+            # wait_for_running_trials=False, in which case we do not want to continue
+            # to loop and poll
+            report_results = self._check_exit_status_and_report_results(
+                n_existing=n_existing, idle_callback=idle_callback, force_refit=False
+            )
+            if report_results is None:
+                return
+            else:
+                yield report_results
+
+        # When done scheduling, wait for the remaining trials to finish running
+        # (unless optimization is aborting, in which case stop right away).
+        if self.running_trials:
+            self.logger.info(
+                "Done submitting trials, waiting for remaining "
+                f"{len(self.running_trials)} running trials..."
+            )
+
+        while self.running_trials:
+            if self.should_abort_optimization():
+                yield self._abort_optimization(num_preexisting_trials=n_existing)
+                return
+            report_results = self._check_exit_status_and_report_results(
+                n_existing=n_existing, idle_callback=idle_callback, force_refit=True
+            )
+            if report_results is None:
+                return
+            else:
+                yield report_results
+
+        yield self._complete_optimization(
+            num_preexisting_trials=n_existing, idle_callback=idle_callback
         )
+        return
 
-    # ---------- Methods below should generally not be modified in subclasses. ---------
+    # ---------- II. Methods that are typically called within the `Scheduler`. ---------
 
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
     def run_trials(self, trials: Iterable[BaseTrial]) -> dict[int, dict[str, Any]]:
@@ -890,14 +971,131 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             )
         return timed_out
 
-    @property
-    def should_wait_for_running_trials(self) -> bool:
-        """Whether this scheduler should wait for running trials to complete.
+    def completion_criterion(self) -> tuple[bool, str]:
+        """Optional stopping criterion for optimization, which checks whether
+        ``total_trials`` trials have been run or the ``global_stopping_strategy``
+        suggests stopping the optimization.
 
-        If False, the scheduler will not wait for running trials to complete and
-        will simply exit.
+        Returns:
+            A boolean representing whether the optimization should be stopped,
+            and a string describing the reason for stopping.
         """
-        return self.options.wait_for_running_trials
+        if (
+            not self.__ignore_global_stopping_strategy
+            and self.options.global_stopping_strategy is not None
+        ):
+            gss = none_throws(self.options.global_stopping_strategy)
+            if (num_trials := len(self.trials)) > 1000:
+                # When there are many trials, checking the global stopping
+                # strategy can get a little bit slow, so we log when we start it,
+                # to avoid user confusion and to keep a record of the run times.
+                self.logger.info(
+                    f"There are {num_trials} trials; performing "
+                    f"completion criterion check with {gss}..."
+                )
+            stop_optimization, global_stopping_msg = gss.should_stop_optimization(
+                experiment=self.experiment
+            )
+            if stop_optimization:
+                return True, global_stopping_msg
+
+        if self.options.total_trials is None:
+            # We validate that `total_trials` is set in `run_all_trials`,
+            # so it will not run indefinitely.
+            return False, ""
+
+        num_trials = len(self.trials)
+        should_stop = num_trials >= none_throws(self.options.total_trials)
+        message = "Exceeding the total number of trials." if should_stop else ""
+        return should_stop, message
+
+    def report_results(self, force_refit: bool = False) -> dict[str, Any]:
+        """Optional user-defined function for reporting intermediate
+        and final optimization results (e.g. make some API call, write to some
+        other db). This function is called whenever new results are available during
+        the optimization.
+
+        Args:
+            force_refit: Whether to force the implementation of this method to
+                refit the model on generation strategy before using it to produce
+                results to report (e.g. if using model to visualize data).
+
+        Returns:
+            An optional dictionary with any relevant data about optimization.
+        """
+        # TODO[T61776778]: add utility to get best trial from arbitrary exp.
+        return {}
+
+    def summarize_final_result(self) -> OptimizationResult:
+        """Get some summary of result: which trial did best, what
+        were the metric values, what were encountered failures, etc.
+        """
+        return OptimizationResult()
+
+    def get_improvement_over_baseline(
+        self,
+        baseline_arm_name: str | None = None,
+    ) -> float:
+        """Returns the scalarized improvement over baseline, if applicable.
+
+        Returns:
+            For Single Objective cases, returns % improvement of objective.
+            Positive indicates improvement over baseline. Negative indicates regression.
+            For Multi Objective cases, throws NotImplementedError
+        """
+        if self.experiment.is_moo_problem:
+            raise NotImplementedError(
+                "`get_improvement_over_baseline` not yet implemented"
+                + " for multi-objective problems."
+            )
+        if not baseline_arm_name:
+            raise UserInputError(
+                "`get_improvement_over_baseline` missing required parameter: "
+                + f"{baseline_arm_name=}, "
+            )
+
+        optimization_config = self.experiment.optimization_config
+        if not optimization_config:
+            raise ValueError("No optimization config found.")
+
+        objective_metric_name = optimization_config.objective.metric.name
+
+        # get the baseline trial
+        data = self.experiment.lookup_data().df
+        data = data[data["arm_name"] == baseline_arm_name]
+        if len(data) == 0:
+            raise UserInputError(
+                "`get_improvement_over_baseline`"
+                " could not find baseline arm"
+                f" `{baseline_arm_name}` in the experiment data."
+            )
+        data = data[data["metric_name"] == objective_metric_name]
+        baseline_value = data.iloc[0]["mean"]
+
+        # Find objective value of the best trial
+        idx, param, best_arm = none_throws(
+            self.get_best_trial(
+                optimization_config=optimization_config, use_model_predictions=False
+            )
+        )
+        best_arm = none_throws(best_arm)
+        best_obj_value = best_arm[0][objective_metric_name]
+
+        def percent_change(x: float, y: float, minimize: bool) -> float:
+            if x == 0:
+                raise ZeroDivisionError(
+                    "Cannot compute percent improvement when denom is zero"
+                )
+            percent_change = (y - x) / abs(x) * 100
+            if minimize:
+                percent_change = -percent_change
+            return percent_change
+
+        return percent_change(
+            x=baseline_value,
+            y=best_obj_value,
+            minimize=optimization_config.objective.minimize,
+        )
 
     def error_if_failure_rate_exceeded(self, force_check: bool = False) -> None:
         """Checks if the failure rate (set in scheduler options) has been exceeded.
@@ -943,257 +1141,16 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 num_ran_in_scheduler=num_ran_in_scheduler,
             )
 
-    def _num_bad_in_scheduler(self) -> int:
-        """Returns the number of trials that have failed or been abandoned in the
-        scheduler.
-        """
-        # We only count failed trials with indices that came after the preexisting
-        # trials on experiment before scheduler use.
-        return sum(
-            1
-            for f in self.failed_abandoned_trial_indices
-            if f >= self._num_preexisting_trials
-        )
-
-    def _num_ran_in_scheduler(self) -> int:
-        """Returns the number of trials that have been run by the scheduler."""
-        return sum(
-            1
-            for idx, t in self.experiment.trials.items()
-            if idx >= self._num_preexisting_trials and t.status.is_terminal
-        )
-
-    def run_trials_and_yield_results(
-        self,
-        max_trials: int,
-        ignore_global_stopping_strategy: bool = False,
-        timeout_hours: int | float | None = None,
-        idle_callback: Callable[[Scheduler], None] | None = None,
-    ) -> Generator[dict[str, Any], None, None]:
-        """Make continuous calls to `run` and `process_results` to run up to
-        ``max_trials`` trials, until completion criterion is reached. This is the 'main'
-        method of a ``Scheduler``.
-
-        Args:
-            max_trials: Maximum number of trials to run in this generator. The
-                generator will run trials until a completion criterion is reached,
-                a completion signal is received from the generation strategy, or
-                ``max_trials`` trials have been run (whichever happens first).
-            ignore_global_stopping_strategy: If set, Scheduler will skip the global
-                stopping strategy in completion_criterion.
-            timeout_hours: Maximum number of hours, for which
-                to run the optimization. This function will abort after running
-                for `timeout_hours` even if stopping criterion has not been reached.
-                If set to `None`, no optimization timeout will be applied.
-            idle_callback: Callable that takes a Scheduler instance as an argument to
-                deliver information while the trials are still running. Any output of
-                `idle_callback` will not be returned, so `idle_callback` must expose
-                information in some other way. For example, it could print something
-                about the state of the scheduler or underlying experiment to STDOUT,
-                write something to a database, or modify a Plotly figure or other object
-                in place. `ax.service.utils.report_utils.get_figure_and_callback` is a
-                helper function for generating a callback that will update a Plotly
-                figure.
-        """
-        if max_trials < 0:
-            raise ValueError(f"Expected `max_trials` >= 0, got {max_trials}.")
-
-        if timeout_hours is not None:
-            if timeout_hours < 0:
-                raise UserInputError(
-                    f"Expected `timeout_hours` >= 0, got {timeout_hours}."
-                )
-            self._timeout_hours = timeout_hours
-
-        self._latest_optimization_start_timestamp = current_timestamp_in_millis()
-        self.__ignore_global_stopping_strategy = ignore_global_stopping_strategy
-
-        n_initial_candidate_trials = len(self.candidate_trials)
-        if n_initial_candidate_trials == 0 and max_trials < 0:
-            raise UserInputError(f"Expected `max_trials` >= 0, got {max_trials}.")
-
-        # trials are pre-existing only if they do not still require running
-        n_existing = len(self.trials) - n_initial_candidate_trials
-
-        # Until completion criterion is reached or `max_trials` is scheduled,
-        # schedule new trials and poll existing ones in a loop.
-        self._num_remaining_requested_trials = max_trials
-        while (
-            self._num_remaining_requested_trials > 0
-            and not self.should_consider_optimization_complete()[0]
-        ):
-            if self.should_abort_optimization():
-                yield self._abort_optimization(num_preexisting_trials=n_existing)
-                return
-
-            # Run new trial evaluations until `run` returns `False`, which
-            # means that there was a reason not to run more evaluations yet.
-            # Also check that `max_trials` is not reached to not exceed it.
-            n_remaining_to_generate = self._num_remaining_requested_trials - len(
-                self.candidate_trials
-            )
-            while self._num_remaining_requested_trials > 0 and self.run(
-                max_new_trials=n_remaining_to_generate
-            ):
-                # Not checking `should_abort_optimization` on every trial for perf.
-                # reasons.
-                n_already_run_by_scheduler = (
-                    len(self.trials) - n_existing - len(self.candidate_trials)
-                )
-                self._num_remaining_requested_trials = (
-                    max_trials - n_already_run_by_scheduler
-                )
-                n_remaining_to_generate = self._num_remaining_requested_trials - len(
-                    self.candidate_trials
-                )
-            # this is safeguard in case no trial statuses have been updated, and
-            # wait_for_running_trials=False, in which case we do not want to continue
-            # to loop and poll
-            report_results = self._check_exit_status_and_report_results(
-                n_existing=n_existing, idle_callback=idle_callback, force_refit=False
-            )
-            if report_results is None:
-                return
-            else:
-                yield report_results
-
-        # When done scheduling, wait for the remaining trials to finish running
-        # (unless optimization is aborting, in which case stop right away).
-        if self.running_trials:
-            self.logger.info(
-                "Done submitting trials, waiting for remaining "
-                f"{len(self.running_trials)} running trials..."
-            )
-
-        while self.running_trials:
-            if self.should_abort_optimization():
-                yield self._abort_optimization(num_preexisting_trials=n_existing)
-                return
-            report_results = self._check_exit_status_and_report_results(
-                n_existing=n_existing, idle_callback=idle_callback, force_refit=True
-            )
-            if report_results is None:
-                return
-            else:
-                yield report_results
-
-        yield self._complete_optimization(
-            num_preexisting_trials=n_existing, idle_callback=idle_callback
-        )
-        return
-
     def _check_exit_status_and_report_results(
         self,
         n_existing: int,
         idle_callback: Callable[[Scheduler], None] | None,
         force_refit: bool,
     ) -> dict[str, Any] | None:
-        if not self.should_wait_for_running_trials:
+        if not self.options.wait_for_running_trials:
             return None
         return self.wait_for_completed_trials_and_report_results(
             idle_callback, force_refit=True
-        )
-
-    def run_n_trials(
-        self,
-        max_trials: int,
-        ignore_global_stopping_strategy: bool = False,
-        timeout_hours: int | None = None,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-        idle_callback: Callable[[Scheduler], Any] | None = None,
-    ) -> OptimizationResult:
-        """Run up to ``max_trials`` trials; will run all ``max_trials`` unless
-        completion criterion is reached. For base ``Scheduler``, completion criterion
-        is reaching total number of trials set in ``SchedulerOptions``, so if that
-        option is not specified, this function will run exactly ``max_trials`` trials
-        always.
-
-        Args:
-            max_trials: Maximum number of trials to run.
-            ignore_global_stopping_strategy: If set, Scheduler will skip the global
-                stopping strategy in completion_criterion.
-            timeout_hours: Limit on length of ths optimization; if reached, the
-                optimization will abort even if completon criterion is not yet reached.
-            idle_callback: Callable that takes a Scheduler instance as an argument to
-                deliver information while the trials are still running. Any output of
-                `idle_callback` will not be returned, so `idle_callback` must expose
-                information in some other way. For example, it could print something
-                about the state of the scheduler or underlying experiment to STDOUT,
-                write something to a database, or modify a Plotly figure or other object
-                in place. `ax.service.utils.report_utils.get_figure_and_callback` is a
-                helper function for generating a callback that will update a Plotly
-                figure.
-
-        Example:
-            >>> trials_info = {"n_completed": None}
-            >>>
-            >>> def write_n_trials(scheduler: Scheduler) -> None:
-            ...     trials_info["n_completed"] = len(scheduler.experiment.trials)
-            >>>
-            >>> scheduler.run_n_trials(
-            ...     max_trials=3, idle_callback=write_n_trials
-            ... )
-            >>> print(trials_info["n_completed"])
-            3
-        """
-        self.poll_and_process_results()
-        for _ in self.run_trials_and_yield_results(
-            max_trials=max_trials,
-            ignore_global_stopping_strategy=ignore_global_stopping_strategy,
-            timeout_hours=timeout_hours,
-            idle_callback=idle_callback,
-        ):
-            pass
-        return self.summarize_final_result()
-
-    def run_all_trials(
-        self,
-        timeout_hours: int | None = None,
-        # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-        idle_callback: Callable[[Scheduler], Any] | None = None,
-    ) -> OptimizationResult:
-        """Run all trials until ``completion_criterion`` is reached (by default,
-        completion criterion is reaching the ``num_trials`` setting, passed to
-        scheduler on instantiation as part of ``SchedulerOptions``).
-
-        NOTE: This function is available only when ``SchedulerOptions.num_trials`` is
-        specified.
-
-        Args:
-            timeout_hours: Limit on length of ths optimization; if reached, the
-                optimization will abort even if completon criterion is not yet reached.
-            idle_callback: Callable that takes a Scheduler instance as an argument to
-                deliver information while the trials are still running. Any output of
-                `idle_callback` will not be returned, so `idle_callback` must expose
-                information in some other way. For example, it could print something
-                about the state of the scheduler or underlying experiment to STDOUT,
-                write something to a database, or modify a Plotly figure or other object
-                in place. `ax.service.utils.report_utils.get_figure_and_callback` is a
-                helper function for generating a callback that will update a Plotly
-                figure.
-
-        Example:
-            >>> trials_info = {"n_completed": None}
-            >>>
-            >>> def write_n_trials(scheduler: Scheduler) -> None:
-            ...     trials_info["n_completed"] = len(scheduler.experiment.trials)
-            >>>
-            >>> scheduler.run_all_trials(
-            ...     timeout_hours=0.1, idle_callback=write_n_trials
-            ... )
-            >>> print(trials_info["n_completed"])
-        """
-        if self.options.total_trials is None:
-            # NOTE: Capping on number of trials will likely be needed as fallback
-            # for most stopping criteria, so we ensure `num_trials` is specified.
-            raise ValueError(
-                "Please either specify `num_trials` in `SchedulerOptions` input "
-                "to the `Scheduler` or use `run_n_trials` instead of `run_all_trials`."
-            )
-        return self.run_n_trials(
-            max_trials=none_throws(self.options.total_trials),
-            timeout_hours=timeout_hours,
-            idle_callback=idle_callback,
         )
 
     def run(self, max_new_trials: int) -> bool:
@@ -1268,34 +1225,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         )
         self._log_next_no_trials_reason = True
         return True
-
-    def _update_status_dict(
-        self,
-        status_dict: dict[TrialStatus, set[int]],
-        updating_status_dict: dict[TrialStatus, set[int]],
-    ) -> dict[TrialStatus, set[int]]:
-        """Helper method to elements of a dict of sets.
-
-        Avoids leaving trial_index in sets corresponding to two different
-        statuses."""
-        # Convert Dict[TrialStatus, Set[int]] to Dict[int, TrialStatus]
-        trial_index_to_status = {
-            trial_index: status
-            for status, trial_indices in status_dict.items()
-            for trial_index in trial_indices
-        }
-        # Convert Dict[TrialStatus, Set[int]] to Dict[int, TrialStatus]
-        trial_index_to_updating_status = {
-            trial_index: status
-            for status, trial_indices in updating_status_dict.items()
-            for trial_index in trial_indices
-        }
-        # Safely update new statuses, then convert back to Dict[TrialStatus, Set[int]]
-        trial_index_to_status.update(trial_index_to_updating_status)
-        updated_status_dict = defaultdict(set)
-        for trial_index, status in trial_index_to_status.items():
-            updated_status_dict[status].add(trial_index)
-        return updated_status_dict
 
     def poll_and_process_results(self, poll_all_trial_statuses: bool = False) -> bool:
         """Takes the following actions:
@@ -1376,6 +1305,77 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         return updated_any_trial_status
 
+    @copy_doc(BestPointMixin.get_best_trial)
+    def get_best_trial(
+        self,
+        optimization_config: OptimizationConfig | None = None,
+        trial_indices: Iterable[int] | None = None,
+        use_model_predictions: bool = True,
+    ) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
+        return self._get_best_trial(
+            experiment=self.experiment,
+            generation_strategy=self.standard_generation_strategy,
+            optimization_config=optimization_config,
+            trial_indices=trial_indices,
+            use_model_predictions=use_model_predictions,
+        )
+
+    @copy_doc(BestPointMixin.get_pareto_optimal_parameters)
+    def get_pareto_optimal_parameters(
+        self,
+        optimization_config: OptimizationConfig | None = None,
+        trial_indices: Iterable[int] | None = None,
+        use_model_predictions: bool = True,
+    ) -> dict[int, tuple[TParameterization, TModelPredictArm]]:
+        return self._get_pareto_optimal_parameters(
+            experiment=self.experiment,
+            generation_strategy=self.standard_generation_strategy,
+            optimization_config=optimization_config,
+            trial_indices=trial_indices,
+            use_model_predictions=use_model_predictions,
+        )
+
+    @copy_doc(BestPointMixin.get_hypervolume)
+    def get_hypervolume(
+        self,
+        optimization_config: MultiObjectiveOptimizationConfig | None = None,
+        trial_indices: Iterable[int] | None = None,
+        use_model_predictions: bool = True,
+    ) -> float:
+        return BestPointMixin._get_hypervolume(
+            experiment=self.experiment,
+            generation_strategy=self.standard_generation_strategy,
+            optimization_config=optimization_config,
+            trial_indices=trial_indices,
+            use_model_predictions=use_model_predictions,
+        )
+
+    @copy_doc(BestPointMixin.get_trace)
+    def get_trace(
+        self,
+        optimization_config: OptimizationConfig | None = None,
+    ) -> list[float]:
+        return BestPointMixin._get_trace(
+            experiment=self.experiment,
+            optimization_config=optimization_config,
+        )
+
+    @copy_doc(BestPointMixin.get_trace_by_progression)
+    def get_trace_by_progression(
+        self,
+        optimization_config: OptimizationConfig | None = None,
+        bins: list[float] | None = None,
+        final_progression_only: bool = False,
+    ) -> tuple[list[float], list[float]]:
+        return BestPointMixin._get_trace_by_progression(
+            experiment=self.experiment,
+            optimization_config=optimization_config,
+            bins=bins,
+            final_progression_only=final_progression_only,
+        )
+
+    # ------------------------- III. Protected helpers. -----------------------
+
     def _fetch_data_and_return_trial_indices_with_new_data(
         self, trial_idcs: set[int]
     ) -> set[int]:
@@ -1400,6 +1400,54 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 if r.is_ok()
             }
         return set()
+
+    def _num_bad_in_scheduler(self) -> int:
+        """Returns the number of trials that have failed or been abandoned in the
+        scheduler.
+        """
+        # We only count failed trials with indices that came after the preexisting
+        # trials on experiment before scheduler use.
+        return sum(
+            1
+            for f in self.failed_abandoned_trial_indices
+            if f >= self._num_preexisting_trials
+        )
+
+    def _num_ran_in_scheduler(self) -> int:
+        """Returns the number of trials that have been run by the scheduler."""
+        return sum(
+            1
+            for idx, t in self.experiment.trials.items()
+            if idx >= self._num_preexisting_trials and t.status.is_terminal
+        )
+
+    def _update_status_dict(
+        self,
+        status_dict: dict[TrialStatus, set[int]],
+        updating_status_dict: dict[TrialStatus, set[int]],
+    ) -> dict[TrialStatus, set[int]]:
+        """Helper method to elements of a dict of sets.
+
+        Avoids leaving trial_index in sets corresponding to two different
+        statuses."""
+        # Convert Dict[TrialStatus, Set[int]] to Dict[int, TrialStatus]
+        trial_index_to_status = {
+            trial_index: status
+            for status, trial_indices in status_dict.items()
+            for trial_index in trial_indices
+        }
+        # Convert Dict[TrialStatus, Set[int]] to Dict[int, TrialStatus]
+        trial_index_to_updating_status = {
+            trial_index: status
+            for status, trial_indices in updating_status_dict.items()
+            for trial_index in trial_indices
+        }
+        # Safely update new statuses, then convert back to Dict[TrialStatus, Set[int]]
+        trial_index_to_status.update(trial_index_to_updating_status)
+        updated_status_dict = defaultdict(set)
+        for trial_index, status in trial_index_to_status.items():
+            updated_status_dict[status].add(trial_index)
+        return updated_status_dict
 
     def _apply_new_trial_statuses(
         self, new_status_to_trial_idcs: dict[TrialStatus, set[int]]
@@ -1627,7 +1675,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         # Raise an error if the failure rate exceeds tolerance at the
         # end of the optimization.
         self.error_if_failure_rate_exceeded(force_check=True)
-        self.warn_if_non_terminal_trials()
+        self._warn_if_non_terminal_trials()
         return res
 
     def _validate_options(self, options: SchedulerOptions) -> None:
@@ -1815,60 +1863,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
             trials.append(trial)
         return trials
-
-    def generate_candidates(
-        self,
-        num_trials: int = 1,
-        reduce_state_generator_runs: bool = False,
-    ) -> list[BaseTrial]:
-        """Fetch the latest data and generate new candidate trials.
-
-        Args:
-            num_trials: Number of candidate trials to generate.
-            reduce_state_generator_runs: Flag to determine
-                whether to save model state for every generator run (default)
-                or to only save model state on the final generator run of each
-                batch.
-
-        Returns:
-            List of trials, empty if generation is not possible.
-        """
-        new_trials = self._get_next_trials(
-            num_trials=num_trials,
-            n=self.options.batch_size,
-        )
-        if len(new_trials) > 0:
-            new_generator_runs = [gr for t in new_trials for gr in t.generator_runs]
-            self._save_or_update_trials_and_generation_strategy_if_possible(
-                experiment=self.experiment,
-                trials=new_trials,
-                generation_strategy=self.generation_strategy,
-                new_generator_runs=new_generator_runs,
-                reduce_state_generator_runs=reduce_state_generator_runs,
-            )
-        return new_trials
-
-    def compute_analyses(
-        self, analyses: Iterable[Analysis] | None = None
-    ) -> list[AnalysisCard]:
-        analyses = analyses if analyses is not None else self._choose_analyses()
-
-        results = [
-            analysis.compute_result(
-                experiment=self.experiment, generation_strategy=self.generation_strategy
-            )
-            for analysis in analyses
-        ]
-
-        # TODO Accumulate Es into their own card, perhaps via unwrap_or_else
-        cards = [result.unwrap() for result in results if result.is_ok()]
-
-        self._save_analysis_cards_to_db_if_possible(
-            analysis_cards=cards,
-            experiment=self.experiment,
-        )
-
-        return cards
 
     def _choose_analyses(self) -> list[Analysis]:
         """
@@ -2215,7 +2209,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             )
         )
 
-    def warn_if_non_terminal_trials(self) -> None:
+    def _warn_if_non_terminal_trials(self) -> None:
         """Warns if there are any non-terminal trials on the experiment."""
         non_terminal_trials = [
             t.index for t in self.experiment.trials.values() if not t.status.is_terminal
