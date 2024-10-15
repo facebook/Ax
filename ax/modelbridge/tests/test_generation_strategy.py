@@ -1727,6 +1727,129 @@ class TestGenerationStrategy(TestCase):
             ["mbm", "sobol_2", "sobol_3"],
         )
 
+    def test_gs_with_fixed_features_constructor(self) -> None:
+        exp = get_branin_experiment()
+        sobol_criterion = [
+            MaxTrials(
+                threshold=1,
+                transition_to="sobol_2",
+                block_gen_if_met=True,
+                only_in_statuses=None,
+                not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
+            )
+        ]
+        sobol_node_long = GenerationNode(
+            node_name="sobol_node",
+            transition_criteria=sobol_criterion,
+            model_specs=[self.sobol_model_spec],
+            input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
+            trial_type=Keys.LONG_RUN,
+        )
+        fixed_ft_purpose = InputConstructorPurpose.FIXED_FEATURES
+        sobol_2_node = GenerationNode(
+            node_name="sobol_2",
+            model_specs=[self.sobol_model_spec],
+            input_constructors={
+                InputConstructorPurpose.N: NodeInputConstructors.ALL_N,
+                fixed_ft_purpose: NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES,
+            },
+            trial_type=Keys.SHORT_RUN,
+        )
+        gs = GenerationStrategy(
+            name="Fixed_feature_test",
+            nodes=[sobol_node_long, sobol_2_node],
+        )
+
+        # The first trial is our exploration trial, all arms should be generated from
+        # the sobol node due to the input constructor == ALL_N.
+        trial0 = exp.new_batch_trial(
+            generator_runs=gs.gen_with_multiple_nodes(exp, n=9)
+        )
+        self.assertEqual(len(trial0.arms_by_name), 9)
+        self.assertEqual(trial0.generator_runs[0]._generation_node_name, "sobol_node")
+        trial0.run()  # necessary for transition criterion to be met
+        with self.subTest("no passed fixed features gen_with_multiple_nodes"):
+            with mock_patch_method_original(
+                mock_path=f"{ModelSpec.__module__}.ModelSpec.gen",
+                original_method=ModelSpec.gen,
+            ) as model_spec_gen_mock:
+                exp.new_batch_trial(generator_runs=gs.gen_with_multiple_nodes(exp, n=9))
+                fixed_features_in_gen = model_spec_gen_mock.call_args_list[
+                    0
+                ].kwargs.get("fixed_features")
+                self.assertEqual(gs.current_node_name, "sobol_2")
+                self.assertEqual(
+                    fixed_features_in_gen,
+                    ObservationFeatures(parameters={}, trial_index=0),
+                )
+
+        with self.subTest("passed fixed features gen_with_multiple_nodes"):
+            with mock_patch_method_original(
+                mock_path=f"{ModelSpec.__module__}.ModelSpec.gen",
+                original_method=ModelSpec.gen,
+            ) as model_spec_gen_mock:
+                passed_fixed_features = ObservationFeatures(
+                    parameters={}, trial_index=4
+                )
+                exp.new_batch_trial(
+                    generator_runs=gs.gen_with_multiple_nodes(
+                        exp, n=9, fixed_features=passed_fixed_features
+                    )
+                )
+                fixed_features_in_gen = model_spec_gen_mock.call_args_list[
+                    0
+                ].kwargs.get("fixed_features")
+                self.assertEqual(gs.current_node_name, "sobol_2")
+                self.assertEqual(
+                    fixed_features_in_gen,
+                    passed_fixed_features,
+                )
+
+        with self.subTest(
+            "no passed fixed features gen_for_multiple_trials_with_multiple_nodes"
+        ):
+            with mock_patch_method_original(
+                mock_path=f"{ModelSpec.__module__}.ModelSpec.gen",
+                original_method=ModelSpec.gen,
+            ) as model_spec_gen_mock:
+                exp.new_batch_trial(
+                    generator_runs=gs.gen_for_multiple_trials_with_multiple_models(
+                        exp, n=9
+                    )[0]
+                )
+                fixed_features_in_gen = model_spec_gen_mock.call_args_list[
+                    0
+                ].kwargs.get("fixed_features")
+                self.assertEqual(gs.current_node_name, "sobol_2")
+                self.assertEqual(
+                    fixed_features_in_gen,
+                    ObservationFeatures(parameters={}, trial_index=0),
+                )
+
+        with self.subTest(
+            "passed fixed features gen_for_multiple_trials_with_multiple_nodes"
+        ):
+            with mock_patch_method_original(
+                mock_path=f"{ModelSpec.__module__}.ModelSpec.gen",
+                original_method=ModelSpec.gen,
+            ) as model_spec_gen_mock:
+                passed_fixed_features = ObservationFeatures(
+                    parameters={}, trial_index=4
+                )
+                exp.new_batch_trial(
+                    generator_runs=gs.gen_for_multiple_trials_with_multiple_models(
+                        exp, n=9, fixed_features=passed_fixed_features
+                    )[0]
+                )
+                fixed_features_in_gen = model_spec_gen_mock.call_args_list[
+                    0
+                ].kwargs.get("fixed_features")
+                self.assertEqual(gs.current_node_name, "sobol_2")
+                self.assertEqual(
+                    fixed_features_in_gen,
+                    passed_fixed_features,
+                )
+
     def test_gs_with_input_constructor(self) -> None:
         """Test a ``GenerationStrategy`` that uses ``InputConstructors`` to determine
         breakdown of arms per node. This GS consists of a 3 sobol nodes for simplicity.

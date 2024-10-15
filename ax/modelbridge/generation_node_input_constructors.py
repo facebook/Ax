@@ -33,13 +33,15 @@ class NodeInputConstructors(Enum):
     REMAINING_N = "remaining_n"
     TARGET_TRIAL_FIXED_FEATURES = "set_target_trial"
 
+    # pyre-ignore[3] input constructors can return any type in order to be flexible
+    # and share identical signatures
     def __call__(
         self,
         previous_node: GenerationNode | None,
         next_node: GenerationNode,
         gs_gen_call_kwargs: dict[str, Any],
         experiment: Experiment,
-    ) -> int:
+    ) -> Any:
         """Defines a callable method for the Enum as all values are methods"""
         try:
             method = getattr(sys.modules[__name__], self.value)
