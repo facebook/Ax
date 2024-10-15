@@ -967,7 +967,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             node_fixed_features = node_to_gen_from.input_constructors[
                 InputConstructorPurpose.FIXED_FEATURES
             ](
-                previous_node=None,  # not needed for this constructor
+                previous_node=node_to_gen_from.previous_node,
                 next_node=node_to_gen_from,
                 gs_gen_call_kwargs=gen_kwargs,
                 experiment=self.experiment,
@@ -1018,15 +1018,10 @@ class GenerationStrategy(GenerationStrategyInterface):
             # assume a default of generating n arms from this node.
             arms_from_node = n if n is not None else self.DEFAULT_N
         else:
-            previous_node = (
-                self.nodes_dict[node_to_gen_from._previous_node_name]
-                if node_to_gen_from._previous_node_name is not None
-                else None
-            )
             arms_from_node = node_to_gen_from.input_constructors[
                 InputConstructorPurpose.N
             ](
-                previous_node=previous_node,
+                previous_node=node_to_gen_from.previous_node,
                 next_node=node_to_gen_from,
                 gs_gen_call_kwargs=gen_kwargs,
                 experiment=self.experiment,

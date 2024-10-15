@@ -49,6 +49,11 @@ class TestGenerationNode(TestCase):
             model_kwargs={"init_position": 3},
             model_gen_kwargs={"some_gen_kwarg": "some_value"},
         )
+        self.mbm_model_spec = ModelSpec(
+            model_enum=Models.BOTORCH_MODULAR,
+            model_kwargs={},
+            model_gen_kwargs={},
+        )
         self.sobol_generation_node = GenerationNode(
             node_name="test", model_specs=[self.sobol_model_spec]
         )
@@ -291,11 +296,7 @@ class TestGenerationNode(TestCase):
         node = GenerationNode(
             node_name="test",
             model_specs=[
-                ModelSpec(
-                    model_enum=Models.BOTORCH_MODULAR,
-                    model_kwargs={},
-                    model_gen_kwargs={},
-                ),
+                self.mbm_model_spec,
             ],
             transition_criteria=[
                 MaxTrials(threshold=5, only_in_statuses=[TrialStatus.RUNNING])
