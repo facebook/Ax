@@ -5,8 +5,10 @@
 
 import numpy as np
 import torch
+from ax.core.experiment import Experiment
+from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.base import ModelBridge
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 
@@ -134,3 +136,23 @@ def is_predictive(model: ModelBridge) -> bool:
     except Exception:
         return True
     return True
+
+
+def select_metric(experiment: Experiment) -> str:
+    """Select the most relevant metric to plot from an Experiment."""
+    if experiment.optimization_config is None:
+        raise ValueError(
+            "Cannot infer metric to plot from Experiment without OptimizationConfig"
+        )
+    objective = experiment.optimization_config.objective
+    if isinstance(objective, MultiObjective):
+        raise UnsupportedError(
+            "Cannot infer metric to plot from MultiObjective, please "
+            "specify a metric"
+        )
+    if isinstance(objective, ScalarizedObjective):
+        raise UnsupportedError(
+            "Cannot infer metric to plot from ScalarizedObjective, please "
+            "specify a metric"
+        )
+    return experiment.optimization_config.objective.metric.name
