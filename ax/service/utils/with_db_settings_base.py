@@ -467,7 +467,8 @@ class WithDBSettingsBase:
             _save_analysis_cards_to_db_if_possible(
                 experiment=experiment,
                 analysis_cards=analysis_cards,
-                config=self.db_settings.encoder.config,
+                sqa_config=self.db_settings.encoder.config,
+                suppress_all_errors=self._suppress_all_errors,
             )
             return True
 

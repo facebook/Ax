@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from itertools import chain
+from typing import Any
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardLevel
@@ -51,6 +52,9 @@ class PredictedEffectsPlot(PlotlyAnalysis):
             each constraint is violated for the arm, to be viewed in the tooltip.
     """
 
+    CARD_NAME = "PredictedEffectsPlot"
+    trial_index: int | None = None
+
     def __init__(self, metric_name: str) -> None:
         """
         Args:
@@ -83,6 +87,8 @@ class PredictedEffectsPlot(PlotlyAnalysis):
                 if t.status != TrialStatus.ABANDONED
             ]
             candidate_trial = experiment.trials[max(trial_indices)]
+            # This is so the card will have a trial_index attribute
+            self.trial_index = candidate_trial.index
         except ValueError:
             raise UserInputError(
                 f"PredictedEffectsPlot cannot be used for {experiment} "
@@ -163,29 +169,29 @@ def _prepare_data(
         metric_name: Name of metric to plot
         candidate_trial: Trial to plot candidates for by generator run
     """
+    predictions_for_observed_arms: list[dict[str, Any]] = get_predictions_by_arm(
+        model=model,
+        metric_name=metric_name,
+        outcome_constraints=outcome_constraints,
+    )
+    candidate_generator_run_predictions: list[list[dict[str, Any]]] = (
+        []
+        if candidate_trial is None
+        else [
+            get_predictions_by_arm(
+                model=model,
+                metric_name=metric_name,
+                outcome_constraints=outcome_constraints,
+                gr=gr,
+            )
+            for gr in candidate_trial.generator_runs
+        ]
+    )
     df = pd.DataFrame.from_records(
         list(
             chain(
-                *[
-                    get_predictions_by_arm(
-                        model=model,
-                        metric_name=metric_name,
-                        outcome_constraints=outcome_constraints,
-                    ),
-                    *(
-                        []
-                        if candidate_trial is None
-                        else [
-                            get_predictions_by_arm(
-                                model=model,
-                                metric_name=metric_name,
-                                outcome_constraints=outcome_constraints,
-                                gr=gr,
-                            )
-                            for gr in candidate_trial.generator_runs
-                        ]
-                    ),
-                ]
+                predictions_for_observed_arms,
+                *candidate_generator_run_predictions,
             )
         )
     )

@@ -127,7 +127,7 @@ class InSampleEffectsPlot(PlotlyAnalysis):
             f"{'predicted' if self.use_modeled_effects else 'observed'} "
             "metric values"
         )
-        return self._create_plotly_analysis_card(
+        card = self._create_plotly_analysis_card(
             title=(
                 f"{plot_type} Effects for {self.metric_name} "
                 f"on trial {self.trial_index}"
@@ -137,6 +137,8 @@ class InSampleEffectsPlot(PlotlyAnalysis):
             df=df,
             fig=fig,
         )
+        card.name = f"{plot_type}EffectsPlot"
+        return card
 
 
 def _get_max_observed_trial_index(model: ModelBridge) -> int | None:

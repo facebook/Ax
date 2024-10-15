@@ -172,7 +172,7 @@ class TestInsampleEffectsPlot(TestCase):
             self.assertIn(arm.name, card.df["arm_name"].unique())
 
         # AND THEN the card is labeled correctly
-        self.assertEqual(card.name, "InSampleEffectsPlot")
+        self.assertEqual(card.name, "ModeledEffectsPlot")
         self.assertEqual(card.title, "Modeled Effects for branin on trial 0")
         self.assertEqual(
             card.subtitle, "View a trial and its arms' predicted metric values"
@@ -218,7 +218,7 @@ class TestInsampleEffectsPlot(TestCase):
             self.assertIn(arm.name, card.df["arm_name"].unique())
 
         # AND THEN the card is labeled correctly
-        self.assertEqual(card.name, "InSampleEffectsPlot")
+        self.assertEqual(card.name, "ModeledEffectsPlot")
         self.assertEqual(card.title, "Modeled Effects for branin on trial 0")
         self.assertEqual(
             card.subtitle, "View a trial and its arms' predicted metric values"
@@ -275,7 +275,7 @@ class TestInsampleEffectsPlot(TestCase):
             )
 
         # AND THEN the card is labeled correctly
-        self.assertEqual(card.name, "InSampleEffectsPlot")
+        self.assertEqual(card.name, "RawEffectsPlot")
         self.assertEqual(card.title, "Raw Effects for branin on trial 0")
         self.assertEqual(
             card.subtitle, "View a trial and its arms' observed metric values"
