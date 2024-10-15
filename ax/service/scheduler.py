@@ -37,6 +37,7 @@ from ax.core.optimization_config import (
 )
 from ax.core.runner import Runner
 from ax.core.types import TModelPredictArm, TParameterization
+from ax.core.utils import get_pending_observation_features_based_on_trial_status
 
 from ax.early_stopping.utils import estimate_early_stopping_savings
 from ax.exceptions.core import (
@@ -53,6 +54,7 @@ from ax.exceptions.generation_strategy import (
 )
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
+from ax.modelbridge.modelbridge_utils import get_fixed_features_from_experiment
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
@@ -1886,12 +1888,33 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         into account any ``pending`` observations.
         """
         self.generation_strategy.experiment = self.experiment
+        # For ``BatchTrial`-s, we generate trials using the new method that can
+        # produce GRs for multiple trials, with multiple nodes. But we don't yet
+        # want to enable that functionality for single-arm use cases of the
+        # ``Scheduler``, as it's still in development.
+        if self.options.trial_type == TrialType.BATCH_TRIAL:
+            grs = self.generation_strategy.gen_for_multiple_trials_with_multiple_models(
+                experiment=self.experiment,
+                num_trials=num_trials,
+                n=n,
+            )
+            return grs
+        else:
+            assert self.options.trial_type == TrialType.TRIAL  # Sanity check.
+            pending = get_pending_observation_features_based_on_trial_status(
+                experiment=self.experiment
+            )
+            grs = self.generation_strategy._gen_multiple(
+                experiment=self.experiment,
+                num_generator_runs=num_trials,
+                n=1,
+                pending_observations=pending,
+                fixed_features=get_fixed_features_from_experiment(
+                    experiment=self.experiment
+                ),
+            )
+            return [[gr] for gr in grs]
         # TODO: pass self.trial_type to GS.gen for multi-type experiments
-        return self.generation_strategy.gen_for_multiple_trials_with_multiple_models(
-            experiment=self.experiment,
-            num_trials=num_trials,
-            n=n,
-        )
 
     def _update_and_save_trials(
         self,
