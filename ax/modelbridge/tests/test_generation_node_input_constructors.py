@@ -135,6 +135,28 @@ class TestGenerationNodeInputConstructors(TestCase):
         )
         self.assertEqual(num_to_gen, 12)
 
+    def test_no_n_provided_all_n_with_exp_prop_long_run(self) -> None:
+        self.experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = 13
+        self.sobol_generation_node._trial_type = Keys.LONG_RUN
+        num_to_gen = NodeInputConstructors.ALL_N(
+            previous_node=None,
+            next_node=self.sobol_generation_node,
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
+        )
+        self.assertEqual(num_to_gen, 7)
+
+    def test_no_n_provided_all_n_with_exp_prop_short_run(self) -> None:
+        self.experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = 13
+        self.sobol_generation_node._trial_type = Keys.SHORT_RUN
+        num_to_gen = NodeInputConstructors.ALL_N(
+            previous_node=None,
+            next_node=self.sobol_generation_node,
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
+        )
+        self.assertEqual(num_to_gen, 6)
+
     def test_no_n_provided_repeat_n(self) -> None:
         num_to_gen = NodeInputConstructors.REPEAT_N(
             previous_node=None,
@@ -153,6 +175,21 @@ class TestGenerationNodeInputConstructors(TestCase):
             experiment=self.experiment,
         )
         self.assertEqual(num_to_gen, 2)
+
+    def test_no_n_provided_repeat_n_with_exp_prop_long_run(self) -> None:
+        self.experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = 18
+        self.sobol_generation_node._trial_type = Keys.SHORT_RUN
+        num_to_gen = NodeInputConstructors.REPEAT_N(
+            previous_node=None,
+            next_node=self.sobol_generation_node,
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
+        )
+        # expect 1 arm here because total concurrent arms is 18, and we have a trial
+        # type (short run), so we'll take the floor of 18/2 = 9 to be used in the
+        # logic for repeat arms which says if we have less than 10 requested arms we
+        # should get 1 repeat arm.
+        self.assertEqual(num_to_gen, 1)
 
     def test_no_n_provided_remaining_n(self) -> None:
         num_to_gen = NodeInputConstructors.REMAINING_N(
