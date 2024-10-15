@@ -22,7 +22,12 @@ import ax.core.observation as observation
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.base_trial import BaseTrial, DEFAULT_STATUSES_TO_WARM_START, TrialStatus
+from ax.core.base_trial import (
+    BaseTrial,
+    DEFAULT_STATUSES_TO_WARM_START,
+    STATUSES_EXPECTING_DATA,
+    TrialStatus,
+)
 from ax.core.batch_trial import BatchTrial, LifecycleStage
 from ax.core.data import Data
 from ax.core.formatting_utils import DATA_TYPE_LOOKUP, DataType
@@ -1055,6 +1060,18 @@ class Experiment(Base):
     def running_trial_indices(self) -> set[int]:
         """Indices of running trials, associated with the experiment."""
         return self._trial_indices_by_status[TrialStatus.RUNNING]
+
+    @property
+    def trial_indices_expecting_data(self) -> set[int]:
+        """Set of indices of trials, statuses of which indicate that we expect
+        these trials to have data, either already or in the future.
+        """
+        return set.union(
+            *(
+                self.trial_indices_by_status[status]
+                for status in STATUSES_EXPECTING_DATA
+            )
+        )
 
     @property
     def default_data_type(self) -> DataType:
