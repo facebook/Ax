@@ -31,6 +31,14 @@ Plotly Analysis
     :undoc-members:
     :show-inheritance:
 
+Can Generate Candidates Healthcheck Analysis
+~~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.healthcheck.can_generate_candidates
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Healthcheck Analysis
 ~~~~~~~~~~~~~~~~~~~~
 
