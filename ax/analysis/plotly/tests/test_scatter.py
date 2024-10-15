@@ -16,7 +16,7 @@ from ax.utils.testing.core_stubs import (
 )
 
 
-class TestParallelCoordinatesPlot(TestCase):
+class TestScatterPlot(TestCase):
     def test_compute(self) -> None:
         analysis = ScatterPlot(
             x_metric_name="branin_a",
