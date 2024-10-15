@@ -769,7 +769,6 @@ class ExperimentTest(TestCase):
             3,
         )
         self.assertEqual(type(self.experiment.trials[trial_index]), BatchTrial)
-        print({arm.name for arm in self.experiment.trials[trial_index].arms})
         self.assertEqual(
             {"arm1", "arm2", "arm3"},
             set(self.experiment.trials[trial_index].arms_by_name) - {"status_quo"},
@@ -1266,6 +1265,24 @@ class ExperimentTest(TestCase):
                 self.assertEqual(
                     experiment.arms_by_signature_for_deduplication, expected_with_other
                 )
+
+    def test_trial_indices(self) -> None:
+        experiment = self.experiment
+        for _ in range(6):
+            experiment.new_trial()
+        self.assertEqual(experiment.trial_indices_expecting_data, set())
+        experiment.trials[0].mark_staged()
+        experiment.trials[1].mark_running(no_runner_required=True)
+        experiment.trials[2].mark_running(no_runner_required=True).mark_completed()
+        self.assertEqual(experiment.trial_indices_expecting_data, {1, 2})
+        experiment.trials[1].mark_abandoned()
+        self.assertEqual(experiment.trial_indices_expecting_data, {2})
+        experiment.trials[4].mark_running(no_runner_required=True)
+        self.assertEqual(experiment.trial_indices_expecting_data, {2, 4})
+        experiment.trials[4].mark_failed()
+        self.assertEqual(experiment.trial_indices_expecting_data, {2})
+        experiment.trials[5].mark_running(no_runner_required=True).mark_early_stopped()
+        self.assertEqual(experiment.trial_indices_expecting_data, {2, 5})
 
 
 class ExperimentWithMapDataTest(TestCase):
