@@ -7,6 +7,7 @@
 # pyre-strict
 
 import random
+from unittest.mock import patch
 
 import pandas as pd
 from ax.core.data import (
@@ -17,6 +18,39 @@ from ax.core.data import (
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
+
+REPR_1000: str = (
+    "Data(df=\n"
+    + "|    |   arm_name | metric_name   |   mean |   sem |   trial_index "
+    + "| start_time          | end_time            |\n"
+    + "|---:|-----------:|:--------------|-------:|------:|--------------:"
+    + "|:--------------------|:--------------------|\n"
+    + "|  0 |        0_0 | a             |    2   |   0.2 |             1 "
+    + "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    + "|  1 |        0_0 | b             |    1.8 |   0.3 |             1 "
+    + "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    + "|  2 |        0_1 | a             |    4   |   0.6 |             1 "
+    + "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    + "|  3 |        0_1 | b             |    3.7 |   0.5 |             1 "
+    + "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    + "|  4 |        0_2 | a             |    0.5 | nan   |             1 "
+    + "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    + "|  5 |        0_2 | b             |    3   | nan   |             1 "
+    + "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |)"
+)
+
+REPR_500: str = (
+    "Data(df=\n"
+    + "|    |   arm_name | metric_name   |   mean |   sem |   trial_index "
+    + "| start_time          | end_time            |\n"
+    + "|---:|-----------:|:--------------|-------:|------:|--------------:"
+    + "|:--------------------|:--------------------|\n"
+    + "|  0 |        0_0 | a             |    2   |   0.2 |             1 "
+    + "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    + "|  1 |        0_0 | b             |    1.8 |   0.3 |             1 "
+    + "| 2018-01-01 00:00:00 | 2018-01-02 00:00:00 |\n"
+    + "|  2 |        0_1 | a             |    4   |   0...)"
+)
 
 
 class DataTest(TestCase):
@@ -97,6 +131,17 @@ class DataTest(TestCase):
             float(df[df["arm_name"] == "0_1"][df["metric_name"] == "b"]["sem"].item()),
             0.5,
         )
+
+    def test_repr(self) -> None:
+        self.assertEqual(
+            str(Data(df=self.df)),
+            REPR_1000,
+        )
+        with patch(f"{Data.__module__}.DF_REPR_MAX_LENGTH", 500):
+            self.assertEqual(
+                str(Data(df=self.df)),
+                REPR_500,
+            )
 
     def test_clone(self) -> None:
         data = Data(df=self.df, description="test")
