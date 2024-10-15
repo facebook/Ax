@@ -260,7 +260,7 @@ class TestBenchmark(TestCase):
             {"MNIST": TestDataset},
         ):
             mnist_problem = get_problem(
-                problem_name="hpo_pytorch_cnn_MNIST", name="MNIST", num_trials=6
+                problem_key="hpo_pytorch_cnn_MNIST", name="MNIST", num_trials=6
             )
         for method, problem, expected_name in [
             (
