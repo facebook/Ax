@@ -239,6 +239,15 @@ class GenerationNode(SerializationMixin, SortableBase):
         return self.should_transition_to_next_node(raise_data_required_error=False)[0]
 
     @property
+    def previous_node(self) -> GenerationNode | None:
+        """Returns the previous ``GenerationNode``, if any."""
+        return (
+            self.generation_strategy.nodes_dict[self._previous_node_name]
+            if self._previous_node_name is not None
+            else None
+        )
+
+    @property
     def _unique_id(self) -> str:
         """Returns a unique (w.r.t. parent class: ``GenerationStrategy``) id
         for this GenerationNode. Used for SQL storage.

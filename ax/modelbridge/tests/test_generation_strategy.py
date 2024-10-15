@@ -1328,8 +1328,13 @@ class TestGenerationStrategy(TestCase):
                 node_3,
             ],
         )
-        for node in gs._nodes:
-            self.assertIsNone(node._previous_node_name)
+        with self.subTest("after initialization all should be none"):
+            for node in gs._nodes:
+                self.assertIsNone(node._previous_node_name)
+                self.assertIsNone(node.previous_node)
+        with self.subTest("check previous node nodes after being set"):
+            gs._nodes[1]._previous_node_name = "node_1"
+            self.assertEqual(gs._nodes[1].previous_node, node_1)
 
     def test_gs_with_generation_nodes(self) -> None:
         "Simple test of a SOBOL + MBM GenerationStrategy composed of GenerationNodes"
