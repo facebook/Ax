@@ -6,7 +6,7 @@
 # pyre-strict
 
 from collections.abc import Iterable
-from enum import Enum
+from enum import IntEnum
 from logging import Logger
 from typing import Any, Protocol
 
@@ -21,12 +21,12 @@ from IPython.display import display
 logger: Logger = get_logger(__name__)
 
 
-class AnalysisCardLevel(Enum):
+class AnalysisCardLevel(IntEnum):
     DEBUG = 0
-    LOW = 1
-    MID = 2
-    HIGH = 3
-    CRITICAL = 4
+    LOW = 10
+    MID = 20
+    HIGH = 30
+    CRITICAL = 40
 
 
 class AnalysisCard(Base):
@@ -41,7 +41,7 @@ class AnalysisCard(Base):
     title: str
     subtitle: str
 
-    level: AnalysisCardLevel
+    level: int
 
     df: pd.DataFrame  # Raw data produced by the Analysis
 
@@ -58,7 +58,7 @@ class AnalysisCard(Base):
         name: str,
         title: str,
         subtitle: str,
-        level: AnalysisCardLevel,
+        level: int,
         df: pd.DataFrame,
         blob: str,
         attributes: dict[str, Any] | None = None,
@@ -148,7 +148,7 @@ class Analysis(Protocol):
         self,
         title: str,
         subtitle: str,
-        level: AnalysisCardLevel,
+        level: int,
         df: pd.DataFrame,
     ) -> AnalysisCard:
         """
