@@ -6,7 +6,7 @@
 # pyre-strict
 import sys
 from enum import Enum, unique
-from math import ceil
+from math import ceil, floor
 from typing import Any
 
 from ax.core import ObservationFeatures
@@ -230,12 +230,24 @@ def _get_default_n(experiment: Experiment, next_node: GenerationNode) -> int:
         The default number of arms to generate from the next node, used if no n is
         provided to the ``GenerationStrategy``'s gen call.
     """
+    n_for_this_trial = None
     total_concurrent_arms = experiment._properties.get(
         Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS.value
     )
+
+    # If total_concurrent_arms is set, we will use that in conjunction with the trial
+    # type to determine the number of arms to generate from this node
+    if total_concurrent_arms is not None:
+        if next_node._trial_type == Keys.SHORT_RUN:
+            n_for_this_trial = floor(0.5 * total_concurrent_arms)
+        elif next_node._trial_type == Keys.LONG_RUN:
+            n_for_this_trial = ceil(0.5 * total_concurrent_arms)
+        else:
+            n_for_this_trial = total_concurrent_arms
+
     return (
-        total_concurrent_arms
-        if total_concurrent_arms is not None
+        n_for_this_trial
+        if n_for_this_trial is not None
         # GS default n is 1, but these input constructors are used for nodes that
         # should generate more than 1 arm per trial, default to 10
         else next_node.generation_strategy.DEFAULT_N * 10
