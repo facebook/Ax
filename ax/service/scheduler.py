@@ -850,7 +850,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def should_consider_optimization_complete(self) -> tuple[bool, str]:
         """Whether this scheduler should consider this optimization complete and not
         run more trials (and conclude the optimization via ``_complete_optimization``).
-        An optimization is considered complete when a generation strategy signalled
+
+        NOTE: An optimization is considered complete when a generation strategy signaled
         completion or when the ``completion_criterion`` on this scheduler
         evaluates to ``True``. The ``completion_criterion`` method is also responsible
         for checking global_stopping_strategy's decision as well. Alongside the stop
@@ -860,7 +861,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         if self._optimization_complete:
             return True, ""
 
-        return self.completion_criterion()
+        should_complete, completion_message = self.completion_criterion()
+        if should_complete:
+            self.logger.info(f"Completing the optimization: {completion_message}.")
+        return should_complete, completion_message
 
     def should_abort_optimization(self) -> bool:
         """Checks whether this scheduler has reached some intertuption / abort
