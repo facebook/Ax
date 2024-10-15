@@ -19,6 +19,7 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import AxError
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.modelbridge.modelbridge_utils import observed_hypervolume
 from ax.plot.pareto_utils import (
@@ -140,12 +141,20 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             )
             return stop, message
 
+        data = experiment.lookup_data()
+        if data.df.empty:
+            raise AxError(
+                f"Experiment {experiment} does not have any data attached "
+                f"to it, despite having {num_completed_trials} completed "
+                f"trials. Data is required for {self}, so this is an invalid "
+                "state of the experiment."
+            )
+
         if isinstance(experiment.optimization_config, MultiObjectiveOptimizationConfig):
             if objective_thresholds is None:
                 # self._inferred_objective_thresholds is cached and only computed once.
                 if self._inferred_objective_thresholds is None:
                     # only infer reference point if there is data on the experiment.
-                    data = experiment.fetch_data()
                     if not data.df.empty:
                         # We infer the nadir reference point to be used by the GSS.
                         self._inferred_objective_thresholds = (
@@ -156,6 +165,18 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
                 # TODO: move this out into a separate infer_objective_thresholds
                 # instance method or property that handles the caching.
                 objective_thresholds = self._inferred_objective_thresholds
+            if not objective_thresholds:
+                # TODO: This is headed to ax.modelbridge.modelbridge_utils.hypervolume,
+                # where an empty list would lead to an opaque indexing error.
+                # A list that is nonempty and of the wrong length could be worse,
+                # since it might wind up running without error, but with thresholds for
+                # the wrong metrics. We should validate correctness of the length of the
+                # objective thresholds, ideally in hypervolume utils.
+                raise AxError(
+                    f"Objective thresholds were not specified and could not be inferred"
+                    f". They are required for {self} when performing multi-objective "
+                    "optimization, so this is an invalid state of the experiment."
+                )
             return self._should_stop_moo(
                 experiment=experiment,
                 trial_to_check=trial_to_check,
@@ -200,7 +221,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
                 and a str declaring the reason for stopping.
         """
         reference_trial_index = trial_to_check - self.window_size + 1
-        data_df = experiment.fetch_data().df
+        data_df = experiment.lookup_data().df
         data_df_reference = data_df[data_df["trial_index"] <= reference_trial_index]
         data_df = data_df[data_df["trial_index"] <= trial_to_check]
 
