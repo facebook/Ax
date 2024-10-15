@@ -706,10 +706,17 @@ def interact_contour_plotly(
         f_in_sample_arm_trace = {"xaxis": "x", "yaxis": "y"}
 
         sd_in_sample_arm_trace = {"showlegend": False, "xaxis": "x2", "yaxis": "y2"}
+        # NOTE: Using red to differentiate these points from the blue and green scales
+        # of the contours to avoid confusion.
+        arm_colors = {
+            "color": "rgb(253, 231, 37)",
+            "opacity": 1,
+            "line": {"width": 1, "color": "black"},
+        }
         base_in_sample_arm_config = {
             "hoverinfo": "text",
             "legendgroup": "In-sample",
-            "marker": {"color": "black", "symbol": 1, "opacity": 0.5},
+            "marker": {"symbol": 1, **arm_colors},
             "mode": "markers",
             "name": "In-sample",
             "text": insample_arm_text,
@@ -717,6 +724,10 @@ def interact_contour_plotly(
             "visible": cur_visible,
             "x": insample_param_values[xvar],
             "y": insample_param_values[yvar],
+            "hoverlabel": {
+                "bgcolor": "rgba(50,50,50,1.0)",
+                "font": {"color": "white"},
+            },
         }
 
         for key in base_in_sample_arm_config.keys():
@@ -731,7 +742,7 @@ def interact_contour_plotly(
                 {
                     "hoverinfo": "text",
                     "legendgroup": generator_run_name,
-                    "marker": {"color": "black", "symbol": i, "opacity": 0.5},
+                    "marker": {"symbol": i, **arm_colors},
                     "mode": "markers",
                     "name": generator_run_name,
                     "text": out_of_sample_arm_text[generator_run_name],
@@ -741,13 +752,17 @@ def interact_contour_plotly(
                     "yaxis": "y",
                     "y": out_of_sample_param_values[yvar][generator_run_name],
                     "visible": cur_visible,
+                    "hoverlabel": {
+                        "bgcolor": "rgba(50,50,50,1.0)",
+                        "font": {"color": "white"},
+                    },
                 }
             )
             traces.append(
                 {
                     "hoverinfo": "text",
                     "legendgroup": generator_run_name,
-                    "marker": {"color": "black", "symbol": i, "opacity": 0.5},
+                    "marker": {"symbol": i, **arm_colors},
                     "mode": "markers",
                     "name": "In-sample",
                     "showlegend": False,
@@ -758,6 +773,10 @@ def interact_contour_plotly(
                     "y": out_of_sample_param_values[yvar][generator_run_name],
                     "yaxis": "y2",
                     "visible": cur_visible,
+                    "hoverlabel": {
+                        "bgcolor": "rgba(50,50,50,1.0)",
+                        "font": {"color": "white"},
+                    },
                 }
             )
             i += 1
