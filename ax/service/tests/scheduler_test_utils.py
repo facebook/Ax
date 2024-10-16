@@ -145,7 +145,6 @@ class TestScheduler(Scheduler):
 
 
 class RunnerWithFrequentFailedTrials(SyntheticRunner):
-
     poll_failed_next_time = True
 
     def poll_trial_status(
@@ -161,14 +160,12 @@ class RunnerWithFrequentFailedTrials(SyntheticRunner):
 
 
 class RunnerWithFailedAndAbandonedTrials(SyntheticRunner):
-
     poll_failed_next_time = True
     status_idx = 0
 
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
     ) -> dict[TrialStatus, set[int]]:
-
         trial_statuses_dummy = {
             0: TrialStatus.ABANDONED,
             1: TrialStatus.FAILED,
@@ -228,7 +225,6 @@ class RunnerWithEarlyStoppingStrategy(SyntheticRunner):
 
 
 class BrokenRunnerValueError(SyntheticRunnerWithStatusPolling):
-
     run_trial_call_count = 0
 
     def run_multiple(self, trials: Iterable[BaseTrial]) -> dict[int, dict[str, Any]]:
@@ -237,7 +233,6 @@ class BrokenRunnerValueError(SyntheticRunnerWithStatusPolling):
 
 
 class BrokenRunnerRuntimeError(SyntheticRunnerWithStatusPolling):
-
     run_trial_call_count = 0
 
     def run_multiple(self, trials: Iterable[BaseTrial]) -> dict[int, dict[str, Any]]:
@@ -1887,9 +1882,7 @@ class AxSchedulerTestCase(TestCase):
                 {TrialStatus.RUNNING: {0}},
                 {TrialStatus.COMPLETED: {0}},
             ],
-        ), self.assertLogs(
-            logger="ax.service.scheduler", level="INFO"
-        ) as lg:
+        ), self.assertLogs(logger="ax.service.scheduler", level="INFO") as lg:
             scheduler = Scheduler(
                 experiment=self.branin_timestamp_map_metric_experiment,
                 generation_strategy=gs,
@@ -1950,9 +1943,7 @@ class AxSchedulerTestCase(TestCase):
         ), patch(
             f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
             return_value=False,
-        ), self.assertLogs(
-            logger="ax.service.scheduler"
-        ) as lg:
+        ), self.assertLogs(logger="ax.service.scheduler") as lg:
             scheduler = Scheduler(
                 experiment=self.branin_experiment,
                 generation_strategy=gs,
@@ -2637,7 +2628,6 @@ class AxSchedulerTestCase(TestCase):
         )
 
         with self.assertLogs(logger="ax.analysis", level="ERROR") as lg:
-
             cards = scheduler.compute_analyses(analyses=[ParallelCoordinatesPlot()])
 
             self.assertEqual(len(cards), 0)

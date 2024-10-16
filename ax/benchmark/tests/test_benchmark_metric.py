@@ -47,7 +47,6 @@ def get_test_batch_trial() -> BatchTrial:
 
 
 class BenchmarkMetricTest(TestCase):
-
     def test_fetch_trial_data(self) -> None:
         metric1 = BenchmarkMetric(name="test_metric1", lower_is_better=True)
         metric2 = BenchmarkMetric(name="test_metric2", lower_is_better=True)

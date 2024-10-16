@@ -32,9 +32,8 @@ class SurrogateRunner(BenchmarkRunner):
         surrogate: TorchModelBridge | None = None,
         datasets: list[SupervisedDataset] | None = None,
         noise_stds: float | dict[str, float] = 0.0,
-        get_surrogate_and_datasets: None | (
-            Callable[[], tuple[TorchModelBridge, list[SupervisedDataset]]]
-        ) = None,
+        get_surrogate_and_datasets: None
+        | (Callable[[], tuple[TorchModelBridge, list[SupervisedDataset]]]) = None,
         search_space_digest: SearchSpaceDigest | None = None,
     ) -> None:
         """Runner for surrogate benchmark problems.

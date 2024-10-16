@@ -61,9 +61,7 @@ class TestSyntheticRunner(TestCase):
             test_problem_kwargs,
             modified_bounds,
             noise_std,
-        ) in (
-            botorch_cases + param_based_cases
-        ):
+        ) in botorch_cases + param_based_cases:
             if noise_std is not None:
                 # pyre-fixme[6]: Incompatible parameter type: Expected int, got float
                 test_problem_kwargs["noise_std"] = noise_std

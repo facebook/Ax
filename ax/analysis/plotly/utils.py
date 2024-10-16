@@ -95,7 +95,7 @@ def get_constraint_violated_probabilities(
 
 
 def format_constraint_violated_probabilities(
-    constraints_violated: dict[str, float]
+    constraints_violated: dict[str, float],
 ) -> str:
     """Format the constraints violated for the tooltip."""
     max_metric_length = 70

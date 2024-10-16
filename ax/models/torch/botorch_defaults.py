@@ -347,9 +347,8 @@ def _get_acquisition_func(
     X_observed: Tensor | None = None,
     X_pending: Tensor | None = None,
     mc_objective: type[GenericMCObjective] = GenericMCObjective,
-    constrained_mc_objective: None | (
-        type[ConstrainedMCObjective]
-    ) = ConstrainedMCObjective,
+    constrained_mc_objective: None
+    | (type[ConstrainedMCObjective]) = ConstrainedMCObjective,
     # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
     #  `typing.Dict` to avoid runtime subscripting errors.
     mc_objective_kwargs: dict | None = None,

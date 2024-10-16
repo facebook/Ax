@@ -194,7 +194,9 @@ class SobolSensitivity:
             self.f_total_var_btsp = [
                 torch.var(
                     torch.cat(
-                        (self.f_A_btsp[i], self.f_B_btsp[i]), dim=0  # pyre-ignore
+                        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
+                        (self.f_A_btsp[i], self.f_B_btsp[i]),
+                        dim=0,
                     )
                 )
                 for i in range(self.num_bootstrap_samples)
@@ -205,8 +207,7 @@ class SobolSensitivity:
             # the ablations of each other
             self.f_BAis = [
                 f_A_B_ABi[
-                    self.num_mc_samples
-                    * (i + 2 + self.dim) : self.num_mc_samples
+                    self.num_mc_samples * (i + 2 + self.dim) : self.num_mc_samples
                     * (i + 3 + self.dim)
                 ]
                 for i in range(self.dim)

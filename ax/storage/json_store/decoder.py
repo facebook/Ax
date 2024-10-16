@@ -634,7 +634,7 @@ def _load_experiment_info(
 
 
 def _convert_generation_step_keys_for_backwards_compatibility(
-    object_json: dict[str, Any]
+    object_json: dict[str, Any],
 ) -> dict[str, Any]:
     """If necessary, converts keys in a JSON dict representing a `GenerationStep`
     for backwards compatibility.

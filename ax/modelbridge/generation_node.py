@@ -132,7 +132,8 @@ class GenerationNode(SerializationMixin, SortableBase):
         best_model_selector: BestModelSelector | None = None,
         should_deduplicate: bool = False,
         transition_criteria: Sequence[TransitionCriterion] | None = None,
-        input_constructors: None | (
+        input_constructors: None
+        | (
             dict[
                 modelbridge.generation_node_input_constructors.InputConstructorPurpose,
                 modelbridge.generation_node_input_constructors.NodeInputConstructors,

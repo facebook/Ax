@@ -78,7 +78,6 @@ def cv_results_to_df(
     records = []
 
     for i in range(len(arm_names)):
-
         records.append(
             {
                 "arm_name": arm_names[i],

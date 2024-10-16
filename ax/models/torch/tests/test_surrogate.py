@@ -438,9 +438,7 @@ class SurrogateTest(TestCase):
                 wraps=botorch_model_class.construct_inputs,
             ) as mock_construct_inputs, patch.object(
                 botorch_model_class, "__init__", return_value=None
-            ) as mock_init, patch(
-                f"{SURROGATE_PATH}.fit_botorch_model"
-            ) as mock_fit:
+            ) as mock_init, patch(f"{SURROGATE_PATH}.fit_botorch_model") as mock_fit:
                 model = surrogate._construct_model(
                     dataset=self.training_data[0],
                     search_space_digest=self.search_space_digest,

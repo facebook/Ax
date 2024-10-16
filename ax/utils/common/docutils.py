@@ -6,9 +6,7 @@
 
 # pyre-strict
 
-"""Support functions for sphinx et. al
-"""
-
+"""Support functions for sphinx et. al"""
 
 from collections.abc import Callable
 from typing import Any, TypeVar

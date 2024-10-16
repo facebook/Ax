@@ -29,7 +29,6 @@ from pyre_extensions import none_throws
 
 
 class TestInsampleEffectsPlot(TestCase):
-
     def setUp(self) -> None:
         super().setUp()
         self.generation_strategy = GenerationStrategy(
@@ -93,9 +92,7 @@ class TestInsampleEffectsPlot(TestCase):
             )
         ).set_status_quo_with_weight(
             status_quo=experiment.status_quo, weight=1.0
-        ).mark_completed(
-            unsafe=True
-        )
+        ).mark_completed(unsafe=True)
         experiment.fetch_data()
         generation_strategy.gen_with_multiple_nodes(experiment=experiment, n=10)
         # Ensure the current model is Botorch
@@ -323,9 +320,7 @@ class TestInsampleEffectsPlot(TestCase):
             )
         ).set_status_quo_with_weight(
             status_quo=experiment.status_quo, weight=1.0
-        ).mark_completed(
-            unsafe=True
-        )
+        ).mark_completed(unsafe=True)
         experiment.fetch_data()
         # AND GIVEN the experiment has a trial with no data
         empty_trial = experiment.new_batch_trial(

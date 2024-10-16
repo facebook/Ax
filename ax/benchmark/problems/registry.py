@@ -239,7 +239,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
 def get_problem(
     problem_key: str,
     registry: Mapping[str, BenchmarkProblemRegistryEntry] | None = None,
-    **additional_kwargs: Any
+    **additional_kwargs: Any,
 ) -> BenchmarkProblem:
     """
     Generate a benchmark problem from a key, registry, and additional arguments.

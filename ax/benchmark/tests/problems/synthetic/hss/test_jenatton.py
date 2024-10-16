@@ -25,7 +25,6 @@ from pyre_extensions import assert_is_instance
 
 
 class JenattonTest(TestCase):
-
     def test_jenatton_test_function(self) -> None:
         benchmark_problem = get_jenatton_benchmark_problem()
 

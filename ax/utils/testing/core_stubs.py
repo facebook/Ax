@@ -1127,7 +1127,6 @@ def get_robust_search_space(
     use_discrete: bool = False,
     num_samples: int = 4,  # dummy
 ) -> RobustSearchSpace:
-
     parameters = [
         RangeParameter("x", ParameterType.FLOAT, lb, ub),
         RangeParameter("y", ParameterType.FLOAT, lb, ub),
@@ -1658,7 +1657,6 @@ def get_multi_objective_optimization_config(
     relative: bool = True,
     outcome_constraint: bool = True,
 ) -> MultiObjectiveOptimizationConfig:
-
     objective = get_custom_multi_objective() if custom_metric else get_multi_objective()
     outcome_constraints = (
         [get_outcome_constraint(relative=relative)] if outcome_constraint else []

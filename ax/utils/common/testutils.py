@@ -6,8 +6,7 @@
 
 # pyre-strict
 
-"""Support functions for tests
-"""
+"""Support functions for tests"""
 
 import builtins
 import contextlib

@@ -16,7 +16,6 @@ REPORT_MODULE_NAME = "ax.utils.report"
 
 
 def _load_css_resource() -> str:
-
     resource = pkgutil.get_data(
         REPORT_MODULE_NAME, os.path.join("resources", "report.css")
     )
@@ -137,7 +136,6 @@ def render_report_elements(
 
 
 def _load_html_template(name: str) -> str:
-
     resource = pkgutil.get_data(REPORT_MODULE_NAME, os.path.join("resources", name))
     assert resource is not None
     return resource.decode("utf8")

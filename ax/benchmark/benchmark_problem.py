@@ -217,7 +217,6 @@ def get_soo_config_and_outcome_names(
     observe_noise_sd: bool,
     objective_name: str,
 ) -> tuple[OptimizationConfig, list[str]]:
-
     objective = Objective(
         metric=BenchmarkMetric(
             name=objective_name,

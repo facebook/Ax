@@ -84,7 +84,6 @@ class TestSurrogateRunner(TestCase):
             )
 
     def test_equality(self) -> None:
-
         def _construct_runner(name: str) -> SurrogateRunner:
             return SurrogateRunner(
                 name=name,

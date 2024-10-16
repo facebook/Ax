@@ -141,7 +141,6 @@ def get_best_raw_objective_point(
     optimization_config: OptimizationConfig | None = None,
     trial_indices: Iterable[int] | None = None,
 ) -> tuple[TParameterization, dict[str, tuple[float, float]]]:
-
     _, parameterization, vals = get_best_raw_objective_point_with_trial_index(
         experiment=experiment,
         optimization_config=optimization_config,
@@ -165,7 +164,7 @@ def _gr_to_prediction_with_trial_index(
 
 
 def _raw_values_to_model_predict_arm(
-    values: dict[str, tuple[float, float]]
+    values: dict[str, tuple[float, float]],
 ) -> TModelPredictArm:
     return (
         {k: v[0] for k, v in values.items()},  # v[0] is mean

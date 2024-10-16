@@ -190,7 +190,6 @@ class Parameter(SortableBase, metaclass=ABCMeta):
     def summary_dict(
         self,
     ) -> dict[str, TParamValueList | TParamValue | str | list[str]]:
-
         # Assemble dict.
         summary_dict = {
             "name": self.name,

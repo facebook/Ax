@@ -572,7 +572,6 @@ class WinsorizeTransformTest(TestCase):
         self,
         mock_observations_from_data: mock.Mock,
     ) -> None:
-
         # ModelBridge with in-design status quo
         search_space = SearchSpace(
             parameters=[

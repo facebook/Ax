@@ -22,7 +22,6 @@ from torch import Tensor
 
 
 class PairwiseModelBridge(TorchModelBridge):
-
     def _convert_observations(
         self,
         observation_data: list[ObservationData],

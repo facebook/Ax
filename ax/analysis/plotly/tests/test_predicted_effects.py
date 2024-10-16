@@ -131,9 +131,7 @@ class TestPredictedEffectsPlot(TestCase):
             )
         ).set_status_quo_with_weight(
             status_quo=experiment.status_quo, weight=1.0
-        ).mark_completed(
-            unsafe=True
-        )
+        ).mark_completed(unsafe=True)
         experiment.fetch_data()
         experiment.new_batch_trial(
             generator_runs=generation_strategy.gen_with_multiple_nodes(
@@ -200,17 +198,13 @@ class TestPredictedEffectsPlot(TestCase):
             generator_run=generation_strategy.gen(experiment=experiment, n=10)
         ).set_status_quo_with_weight(
             status_quo=experiment.status_quo, weight=1
-        ).mark_completed(
-            unsafe=True
-        )
+        ).mark_completed(unsafe=True)
         experiment.fetch_data()
         experiment.new_batch_trial(
             generator_run=generation_strategy.gen(experiment=experiment, n=10)
         ).set_status_quo_with_weight(
             status_quo=experiment.status_quo, weight=1
-        ).mark_completed(
-            unsafe=True
-        )
+        ).mark_completed(unsafe=True)
         experiment.fetch_data()
         # leave as a candidate
         experiment.new_batch_trial(

@@ -103,9 +103,8 @@ class GeneratorRun(SortableBase):
         gen_metadata: TGenMetadata | None = None,
         model_state_after_gen: dict[str, Any] | None = None,
         generation_step_index: int | None = None,
-        candidate_metadata_by_arm_signature: None | (
-            dict[str, TCandidateMetadata]
-        ) = None,
+        candidate_metadata_by_arm_signature: None
+        | (dict[str, TCandidateMetadata]) = None,
         generation_node_name: str | None = None,
     ) -> None:
         """

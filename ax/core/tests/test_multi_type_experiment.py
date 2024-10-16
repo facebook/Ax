@@ -180,7 +180,6 @@ class MultiTypeExperimentUtilsTest(TestCase):
         self.experiment.new_batch_trial(trial_type="type2")
 
     def test_filter_trials_by_type(self) -> None:
-
         trials = self.experiment.trials.values()
         self.assertEqual(len(trials), 2)
         filtered = filter_trials_by_type(trials, trial_type="type1")

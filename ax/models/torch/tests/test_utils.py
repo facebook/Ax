@@ -57,7 +57,8 @@ class BoTorchModelUtilsTest(TestCase):
             self.metric_names,
         ) = get_torch_test_data(dtype=self.dtype)
         self.Xs2, self.Ys2, self.Yvars2, _, _, _, _ = get_torch_test_data(
-            dtype=self.dtype, offset=1.0  # Making this data different.
+            dtype=self.dtype,
+            offset=1.0,  # Making this data different.
         )
         self.fixed_noise_datasets = [
             SupervisedDataset(

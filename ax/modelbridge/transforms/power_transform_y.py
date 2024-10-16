@@ -161,7 +161,7 @@ class PowerTransformY(Transform):
 
 
 def _compute_power_transforms(
-    Ys: dict[str, list[float]]
+    Ys: dict[str, list[float]],
 ) -> dict[str, PowerTransformer]:
     """Compute power transforms."""
     power_transforms = {}

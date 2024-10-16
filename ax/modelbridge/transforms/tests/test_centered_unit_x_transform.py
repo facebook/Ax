@@ -11,7 +11,6 @@ from ax.modelbridge.transforms.tests.test_unit_x_transform import UnitXTransform
 
 
 class CenteredUnitXTransformTest(UnitXTransformTest):
-
     transform_class = CenteredUnitX
     # pyre-fixme[4]: Attribute must be annotated.
     expected_c_dicts = [{"x": -0.5, "y": 0.5}, {"x": -0.5, "a": 1.0}]

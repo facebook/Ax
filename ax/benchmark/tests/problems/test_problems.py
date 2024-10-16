@@ -11,7 +11,6 @@ from ax.utils.common.testutils import TestCase
 
 class TestProblems(TestCase):
     def test_load_problems(self) -> None:
-
         # Make sure problem construction succeeds
         for name in BENCHMARK_PROBLEM_REGISTRY.keys():
             if "MNIST" in name:

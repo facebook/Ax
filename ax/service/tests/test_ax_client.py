@@ -211,7 +211,6 @@ def get_client_with_simple_discrete_moo_problem(
     use_y0_threshold: bool,
     use_y2_constraint: bool,
 ) -> AxClient:
-
     gs = GenerationStrategy(
         steps=[
             GenerationStep(model=Models.SOBOL, num_trials=3),
@@ -2545,7 +2544,7 @@ class TestAxClient(TestCase):
         """
 
         def _get_parameterizations_from_pareto_frontier(
-            pareto: dict[int, tuple[TParameterization, TModelPredictArm]]
+            pareto: dict[int, tuple[TParameterization, TModelPredictArm]],
         ) -> set[TParamValue]:
             return {tup[0]["x"] for tup in pareto.values()}
 

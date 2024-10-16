@@ -86,9 +86,8 @@ class Experiment(Base):
         experiment_type: str | None = None,
         properties: dict[str, Any] | None = None,
         default_data_type: DataType | None = None,
-        auxiliary_experiments_by_purpose: None | (
-            dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]
-        ) = None,
+        auxiliary_experiments_by_purpose: None
+        | (dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]) = None,
     ) -> None:
         """Inits Experiment.
 
@@ -141,7 +140,7 @@ class Experiment(Base):
 
         self.auxiliary_experiments_by_purpose: dict[
             AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]
-        ] = (auxiliary_experiments_by_purpose or {})
+        ] = auxiliary_experiments_by_purpose or {}
 
         self.add_tracking_metrics(tracking_metrics or [])
 
@@ -852,9 +851,7 @@ class Experiment(Base):
         last_data_type = type(last_data)
         merge_keys = ["trial_index", "metric_name", "arm_name"] + (
             # pyre-ignore[16]
-            last_data.map_keys
-            if issubclass(last_data_type, MapData)
-            else []
+            last_data.map_keys if issubclass(last_data_type, MapData) else []
         )
         # this merge is like a SQL left join on merge keys
         # it will return a dataframe with the columns in merge_keys
@@ -1742,14 +1739,14 @@ class Experiment(Base):
 
             for constraint in opt_config.all_constraints:
                 if not isinstance(constraint, ObjectiveThreshold):
-                    records[constraint.metric.name][
-                        METRIC_DF_COLNAMES["goal"]
-                    ] = "constrain"
+                    records[constraint.metric.name][METRIC_DF_COLNAMES["goal"]] = (
+                        "constrain"
+                    )
                 op = ">= " if constraint.op == ComparisonOp.GEQ else "<= "
                 relative = "%" if constraint.relative else ""
-                records[constraint.metric.name][
-                    METRIC_DF_COLNAMES["bound"]
-                ] = f"{op}{constraint.bound}{relative}"
+                records[constraint.metric.name][METRIC_DF_COLNAMES["bound"]] = (
+                    f"{op}{constraint.bound}{relative}"
+                )
 
         for metric in self.tracking_metrics or []:
             records[metric.name][METRIC_DF_COLNAMES["goal"]] = "track"

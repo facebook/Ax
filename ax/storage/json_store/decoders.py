@@ -184,7 +184,7 @@ def input_transform_type_from_json(object_json: dict[str, Any]) -> type[InputTra
 
 
 def outcome_transform_type_from_json(
-    object_json: dict[str, Any]
+    object_json: dict[str, Any],
 ) -> type[OutcomeTransform]:
     outcome_transform_type = object_json.pop("index")
     if outcome_transform_type not in REVERSE_OUTCOME_TRANSFORM_REGISTRY:

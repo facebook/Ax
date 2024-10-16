@@ -1380,9 +1380,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
-        class_encoder_registry: None | (
-            dict[type, Callable[[Any], dict[str, Any]]]
-        ) = None,
+        class_encoder_registry: None
+        | (dict[type, Callable[[Any], dict[str, Any]]]) = None,
     ) -> dict[str, Any]:
         """Serialize this `AxClient` to JSON to be able to interrupt and restart
         optimization and save it to file by the provided path.
@@ -1417,9 +1416,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         serialized: dict[str, Any],
         decoder_registry: TDecoderRegistry | None = None,
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-        class_decoder_registry: None | (
-            dict[str, Callable[[dict[str, Any]], Any]]
-        ) = None,
+        class_decoder_registry: None
+        | (dict[str, Callable[[dict[str, Any]], Any]]) = None,
         # pyre-fixme[2]: Parameter must be annotated.
         **kwargs,
     ) -> AxClientSubclass:

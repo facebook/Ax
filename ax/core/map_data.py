@@ -295,7 +295,6 @@ class MapData(Data):
         trial_indices: Iterable[int] | None = None,
         metric_names: Iterable[str] | None = None,
     ) -> MapData:
-
         return MapData(
             df=self._filter_df(
                 df=self.map_df, trial_indices=trial_indices, metric_names=metric_names

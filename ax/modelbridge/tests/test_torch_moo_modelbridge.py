@@ -249,7 +249,6 @@ class MultiObjectiveTorchModelBridgeTest(TestCase):
 
     @fast_botorch_optimize
     def test_get_pareto_frontier_and_configs_input_validation(self) -> None:
-
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True, with_batch=True
         )

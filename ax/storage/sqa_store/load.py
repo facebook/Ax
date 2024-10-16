@@ -187,7 +187,8 @@ def _get_experiment_sqa(
     """Obtains SQLAlchemy experiment object from DB."""
     with session_scope() as session:
         query = (
-            session.query(exp_sqa_class).filter_by(name=experiment_name)
+            session.query(exp_sqa_class)
+            .filter_by(name=experiment_name)
             # Delay loading trials to a separate call to `_get_trials_sqa` below
             .options(noload("trials"))
         )

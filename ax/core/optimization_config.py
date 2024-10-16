@@ -298,9 +298,8 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         self,
         objective: MultiObjective | ScalarizedObjective | None = None,
         outcome_constraints: None | (list[OutcomeConstraint]) = _NO_OUTCOME_CONSTRAINTS,
-        objective_thresholds: None | (
-            list[ObjectiveThreshold]
-        ) = _NO_OBJECTIVE_THRESHOLDS,
+        objective_thresholds: None
+        | (list[ObjectiveThreshold]) = _NO_OBJECTIVE_THRESHOLDS,
         risk_measure: RiskMeasure | None = _NO_RISK_MEASURE,
     ) -> "MultiObjectiveOptimizationConfig":
         """Make a copy of this optimization config."""

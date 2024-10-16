@@ -36,7 +36,6 @@ class AndEarlyStoppingStrategy(LogicalEarlyStoppingStrategy):
         experiment: Experiment,
         **kwargs: dict[str, Any],
     ) -> dict[int, str | None]:
-
         left = self.left.should_stop_trials_early(
             trial_indices=trial_indices, experiment=experiment, **kwargs
         )

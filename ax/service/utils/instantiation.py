@@ -559,7 +559,6 @@ class InstantiationBase:
         status_quo_defined: bool,
         metric_definitions: dict[str, dict[str, Any]] | None = None,
     ) -> list[OutcomeConstraint]:
-
         typed_outcome_constraints = [
             cls.outcome_constraint_from_str(c, metric_definitions=metric_definitions)
             for c in outcome_constraints
@@ -581,7 +580,6 @@ class InstantiationBase:
         status_quo_defined: bool,
         metric_definitions: dict[str, dict[str, Any]] | None = None,
     ) -> list[ObjectiveThreshold]:
-
         typed_objective_thresholds = (
             [
                 cls.objective_threshold_constraint_from_str(
@@ -649,7 +647,6 @@ class InstantiationBase:
         status_quo_defined: bool,
         metric_definitions: dict[str, dict[str, Any]] | None = None,
     ) -> OptimizationConfig:
-
         return cls.optimization_config_from_objectives(
             cls.make_objectives(objectives, metric_definitions=metric_definitions),
             cls.make_objective_thresholds(
@@ -790,9 +787,8 @@ class InstantiationBase:
         objective_thresholds: list[str] | None = None,
         support_intermediate_data: bool = False,
         immutable_search_space_and_opt_config: bool = True,
-        auxiliary_experiments_by_purpose: None | (
-            dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]
-        ) = None,
+        auxiliary_experiments_by_purpose: None
+        | (dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]) = None,
         is_test: bool = False,
     ) -> Experiment:
         """Instantiation wrapper that allows for Ax `Experiment` creation

@@ -27,7 +27,7 @@ class TestInteractiveLoop(TestCase):
     @fast_botorch_optimize
     def test_interactive_loop(self) -> None:
         def _elicit(
-            parameterization_with_trial_index: tuple[TParameterization, int]
+            parameterization_with_trial_index: tuple[TParameterization, int],
         ) -> tuple[int, TEvaluationOutcome] | None:
             parameterization, trial_index = parameterization_with_trial_index
             x = np.array([parameterization.get(f"x{i+1}") for i in range(6)])
@@ -41,7 +41,7 @@ class TestInteractiveLoop(TestCase):
             )
 
         def _aborted_elicit(
-            parameterization_with_trial_index: tuple[TParameterization, int]
+            parameterization_with_trial_index: tuple[TParameterization, int],
         ) -> tuple[int, TEvaluationOutcome] | None:
             return None
 
@@ -84,7 +84,7 @@ class TestInteractiveLoop(TestCase):
 
     def test_candidate_pregeneration_errors_raised(self) -> None:
         def _elicit(
-            parameterization_with_trial_index: tuple[TParameterization, int]
+            parameterization_with_trial_index: tuple[TParameterization, int],
         ) -> tuple[int, TEvaluationOutcome]:
             parameterization, trial_index = parameterization_with_trial_index
             time.sleep(0.15)  # Sleep to induce MaxParallelismException in loop

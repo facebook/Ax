@@ -109,7 +109,6 @@ class TestCVConsistencyCheck(TestCase):
         self.assertEqual(result_analysis, result_plot)
 
     def test_obs_vs_pred_dropdown_plot_branin(self) -> None:
-
         label_dict = {"branin": "BrAnIn"}
 
         cross_validation_plot = CrossValidationPlot(

@@ -47,7 +47,6 @@ def use_model_list(
     botorch_model_class: type[Model],
     allow_batched_models: bool = True,
 ) -> bool:
-
     if issubclass(botorch_model_class, MultiTaskGP):
         # We currently always wrap multi-task models into `ModelListGP`.
         return True
@@ -142,8 +141,7 @@ def choose_botorch_acqf_class(
         # using objective_weights is a less-than-ideal fix given its ambiguity,
         # the real fix would be to revisit the infomration passed down via
         # the modelbridge (and be explicit about whether we scalarize or perform MOO)
-        objective_weights is not None
-        and objective_weights.nonzero().numel() > 1
+        objective_weights is not None and objective_weights.nonzero().numel() > 1
     ):
         acqf_class = qLogNoisyExpectedHypervolumeImprovement
     else:

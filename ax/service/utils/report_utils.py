@@ -148,9 +148,8 @@ def _get_objective_trace_plot(
 def _get_objective_v_param_plots(
     experiment: Experiment,
     model: ModelBridge,
-    importance: None | (
-        dict[str, dict[str, np.ndarray]] | dict[str, dict[str, float]]
-    ) = None,
+    importance: None
+    | (dict[str, dict[str, np.ndarray]] | dict[str, dict[str, float]]) = None,
     # Chosen to take ~1min on local benchmarks.
     max_num_slice_plots: int = 200,
     # Chosen to take ~2min on local benchmarks.
@@ -789,9 +788,8 @@ def exp_to_df(
     run_metadata_fields: list[str] | None = None,
     trial_properties_fields: list[str] | None = None,
     trial_attribute_fields: list[str] | None = None,
-    additional_fields_callables: None | (
-        dict[str, Callable[[Experiment], dict[int, str | float]]]
-    ) = None,
+    additional_fields_callables: None
+    | (dict[str, Callable[[Experiment], dict[int, str | float]]]) = None,
     always_include_field_columns: bool = False,
     show_relative_metrics: bool = False,
     **kwargs: Any,
@@ -1120,7 +1118,6 @@ def _pareto_frontier_scatter_2d_plotly(
     reference_point: tuple[float, float] | None = None,
     minimize: bool | tuple[bool, bool] | None = None,
 ) -> go.Figure:
-
     # Determine defaults for unspecified inputs using `optimization_config`
     metric_names, reference_point, minimize = _pareto_frontier_plot_input_processing(
         experiment=experiment,
@@ -1140,7 +1137,6 @@ def pareto_frontier_scatter_2d_plotly(
     reference_point: tuple[float, float] | None = None,
     minimize: bool | tuple[bool, bool] | None = None,
 ) -> go.Figure:
-
     df = exp_to_df(experiment)
     Y = df[list(metric_names)].to_numpy()
     Y_pareto = (
@@ -1188,7 +1184,7 @@ def _objective_vs_true_objective_scatter(
 # TODO: may want to have a way to do this with a plot_fn
 # that returns a list of plots, such as get_standard_plots
 def get_figure_and_callback(
-    plot_fn: Callable[["Scheduler"], go.Figure]
+    plot_fn: Callable[["Scheduler"], go.Figure],
 ) -> tuple[go.Figure, Callable[["Scheduler"], None]]:
     """
     Produce a figure and a callback for updating the figure in place.
@@ -1473,7 +1469,7 @@ def maybe_extract_baseline_comparison_values(
 
 
 def compare_to_baseline_impl(
-    comparison_list: list[tuple[str, bool, str, float, str, float]]
+    comparison_list: list[tuple[str, bool, str, float, str, float]],
 ) -> str | None:
     """Implementation of compare_to_baseline, taking in a
     list of arm comparisons.

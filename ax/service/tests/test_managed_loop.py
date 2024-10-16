@@ -20,7 +20,9 @@ from numpy import ndarray
 
 
 def _branin_evaluation_function(
-    parameterization, weight=None  # pyre-fixme[2]: Parameter must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
+    parameterization,
+    weight=None,  # pyre-fixme[2]: Parameter must be annotated.
 ) -> dict[str, tuple[float | ndarray, float]]:
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
@@ -32,7 +34,9 @@ def _branin_evaluation_function(
 
 
 def _branin_evaluation_function_v2(
-    parameterization, weight=None  # pyre-fixme[2]: Parameter must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
+    parameterization,
+    weight=None,  # pyre-fixme[2]: Parameter must be annotated.
 ) -> tuple[float | ndarray, float]:
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
@@ -41,7 +45,9 @@ def _branin_evaluation_function_v2(
 
 
 def _branin_evaluation_function_with_unknown_sem(
-    parameterization, weight=None  # pyre-fixme[2]: Parameter must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
+    parameterization,
+    weight=None,  # pyre-fixme[2]: Parameter must be annotated.
 ) -> tuple[float | ndarray, None]:
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")

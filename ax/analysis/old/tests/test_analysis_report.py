@@ -22,7 +22,6 @@ from ax.utils.testing.mock import fast_botorch_optimize
 
 
 class TestCrossValidationPlot(TestCase):
-
     class TestAnalysis(BaseAnalysis):
         def get_df(self) -> pd.DataFrame:
             return pd.DataFrame()

@@ -524,7 +524,7 @@ class BotorchModel(TorchModel):
 
 
 def get_rounding_func(
-    rounding_func: Callable[[Tensor], Tensor] | None
+    rounding_func: Callable[[Tensor], Tensor] | None,
 ) -> Callable[[Tensor], Tensor] | None:
     if rounding_func is None:
         botorch_rounding_func = rounding_func

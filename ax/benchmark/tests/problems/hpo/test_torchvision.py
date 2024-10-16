@@ -36,7 +36,6 @@ class TestPyTorchCNNTorchvision(TestCase):
             "ax.benchmark.problems.hpo.torchvision._REGISTRY",
             {"MNIST": TestDataset, "FashionMNIST": TestDataset},
         ):
-
             self.assertEqual(
                 get_problem(problem_key="hpo_pytorch_cnn_MNIST").name,
                 "HPO_PyTorchCNN_Torchvision::MNIST",

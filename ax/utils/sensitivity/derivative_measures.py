@@ -51,7 +51,6 @@ def sample_discrete_parameters(
 
 
 class GpDGSMGpMean:
-
     mean_gradients: torch.Tensor | None = None
     bootstrap_indices: torch.Tensor | None = None
     mean_gradients_btsp: list[torch.Tensor] | None = None
@@ -237,7 +236,6 @@ class GpDGSMGpMean:
 
 
 class GpDGSMGpSampling(GpDGSMGpMean):
-
     samples_gradients: torch.Tensor | None = None
     samples_gradients_btsp: list[torch.Tensor] | None = None
 

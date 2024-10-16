@@ -85,7 +85,6 @@ def _prepare_data(experiment: Experiment, metric: str) -> pd.DataFrame:
 
 
 def _prepare_plot(df: pd.DataFrame, metric_name: str) -> go.Figure:
-
     # ParCoords requires that the dimensions are specified on continuous scales, so
     # ChoiceParameters and FixedParameters must be preprocessed to allow for
     # appropriate plotting.

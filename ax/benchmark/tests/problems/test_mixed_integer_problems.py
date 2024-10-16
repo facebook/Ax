@@ -103,7 +103,6 @@ class MixedIntegerProblemsTest(TestCase):
         ]
 
         for problem, params, expected_arg in cases:
-
             runner = checked_cast(BotorchTestProblemRunner, problem.runner)
             trial = Trial(experiment=MagicMock())
             # pyre-fixme: Incompatible parameter type [6]: In call

@@ -77,7 +77,10 @@ class UnitX(Transform):
                 )
                 if p.target_value is not None:
                     p._target_value = self._normalize_value(
-                        value=p.target_value, bounds=p_bounds  # pyre-ignore [6]
+                        # pyre-fixme[6]: For 1st argument expected `float` but got
+                        #  `Union[bool, float, int, str]`.
+                        value=p.target_value,
+                        bounds=p_bounds,
                     )
         new_constraints: list[ParameterConstraint] = []
         for c in search_space.parameter_constraints:

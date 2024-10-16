@@ -20,7 +20,6 @@ T = TypeVar("T")
 
 
 class SyntheticFunction(ABC):
-
     _required_dimensionality: int
     _domain: list[tuple[float, float]]
     _minimums: list[tuple[float, ...]] | None = None

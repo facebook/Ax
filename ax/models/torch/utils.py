@@ -345,7 +345,7 @@ def subset_model(
 
 
 def _to_inequality_constraints(
-    linear_constraints: tuple[Tensor, Tensor] | None = None
+    linear_constraints: tuple[Tensor, Tensor] | None = None,
 ) -> list[tuple[Tensor, Tensor, float]] | None:
     if linear_constraints is not None:
         A, b = linear_constraints

@@ -190,7 +190,11 @@ class BotorchDefaultsTest(TestCase):
             LKJCovariancePrior,
         )
         model = _get_model(
-            X=x, Y=y, Yvar=var, task_feature=1, **deepcopy(kwargs6)  # pyre-ignore
+            X=x,
+            Y=y,
+            Yvar=var,
+            task_feature=1,
+            **deepcopy(kwargs6),  # pyre-ignore
         )
         self.assertIsInstance(model, MultiTaskGP)
         self.assertIsInstance(model.likelihood, FixedNoiseGaussianLikelihood)
@@ -213,7 +217,11 @@ class BotorchDefaultsTest(TestCase):
             lengthscale_prior=GammaPrior(6.0, 6.0),
         )
         model = _get_model(
-            X=x, Y=y, Yvar=var, covar_module=covar_module, **kwargs7  # pyre-ignore
+            X=x,
+            Y=y,
+            Yvar=var,
+            covar_module=covar_module,
+            **kwargs7,  # pyre-ignore
         )
         self.assertIsInstance(model, SingleTaskGP)
         self.assertIsInstance(model.likelihood, FixedNoiseGaussianLikelihood)

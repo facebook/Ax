@@ -262,9 +262,7 @@ def plot_feature_importance_by_feature_plotly(
         height=200 + len(features) * 20,
         width=10 * longest_label + max(10 * longest_metric, 400),
         hovermode="closest",
-        margin=go.layout.Margin(
-            l=8 * min(max(len(idx) for idx in features), 75)
-        ),  # noqa E741
+        margin=go.layout.Margin(l=8 * min(max(len(idx) for idx in features), 75)),  # noqa E741
         title=title,
         updatemenus=updatemenus,
         annotations=compose_annotation(caption=caption),

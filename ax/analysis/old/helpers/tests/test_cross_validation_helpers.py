@@ -60,7 +60,6 @@ class TestCrossValidationHelpers(TestCase):
         self.assertAlmostEqual(max_, expected_max, delta=1e-4)
 
     def test_obs_vs_pred_dropdown_plot(self) -> None:
-
         cross_validation_plot = CrossValidationPlot(
             experiment=self.exp, model=self.model
         )

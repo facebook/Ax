@@ -47,7 +47,7 @@ class BenchmarkRunner(Runner, ABC):
         self,
         *,
         outcome_names: list[str],
-        search_space_digest: SearchSpaceDigest | None = None
+        search_space_digest: SearchSpaceDigest | None = None,
     ) -> None:
         """
         Args:

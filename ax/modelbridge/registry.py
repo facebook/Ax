@@ -15,7 +15,6 @@ generation strategies from generator runs they produced. To reinstantiate a mode
 from generator run, use `get_model_from_generator_run` utility from this module.
 """
 
-
 from __future__ import annotations
 
 import warnings

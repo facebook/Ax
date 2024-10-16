@@ -138,7 +138,8 @@ class TorchModelBridgeTest(TestCase):
         ]
         observations = recombine_observations(observation_features, observation_data)
         ssd = SearchSpaceDigest(
-            feature_names=feature_names, bounds=[(0, 1)] * 3  # pyre-ignore
+            feature_names=feature_names,
+            bounds=[(0, 1)] * 3,  # pyre-ignore
         )
 
         with mock.patch(
