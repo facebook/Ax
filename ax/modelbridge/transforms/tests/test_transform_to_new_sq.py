@@ -57,12 +57,10 @@ class TransformToNewSQSpecificTest(TestCase):
             with_batch=True,
             with_status_quo=True,
         )
-        for t in self.exp.trials.values():
-            t.mark_running(no_runner_required=True)
-            self.exp.attach_data(
-                get_branin_data_batch(batch=checked_cast(BatchTrial, t))
-            )
-            t.mark_completed()
+        t = self.exp.trials[0]
+        t.mark_running(no_runner_required=True)
+        self.exp.attach_data(get_branin_data_batch(batch=checked_cast(BatchTrial, t)))
+        t.mark_completed()
         self.data = self.exp.fetch_data()
 
         self.modelbridge = ModelBridge(
@@ -123,3 +121,15 @@ class TransformToNewSQSpecificTest(TestCase):
             config={"target_trial_index": 1},
         )
         self.assertEqual(tf.default_trial_idx, 1)
+
+    def test_single_trial_is_not_transformed(self) -> None:
+        tf = TransformToNewSQ(
+            search_space=None,
+            observations=[],
+            modelbridge=self.modelbridge,
+        )
+        obs = self.modelbridge._prepare_observations(
+            experiment=self.exp, data=self.data
+        )
+        obs2 = tf.transform_observations(obs)
+        self.assertEqual(obs, obs2)
