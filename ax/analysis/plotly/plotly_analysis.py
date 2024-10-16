@@ -7,7 +7,7 @@
 
 
 import pandas as pd
-from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardLevel
+from ax.analysis.analysis import Analysis, AnalysisCard
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from IPython.display import display
@@ -43,7 +43,7 @@ class PlotlyAnalysis(Analysis):
         self,
         title: str,
         subtitle: str,
-        level: AnalysisCardLevel,
+        level: int,
         df: pd.DataFrame,
         fig: go.Figure,
     ) -> PlotlyAnalysisCard:
