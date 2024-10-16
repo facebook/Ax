@@ -437,17 +437,36 @@ class Encoder:
 
     def metric_to_sqa(self, metric: Metric) -> SQAMetric:
         """Convert Ax Metric to SQLAlchemy."""
-        metric_type, properties = self.get_metric_type_and_properties(metric=metric)
+        # When an experiment is loaded with `skip_runners_and_metrics` flag enabled,
+        # runners are simply omitted, but metrics are not, since their names and
+        # `lower_is_better` direction is needed in a few places during optimization.
+        # Instead of simply omitting them, we "stub" them as base `Metric` objects,
+        # which still have the name and the `lower_is_better` of the original metric.
+        # We also preserve the original metric in the `properties` json blob, so now
+        # during encoding, we can inject that back in and save the metric in a way
+        # that matches its original form.
+        if Keys.STUBBED_METRIC_FULL_SQA in metric.properties:
+            properties_for_sqa = {
+                k: object_to_json(v)
+                for k, v in metric.properties.items()
+                if k != Keys.STUBBED_METRIC_FULL_SQA
+            }
+            full_sqa_props = metric.properties[Keys.STUBBED_METRIC_FULL_SQA]
+            metric_type = full_sqa_props["metric_properties"]
+            properties_for_sqa.update(full_sqa_props["metric_properties"])
+        else:
+            # Non-stubbed metric case, encoding fully.
+            metric_type, properties_for_sqa = self.get_metric_type_and_properties(
+                metric=metric
+            )
 
-        # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Metric]`.
-        metric_class: SQAMetric = self.config.class_to_sqa_class[Metric]
-        # pyre-fixme[29]: `SQAMetric` is not a function.
-        return metric_class(
+        metric_class: SQAMetric = self.config.class_to_sqa_class[cast(Base, Metric)]
+        return metric_class(  # pyre-fixme[29]: `SQAMetric` is not a function.
             id=metric.db_id,
             name=metric.name,
             metric_type=metric_type,
             intent=MetricIntent.TRACKING,
-            properties=properties,
+            properties=properties_for_sqa,
             lower_is_better=metric.lower_is_better,
         )
 

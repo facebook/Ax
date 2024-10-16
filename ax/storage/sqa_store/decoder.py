@@ -140,10 +140,12 @@ class Decoder:
         experiment_sqa: SQAExperiment,
         ax_object_field_overrides: dict[str, Any] | None = None,
         load_auxiliary_experiments: bool = True,
+        skip_runners_and_metrics: bool = False,
     ) -> Experiment:
         """First step of conversion within experiment_from_sqa."""
         opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
-            metrics_sqa=experiment_sqa.metrics
+            metrics_sqa=experiment_sqa.metrics,
+            skip_runners_and_metrics=skip_runners_and_metrics,
         )
         search_space = self.search_space_from_sqa(
             parameters_sqa=experiment_sqa.parameters,
@@ -261,6 +263,7 @@ class Decoder:
         reduced_state: bool = False,
         ax_object_field_overrides: dict[str, Any] | None = None,
         load_auxiliary_experiments: bool = True,
+        skip_runners_and_metrics: bool = False,
     ) -> Experiment:
         """Convert SQLAlchemy Experiment to Ax Experiment.
 
@@ -274,6 +277,7 @@ class Decoder:
                 set to override value
                 current valid object types are: "runner"
             load_auxiliary_experiment: whether to load auxiliary experiments.
+            skip_runners_and_metrics: TODO @no-commit
         """
         subclass = (experiment_sqa.properties or {}).get(Keys.SUBCLASS)
         if subclass == "MultiTypeExperiment":
@@ -283,6 +287,7 @@ class Decoder:
                 experiment_sqa,
                 ax_object_field_overrides=ax_object_field_overrides,
                 load_auxiliary_experiments=load_auxiliary_experiments,
+                skip_runners_and_metrics=skip_runners_and_metrics,
             )
         trials = [
             self.trial_from_sqa(
@@ -290,6 +295,7 @@ class Decoder:
                 experiment=experiment,
                 reduced_state=reduced_state,
                 ax_object_field_overrides=ax_object_field_overrides,
+                skip_runners_and_metrics=skip_runners_and_metrics,
             )
             for trial in experiment_sqa.trials
         ]
@@ -554,11 +560,15 @@ class Decoder:
             )
 
     def metric_from_sqa(
-        self, metric_sqa: SQAMetric
+        self,
+        metric_sqa: SQAMetric,
+        skip_runners_and_metrics: bool,
     ) -> Metric | Objective | OutcomeConstraint | RiskMeasure:
         """Convert SQLAlchemy Metric to Ax Metric, Objective, or OutcomeConstraint."""
 
-        metric = self._metric_from_sqa_util(metric_sqa)
+        metric = self._metric_from_sqa_util(
+            metric_sqa, skip_runners_and_metrics=skip_runners_and_metrics
+        )
 
         if metric_sqa.intent == MetricIntent.TRACKING:
             return metric
@@ -595,7 +605,9 @@ class Decoder:
             )
 
     def opt_config_and_tracking_metrics_from_sqa(
-        self, metrics_sqa: list[SQAMetric]
+        self,
+        metrics_sqa: list[SQAMetric],
+        skip_runners_and_metrics: bool = False,
     ) -> tuple[OptimizationConfig | None, list[Metric]]:
         """Convert a list of SQLAlchemy Metrics to a a tuple of Ax OptimizationConfig
         and tracking metrics.
@@ -606,7 +618,9 @@ class Decoder:
         tracking_metrics = []
         risk_measure = None
         for metric_sqa in metrics_sqa:
-            metric = self.metric_from_sqa(metric_sqa=metric_sqa)
+            metric = self.metric_from_sqa(
+                metric_sqa=metric_sqa, skip_runners_and_metrics=skip_runners_and_metrics
+            )
             if isinstance(metric, Objective):
                 objective = metric
             elif isinstance(metric, ObjectiveThreshold):
@@ -636,7 +650,7 @@ class Decoder:
                 outcome_constraints=outcome_constraints,
                 risk_measure=risk_measure,
             )
-        return (optimization_config, tracking_metrics)
+        return optimization_config, tracking_metrics
 
     def arm_from_sqa(self, arm_sqa: SQAArm) -> Arm:
         """Convert SQLAlchemy Arm to Ax Arm."""
@@ -661,6 +675,7 @@ class Decoder:
         generator_run_sqa: SQAGeneratorRun,
         reduced_state: bool,
         immutable_search_space_and_opt_config: bool,
+        skip_runners_and_metrics: bool = False,
     ) -> GeneratorRun:
         """Convert SQLAlchemy GeneratorRun to Ax GeneratorRun.
 
@@ -685,7 +700,8 @@ class Decoder:
                 opt_config,
                 tracking_metrics,
             ) = self.opt_config_and_tracking_metrics_from_sqa(
-                metrics_sqa=generator_run_sqa.metrics
+                metrics_sqa=generator_run_sqa.metrics,
+                skip_runners_and_metrics=skip_runners_and_metrics,
             )
             if len(tracking_metrics) > 0:
                 raise SQADecodeError("GeneratorRun should not have tracking metrics.")
@@ -896,6 +912,7 @@ class Decoder:
         self,
         trial_sqa: SQATrial,
         experiment: Experiment,
+        skip_runners_and_metrics: bool,
         reduced_state: bool = False,
         ax_object_field_overrides: dict[str, Any] | None = None,
     ) -> BaseTrial:
@@ -922,6 +939,7 @@ class Decoder:
                         generator_run_sqa=generator_run_sqa,
                         reduced_state=reduced_state,
                         immutable_search_space_and_opt_config=immutable_ss_and_oc,
+                        skip_runners_and_metrics=skip_runners_and_metrics,
                     ),
                     weight=float(generator_run_sqa.weight or 1.0),
                 )
@@ -969,6 +987,7 @@ class Decoder:
                     generator_run_sqa=trial_sqa.generator_runs[0],
                     reduced_state=reduced_state,
                     immutable_search_space_and_opt_config=immutable_ss_and_oc,
+                    skip_runners_and_metrics=skip_runners_and_metrics,
                 )
         trial._trial_type = trial_sqa.trial_type
         # Swap `DISPATCHED` for `RUNNING`, since `DISPATCHED` is deprecated and nearly
@@ -1062,29 +1081,51 @@ class Decoder:
             ),
         )
 
-    def _metric_from_sqa_util(self, metric_sqa: SQAMetric) -> Metric:
+    def _metric_from_sqa_util(
+        self, metric_sqa: SQAMetric, skip_runners_and_metrics: bool = False
+    ) -> Metric:
         """Convert SQLAlchemy Metric to Ax Metric"""
         if metric_sqa.metric_type not in self.config.reverse_metric_registry:
+            # TODO: Validate that we are decoding with the same registry that
+            # we encoded with and raise a more informative error indicating that
+            # a wrong registry is being used.
             raise SQADecodeError(
                 f"Cannot decode SQAMetric because {metric_sqa.metric_type} "
                 f"is an invalid type. "
             )
-        metric_class = self.config.reverse_metric_registry[metric_sqa.metric_type]
-
-        args = dict(
-            object_from_json(
-                metric_sqa.properties,
-                decoder_registry=self.config.json_decoder_registry,
-                class_decoder_registry=self.config.json_class_decoder_registry,
-            )
-            or {}
-        )
+        args = {}
         args["name"] = metric_sqa.name
         args["lower_is_better"] = metric_sqa.lower_is_better
+        if skip_runners_and_metrics:
+            metric_class = Metric
+        else:
+            metric_class = self.config.reverse_metric_registry[metric_sqa.metric_type]
+            args.update(
+                dict(
+                    object_from_json(
+                        metric_sqa.properties,
+                        decoder_registry=self.config.json_decoder_registry,
+                        class_decoder_registry=self.config.json_class_decoder_registry,
+                    )
+                    or {}
+                )
+            )
 
         args = metric_class.deserialize_init_args(args=args)
         metric = metric_class(**args)
         metric.db_id = metric_sqa.id
+
+        if skip_runners_and_metrics:
+            # When we skip loading full metrics (e.g. to avoid depending on the
+            # registry that has them when it's not the CORE_..._REGISTRY), we still
+            # capture the full JSON of metric properties, to be able to correctly
+            # put the full metric into any `GeneratorRun`, produced for this exp.,
+            # that will need to keep copies of `Metric` objects that were set
+            # at the time of generation.
+            metric.properties[Keys.STUBBED_METRIC_FULL_SQA] = {
+                "metric_type": metric_sqa.metric_type,
+                "metric_properties": metric_sqa.properties,
+            }
         return metric
 
     def _objective_from_sqa(self, metric: Metric, metric_sqa: SQAMetric) -> Objective:
@@ -1108,7 +1149,9 @@ class Decoder:
             metric.lower_is_better = minimize
         return Objective(metric=metric, minimize=minimize)
 
-    def _multi_objective_from_sqa(self, parent_metric_sqa: SQAMetric) -> Objective:
+    def _multi_objective_from_sqa(
+        self, parent_metric_sqa: SQAMetric, skip_runners_and_metrics: bool
+    ) -> Objective:
         try:
             metrics_sqa_children = (
                 parent_metric_sqa.scalarized_objective_children_metrics
@@ -1133,7 +1176,9 @@ class Decoder:
         # Extracting metric and weight for each child
         objectives = [
             self._objective_from_sqa(
-                metric=self._metric_from_sqa_util(parent_metric_sqa),
+                metric=self._metric_from_sqa_util(
+                    parent_metric_sqa, skip_runners_and_metrics=skip_runners_and_metrics
+                ),
                 metric_sqa=parent_metric_sqa,
             )
             for parent_metric_sqa in metrics_sqa_children
@@ -1143,7 +1188,9 @@ class Decoder:
         multi_objective.db_id = parent_metric_sqa.id
         return multi_objective
 
-    def _scalarized_objective_from_sqa(self, parent_metric_sqa: SQAMetric) -> Objective:
+    def _scalarized_objective_from_sqa(
+        self, parent_metric_sqa: SQAMetric, skip_runners_and_metrics: bool
+    ) -> Objective:
         if parent_metric_sqa.minimize is None:
             raise SQADecodeError(
                 "Cannot decode SQAMetric to Scalarized Objective "
@@ -1169,7 +1216,9 @@ class Decoder:
         metrics, weights = zip(
             *[
                 (
-                    self._metric_from_sqa_util(child),
+                    self._metric_from_sqa_util(
+                        child, skip_runners_and_metrics=skip_runners_and_metrics
+                    ),
                     child.scalarized_objective_weight,
                 )
                 for child in metrics_sqa_children
@@ -1203,7 +1252,7 @@ class Decoder:
         )
 
     def _scalarized_outcome_constraint_from_sqa(
-        self, metric: Metric, metric_sqa: SQAMetric
+        self, metric: Metric, metric_sqa: SQAMetric, skip_runners_and_metrics: bool
     ) -> ScalarizedOutcomeConstraint:
         if (
             metric_sqa.bound is None
@@ -1234,7 +1283,9 @@ class Decoder:
         metrics, weights = zip(
             *[
                 (
-                    self._metric_from_sqa_util(child),
+                    self._metric_from_sqa_util(
+                        child, skip_runners_and_metrics=skip_runners_and_metrics
+                    ),
                     child.scalarized_outcome_constraint_weight,
                 )
                 for child in metrics_sqa_children
