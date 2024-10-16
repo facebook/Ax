@@ -1266,12 +1266,17 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         )
 
         # FETCH DATA FOR TRIALS EXPECTING DATA
-        trial_indices_with_new_data = (
-            self._fetch_data_and_return_trial_indices_with_new_data(
-                trial_idcs=trial_indices_to_fetch,
+        if trial_indices_to_fetch:
+            idcs_str = make_indices_str(indices=trial_indices_to_fetch)
+            self.logger.info(f"Starting data-fetching for trials {idcs_str}...")
+            trial_indices_with_new_data = (
+                self._fetch_data_and_return_trial_indices_with_new_data(
+                    trial_idcs=trial_indices_to_fetch,
+                )
             )
-        )
-        trial_indices_with_updated_data_or_status.update(trial_indices_with_new_data)
+            trial_indices_with_updated_data_or_status.update(
+                trial_indices_with_new_data
+            )
 
         # EARLY STOP TRIALS
         stop_trial_info = early_stopping_utils.should_stop_trials_early(
@@ -1533,10 +1538,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         )
         idcs = make_indices_str(indices=newly_completed)
         if newly_completed:
-            self.logger.info(f"Fetching data for newly completed trials: {idcs}.")
+            self.logger.debug(f"Will fetching data for newly completed trials: {idcs}.")
             trial_indices_to_fetch.update(newly_completed)
         else:
-            self.logger.info("No newly completed trials; not fetching data for any.")
+            self.logger.debug("No newly completed trials; will not fetch data for any.")
 
         # Fetch data for running trials that have metrics available while running
         if (
@@ -1548,8 +1553,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             # NOTE: Metrics that are *not* available_while_running will be skipped
             # in fetch_trials_data
             idcs = make_indices_str(indices=running_trial_indices)
-            self.logger.info(
-                f"Fetching data for trials: {idcs} because some metrics "
+            self.logger.debug(
+                f"Will fetch data for trials: {idcs} because some metrics "
                 "on experiment are available while trials are running."
             )
             trial_indices_to_fetch.update(running_trial_indices)
@@ -1561,8 +1566,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         if len(recently_completed_trial_indices) > 0:
             idcs = make_indices_str(indices=recently_completed_trial_indices)
             self.logger.info(
-                f"Fetching data for trials: {idcs} because some metrics "
-                "on experiment have new data after completion."
+                f"Fetching data for trials: {idcs} (among other trials, data for "
+                "which is also being fetched, e.g. newly completed trials) because "
+                "some metrics on experiment have new data after completion."
             )
             trial_indices_to_fetch.update(recently_completed_trial_indices)
         return trial_indices_to_fetch
