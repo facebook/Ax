@@ -91,6 +91,7 @@ class Keys(str, Enum):
     SEQUENTIAL = "sequential"
     SHORT_RUN = "short_run"
     STATE_DICT = "state_dict"
+    STUBBED_METRIC_FULL_SQA = "stubbed_metric_full_sqa"
     SUBCLASS = "subclass"
     SUBSET_MODEL = "subset_model"
     TASK_FEATURES = "task_features"
