@@ -15,6 +15,14 @@ Analysis
     :undoc-members:
     :show-inheritance:
 
+Cross Validation Analysis
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.plotly.cross_validation
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Markdown Analysis
 ~~~~~~~~~~~~~~~~~
 
