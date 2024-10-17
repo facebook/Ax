@@ -54,6 +54,8 @@ def ivw_metric_merge(
         indcs = [i for i, mn in enumerate(obsd.metric_names) if mn == metric_name]
         indicies[metric_name] = indcs
         # Extract variances for observations of this metric
+        # NOTE: This only extracts the diagonal of the covariance matrix, and would not
+        # lead to a maximum variance reduction in the presence of correlated noise.
         sigma2s = obsd.covariance[indcs, indcs]
         # Check for noiseless observations
         idx_noiseless = np.where(sigma2s == 0.0)[0]

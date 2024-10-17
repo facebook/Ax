@@ -49,10 +49,12 @@ class OutcomeConstraint(SortableBase):
         relative: [default ``True``] Whether the provided bound value is relative to
             some status-quo arm's metric value. If False, ``bound`` is interpreted as an
             absolute number, else ``bound`` specifies percent-difference from the
-            observed metric value on the status-quo arm. That is, the bound's absolute
-            value will be ``(1 + bound/100.0) * status_quo_metric_value``. This requires
-            specification of a status-quo arm in ``Experiment``.
-
+            observed metric value on the status-quo arm. That is, the bound's value will
+            be ``(1 + sign * bound/100.0) * status_quo_metric_value``, where `sign` is
+            the sign of status_quo_metric_value. This ensures that a positive relative
+            bound gives rise to an absolute upper bound, even if the status-quo arm has
+            a negative metric value. This requires specification of a status-quo arm in
+            ``Experiment``.
     """
 
     def __init__(
@@ -187,8 +189,14 @@ class ObjectiveThreshold(OutcomeConstraint):
     Attributes:
         metric: Metric to constrain.
         bound: The bound in the constraint.
-        relative: Whether you want to bound on an absolute or relative
-            scale. If relative, bound is the acceptable percent change.
+        relative: Whether you want to bound on an absolute or relative scale. If
+            relative, bound is the acceptable percent change. That is, the bound's value
+            will be ``(1 + sign * bound/100.0) * status_quo_metric_value``, where `sign`
+            is the sign of status_quo_metric_value, ensuring that a positive relative
+            bound gives rise to an absolute upper bound, even if the status-quo arm has
+            a negative metric value. This requires specification of a status-quo arm in
+            ``Experiment``.
+
         op: automatically inferred, but manually overwritable.
             specifies whether metric should be greater or equal to, or less
             than or equal to, some bound.
@@ -243,9 +251,12 @@ class ScalarizedOutcomeConstraint(OutcomeConstraint):
         relative: [default ``True``] Whether the provided bound value is relative to
             some status-quo arm's metric value. If False, ``bound`` is interpreted as an
             absolute number, else ``bound`` specifies percent-difference from the
-            observed metric value on the status-quo arm. That is, the bound's absolute
-            value will be ``(1 + bound/100.0) * status_quo_metric_value``. This requires
-            specification of a status-quo arm in ``Experiment``.
+            observed metric value on the status-quo arm. That is, the bound's value will
+            be ``(1 + sign * bound/100.0) * status_quo_metric_value``, where sign is the
+            sign of status_quo_metric_value. This ensures that a positive relative bound
+            always gives rise to an absolute upper bound, even if the status-quo arm has
+            a negative metric value. This requires specification of a status-quo arm in
+            ``Experiment``.
     """
 
     weights: list[float]
