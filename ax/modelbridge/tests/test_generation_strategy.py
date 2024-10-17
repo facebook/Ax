@@ -1278,6 +1278,61 @@ class TestGenerationStrategy(TestCase):
                 logger.output,
             )
 
+    def test_gs_with_suggested_n_is_zero(self) -> None:
+        """Test that the number of arms from a node is zero if the node is not
+        active.
+        """
+        exp = get_branin_experiment()
+        node_2 = GenerationNode(
+            node_name="sobol_2",
+            model_specs=[self.sobol_model_spec],
+            transition_criteria=[
+                AutoTransitionAfterGen(
+                    transition_to="sobol_3", continue_trial_generation=True
+                )
+            ],
+            input_constructors={
+                InputConstructorPurpose.N: NodeInputConstructors.REPEAT_N
+            },
+        )
+        gs = GenerationStrategy(
+            nodes=[
+                node_2,
+                GenerationNode(
+                    node_name="sobol_3",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=[
+                        AutoTransitionAfterGen(
+                            transition_to="sobol_2",
+                            block_transition_if_unmet=True,
+                            continue_trial_generation=False,
+                        ),
+                    ],
+                    input_constructors={
+                        InputConstructorPurpose.N: NodeInputConstructors.REMAINING_N
+                    },
+                ),
+            ]
+        )
+        # First check that we can generate multiple times with a skipped node in
+        # in a cyclic gs dag
+        for _i in range(3):
+            # if you request < 6 arms, repeat arm input constructor will return 0 arms
+            grs = gs.gen_with_multiple_nodes(experiment=exp, n=5)
+            self.assertEqual(len(grs), 1)  # only generated from one node
+            self.assertEqual(grs[0]._generation_node_name, "sobol_3")
+            self.assertEqual(len(grs[0].arms), 5)  # all 5 arms from sobol 3
+            self.assertTrue(node_2._should_skip)
+
+        # Now validate that we can get grs from sobol_2 if we request enough n
+        grs = gs.gen_with_multiple_nodes(experiment=exp, n=8)
+        self.assertEqual(len(grs), 2)
+        self.assertEqual(grs[0]._generation_node_name, "sobol_2")
+        self.assertEqual(len(grs[0].arms), 1)
+        self.assertEqual(grs[1]._generation_node_name, "sobol_3")
+        self.assertEqual(len(grs[1].arms), 7)
+        self.assertFalse(node_2._should_skip)
+
     def test_gen_with_multiple_nodes_pending_points(self) -> None:
         exp = get_experiment_with_multi_objective()
         gs = GenerationStrategy(
