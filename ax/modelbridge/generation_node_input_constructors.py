@@ -176,6 +176,8 @@ def repeat_arm_n(
     if total_n < 6:
         # if the next trial is small, we don't want to waste allocation on repeat arms
         # users can still manually add repeat arms if they want before allocation
+        # and we need to designated this node as skipped for proper transition
+        next_node._should_skip = True
         return 0
     elif total_n <= 10:
         return 1

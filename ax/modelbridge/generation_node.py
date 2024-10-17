@@ -144,6 +144,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         ) = None,
         previous_node_name: str | None = None,
         trial_type: str | None = None,
+        should_skip: bool = False,
     ) -> None:
         self._node_name = node_name
         # Check that the model specs have unique model keys.
@@ -172,6 +173,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         )
         self._previous_node_name = previous_node_name
         self._trial_type = trial_type
+        self._should_skip = should_skip
 
     @property
     def node_name(self) -> str:
