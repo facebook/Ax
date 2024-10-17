@@ -131,6 +131,7 @@ class ParetoUtilsTest(TestCase):
             self.assertTrue(np.isnan(pfr.sems["m1"]).all())
             self.assertEqual(len(pfr.arm_names), len(pareto_arms))  # pyre-ignore
             self.assertEqual(pfr.objective_thresholds, {"m1": 0, "m2": 100, "m3": 1000})
+            # pyre-fixme[6]: For 1st argument expected `Union[_SupportsArray[dtype[ty...
             arm_idx = np.argsort(pfr.arm_names)
             for i, idx in enumerate(arm_idx):
                 name = pareto_arms[i]

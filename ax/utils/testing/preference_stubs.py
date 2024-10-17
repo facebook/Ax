@@ -136,6 +136,9 @@ def get_pbo_experiment(
         objectives=objectives,
         tracking_metric_names=tracking_metric_names,
         is_test=True,
+        # pyre-fixme[6]: For 9th argument expected `Optional[Dict[str, Union[None,
+        #  bool, float, int, str]]]` but got `Optional[Dict[str,
+        #  floating[typing.Any]]]`.
         status_quo=sq,
     )
 

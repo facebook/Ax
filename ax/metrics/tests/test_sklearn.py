@@ -21,6 +21,7 @@ from sklearn.ensemble import RandomForestClassifier
 
 
 class DummyEnum(Enum):
+    # pyre-fixme[35]: Target cannot be annotated.
     DUMMY: str = "dummy"
 
 

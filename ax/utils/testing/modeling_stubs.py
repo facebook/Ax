@@ -727,6 +727,9 @@ class transform_2(Transform):
     ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             for pname in obsf.parameters:
+                # pyre-fixme[6]: For 1st argument expected `Union[bytes, complex,
+                #  float, int, generic, str]` but got `Union[None, bool, float, int,
+                #  str]`.
                 obsf.parameters[pname] = np.sqrt(obsf.parameters[pname])
         return observation_features
 

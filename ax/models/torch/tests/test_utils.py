@@ -26,6 +26,7 @@ from ax.models.torch.botorch_modular.utils import (
     use_model_list,
 )
 from ax.models.torch.utils import _to_inequality_constraints
+from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -178,18 +179,23 @@ class BoTorchModelUtilsTest(TestCase):
             )
 
     def test_choose_botorch_acqf_class(self) -> None:
-        self.assertEqual(qLogNoisyExpectedImprovement, choose_botorch_acqf_class())
-        self.assertEqual(
-            qLogNoisyExpectedHypervolumeImprovement,
-            choose_botorch_acqf_class(objective_thresholds=self.objective_thresholds),
-        )
-        self.assertEqual(
-            qLogNoisyExpectedHypervolumeImprovement,
-            choose_botorch_acqf_class(objective_weights=torch.tensor([0.5, 0.5])),
-        )
         self.assertEqual(
             qLogNoisyExpectedImprovement,
-            choose_botorch_acqf_class(objective_weights=torch.tensor([1.0, 0.0])),
+            choose_botorch_acqf_class(
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([1.0, 0.0]),
+                    is_moo=False,
+                )
+            ),
+        )
+        self.assertEqual(
+            qLogNoisyExpectedHypervolumeImprovement,
+            choose_botorch_acqf_class(
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([1.0, -1.0]),
+                    is_moo=True,
+                )
+            ),
         )
 
     def test_construct_acquisition_and_optimizer_options(self) -> None:

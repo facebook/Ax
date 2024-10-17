@@ -25,6 +25,7 @@ class UniformGenerator(RandomModel):
         deduplicate: bool = True,
         seed: int | None = None,
         init_position: int = 0,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         generated_points: np.ndarray | None = None,
         fallback_to_sample_polytope: bool = False,
     ) -> None:
@@ -40,6 +41,7 @@ class UniformGenerator(RandomModel):
             # Fast-forward the random state by generating & discarding samples.
             self._rs.uniform(size=(self.init_position))
 
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def _gen_samples(self, n: int, tunable_d: int) -> np.ndarray:
         """Generate samples from the scipy uniform distribution.
 
