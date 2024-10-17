@@ -344,7 +344,33 @@ class TestTransitionCriterion(TestCase):
         gs.gen(experiment=experiment)
         self.assertEqual(gs.current_node_name, "sobol_2")
 
-    def test_is_single_obejective_does_not_transition(self) -> None:
+    def test_auto_with_should_skip_node(self) -> None:
+        experiment = self.branin_experiment
+        gs = GenerationStrategy(
+            name="test",
+            nodes=[
+                GenerationNode(
+                    node_name="sobol_1",
+                    model_specs=[self.sobol_model_spec],
+                    transition_criteria=[
+                        AutoTransitionAfterGen(transition_to="sobol_2")
+                    ],
+                ),
+                GenerationNode(
+                    node_name="sobol_2", model_specs=[self.sobol_model_spec]
+                ),
+            ],
+        )
+        gs._nodes[0]._should_skip = True
+        self.assertTrue(
+            gs._nodes[0]
+            .transition_criteria[0]
+            .is_met(
+                experiment=experiment, curr_node_name="sobol_1", curr_node=gs._nodes[0]
+            )
+        )
+
+    def test_is_single_objective_does_not_transition(self) -> None:
         exp = self.branin_experiment
         exp.optimization_config = get_branin_multi_objective_optimization_config()
         gs = GenerationStrategy(
@@ -368,7 +394,7 @@ class TestTransitionCriterion(TestCase):
         self.assertEqual(gr2._generation_node_name, "sobol_1")
         self.assertEqual(gs.current_node_name, "sobol_1")
 
-    def test_is_single_obejective_transitions(self) -> None:
+    def test_is_single_objective_transitions(self) -> None:
         exp = self.branin_experiment
         gs = GenerationStrategy(
             name="test",
