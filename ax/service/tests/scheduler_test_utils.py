@@ -31,7 +31,10 @@ from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
-from ax.core.utils import get_pending_observation_features_based_on_trial_status
+from ax.core.utils import (
+    extract_pending_observations,
+    get_pending_observation_features_based_on_trial_status,
+)
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.exceptions.core import OptimizationComplete, UnsupportedError, UserInputError
 from ax.exceptions.generation_strategy import AxGenerationException
@@ -1783,9 +1786,9 @@ class AxSchedulerTestCase(TestCase):
         with patch(  # Record calls to functions, but still execute them.
             (
                 f"{self.PENDING_FEATURES_CALL_LOCATION_BATCH}."
-                "get_pending_observation_features_based_on_trial_status"
+                "extract_pending_observations"
             ),
-            side_effect=get_pending_observation_features_based_on_trial_status,
+            side_effect=extract_pending_observations,
         ) as mock_get_pending, patch.object(
             scheduler.generation_strategy,
             "gen_for_multiple_trials_with_multiple_models",
