@@ -1380,7 +1380,7 @@ class TestGenerationStrategy(TestCase):
             # check first call is 6 (from the previous trial having 6 arms)
             self.assertEqual(len(list(pending_in_each_gen)[0][1]["m1"]), 6)
 
-    def test_gs_initializes_all_previous_node_to_none(self) -> None:
+    def test_gs_initializes_default_props_correctly(self) -> None:
         """Test that all previous nodes are initialized to None"""
         node_1 = GenerationNode(
             node_name="node_1",
@@ -1401,13 +1401,18 @@ class TestGenerationStrategy(TestCase):
                 node_3,
             ],
         )
-        with self.subTest("after initialization all should be none"):
+        with self.subTest("after initialization all previous nodes should be none"):
             for node in gs._nodes:
                 self.assertIsNone(node._previous_node_name)
                 self.assertIsNone(node.previous_node)
-        with self.subTest("check previous node nodes after being set"):
+        with self.subTest("check previous node after it is set"):
             gs._nodes[1]._previous_node_name = "node_1"
             self.assertEqual(gs._nodes[1].previous_node, node_1)
+        with self.subTest(
+            "after initialization all nodes should have should_skip set to False"
+        ):
+            for node in gs._nodes:
+                self.assertFalse(node._should_skip)
 
     def test_gs_with_generation_nodes(self) -> None:
         "Simple test of a SOBOL + MBM GenerationStrategy composed of GenerationNodes"
