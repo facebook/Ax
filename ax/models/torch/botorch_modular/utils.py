@@ -15,6 +15,7 @@ from typing import Any
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError, AxWarning, UnsupportedError
+from ax.models.torch_base import TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
@@ -129,20 +130,14 @@ def choose_model_class(
 
 
 def choose_botorch_acqf_class(
-    pending_observations: list[Tensor] | None = None,
-    outcome_constraints: tuple[Tensor, Tensor] | None = None,
-    linear_constraints: tuple[Tensor, Tensor] | None = None,
-    fixed_features: dict[int, float] | None = None,
-    objective_thresholds: Tensor | None = None,
-    objective_weights: Tensor | None = None,
+    torch_opt_config: TorchOptConfig,
 ) -> type[AcquisitionFunction]:
-    """Chooses a BoTorch `AcquisitionFunction` class."""
-    if objective_thresholds is not None or (
-        # using objective_weights is a less-than-ideal fix given its ambiguity,
-        # the real fix would be to revisit the infomration passed down via
-        # the modelbridge (and be explicit about whether we scalarize or perform MOO)
-        objective_weights is not None and objective_weights.nonzero().numel() > 1
-    ):
+    """Chooses a BoTorch ``AcquisitionFunction`` class.
+
+    Current logic relies on ``TorchOptConfig.is_moo`` field to determine
+    whether to use qLogNEHVI (for MOO) or qLogNEI for (SOO).
+    """
+    if torch_opt_config.is_moo:
         acqf_class = qLogNoisyExpectedHypervolumeImprovement
     else:
         acqf_class = qLogNoisyExpectedImprovement
