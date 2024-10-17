@@ -28,6 +28,7 @@ class TransformToNewSQTest(RelativizeDataTest):
     # [Type[TransformToNewSQ]]` is not a subtype of the
     # overridden attribute `List[Type[Transform]]`
     relativize_classes = [TransformToNewSQ]
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     cases: list[tuple[type[Transform], list[tuple[np.ndarray, np.ndarray]]]] = [
         (
             TransformToNewSQ,

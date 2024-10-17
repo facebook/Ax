@@ -23,6 +23,7 @@ def _branin_evaluation_function(
     # pyre-fixme[2]: Parameter must be annotated.
     parameterization,
     weight=None,  # pyre-fixme[2]: Parameter must be annotated.
+    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
 ) -> dict[str, tuple[float | ndarray, float]]:
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
@@ -37,6 +38,7 @@ def _branin_evaluation_function_v2(
     # pyre-fixme[2]: Parameter must be annotated.
     parameterization,
     weight=None,  # pyre-fixme[2]: Parameter must be annotated.
+    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
 ) -> tuple[float | ndarray, float]:
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
@@ -48,6 +50,7 @@ def _branin_evaluation_function_with_unknown_sem(
     # pyre-fixme[2]: Parameter must be annotated.
     parameterization,
     weight=None,  # pyre-fixme[2]: Parameter must be annotated.
+    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
 ) -> tuple[float | ndarray, None]:
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")

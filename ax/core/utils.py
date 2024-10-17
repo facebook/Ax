@@ -129,7 +129,11 @@ def _get_missing_arm_trial_pairs(data: Data, metric_name: str) -> set[TArmTrial]
 
 
 def best_feasible_objective(
-    optimization_config: OptimizationConfig, values: dict[str, np.ndarray]
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    optimization_config: OptimizationConfig,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    values: dict[str, np.ndarray],
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> np.ndarray:
     """Compute the best feasible objective value found by each iteration.
 
