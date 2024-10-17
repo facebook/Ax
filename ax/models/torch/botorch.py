@@ -495,6 +495,7 @@ class BotorchModel(TorchModel):
             model=model, X=X_test, use_posterior_predictive=use_posterior_predictive
         )
 
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def feature_importances(self) -> np.ndarray:
         return get_feature_importances_from_botorch_model(model=self._model)
 
@@ -542,6 +543,7 @@ def get_rounding_func(
 
 def get_feature_importances_from_botorch_model(
     model: Model | ModuleList | None,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> np.ndarray:
     """Get feature importances from a list of BoTorch models.
 

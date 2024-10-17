@@ -112,6 +112,7 @@ class NoisyFunctionMapMetric(MapMetric):
                 MetricFetchE(message=f"Failed to fetch {self.name}", exception=e)
             )
 
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def f(self, x: np.ndarray) -> Mapping[str, Any]:
         """The deterministic function that produces the metric outcomes."""
         raise NotImplementedError

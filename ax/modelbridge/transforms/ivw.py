@@ -48,6 +48,7 @@ def ivw_metric_merge(
     # weights is a map from metric name to a vector of the weights for each
     # measurement of that metric. indicies gives the corresponding index in
     # obsd.means for each measurement.
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     weights: dict[str, np.ndarray] = {}
     indicies: dict[str, list[int]] = {}
     for metric_name in set(obsd.metric_names):
@@ -98,7 +99,10 @@ def ivw_metric_merge(
 
 
 def _check_conflicting_means(
-    means_noiseless: np.ndarray, metric_name: str, conflicting_noiseless: str
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    means_noiseless: np.ndarray,
+    metric_name: str,
+    conflicting_noiseless: str,
 ) -> None:
     if np.var(means_noiseless) > 0:
         message = f"Conflicting noiseless measurements for {metric_name}."

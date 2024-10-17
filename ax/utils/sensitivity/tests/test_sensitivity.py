@@ -303,7 +303,16 @@ class SensitivityAnalysisTest(TestCase):
                     for i, row in enumerate(ind_dict):
                         for j, col in enumerate(ind_dict[row]):
                             self.assertAlmostEqual(
-                                ind_dict[row][col], ind_tnsr[i, j].item()
+                                # pyre-fixme[6]: For 2nd argument expected
+                                #  `SupportsRSub[Variable[_T],
+                                #  SupportsAbs[SupportsRound[object]]]` but got
+                                #  `Union[bool, float, int]`.
+                                ind_dict[row][col],
+                                # pyre-fixme[6]: For 2nd argument expected
+                                #  `SupportsRSub[Variable[_T],
+                                #  SupportsAbs[SupportsRound[object]]]` but got
+                                #  `Union[bool, float, int]`.
+                                ind_tnsr[i, j].item(),
                             )
             with self.subTest(order="second"):
                 second_ind_dict = ax_parameter_sens(
@@ -330,13 +339,34 @@ class SensitivityAnalysisTest(TestCase):
                 )
                 # check that the first and second order indices are the same
                 self.assertAlmostEqual(
-                    second_ind_dict["branin"]["x1"], fo_ind_tnsr[0, 0].item()
+                    # pyre-fixme[6]: For 2nd argument expected
+                    #  `SupportsRSub[Variable[_T], SupportsAbs[SupportsRound[object]]]`
+                    #  but got `Union[bool, float, int]`.
+                    second_ind_dict["branin"]["x1"],
+                    # pyre-fixme[6]: For 2nd argument expected
+                    #  `SupportsRSub[Variable[_T], SupportsAbs[SupportsRound[object]]]`
+                    #  but got `Union[bool, float, int]`.
+                    fo_ind_tnsr[0, 0].item(),
                 )
                 self.assertAlmostEqual(
-                    second_ind_dict["branin"]["x2"], fo_ind_tnsr[0, -1].item()
+                    # pyre-fixme[6]: For 2nd argument expected
+                    #  `SupportsRSub[Variable[_T], SupportsAbs[SupportsRound[object]]]`
+                    #  but got `Union[bool, float, int]`.
+                    second_ind_dict["branin"]["x2"],
+                    # pyre-fixme[6]: For 2nd argument expected
+                    #  `SupportsRSub[Variable[_T], SupportsAbs[SupportsRound[object]]]`
+                    #  but got `Union[bool, float, int]`.
+                    fo_ind_tnsr[0, -1].item(),
                 )
                 self.assertAlmostEqual(
-                    second_ind_dict["branin"]["x1 & x2"], so_ind_tnsr[0, 0].item()
+                    # pyre-fixme[6]: For 2nd argument expected
+                    #  `SupportsRSub[Variable[_T], SupportsAbs[SupportsRound[object]]]`
+                    #  but got `Union[bool, float, int]`.
+                    second_ind_dict["branin"]["x1 & x2"],
+                    # pyre-fixme[6]: For 2nd argument expected
+                    #  `SupportsRSub[Variable[_T], SupportsAbs[SupportsRound[object]]]`
+                    #  but got `Union[bool, float, int]`.
+                    so_ind_tnsr[0, 0].item(),
                 )
 
         # Test with signed

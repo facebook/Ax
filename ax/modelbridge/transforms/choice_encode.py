@@ -225,6 +225,7 @@ class OrderedChoiceEncode(DeprecatedTransformMixin, OrderedChoiceToIntegerRange)
         super().__init__(*args, **kwargs)
 
 
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 def transform_choice_values(p: ChoiceParameter) -> tuple[np.ndarray, ParameterType]:
     """Transforms the choice values and returns the new parameter type.
 
