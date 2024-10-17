@@ -224,7 +224,11 @@ class MapTorchModelBridge(TorchModelBridge):
         )
 
     def _array_to_observation_features(
-        self, X: np.ndarray, candidate_metadata: list[TCandidateMetadata] | None
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+        self,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+        X: np.ndarray,
+        candidate_metadata: list[TCandidateMetadata] | None,
     ) -> list[ObservationFeatures]:
         """The difference b/t this method and
         TorchModelBridge._array_to_observation_features(...) is

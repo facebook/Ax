@@ -17,11 +17,16 @@ from ax.core.data import Data
 from ax.utils.common.logger import get_logger
 
 logger: Logger = get_logger(__name__)
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 num_mixed = Union[np.ndarray, list[float]]
 
 
 def inverse_variance_weight(
-    means: np.ndarray, variances: np.ndarray, conflicting_noiseless: str = "warn"
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    means: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    variances: np.ndarray,
+    conflicting_noiseless: str = "warn",
 ) -> tuple[float, float]:
     """Perform inverse variance weighting.
 
@@ -59,7 +64,12 @@ def inverse_variance_weight(
 
 
 def total_variance(
-    means: np.ndarray, variances: np.ndarray, sample_sizes: np.ndarray
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    means: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    variances: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    sample_sizes: np.ndarray,
 ) -> float:
     """Compute total variance."""
     variances = variances * sample_sizes
@@ -71,7 +81,9 @@ def total_variance(
 
 
 def positive_part_james_stein(
-    means: num_mixed, sems: num_mixed
+    means: num_mixed,
+    sems: num_mixed,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> tuple[np.ndarray, np.ndarray]:
     """Estimation method for Positive-part James-Stein estimator.
 
@@ -134,24 +146,35 @@ def positive_part_james_stein(
         phi_i = 1
     else:
         phi_i = np.minimum(1, sigma2_i / s2)
+    # pyre-fixme[6]: For 1st argument expected `int` but got `floating[typing.Any]`.
+    # pyre-fixme[6]: For 1st argument expected `bool` but got `ndarray[typing.Any,
+    #  dtype[typing.Any]]`.
     mu_hat_i = y_i + phi_i * (ybar - y_i)
     sigma_hat_i = np.sqrt(
+        # pyre-fixme[58]: `-` is not supported for operand types `int` and
+        #  `Union[np.ndarray[typing.Any, np.dtype[typing.Any]], int]`.
         (1 - phi_i) * sigma2_i
         + phi_i * sigma2_i / K
+        # pyre-fixme[58]: `*` is not supported for operand types `int` and
+        #  `Union[np.ndarray[typing.Any, np.dtype[typing.Any]], int]`.
         + 2 * phi_i**2 * (y_i - ybar) ** 2 / (K - 3)
     )
     return mu_hat_i, sigma_hat_i
 
 
 def relativize(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     means_t: np.ndarray | list[float] | float,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     sems_t: np.ndarray | list[float] | float,
     mean_c: float,
     sem_c: float,
     bias_correction: bool = True,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     cov_means: np.ndarray | list[float] | float = 0.0,
     as_percent: bool = False,
     control_as_constant: bool = False,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> tuple[np.ndarray, np.ndarray]:
     """Ratio estimator based on the delta method.
 
@@ -245,14 +268,18 @@ def relativize(
 
 
 def unrelativize(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     means_t: np.ndarray | list[float] | float,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     sems_t: np.ndarray | list[float] | float,
     mean_c: float,
     sem_c: float,
     bias_correction: bool = True,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     cov_means: np.ndarray | list[float] | float = 0.0,
     as_percent: bool = False,
     control_as_constant: bool = False,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Reverse operation of ax.utils.stats.statstools.relativize.
@@ -307,14 +334,21 @@ def unrelativize(
         m_t[means_t == 0.0] = mean_c
         s_t[means_t == 0.0] = sem_c
 
+    # pyre-fixme[7]: Expected `Tuple[ndarray[typing.Any, typing.Any],
+    #  ndarray[typing.Any, typing.Any]]` but got `Tuple[Union[ndarray[typing.Any,
+    #  dtype[typing.Any]], float], Union[ndarray[typing.Any, dtype[typing.Any]],
+    #  float]]`.
     return m_t, s_t
 
 
 def agresti_coull_sem(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     n_numer: pd.Series | np.ndarray | int,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     n_denom: pd.Series | np.ndarray | int,
     prior_successes: int = 2,
     prior_failures: int = 2,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> np.ndarray | float:
     """Compute the Agresti-Coull style standard error for a binomial proportion.
 

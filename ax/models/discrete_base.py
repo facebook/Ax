@@ -42,6 +42,7 @@ class DiscreteModel(Model):
         """
         pass
 
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def predict(self, X: list[TParamValueList]) -> tuple[np.ndarray, np.ndarray]:
         """Predict
 
@@ -61,7 +62,9 @@ class DiscreteModel(Model):
         self,
         n: int,
         parameter_values: list[TParamValueList],
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         objective_weights: np.ndarray | None,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         outcome_constraints: tuple[np.ndarray, np.ndarray] | None = None,
         fixed_features: dict[int, TParamValue] | None = None,
         pending_observations: list[list[TParamValueList]] | None = None,
@@ -102,6 +105,7 @@ class DiscreteModel(Model):
         Yvars_train: list[list[float]],
         X_test: list[TParamValueList],
         use_posterior_predictive: bool = False,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     ) -> tuple[np.ndarray, np.ndarray]:
         """Do cross validation with the given training and test sets.
 
@@ -133,7 +137,9 @@ class DiscreteModel(Model):
         self,
         n: int,
         parameter_values: list[TParamValueList],
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         objective_weights: np.ndarray | None,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         outcome_constraints: tuple[np.ndarray, np.ndarray] | None = None,
         fixed_features: dict[int, TParamValue] | None = None,
         pending_observations: list[list[TParamValueList]] | None = None,
