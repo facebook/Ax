@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-import warnings
 from collections.abc import Callable, Mapping
 from typing import Any
 
@@ -17,7 +16,6 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.modelbridge.torch import TorchModelBridge
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
-from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
 from botorch.utils.datasets import SupervisedDataset
 from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
@@ -131,33 +129,6 @@ class SurrogateRunner(BenchmarkRunner):
         run_metadata = super().run(trial=trial)
         run_metadata["outcome_names"] = self.outcome_names
         return run_metadata
-
-    @classmethod
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-    def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
-        """Serialize the properties needed to initialize the runner.
-        Used for storage.
-
-        WARNING: Because of issues with consistently saving and loading BoTorch and
-        GPyTorch modules the SurrogateRunner cannot be serialized at this time.
-        At load time the runner will be replaced with a SyntheticRunner.
-        """
-        warnings.warn(
-            "Because of issues with consistently saving and loading BoTorch and "
-            f"GPyTorch modules, {cls.__name__} cannot be serialized at this time. "
-            "At load time the runner will be replaced with a SyntheticRunner.",
-            stacklevel=3,
-        )
-        return {}
-
-    @classmethod
-    def deserialize_init_args(
-        cls,
-        args: dict[str, Any],
-        decoder_registry: TDecoderRegistry | None = None,
-        class_decoder_registry: TClassDecoderRegistry | None = None,
-    ) -> dict[str, Any]:
-        return {}
 
     @property
     def is_noiseless(self) -> bool:

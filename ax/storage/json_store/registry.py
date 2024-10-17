@@ -13,14 +13,7 @@ from typing import Any
 import torch
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_metric import BenchmarkMetric
-from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
-from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionParamBasedProblem
-from ax.benchmark.runners.botorch_test import (
-    BotorchTestProblemRunner,
-    ParamBasedTestProblemRunner,
-)
-from ax.benchmark.runners.surrogate import SurrogateRunner
 from ax.core import Experiment, ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
@@ -190,7 +183,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     BatchTrial: batch_to_dict,
     BenchmarkMetric: metric_to_dict,
     BoTorchModel: botorch_model_to_dict,
-    BotorchTestProblemRunner: runner_to_dict,
     BraninMetric: metric_to_dict,
     BraninTimestampMapMetric: metric_to_dict,
     ChainedInputTransform: botorch_component_to_dict,
@@ -236,7 +228,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     OrEarlyStoppingStrategy: logical_early_stopping_strategy_to_dict,
     OrderConstraint: order_parameter_constraint_to_dict,
     OutcomeConstraint: outcome_constraint_to_dict,
-    ParamBasedTestProblemRunner: runner_to_dict,
     ParameterConstraint: parameter_constraint_to_dict,
     ParameterDistribution: parameter_distribution_to_dict,
     pathlib.Path: pathlib_to_dict,
@@ -257,7 +248,6 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     SobolQMCNormalSampler: botorch_component_to_dict,
     SumConstraint: sum_parameter_constraint_to_dict,
     Surrogate: surrogate_to_dict,
-    SurrogateRunner: runner_to_dict,
     SyntheticRunner: runner_to_dict,
     ThresholdEarlyStoppingStrategy: threshold_early_stopping_strategy_to_dict,
     Trial: trial_to_dict,
@@ -296,10 +286,8 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "BatchTrial": BatchTrial,
     "BenchmarkMethod": BenchmarkMethod,
     "BenchmarkMetric": BenchmarkMetric,
-    "BenchmarkProblem": BenchmarkProblem,
     "BenchmarkResult": BenchmarkResult,
     "BoTorchModel": BoTorchModel,
-    "BotorchTestProblemRunner": BotorchTestProblemRunner,
     "BraninMetric": BraninMetric,
     "BraninTimestampMapMetric": BraninTimestampMapMetric,
     "ChainedInputTransform": ChainedInputTransform,
@@ -344,7 +332,6 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "ModelRegistryBase": ModelRegistryBase,
     "ModelSpec": ModelSpec,
     "MultiObjective": MultiObjective,
-    "MultiObjectiveBenchmarkProblem": BenchmarkProblem,  # backward compatibility
     "MultiObjectiveOptimizationConfig": MultiObjectiveOptimizationConfig,
     "MultiTypeExperiment": MultiTypeExperiment,
     "NegativeBraninMetric": NegativeBraninMetric,
@@ -357,7 +344,6 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "OrEarlyStoppingStrategy": OrEarlyStoppingStrategy,
     "OrderConstraint": OrderConstraint,
     "OutcomeConstraint": OutcomeConstraint,
-    "ParamBasedTestProblemRunner": ParamBasedTestProblemRunner,
     "ParameterConstraint": ParameterConstraint,
     "ParameterConstraintType": ParameterConstraintType,
     "ParameterDistribution": ParameterDistribution,
@@ -369,7 +355,6 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "PurePosixPath": pathlib_from_json,
     "PureWindowsPath": pathlib_from_json,
     "PercentileEarlyStoppingStrategy": PercentileEarlyStoppingStrategy,
-    "PyTorchCNNTorchvisionParamBasedProblem": PyTorchCNNTorchvisionParamBasedProblem,
     "RangeParameter": RangeParameter,
     "ReductionCriterion": ReductionCriterion,
     "RiskMeasure": RiskMeasure,
