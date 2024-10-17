@@ -10,12 +10,9 @@ import dataclasses
 import os
 import tempfile
 from functools import partial
-from unittest.mock import patch
 
 import numpy as np
 import torch
-from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionParamBasedProblem
-from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_benchmark_problem
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.runner import Runner
@@ -49,10 +46,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import (
     get_aggregated_benchmark_result,
     get_benchmark_result,
-    get_multi_objective_benchmark_problem,
-    get_single_objective_benchmark_problem,
     get_sobol_gpei_benchmark_method,
-    TestDataset,
 )
 from ax.utils.testing.core_stubs import (
     get_abandoned_arm,
@@ -143,15 +137,10 @@ TEST_CASES = [
     ("AuxiliaryExperiment", get_auxiliary_experiment),
     ("BatchTrial", get_batch_trial),
     ("BenchmarkMethod", get_sobol_gpei_benchmark_method),
-    ("BenchmarkProblem", get_single_objective_benchmark_problem),
     ("BenchmarkResult", get_benchmark_result),
     ("BoTorchModel", get_botorch_model),
     ("BoTorchModel", get_botorch_model_with_default_acquisition_class),
     ("BoTorchModel", get_botorch_model_with_surrogate_specs),
-    (
-        "BoTorchTestProblemRunner",
-        lambda: get_single_objective_benchmark_problem().runner,
-    ),
     ("BraninMetric", get_branin_metric),
     ("ChainedInputTransform", get_chained_input_transform),
     ("ChoiceParameter", get_choice_parameter),
@@ -234,7 +223,6 @@ TEST_CASES = [
     ("MapKeyInfo", get_map_key_info),
     ("Metric", get_metric),
     ("MultiObjective", get_multi_objective),
-    ("MultiObjectiveBenchmarkProblem", get_multi_objective_benchmark_problem),
     ("MultiObjectiveOptimizationConfig", get_multi_objective_optimization_config),
     ("MultiTypeExperiment", get_multi_type_experiment),
     ("ObservationFeatures", get_observation_features),
@@ -245,13 +233,11 @@ TEST_CASES = [
     ("OrderConstraint", get_order_constraint),
     ("OutcomeConstraint", get_outcome_constraint),
     ("Path", get_pathlib_path),
-    ("Jenatton", get_jenatton_benchmark_problem),
     ("PercentileEarlyStoppingStrategy", get_percentile_early_stopping_strategy),
     (
         "PercentileEarlyStoppingStrategy",
         get_percentile_early_stopping_strategy_with_non_objective_metric_name,
     ),
-    ("ParamBasedTestProblemRunner", lambda: get_jenatton_benchmark_problem().runner),
     ("ParameterConstraint", get_parameter_constraint),
     ("ParameterDistribution", get_parameter_distribution),
     ("RangeParameter", get_range_parameter),
@@ -261,7 +247,6 @@ TEST_CASES = [
     ("SchedulerOptions", get_default_scheduler_options),
     ("SchedulerOptions", get_scheduler_options_batch_trial),
     ("SearchSpace", get_search_space),
-    ("SingleObjectiveBenchmarkProblem", get_single_objective_benchmark_problem),
     ("SumConstraint", get_sum_constraint1),
     ("SumConstraint", get_sum_constraint2),
     ("Surrogate", get_surrogate),
@@ -441,24 +426,6 @@ class JSONStoreTest(TestCase):
         self.assertEqual(recovered.a_field, -1)
         self.assertEqual(recovered.not_a_field, 1)
         self.assertEqual(obj, recovered)
-
-    def test_EncodeDecode_torchvision_problem(self) -> None:
-        registry_path = "ax.benchmark.problems.hpo.torchvision._REGISTRY"
-        mock_registry = {"MNIST": TestDataset}
-        with patch.dict(registry_path, mock_registry):
-            test_problem = PyTorchCNNTorchvisionParamBasedProblem(name="MNIST")
-
-        self.assertIsNotNone(test_problem.train_loader)
-        self.assertIsNotNone(test_problem.test_loader)
-
-        as_json = object_to_json(obj=test_problem)
-        self.assertNotIn("train_loader", as_json)
-
-        with patch.dict(registry_path, mock_registry):
-            recovered = object_from_json(as_json)
-
-        self.assertIsNotNone(recovered.train_loader)
-        self.assertEqual(test_problem, recovered)
 
     def test_EncodeDecodeTorchTensor(self) -> None:
         x = torch.tensor(

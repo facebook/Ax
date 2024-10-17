@@ -18,6 +18,8 @@ from ax.core.runner import Runner
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.trial import Trial
 from ax.core.types import TParamValue
+from ax.exceptions.core import UnsupportedError
+from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
 
 from ax.utils.common.typeutils import checked_cast
 from numpy import ndarray
@@ -165,3 +167,31 @@ class BenchmarkRunner(Runner, ABC):
         self, trials: Iterable[BaseTrial]
     ) -> dict[TrialStatus, set[int]]:
         return {TrialStatus.COMPLETED: {t.index for t in trials}}
+
+    @classmethod
+    # pyre-fixme [2]: Parameter `obj` must have a type other than `Any``
+    def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
+        """
+        It is tricky to use SerializationMixin with instances that have Ax
+        objects as attributes, as BenchmarkRunners do. Therefore, serialization
+        is not supported.
+        """
+        raise UnsupportedError(
+            "serialize_init_args is not a supported method for BenchmarkRunners."
+        )
+
+    @classmethod
+    def deserialize_init_args(
+        cls,
+        args: dict[str, Any],
+        decoder_registry: TDecoderRegistry | None = None,
+        class_decoder_registry: TClassDecoderRegistry | None = None,
+    ) -> dict[str, Any]:
+        """
+        It is tricky to use SerializationMixin with instances that have Ax
+        objects as attributes, as BenchmarkRunners do. Therefore, serialization
+        is not supported.
+        """
+        raise UnsupportedError(
+            "deserialize_init_args is not a supported method for BenchmarkRunners."
+        )
