@@ -624,6 +624,16 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def compute_analyses(
         self, analyses: Iterable[Analysis] | None = None
     ) -> list[AnalysisCard]:
+        """
+        Compute Analyses for the Experiment and GenerationStrategy associated with this
+        Scheduler instance and save them to the DB if possible. If an Analysis fails to
+        compute (e.g. due to a missing metric), it will be skipped and a warning will
+        be logged.
+
+        Args:
+            analyses: Analyses to compute. If None, the Scheduler will choose a set of
+                Analyses to compute based on the Experiment and GenerationStrategy.
+        """
         analyses = analyses if analyses is not None else self._choose_analyses()
 
         results = [
