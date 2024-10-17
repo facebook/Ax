@@ -38,8 +38,8 @@ class TestSurrogateRunner(TestCase):
                 surrogate.dtype = torch.double
                 runner = SurrogateRunner(
                     name="test runner",
-                    surrogate=surrogate,
-                    datasets=[],
+                    _surrogate=surrogate,
+                    _datasets=[],
                     outcome_names=["dummy_metric"],
                     noise_stds=noise_std,
                 )
@@ -75,20 +75,16 @@ class TestSurrogateRunner(TestCase):
 
     def test_instantiation_raises_with_missing_args(self) -> None:
         with self.assertRaisesRegex(
-            ValueError, "If get_surrogate_and_datasets is not provided, surrogate and "
+            ValueError, "If `get_surrogate_and_datasets` is None, `_surrogate` and "
         ):
-            SurrogateRunner(
-                name="test runner",
-                outcome_names=[],
-                noise_stds=0.0,
-            )
+            SurrogateRunner(name="test runner", outcome_names=[], noise_stds=0.0)
 
     def test_equality(self) -> None:
         def _construct_runner(name: str) -> SurrogateRunner:
             return SurrogateRunner(
                 name=name,
-                surrogate=MagicMock(),
-                datasets=[],
+                _surrogate=MagicMock(),
+                _datasets=[],
                 outcome_names=["dummy_metric"],
                 noise_stds=0.0,
             )
