@@ -708,6 +708,7 @@ def generation_node_from_json(
             if "trial_type" in generation_node_json.keys()
             else None
         ),
+        should_skip=generation_node_json.pop("should_skip", False),
     )
 
 
