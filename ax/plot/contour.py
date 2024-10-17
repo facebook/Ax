@@ -31,6 +31,7 @@ from ax.plot.helper import (
 
 
 # type aliases
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ContourPredictions = tuple[
     PlotData, np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict[str, bool]
 ]
@@ -400,6 +401,7 @@ def interact_contour_plotly(
     param_names = [parameter.name for parameter in range_parameters]
 
     is_log_dict: dict[str, bool] = {}
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     grid_dict: dict[str, np.ndarray] = {}
     for parameter in range_parameters:
         is_log_dict[parameter.name] = parameter.log_scale
@@ -411,11 +413,13 @@ def interact_contour_plotly(
 
     # pyre-fixme[9]: f_dict has type `Dict[str, Dict[str, np.ndarray]]`; used as
     #  `Dict[str, Dict[str, typing.List[Variable[_T]]]]`.
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     f_dict: dict[str, dict[str, np.ndarray]] = {
         param1: {param2: [] for param2 in param_names} for param1 in param_names
     }
     # pyre-fixme[9]: sd_dict has type `Dict[str, Dict[str, np.ndarray]]`; used as
     #  `Dict[str, Dict[str, typing.List[Variable[_T]]]]`.
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     sd_dict: dict[str, dict[str, np.ndarray]] = {
         param1: {param2: [] for param2 in param_names} for param1 in param_names
     }

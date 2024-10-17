@@ -54,9 +54,11 @@ logger: Logger = get_logger(__name__)
 
 
 def _extract_observed_pareto_2d(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     Y: np.ndarray,
     reference_point: tuple[float, float] | None,
     minimize: bool | tuple[bool, bool] = True,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> np.ndarray:
     if Y.shape[1] != 2:
         raise NotImplementedError("Currently only the 2-dim case is handled.")
@@ -510,6 +512,8 @@ def _extract_pareto_frontier_results(
 
         for metric in metrics:
             if metric not in absolute_metrics and metric in sq_mean:
+                # pyre-fixme[6]: For 2nd argument expected `List[float]` but got
+                #  `ndarray[typing.Any, typing.Any]`.
                 means_out[metric], sems_out[metric] = relativize(
                     means_t=means_out[metric],
                     sems_t=sems_out[metric],
@@ -521,6 +525,8 @@ def _extract_pareto_frontier_results(
     return ParetoFrontierResults(
         param_dicts=param_dicts,
         means=means_out,
+        # pyre-fixme[6]: For 3rd argument expected `Dict[str, List[float]]` but got
+        #  `Dict[str, ndarray[typing.Any, dtype[typing.Any]]]`.
         sems=sems_out,
         primary_metric=primary_metric,
         secondary_metric=secondary_metric,
@@ -547,6 +553,7 @@ def _validate_outcome_constraints(
 
 
 def _build_scalarized_optimization_config(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     weights: np.ndarray,
     primary_objective: Metric,
     secondary_objective: Metric,

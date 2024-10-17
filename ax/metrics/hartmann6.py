@@ -13,10 +13,12 @@ from ax.utils.measurement.synthetic_functions import aug_hartmann6, hartmann6
 
 
 class Hartmann6Metric(NoisyFunctionMetric):
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def f(self, x: np.ndarray) -> float:
         return checked_cast(float, hartmann6(x))
 
 
 class AugmentedHartmann6Metric(NoisyFunctionMetric):
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def f(self, x: np.ndarray) -> float:
         return checked_cast(float, aug_hartmann6(x))

@@ -43,6 +43,7 @@ class SobolGeneratorTest(TestCase):
         self.assertTrue(
             np.array_equal(
                 state.get("generated_points"),
+                # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtyp...
                 generator.generated_points,
             )
         )
@@ -319,6 +320,7 @@ class SobolGeneratorTest(TestCase):
         self.assertTrue(
             np.array_equal(
                 generator._get_state().get("generated_points"),
+                # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtyp...
                 generator.generated_points,
             )
         )

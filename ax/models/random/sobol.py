@@ -35,6 +35,7 @@ class SobolGenerator(RandomModel):
         seed: int | None = None,
         init_position: int = 0,
         scramble: bool = True,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         generated_points: np.ndarray | None = None,
         fallback_to_sample_polytope: bool = False,
     ) -> None:
@@ -75,10 +76,13 @@ class SobolGenerator(RandomModel):
         self,
         n: int,
         bounds: list[tuple[float, float]],
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         linear_constraints: tuple[np.ndarray, np.ndarray] | None = None,
         fixed_features: dict[int, float] | None = None,
         model_gen_options: TConfig | None = None,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         rounding_func: Callable[[np.ndarray], np.ndarray] | None = None,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     ) -> tuple[np.ndarray, np.ndarray]:
         """Generate new candidates.
 
@@ -117,6 +121,7 @@ class SobolGenerator(RandomModel):
             self.init_position = not_none(self.engine).num_generated
         return (points, weights)
 
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def _gen_samples(self, n: int, tunable_d: int) -> np.ndarray:
         """Generate n samples.
 

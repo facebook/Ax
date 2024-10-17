@@ -688,6 +688,7 @@ def get_default_transform_cutoffs(
     obsd = ObservationData(
         metric_names=["m1"] * obs_data_len,
         means=np.array(range(obs_data_len)),
+        # pyre-fixme[6]: For 1st argument expected `int` but got `SupportsIndex`.
         covariance=np.eye(obs_data_len),
     )
     obs = Observation(features=ObservationFeatures({}), data=obsd)

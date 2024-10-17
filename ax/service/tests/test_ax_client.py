@@ -1436,11 +1436,13 @@ class TestAxClient(TestCase):
             if t < 2:
                 ax_client.update_running_trial_with_intermediate_data(
                     0,
+                    # pyre-fixme[6]: For 2nd argument expected `Union[floating[typing...
                     raw_data=[({"t": t}, {"branin": (branin(x, y) + t, 0.0)})],
                 )
             if t == 2:
                 ax_client.complete_trial(
                     0,
+                    # pyre-fixme[6]: For 2nd argument expected `Union[floating[typing...
                     raw_data=[({"t": t}, {"branin": (branin(x, y) + t, 0.0)})],
                 )
             # pyre-fixme[16]: `Data` has no attribute `map_df`.
@@ -1465,6 +1467,7 @@ class TestAxClient(TestCase):
                 raw_data=[
                     # pyre-fixme[61]: `t` is undefined, or not always defined.
                     ({"t": p_t}, {"branin": (branin(x, y) + t, 0.0)})
+                    # pyre-fixme[61]: `t` is undefined, or not always defined.
                     for p_t in range(t + 1)
                 ],
             )
