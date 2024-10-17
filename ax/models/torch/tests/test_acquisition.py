@@ -18,7 +18,7 @@ from unittest.mock import Mock
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import AxWarning, SearchSpaceExhausted
+from ax.exceptions.core import AxWarning, SearchSpaceExhausted, UserInputError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -43,6 +43,9 @@ from botorch.acquisition.input_constructors import (
 )
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
+from botorch.acquisition.multi_objective.base import (
+    MultiObjectiveAnalyticAcquisitionFunction,
+)
 from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
@@ -89,22 +92,30 @@ class DummyOneShotAcquisitionFunction(DummyAcquisitionFunction, qKnowledgeGradie
         return X.sum(dim=-1)
 
 
+class DummyMultiObjectiveAcquisitionFunction(
+    DummyAcquisitionFunction, MultiObjectiveAnalyticAcquisitionFunction
+):
+    # Dummy acquisition function for testing multi-objective setup.
+    ...
+
+
 class AcquisitionTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         qNEI_input_constructor = get_acqf_input_constructor(qNoisyExpectedImprovement)
+        # Adding wrapping here to be able to count calls and inspect arguments.
         self.mock_input_constructor = mock.MagicMock(
             qNEI_input_constructor, side_effect=qNEI_input_constructor
         )
-        # Adding wrapping here to be able to count calls and inspect arguments.
-        _register_acqf_input_constructor(
-            acqf_cls=DummyAcquisitionFunction,
-            input_constructor=self.mock_input_constructor,
-        )
-        _register_acqf_input_constructor(
-            acqf_cls=DummyOneShotAcquisitionFunction,
-            input_constructor=self.mock_input_constructor,
-        )
+        for acqf_class in (
+            DummyAcquisitionFunction,
+            DummyOneShotAcquisitionFunction,
+            DummyMultiObjectiveAcquisitionFunction,
+        ):
+            _register_acqf_input_constructor(
+                acqf_cls=acqf_class,
+                input_constructor=self.mock_input_constructor,
+            )
         tkwargs: dict[str, Any] = {"dtype": torch.double}
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
@@ -738,7 +749,7 @@ class AcquisitionTest(TestCase):
         with_outcome_constraints: bool = True,
     ) -> None:
         acqf_class = (
-            DummyAcquisitionFunction
+            DummyMultiObjectiveAcquisitionFunction
             if with_no_X_observed
             else qNoisyExpectedHypervolumeImprovement
         )
@@ -776,7 +787,19 @@ class AcquisitionTest(TestCase):
             objective_weights=moo_objective_weights,
             outcome_constraints=outcome_constraints,
             objective_thresholds=moo_objective_thresholds,
+            is_moo=True,
         )
+        with self.assertRaisesRegex(
+            UserInputError, "when there are multiple objectives"
+        ):
+            Acquisition(
+                surrogates={"surrogate": self.surrogate},
+                botorch_acqf_class=DummyAcquisitionFunction,
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=torch_opt_config,
+                options=self.options,
+            )
+
         acquisition = Acquisition(
             surrogates={"surrogate": self.surrogate},
             botorch_acqf_class=acqf_class,
