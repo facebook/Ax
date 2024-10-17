@@ -6,6 +6,7 @@
 # pyre-strict
 
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from typing import Any
 
 import torch
@@ -21,55 +22,52 @@ from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 
+@dataclass
 class SurrogateRunner(BenchmarkRunner):
-    def __init__(
-        self,
-        *,
-        name: str,
-        outcome_names: list[str],
-        surrogate: TorchModelBridge | None = None,
-        datasets: list[SupervisedDataset] | None = None,
-        noise_stds: float | dict[str, float] = 0.0,
-        get_surrogate_and_datasets: None
-        | (Callable[[], tuple[TorchModelBridge, list[SupervisedDataset]]]) = None,
-        search_space_digest: SearchSpaceDigest | None = None,
-    ) -> None:
-        """Runner for surrogate benchmark problems.
+    """Runner for surrogate benchmark problems.
 
-        Args:
-            name: The name of the runner.
-            surrogate: The modular BoTorch model `Surrogate` to use for
-                generating observations.
-            datasets: The data sets used to fit the surrogate model.
-            outcome_names: The names of the outcomes of the Surrogate.
-            noise_stds: Noise standard deviations to add to the surrogate output(s).
-                If a single float is provided, noise with that standard deviation
-                is added to all outputs. Alternatively, a dictionary mapping outcome
-                names to noise standard deviations can be provided to specify different
-                noise levels for different outputs.
-            get_surrogate_and_datasets: Function that returns the surrogate and
-                datasets, to allow for lazy construction. If
-                `get_surrogate_and_datasets` is not provided, `surrogate` and
-                `datasets` must be provided, and vice versa.
-            search_space_digest: Used to get the target task and fidelity at
-                which the oracle is evaluated.
-        """
-        if get_surrogate_and_datasets is None and (
-            surrogate is None or datasets is None
+    Args:
+        name: The name of the runner.
+        outcome_names: The names of the outcomes of the Surrogate.
+        _surrogate: Either `None`, or a `TorchModelBridge` surrogate to use
+            for generating observations. If `None`, `get_surrogate_and_datasets`
+            must not be None and will be used to generate the surrogate when it
+            is needed.
+        _datasets: Either `None`, or the `SupervisedDataset`s used to fit
+            the surrogate model. If `None`, `get_surrogate_and_datasets` must
+            not be None and will be used to generate the datasets when they are
+            needed.
+        noise_stds: Noise standard deviations to add to the surrogate output(s).
+            If a single float is provided, noise with that standard deviation
+            is added to all outputs. Alternatively, a dictionary mapping outcome
+            names to noise standard deviations can be provided to specify different
+            noise levels for different outputs.
+        get_surrogate_and_datasets: Function that returns the surrogate and
+            datasets, to allow for lazy construction. If
+            `get_surrogate_and_datasets` is not provided, `surrogate` and
+            `datasets` must be provided, and vice versa.
+        search_space_digest: Used to get the target task and fidelity at
+            which the oracle is evaluated.
+    """
+
+    name: str
+    _surrogate: TorchModelBridge | None = None
+    _datasets: list[SupervisedDataset] | None = None
+    noise_stds: float | dict[str, float] = 0.0
+    get_surrogate_and_datasets: (
+        None | Callable[[], tuple[TorchModelBridge, list[SupervisedDataset]]]
+    ) = None
+    statuses: dict[int, TrialStatus] = field(default_factory=dict)
+
+    def __post_init__(self, search_space_digest: SearchSpaceDigest | None) -> None:
+        super().__post_init__(search_space_digest=search_space_digest)
+        if self.get_surrogate_and_datasets is None and (
+            self._surrogate is None or self._datasets is None
         ):
             raise ValueError(
-                "If get_surrogate_and_datasets is not provided, surrogate and "
-                "datasets must be provided, and vice versa."
+                "If `get_surrogate_and_datasets` is None, `_surrogate` "
+                "and `_datasets` must not be None, and vice versa."
             )
-        super().__init__(
-            search_space_digest=search_space_digest, outcome_names=outcome_names
-        )
-        self.get_surrogate_and_datasets = get_surrogate_and_datasets
-        self.name = name
-        self._surrogate = surrogate
-        self._datasets = datasets
-        self.noise_stds = noise_stds
-        self.statuses: dict[int, TrialStatus] = {}
 
     def set_surrogate_and_datasets(self) -> None:
         self._surrogate, self._datasets = none_throws(self.get_surrogate_and_datasets)()
@@ -145,6 +143,10 @@ class SurrogateRunner(BenchmarkRunner):
         if type(other) is not type(self):
             return False
 
-        # Checking the whole datasets' equality here would be too expensive to be
-        # worth it; just check names instead
-        return self.name == other.name
+        # Don't check surrogate, datasets, or callable
+        return (
+            (self.name == other.name)
+            and (self.outcome_names == other.outcome_names)
+            and (self.noise_stds == other.noise_stds)
+            and (self.search_space_digest == other.search_space_digest)
+        )

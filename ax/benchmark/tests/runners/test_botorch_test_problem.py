@@ -7,6 +7,7 @@
 # pyre-strict
 
 
+from dataclasses import replace
 from itertools import product
 from unittest.mock import Mock
 
@@ -100,14 +101,20 @@ class TestSyntheticRunner(TestCase):
                     runner._is_constrained,
                     issubclass(test_problem_class, ConstrainedBaseTestProblem),
                 )
-                self.assertEqual(runner._modified_bounds, modified_bounds)
+                self.assertEqual(runner.modified_bounds, modified_bounds)
                 if noise_std is not None:
                     self.assertEqual(runner.get_noise_stds(), noise_std)
                 else:
                     self.assertIsNone(runner.get_noise_stds())
 
-                # check equality with different class
-                self.assertNotEqual(runner, Hartmann(dim=6))
+                # check equality
+                self.assertNotEqual(
+                    runner,
+                    replace(
+                        runner,
+                        test_problem_kwargs={**test_problem_kwargs, "noise_std": 200.0},
+                    ),
+                )
                 self.assertEqual(runner, runner)
                 self.assertEqual(runner._is_moo, num_objectives > 1)
                 if issubclass(test_problem_class, BaseTestProblem):
