@@ -32,6 +32,7 @@ from ax.modelbridge.best_model_selector import BestModelSelector
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec, ModelSpec
 from ax.modelbridge.registry import _extract_model_state_after_gen, ModelRegistryBase
 from ax.modelbridge.transition_criterion import (
+    AutoTransitionAfterGen,
     MaxGenerationParallelism,
     MaxTrials,
     MinTrials,
@@ -96,6 +97,8 @@ class GenerationNode(SerializationMixin, SortableBase):
             set during transition from one ``GenerationNode`` to the next. Can be
             overwritten if multiple transitions occur between nodes, and will always
             store the most recent previous ``GenerationNode`` name.
+        should_skip: Whether to skip this node during generation time. Defaults to
+            False, and can only currently be set to True via ``NodeInputConstructors``
 
     Note for developers: by "model" here we really mean an Ax ModelBridge object, which
     contains an Ax Model under the hood. We call it "model" here to simplify and focus
@@ -118,6 +121,7 @@ class GenerationNode(SerializationMixin, SortableBase):
     ]
     _previous_node_name: str | None = None
     _trial_type: str | None = None
+    _should_skip: bool = False
 
     # [TODO] Handle experiment passing more eloquently by enforcing experiment
     # attribute is set in generation strategies class
@@ -141,6 +145,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         ) = None,
         previous_node_name: str | None = None,
         trial_type: str | None = None,
+        should_skip: bool = False,
     ) -> None:
         self._node_name = node_name
         # Check that the model specs have unique model keys.
@@ -169,6 +174,7 @@ class GenerationNode(SerializationMixin, SortableBase):
         )
         self._previous_node_name = previous_node_name
         self._trial_type = trial_type
+        self._should_skip = should_skip
 
     @property
     def node_name(self) -> str:
@@ -237,7 +243,14 @@ class GenerationNode(SerializationMixin, SortableBase):
         """Returns True if this GenerationNode is complete and should transition to
         the next node.
         """
-        return self.should_transition_to_next_node(raise_data_required_error=False)[0]
+        # TODO: @mgarrard this logic more robust and general
+        # We won't mark a node completed if it has an AutoTransitionAfterGen criterion
+        # as this is typically used in cyclic generation strategies
+        return self.should_transition_to_next_node(raise_data_required_error=False)[
+            0
+        ] and not any(
+            isinstance(tc, AutoTransitionAfterGen) for tc in self.transition_criteria
+        )
 
     @property
     def previous_node(self) -> GenerationNode | None:
@@ -575,16 +588,10 @@ class GenerationNode(SerializationMixin, SortableBase):
         # transition to the next node defined by that edge.
         for next_node, all_tc in self.transition_edges.items():
             transition_blocking = [tc for tc in all_tc if tc.block_transition_if_unmet]
-            gs_lgr = self.generation_strategy.last_generator_run
             transition_blocking_met = all(
                 tc.is_met(
                     experiment=self.experiment,
-                    trials_from_node=self.trials_from_node,
-                    curr_node_name=self.node_name,
-                    # TODO @mgarrard: should we instead pass a backpointer to gs/node
-                    node_that_generated_last_gr=(
-                        gs_lgr._generation_node_name if gs_lgr is not None else None
-                    ),
+                    curr_node=self,
                 )
                 for tc in transition_blocking
             )
@@ -600,7 +607,8 @@ class GenerationNode(SerializationMixin, SortableBase):
                 for tc in all_tc:
                     if (
                         tc.is_met(
-                            self.experiment, trials_from_node=self.trials_from_node
+                            self.experiment,
+                            curr_node=self,
                         )
                         and raise_data_required_error
                     ):
@@ -647,7 +655,8 @@ class GenerationNode(SerializationMixin, SortableBase):
                 # TODO[mgarrard]: Raise a group of all the errors, from each gen-
                 # blocking transition criterion.
                 if criterion.is_met(
-                    self.experiment, trials_from_node=self.trials_from_node
+                    self.experiment,
+                    curr_node=self,
                 ):
                     criterion.block_continued_generation_error(
                         node_name=self.node_name,

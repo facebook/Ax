@@ -194,7 +194,9 @@ TEST_CASES = [
     ),
     (
         "GenerationStrategy",
-        partial(sobol_gpei_generation_node_gs, with_trial_type=True),
+        partial(
+            sobol_gpei_generation_node_gs, with_trial_type=True, with_should_skip=True
+        ),
     ),
     (
         "GenerationStrategy",

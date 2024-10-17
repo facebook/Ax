@@ -61,12 +61,6 @@ class TestGenerationNodeInputConstructors(TestCase):
 
     def test_repeat_arm_n_constructor(self) -> None:
         """Test that the repeat_arm_n_constructor returns a small percentage of n."""
-        small_n = NodeInputConstructors.REPEAT_N(
-            previous_node=None,
-            next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={"n": 5},
-            experiment=self.experiment,
-        )
         medium_n = NodeInputConstructors.REPEAT_N(
             previous_node=None,
             next_node=self.sobol_generation_node,
@@ -79,9 +73,18 @@ class TestGenerationNodeInputConstructors(TestCase):
             gs_gen_call_kwargs={"n": 11},
             experiment=self.experiment,
         )
-        self.assertEqual(small_n, 0)
         self.assertEqual(medium_n, 1)
         self.assertEqual(large_n, 2)
+
+    def test_repeat_arm_n_constructor_return_0(self) -> None:
+        small_n = NodeInputConstructors.REPEAT_N(
+            previous_node=None,
+            next_node=self.sobol_generation_node,
+            gs_gen_call_kwargs={"n": 5},
+            experiment=self.experiment,
+        )
+        self.assertEqual(small_n, 0)
+        self.assertTrue(self.sobol_generation_node._should_skip)
 
     def test_remaining_n_constructor_expect_1(self) -> None:
         """Test that the remaining_n_constructor returns the remaining n."""

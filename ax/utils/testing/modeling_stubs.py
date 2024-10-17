@@ -230,6 +230,7 @@ def sobol_gpei_generation_node_gs(
     with_unlimited_gen_mbm: bool = False,
     with_trial_type: bool = False,
     with_is_SOO_transition: bool = False,
+    with_should_skip: bool = False,
 ) -> GenerationStrategy:
     """Returns a basic SOBOL+MBM GS using GenerationNodes for testing.
 
@@ -383,6 +384,8 @@ def sobol_gpei_generation_node_gs(
             purpose: NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES,
         }
 
+    if with_should_skip:
+        sobol_node._should_skip = True
     sobol_mbm_GS_nodes = GenerationStrategy(
         name="Sobol+MBM_Nodes",
         nodes=[sobol_node, mbm_node],
