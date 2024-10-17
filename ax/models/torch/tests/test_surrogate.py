@@ -178,7 +178,11 @@ class SurrogateTest(TestCase):
             fixed_features=self.fixed_features,
         )
         self.ds2 = SupervisedDataset(
+            # pyre-fixme[6]: For 1st argument expected `Union[BotorchContainer,
+            #  Tensor]` but got `int`.
             X=2 * self.Xs[0],
+            # pyre-fixme[6]: For 2nd argument expected `Union[BotorchContainer,
+            #  Tensor]` but got `int`.
             Y=2 * self.Ys[0],
             feature_names=self.feature_names,
             outcome_names=["m2"],

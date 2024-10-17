@@ -87,7 +87,7 @@ class TorchOptConfig:
     pending_observations: list[Tensor] | None = None
     model_gen_options: TConfig = field(default_factory=dict)
     rounding_func: Callable[[Tensor], Tensor] | None = None
-    opt_config_metrics: dict[str, Metric] | None = None
+    opt_config_metrics: dict[str, Metric] = field(default_factory=dict)
     is_moo: bool = False
     risk_measure: RiskMeasureMCObjective | None = None
     fit_out_of_design: bool = False

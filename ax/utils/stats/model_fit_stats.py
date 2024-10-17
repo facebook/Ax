@@ -30,13 +30,23 @@ class ModelFitMetricProtocol(Protocol):
     """Structural type for model fit metrics."""
 
     def __call__(
-        self, y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+        self,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+        y_obs: np.ndarray,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+        y_pred: np.ndarray,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+        se_pred: np.ndarray,
     ) -> float: ...
 
 
 def compute_model_fit_metrics(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     y_obs: Mapping[str, np.ndarray],
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     y_pred: Mapping[str, np.ndarray],
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     se_pred: Mapping[str, np.ndarray],
     fit_metrics_dict: Mapping[str, ModelFitMetricProtocol],
 ) -> dict[str, dict[str, float]]:
@@ -69,8 +79,11 @@ def compute_model_fit_metrics(
 
 
 def coefficient_of_determination(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     y_obs: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     y_pred: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     se_pred: np.ndarray | None = None,
     eps: float = 1e-12,
 ) -> float:
@@ -92,8 +105,11 @@ def coefficient_of_determination(
 
 
 def mean_of_the_standardized_error(  # i.e. standardized bias
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     y_obs: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     y_pred: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     se_pred: np.ndarray,
 ) -> float:
     """Computes the mean of the error standardized by the predictive standard deviation
@@ -116,8 +132,11 @@ def mean_of_the_standardized_error(  # i.e. standardized bias
 
 
 def std_of_the_standardized_error(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     y_obs: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     y_pred: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     se_pred: np.ndarray,
 ) -> float:
     """Standard deviation of the error standardized by the predictive standard deviation
@@ -139,8 +158,11 @@ def std_of_the_standardized_error(
 
 
 def entropy_of_observations(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     y_obs: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     y_pred: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     se_pred: np.ndarray,
     bandwidth: float = DEFAULT_KDE_BANDWIDTH,
 ) -> float:
@@ -176,6 +198,7 @@ def entropy_of_observations(
     return _entropy_via_kde(y_obs, bandwidth=bandwidth)
 
 
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 def _entropy_via_kde(y: np.ndarray, bandwidth: float = DEFAULT_KDE_BANDWIDTH) -> float:
     """Computes the entropy of the kernel density estimate of the input data.
 
@@ -193,29 +216,42 @@ def _entropy_via_kde(y: np.ndarray, bandwidth: float = DEFAULT_KDE_BANDWIDTH) ->
 
 
 def _mean_prediction_ci(
-    y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    y_obs: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    y_pred: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    se_pred: np.ndarray,
 ) -> float:
     # Pyre does not allow float * np.ndarray.
     return float(np.mean(1.96 * 2 * se_pred / np.abs(y_obs)))
 
 
 def _log_likelihood(
-    y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    y_obs: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    y_pred: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    se_pred: np.ndarray,
 ) -> float:
     return float(np.sum(norm.logpdf(y_obs, loc=y_pred, scale=se_pred)))
 
 
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 def _mape(y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray) -> float:
     """Mean absolute predictive error"""
     eps = np.finfo(y_obs.dtype).eps
     return float(np.mean(np.abs(y_pred - y_obs) / np.abs(y_obs).clip(min=eps)))
 
 
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 def _mse(y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray) -> float:
     """Mean squared error"""
     return float(np.mean((y_pred - y_obs) ** 2))
 
 
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 def _wmape(y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray) -> float:
     """Weighted mean absolute predictive error"""
     eps = np.finfo(y_obs.dtype).eps
@@ -223,14 +259,24 @@ def _wmape(y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray) -> float:
 
 
 def _total_raw_effect(
-    y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    y_obs: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    y_pred: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    se_pred: np.ndarray,
 ) -> float:
     min_y_obs = np.min(y_obs)
     return float((np.max(y_obs) - min_y_obs) / min_y_obs)
 
 
 def _correlation_coefficient(
-    y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    y_obs: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    y_pred: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    se_pred: np.ndarray,
 ) -> float:
     with np.errstate(invalid="ignore"):
         rho, _ = pearsonr(y_pred, y_obs)
@@ -238,7 +284,12 @@ def _correlation_coefficient(
 
 
 def _rank_correlation(
-    y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    y_obs: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    y_pred: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    se_pred: np.ndarray,
 ) -> float:
     with np.errstate(invalid="ignore"):
         rho, _ = spearmanr(y_pred, y_obs)
@@ -246,7 +297,12 @@ def _rank_correlation(
 
 
 def _fisher_exact_test_p(
-    y_obs: np.ndarray, y_pred: np.ndarray, se_pred: np.ndarray
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    y_obs: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    y_pred: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    se_pred: np.ndarray,
 ) -> float:
     """Perform a Fisher exact test on the contingency table constructed from
     agreement/disagreement between the predicted and observed data.

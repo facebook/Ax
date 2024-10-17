@@ -19,7 +19,7 @@ import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TGenMetadata
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.models.torch.botorch import (
     get_feature_importances_from_botorch_model,
     get_rounding_func,
@@ -616,17 +616,13 @@ class BoTorchModel(TorchModel, Base):
         """
         if not self._botorch_acqf_class:
             if torch_opt_config.risk_measure is not None:
-                # TODO[T131759261]: Implement selection of acqf for robust opt.
-                # This will depend on the properties of the robust search space and
-                # the risk measure being used.
-                raise NotImplementedError
+                raise UnsupportedError(
+                    "Automated selection of `botorch_acqf_class` is not supported "
+                    "for robust optimization with risk measures. Please specify "
+                    "`botorch_acqf_class` as part of `model_kwargs`."
+                )
             self._botorch_acqf_class = choose_botorch_acqf_class(
-                pending_observations=torch_opt_config.pending_observations,
-                outcome_constraints=torch_opt_config.outcome_constraints,
-                linear_constraints=torch_opt_config.linear_constraints,
-                fixed_features=torch_opt_config.fixed_features,
-                objective_thresholds=torch_opt_config.objective_thresholds,
-                objective_weights=torch_opt_config.objective_weights,
+                torch_opt_config=torch_opt_config
             )
 
         return self.acquisition_class(
@@ -638,6 +634,7 @@ class BoTorchModel(TorchModel, Base):
         )
 
     @single_surrogate_only
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def feature_importances(self) -> np.ndarray:
         """Compute feature importances from the model.
 

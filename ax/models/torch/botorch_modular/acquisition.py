@@ -8,11 +8,10 @@
 
 from __future__ import annotations
 
-import dataclasses
 import functools
 import operator
 import warnings
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from functools import partial, reduce
 from itertools import product
 from logging import Logger
@@ -257,19 +256,6 @@ class Acquisition(Base):
             X_observed=primary_Xs_observed,
             risk_measure=torch_opt_config.risk_measure,
         )
-
-        model_deps = self.compute_model_dependencies(
-            surrogates=self.surrogates,
-            search_space_digest=search_space_digest,
-            torch_opt_config=dataclasses.replace(
-                torch_opt_config,
-                objective_weights=objective_weights,
-                outcome_constraints=outcome_constraints,
-                objective_thresholds=objective_thresholds,
-            ),
-            options=self.options,
-        )
-
         acqf_model_kwarg = (
             {
                 "model_dict": ModelDict(
@@ -297,7 +283,6 @@ class Acquisition(Base):
             "objective": objective,
             "posterior_transform": posterior_transform,
             **acqf_model_kwarg,
-            **model_deps,
             **self.options,
         }
 
@@ -600,39 +585,6 @@ class Acquisition(Base):
             # NOTE: `AcquisitionFunction.__call__` calls `forward`,
             # so below is equivalent to `self.acqf.forward(X=X)`.
             return self.acqf(X=X)
-
-    def compute_model_dependencies(
-        self,
-        surrogates: Mapping[str, Surrogate],
-        search_space_digest: SearchSpaceDigest,
-        torch_opt_config: TorchOptConfig,
-        options: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Computes inputs to acquisition function class based on the given
-        surrogate model.
-
-        NOTE: When subclassing `Acquisition` from a superclass where this
-        method returns a non-empty dictionary of kwargs to `AcquisitionFunction`,
-        call `super().compute_model_dependencies` and then update that
-        dictionary of options with the options for the subclass you are creating
-        (unless the superclass' model dependencies should not be propagated to
-        the subclass). See `MultiFidelityKnowledgeGradient.compute_model_dependencies`
-        for an example.
-
-        Args:
-            surrogates: Mapping from names to Surrogate objects containing BoTorch
-                `Model`s, with which this `Acquisition` is to be used.
-            search_space_digest: A SearchSpaceDigest object containing metadata
-                about the search space (e.g. bounds, parameter types).
-            torch_opt_config: A TorchOptConfig object containing optimization
-                arguments (e.g., objective weights, constraints).
-            options: The `options` kwarg dict, passed on initialization of
-                the `Acquisition` object.
-
-        Returns: A dictionary of surrogate model-dependent options, to be passed
-            as kwargs to BoTorch`AcquisitionFunction` constructor.
-        """
-        return {}
 
     def get_botorch_objective_and_transform(
         self,

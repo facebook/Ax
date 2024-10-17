@@ -102,6 +102,7 @@ class LogY(Transform):
     def _tf_obs_data(
         self,
         observation_data: list[ObservationData],
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         transform: Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]],
     ) -> list[ObservationData]:
         for obsd in observation_data:
@@ -157,10 +158,14 @@ class LogY(Transform):
 
 
 def match_ci_width(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     mean: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     variance: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     transform: Callable[[np.ndarray], np.ndarray],
     level: float = 0.95,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> np.ndarray:
     fac = norm.ppf(1 - (1 - level) / 2)
     d = fac * np.sqrt(variance)
@@ -172,7 +177,11 @@ def match_ci_width(
 
 
 def lognorm_to_norm(
-    mu_ln: np.ndarray, Cov_ln: np.ndarray
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    mu_ln: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    Cov_ln: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> tuple[np.ndarray, np.ndarray]:
     """Compute mean and covariance of a MVN from those of the associated log-MVN
 
@@ -188,7 +197,11 @@ def lognorm_to_norm(
 
 
 def norm_to_lognorm(
-    mu_n: np.ndarray, Cov_n: np.ndarray
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    mu_n: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    Cov_n: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> tuple[np.ndarray, np.ndarray]:
     """Compute mean and covariance of a log-MVN from its MVN sufficient statistics
 
