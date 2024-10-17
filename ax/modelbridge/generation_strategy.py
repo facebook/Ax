@@ -456,6 +456,9 @@ class GenerationStrategy(GenerationStrategyInterface):
             node_to_gen_from = self.nodes_dict[node_to_gen_from_name]
             if should_transition:
                 node_to_gen_from._previous_node_name = node_to_gen_from_name
+                # reset should skip as conditions may have changed, do not reset
+                # until now so node properites can be as up to date as possible
+                node_to_gen_from._should_skip = False
             arms_from_node = self._determine_arms_from_node(
                 node_to_gen_from=node_to_gen_from,
                 arms_per_node=arms_per_node,
@@ -467,25 +470,32 @@ class GenerationStrategy(GenerationStrategyInterface):
                 gen_kwargs=gen_kwargs,
                 passed_fixed_features=fixed_features,
             )
-            grs.extend(
-                self._gen_multiple(
-                    experiment=experiment,
-                    num_generator_runs=1,
-                    data=data,
-                    n=arms_from_node,
-                    pending_observations=pending_observations,
-                    fixed_features=fixed_features_from_node,
+            # TODO: @mgarrard clean this up after gens merge. This is currently needed
+            # because the actual transition occurs in gs.gen(), but if a node is
+            # skipped, we need to transition here to actually initiate that transition
+            if node_to_gen_from._should_skip:
+                self._maybe_transition_to_next_node()
+                continue
+            if arms_from_node != 0:
+                grs.extend(
+                    self._gen_multiple(
+                        experiment=experiment,
+                        num_generator_runs=1,
+                        data=data,
+                        n=arms_from_node,
+                        pending_observations=pending_observations,
+                        fixed_features=fixed_features_from_node,
+                    )
                 )
-            )
-            # ensure that the points generated from each node are marked as pending
-            # points for future calls to gen
-            pending_observations = extend_pending_observations(
-                experiment=experiment,
-                pending_observations=pending_observations,
-                # only pass in the most recent generator run to avoid unnecessary
-                # deduplication in extend_pending_observations
-                generator_runs=[grs[-1]],
-            )
+                # ensure that the points generated from each node are marked as pending
+                # points for future calls to gen
+                pending_observations = extend_pending_observations(
+                    experiment=experiment,
+                    pending_observations=pending_observations,
+                    # only pass in the most recent generator run to avoid unnecessary
+                    # deduplication in extend_pending_observations
+                    generator_runs=[grs[-1]],
+                )
             continue_gen_for_trial = self._should_continue_gen_for_trial()
         return grs
 
@@ -1044,7 +1054,8 @@ class GenerationStrategy(GenerationStrategyInterface):
         self._model = self._curr._fitted_model
 
     def _maybe_transition_to_next_node(
-        self, raise_data_required_error: bool = True
+        self,
+        raise_data_required_error: bool = True,
     ) -> bool:
         """Moves this generation strategy to next node if the current node is completed,
         and it is not the last node in this generation strategy. This method is safe to
