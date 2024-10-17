@@ -201,7 +201,9 @@ class TorchModelBridgeTest(TestCase):
             weights=torch.tensor([1.0], **tkwargs),
             gen_metadata={"foo": 99},
         )
-
+        opt_config = OptimizationConfig(
+            objective=Objective(metric=Metric("y1"), minimize=False),
+        )
         with ExitStack() as es:
             es.enter_context(
                 mock.patch(
@@ -231,9 +233,7 @@ class TorchModelBridgeTest(TestCase):
             gen_run = ma.gen(
                 n=3,
                 search_space=search_space,
-                optimization_config=OptimizationConfig(
-                    objective=Objective(metric=Metric("y1"), minimize=False),
-                ),
+                optimization_config=opt_config,
                 pending_observations={
                     "y2": [
                         ObservationFeatures(
@@ -265,6 +265,7 @@ class TorchModelBridgeTest(TestCase):
         self.assertEqual(gen_opt_config.model_gen_options, {"option": "yes"})
         self.assertIs(gen_opt_config.rounding_func, torch.round)
         self.assertFalse(gen_opt_config.is_moo)
+        self.assertEqual(gen_opt_config.opt_config_metrics, opt_config.metrics)
         self.assertEqual(gen_args["search_space_digest"].target_values, {})
         self.assertEqual(len(gen_run.arms), 1)
         self.assertEqual(gen_run.arms[0].parameters, {"x1": 1.0, "x2": 2.0, "x3": 3.0})
