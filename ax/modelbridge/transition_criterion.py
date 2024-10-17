@@ -93,7 +93,7 @@ class TransitionCriterion(SortableBase, SerializationMixin):
         node_name: str | None,
         model_name: str | None,
         experiment: Experiment | None,
-        trials_from_node: set[int] | None = None,
+        trials_from_node: set[int],
     ) -> None:
         """Error to be raised if the `block_gen_if_met` flag is set to True."""
         pass
@@ -169,7 +169,7 @@ class AutoTransitionAfterGen(TransitionCriterion):
         node_name: str | None,
         model_name: str | None,
         experiment: Experiment | None,
-        trials_from_node: set[int] | None = None,
+        trials_from_node: set[int],
     ) -> None:
         """Error to be raised if the `block_gen_if_met` flag is set to True."""
         pass
@@ -226,7 +226,7 @@ class IsSingleObjective(TransitionCriterion):
         node_name: str | None,
         model_name: str | None,
         experiment: Experiment | None,
-        trials_from_node: set[int] | None = None,
+        trials_from_node: set[int],
     ) -> None:
         # TODO: @mgarrard add error message that makes sense
         pass
@@ -325,7 +325,7 @@ class TrialBasedCriterion(TransitionCriterion):
         return trials_to_check
 
     def num_contributing_to_threshold(
-        self, experiment: Experiment, trials_from_node: set[int] | None = None
+        self, experiment: Experiment, trials_from_node: set[int]
     ) -> int:
         """Returns the number of trials contributing to the threshold.
 
@@ -339,12 +339,6 @@ class TrialBasedCriterion(TransitionCriterion):
         if self.use_all_trials_in_exp:
             return len(all_trials_to_check)
 
-        if trials_from_node is None:
-            logger.warning(
-                "`trials_from_node` is empty, will check threshold on"
-                + " experiment level.",
-            )
-            return len(all_trials_to_check)
         return len(trials_from_node.intersection(all_trials_to_check))
 
     def num_till_threshold(
@@ -450,7 +444,7 @@ class MaxGenerationParallelism(TrialBasedCriterion):
         node_name: str | None,
         model_name: str | None,
         experiment: Experiment | None,
-        trials_from_node: set[int] | None = None,
+        trials_from_node: set[int],
     ) -> None:
         """If the block_continued_generation flag is set, raises the
         MaxParallelismReachedException error.
@@ -532,7 +526,7 @@ class MaxTrials(TrialBasedCriterion):
         node_name: str | None,
         model_name: str | None,
         experiment: Experiment | None,
-        trials_from_node: set[int] | None = None,
+        trials_from_node: set[int],
     ) -> None:
         """If the block_continued_generation flag is set, raises an error because the
         remaining TransitionCriterion cannot be completed in the current state.
@@ -608,7 +602,7 @@ class MinTrials(TrialBasedCriterion):
         node_name: str | None,
         model_name: str | None,
         experiment: Experiment | None,
-        trials_from_node: set[int] | None = None,
+        trials_from_node: set[int],
     ) -> None:
         """If the enforce flag is set, raises an error because the remaining
         TransitionCriterion cannot be completed in the current state.
@@ -678,7 +672,7 @@ class MinimumPreferenceOccurances(TransitionCriterion):
         node_name: str | None,
         model_name: str | None,
         experiment: Experiment | None,
-        trials_from_node: set[int] | None = None,
+        trials_from_node: set[int],
     ) -> None:
         pass
 
@@ -801,7 +795,7 @@ class AuxiliaryExperimentCheck(TransitionCriterion):
         node_name: str | None,
         model_name: str | None,
         experiment: Experiment | None,
-        trials_from_node: set[int] | None = None,
+        trials_from_node: set[int],
     ) -> None:
         """If the enforce flag is set, raises an error because the remaining
         TransitionCriterion cannot be completed in the current state.
@@ -841,6 +835,6 @@ class MinimumTrialsInStatus(TransitionCriterion):
         node_name: str | None,
         model_name: str | None,
         experiment: Experiment | None,
-        trials_from_node: set[int] | None = None,
+        trials_from_node: set[int],
     ) -> None:
         pass
