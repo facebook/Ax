@@ -189,6 +189,9 @@ def benchmark_replication(
         score_trace = np.full(len(optimization_trace), np.nan)
 
     fit_time, gen_time = get_model_times(experiment=experiment)
+    # Strip runner from experiment before returning, so that the experiment can
+    # be serialized (the runner can't be)
+    experiment.runner = None
 
     return BenchmarkResult(
         name=scheduler.experiment.name,

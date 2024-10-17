@@ -205,7 +205,6 @@ def get_benchmark_result() -> BenchmarkResult:
             name="test_benchmarking_experiment",
             search_space=problem.search_space,
             optimization_config=problem.optimization_config,
-            runner=problem.runner,
             is_test=True,
         ),
         inference_trace=np.ones(4),

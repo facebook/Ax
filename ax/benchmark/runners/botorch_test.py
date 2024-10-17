@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-import importlib
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -17,10 +16,8 @@ from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TParamValue
 from ax.utils.common.base import Base
 from ax.utils.common.equality import equality_typechecker
-from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
 from botorch.test_functions.synthetic import BaseTestProblem, ConstrainedBaseTestProblem
 from botorch.utils.transforms import normalize, unnormalize
-from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
@@ -164,42 +161,6 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
                 noise_std_dict[self.outcome_names[i]] = noise_std_
 
         return noise_std_dict
-
-    @classmethod
-    # pyre-fixme [2]: Parameter `obj` must have a type other than `Any``
-    def serialize_init_args(cls, obj: Any) -> dict[str, Any]:
-        """Serialize the properties needed to initialize the runner.
-        Used for storage.
-        """
-        runner = assert_is_instance(obj, cls)
-
-        return {
-            "test_problem_module": runner._test_problem_class.__module__,
-            "test_problem_class_name": runner._test_problem_class.__name__,
-            "test_problem_kwargs": runner._test_problem_kwargs,
-            "outcome_names": runner.outcome_names,
-            "modified_bounds": runner._modified_bounds,
-        }
-
-    @classmethod
-    def deserialize_init_args(
-        cls,
-        args: dict[str, Any],
-        decoder_registry: TDecoderRegistry | None = None,
-        class_decoder_registry: TClassDecoderRegistry | None = None,
-    ) -> dict[str, Any]:
-        """Given a dictionary, deserialize the properties needed to initialize the
-        runner. Used for storage.
-        """
-
-        module = importlib.import_module(args["test_problem_module"])
-
-        return {
-            "test_problem_class": getattr(module, args["test_problem_class_name"]),
-            "test_problem_kwargs": args["test_problem_kwargs"],
-            "outcome_names": args["outcome_names"],
-            "modified_bounds": args["modified_bounds"],
-        }
 
 
 class BotorchTestProblemRunner(SyntheticProblemRunner):

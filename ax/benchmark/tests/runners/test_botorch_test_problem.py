@@ -20,6 +20,7 @@ from ax.benchmark.runners.botorch_test import (
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.trial import Trial
+from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.benchmark_stubs import TestParamBasedTestProblem
@@ -174,30 +175,14 @@ class TestSyntheticRunner(TestCase):
                 )
 
             with self.subTest(f"test `serialize_init_args()`, {test_description}"):
-                serialize_init_args = runner_cls.serialize_init_args(obj=runner)
-                self.assertEqual(
-                    serialize_init_args,
-                    {
-                        "test_problem_module": runner._test_problem_class.__module__,
-                        "test_problem_class_name": runner._test_problem_class.__name__,
-                        "test_problem_kwargs": runner._test_problem_kwargs,
-                        "outcome_names": runner.outcome_names,
-                        "modified_bounds": runner._modified_bounds,
-                    },
-                )
-                # test deserialize args
-                deserialize_init_args = runner_cls.deserialize_init_args(
-                    serialize_init_args
-                )
-                self.assertEqual(
-                    deserialize_init_args,
-                    {
-                        "test_problem_class": test_problem_class,
-                        "test_problem_kwargs": test_problem_kwargs,
-                        "outcome_names": outcome_names,
-                        "modified_bounds": modified_bounds,
-                    },
-                )
+                with self.assertRaisesRegex(
+                    UnsupportedError, "serialize_init_args is not a supported method"
+                ):
+                    runner_cls.serialize_init_args(obj=runner)
+                with self.assertRaisesRegex(
+                    UnsupportedError, "deserialize_init_args is not a supported method"
+                ):
+                    runner_cls.deserialize_init_args({})
 
     def test_botorch_test_problem_runner_heterogeneous_noise(self) -> None:
         runner = BotorchTestProblemRunner(
