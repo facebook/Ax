@@ -96,6 +96,8 @@ class GenerationNode(SerializationMixin, SortableBase):
             set during transition from one ``GenerationNode`` to the next. Can be
             overwritten if multiple transitions occur between nodes, and will always
             store the most recent previous ``GenerationNode`` name.
+        should_skip: Whether to skip this node during generation time. Defaults to
+            False, and can only currently be set to True via ``NodeInputConstructors``
 
     Note for developers: by "model" here we really mean an Ax ModelBridge object, which
     contains an Ax Model under the hood. We call it "model" here to simplify and focus
@@ -118,6 +120,7 @@ class GenerationNode(SerializationMixin, SortableBase):
     ]
     _previous_node_name: str | None = None
     _trial_type: str | None = None
+    _should_skip: bool = False
 
     # [TODO] Handle experiment passing more eloquently by enforcing experiment
     # attribute is set in generation strategies class
