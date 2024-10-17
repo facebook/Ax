@@ -4,7 +4,6 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-import sys
 from enum import Enum, unique
 from math import ceil, floor
 from typing import Any
@@ -17,51 +16,13 @@ from ax.exceptions.generation_strategy import AxGenerationException
 
 from ax.modelbridge.generation_node import GenerationNode
 from ax.utils.common.constants import Keys
-
-
-@unique
-class NodeInputConstructors(Enum):
-    """An enum which maps to a the name of a callable method for constructing
-    ``GenerationNode`` inputs.
-
-    NOTE: The methods defined by this enum should all share identical signatures
-    and reside in this file.
-    """
-
-    ALL_N = "consume_all_n"
-    REPEAT_N = "repeat_arm_n"
-    REMAINING_N = "remaining_n"
-    TARGET_TRIAL_FIXED_FEATURES = "set_target_trial"
-
-    # pyre-ignore[3] input constructors can return any type in order to be flexible
-    # and share identical signatures
-    def __call__(
-        self,
-        previous_node: GenerationNode | None,
-        next_node: GenerationNode,
-        gs_gen_call_kwargs: dict[str, Any],
-        experiment: Experiment,
-    ) -> Any:
-        """Defines a callable method for the Enum as all values are methods"""
-        try:
-            method = getattr(sys.modules[__name__], self.value)
-        except AttributeError:
-            raise ValueError(
-                f"{self.value} is not defined as a method in "
-                "``generation_node_input_constructors.py``. Please add the method "
-                "to the file."
-            )
-        return method(
-            previous_node=previous_node,
-            next_node=next_node,
-            gs_gen_call_kwargs=gs_gen_call_kwargs,
-            experiment=experiment,
-        )
+from ax.utils.common.func_enum import FuncEnum
 
 
 @unique
 class InputConstructorPurpose(Enum):
     """A simple enum to indicate the purpose of the input constructor.
+    Values in this enum will match argument names for ``GenerationNode.gen``.
 
     Explanation of the different purposes:
         N: Defines the logic to determine the number of arms to generate from the
@@ -71,6 +32,45 @@ class InputConstructorPurpose(Enum):
 
     N = "n"
     FIXED_FEATURES = "fixed_features"
+
+
+class NodeInputConstructors(FuncEnum):
+    """An enum which maps to a the name of a callable method for constructing
+    ``GenerationNode`` inputs. Recommendation: ends of the names of members
+    of this enum should match the corresponding ``InputConstructorPurpose`` name.
+
+    NOTE: All functions defined by this enum should share identical arguments in
+    their signatures, and the return type should be the same across all functions
+    that are used for the same ``InputConstructorPurpose``.
+    """
+
+    ALL_N = "consume_all_n"
+    REPEAT_N = "repeat_arm_n"
+    REMAINING_N = "remaining_n"
+    TARGET_TRIAL_FIXED_FEATURES = "set_target_trial"
+
+    # pyre-ignore[3]: Input constructors will be used to make different inputs,
+    # so we need to allow `Any` return type here.
+    def __call__(
+        self,
+        previous_node: GenerationNode | None,
+        next_node: GenerationNode,
+        gs_gen_call_kwargs: dict[str, Any],
+        experiment: Experiment,
+    ) -> Any:
+        """Defines a method, by which the members of this enum can be called,
+        e.g. ``NodeInputConstructors.ALL_N(**kwargs)``, which will call the
+        ``consume_all_n`` function from this file, since the name of this
+        function corresponds to the value of the enum member ``ALL_N``."""
+        return super().__call__(
+            previous_node=previous_node,
+            next_node=next_node,
+            gs_gen_call_kwargs=gs_gen_call_kwargs,
+            experiment=experiment,
+        )
+
+
+# ------------------------- Purpose: `fixed_features` ------------------------- #
 
 
 def set_target_trial(
@@ -109,6 +109,9 @@ def set_target_trial(
     )
 
 
+# ------------------------- Purpose: `n` ------------------------- #
+
+
 def consume_all_n(
     previous_node: GenerationNode | None,
     next_node: GenerationNode,
@@ -136,9 +139,10 @@ def consume_all_n(
     Returns:
         The total number of requested arms from the next node.
     """
+    n_kwarg = gs_gen_call_kwargs.get("n")
     return (
-        gs_gen_call_kwargs.get("n")
-        if gs_gen_call_kwargs.get("n") is not None
+        n_kwarg
+        if n_kwarg is not None
         else _get_default_n(experiment=experiment, next_node=next_node)
     )
 
@@ -168,9 +172,10 @@ def repeat_arm_n(
     Returns:
         The number of requested arms from the next node
     """
+    n_kwarg = gs_gen_call_kwargs.get("n")
     total_n = (
-        gs_gen_call_kwargs.get("n")
-        if gs_gen_call_kwargs.get("n") is not None
+        n_kwarg
+        if n_kwarg is not None
         else _get_default_n(experiment=experiment, next_node=next_node)
     )
     if total_n < 6:
@@ -210,9 +215,10 @@ def remaining_n(
     """
     # TODO: @mgarrard improve this logic to be more robust
     grs_this_gen = gs_gen_call_kwargs.get("grs_this_gen", [])
+    n_kwarg = gs_gen_call_kwargs.get("n")
     total_n = (
-        gs_gen_call_kwargs.get("n")
-        if gs_gen_call_kwargs.get("n") is not None
+        n_kwarg
+        if n_kwarg is not None
         else _get_default_n(experiment=experiment, next_node=next_node)
     )
     # if all arms have been generated, return 0
