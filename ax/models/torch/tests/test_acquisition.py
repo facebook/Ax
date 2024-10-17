@@ -11,7 +11,6 @@ from __future__ import annotations
 import dataclasses
 import itertools
 from contextlib import ExitStack
-from itertools import chain
 from typing import Any
 from unittest import mock
 from unittest.mock import Mock
@@ -250,13 +249,8 @@ class AcquisitionTest(TestCase):
     @mock.patch(
         f"{ACQUISITION_PATH}.get_botorch_objective_and_transform",
     )
-    @mock.patch(
-        f"{CURRENT_PATH}.Acquisition.compute_model_dependencies",
-        return_value={"eta": 0.1},
-    )
     def test_init_with_subset_model_false(
         self,
-        mock_compute_model_deps: Mock,
         mock_get_objective_and_transform: Mock,
         mock_subset_model: Mock,
         mock_get_X: Mock,
@@ -285,13 +279,12 @@ class AcquisitionTest(TestCase):
         self.assertIs(ckwargs["outcome_constraints"], self.outcome_constraints)
         self.assertTrue(torch.equal(ckwargs["X_observed"], self.X[:1]))
         # Check final `acqf` creation
-        model_deps = {"eta": 0.1}
         self.mock_input_constructor.assert_called_once()
         _, ckwargs = self.mock_input_constructor.call_args
         self.assertIs(ckwargs["model"], acquisition.surrogates["surrogate"].model)
         self.assertIs(ckwargs["objective"], botorch_objective)
         self.assertTrue(torch.equal(ckwargs["X_pending"], self.pending_observations[0]))
-        for k, v in chain(self.options.items(), model_deps.items()):
+        for k, v in self.options.items():
             self.assertEqual(ckwargs[k], v)
         self.assertIs(
             ckwargs["constraints"],
