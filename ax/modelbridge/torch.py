@@ -92,7 +92,9 @@ class TorchModelBridge(ModelBridge):
     """
 
     model: TorchModel | None = None
+    # pyre-fixme[13]: Attribute `outcomes` is never initialized.
     outcomes: list[str]
+    # pyre-fixme[13]: Attribute `parameters` is never initialized.
     parameters: list[str]
     _default_model_gen_options: TConfig
     _last_observations: list[Observation] | None = None
@@ -283,16 +285,21 @@ class TorchModelBridge(ModelBridge):
         return best_arm, best_point_predictions
 
     def _array_callable_to_tensor_callable(
-        self, array_func: Callable[[np.ndarray], np.ndarray]
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+        self,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+        array_func: Callable[[np.ndarray], np.ndarray],
     ) -> Callable[[Tensor], Tensor]:
         tensor_func: Callable[[Tensor], Tensor] = lambda x: (
             self._array_to_tensor(array_func(x.detach().cpu().clone().numpy()))
         )
         return tensor_func
 
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def _array_list_to_tensors(self, arrays: list[np.ndarray]) -> list[Tensor]:
         return [self._array_to_tensor(x) for x in arrays]
 
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def _array_to_tensor(self, array: np.ndarray | list[float]) -> Tensor:
         return torch.as_tensor(array, dtype=self.dtype, device=self.device)
 
@@ -765,7 +772,11 @@ class TorchModelBridge(ModelBridge):
         return array_to_observation_data(f=f, cov=cov, outcomes=self.outcomes)
 
     def _array_to_observation_features(
-        self, X: np.ndarray, candidate_metadata: list[TCandidateMetadata] | None
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+        self,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+        X: np.ndarray,
+        candidate_metadata: list[TCandidateMetadata] | None,
     ) -> list[ObservationFeatures]:
         return parse_observation_features(
             X=X, param_names=self.parameters, candidate_metadata=candidate_metadata

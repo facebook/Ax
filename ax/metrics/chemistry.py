@@ -49,7 +49,9 @@ from ax.utils.common.typeutils import not_none
 
 
 class ChemistryProblemType(Enum):
+    # pyre-fixme[35]: Target cannot be annotated.
     SUZUKI: str = "suzuki"
+    # pyre-fixme[35]: Target cannot be annotated.
     DIRECT_ARYLATION: str = "direct_arylation"
 
 

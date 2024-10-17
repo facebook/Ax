@@ -638,6 +638,7 @@ class BoTorchModel(TorchModel, Base):
         )
 
     @single_surrogate_only
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def feature_importances(self) -> np.ndarray:
         """Compute feature importances from the model.
 

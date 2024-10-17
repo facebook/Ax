@@ -141,7 +141,9 @@ def get_plotting_limit_ignore_outliers(
 
     x_np = np.array(x)
     # TODO: replace interpolation->method once it becomes standard.
+    # pyre-fixme[28]: Unexpected keyword argument `interpolation`.
     q1 = np.nanpercentile(x_np, q=25, interpolation="lower").min()
+    # pyre-fixme[28]: Unexpected keyword argument `interpolation`.
     q3 = np.nanpercentile(x_np, q=75, interpolation="higher").max()
     quartile_difference = q3 - q1
 

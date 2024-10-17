@@ -117,6 +117,7 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
 
     # pyre-fixme[14]: `f` overrides method defined in `NoisyFunctionMapMetric`
     #  inconsistently.
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def f(self, x: np.ndarray, timestamp: int) -> Mapping[str, Any]:
         x1, x2 = x
 
@@ -160,6 +161,7 @@ class BraninFidelityMapMetric(NoisyFunctionMapMetric):
             **kwargs,
         )
 
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def f(self, x: np.ndarray) -> Mapping[str, Any]:
         if self.index < len(FIDELITY):
             self.index += 1
