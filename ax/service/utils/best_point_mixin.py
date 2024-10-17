@@ -620,6 +620,8 @@ class BestPointMixin(metaclass=ABCMeta):
         else:
             bins = np.array(bins)  # pyre-ignore[9]
 
+        # pyre-fixme[9]: bins has type `Optional[List[float]]`; used as
+        #  `ndarray[typing.Any, dtype[typing.Any]]`.
         bins = np.expand_dims(bins, axis=0)
 
         # compute for each bin value the largest trial index finished by then
@@ -629,4 +631,6 @@ class BestPointMixin(metaclass=ABCMeta):
         )
         obj_vals = (df["mean"].cummin() if minimize else df["mean"].cummax()).to_numpy()
         best_observed = obj_vals[best_observed_idcs]
+        # pyre-fixme[16]: Item `List` of `Union[List[float], ndarray[typing.Any,
+        #  np.dtype[typing.Any]]]` has no attribute `squeeze`.
         return best_observed.tolist(), bins.squeeze(axis=0).tolist()

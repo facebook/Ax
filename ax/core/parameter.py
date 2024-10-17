@@ -41,9 +41,13 @@ REPR_FLAGS_IF_TRUE_ONLY = [
 
 
 class ParameterType(Enum):
+    # pyre-fixme[35]: Target cannot be annotated.
     BOOL: int = 0
+    # pyre-fixme[35]: Target cannot be annotated.
     INT: int = 1
+    # pyre-fixme[35]: Target cannot be annotated.
     FLOAT: int = 2
+    # pyre-fixme[35]: Target cannot be annotated.
     STRING: int = 3
 
     @property
@@ -143,6 +147,7 @@ class Parameter(SortableBase, metaclass=ABCMeta):
             "Only choice hierarchical parameters are currently supported."
         )
 
+    # pyre-fixme[7]: Expected `Parameter` but got implicit return value of `None`.
     def clone(self) -> Parameter:
         # pyre-fixme[7]: Expected `Parameter` but got implicit return value of `None`.
         pass
@@ -214,10 +219,17 @@ class Parameter(SortableBase, metaclass=ABCMeta):
         if flags:
             summary_dict["flags"] = ", ".join(flags)
         if getattr(self, "is_fidelity", False) or getattr(self, "is_task", False):
+            # pyre-fixme[6]: For 2nd argument expected `str` but got `Union[None,
+            #  bool, float, int, str]`.
             summary_dict["target_value"] = self.target_value
         if getattr(self, "is_hierarchical", False):
+            # pyre-fixme[6]: For 2nd argument expected `str` but got
+            #  `Dict[Union[None, bool, float, int, str], List[str]]`.
             summary_dict["dependents"] = self.dependents
 
+        # pyre-fixme[7]: Expected `Dict[str, Union[None, List[Union[None, bool,
+        #  float, int, str]], List[str], bool, float, int, str]]` but got `Dict[str,
+        #  str]`.
         return summary_dict
 
 

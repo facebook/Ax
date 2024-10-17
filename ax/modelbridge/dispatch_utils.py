@@ -187,6 +187,8 @@ def _suggest_gp_model(
                 all_range_parameters_are_discrete = False
             else:
                 num_param_discrete_values = parameter.cardinality()
+                # pyre-fixme[58]: `*` is not supported for operand types `int` and
+                #  `Union[float, int]`.
                 num_possible_points *= num_param_discrete_values
 
         if should_enumerate_param:

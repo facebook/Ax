@@ -170,6 +170,7 @@ class BaseRelativize(Transform, ABC):
     def _get_relative_data_from_obs(
         self,
         obs: Observation,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
     ) -> ObservationData:
         idx = (
@@ -191,6 +192,7 @@ class BaseRelativize(Transform, ABC):
     def _rel_op_on_observations(
         self,
         observations: list[Observation],
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
     ) -> list[Observation]:
         return [
@@ -206,6 +208,7 @@ class BaseRelativize(Transform, ABC):
         self,
         data: ObservationData,
         status_quo_data: ObservationData,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
     ) -> ObservationData:
         r"""
@@ -253,7 +256,9 @@ class BaseRelativize(Transform, ABC):
         mean_c: float,
         sem_c: float,
         metric: str,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     ) -> tuple[float | np.ndarray, float | np.ndarray]:
         """Compute (un)relativized mean and sem for a single metric."""
         # if the is the status quo

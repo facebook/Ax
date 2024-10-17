@@ -395,7 +395,9 @@ class ObservationsTest(TestCase):
             self.assertEqual(obs.features.parameters, t["updated_parameters"])
             self.assertEqual(obs.features.trial_index, t["trial_index"])
             self.assertEqual(obs.data.metric_names, [t["metric_name"]])
+            # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[ty...
             self.assertTrue(np.array_equal(obs.data.means, t["mean_t"]))
+            # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[ty...
             self.assertTrue(np.array_equal(obs.data.covariance, t["covariance_t"]))
             self.assertEqual(obs.arm_name, t["arm_name"])
 
@@ -484,7 +486,9 @@ class ObservationsTest(TestCase):
             self.assertEqual(obs.features.parameters, t["updated_parameters"])
             self.assertEqual(obs.features.trial_index, t["trial_index"])
             self.assertEqual(obs.data.metric_names, [t["metric_name"]])
+            # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[ty...
             self.assertTrue(np.array_equal(obs.data.means, t["mean_t"]))
+            # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[ty...
             self.assertTrue(np.array_equal(obs.data.covariance, t["covariance_t"]))
             self.assertEqual(obs.arm_name, t["arm_name"])
             self.assertEqual(obs.features.metadata, {"timestamp": t["timestamp"]})
@@ -828,8 +832,10 @@ class ObservationsTest(TestCase):
                 0,
             )
             self.assertEqual(obs.data.metric_names, obs_truth["metric_names"][i])
+            # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[ty...
             self.assertTrue(np.array_equal(obs.data.means, obs_truth["means"][i]))
             self.assertTrue(
+                # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtyp...
                 np.array_equal(obs.data.covariance, obs_truth["covariance"][i])
             )
             self.assertEqual(obs.arm_name, obs_truth["arm_name"][i])

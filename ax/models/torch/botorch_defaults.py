@@ -574,6 +574,8 @@ def recommend_best_observed_point(
     )
     if x_best is None:
         return None
+    # pyre-fixme[16]: Item `ndarray` of `Union[ndarray[typing.Any, typing.Any],
+    #  Tensor]` has no attribute `to`.
     return x_best.to(dtype=model.dtype, device=torch.device("cpu"))
 
 

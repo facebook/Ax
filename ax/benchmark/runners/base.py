@@ -72,6 +72,7 @@ class BenchmarkRunner(Runner, ABC):
         """
         ...
 
+    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
     def evaluate_oracle(self, parameters: Mapping[str, TParamValue]) -> ndarray:
         """
         Evaluate oracle metric values at a parameterization. In the base class,
@@ -149,6 +150,8 @@ class BenchmarkRunner(Runner, ABC):
                 # budget allocation to each arm. This works b/c (i) we assume that
                 # observations per unit sample budget are i.i.d. and (ii) the
                 # normalized weights sum to one.
+                # pyre-fixme[61]: `nlzd_arm_weights` is undefined, or not always
+                #  defined.
                 std = noise_stds_tsr.to(Y_true) / sqrt(nlzd_arm_weights[arm])
                 Ystds[arm.name] = std.tolist()
                 Ys[arm.name] = (Y_true + std * torch.randn_like(Y_true)).tolist()

@@ -86,6 +86,7 @@ class TransformToNewSQ(BaseRelativize):
     def _get_relative_data_from_obs(
         self,
         obs: Observation,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
     ) -> ObservationData:
         idx = (
@@ -104,6 +105,7 @@ class TransformToNewSQ(BaseRelativize):
     def _rel_op_on_observations(
         self,
         observations: list[Observation],
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
     ) -> list[Observation]:
         rel_observations = super()._rel_op_on_observations(
@@ -124,6 +126,7 @@ class TransformToNewSQ(BaseRelativize):
         self,
         data: ObservationData,
         status_quo_data: ObservationData,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
     ) -> ObservationData:
         r"""
@@ -171,6 +174,7 @@ class TransformToNewSQ(BaseRelativize):
         mean_c: float,
         sem_c: float,
         metric: str,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
     ) -> tuple[float, float]:
         """Compute (un)transformed mean and sem for a single metric."""
@@ -192,4 +196,6 @@ class TransformToNewSQ(BaseRelativize):
         if rel_op == relativize:
             means_rel = means_rel * abs_target_mean_c + target_mean_c
             sems_rel = sems_rel * abs_target_mean_c
+        # pyre-fixme[7]: Expected `Tuple[float, float]` but got
+        #  `Tuple[ndarray[typing.Any, typing.Any], ndarray[typing.Any, typing.Any]]`.
         return means_rel, sems_rel

@@ -65,6 +65,7 @@ class RandomModel(Model):
         deduplicate: bool = True,
         seed: int | None = None,
         init_position: int = 0,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         generated_points: np.ndarray | None = None,
         fallback_to_sample_polytope: bool = False,
     ) -> None:
@@ -85,10 +86,13 @@ class RandomModel(Model):
         self,
         n: int,
         bounds: list[tuple[float, float]],
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         linear_constraints: tuple[np.ndarray, np.ndarray] | None = None,
         fixed_features: dict[int, float] | None = None,
         model_gen_options: TConfig | None = None,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         rounding_func: Callable[[np.ndarray], np.ndarray] | None = None,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     ) -> tuple[np.ndarray, np.ndarray]:
         """Generate new candidates.
 
@@ -200,8 +204,10 @@ class RandomModel(Model):
         self,
         n: int,
         d: int,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         tunable_feature_indices: np.ndarray,
         fixed_features: dict[int, float] | None = None,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     ) -> np.ndarray:
         """Generate n points, from an unconstrained parameter space, using _gen_samples.
 
@@ -225,6 +231,7 @@ class RandomModel(Model):
         )
         return points
 
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def _gen_samples(self, n: int, tunable_d: int) -> np.ndarray:
         """Generate n samples on [0, 1]^d.
 
@@ -238,7 +245,10 @@ class RandomModel(Model):
         raise NotImplementedError("Base RandomModel can't generate samples.")
 
     def _convert_inequality_constraints(
-        self, linear_constraints: tuple[np.ndarray, np.ndarray] | None
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+        self,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+        linear_constraints: tuple[np.ndarray, np.ndarray] | None,
     ) -> tuple[Tensor, Tensor] | None:
         """Helper method to convert inequality constraints used by the rejection
         sampler to the format required for the polytope sampler.

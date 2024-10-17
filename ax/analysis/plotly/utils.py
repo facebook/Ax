@@ -90,6 +90,8 @@ def get_constraint_violated_probabilities(
         list(feasibility_probabilities.values()), axis=0
     )
 
+    # pyre-fixme[7]: Expected `Dict[str, List[float]]` but got `Dict[str,
+    #  ndarray[typing.Any, dtype[typing.Any]]]`.
     return {
         metric_name: 1 - feasibility_probabilities[metric_name]
         for metric_name in feasibility_probabilities

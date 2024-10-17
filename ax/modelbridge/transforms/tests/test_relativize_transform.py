@@ -48,6 +48,7 @@ class RelativizeDataTest(TestCase):
         Relativize,
         RelativizeWithConstantControl,
     ]
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     cases: list[tuple[type[Transform], list[tuple[np.ndarray, np.ndarray]]]] = [
         (
             Relativize,
@@ -203,6 +204,7 @@ class RelativizeDataTest(TestCase):
         def _check_transform_observations(
             tf: Transform,
             observations: list[Observation],
+            # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
             expected_mean_and_covar: list[tuple[np.ndarray, np.ndarray]],
         ) -> None:
             results = tf.transform_observations(observations)
