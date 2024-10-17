@@ -588,16 +588,9 @@ class GenerationNode(SerializationMixin, SortableBase):
         # transition to the next node defined by that edge.
         for next_node, all_tc in self.transition_edges.items():
             transition_blocking = [tc for tc in all_tc if tc.block_transition_if_unmet]
-            gs_lgr = self.generation_strategy.last_generator_run
             transition_blocking_met = all(
                 tc.is_met(
                     experiment=self.experiment,
-                    trials_from_node=self.trials_from_node,
-                    curr_node_name=self.node_name,
-                    # TODO @mgarrard: should we instead pass a backpointer to gs/node
-                    node_that_generated_last_gr=(
-                        gs_lgr._generation_node_name if gs_lgr is not None else None
-                    ),
                     curr_node=self,
                 )
                 for tc in transition_blocking
@@ -615,13 +608,6 @@ class GenerationNode(SerializationMixin, SortableBase):
                     if (
                         tc.is_met(
                             self.experiment,
-                            trials_from_node=self.trials_from_node,
-                            curr_node_name=self.node_name,
-                            node_that_generated_last_gr=(
-                                gs_lgr._generation_node_name
-                                if gs_lgr is not None
-                                else None
-                            ),
                             curr_node=self,
                         )
                         and raise_data_required_error
@@ -668,15 +654,8 @@ class GenerationNode(SerializationMixin, SortableBase):
             for criterion in trial_based_gen_blocking_criteria:
                 # TODO[mgarrard]: Raise a group of all the errors, from each gen-
                 # blocking transition criterion.
-                gs_lgr = self.generation_strategy.last_generator_run
                 if criterion.is_met(
                     self.experiment,
-                    trials_from_node=self.trials_from_node,
-                    curr_node_name=self.node_name,
-                    # TODO @mgarrard: should we instead pass a backpointer to gs/node
-                    node_that_generated_last_gr=(
-                        gs_lgr._generation_node_name if gs_lgr is not None else None
-                    ),
                     curr_node=self,
                 ):
                     criterion.block_continued_generation_error(
