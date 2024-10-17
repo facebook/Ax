@@ -148,6 +148,7 @@ def _get_objective_trace_plot(
 def _get_objective_v_param_plots(
     experiment: Experiment,
     model: ModelBridge,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     importance: None
     | (dict[str, dict[str, np.ndarray]] | dict[str, dict[str, float]]) = None,
     # Chosen to take ~1min on local benchmarks.
@@ -220,6 +221,8 @@ def _get_objective_v_param_plots(
                     # sort the params by their sensitivity
                     params_to_use = sorted(
                         range_params_sens_for_metric,
+                        # pyre-fixme[6]: For 2nd argument expected `None` but got
+                        #  `(x: Any) -> Union[ndarray[typing.Any, typing.Any], float]`.
                         key=lambda x: range_params_sens_for_metric[x],
                         reverse=True,
                     )[:num_params_per_metric]
@@ -522,7 +525,11 @@ def get_standard_plots(
 
 
 def _transform_progression_to_walltime(
-    progressions: np.ndarray, exp_df: pd.DataFrame, trial_idx: int
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    progressions: np.ndarray,
+    exp_df: pd.DataFrame,
+    trial_idx: int,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> np.ndarray | None:
     try:
         trial_df = exp_df[exp_df["trial_index"] == trial_idx]
@@ -1225,6 +1232,10 @@ def get_figure_and_callback(
             overwrite=True,
         )
 
+    # pyre-fixme[7]: Expected `Tuple[Figure, typing.Callable[[Scheduler], None]]`
+    #  but got `Tuple[FigureWidget,
+    #  typing.Callable(get_figure_and_callback._update_fig_in_place)[[Named(scheduler,
+    #  Scheduler)], None]]`.
     return fig, _update_fig_in_place
 
 

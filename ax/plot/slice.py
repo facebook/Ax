@@ -28,6 +28,7 @@ from plotly import graph_objs as go
 
 
 # type aliases
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 SlicePredictions = tuple[
     PlotData,
     list[dict[str, Union[str, float]]],
@@ -341,6 +342,7 @@ def interact_slice_plotly(
 
         plot_data_dict = {}
         raw_data_dict = {}
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         sd_plt_dict: dict[str, dict[str, np.ndarray]] = {}
 
         cond_name_to_parameters_dict = {}
@@ -376,6 +378,9 @@ def interact_slice_plotly(
             raw_data_dict[metric_name] = rd
             cond_name_to_parameters_dict[metric_name] = cntp
 
+            # pyre-fixme[6]: For 2nd argument expected `Dict[str,
+            #  ndarray[typing.Any, typing.Any]]` but got `ndarray[typing.Any,
+            #  dtype[typing.Any]]`.
             sd_plt_dict[metric_name] = np.sqrt(cov[metric_name][metric_name])
             is_log_dict[metric_name] = ls
 
@@ -471,6 +476,7 @@ def interact_slice_plotly(
     mbuttons = []
     # pyre-fixme[61]: `metrics` is undefined, or not always defined.
     for i, metric in enumerate(metrics):
+        # pyre-fixme[61]: `arm_data` is undefined, or not always defined.
         trace_cnt = 3 + len(arm_data[metric]["out_of_sample"].keys())
         # pyre-fixme[61]: `metrics` is undefined, or not always defined.
         visible = [False] * (len(metrics) * trace_cnt)
@@ -533,6 +539,7 @@ def interact_slice_plotly(
             "autorange": True,
             "tickfont": {"size": 11},
             "tickmode": "auto",
+            # pyre-fixme[61]: `metrics` is undefined, or not always defined.
             "title": metrics[0],
         },
     }

@@ -87,8 +87,11 @@ class RandomForest(TorchModel):
 
 
 def _get_rf(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     X: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     Y: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     Yvar: np.ndarray,
     num_trees: int,
     max_features: str | None,

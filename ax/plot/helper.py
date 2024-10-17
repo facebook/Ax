@@ -460,6 +460,7 @@ def get_range_parameters(
     )
 
 
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 def get_grid_for_parameter(parameter: RangeParameter, density: int) -> np.ndarray:
     """Get a grid of points along the range of the parameter.
 
@@ -528,6 +529,7 @@ def get_fixed_values(
             elif isinstance(parameter, ChoiceParameter):
                 setx[p_name] = Counter(vals).most_common(1)[0][0]
             elif isinstance(parameter, RangeParameter):
+                # pyre-fixme[6]: For 1st argument expected `Union[_SupportsArray[dtyp...
                 setx[p_name] = parameter.cast(np.mean(vals))
 
     if slice_values is not None:

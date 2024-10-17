@@ -11,5 +11,6 @@ from ax.metrics.noisy_function import NoisyFunctionMetric
 
 
 class L2NormMetric(NoisyFunctionMetric):
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def f(self, x: np.ndarray) -> float:
         return np.sqrt((x**2).sum())

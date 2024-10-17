@@ -45,9 +45,13 @@ class DiscreteModelBridge(ModelBridge):
     Requires that all parameters have been transformed to ChoiceParameters.
     """
 
+    # pyre-fixme[13]: Attribute `model` is never initialized.
     model: DiscreteModel
+    # pyre-fixme[13]: Attribute `outcomes` is never initialized.
     outcomes: list[str]
+    # pyre-fixme[13]: Attribute `parameters` is never initialized.
     parameters: list[str]
+    # pyre-fixme[13]: Attribute `search_space` is never initialized.
     search_space: SearchSpace | None
 
     def _fit(

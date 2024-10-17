@@ -44,6 +44,8 @@ class ClosestLookupDict(dict):
         if not isinstance(key, Number):
             raise ValueError("ClosestLookupDict only allows numerical keys.")
         super().__setitem__(key, val)
+        # pyre-fixme[6]: For 2nd argument expected `Union[bytes, complex, float,
+        #  int, generic, str]` but got `Number`.
         ipos = np.searchsorted(self._keys, key)
         self._keys.insert(ipos, key)
 
@@ -54,6 +56,8 @@ class ClosestLookupDict(dict):
         except KeyError:
             if not self.keys():
                 raise RuntimeError("ClosestLookupDict is empty.")
+            # pyre-fixme[6]: For 2nd argument expected `Union[bytes, complex, float,
+            #  int, generic, str]` but got `Number`.
             ipos = np.searchsorted(self._keys, key)
             if ipos == 0:
                 return super().__getitem__(self._keys[0])

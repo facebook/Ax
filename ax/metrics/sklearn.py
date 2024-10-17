@@ -29,18 +29,24 @@ from sklearn.neural_network import MLPClassifier, MLPRegressor
 
 
 class SklearnModelType(Enum):
+    # pyre-fixme[35]: Target cannot be annotated.
     RF: str = "rf"
+    # pyre-fixme[35]: Target cannot be annotated.
     NN: str = "nn"
 
 
 class SklearnDataset(Enum):
+    # pyre-fixme[35]: Target cannot be annotated.
     DIGITS: str = "digits"
+    # pyre-fixme[35]: Target cannot be annotated.
     BOSTON: str = "boston"
+    # pyre-fixme[35]: Target cannot be annotated.
     CANCER: str = "cancer"
 
 
 @lru_cache(maxsize=8)
 # pyre-fixme[2]: Parameter must be annotated.
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 def _get_data(dataset) -> dict[str, np.ndarray]:
     """Return sklearn dataset, loading and caching if necessary."""
     if dataset is SklearnDataset.DIGITS:

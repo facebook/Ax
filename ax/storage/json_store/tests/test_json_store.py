@@ -448,7 +448,11 @@ class JSONStoreTest(TestCase):
         with patch.dict(registry_path, mock_registry):
             test_problem = PyTorchCNNTorchvisionParamBasedProblem(name="MNIST")
 
+        # pyre-fixme[16]: `PyTorchCNNTorchvisionParamBasedProblem` has no attribute
+        #  `train_loader`.
         self.assertIsNotNone(test_problem.train_loader)
+        # pyre-fixme[16]: `PyTorchCNNTorchvisionParamBasedProblem` has no attribute
+        #  `test_loader`.
         self.assertIsNotNone(test_problem.test_loader)
 
         as_json = object_to_json(obj=test_problem)
