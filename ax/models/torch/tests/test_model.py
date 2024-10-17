@@ -175,6 +175,7 @@ class BoTorchModelTest(TestCase):
             objective_weights=self.moo_objective_weights,
             objective_thresholds=self.moo_objective_thresholds,
             outcome_constraints=self.moo_outcome_constraints,
+            is_moo=True,
         )
 
     def test_init(self) -> None:
@@ -874,13 +875,13 @@ class BoTorchModelTest(TestCase):
                 torch_opt_config=self.moo_torch_opt_config,
             )
         mock_get_outcome_constraint_transforms.assert_called_once()
-        ckwargs = mock_get_outcome_constraint_transforms.call_args[1]
+        ckwargs = mock_get_outcome_constraint_transforms.call_args.kwargs
         oc = ckwargs["outcome_constraints"]
         self.assertTrue(torch.equal(oc[0], subset_outcome_constraints[0]))
         self.assertTrue(torch.equal(oc[1], subset_outcome_constraints[1]))
 
         # Check input constructor args
-        ckwargs = mock_input_constructor.call_args[1]
+        ckwargs = mock_input_constructor.call_args.kwargs
         expected_kwargs = {
             "constraints",
             "bounds",

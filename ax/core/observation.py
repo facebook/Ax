@@ -187,7 +187,13 @@ class ObservationData(Base):
     """
 
     def __init__(
-        self, metric_names: list[str], means: np.ndarray, covariance: np.ndarray
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+        self,
+        metric_names: list[str],
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+        means: np.ndarray,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+        covariance: np.ndarray,
     ) -> None:
         k = len(metric_names)
         if means.shape != (k,):

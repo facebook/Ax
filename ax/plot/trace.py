@@ -28,7 +28,9 @@ Traces = list[dict[str, Any]]
 
 
 def map_data_single_trace_scatters(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     x: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     y: np.ndarray,
     legend_label: str,
     xlabel: str = "Trial progression",
@@ -97,7 +99,9 @@ def map_data_single_trace_scatters(
 def map_data_multiple_metrics_dropdown_plotly(
     title: str,
     metric_names: list[str],
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     xs_by_metric: dict[str, list[np.ndarray]],
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     ys_by_metric: dict[str, list[np.ndarray]],
     legend_labels_by_metric: dict[str, list[str]],
     stopping_markers_by_metric: dict[str, list[bool]],
@@ -209,6 +213,7 @@ def map_data_multiple_metrics_dropdown_plotly(
 
 
 def mean_trace_scatter(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     y: np.ndarray,
     trace_color: tuple[int] = COLORS.STEELBLUE.value,
     legend_label: str = "mean",
@@ -242,6 +247,7 @@ def mean_trace_scatter(
 
 
 def sem_range_scatter(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     y: np.ndarray,
     trace_color: tuple[int] = COLORS.STEELBLUE.value,
     legend_label: str = "",
@@ -285,6 +291,7 @@ def sem_range_scatter(
 
 
 def mean_markers_scatter(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     y: np.ndarray,
     marker_color: tuple[int] = COLORS.LIGHT_PURPLE.value,
     legend_label: str = "",
@@ -346,6 +353,7 @@ def optimum_objective_scatter(
 
 
 def optimization_trace_single_method_plotly(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     y: np.ndarray,
     optimum: float | None = None,
     model_transitions: list[int] | None = None,
@@ -449,6 +457,7 @@ def optimization_trace_single_method_plotly(
 
 
 def _autoset_axis_limits(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     y: np.ndarray,
     optimization_direction: str,
     force_include_value: float | None = None,
@@ -481,6 +490,7 @@ def _autoset_axis_limits(
 
 
 def optimization_trace_single_method(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     y: np.ndarray,
     optimum: float | None = None,
     model_transitions: list[int] | None = None,
@@ -548,6 +558,7 @@ def optimization_trace_single_method(
 
 
 def optimization_trace_all_methods(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     y_dict: dict[str, np.ndarray],
     optimum: float | None = None,
     title: str = "",
@@ -630,18 +641,26 @@ def optimization_times(
     fit_res: dict[str, str | list[float]] = {"name": "Fitting"}
     fit_res["mean"] = [np.mean(fit_times[m]) for m in methods]
     fit_res["2sems"] = [
-        2 * np.std(fit_times[m]) / np.sqrt(len(fit_times[m])) for m in methods
+        # pyre-fixme[58]: `*` is not supported for operand types `int` and
+        #  `floating[typing.Any]`.
+        2 * np.std(fit_times[m]) / np.sqrt(len(fit_times[m]))
+        for m in methods
     ]
     gen_res: dict[str, str | list[float]] = {"name": "Generation"}
     gen_res["mean"] = [np.mean(gen_times[m]) for m in methods]
     gen_res["2sems"] = [
-        2 * np.std(gen_times[m]) / np.sqrt(len(gen_times[m])) for m in methods
+        # pyre-fixme[58]: `*` is not supported for operand types `int` and
+        #  `floating[typing.Any]`.
+        2 * np.std(gen_times[m]) / np.sqrt(len(gen_times[m]))
+        for m in methods
     ]
     total_mean: list[float] = []
     total_2sems: list[float] = []
     for m in methods:
         totals = np.array(fit_times[m]) + np.array(gen_times[m])
         total_mean.append(np.mean(totals))
+        # pyre-fixme[58]: `*` is not supported for operand types `int` and
+        #  `floating[typing.Any]`.
         total_2sems.append(2 * np.std(totals) / np.sqrt(len(totals)))
     total_res: dict[str, str | list[float]] = {
         "name": "Total",

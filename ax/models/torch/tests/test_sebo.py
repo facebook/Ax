@@ -138,7 +138,10 @@ class TestSebo(TestCase):
         # Check transformed objective threshold
         self.assertTrue(
             torch.equal(
-                acquisition1.acqf.ref_point[-1], -1 * self.objective_thresholds_sebo[-1]
+                # pyre-fixme[6]: For 2nd argument expected `Tensor` but got `int`.
+                acquisition1.acqf.ref_point[-1],
+                # pyre-fixme[6]: For 2nd argument expected `Tensor` but got `int`.
+                -1 * self.objective_thresholds_sebo[-1],
             )
         )
         self.assertTrue(
@@ -230,6 +233,8 @@ class TestSebo(TestCase):
         )
         # overwrite acqf to validate homotopy
         # pyre-fixme[61]: `p` is undefined, or not always defined.
+        # pyre-fixme[6]: For 1st argument expected `(Tensor) -> Tensor` but got `(x:
+        #  Any) -> int`.
         model = GenericDeterministicModel(f=lambda x: 5 - (x - p) ** 2)
         acqf = PosteriorMean(model=model)
         acquisition.acqf = acqf

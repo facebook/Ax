@@ -102,6 +102,7 @@ def plot_feature_importance_by_metric(model: ModelBridge) -> AxPlotConfig:
 
 def plot_feature_importance_by_feature_plotly(
     model: ModelBridge | None = None,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     sensitivity_values: dict[str, dict[str, float | np.ndarray]] | None = None,
     relative: bool = False,
     caption: str = "",
@@ -193,6 +194,9 @@ def plot_feature_importance_by_feature_plotly(
                         sign_col: (
                             0
                             if factor in categorical_features
+                            # pyre-fixme[16]: Item `bool` of
+                            #  `Union[ndarray[typing.Any, np.dtype[typing.Any]], bool]`
+                            #  has no attribute `astype`.
                             else 2 * (importance >= 0).astype(int) - 1
                         ),
                     }
@@ -276,6 +280,7 @@ def plot_feature_importance_by_feature_plotly(
 
 def plot_feature_importance_by_feature(
     model: ModelBridge | None = None,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     sensitivity_values: dict[str, dict[str, float | np.ndarray]] | None = None,
     relative: bool = False,
     caption: str = "",

@@ -41,9 +41,11 @@ logger: Logger = get_logger(__name__)
 
 
 def compute_score_trace(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     optimization_trace: np.ndarray,
     num_baseline_trials: int,
     problem: BenchmarkProblem,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> np.ndarray:
     """Computes a score trace from the optimization trace."""
 
