@@ -18,8 +18,11 @@ from warnings import warn
 from ax.core.types import TNumeric, TParamValue, TParamValueList
 from ax.exceptions.core import AxParameterWarning, UserInputError
 from ax.utils.common.base import SortableBase
+from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 from pyre_extensions import assert_is_instance
+
+logger = get_logger(__name__)
 
 # Tolerance for floating point comparisons. This is relatively permissive,
 # and allows for serializing at rather low numerical precision.
@@ -584,7 +587,7 @@ class ChoiceParameter(Parameter):
 
         if is_ordered is False and len(values) == 2:
             is_ordered = True
-            warn(
+            logger.debug(
                 f"Changing `is_ordered` to `True` for `ChoiceParameter` '{name}' since "
                 "there are only two possible values.",
                 AxParameterWarning,
