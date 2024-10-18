@@ -525,19 +525,14 @@ class ChoiceParameterTest(TestCase):
             )
             self.assertEqual(p._is_ordered, True)
 
-            # Change `is_ordered` to True and warn
-            with self.assertWarnsRegex(
-                AxParameterWarning,
-                "Changing `is_ordered` to `True` for `ChoiceParameter` 'x' since "
-                "there are only two possible values",
-            ):
-                p = ChoiceParameter(
-                    name="x",
-                    parameter_type=parameter_type,
-                    values=values,  # pyre-ignore
-                    is_ordered=False,
-                )
-                self.assertEqual(p._is_ordered, True)
+            # Change `is_ordered` to True
+            p = ChoiceParameter(
+                name="x",
+                parameter_type=parameter_type,
+                values=values,  # pyre-ignore
+                is_ordered=False,
+            )
+            self.assertEqual(p._is_ordered, True)
 
             # Set to True if `is_ordered` is not specified
             with self.assertWarnsRegex(
