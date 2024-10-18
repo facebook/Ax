@@ -6,7 +6,10 @@
 
 # pyre-strict
 
+import inspect
 from unittest.mock import Mock, patch
+
+import numpy as np
 
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.best_model_selector import (
@@ -35,6 +38,32 @@ class TestBestModelSelector(TestCase):
             ms._diagnostics = diagnostics
             ms._last_cv_kwargs = {}
             self.model_specs.append(ms)
+
+    def test_member_typing(self) -> None:
+        for reduction_criterion in ReductionCriterion:
+            signature = inspect.signature(reduction_criterion._get_function_for_value())
+            self.assertEqual(signature.return_annotation, "np.ndarray")
+
+    # pyre-fixme [56]: Pyre was not able to infer the type of argument
+    # `numpy` to decorator factory `unittest.mock.patch`
+    @patch(f"{ReductionCriterion.__module__}.np", wraps=np)
+    def test_ReductionCriterion(self, mock_np: Mock) -> None:
+        untested_reduction_criteria = set(ReductionCriterion)
+        # Check MEAN (should just fall through to `np.mean`)
+        array = np.array([1, 2, 3])  # and then use this var all the way down
+        self.assertEqual(ReductionCriterion.MEAN(array), np.mean(array))
+        mock_np.mean.assert_called_once()
+        untested_reduction_criteria.remove(ReductionCriterion.MEAN)
+        # Check MIN (should just fall through to `np.min`)
+        self.assertEqual(ReductionCriterion.MIN(np.array([1, 2, 3])), 1.0)
+        mock_np.min.assert_called_once()
+        untested_reduction_criteria.remove(ReductionCriterion.MIN)
+        # Check MAX (should just fall through to `np.max`)
+        self.assertEqual(ReductionCriterion.MAX(np.array([1, 2, 3])), 3.0)
+        mock_np.max.assert_called_once()
+        untested_reduction_criteria.remove(ReductionCriterion.MAX)
+        # There should be no untested reduction criteria left
+        self.assertEqual(len(untested_reduction_criteria), 0)
 
     def test_user_input_error(self) -> None:
         with self.assertRaisesRegex(UserInputError, "ReductionCriterion"):
