@@ -1,0 +1,754 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.7.2/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.7.2/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.7.2/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.7.2/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.7.2/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.7.2/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.7.2/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.7.2/css/main.css"/><script src="/versions/0.2.7.2/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.7.2/"><img class="logo" src="/versions/0.2.7.2/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.7.2/versions.html"><h3>0.2.7.2</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.7.2/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.7.2/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.7.2/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.utils.sensitivity.sobol_measures</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">botorch.models.model</span> <span class="kn">import</span> <span class="n">Model</span>
+<span class="kn">from</span> <span class="nn">botorch.sampling.samplers</span> <span class="kn">import</span> <span class="n">SobolQMCNormalSampler</span>
+<span class="kn">from</span> <span class="nn">botorch.utils.sampling</span> <span class="kn">import</span> <span class="n">draw_sobol_samples</span>
+<span class="kn">from</span> <span class="nn">botorch.utils.transforms</span> <span class="kn">import</span> <span class="n">unnormalize</span>
+
+
+<div class="viewcode-block" id="SobolSensitivity"><a class="viewcode-back" href="../../../../utils.html#ax.utils.sensitivity.sobol_measures.SobolSensitivity">[docs]</a><span class="k">class</span> <span class="nc">SobolSensitivity</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">bounds</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">input_function</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">num_mc_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="mi">4</span><span class="p">,</span>
+        <span class="n">input_qmc</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">second_order</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">num_bootstrap_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">bootstrap_array</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sa">r</span><span class="sd">"""Computes three types of Sobol indices:</span>
+<span class="sd">        first order indices, total indices and second order indices (if specified ).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dim: The dimension of the function.</span>
+<span class="sd">            bounds: Parameter bounds over which to evaluate model sensitivity.</span>
+<span class="sd">            input_function: The objective function.</span>
+<span class="sd">            num_mc_samples: The number of montecarlo grid samples</span>
+<span class="sd">            input_qmc: If True, a qmc Sobol grid is use instead of uniformly random.</span>
+<span class="sd">            second_order: If True, the second order indices are computed.</span>
+<span class="sd">            bootstrap: If true, the MC error is returned.</span>
+<span class="sd">            num_bootstrap_samples: If bootstrap is true, the number of bootstraps has</span>
+<span class="sd">                to be specified.</span>
+<span class="sd">            bootstrap_array: If true, all the num_bootstrap_samples extimated indices</span>
+<span class="sd">                are returned instead of their mean and Var.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_function</span> <span class="o">=</span> <span class="n">input_function</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_mc_samples</span> <span class="o">=</span> <span class="n">num_mc_samples</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">second_order</span> <span class="o">=</span> <span class="n">second_order</span>
+        <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bootstrap</span> <span class="o">=</span> <span class="n">num_bootstrap_samples</span> <span class="o">&gt;</span> <span class="mi">1</span>
+        <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_bootstrap_samples</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">num_bootstrap_samples</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="p">)</span>  <span class="c1"># deduct 1 because the first is meant to be the full grid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bootstrap_array</span> <span class="o">=</span> <span class="n">bootstrap_array</span>
+        <span class="k">if</span> <span class="n">input_qmc</span><span class="p">:</span>
+            <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">A</span> <span class="o">=</span> <span class="n">draw_sobol_samples</span><span class="p">(</span><span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">num_mc_samples</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">B</span> <span class="o">=</span> <span class="n">draw_sobol_samples</span><span class="p">(</span><span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">num_mc_samples</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">A</span> <span class="o">=</span> <span class="n">unnormalize</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">num_mc_samples</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span> <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">B</span> <span class="o">=</span> <span class="n">unnormalize</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">num_mc_samples</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span> <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">)</span>
+        <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">A_B_ABi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_all_input_matrix</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">double</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bootstrap</span><span class="p">:</span>
+            <span class="n">subset_size</span> <span class="o">=</span> <span class="mi">4</span>
+            <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bootstrap_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span>
+                <span class="mi">0</span><span class="p">,</span> <span class="n">num_mc_samples</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_bootstrap_samples</span><span class="p">,</span> <span class="n">subset_size</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">f_A</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">f_B</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># pyre-fixme[24]: Generic type `list` expects 1 type parameter, use</span>
+        <span class="c1">#  `typing.List` to avoid runtime subscripting errors.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">f_ABis</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">f_total_var</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># pyre-fixme[24]: Generic type `list` expects 1 type parameter, use</span>
+        <span class="c1">#  `typing.List` to avoid runtime subscripting errors.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">f_A_btsp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># pyre-fixme[24]: Generic type `list` expects 1 type parameter, use</span>
+        <span class="c1">#  `typing.List` to avoid runtime subscripting errors.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">f_B_btsp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># pyre-fixme[24]: Generic type `list` expects 1 type parameter, use</span>
+        <span class="c1">#  `typing.List` to avoid runtime subscripting errors.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">f_ABis_btsp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># pyre-fixme[24]: Generic type `list` expects 1 type parameter, use</span>
+        <span class="c1">#  `typing.List` to avoid runtime subscripting errors.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">f_total_var_btsp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># pyre-fixme[24]: Generic type `list` expects 1 type parameter, use</span>
+        <span class="c1">#  `typing.List` to avoid runtime subscripting errors.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">f_BAis</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># pyre-fixme[24]: Generic type `list` expects 1 type parameter, use</span>
+        <span class="c1">#  `typing.List` to avoid runtime subscripting errors.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">f_BAis_btsp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs_btsp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="SobolSensitivity.generate_all_input_matrix"><a class="viewcode-back" href="../../../../utils.html#ax.utils.sensitivity.sobol_measures.SobolSensitivity.generate_all_input_matrix">[docs]</a>    <span class="k">def</span> <span class="nf">generate_all_input_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">A_B_ABi</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
+            <span class="n">AB_i</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="p">)</span>
+            <span class="n">AB_i</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
+            <span class="n">A_B_ABi</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">((</span><span class="n">A_B_ABi</span><span class="p">,</span> <span class="n">AB_i</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">second_order</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
+                <span class="n">BA_i</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">B</span><span class="p">)</span>
+                <span class="n">BA_i</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
+                <span class="n">A_B_ABi</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">((</span><span class="n">A_B_ABi</span><span class="p">,</span> <span class="n">BA_i</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">A_B_ABi</span></div>
+
+<div class="viewcode-block" id="SobolSensitivity.evalute_function"><a class="viewcode-back" href="../../../../utils.html#ax.utils.sensitivity.sobol_measures.SobolSensitivity.evalute_function">[docs]</a>    <span class="k">def</span> <span class="nf">evalute_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f_A_B_ABi</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sa">r</span><span class="sd">"""evaluates the objective function and devides the evaluation into</span>
+<span class="sd">            torch.Tensors needed for the indices computation.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            f_A_B_ABi: Function evaluations on the entire grid of size M(d+2).</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">f_A_B_ABi</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">f_A_B_ABi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">A_B_ABi</span><span class="p">)</span>  <span class="c1"># pyre-ignore</span>
+        <span class="c1"># for multiple output models, average the outcomes</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">f_A_B_ABi</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">f_A_B_ABi</span> <span class="o">=</span> <span class="n">f_A_B_ABi</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">f_A</span> <span class="o">=</span> <span class="n">f_A_B_ABi</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_mc_samples</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">f_B</span> <span class="o">=</span> <span class="n">f_A_B_ABi</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">num_mc_samples</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_mc_samples</span> <span class="o">*</span> <span class="mi">2</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">f_ABis</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">f_A_B_ABi</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">num_mc_samples</span> <span class="o">*</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_mc_samples</span> <span class="o">*</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">3</span><span class="p">)]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">f_total_var</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">f_A_B_ABi</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_mc_samples</span> <span class="o">*</span> <span class="mi">2</span><span class="p">])</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bootstrap</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">f_A_btsp</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">index_select</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">f_A</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>  <span class="c1"># pyre-ignore</span>
+                <span class="k">for</span> <span class="n">indices</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bootstrap_indices</span>
+            <span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">f_B_btsp</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">index_select</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">f_B</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>  <span class="c1"># pyre-ignore</span>
+                <span class="k">for</span> <span class="n">indices</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bootstrap_indices</span>
+            <span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">f_ABis_btsp</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="p">[</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">index_select</span><span class="p">(</span><span class="n">f_ABi</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">f_ABi</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_ABis</span>  <span class="c1"># pyre-ignore</span>
+                <span class="p">]</span>
+                <span class="k">for</span> <span class="n">indices</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bootstrap_indices</span>
+            <span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">f_total_var_btsp</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">var</span><span class="p">(</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
+                        <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">f_A_btsp</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_B_btsp</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span>  <span class="c1"># pyre-ignore</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_bootstrap_samples</span><span class="p">)</span>
+            <span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">second_order</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">f_BAis</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">f_A_B_ABi</span><span class="p">[</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">num_mc_samples</span>
+                    <span class="o">*</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_mc_samples</span>
+                    <span class="o">*</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+                <span class="p">]</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+            <span class="p">]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bootstrap</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">f_BAis_btsp</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">index_select</span><span class="p">(</span><span class="n">f_BAi</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span> <span class="k">for</span> <span class="n">f_BAi</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_BAis</span><span class="p">]</span>
+                    <span class="k">for</span> <span class="n">indices</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bootstrap_indices</span>
+                <span class="p">]</span></div>
+
+<div class="viewcode-block" id="SobolSensitivity.first_order_indices"><a class="viewcode-back" href="../../../../utils.html#ax.utils.sensitivity.sobol_measures.SobolSensitivity.first_order_indices">[docs]</a>    <span class="k">def</span> <span class="nf">first_order_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="sa">r</span><span class="sd">"""Computes the first order Sobol indices:</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            if num_bootstrap_samples&gt;1</span>
+<span class="sd">                Tensor: (values,var_mc,stderr_mc)x dim</span>
+<span class="sd">            else</span>
+<span class="sd">                Tensor: (values)x dim</span>
+<span class="sd">        """</span>
+        <span class="n">first_order_idxs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
+            <span class="n">vi</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">f_B</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">f_ABis</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_A</span><span class="p">))</span>  <span class="c1"># pyre-ignore</span>
+                <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_total_var</span>
+            <span class="p">)</span>
+            <span class="n">first_order_idxs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vi</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">first_order_idxs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bootstrap</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">first_order_idxs_btsp</span> <span class="o">=</span> <span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">first_order_idxs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)]</span>
+            <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_bootstrap_samples</span><span class="p">):</span>
+                <span class="n">first_order_idxs</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
+                    <span class="n">vi</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">f_B_btsp</span><span class="p">[</span><span class="n">b</span><span class="p">]</span>
+                            <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">f_ABis_btsp</span><span class="p">[</span><span class="n">b</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_A_btsp</span><span class="p">[</span><span class="n">b</span><span class="p">])</span>
+                        <span class="p">)</span>
+                        <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_total_var_btsp</span><span class="p">[</span><span class="n">b</span><span class="p">]</span>
+                    <span class="p">)</span>
+                    <span class="n">first_order_idxs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vi</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+                <span class="n">first_order_idxs_btsp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">first_order_idxs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs_btsp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">first_order_idxs_btsp</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bootstrap_array</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs_btsp</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
+                        <span class="p">[</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs_btsp</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs_btsp</span><span class="o">.</span><span class="n">var</span><span class="p">(</span>  <span class="c1"># pyre-ignore</span>
+                                <span class="n">dim</span><span class="o">=</span><span class="mi">0</span>
+                            <span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                            <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs_btsp</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                                <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_bootstrap_samples</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                            <span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                        <span class="p">],</span>
+                        <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="o">.</span><span class="n">t</span><span class="p">()</span>
+                    <span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                <span class="p">)</span></div>
+
+    <span class="c1"># pyre-fixme[3]: Return type must be annotated.</span>
+<div class="viewcode-block" id="SobolSensitivity.total_order_indices"><a class="viewcode-back" href="../../../../utils.html#ax.utils.sensitivity.sobol_measures.SobolSensitivity.total_order_indices">[docs]</a>    <span class="k">def</span> <span class="nf">total_order_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sa">r</span><span class="sd">"""Computes the total Sobol indices:</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            if num_bootstrap_samples&gt;1</span>
+<span class="sd">                Tensor: (values,var_mc,stderr_mc)x dim</span>
+<span class="sd">            else</span>
+<span class="sd">                Tensor: (values)x dim</span>
+<span class="sd">        """</span>
+        <span class="n">total_order_idxs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
+            <span class="n">vti</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="mf">0.5</span>
+                <span class="c1"># pyre-fixme[58]: `-` is not supported for operand types</span>
+                <span class="c1">#  `Optional[torch._tensor.Tensor]` and `Any`.</span>
+                <span class="c1"># pyre-fixme[16]: `Optional` has no attribute `__getitem__`.</span>
+                <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">pow</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">f_A</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_ABis</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="mi">2</span><span class="p">))</span>
+                <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_total_var</span>
+            <span class="p">)</span>
+            <span class="n">total_order_idxs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vti</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bootstrap</span><span class="p">):</span>
+            <span class="n">total_order_idxs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">total_order_idxs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">total_order_idxs</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">total_order_idxs_btsp</span> <span class="o">=</span> <span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">total_order_idxs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)]</span>
+            <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_bootstrap_samples</span><span class="p">):</span>
+                <span class="n">total_order_idxs</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
+                    <span class="n">vti</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="mf">0.5</span>
+                        <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span>
+                            <span class="n">torch</span><span class="o">.</span><span class="n">pow</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">f_A_btsp</span><span class="p">[</span><span class="n">b</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_ABis_btsp</span><span class="p">[</span><span class="n">b</span><span class="p">][</span><span class="n">i</span><span class="p">],</span> <span class="mi">2</span><span class="p">)</span>
+                        <span class="p">)</span>
+                        <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_total_var_btsp</span><span class="p">[</span><span class="n">b</span><span class="p">]</span>
+                    <span class="p">)</span>
+                    <span class="n">total_order_idxs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vti</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+                <span class="n">total_order_idxs_btsp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">total_order_idxs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="n">total_order_idxs_btsp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">total_order_idxs_btsp</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bootstrap_array</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">total_order_idxs_btsp</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
+                        <span class="p">[</span>
+                            <span class="n">total_order_idxs_btsp</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                            <span class="n">total_order_idxs_btsp</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                            <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+                                <span class="n">total_order_idxs_btsp</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                                <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_bootstrap_samples</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                            <span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                        <span class="p">],</span>
+                        <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="o">.</span><span class="n">t</span><span class="p">()</span>
+                    <span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                <span class="p">)</span></div>
+
+    <span class="c1"># pyre-fixme[3]: Return type must be annotated.</span>
+<div class="viewcode-block" id="SobolSensitivity.second_order_indices"><a class="viewcode-back" href="../../../../utils.html#ax.utils.sensitivity.sobol_measures.SobolSensitivity.second_order_indices">[docs]</a>    <span class="k">def</span> <span class="nf">second_order_indices</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">first_order_idxs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">first_order_idxs_btsp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sa">r</span><span class="sd">"""Computes the Second order Sobol indices:</span>
+<span class="sd">        Args:</span>
+<span class="sd">            first_order_idxs: Tensor of first order indices.</span>
+<span class="sd">            first_order_idxs_btsp: Tensor of all first order indices given by bootstrap.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            if num_bootstrap_samples&gt;1</span>
+<span class="sd">                Tensor: (values,var_mc,stderr_mc)x dim</span>
+<span class="sd">            else</span>
+<span class="sd">                Tensor: (values)x dim</span>
+<span class="sd">        """</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">second_order</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Second order indices has to be specified in the sensitivity definition"</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">first_order_idxs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">first_order_idxs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs</span>
+        <span class="n">second_order_idxs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
+                <span class="n">vij</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">f_BAis</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_ABis</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_A</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_B</span>  <span class="c1"># pyre-ignore</span>
+                <span class="p">)</span>
+                <span class="n">vij</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="p">(</span><span class="n">vij</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_total_var</span><span class="p">)</span>
+                    <span class="o">-</span> <span class="n">first_order_idxs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="c1"># pyre-ignore</span>
+                    <span class="o">-</span> <span class="n">first_order_idxs</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="n">second_order_idxs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vij</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bootstrap</span><span class="p">):</span>
+            <span class="n">second_order_idxs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">second_order_idxs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">second_order_idxs</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">second_order_idxs_btsp</span> <span class="o">=</span> <span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">second_order_idxs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)]</span>
+            <span class="k">if</span> <span class="n">first_order_idxs_btsp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">first_order_idxs_btsp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs_btsp</span>
+            <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_bootstrap_samples</span><span class="p">):</span>
+                <span class="n">second_order_idxs</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
+                        <span class="n">vij</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">f_BAis_btsp</span><span class="p">[</span><span class="n">b</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_ABis_btsp</span><span class="p">[</span><span class="n">b</span><span class="p">][</span><span class="n">j</span><span class="p">]</span>
+                            <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_A_btsp</span><span class="p">[</span><span class="n">b</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_B_btsp</span><span class="p">[</span><span class="n">b</span><span class="p">]</span>
+                        <span class="p">)</span>
+                        <span class="n">vij</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="p">(</span><span class="n">vij</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">f_total_var_btsp</span><span class="p">[</span><span class="n">b</span><span class="p">])</span>
+                            <span class="o">-</span> <span class="n">first_order_idxs_btsp</span><span class="p">[</span><span class="n">b</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+                            <span class="o">-</span> <span class="n">first_order_idxs_btsp</span><span class="p">[</span><span class="n">b</span><span class="p">][</span><span class="n">j</span><span class="p">]</span>
+                        <span class="p">)</span>
+                        <span class="n">second_order_idxs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vij</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+                <span class="n">second_order_idxs_btsp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">second_order_idxs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="n">second_order_idxs_btsp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">second_order_idxs_btsp</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bootstrap_array</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">second_order_idxs_btsp</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
+                        <span class="p">[</span>
+                            <span class="n">second_order_idxs_btsp</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                            <span class="n">second_order_idxs_btsp</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                            <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+                                <span class="n">second_order_idxs_btsp</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                                <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_bootstrap_samples</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                            <span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                        <span class="p">],</span>
+                        <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="o">.</span><span class="n">t</span><span class="p">()</span>
+                    <span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="SobolSensitivityGPMean"><a class="viewcode-back" href="../../../../utils.html#ax.utils.sensitivity.sobol_measures.SobolSensitivityGPMean">[docs]</a><span class="k">class</span> <span class="nc">SobolSensitivityGPMean</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span>
+        <span class="n">bounds</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">num_mc_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="mi">4</span><span class="p">,</span>
+        <span class="n">second_order</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">input_qmc</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">num_bootstrap_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sa">r</span><span class="sd">"""Computes three types of Sobol indices:</span>
+<span class="sd">        first order indices, total indices and second order indices (if specified ).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            model: Botorch model</span>
+<span class="sd">            bounds: Parameter bounds over which to evaluate model sensitivity.</span>
+<span class="sd">            method: if "predictive mean", the predictive mean is used for indices</span>
+<span class="sd">                computation. If "GP samples", posterior sampling is used instead.</span>
+<span class="sd">            num_mc_samples: The number of montecarlo grid samples</span>
+<span class="sd">            second_order: If True, the second order indices are computed.</span>
+<span class="sd">            input_qmc: If True, a qmc Sobol grid is use instead of uniformly random.</span>
+<span class="sd">            num_bootstrap_samples: If bootstrap is true, the number of bootstraps has</span>
+<span class="sd">                to be specified.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">train_inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># pyre-ignore</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">second_order</span> <span class="o">=</span> <span class="n">second_order</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_qmc</span> <span class="o">=</span> <span class="n">input_qmc</span>
+        <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bootstrap</span> <span class="o">=</span> <span class="n">num_bootstrap_samples</span> <span class="o">&gt;</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_bootstrap_samples</span> <span class="o">=</span> <span class="n">num_bootstrap_samples</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_mc_samples</span> <span class="o">=</span> <span class="n">num_mc_samples</span>
+
+        <span class="c1"># pyre-fixme[3]: Return type must be annotated.</span>
+        <span class="c1"># pyre-fixme[2]: Parameter must be annotated.</span>
+        <span class="k">def</span> <span class="nf">input_function</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">posterior</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">sensitivity</span> <span class="o">=</span> <span class="n">SobolSensitivity</span><span class="p">(</span>
+            <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span>
+            <span class="n">num_mc_samples</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_mc_samples</span><span class="p">,</span>
+            <span class="n">input_function</span><span class="o">=</span><span class="n">input_function</span><span class="p">,</span>
+            <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+            <span class="n">second_order</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">second_order</span><span class="p">,</span>
+            <span class="n">input_qmc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">input_qmc</span><span class="p">,</span>
+            <span class="n">num_bootstrap_samples</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_bootstrap_samples</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sensitivity</span><span class="o">.</span><span class="n">evalute_function</span><span class="p">()</span>
+
+    <span class="c1"># pyre-fixme[3]: Return type must be annotated.</span>
+<div class="viewcode-block" id="SobolSensitivityGPMean.first_order_indices"><a class="viewcode-back" href="../../../../utils.html#ax.utils.sensitivity.sobol_measures.SobolSensitivityGPMean.first_order_indices">[docs]</a>    <span class="k">def</span> <span class="nf">first_order_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sa">r</span><span class="sd">"""Computes the first order Sobol indices:</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            if num_bootstrap_samples&gt;1</span>
+<span class="sd">                Tensor: (values,var_mc,stderr_mc)x dim</span>
+<span class="sd">            else</span>
+<span class="sd">                Tensor: (values)x dim</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sensitivity</span><span class="o">.</span><span class="n">first_order_indices</span><span class="p">()</span></div>
+
+    <span class="c1"># pyre-fixme[3]: Return type must be annotated.</span>
+<div class="viewcode-block" id="SobolSensitivityGPMean.total_order_indices"><a class="viewcode-back" href="../../../../utils.html#ax.utils.sensitivity.sobol_measures.SobolSensitivityGPMean.total_order_indices">[docs]</a>    <span class="k">def</span> <span class="nf">total_order_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sa">r</span><span class="sd">"""Computes the total Sobol indices:</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            if num_bootstrap_samples&gt;1</span>
+<span class="sd">                Tensor: (values,var_mc,stderr_mc)x dim</span>
+<span class="sd">            else</span>
+<span class="sd">                Tensor: (values)x dim</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sensitivity</span><span class="o">.</span><span class="n">total_order_indices</span><span class="p">()</span></div>
+
+    <span class="c1"># pyre-fixme[3]: Return type must be annotated.</span>
+<div class="viewcode-block" id="SobolSensitivityGPMean.second_order_indices"><a class="viewcode-back" href="../../../../utils.html#ax.utils.sensitivity.sobol_measures.SobolSensitivityGPMean.second_order_indices">[docs]</a>    <span class="k">def</span> <span class="nf">second_order_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sa">r</span><span class="sd">"""Computes the Second order Sobol indices:</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            if num_bootstrap_samples&gt;1</span>
+<span class="sd">                Tensor: (values,var_mc,stderr_mc)x dim(dim-1)/2</span>
+<span class="sd">            else</span>
+<span class="sd">                Tensor: (values)x dim(dim-1)/2</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sensitivity</span><span class="o">.</span><span class="n">second_order_indices</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="SobolSensitivityGPSampling"><a class="viewcode-back" href="../../../../utils.html#ax.utils.sensitivity.sobol_measures.SobolSensitivityGPSampling">[docs]</a><span class="k">class</span> <span class="nc">SobolSensitivityGPSampling</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span>
+        <span class="n">bounds</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">num_gp_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="mi">3</span><span class="p">,</span>
+        <span class="n">num_mc_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="mi">4</span><span class="p">,</span>
+        <span class="n">second_order</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">input_qmc</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">gp_sample_qmc</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">num_bootstrap_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sa">r</span><span class="sd">"""Computes three types of Sobol indices:</span>
+<span class="sd">        first order indices, total indices and second order indices (if specified ).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            model: Botorch model.</span>
+<span class="sd">            bounds: Parameter bounds over which to evaluate model sensitivity.</span>
+<span class="sd">            num_gp_samples: If method is "GP samples", the number of GP samples</span>
+<span class="sd">                has to be set.</span>
+<span class="sd">            num_mc_samples: The number of montecarlo grid samples</span>
+<span class="sd">            second_order: If True, the second order indices are computed.</span>
+<span class="sd">            input_qmc: If True, a qmc Sobol grid is use instead of uniformly random.</span>
+<span class="sd">            gp_sample_qmc: If True, the posterior sampling is done using</span>
+<span class="sd">                SobolQMCNormalSampler.</span>
+<span class="sd">            num_bootstrap_samples: If bootstrap is true, the number of bootstraps has</span>
+<span class="sd">                to be specified.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">train_inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># pyre-ignore</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">second_order</span> <span class="o">=</span> <span class="n">second_order</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_qmc</span> <span class="o">=</span> <span class="n">input_qmc</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gp_sample_qmc</span> <span class="o">=</span> <span class="n">gp_sample_qmc</span>
+        <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bootstrap</span> <span class="o">=</span> <span class="n">num_bootstrap_samples</span> <span class="o">&gt;</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_bootstrap_samples</span> <span class="o">=</span> <span class="n">num_bootstrap_samples</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_mc_samples</span> <span class="o">=</span> <span class="n">num_mc_samples</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_gp_samples</span> <span class="o">=</span> <span class="n">num_gp_samples</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sensitivity</span> <span class="o">=</span> <span class="n">SobolSensitivity</span><span class="p">(</span>
+            <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span>
+            <span class="n">num_mc_samples</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_mc_samples</span><span class="p">,</span>
+            <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+            <span class="n">second_order</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">second_order</span><span class="p">,</span>
+            <span class="n">input_qmc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">input_qmc</span><span class="p">,</span>
+            <span class="n">num_bootstrap_samples</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_bootstrap_samples</span><span class="p">,</span>
+            <span class="n">bootstrap_array</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">posterior</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">posterior</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sensitivity</span><span class="o">.</span><span class="n">A_B_ABi</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">gp_sample_qmc</span><span class="p">:</span>
+            <span class="n">sampler</span> <span class="o">=</span> <span class="n">SobolQMCNormalSampler</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_gp_samples</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="c1"># pyre-fixme[4]: Attribute must be annotated.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">samples</span> <span class="o">=</span> <span class="n">sampler</span><span class="p">(</span><span class="n">posterior</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">samples</span> <span class="o">=</span> <span class="n">posterior</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">num_gp_samples</span><span class="p">]))</span>
+
+    <span class="c1"># pyre-fixme[3]: Return type must be annotated.</span>
+<div class="viewcode-block" id="SobolSensitivityGPSampling.first_order_indices"><a class="viewcode-back" href="../../../../utils.html#ax.utils.sensitivity.sobol_measures.SobolSensitivityGPSampling.first_order_indices">[docs]</a>    <span class="k">def</span> <span class="nf">first_order_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sa">r</span><span class="sd">"""Computes the first order Sobol indices:</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            if num_bootstrap_samples&gt;1</span>
+<span class="sd">                Tensor: (values,var_gp,stderr_gp,var_mc,stderr_mc)x dim</span>
+<span class="sd">            else</span>
+<span class="sd">                Tensor: (values,var,stderr)x dim</span>
+<span class="sd">        """</span>
+        <span class="n">first_order_idxs_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_gp_samples</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sensitivity</span><span class="o">.</span><span class="n">evalute_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="n">first_order_idxs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sensitivity</span><span class="o">.</span><span class="n">first_order_indices</span><span class="p">()</span>
+            <span class="n">first_order_idxs_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">first_order_idxs</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+        <span class="c1"># pyre-fixme[16]: `SobolSensitivityGPSampling` has no attribute</span>
+        <span class="c1">#  `first_order_idxs_list`.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs_list</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">first_order_idxs_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bootstrap</span><span class="p">):</span>
+            <span class="n">first_order_idxs_mean_var_se</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
+                <span class="n">first_order_idxs_mean_var_se</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+                        <span class="p">[</span>
+                            <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs_list</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]),</span>
+                            <span class="n">torch</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs_list</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]),</span>
+                            <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+                                <span class="n">torch</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs_list</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span>
+                                <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_gp_samples</span>
+                            <span class="p">),</span>
+                        <span class="p">]</span>
+                    <span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="n">first_order_idxs_mean_var_se</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
+                <span class="n">first_order_idxs_mean_var_se</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">first_order_idxs_mean_var_se</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">var_per_bootstrap</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">gp_var</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">var_per_bootstrap</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">gp_se</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">gp_var</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_gp_samples</span><span class="p">)</span>
+            <span class="n">var_per_gp_sample</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">mc_var</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">var_per_gp_sample</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">mc_se</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mc_var</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_bootstrap_samples</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="n">total_mean</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs_list</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">first_order_idxs_mean_vargp_segp_varmc_segp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+                        <span class="p">[</span><span class="n">total_mean</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">gp_var</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">gp_se</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">mc_var</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">mc_se</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+                    <span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+                <span class="p">],</span>
+                <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">first_order_idxs_mean_vargp_segp_varmc_segp</span></div>
+
+    <span class="c1"># pyre-fixme[3]: Return type must be annotated.</span>
+<div class="viewcode-block" id="SobolSensitivityGPSampling.total_order_indices"><a class="viewcode-back" href="../../../../utils.html#ax.utils.sensitivity.sobol_measures.SobolSensitivityGPSampling.total_order_indices">[docs]</a>    <span class="k">def</span> <span class="nf">total_order_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sa">r</span><span class="sd">"""Computes the total Sobol indices:</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            if num_bootstrap_samples&gt;1</span>
+<span class="sd">                Tensor: (values,var_gp,stderr_gp,var_mc,stderr_mc)x dim</span>
+<span class="sd">            else</span>
+<span class="sd">                Tensor: (values,var,stderr)x dim</span>
+<span class="sd">        """</span>
+        <span class="n">total_order_idxs_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_gp_samples</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sensitivity</span><span class="o">.</span><span class="n">evalute_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="n">total_order_idxs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sensitivity</span><span class="o">.</span><span class="n">total_order_indices</span><span class="p">()</span>
+            <span class="n">total_order_idxs_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">total_order_idxs</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+        <span class="n">total_order_idxs_list</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">total_order_idxs_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bootstrap</span><span class="p">):</span>
+            <span class="n">total_order_idxs_mean_var</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
+                <span class="n">total_order_idxs_mean_var</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+                        <span class="p">[</span>
+                            <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">total_order_idxs_list</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]),</span>
+                            <span class="n">torch</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">total_order_idxs_list</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]),</span>
+                            <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+                                <span class="n">torch</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">total_order_idxs_list</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span>
+                                <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_gp_samples</span>
+                            <span class="p">),</span>
+                        <span class="p">]</span>
+                    <span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="n">total_order_idxs_mean_var</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">total_order_idxs_mean_var</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">total_order_idxs_mean_var</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">var_per_bootstrap</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">total_order_idxs_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">gp_var</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">var_per_bootstrap</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">gp_se</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">gp_var</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_gp_samples</span><span class="p">)</span>
+            <span class="n">var_per_gp_sample</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">total_order_idxs_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">mc_var</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">var_per_gp_sample</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">mc_se</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mc_var</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_bootstrap_samples</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="n">total_mean</span> <span class="o">=</span> <span class="n">total_order_idxs_list</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">total_order_idxs_mean_vargp_segp_varmc_segp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+                        <span class="p">[</span><span class="n">total_mean</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">gp_var</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">gp_se</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">mc_var</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">mc_se</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+                    <span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+                <span class="p">],</span>
+                <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">total_order_idxs_mean_vargp_segp_varmc_segp</span></div>
+
+    <span class="c1"># pyre-fixme[3]: Return type must be annotated.</span>
+<div class="viewcode-block" id="SobolSensitivityGPSampling.second_order_indices"><a class="viewcode-back" href="../../../../utils.html#ax.utils.sensitivity.sobol_measures.SobolSensitivityGPSampling.second_order_indices">[docs]</a>    <span class="k">def</span> <span class="nf">second_order_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sa">r</span><span class="sd">"""Computes the Second order Sobol indices:</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            if num_bootstrap_samples&gt;1</span>
+<span class="sd">                Tensor: (values,var_gp,stderr_gp,var_mc,stderr_mc)x dim(dim-1)/2</span>
+<span class="sd">            else</span>
+<span class="sd">                Tensor: (values,var,stderr)x dim(dim-1)/2</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bootstrap</span><span class="p">):</span>
+            <span class="n">second_order_idxs_list</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_gp_samples</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sensitivity</span><span class="o">.</span><span class="n">evalute_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+                <span class="n">second_order_idxs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sensitivity</span><span class="o">.</span><span class="n">second_order_indices</span><span class="p">(</span>
+                    <span class="c1"># pyre-fixme[16]: `SobolSensitivityGPSampling` has no attribute</span>
+                    <span class="c1">#  `first_order_idxs_list`.</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs_list</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="n">second_order_idxs_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">second_order_idxs</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+            <span class="n">second_order_idxs_list</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">second_order_idxs_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">second_order_idxs_mean_var</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">second_order_idxs</span><span class="p">)):</span>
+                <span class="n">second_order_idxs_mean_var</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+                        <span class="p">[</span>
+                            <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">second_order_idxs_list</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]),</span>
+                            <span class="n">torch</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">second_order_idxs_list</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]),</span>
+                            <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+                                <span class="n">torch</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">second_order_idxs_list</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span>
+                                <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_gp_samples</span>
+                            <span class="p">),</span>
+                        <span class="p">]</span>
+                    <span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="n">second_order_idxs_mean_var</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">second_order_idxs_mean_var</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">second_order_idxs_mean_var</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">second_order_idxs_list</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_gp_samples</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sensitivity</span><span class="o">.</span><span class="n">evalute_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+                <span class="n">second_order_idxs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sensitivity</span><span class="o">.</span><span class="n">second_order_indices</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs_list</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">first_order_idxs_list</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="mi">1</span><span class="p">:],</span>
+                <span class="p">)</span>
+                <span class="n">second_order_idxs_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">second_order_idxs</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+            <span class="n">second_order_idxs_list</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">second_order_idxs_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">var_per_bootstrap</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">second_order_idxs_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">gp_var</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">var_per_bootstrap</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">gp_se</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">gp_var</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_gp_samples</span><span class="p">)</span>
+            <span class="n">var_per_gp_sample</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">second_order_idxs_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">mc_var</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">var_per_gp_sample</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">mc_se</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mc_var</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_bootstrap_samples</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="n">num_second_order</span> <span class="o">=</span> <span class="n">second_order_idxs_list</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">total_mean</span> <span class="o">=</span> <span class="n">second_order_idxs_list</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_second_order</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span>
+                <span class="n">dim</span><span class="o">=</span><span class="mi">0</span>
+            <span class="p">)</span>
+            <span class="n">second_order_idxs_mean_vargp_segp_varmc_segp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+                        <span class="p">[</span><span class="n">total_mean</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">gp_var</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">gp_se</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">mc_var</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">mc_se</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+                    <span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_second_order</span><span class="p">)</span>
+                <span class="p">],</span>
+                <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">second_order_idxs_mean_vargp_segp_varmc_segp</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.7.2/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>
