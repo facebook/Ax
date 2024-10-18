@@ -96,14 +96,13 @@ def _get_problem_from_common_inputs(
             minimize=lower_is_better,
         )
     )
-    test_problem_kwargs: dict[str, int | list[tuple[float, float]]] = {"dim": dim}
-    if test_problem_bounds is not None:
-        test_problem_kwargs["bounds"] = test_problem_bounds
+
+    if test_problem_bounds is None:
+        test_problem = test_problem_class(dim=dim)
+    else:
+        test_problem = test_problem_class(dim=dim, bounds=test_problem_bounds)
     runner = BotorchTestProblemRunner(
-        test_problem_class=test_problem_class,
-        test_problem_kwargs=test_problem_kwargs,
-        outcome_names=[metric_name],
-        modified_bounds=bounds,
+        test_problem=test_problem, outcome_names=[metric_name], modified_bounds=bounds
     )
     return BenchmarkProblem(
         name=benchmark_name + ("_observed_noise" if observe_noise_sd else ""),
