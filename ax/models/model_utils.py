@@ -23,6 +23,7 @@ from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from torch import Tensor
 
 
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 Tensoray = Union[torch.Tensor, np.ndarray]
 
 
@@ -48,18 +49,24 @@ DEFAULT_MAX_RS_DRAWS = 10000
 
 
 def rejection_sample(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     gen_unconstrained: Callable[
         [int, int, np.ndarray, dict[int, float] | None], np.ndarray
     ],
     n: int,
     d: int,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     tunable_feature_indices: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     linear_constraints: tuple[np.ndarray, np.ndarray] | None = None,
     deduplicate: bool = False,
     max_draws: int | None = None,
     fixed_features: dict[int, float] | None = None,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     rounding_func: Callable[[np.ndarray], np.ndarray] | None = None,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     existing_points: np.ndarray | None = None,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> tuple[np.ndarray, int]:
     """Rejection sample in parameter space. Parameter space is typically
     [0, 1] for all tunable parameters.
@@ -156,6 +163,7 @@ def rejection_sample(
         return (points, attempted_draws)
 
 
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 def check_duplicate(point: np.ndarray, points: np.ndarray) -> bool:
     """Check if a point exists in another array.
 
@@ -173,10 +181,13 @@ def check_duplicate(point: np.ndarray, points: np.ndarray) -> bool:
 
 
 def add_fixed_features(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     tunable_points: np.ndarray,
     d: int,
     fixed_features: dict[int, float] | None,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     tunable_feature_indices: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> np.ndarray:
     """Add fixed features to points in tunable space.
 
@@ -201,7 +212,11 @@ def add_fixed_features(
 
 
 def check_param_constraints(
-    linear_constraints: tuple[np.ndarray, np.ndarray], point: np.ndarray
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    linear_constraints: tuple[np.ndarray, np.ndarray],
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    point: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> tuple[bool, np.ndarray]:
     """Check if a point satisfies parameter constraints.
 
@@ -227,7 +242,9 @@ def check_param_constraints(
 
 
 def tunable_feature_indices(
-    bounds: list[tuple[float, float]], fixed_features: dict[int, float] | None = None
+    bounds: list[tuple[float, float]],
+    fixed_features: dict[int, float] | None = None,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> np.ndarray:
     """Get the feature indices of tunable features.
 
@@ -245,7 +262,10 @@ def tunable_feature_indices(
 
 
 def validate_bounds(
-    bounds: list[tuple[float, float]], fixed_feature_indices: np.ndarray
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    bounds: list[tuple[float, float]],
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    fixed_feature_indices: np.ndarray,
 ) -> None:
     """Ensure the requested space is [0,1]^d.
 
@@ -343,6 +363,7 @@ def best_observed_point(
 
 
 def best_in_sample_point(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     Xs: list[torch.Tensor] | list[np.ndarray],
     model: TorchModelLike,
     bounds: list[tuple[float, float]],
@@ -438,6 +459,8 @@ def best_in_sample_point(
         return None
     # Predict objective and P(feas) at these points for Torch models.
     if isinstance(Xs[0], torch.Tensor):
+        # pyre-fixme[16]: Item `ndarray` of `Union[ndarray[typing.Any, typing.Any],
+        #  Tensor]` has no attribute `detach`.
         X_obs = X_obs.detach().clone()
     f, cov = as_array(model.predict(X_obs))
     obj = objective_weights_np @ f.transpose()
@@ -468,6 +491,7 @@ def best_in_sample_point(
         return X_obs[i, :], utility[i]
 
 
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 def as_array(x: Tensoray | tuple[Tensoray, ...]) -> np.ndarray | tuple[np.ndarray, ...]:
     """Convert every item in a tuple of tensors/arrays into an array.
 
@@ -488,9 +512,12 @@ def as_array(x: Tensoray | tuple[Tensoray, ...]) -> np.ndarray | tuple[np.ndarra
 
 
 def get_observed(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     Xs: list[torch.Tensor] | list[np.ndarray],
     objective_weights: Tensoray,
     outcome_constraints: tuple[Tensoray, Tensoray] | None = None,
+    # pyre-fixme[7]: Expected `Union[ndarray[typing.Any, typing.Any], Tensor]` but got
+    #  implicit return value of `None`.
 ) -> Tensoray:
     """Filter points to those that are observed for objective outcomes and outcomes
     that show up in outcome_constraints (if there are any).
@@ -529,6 +556,8 @@ def get_observed(
         #  return value of `None`.
         # pyre-fixme[6]: For 3rd param expected `Optional[_C.dtype]` but got
         #  `Union[np.dtype, _C.dtype]`.
+        # pyre-fixme[16]: Item `ndarray` of `Union[ndarray[typing.Any, typing.Any],
+        #  Tensor]` has no attribute `device`.
         return torch.tensor(list(X_obs_set), device=Xs[0].device, dtype=Xs[0].dtype)
 
 

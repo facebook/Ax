@@ -78,9 +78,13 @@ class BenchmarkResult(Base):
     name: str
     seed: int
 
+    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
     oracle_trace: ndarray
+    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
     inference_trace: ndarray
+    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
     optimization_trace: ndarray
+    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
     score_trace: ndarray
 
     fit_time: float
@@ -156,6 +160,7 @@ class AggregatedBenchmarkResult(Base):
 
 
 def _get_stats(
+    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
     step_data: Iterable[np.ndarray],
     percentiles: list[float],
 ) -> dict[str, list[float]]:

@@ -21,6 +21,7 @@ TParameterization = dict[str, TParamValue]
 TParamValueList = list[TParamValue]  # a parameterization without the keys
 TContextStratum = Optional[dict[str, Union[str, float, int]]]
 
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 TBounds = Optional[tuple[np.ndarray, np.ndarray]]
 TModelMean = dict[str, list[float]]
 TModelCov = dict[str, dict[str, list[float]]]
@@ -29,6 +30,8 @@ TModelPredict = tuple[TModelMean, TModelCov]
 # ( { metric -> mean }, { metric -> { other_metric -> covariance } } ).
 TModelPredictArm = tuple[dict[str, float], Optional[dict[str, dict[str, float]]]]
 
+# pyre-fixme[24]: Generic type `np.floating` expects 1 type parameter.
+# pyre-fixme[24]: Generic type `np.integer` expects 1 type parameter.
 FloatLike = Union[int, float, np.floating, np.integer]
 SingleMetricDataTuple = tuple[FloatLike, Optional[FloatLike]]
 SingleMetricData = Union[FloatLike, tuple[FloatLike, Optional[FloatLike]]]
@@ -70,7 +73,9 @@ TCandidateMetadata = Optional[dict[str, Any]]
 class ComparisonOp(enum.Enum):
     """Class for enumerating comparison operations."""
 
+    # pyre-fixme[35]: Target cannot be annotated.
     GEQ: int = 0
+    # pyre-fixme[35]: Target cannot be annotated.
     LEQ: int = 1
 
 

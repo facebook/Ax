@@ -47,7 +47,7 @@ class BenchmarkRunner(Runner, ABC):
     """
 
     outcome_names: list[str]
-    # pyre-fixme[8]: Pyre doesn't understand InitVars
+    # pyre-fixme[16]: Pyre doesn't understand InitVars
     search_space_digest: InitVar[SearchSpaceDigest | None] = None
     target_fidelity_and_task: Mapping[str, float | int] = field(init=False)
 
@@ -68,6 +68,7 @@ class BenchmarkRunner(Runner, ABC):
         """
         ...
 
+    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
     def evaluate_oracle(self, parameters: Mapping[str, TParamValue]) -> ndarray:
         """
         Evaluate oracle metric values at a parameterization. In the base class,
@@ -145,6 +146,8 @@ class BenchmarkRunner(Runner, ABC):
                 # budget allocation to each arm. This works b/c (i) we assume that
                 # observations per unit sample budget are i.i.d. and (ii) the
                 # normalized weights sum to one.
+                # pyre-fixme[61]: `nlzd_arm_weights` is undefined, or not always
+                #  defined.
                 std = noise_stds_tsr.to(Y_true) / sqrt(nlzd_arm_weights[arm])
                 Ystds[arm.name] = std.tolist()
                 Ys[arm.name] = (Y_true + std * torch.randn_like(Y_true)).tolist()

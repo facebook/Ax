@@ -108,6 +108,7 @@ def train_and_evaluate(
             total += labels.size(0)
             correct += (predicted == labels).sum()
 
+    # pyre-fixme[7]: Expected `Tensor` but got `float`.
     return correct / total
 
 
@@ -165,7 +166,11 @@ class PyTorchCNNTorchvisionParamBasedProblem(ParamBasedTestProblem):
         return train_and_evaluate(
             **params,
             device=self.device,
+            # pyre-fixme[16]: `PyTorchCNNTorchvisionParamBasedProblem` has no
+            #  attribute `train_loader`.
             train_loader=self.train_loader,
+            # pyre-fixme[16]: `PyTorchCNNTorchvisionParamBasedProblem` has no
+            #  attribute `test_loader`.
             test_loader=self.test_loader,
         )
 
