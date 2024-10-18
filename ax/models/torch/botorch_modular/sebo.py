@@ -204,7 +204,7 @@ class SEBOAcquisition(Acquisition):
             model_gen_options=torch_opt_config.model_gen_options,
             rounding_func=torch_opt_config.rounding_func,
             opt_config_metrics=torch_opt_config.opt_config_metrics,
-            is_moo=torch_opt_config.is_moo,
+            is_moo=True,  # SEBO adds an objective, so it'll always be MOO.
         )
 
     def optimize(
