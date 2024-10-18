@@ -11,7 +11,7 @@ from collections import defaultdict, OrderedDict
 from enum import Enum
 from io import StringIO
 from logging import Logger
-from typing import Any, cast, Union
+from typing import cast, Union
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCard
@@ -138,7 +138,6 @@ class Decoder:
     def _init_experiment_from_sqa(
         self,
         experiment_sqa: SQAExperiment,
-        ax_object_field_overrides: dict[str, Any] | None = None,
         load_auxiliary_experiments: bool = True,
     ) -> Experiment:
         """First step of conversion within experiment_from_sqa."""
@@ -162,14 +161,7 @@ class Decoder:
         if len(experiment_sqa.runners) == 0:
             runner = None
         elif len(experiment_sqa.runners) == 1:
-            runner_kwargs = (
-                ax_object_field_overrides.get("runner")
-                if ax_object_field_overrides is not None
-                else None
-            )
-            runner = self.runner_from_sqa(
-                runner_sqa=experiment_sqa.runners[0], runner_kwargs=runner_kwargs
-            )
+            runner = self.runner_from_sqa(runner_sqa=experiment_sqa.runners[0])
         else:
             raise ValueError(
                 "Multiple runners on experiment "
@@ -259,7 +251,6 @@ class Decoder:
         self,
         experiment_sqa: SQAExperiment,
         reduced_state: bool = False,
-        ax_object_field_overrides: dict[str, Any] | None = None,
         load_auxiliary_experiments: bool = True,
     ) -> Experiment:
         """Convert SQLAlchemy Experiment to Ax Experiment.
@@ -269,10 +260,6 @@ class Decoder:
             reduced_state: Whether to load experiment with a slightly reduced state
                 (without abandoned arms on experiment and without model state,
                 search space, and optimization config on generator runs).
-            ax_object_field_overrides: Mapping of object types to mapping of fields
-                to override values loaded objects will all be instantiated with fields
-                set to override value
-                current valid object types are: "runner"
             load_auxiliary_experiment: whether to load auxiliary experiments.
         """
         subclass = (experiment_sqa.properties or {}).get(Keys.SUBCLASS)
@@ -281,7 +268,6 @@ class Decoder:
         else:
             experiment = self._init_experiment_from_sqa(
                 experiment_sqa,
-                ax_object_field_overrides=ax_object_field_overrides,
                 load_auxiliary_experiments=load_auxiliary_experiments,
             )
         trials = [
@@ -289,7 +275,6 @@ class Decoder:
                 trial_sqa=trial,
                 experiment=experiment,
                 reduced_state=reduced_state,
-                ax_object_field_overrides=ax_object_field_overrides,
             )
             for trial in experiment_sqa.trials
         ]
@@ -870,9 +855,7 @@ class Decoder:
 
         return gs
 
-    def runner_from_sqa(
-        self, runner_sqa: SQARunner, runner_kwargs: dict[str, Any] | None = None
-    ) -> Runner:
+    def runner_from_sqa(self, runner_sqa: SQARunner) -> Runner:
         """Convert SQLAlchemy Runner to Ax Runner."""
         if runner_sqa.runner_type not in self.config.reverse_runner_registry:
             raise SQADecodeError(
@@ -886,7 +869,6 @@ class Decoder:
             decoder_registry=self.config.json_decoder_registry,
             class_decoder_registry=self.config.json_class_decoder_registry,
         )
-        args.update(runner_kwargs or {})
         # pyre-ignore[45]: Cannot instantiate abstract class `Runner`.
         runner = runner_class(**args)
         runner.db_id = runner_sqa.id
@@ -897,7 +879,6 @@ class Decoder:
         trial_sqa: SQATrial,
         experiment: Experiment,
         reduced_state: bool = False,
-        ax_object_field_overrides: dict[str, Any] | None = None,
     ) -> BaseTrial:
         """Convert SQLAlchemy Trial to Ax Trial.
 
@@ -1004,11 +985,6 @@ class Decoder:
         trial._runner = (
             self.runner_from_sqa(
                 trial_sqa.runner,
-                runner_kwargs=(
-                    ax_object_field_overrides.get("runner")
-                    if ax_object_field_overrides is not None
-                    else None
-                ),
             )
             if trial_sqa.runner
             else None

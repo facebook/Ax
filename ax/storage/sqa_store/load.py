@@ -85,7 +85,6 @@ def _load_experiment(
     decoder: Decoder,
     reduced_state: bool = False,
     load_trials_in_batches_of_size: int | None = None,
-    ax_object_field_overrides: dict[str, Any] | None = None,
     skip_runners_and_metrics: bool = False,
     load_auxiliary_experiments: bool = True,
 ) -> Experiment:
@@ -100,10 +99,6 @@ def _load_experiment(
         reduced_state: Whether to load experiment and generation strategy
         load_trials_in_batches_of_size: Number of trials to be fetched from database
             per batch
-        ax_object_field_overrides: Mapping of object types to mapping of fields
-            to override values loaded objects will all be instantiated with fields
-            set to override value
-            current valid object types are: "runner"
         load_auxiliary_experiments: whether to load auxiliary experiments.
     """
 
@@ -170,7 +165,6 @@ def _load_experiment(
     return decoder.experiment_from_sqa(
         experiment_sqa=experiment_sqa,
         reduced_state=reduced_state,
-        ax_object_field_overrides=ax_object_field_overrides,
         load_auxiliary_experiments=load_auxiliary_experiments,
     )
 

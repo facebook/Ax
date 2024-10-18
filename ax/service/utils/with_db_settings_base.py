@@ -11,7 +11,7 @@ import time
 from collections.abc import Iterable
 
 from logging import INFO, Logger
-from typing import Any, Optional
+from typing import Optional
 
 from ax.analysis.analysis import AnalysisCard
 
@@ -94,12 +94,6 @@ class WithDBSettingsBase:
     """
 
     _db_settings: Optional[DBSettings] = None
-
-    # Mapping of object types to mapping of fields to override values
-    # loaded objects will all be instantiated with fields set to
-    # override value
-    # current valid object types are: "runner"
-    AX_OBJECT_FIELD_OVERRIDES: dict[str, Any] = {}
 
     def __init__(
         self,
@@ -256,7 +250,6 @@ class WithDBSettingsBase:
             decoder=self.db_settings.decoder,
             reduced_state=reduced_state,
             load_trials_in_batches_of_size=LOADING_MINI_BATCH_SIZE,
-            ax_object_field_overrides=self.AX_OBJECT_FIELD_OVERRIDES,
             skip_runners_and_metrics=skip_runners_and_metrics,
         )
         if not isinstance(experiment, Experiment):
