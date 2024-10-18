@@ -220,8 +220,7 @@ def get_pytorch_cnn_torchvision_benchmark_problem(
         objective_name="accuracy",
     )
     runner = ParamBasedTestProblemRunner(
-        test_problem_class=PyTorchCNNTorchvisionParamBasedProblem,
-        test_problem_kwargs={"name": name},
+        test_problem=PyTorchCNNTorchvisionParamBasedProblem(name=name),
         outcome_names=outcome_names,
     )
     return BenchmarkProblem(
