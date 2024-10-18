@@ -169,10 +169,6 @@ def _prepare_plot(df: pd.DataFrame, metric_name: str) -> go.Figure:
         y="predicted",
         error_x="observed_sem",
         error_y="predicted_sem",
-        labels={
-            "observed": f"Observed {metric_name}",
-            "predicted": f"Predicted {metric_name}",
-        },
         hover_data=["arm_name", "observed", "predicted"],
     )
 
