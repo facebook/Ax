@@ -36,6 +36,7 @@ from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.int_to_float import IntToFloat
+from ax.modelbridge.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.modelbridge.transition_criterion import (
     AutoTransitionAfterGen,
     IsSingleObjective,
@@ -401,6 +402,10 @@ def get_input_transform_type() -> type[InputTransform]:
 
 def get_outcome_transfrom_type() -> type[OutcomeTransform]:
     return Standardize
+
+
+def get_to_new_sq_transform_type() -> type[TransformToNewSQ]:
+    return TransformToNewSQ
 
 
 def get_experiment_for_value() -> Experiment:
