@@ -121,6 +121,7 @@ from ax.utils.testing.modeling_stubs import (
     get_input_transform_type,
     get_observation_features,
     get_outcome_transfrom_type,
+    get_to_new_sq_transform_type,
     get_transform_type,
     sobol_gpei_generation_node_gs,
 )
@@ -258,6 +259,7 @@ TEST_CASES = [
     ("Type[Transform]", get_transform_type),
     ("Type[InputTransform]", get_input_transform_type),
     ("Type[OutcomeTransform]", get_outcome_transfrom_type),
+    ("Type[TransformToNewSQ]", get_to_new_sq_transform_type),
     ("TransitionCriterionList", get_trial_based_criterion),
     ("ThresholdEarlyStoppingStrategy", get_threshold_early_stopping_strategy),
     ("Trial", get_trial),
