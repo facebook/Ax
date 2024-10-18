@@ -119,7 +119,7 @@ class SobolGenerator(RandomModel):
         )
         if self.engine:
             self.init_position = not_none(self.engine).num_generated
-        return (points, weights)
+        return points, weights
 
     # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def _gen_samples(self, n: int, tunable_d: int) -> np.ndarray:
