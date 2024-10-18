@@ -26,12 +26,7 @@ from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from botorch.test_functions.synthetic import (
-    Ackley,
-    Hartmann,
-    Rosenbrock,
-    SyntheticTestFunction,
-)
+from botorch.test_functions.synthetic import Ackley, Hartmann, Rosenbrock
 
 
 def _get_problem_from_common_inputs(
@@ -41,7 +36,7 @@ def _get_problem_from_common_inputs(
     metric_name: str,
     lower_is_better: bool,
     observe_noise_sd: bool,
-    test_problem_class: type[SyntheticTestFunction],
+    test_problem_class: type[Hartmann | Ackley | Rosenbrock],
     benchmark_name: str,
     num_trials: int,
     optimal_value: float,
