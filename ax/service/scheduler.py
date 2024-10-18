@@ -137,6 +137,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     experiment: Experiment
     generation_strategy: GenerationStrategyInterface
+    # pyre-fixme[24]: Generic type `LoggerAdapter` expects 1 type parameter.
     logger: LoggerAdapter
     # Mapping of form {short string identifier -> message to show in reported
     # results}. This is a mapping and not a list to allow for changing of

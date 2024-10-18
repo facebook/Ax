@@ -107,8 +107,10 @@ class Experiment(Base):
                 for different purposes (e.g., transfer learning).
         """
         # appease pyre
+        # pyre-fixme[13]: Attribute `_search_space` is never initialized.
         self._search_space: SearchSpace
         self._status_quo: Arm | None = None
+        # pyre-fixme[13]: Attribute `_is_test` is never initialized.
         self._is_test: bool
 
         self._name = name

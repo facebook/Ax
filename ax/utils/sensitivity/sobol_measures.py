@@ -833,6 +833,7 @@ def ax_parameter_sens(
     order: str = "first",
     signed: bool = True,
     **sobol_kwargs: Any,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> dict[str, dict[str, np.ndarray]]:
     """
     Compute sensitivity for all metrics on an TorchModelBridge.
@@ -987,7 +988,12 @@ def _get_model_per_metric(
 
 
 def array_with_string_indices_to_dict(
-    rows: list[str], cols: list[str], A: np.ndarray
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    rows: list[str],
+    cols: list[str],
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    A: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> dict[str, dict[str, np.ndarray]]:
     """
     Args:

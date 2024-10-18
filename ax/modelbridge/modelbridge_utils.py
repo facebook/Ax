@@ -304,6 +304,7 @@ def extract_robust_digest(
         # NOTE: Extracting it from `param_names` in case the ordering is different.
         environmental_variables = param_names[num_non_env_vars:]
 
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         def sample_environmental() -> np.ndarray:
             """Get samples from the environmental distributions.
 
@@ -327,10 +328,12 @@ def extract_robust_digest(
         environmental_variables = []
 
     if len(pert_params) > 0:
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         constructor: Callable[[tuple[int, int]], np.ndarray] = (
             np.ones if search_space.multiplicative else np.zeros
         )
 
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         def sample_param_perturbations() -> np.ndarray:
             """Get samples of the input perturbations.
 
@@ -365,6 +368,7 @@ def extract_objective_thresholds(
     objective_thresholds: TRefPoint,
     objective: Objective,
     outcomes: list[str],
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> np.ndarray | None:
     """Extracts objective thresholds' values, in the order of `outcomes`.
 
@@ -411,6 +415,7 @@ def extract_objective_thresholds(
     return obj_t
 
 
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 def extract_objective_weights(objective: Objective, outcomes: list[str]) -> np.ndarray:
     """Extract a weights for objectives.
 
@@ -470,11 +475,17 @@ def extract_outcome_constraints(
 
 
 def validate_and_apply_final_transform(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     objective_weights: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     outcome_constraints: tuple[np.ndarray, np.ndarray] | None,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     linear_constraints: tuple[np.ndarray, np.ndarray] | None,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     pending_observations: list[np.ndarray] | None,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     objective_thresholds: np.ndarray | None = None,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     final_transform: Callable[[np.ndarray], Tensor] = torch.tensor,
 ) -> tuple[
     Tensor,
@@ -547,6 +558,7 @@ def pending_observations_as_array_list(
     pending_observations: dict[str, list[ObservationFeatures]],
     outcome_names: list[str],
     param_names: list[str],
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> list[np.ndarray] | None:
     """Re-format pending observations.
 
@@ -579,6 +591,7 @@ def pending_observations_as_array_list(
 
 
 def parse_observation_features(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     X: np.ndarray,
     param_names: list[str],
     candidate_metadata: list[TCandidateMetadata] | None = None,
@@ -610,7 +623,9 @@ def parse_observation_features(
 
 
 def transform_callback(
-    param_names: list[str], transforms: MutableMapping[str, Transform]
+    param_names: list[str],
+    transforms: MutableMapping[str, Transform],
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> Callable[[np.ndarray], np.ndarray]:
     """A closure for performing the `round trip` transformations.
 
@@ -628,6 +643,7 @@ def transform_callback(
         a function with for performing the roundtrip transform.
     """
 
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def _roundtrip_transform(x: np.ndarray) -> np.ndarray:
         """Inner function for performing aforementioned functionality.
 
@@ -1152,7 +1168,11 @@ def observed_hypervolume(
 
 
 def array_to_observation_data(
-    f: np.ndarray, cov: np.ndarray, outcomes: list[str]
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    f: np.ndarray,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    cov: np.ndarray,
+    outcomes: list[str],
 ) -> list[ObservationData]:
     """Convert arrays of model predictions to a list of ObservationData.
 
@@ -1178,6 +1198,7 @@ def array_to_observation_data(
 def observation_data_to_array(
     outcomes: list[str],
     observation_data: list[ObservationData],
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> tuple[np.ndarray, np.ndarray]:
     """Convert a list of Observation data to arrays.
 
@@ -1212,14 +1233,20 @@ def observation_data_to_array(
 
 
 def observation_features_to_array(
-    parameters: list[str], obsf: list[ObservationFeatures]
+    parameters: list[str],
+    obsf: list[ObservationFeatures],
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> np.ndarray:
     """Convert a list of Observation features to arrays."""
     return np.array([[of.parameters[p] for p in parameters] for of in obsf])
 
 
 def feasible_hypervolume(
-    optimization_config: MultiObjectiveOptimizationConfig, values: dict[str, np.ndarray]
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    optimization_config: MultiObjectiveOptimizationConfig,
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
+    values: dict[str, np.ndarray],
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> np.ndarray:
     """Compute the feasible hypervolume each iteration.
 
@@ -1271,6 +1298,7 @@ def feasible_hypervolume(
 
 
 def _array_to_tensor(
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     array: np.ndarray | list[float],
     modelbridge: modelbridge_module.base.ModelBridge | None = None,
 ) -> Tensor:

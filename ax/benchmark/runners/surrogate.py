@@ -148,5 +148,6 @@ class SurrogateRunner(BenchmarkRunner):
             (self.name == other.name)
             and (self.outcome_names == other.outcome_names)
             and (self.noise_stds == other.noise_stds)
+            # pyre-fixme[16]: `SurrogateRunner` has no attribute `search_space_digest`.
             and (self.search_space_digest == other.search_space_digest)
         )

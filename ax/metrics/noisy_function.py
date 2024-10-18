@@ -104,6 +104,7 @@ class NoisyFunctionMetric(Metric):
         x = np.array([params[p] for p in self.param_names])
         return self.f(x)
 
+    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def f(self, x: np.ndarray) -> float:
         """The deterministic function that produces the metric outcomes."""
         raise NotImplementedError

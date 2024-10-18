@@ -52,7 +52,9 @@ class FullFactorialGenerator(DiscreteModel):
         self,
         n: int,
         parameter_values: list[TParamValueList],
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         objective_weights: np.ndarray | None,
+        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         outcome_constraints: tuple[np.ndarray, np.ndarray] | None = None,
         fixed_features: dict[int, TParamValue] | None = None,
         pending_observations: list[list[TParamValueList]] | None = None,
