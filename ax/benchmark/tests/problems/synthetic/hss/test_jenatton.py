@@ -107,9 +107,7 @@ class JenattonTest(TestCase):
         self.assertTrue(objective.minimize)
         self.assertTrue(metric.lower_is_better)
         self.assertEqual(
-            assert_is_instance(
-                problem.runner, ParamBasedTestProblemRunner
-            ).test_problem.noise_std,
+            assert_is_instance(problem.runner, ParamBasedTestProblemRunner).noise_std,
             0.0,
         )
         self.assertFalse(assert_is_instance(metric, BenchmarkMetric).observe_noise_sd)
@@ -121,9 +119,7 @@ class JenattonTest(TestCase):
         metric = objective.metric
         self.assertTrue(metric.lower_is_better)
         self.assertEqual(
-            assert_is_instance(
-                problem.runner, ParamBasedTestProblemRunner
-            ).test_problem.noise_std,
+            assert_is_instance(problem.runner, ParamBasedTestProblemRunner).noise_std,
             0.1,
         )
         self.assertTrue(assert_is_instance(metric, BenchmarkMetric).observe_noise_sd)

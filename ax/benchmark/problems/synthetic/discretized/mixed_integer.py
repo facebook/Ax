@@ -26,12 +26,7 @@ from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from botorch.test_functions.synthetic import (
-    Ackley,
-    Hartmann,
-    Rosenbrock,
-    SyntheticTestFunction,
-)
+from botorch.test_functions.synthetic import Ackley, Hartmann, Rosenbrock
 
 
 def _get_problem_from_common_inputs(
@@ -41,7 +36,7 @@ def _get_problem_from_common_inputs(
     metric_name: str,
     lower_is_better: bool,
     observe_noise_sd: bool,
-    test_problem_class: type[SyntheticTestFunction],
+    test_problem_class: type[Hartmann | Ackley | Rosenbrock],
     benchmark_name: str,
     num_trials: int,
     optimal_value: float,
@@ -101,14 +96,13 @@ def _get_problem_from_common_inputs(
             minimize=lower_is_better,
         )
     )
-    test_problem_kwargs: dict[str, int | list[tuple[float, float]]] = {"dim": dim}
-    if test_problem_bounds is not None:
-        test_problem_kwargs["bounds"] = test_problem_bounds
+
+    if test_problem_bounds is None:
+        test_problem = test_problem_class(dim=dim)
+    else:
+        test_problem = test_problem_class(dim=dim, bounds=test_problem_bounds)
     runner = BotorchTestProblemRunner(
-        test_problem_class=test_problem_class,
-        test_problem_kwargs=test_problem_kwargs,
-        outcome_names=[metric_name],
-        modified_bounds=bounds,
+        test_problem=test_problem, outcome_names=[metric_name], modified_bounds=bounds
     )
     return BenchmarkProblem(
         name=benchmark_name + ("_observed_noise" if observe_noise_sd else ""),

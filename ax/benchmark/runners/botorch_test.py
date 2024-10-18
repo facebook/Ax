@@ -5,10 +5,10 @@
 
 # pyre-strict
 
+import copy
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass, field
-from typing import Any
+from dataclasses import asdict, dataclass
 
 import torch
 from ax.benchmark.runners.base import BenchmarkRunner
@@ -29,28 +29,21 @@ class ParamBasedTestProblem(ABC):
     """
 
     num_objectives: int
-    optimal_value: float
-    # Constraints could easily be supported similar to BoTorch test problems,
-    # but haven't been hooked up.
-    _is_constrained: bool = False
-    constraint_noise_std: float | list[float] | None = None
-    noise_std: float | list[float] | None = None
-    negate: bool = False
 
     @abstractmethod
-    def evaluate_true(self, params: Mapping[str, TParamValue]) -> Tensor: ...
+    def evaluate_true(self, params: Mapping[str, TParamValue]) -> Tensor:
+        """
+        Evaluate noiselessly.
+
+        This method should not depend on the value of `negate`, as negation is
+        handled by the runner.
+        """
+        ...
 
     def evaluate_slack_true(self, params: Mapping[str, TParamValue]) -> Tensor:
         raise NotImplementedError(
             f"{self.__class__.__name__} does not support constraints."
         )
-
-    # pyre-fixme: Missing parameter annotation [2]: Parameter `other` must have
-    # a type other than `Any`.
-    def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, type(self)):
-            return False
-        return self.__class__.__name__ == other.__class__.__name__
 
 
 @dataclass(kw_only=True)
@@ -63,10 +56,7 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
     problem such as the noise_std.
 
     Args:
-        test_problem_class: A BoTorch `BaseTestProblem` class or Ax
-            `ParamBasedTestProblem` class.
-        test_problem_kwargs: The keyword arguments used for initializing the
-            test problem.
+        test_problem: A BoTorch `BaseTestProblem` or Ax `ParamBasedTestProblem`.
         outcome_names: The names of the outcomes returned by the problem.
         modified_bounds: The bounds that are used by the Ax search space
             while optimizing the problem. If different from the bounds of the
@@ -80,27 +70,24 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
         search_space_digest: Used to extract target fidelity and task.
     """
 
-    test_problem_class: type[BaseTestProblem | ParamBasedTestProblem]
-    test_problem_kwargs: dict[str, Any] = field(default_factory=dict)
+    test_problem: BaseTestProblem | ParamBasedTestProblem
     modified_bounds: list[tuple[float, float]] | None = None
-    test_problem: BaseTestProblem | ParamBasedTestProblem = field(init=False)
-
-    @property
-    def _is_moo(self) -> bool:
-        return self.test_problem.num_objectives > 1
+    constraint_noise_std: float | list[float] | None = None
+    noise_std: float | list[float] | None = None
+    negate: bool = False
 
     @property
     def _is_constrained(self) -> bool:
-        return issubclass(self.test_problem_class, ConstrainedBaseTestProblem)
+        return isinstance(self.test_problem, ConstrainedBaseTestProblem)
 
     def get_noise_stds(self) -> None | float | dict[str, float]:
-        noise_std = self.test_problem.noise_std
+        noise_std = self.noise_std
         noise_std_dict: dict[str, float] = {}
-        num_obj = 1 if not self._is_moo else self.test_problem.num_objectives
+        num_obj = self.test_problem.num_objectives
 
         # populate any noise_stds for constraints
         if self._is_constrained:
-            constraint_noise_std = self.test_problem.constraint_noise_std
+            constraint_noise_std = self.constraint_noise_std
             if isinstance(constraint_noise_std, list):
                 for i, cns in enumerate(constraint_noise_std, start=num_obj):
                     if cns is not None:
@@ -137,9 +124,7 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
     A `SyntheticProblemRunner` for BoTorch `BaseTestProblem`s.
 
     Args:
-        test_problem_class: A BoTorch `BaseTestProblem` class.
-        test_problem_kwargs: The keyword arguments used for initializing the
-            test problem.
+        test_problem: A BoTorch `BaseTestProblem`.
         outcome_names: The names of the outcomes returned by the problem.
         modified_bounds: The bounds that are used by the Ax search space
             while optimizing the problem. If different from the bounds of the
@@ -153,15 +138,26 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
         search_space_digest: Used to extract target fidelity and task.
     """
 
-    test_problem_class: type[BaseTestProblem]
-    test_problem: BaseTestProblem = field(init=False)
+    test_problem: BaseTestProblem
 
     def __post_init__(self, search_space_digest: SearchSpaceDigest | None) -> None:
         super().__post_init__(search_space_digest=search_space_digest)
-        # pyre-fixme[45]: Can't instantiate abstract class `BaseTestProblem`.
-        self.test_problem = self.test_problem_class(**self.test_problem_kwargs).to(
-            torch.double
-        )
+        if self.test_problem.noise_std is not None:
+            raise ValueError(
+                "noise_std should be set on the runner, not the test problem."
+            )
+        if (
+            hasattr(self.test_problem, "constraint_noise_std")
+            and self.test_problem.constraint_noise_std is not None
+        ):
+            raise ValueError(
+                "constraint_noise_std should be set on the runner, not the test problem."
+            )
+        if self.test_problem.negate:
+            raise ValueError(
+                "negate should be set on the runner, not the test problem."
+            )
+        self.test_problem = self.test_problem.to(dtype=torch.double)
 
     def get_Y_true(self, params: Mapping[str, TParamValue]) -> Tensor:
         """
@@ -194,7 +190,7 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
 
         Y_true = self.test_problem.evaluate_true(X).view(-1)
         # `BaseTestProblem.evaluate_true()` does not negate the outcome
-        if self.test_problem.negate:
+        if self.negate:
             Y_true = -Y_true
 
         if self._is_constrained:
@@ -226,7 +222,9 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
         other_as_dict = asdict(other)
         self_as_dict.pop("test_problem")
         other_as_dict.pop("test_problem")
-        return self_as_dict == other_as_dict
+        return (self_as_dict == other_as_dict) and (
+            type(self.test_problem) is type(other.test_problem)
+        )
 
 
 @dataclass(kw_only=True)
@@ -236,13 +234,7 @@ class ParamBasedTestProblemRunner(SyntheticProblemRunner):
     `SyntheticProblemRunner` for more information.
     """
 
-    test_problem_class: type[ParamBasedTestProblem]
-    test_problem: ParamBasedTestProblem = field(init=False)
-
-    def __post_init__(self, search_space_digest: SearchSpaceDigest | None) -> None:
-        super().__post_init__(search_space_digest=search_space_digest)
-        # pyre-fixme[45]: Can't instantiate abstract class `ParamBasedTestProblem`.
-        self.test_problem = self.test_problem_class(**self.test_problem_kwargs)
+    test_problem: ParamBasedTestProblem
 
     def get_Y_true(self, params: Mapping[str, TParamValue]) -> Tensor:
         """Evaluates the test problem.
@@ -252,6 +244,6 @@ class ParamBasedTestProblemRunner(SyntheticProblemRunner):
         """
         Y_true = self.test_problem.evaluate_true(params).view(-1)
         # `ParamBasedTestProblem.evaluate_true()` does not negate the outcome
-        if self.test_problem.negate:
+        if self.negate:
             Y_true = -Y_true
         return Y_true

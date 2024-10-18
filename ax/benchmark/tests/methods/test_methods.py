@@ -138,9 +138,7 @@ class TestMethods(TestCase):
     def _test_get_best_parameters(
         self, use_model_predictions: bool, as_batch: bool
     ) -> None:
-        problem = get_problem(
-            problem_key="ackley4", num_trials=2, test_problem_kwargs={"noise_std": 1.0}
-        )
+        problem = get_problem(problem_key="ackley4", num_trials=2, noise_std=1.0)
 
         method = get_sobol_botorch_modular_acquisition(
             model_cls=SingleTaskGP,

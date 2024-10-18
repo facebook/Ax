@@ -202,12 +202,11 @@ class TestBenchmark(TestCase):
             num_sobol_trials=3,
         )
 
-        test_problem_kwargs = {"noise_std": 100.0}
         num_trials = 4
         problem = get_single_objective_benchmark_problem(
-            test_problem_kwargs=test_problem_kwargs,
             num_trials=num_trials,
             report_inference_value_as_trace=report_inference_value_as_trace,
+            noise_std=100.0,
         )
         res = benchmark_replication(problem=problem, method=method, seed=seed)
         # The inference trace could coincide with the oracle trace, but it won't

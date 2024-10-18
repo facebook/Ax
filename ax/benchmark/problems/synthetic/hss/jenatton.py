@@ -21,6 +21,8 @@ from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import HierarchicalSearchSpace
 from pyre_extensions import none_throws
 
+JENATTON_OPTIMAL_VALUE = 0.1
+
 
 def jenatton_test_function(
     x1: int | None = None,
@@ -53,11 +55,7 @@ def jenatton_test_function(
 class Jenatton(ParamBasedTestProblem):
     """Jenatton test function for hierarchical search spaces."""
 
-    noise_std: float | None = None
-    negate: bool = False
     num_objectives: int = 1
-    optimal_value: float = 0.1
-    _is_constrained: bool = False
 
     # pyre-fixme[14]: Inconsistent override
     def evaluate_true(self, params: Mapping[str, float | int | None]) -> torch.Tensor:
@@ -125,11 +123,9 @@ def get_jenatton_benchmark_problem(
         search_space=search_space,
         optimization_config=optimization_config,
         runner=ParamBasedTestProblemRunner(
-            test_problem_class=Jenatton,
-            test_problem_kwargs={"noise_std": noise_std},
-            outcome_names=[name],
+            test_problem=Jenatton(), outcome_names=[name], noise_std=noise_std
         ),
         num_trials=num_trials,
         observe_noise_stds=observe_noise_sd,
-        optimal_value=Jenatton.optimal_value,
+        optimal_value=JENATTON_OPTIMAL_VALUE,
     )
