@@ -81,7 +81,7 @@ def _prepare_data(experiment: Experiment, metric: str) -> pd.DataFrame:
         for arm in trial.arms
     ]
 
-    return pd.DataFrame.from_records(records)
+    return pd.DataFrame.from_records(records).dropna()
 
 
 def _prepare_plot(df: pd.DataFrame, metric_name: str) -> go.Figure:
@@ -96,10 +96,7 @@ def _prepare_plot(df: pd.DataFrame, metric_name: str) -> go.Figure:
 
     return go.Figure(
         go.Parcoords(
-            line={
-                "color": df[metric_name],
-                "showscale": True,
-            },
+            line={"color": df[metric_name], "showscale": True},
             dimensions=[
                 *parameter_dimensions,
                 {
