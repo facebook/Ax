@@ -92,8 +92,8 @@ class TorchModelBridge(ModelBridge):
     """
 
     model: TorchModel | None = None
-    outcomes: list[str]
-    parameters: list[str]
+    outcomes: list[str]  # pyre-ignore[13]: These are initialized in _fit.
+    parameters: list[str]  # pyre-ignore[13]: These are initialized in _fit.
     _default_model_gen_options: TConfig
     _last_observations: list[Observation] | None = None
 
@@ -220,9 +220,7 @@ class TorchModelBridge(ModelBridge):
             objective_thresholds=obj_thresholds,
             objective_weights=torch_opt_config.objective_weights,
             bounds=search_space_digest.bounds,
-            # we should never be in a situation where we call this without there
-            # being an optimization config involved.
-            opt_config_metrics=not_none(torch_opt_config.opt_config_metrics),
+            opt_config_metrics=torch_opt_config.opt_config_metrics,
             fixed_features=torch_opt_config.fixed_features,
         )
 
@@ -703,16 +701,12 @@ class TorchModelBridge(ModelBridge):
             # user-specified objective thresholds are in gen_metadata. Otherwise,
             # if using a hypervolume based acquisition function, then
             # the inferred objective thresholds are in gen_metadata.
-            opt_config_metrics = (
-                torch_opt_config.opt_config_metrics
-                or not_none(self._optimization_config).metrics
-            )
             gen_metadata["objective_thresholds"] = (
                 self._untransform_objective_thresholds(
                     objective_thresholds=gen_metadata["objective_thresholds"],
                     objective_weights=torch_opt_config.objective_weights,
                     bounds=search_space_digest.bounds,
-                    opt_config_metrics=opt_config_metrics,
+                    opt_config_metrics=torch_opt_config.opt_config_metrics,
                     fixed_features=torch_opt_config.fixed_features,
                 )
             )
@@ -830,9 +824,9 @@ class TorchModelBridge(ModelBridge):
                 objective=optimization_config.objective,
                 outcomes=self.outcomes,
             )
-            opt_config_metrics = optimization_config.metrics
         else:
-            objective_thresholds, opt_config_metrics = None, None
+            objective_thresholds = None
+        opt_config_metrics = optimization_config.metrics
 
         pending_array = pending_observations_as_array_list(
             pending_observations, self.outcomes, self.parameters
