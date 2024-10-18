@@ -16,7 +16,7 @@ from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from ax.utils.common.result import Err, ExceptionE, Ok, Result
-from IPython.display import display
+from IPython.display import display, Markdown
 
 logger: Logger = get_logger(__name__)
 
@@ -79,15 +79,23 @@ class AnalysisCard(Base):
 
         By default, this method displays the raw data in a pandas DataFrame.
         """
+        display(Markdown(f"## {self.title}\n\n### {self.subtitle}"))
         display(self.df)
 
 
-def display_cards(cards: Iterable[AnalysisCard]) -> None:
+def display_cards(
+    cards: Iterable[AnalysisCard], minimum_level: int = AnalysisCardLevel.LOW
+) -> None:
     """
     Display a collection of AnalysisCards in IPython environments (ex. Jupyter).
+
+    Args:
+        cards: Collection of AnalysisCards to display.
+        minimum_level: Minimum level of cards to display.
     """
-    for card in cards:
-        display(card)
+    for card in sorted(cards, key=lambda x: x.level, reverse=True):
+        if card.level >= minimum_level:
+            display(card)
 
 
 class Analysis(Protocol):
