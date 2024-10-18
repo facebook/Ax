@@ -34,11 +34,9 @@ class MixedIntegerProblemsTest(TestCase):
             name = problem_cls.__name__
             problem = constructor()
             self.assertEqual(f"Discrete {name}", problem.name)
-            self.assertEqual(
-                checked_cast(
-                    BotorchTestProblemRunner, problem.runner
-                ).test_problem_class.__name__,
-                name,
+            self.assertIsInstance(
+                checked_cast(BotorchTestProblemRunner, problem.runner).test_problem,
+                problem_cls,
             )
             self.assertEqual(len(problem.search_space.parameters), dim)
             self.assertEqual(

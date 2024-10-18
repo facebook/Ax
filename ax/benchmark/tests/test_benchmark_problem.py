@@ -51,11 +51,7 @@ class TestBenchmarkProblem(TestCase):
             for name in ["Branin", "Currin"]
         ]
         optimization_config = OptimizationConfig(objective=objectives[0])
-        runner = BotorchTestProblemRunner(
-            test_problem_class=Branin,
-            outcome_names=["foo"],
-            test_problem_kwargs={},
-        )
+        runner = BotorchTestProblemRunner(test_problem=Branin(), outcome_names=["foo"])
         with self.assertRaisesRegex(NotImplementedError, "Only `n_best_points=1`"):
             BenchmarkProblem(
                 name="foo",

@@ -375,8 +375,8 @@ def create_problem_from_botorch(
         search_space=search_space,
         optimization_config=optimization_config,
         runner=BotorchTestProblemRunner(
-            test_problem_class=test_problem_class,
-            test_problem_kwargs=test_problem_kwargs,
+            # pyre-ignore[45]: Can't instantiate abstract class
+            test_problem=test_problem_class(**test_problem_kwargs),
             outcome_names=outcome_names,
             search_space_digest=extract_search_space_digest(
                 search_space=search_space,
