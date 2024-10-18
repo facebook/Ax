@@ -55,8 +55,6 @@ def jenatton_test_function(
 class Jenatton(ParamBasedTestProblem):
     """Jenatton test function for hierarchical search spaces."""
 
-    noise_std: float | None = None
-    negate: bool = False
     num_objectives: int = 1
 
     # pyre-fixme[14]: Inconsistent override
@@ -125,7 +123,7 @@ def get_jenatton_benchmark_problem(
         search_space=search_space,
         optimization_config=optimization_config,
         runner=ParamBasedTestProblemRunner(
-            test_problem=Jenatton(noise_std=noise_std), outcome_names=[name]
+            test_problem=Jenatton(), outcome_names=[name], noise_std=noise_std
         ),
         num_trials=num_trials,
         observe_noise_stds=observe_noise_sd,

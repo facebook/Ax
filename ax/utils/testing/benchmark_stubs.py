@@ -48,6 +48,7 @@ def get_single_objective_benchmark_problem(
     num_trials: int = 4,
     test_problem_kwargs: dict[str, Any] | None = None,
     report_inference_value_as_trace: bool = False,
+    noise_std: float | list[float] | None = None,
 ) -> BenchmarkProblem:
     return create_problem_from_botorch(
         test_problem_class=Branin,
@@ -55,6 +56,7 @@ def get_single_objective_benchmark_problem(
         num_trials=num_trials,
         observe_noise_sd=observe_noise_sd,
         report_inference_value_as_trace=report_inference_value_as_trace,
+        noise_std=noise_std,
     )
 
 

@@ -204,19 +204,18 @@ class TestBenchmarkProblem(TestCase):
     ) -> None:
         ax_problem = create_problem_from_botorch(
             test_problem_class=test_problem_class,
-            test_problem_kwargs={
-                "noise_std": objective_noise_std,
-                "constraint_noise_std": constraint_noise_std,
-            },
+            test_problem_kwargs={},
             lower_is_better=True,
             num_trials=1,
             observe_noise_sd=observe_noise_sd,
+            noise_std=objective_noise_std,
+            constraint_noise_std=constraint_noise_std,
         )
         runner = checked_cast(BotorchTestProblemRunner, ax_problem.runner)
         self.assertTrue(runner._is_constrained)
         botorch_problem = checked_cast(ConstrainedBaseTestProblem, runner.test_problem)
-        self.assertEqual(botorch_problem.noise_std, objective_noise_std)
-        self.assertEqual(botorch_problem.constraint_noise_std, constraint_noise_std)
+        self.assertEqual(runner.noise_std, objective_noise_std)
+        self.assertEqual(runner.constraint_noise_std, constraint_noise_std)
         opt_config = ax_problem.optimization_config
         outcome_constraints = opt_config.outcome_constraints
         self.assertEqual(
@@ -376,8 +375,9 @@ class TestBenchmarkProblem(TestCase):
     def test_get_oracle_experiment_from_experiment(self) -> None:
         problem = create_problem_from_botorch(
             test_problem_class=Branin,
-            test_problem_kwargs={"negate": True},
+            test_problem_kwargs={},
             num_trials=5,
+            negate=True,
         )
 
         # empty experiment
