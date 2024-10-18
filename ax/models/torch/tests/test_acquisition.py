@@ -18,7 +18,7 @@ from unittest.mock import Mock
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import AxWarning, SearchSpaceExhausted
+from ax.exceptions.core import AxWarning, SearchSpaceExhausted, UnsupportedError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -776,6 +776,7 @@ class AcquisitionTest(TestCase):
             objective_weights=moo_objective_weights,
             outcome_constraints=outcome_constraints,
             objective_thresholds=moo_objective_thresholds,
+            is_moo=True,
         )
         acquisition = Acquisition(
             surrogates={"surrogate": self.surrogate},
@@ -860,3 +861,18 @@ class AcquisitionTest(TestCase):
 
     def test_init_no_X_observed(self) -> None:
         self.test_init_moo(with_no_X_observed=True, with_outcome_constraints=False)
+
+    def test_init_multiple_surrogates(self) -> None:
+        with self.assertRaisesRegex(
+            UnsupportedError, "currently only supports a single surrogate"
+        ):
+            Acquisition(
+                surrogates={
+                    "surrogate_1": self.surrogate,
+                    "surrogate_2": self.surrogate,
+                },
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=self.torch_opt_config,
+                botorch_acqf_class=self.botorch_acqf_class,
+                options=self.options,
+            )

@@ -416,7 +416,7 @@ class ReportUtilsTest(TestCase):
                     global_sensitivity_analysis=True,
                     true_objective_metric_name="branin",
                 )
-            self.assertEqual(len(plots), num_expected_plots)
+            self.assertEqual(len(plots), num_expected_plots)  # TODO: this failed
             self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
 
     @fast_botorch_optimize

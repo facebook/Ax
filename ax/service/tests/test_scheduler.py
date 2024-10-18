@@ -95,7 +95,7 @@ class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):
             default_runner=None,
             name="branin_experiment_no_impl_runner_or_metrics",
         )
-        self.sobol_GPEI_GS = choose_generation_strategy(
+        self.sobol_MBM_GS = choose_generation_strategy(
             search_space=get_branin_search_space()
         )
         self.two_sobol_steps_GS = GenerationStrategy(  # Contrived GS to ensure

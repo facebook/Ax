@@ -2356,10 +2356,10 @@ def get_dataset(
     )
 
 
-def get_online_sobol_gpei_generation_strategy(
+def get_online_sobol_mbm_generation_strategy(
     sobol_steps: int = 1,
 ) -> GenerationStrategy:
-    """Constructs a GenerationStrategy with Sobol and GPEI nodes for simulating
+    """Constructs a GenerationStrategy with Sobol and MBM nodes for simulating
     online optimization.
     """
     # Set up the node-based generation strategy for testing.
@@ -2368,14 +2368,14 @@ def get_online_sobol_gpei_generation_strategy(
     sobol_criterion = [
         MaxTrials(
             threshold=1,
-            transition_to="GPEI_node",
+            transition_to="MBM_node",
             block_gen_if_met=True,
             only_in_statuses=None,
             not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
         ),
         MinTrials(
             threshold=1,
-            transition_to="GPEI_node",
+            transition_to="MBM_node",
             block_gen_if_met=True,
             only_in_statuses=[
                 TrialStatus.RUNNING,
@@ -2389,8 +2389,8 @@ def get_online_sobol_gpei_generation_strategy(
         model_kwargs=step_model_kwargs,
         model_gen_kwargs={},
     )
-    gpei_model_spec = ModelSpec(
-        model_enum=Models.GPEI,
+    mbm_model_spec = ModelSpec(
+        model_enum=Models.BOTORCH_MODULAR,
         model_kwargs=step_model_kwargs,
         model_gen_kwargs={},
     )
@@ -2400,15 +2400,15 @@ def get_online_sobol_gpei_generation_strategy(
         model_specs=[sobol_model_spec],
         input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
     )
-    gpei_node = GenerationNode(
-        node_name="GPEI_node",
+    mbm_node = GenerationNode(
+        node_name="MBM_node",
         transition_criteria=[],
-        model_specs=[gpei_model_spec],
+        model_specs=[mbm_model_spec],
         input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
     )
     return GenerationStrategy(
-        name="Sobol+GPEI_Nodes",
-        nodes=[sobol_node, gpei_node],
+        name="Sobol+MBM_Nodes",
+        nodes=[sobol_node, mbm_node],
     )
 
 
