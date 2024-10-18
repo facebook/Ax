@@ -8,13 +8,13 @@
 
 import os
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from datetime import datetime, timedelta
 from logging import WARNING
 from math import ceil
 from random import randint
 from tempfile import NamedTemporaryFile
-from typing import Any, cast, Optional
+from typing import Any, Callable, cast, Dict, List, Optional, Tuple
 from unittest.mock import call, Mock, patch, PropertyMock
 
 import pandas as pd
@@ -29,9 +29,13 @@ from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
+from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
-from ax.core.utils import get_pending_observation_features_based_on_trial_status
+from ax.core.utils import (
+    extract_pending_observations,
+    get_pending_observation_features_based_on_trial_status,
+)
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.exceptions.core import OptimizationComplete, UnsupportedError, UserInputError
 from ax.exceptions.generation_strategy import AxGenerationException
@@ -282,8 +286,27 @@ class AxSchedulerTestCase(TestCase):
     # TODO[@mgarrard]: Change this to `str(GenerationStrategy.__module__)`
     # once we are no longer splitting which `GS.gen` to call into based on
     # `Trial` vs. `BatchTrial`
-    PENDING_FEATURES_CALL_LOCATION: str = str(Scheduler.__module__)
-    PENDING_FEATURES_CALL_LOCATION_BATCH: str = str(GenerationStrategy.__module__)
+    PENDING_FEATURES_EXTRACTOR: Tuple[  # pyre-ignore[8]
+        str,
+        Callable[
+            [...],
+            Optional[Dict[str, List[ObservationFeatures]]],
+        ],
+    ] = (
+        f"{Scheduler.__module__}."
+        + "get_pending_observation_features_based_on_trial_status",
+        get_pending_observation_features_based_on_trial_status,
+    )
+    PENDING_FEATURES_BATCH_EXTRACTOR: Tuple[  # pyre-ignore[8]
+        str,
+        Callable[
+            [...],
+            Optional[Dict[str, List[ObservationFeatures]]],
+        ],
+    ] = (
+        f"{GenerationStrategy.__module__}.extract_pending_observations",
+        extract_pending_observations,
+    )
     ALWAYS_USE_DB = False
     EXPECTED_SCHEDULER_REPR: str = (
         "Scheduler(experiment=Experiment(branin_test_experiment), "
@@ -583,11 +606,8 @@ class AxSchedulerTestCase(TestCase):
         )
         with patch(
             # Record calls to function, but still execute it.
-            (
-                f"{self.PENDING_FEATURES_CALL_LOCATION}."
-                "get_pending_observation_features_based_on_trial_status"
-            ),
-            side_effect=get_pending_observation_features_based_on_trial_status,
+            self.PENDING_FEATURES_EXTRACTOR[0],
+            side_effect=self.PENDING_FEATURES_EXTRACTOR[1],
         ) as mock_get_pending:
             scheduler.run_all_trials()
             # Check that we got pending feat. at least 8 times (1 for each new trial and
@@ -1781,11 +1801,8 @@ class AxSchedulerTestCase(TestCase):
         self.branin_experiment.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
         gm = scheduler.generation_strategy.gen_for_multiple_trials_with_multiple_models
         with patch(  # Record calls to functions, but still execute them.
-            (
-                f"{self.PENDING_FEATURES_CALL_LOCATION_BATCH}."
-                "get_pending_observation_features_based_on_trial_status"
-            ),
-            side_effect=get_pending_observation_features_based_on_trial_status,
+            self.PENDING_FEATURES_BATCH_EXTRACTOR[0],
+            side_effect=self.PENDING_FEATURES_BATCH_EXTRACTOR[1],
         ) as mock_get_pending, patch.object(
             scheduler.generation_strategy,
             "gen_for_multiple_trials_with_multiple_models",
@@ -1793,13 +1810,7 @@ class AxSchedulerTestCase(TestCase):
         ) as mock_gen_multi_from_multi:
             scheduler.run_n_trials(max_trials=1)
             mock_gen_multi_from_multi.assert_called_once()
-            if self.PENDING_FEATURES_CALL_LOCATION_BATCH.endswith("remote_gen"):
-                # TODO: Address how RCG currently ends up extracting
-                # pending points twice in `set_batch_size` and then again in
-                # `get_next_trial`, then remove this if-condition.
-                self.assertEqual(mock_get_pending.call_count, 2)
-            else:
-                mock_get_pending.assert_called_once()
+            mock_get_pending.assert_called()
         self.assertEqual(len(scheduler.experiment.trials), 1)
         trial = checked_cast(BatchTrial, scheduler.experiment.trials[0])
         self.assertEqual(

@@ -21,10 +21,7 @@ from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
-from ax.core.utils import (
-    extend_pending_observations,
-    get_pending_observation_features_based_on_trial_status,
-)
+from ax.core.utils import extend_pending_observations, extract_pending_observations
 from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.exceptions.generation_strategy import (
     GenerationStrategyCompleted,
@@ -549,10 +546,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         """
         trial_grs = []
         pending_observations = (
-            get_pending_observation_features_based_on_trial_status(
-                experiment=experiment
-            )
-            or {}
+            extract_pending_observations(experiment=experiment) or {}
             if pending_observations is None
             else deepcopy(pending_observations)
         )
