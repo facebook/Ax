@@ -40,6 +40,7 @@ from ax.modelbridge.transforms.standardize_y import StandardizeY
 from ax.modelbridge.transforms.stratified_standardize_y import StratifiedStandardizeY
 from ax.modelbridge.transforms.task_encode import TaskChoiceToIntTaskChoice, TaskEncode
 from ax.modelbridge.transforms.time_as_feature import TimeAsFeature
+from ax.modelbridge.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.modelbridge.transforms.trial_as_task import TrialAsTask
 from ax.modelbridge.transforms.unit_x import UnitX
 from ax.modelbridge.transforms.winsorize import Winsorize
@@ -92,6 +93,7 @@ TRANSFORM_REGISTRY: dict[type[Transform], int] = {
     RelativizeWithConstantControl: 25,
     MergeRepeatedMeasurements: 26,
     TimeAsFeature: 27,
+    TransformToNewSQ: 28,
 }
 
 """
