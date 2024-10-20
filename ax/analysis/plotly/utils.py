@@ -13,6 +13,7 @@ from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.base import ModelBridge
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
+from numpy.typing import NDArray
 
 # Because normal distributions have long tails, every arm has a non-zero
 # probability of violating the constraint. But below a certain threshold, we
@@ -59,7 +60,7 @@ def get_constraint_violated_probabilities(
             for prediction in predictions
         ]
     )
-    feasibility_probabilities: dict[str, np.ndarray] = {}
+    feasibility_probabilities: dict[str, NDArray] = {}
     for constraint in outcome_constraints:
         if constraint.op == ComparisonOp.GEQ:
             con_lower_inds = torch.tensor([metrics.index(constraint.metric.name)])
@@ -92,10 +93,8 @@ def get_constraint_violated_probabilities(
         list(feasibility_probabilities.values()), axis=0
     )
 
-    # pyre-fixme[7]: Expected `Dict[str, List[float]]` but got `Dict[str,
-    #  ndarray[typing.Any, dtype[typing.Any]]]`.
     return {
-        metric_name: 1 - feasibility_probabilities[metric_name]
+        metric_name: (1 - feasibility_probabilities[metric_name]).tolist()
         for metric_name in feasibility_probabilities
     }
 
