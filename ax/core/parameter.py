@@ -11,6 +11,7 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod, abstractproperty
 from copy import deepcopy
 from enum import Enum
+from logging import Logger
 from math import inf
 from typing import cast, Union
 from warnings import warn
@@ -22,7 +23,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 from pyre_extensions import assert_is_instance
 
-logger = get_logger(__name__)
+logger: Logger = get_logger(__name__)
 
 # Tolerance for floating point comparisons. This is relatively permissive,
 # and allows for serializing at rather low numerical precision.
