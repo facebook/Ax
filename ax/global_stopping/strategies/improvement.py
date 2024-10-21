@@ -82,6 +82,14 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         self.hv_by_trial: dict[int, float] = {}
         self._inferred_objective_thresholds: list[ObjectiveThreshold] | None = None
 
+    def __repr__(self) -> str:
+        return super().__repr__() + (
+            f" min_trials={self.min_trials} "
+            f"window_size={self.window_size} "
+            f"improvement_bar={self.improvement_bar} "
+            f"inactive_when_pending_trials={self.inactive_when_pending_trials}"
+        )
+
     def _should_stop_optimization(
         self,
         experiment: Experiment,
