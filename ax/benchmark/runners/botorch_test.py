@@ -29,28 +29,24 @@ class ParamBasedTestProblem(ABC):
     """
 
     num_objectives: int
-    optimal_value: float
-    # Constraints could easily be supported similar to BoTorch test problems,
-    # but haven't been hooked up.
-    _is_constrained: bool = False
     constraint_noise_std: float | list[float] | None = None
     noise_std: float | list[float] | None = None
     negate: bool = False
 
     @abstractmethod
-    def evaluate_true(self, params: Mapping[str, TParamValue]) -> Tensor: ...
+    def evaluate_true(self, params: Mapping[str, TParamValue]) -> Tensor:
+        """
+        Evaluate noiselessly.
+
+        This method should not depend on the value of `negate`, as negation is
+        handled by the runner.
+        """
+        ...
 
     def evaluate_slack_true(self, params: Mapping[str, TParamValue]) -> Tensor:
         raise NotImplementedError(
             f"{self.__class__.__name__} does not support constraints."
         )
-
-    # pyre-fixme: Missing parameter annotation [2]: Parameter `other` must have
-    # a type other than `Any`.
-    def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, type(self)):
-            return False
-        return self.__class__.__name__ == other.__class__.__name__
 
 
 @dataclass(kw_only=True)
@@ -86,17 +82,13 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
     test_problem: BaseTestProblem | ParamBasedTestProblem = field(init=False)
 
     @property
-    def _is_moo(self) -> bool:
-        return self.test_problem.num_objectives > 1
-
-    @property
     def _is_constrained(self) -> bool:
         return issubclass(self.test_problem_class, ConstrainedBaseTestProblem)
 
     def get_noise_stds(self) -> None | float | dict[str, float]:
         noise_std = self.test_problem.noise_std
         noise_std_dict: dict[str, float] = {}
-        num_obj = 1 if not self._is_moo else self.test_problem.num_objectives
+        num_obj = self.test_problem.num_objectives
 
         # populate any noise_stds for constraints
         if self._is_constrained:

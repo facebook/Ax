@@ -40,6 +40,9 @@ except ModuleNotFoundError:
     _REGISTRY = {}
 
 
+CLASSIFICATION_OPTIMAL_VALUE = 1.0
+
+
 class CNN(nn.Module):
     def __init__(self) -> None:
         super().__init__()
@@ -66,7 +69,7 @@ def train_and_evaluate(
     device: torch.device,
     train_loader: DataLoader,
     test_loader: DataLoader,
-) -> torch.Tensor:
+) -> float:
     """Return the fraction of correctly classified test examples."""
     net = CNN()
     net.to(device=device)
@@ -106,7 +109,7 @@ def train_and_evaluate(
             outputs = net(inputs)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
-            correct += (predicted == labels).sum()
+            correct += (predicted == labels).sum().item()
 
     # pyre-fixme[7]: Expected `Tensor` but got `float`.
     return correct / total
@@ -116,7 +119,6 @@ def train_and_evaluate(
 class PyTorchCNNTorchvisionParamBasedProblem(ParamBasedTestProblem):
     name: str  # The name of the dataset to load -- MNIST or FashionMNIST
     num_objectives: int = 1
-    optimal_value: float = 1.0
     device: torch.device = field(
         default_factory=lambda: torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
@@ -163,7 +165,7 @@ class PyTorchCNNTorchvisionParamBasedProblem(ParamBasedTestProblem):
     # pyre-fixme[14]: Inconsistent override (super class takes a more general
     # type, TParameterization)
     def evaluate_true(self, params: Mapping[str, int | float]) -> Tensor:
-        return train_and_evaluate(
+        frac_correct = train_and_evaluate(
             **params,
             device=self.device,
             # pyre-fixme[16]: `PyTorchCNNTorchvisionParamBasedProblem` has no
@@ -173,14 +175,13 @@ class PyTorchCNNTorchvisionParamBasedProblem(ParamBasedTestProblem):
             #  attribute `test_loader`.
             test_loader=self.test_loader,
         )
+        return torch.tensor(frac_correct, dtype=torch.double)
 
 
 def get_pytorch_cnn_torchvision_benchmark_problem(
     name: str,
     num_trials: int,
 ) -> BenchmarkProblem:
-    base_problem = PyTorchCNNTorchvisionParamBasedProblem(name=name)
-
     search_space = SearchSpace(
         parameters=[
             RangeParameter(
@@ -229,6 +230,6 @@ def get_pytorch_cnn_torchvision_benchmark_problem(
         optimization_config=optimization_config,
         num_trials=num_trials,
         observe_noise_stds=False,
-        optimal_value=base_problem.optimal_value,
+        optimal_value=CLASSIFICATION_OPTIMAL_VALUE,
         runner=runner,
     )
