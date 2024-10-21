@@ -7,8 +7,7 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass, field
-from typing import Any
+from dataclasses import asdict, dataclass
 
 import torch
 from ax.benchmark.runners.base import BenchmarkRunner
@@ -59,10 +58,7 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
     problem such as the noise_std.
 
     Args:
-        test_problem_class: A BoTorch `BaseTestProblem` class or Ax
-            `ParamBasedTestProblem` class.
-        test_problem_kwargs: The keyword arguments used for initializing the
-            test problem.
+        test_problem: A BoTorch `BaseTestProblem` or Ax `ParamBasedTestProblem`.
         outcome_names: The names of the outcomes returned by the problem.
         modified_bounds: The bounds that are used by the Ax search space
             while optimizing the problem. If different from the bounds of the
@@ -76,14 +72,12 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
         search_space_digest: Used to extract target fidelity and task.
     """
 
-    test_problem_class: type[BaseTestProblem | ParamBasedTestProblem]
-    test_problem_kwargs: dict[str, Any] = field(default_factory=dict)
+    test_problem: BaseTestProblem | ParamBasedTestProblem
     modified_bounds: list[tuple[float, float]] | None = None
-    test_problem: BaseTestProblem | ParamBasedTestProblem = field(init=False)
 
     @property
     def _is_constrained(self) -> bool:
-        return issubclass(self.test_problem_class, ConstrainedBaseTestProblem)
+        return isinstance(self.test_problem, ConstrainedBaseTestProblem)
 
     def get_noise_stds(self) -> None | float | dict[str, float]:
         noise_std = self.test_problem.noise_std
@@ -129,9 +123,7 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
     A `SyntheticProblemRunner` for BoTorch `BaseTestProblem`s.
 
     Args:
-        test_problem_class: A BoTorch `BaseTestProblem` class.
-        test_problem_kwargs: The keyword arguments used for initializing the
-            test problem.
+        test_problem: A BoTorch `BaseTestProblem`.
         outcome_names: The names of the outcomes returned by the problem.
         modified_bounds: The bounds that are used by the Ax search space
             while optimizing the problem. If different from the bounds of the
@@ -145,15 +137,11 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
         search_space_digest: Used to extract target fidelity and task.
     """
 
-    test_problem_class: type[BaseTestProblem]
-    test_problem: BaseTestProblem = field(init=False)
+    test_problem: BaseTestProblem
 
     def __post_init__(self, search_space_digest: SearchSpaceDigest | None) -> None:
         super().__post_init__(search_space_digest=search_space_digest)
-        # pyre-fixme[45]: Can't instantiate abstract class `BaseTestProblem`.
-        self.test_problem = self.test_problem_class(**self.test_problem_kwargs).to(
-            torch.double
-        )
+        self.test_problem = self.test_problem.to(dtype=torch.double)
 
     def get_Y_true(self, params: Mapping[str, TParamValue]) -> Tensor:
         """
@@ -218,7 +206,9 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
         other_as_dict = asdict(other)
         self_as_dict.pop("test_problem")
         other_as_dict.pop("test_problem")
-        return self_as_dict == other_as_dict
+        return (self_as_dict == other_as_dict) and (
+            type(self.test_problem) is type(other.test_problem)
+        )
 
 
 @dataclass(kw_only=True)
@@ -228,13 +218,7 @@ class ParamBasedTestProblemRunner(SyntheticProblemRunner):
     `SyntheticProblemRunner` for more information.
     """
 
-    test_problem_class: type[ParamBasedTestProblem]
-    test_problem: ParamBasedTestProblem = field(init=False)
-
-    def __post_init__(self, search_space_digest: SearchSpaceDigest | None) -> None:
-        super().__post_init__(search_space_digest=search_space_digest)
-        # pyre-fixme[45]: Can't instantiate abstract class `ParamBasedTestProblem`.
-        self.test_problem = self.test_problem_class(**self.test_problem_kwargs)
+    test_problem: ParamBasedTestProblem
 
     def get_Y_true(self, params: Mapping[str, TParamValue]) -> Tensor:
         """Evaluates the test problem.
