@@ -28,6 +28,30 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 
+EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS = [
+    inspect.Parameter(
+        name="previous_node",
+        kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        annotation=GenerationNode | None,
+    ),
+    inspect.Parameter(
+        name="next_node",
+        kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        annotation=GenerationNode,
+    ),
+    inspect.Parameter(
+        name="gs_gen_call_kwargs",
+        kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        # pyre-fixme[16]: `dict` has no attr. `__getitem__`
+        annotation=dict[str, Any],
+    ),
+    inspect.Parameter(
+        name="experiment",
+        kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        annotation=Experiment,
+    ),
+]
+
 
 class TestGenerationNodeInputConstructors(TestCase):
     def setUp(self) -> None:
@@ -48,6 +72,43 @@ class TestGenerationNodeInputConstructors(TestCase):
             GeneratorRun(arms=[Arm(parameters={"x1": 1, "x2": y}) for y in range(3)]),
         ]
         self.gs = GenerationStrategy(nodes=[self.sobol_generation_node], name="test")
+        # NOTE: This mapping relies on names of the NodeInputConstructors members
+        # aligning with the names of the InputConstructorPurpose members, like so:
+        # InputConstructorPurpose.N matches NodeInputConstructors.*_N. We may need
+        # to switch to constructing this mapping manually in the future.
+        self.purposes_to_input_constructors = {
+            p: [ip for ip in NodeInputConstructors if ip.name.endswith(f"_{p.name}")]
+            for p in InputConstructorPurpose
+        }
+        self.all_purposes_expected_signatures = {
+            InputConstructorPurpose.N: inspect.Signature(
+                parameters=EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS,
+                return_annotation=int,
+            ),
+            InputConstructorPurpose.FIXED_FEATURES: inspect.Signature(
+                parameters=EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS,
+                return_annotation=ObservationFeatures | None,
+            ),
+        }
+
+    def test_all_constructors_have_expected_signature_for_purpose(self) -> None:
+        """Test that all node input constructors methods have the same signature
+        and that the parameters are of the expected types."""
+        untested_constructors = set(NodeInputConstructors)
+        for purpose, constructors in self.purposes_to_input_constructors.items():
+            # For each purpose, we check that all constructors that match it,
+            # share the same expected signature.
+            with self.subTest(purpose=purpose, constructors=constructors):
+                self.assertIn(purpose, self.all_purposes_expected_signatures)
+                for constructor in constructors:
+                    self.assertEqual(
+                        inspect.signature(constructor._get_function_for_value()),
+                        self.all_purposes_expected_signatures[purpose],
+                    )
+                    untested_constructors.remove(constructor)
+
+        # There should be no untested constructors left.
+        self.assertEqual(len(untested_constructors), 0)
 
     def test_consume_all_n_constructor(self) -> None:
         """Test that the consume_all_n_constructor returns full n."""
