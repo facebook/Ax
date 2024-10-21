@@ -125,9 +125,7 @@ def get_jenatton_benchmark_problem(
         search_space=search_space,
         optimization_config=optimization_config,
         runner=ParamBasedTestProblemRunner(
-            test_problem_class=Jenatton,
-            test_problem_kwargs={"noise_std": noise_std},
-            outcome_names=[name],
+            test_problem=Jenatton(noise_std=noise_std), outcome_names=[name]
         ),
         num_trials=num_trials,
         observe_noise_stds=observe_noise_sd,

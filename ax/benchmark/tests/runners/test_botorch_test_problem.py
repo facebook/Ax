@@ -25,10 +25,9 @@ from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.benchmark_stubs import TestParamBasedTestProblem
-from botorch.test_functions.base import BaseTestProblem, ConstrainedBaseTestProblem
-from botorch.test_functions.synthetic import ConstrainedHartmann, Hartmann
+from botorch.test_functions.base import BaseTestProblem
+from botorch.test_functions.synthetic import Ackley, ConstrainedHartmann, Hartmann
 from botorch.utils.transforms import normalize
-from pyre_extensions import assert_is_instance
 
 
 class TestSyntheticRunner(TestCase):
@@ -36,8 +35,7 @@ class TestSyntheticRunner(TestCase):
         botorch_cases = [
             (
                 BotorchTestProblemRunner,
-                test_problem_class,
-                {"dim": 6},
+                test_problem_class(dim=6, noise_std=noise_std),
                 modified_bounds,
                 noise_std,
             )
@@ -50,8 +48,9 @@ class TestSyntheticRunner(TestCase):
         param_based_cases = [
             (
                 ParamBasedTestProblemRunner,
-                TestParamBasedTestProblem,
-                {"num_objectives": num_objectives, "dim": 6},
+                TestParamBasedTestProblem(
+                    num_objectives=num_objectives, dim=6, noise_std=noise_std
+                ),
                 None,
                 noise_std,
             )
@@ -59,47 +58,37 @@ class TestSyntheticRunner(TestCase):
         ]
         for (
             runner_cls,
-            test_problem_class,
-            test_problem_kwargs,
+            test_problem,
             modified_bounds,
             noise_std,
         ) in botorch_cases + param_based_cases:
-            if noise_std is not None:
-                # pyre-fixme[6]: Incompatible parameter type: Expected int, got float
-                test_problem_kwargs["noise_std"] = noise_std
+            num_objectives = test_problem.num_objectives
 
-            num_objectives = (
-                test_problem_kwargs["num_objectives"]
-                if "num_objectives" in test_problem_kwargs
-                else 1
-            )
             outcome_names = [f"objective_{i}" for i in range(num_objectives)]
-            if test_problem_class == ConstrainedHartmann:
+            if isinstance(test_problem, ConstrainedHartmann):
                 outcome_names = outcome_names + ["constraint"]
 
             runner = runner_cls(
                 # pyre-fixme[6]: Incompatible parameter type: In call
                 # `BotorchTestProblemRunner.__init__`, for argument
-                # `test_problem_class`, expected `Type[BaseTestProblem]` but got
-                # `Union[Type[ConstrainedHartmann], Type[Hartmann],
-                # Type[TestParamBasedTestProblem]]`.
-                test_problem_class=test_problem_class,
-                test_problem_kwargs=test_problem_kwargs,
+                # `test_problem`, expected `BaseTestProblem` but got
+                # `Union[Hartmann, TestParamBasedTestProblem]`.
+                test_problem=test_problem,
                 outcome_names=outcome_names,
                 modified_bounds=modified_bounds,
             )
 
             test_description: str = (
-                f"test problem: {test_problem_class.__name__}, "
+                f"test problem: {test_problem.__class__.__name__}, "
                 f"modified_bounds: {modified_bounds}, "
                 f"noise_std: {noise_std}."
             )
 
             with self.subTest(f"Test basic construction, {test_description}"):
-                self.assertIsInstance(runner.test_problem, test_problem_class)
+                self.assertIs(runner.test_problem, test_problem)
                 self.assertEqual(
                     runner._is_constrained,
-                    issubclass(test_problem_class, ConstrainedBaseTestProblem),
+                    isinstance(test_problem, ConstrainedHartmann),
                 )
                 self.assertEqual(runner.modified_bounds, modified_bounds)
                 if noise_std is not None:
@@ -108,24 +97,12 @@ class TestSyntheticRunner(TestCase):
                     self.assertIsNone(runner.get_noise_stds())
 
                 # check equality
-                self.assertNotEqual(
-                    runner,
-                    replace(
-                        runner,
-                        test_problem_kwargs={**test_problem_kwargs, "noise_std": 200.0},
-                    ),
-                )
+                new_runner = replace(runner, test_problem=Ackley())
+                self.assertNotEqual(runner, new_runner)
+
                 self.assertEqual(runner, runner)
-                if issubclass(test_problem_class, BaseTestProblem):
-                    self.assertEqual(
-                        runner.test_problem.dim, test_problem_kwargs["dim"]
-                    )
-                    self.assertEqual(
-                        assert_is_instance(
-                            runner.test_problem, BaseTestProblem
-                        ).bounds.dtype,
-                        torch.double,
-                    )
+                if isinstance(test_problem, BaseTestProblem):
+                    self.assertEqual(test_problem.bounds.dtype, torch.double)
 
             with self.subTest(f"test `get_Y_true()`, {test_description}"):
                 X = torch.rand(1, 6, dtype=torch.double)
@@ -137,8 +114,7 @@ class TestSyntheticRunner(TestCase):
                     )
                 else:
                     X_tf = X
-                test_problem = runner.test_problem
-                if issubclass(test_problem_class, BaseTestProblem):
+                if isinstance(test_problem, BaseTestProblem):
                     obj = test_problem.evaluate_true(X_tf)
                     if test_problem.negate:
                         obj = -obj
@@ -192,12 +168,9 @@ class TestSyntheticRunner(TestCase):
 
     def test_botorch_test_problem_runner_heterogeneous_noise(self) -> None:
         runner = BotorchTestProblemRunner(
-            test_problem_class=ConstrainedHartmann,
-            test_problem_kwargs={
-                "dim": 6,
-                "noise_std": 0.1,
-                "constraint_noise_std": 0.05,
-            },
+            test_problem=ConstrainedHartmann(
+                dim=6, noise_std=0.1, constraint_noise_std=0.05
+            ),
             outcome_names=["objective", "constraint"],
         )
         self.assertDictEqual(
