@@ -246,6 +246,7 @@ def get_branin_experiment(
     with_fidelity_parameter: bool = False,
     with_choice_parameter: bool = False,
     with_str_choice_param: bool = False,
+    with_parameter_constraint: bool = False,
     search_space: SearchSpace | None = None,
     minimize: bool = False,
     named: bool = True,
@@ -257,6 +258,7 @@ def get_branin_experiment(
         with_fidelity_parameter=with_fidelity_parameter,
         with_choice_parameter=with_choice_parameter,
         with_str_choice_param=with_str_choice_param,
+        with_parameter_constraint=with_parameter_constraint,
     )
     exp = Experiment(
         name="branin_test_experiment" if named else None,
@@ -919,6 +921,7 @@ def get_branin_search_space(
     with_fidelity_parameter: bool = False,
     with_choice_parameter: bool = False,
     with_str_choice_param: bool = False,
+    with_parameter_constraint: bool = False,
 ) -> SearchSpace:
     parameters = [
         RangeParameter(
@@ -955,8 +958,16 @@ def get_branin_search_space(
                 target_value=1.0,
             )
         )
+    if with_parameter_constraint:
+        constraints = [
+            ParameterConstraint(constraint_dict={"x1": 1, "x2": 1}, bound=15.0)
+        ]
+    else:
+        constraints = None
 
-    return SearchSpace(parameters=cast(list[Parameter], parameters))
+    return SearchSpace(
+        parameters=cast(list[Parameter], parameters), parameter_constraints=constraints
+    )
 
 
 def get_factorial_search_space() -> SearchSpace:
