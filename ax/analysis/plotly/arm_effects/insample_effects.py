@@ -34,7 +34,7 @@ class InSampleEffectsPlot(PlotlyAnalysis):
     """
     Plotly Insample Effecs plot for a single metric on a single trial, with one point
     per unique arm across all trials. The plot may either use modeled effects, or
-    raw / observed data.
+    Observed / observed data.
 
     This plot is useful for understanding how arms compare to eachother for a given
     metric.
@@ -65,7 +65,7 @@ class InSampleEffectsPlot(PlotlyAnalysis):
             metric_name: The name of the metric to plot.
             trial_index: The of the trial to plot arms for.
             use_modeled_effects: Whether to use modeled effects or show
-                raw effects.
+                Observed effects.
         """
 
         self.metric_name = metric_name
@@ -111,17 +111,25 @@ class InSampleEffectsPlot(PlotlyAnalysis):
             df=df, metric_name=self.metric_name, outcome_constraints=outcome_constraints
         )
 
-        if (
-            experiment.optimization_config is None
-            or self.metric_name not in experiment.optimization_config.metrics
-        ):
-            level = AnalysisCardLevel.LOW
-        elif self.metric_name in experiment.optimization_config.objective.metric_names:
-            level = AnalysisCardLevel.HIGH
-        else:
-            level = AnalysisCardLevel.MID
+        bump = 0
+        level = AnalysisCardLevel.MID
+        if experiment.optimization_config is not None:
+            if (
+                self.metric_name
+                in experiment.optimization_config.objective.metric_names
+            ):
+                bump = 2
+            elif self.metric_name in experiment.optimization_config.metrics:
+                bump = 1
 
-        plot_type = "Modeled" if self.use_modeled_effects else "Raw"
+        level = AnalysisCardLevel.MID
+        if self.use_modeled_effects:
+            bump += 1
+
+        max_trial_index = max(experiment.trial_indices_expecting_data, default=0)
+        bump -= min(max_trial_index - self.trial_index, 9)
+
+        plot_type = "Modeled" if self.use_modeled_effects else "Observed"
         subtitle = (
             "View a trial and its arms' "
             f"{'predicted' if self.use_modeled_effects else 'observed'} "
@@ -133,7 +141,7 @@ class InSampleEffectsPlot(PlotlyAnalysis):
                 f"on trial {self.trial_index}"
             ),
             subtitle=subtitle,
-            level=level,
+            level=level + bump,
             df=df,
             fig=fig,
         )
@@ -203,7 +211,7 @@ def _get_model(
 
         return model
     else:
-        # This model just predicts raw data
+        # This model just predicts Observed data
         return Models.THOMPSON(
             data=trial_data,
             search_space=experiment.search_space,

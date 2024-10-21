@@ -44,7 +44,11 @@ class CrossValidationPlot(PlotlyAnalysis):
     """
 
     def __init__(
-        self, metric_name: str | None = None, folds: int = -1, untransform: bool = True
+        self,
+        metric_name: str | None = None,
+        folds: int = -1,
+        untransform: bool = True,
+        trial_index: int | None = None,
     ) -> None:
         """
         Args:
@@ -64,11 +68,14 @@ class CrossValidationPlot(PlotlyAnalysis):
                 regions where outliers have been removed, we have found it to better
                 reflect the how good the model used for candidate generation actually
                 is.
+            trial_index: Optional trial index. No behavior change other than adding
+                trial_index to attributes so the card can be associated with a trial.
         """
 
         self.metric_name = metric_name
         self.folds = folds
         self.untransform = untransform
+        self.trial_index = trial_index
 
     def compute(
         self,

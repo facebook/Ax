@@ -163,9 +163,9 @@ class TestPredictedEffectsPlot(TestCase):
                         AnalysisCardLevel.HIGH
                         if metric == "branin"
                         else (
-                            AnalysisCardLevel.MID
+                            AnalysisCardLevel.HIGH - 1
                             if metric == "constraint_branin"
-                            else AnalysisCardLevel.LOW
+                            else AnalysisCardLevel.HIGH - 2
                         )
                     ),
                 )
