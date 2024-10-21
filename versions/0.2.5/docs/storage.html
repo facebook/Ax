@@ -1,0 +1,188 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Storage · Ax</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Ax has extensible support for saving and loading experiments in both JSON and SQL. The former is a good option for users who prefer lightweight, transportable storage, and the latter is better suited to production applications requiring a centralized, high-performance database."/><meta name="docsearch:version" content="0.2.5"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Storage · Ax"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.5/index.html"/><meta property="og:description" content="Ax has extensible support for saving and loading experiments in both JSON and SQL. The former is a good option for users who prefer lightweight, transportable storage, and the latter is better suited to production applications requiring a centralized, high-performance database."/><meta property="og:image" content="https://ax.dev//versions/0.2.5/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.5/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.5/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.5/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.5/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.5/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.5/css/main.css"/><script src="/versions/0.2.5/js/codetabs.js"></script></head><body class="sideNavVisible separateOnPageNav"><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.5/"><img class="logo" src="/versions/0.2.5/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.5/versions.html"><h3>0.2.5</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class="siteNavGroupActive"><a href="/versions/0.2.5/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.5/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.5/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><div class="hamburger-menu"><div class="line1"></div><div class="line2"></div><div class="line3"></div></div></div><h2><i>›</i><span>Components</span></h2><div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div></div><div class="navGroups"><div class="navGroup"><h3 class="navGroupCategoryTitle">Introduction</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/why-ax.html">Why Ax?</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Getting Started</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/installation.html">Installation</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/api.html">APIs</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/glossary.html">Glossary</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Algorithms</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/bayesopt.html">Bayesian Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/banditopt.html">Bandit Optimization</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Components</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/core.html">Core</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/trial-evaluation.html">Trial Evaluation</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/data.html">Data</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/models.html">Models</a></li><li class="navListItem navListItemActive"><a class="navItem" href="/versions/0.2.5/docs/storage.html">Storage</a></li></ul></div></div></section></div><script>
+            var coll = document.getElementsByClassName('collapsible');
+            var checkActiveCategory = true;
+            for (var i = 0; i < coll.length; i++) {
+              var links = coll[i].nextElementSibling.getElementsByTagName('*');
+              if (checkActiveCategory){
+                for (var j = 0; j < links.length; j++) {
+                  if (links[j].classList.contains('navListItemActive')){
+                    coll[i].nextElementSibling.classList.toggle('hide');
+                    coll[i].childNodes[1].classList.toggle('rotate');
+                    checkActiveCategory = false;
+                    break;
+                  }
+                }
+              }
+
+              coll[i].addEventListener('click', function() {
+                var arrow = this.childNodes[1];
+                arrow.classList.toggle('rotate');
+                var content = this.nextElementSibling;
+                content.classList.toggle('hide');
+              });
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+              createToggler('#navToggler', '#docsNav', 'docsSliderActive');
+              createToggler('#tocToggler', 'body', 'tocActive');
+
+              var headings = document.querySelector('.toc-headings');
+              headings && headings.addEventListener('click', function(event) {
+                var el = event.target;
+                while(el !== headings){
+                  if (el.tagName === 'A') {
+                    document.body.classList.remove('tocActive');
+                    break;
+                  } else{
+                    el = el.parentNode;
+                  }
+                }
+              }, false);
+
+              function createToggler(togglerSelector, targetSelector, className) {
+                var toggler = document.querySelector(togglerSelector);
+                var target = document.querySelector(targetSelector);
+
+                if (!toggler) {
+                  return;
+                }
+
+                toggler.onclick = function(event) {
+                  event.preventDefault();
+
+                  target.classList.toggle(className);
+                };
+              }
+            });
+        </script></nav></div><div class="container mainContainer docsContainer"><div class="wrapper"><div class="post"><header class="postHeader"><h1 id="__docusaurus" class="postHeaderTitle">Storage</h1></header><article><div><span><p>Ax has extensible support for saving and loading experiments in both JSON and SQL. The former is a good option for users who prefer lightweight, transportable storage, and the latter is better suited to production applications requiring a centralized, high-performance database.</p>
+<h2><a class="anchor" aria-hidden="true" id="json"></a><a href="#json" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>JSON</h2>
+<h3><a class="anchor" aria-hidden="true" id="saving"></a><a href="#saving" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Saving</h3>
+<p>To save an experiment to JSON, specify the filepath:</p>
+<pre><code class="hljs css language-py"><span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> Experiment, save
+
+experiment = Experiment(...)
+filepath = <span class="hljs-string">"experiments/experiment.json"</span>
+save(experiment, filepath)
+</code></pre>
+<p>The experiment (including attached data) will be serialized and saved to the specified file.</p>
+<h3><a class="anchor" aria-hidden="true" id="updating"></a><a href="#updating" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Updating</h3>
+<p>To update a JSON-backed experiment, re-save to the same file.</p>
+<h3><a class="anchor" aria-hidden="true" id="loading"></a><a href="#loading" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Loading</h3>
+<p>To load an experiment from JSON, specify the filepath again:</p>
+<pre><code class="hljs css language-py"><span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> load
+experiment = load_experiment(filepath)
+</code></pre>
+<h3><a class="anchor" aria-hidden="true" id="customizing"></a><a href="#customizing" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Customizing</h3>
+<p>If you add a custom <a href="/api/core.html#module-ax.core.metric"><code>Metric</code></a> or <a href="../api/core.html#ax.core.runner.Runner"><code>Runner</code></a> and want to ensure it is saved to JSON properly, simply call <a href="/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.storage.metric_registry.register_metric"><code>register_metric</code></a> or <a href="/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.storage.runner_registry.register_runner"><code>register_runner</code></a>:</p>
+<pre><code class="hljs css language-py"><span class="hljs-keyword">from</span> ax.storage.metric_registry <span class="hljs-keyword">import</span> register_metric
+<span class="hljs-keyword">from</span> ax.storage.runner_registry <span class="hljs-keyword">import</span> register_runner
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyRunner</span><span class="hljs-params">(Runner)</span>:</span>
+    <span class="hljs-keyword">pass</span>
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyMetric</span><span class="hljs-params">(Metric)</span>:</span>
+    <span class="hljs-keyword">pass</span>
+
+register_metric(MyMetric)
+register_runner(MyRunner)
+</code></pre>
+<h2><a class="anchor" aria-hidden="true" id="sql"></a><a href="#sql" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>SQL</h2>
+<h3><a class="anchor" aria-hidden="true" id="saving-1"></a><a href="#saving-1" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Saving</h3>
+<p>To save an experiment to SQL, first initialize a session by passing a URL pointing to your database. Such a URL is typically composed of a dialect (e.g. sqlite, mysql, postgresql), optional driver (DBAPI used to connect to the database; e.g. psycopg2 for postgresql), username, password, hostname, and database name. A more detailed explanation how to generate a URL can be found in the <a href="https://docs.sqlalchemy.org/en/13/core/engines.html#database-urls">SQLAlchemy docs</a>.</p>
+<pre><code class="hljs css language-py"><span class="hljs-keyword">from</span> ax.storage.sqa_store.db <span class="hljs-keyword">import</span> init_engine_and_session_factory
+
+<span class="hljs-comment"># url is of the form "dialect+driver://username:password@host:port/database"</span>
+init_engine_and_session_factory(url=<span class="hljs-string">"postgresql+psycopg2://sarah:c82i94d@localhost:5432/foobar"</span>)
+</code></pre>
+<p>Then create all tables:</p>
+<pre><code class="hljs css language-py"><span class="hljs-keyword">from</span> ax.storage.sqa_store.db <span class="hljs-keyword">import</span> get_engine, create_all_tables
+
+engine = get_engine()
+create_all_tables(engine)
+</code></pre>
+<p>Then save your experiment:</p>
+<pre><code class="hljs css language-py"><span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> Experiment
+<span class="hljs-keyword">from</span> ax.storage.sqa_store.save <span class="hljs-keyword">import</span> save_experiment
+
+experiment = Experiment(...)
+save_experiment(experiment)
+</code></pre>
+<p>The experiment (including attached data) will be saved to the corresponding tables.</p>
+<p>Alternatively, you can pass a <a href="https://docs.sqlalchemy.org/en/latest/core/engines.html#sqlalchemy.create_engine.params.creator">creator function</a> instead of a url to <code>init_engine_and_session_factory</code>:</p>
+<pre><code class="hljs css language-py"><span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> Experiment
+<span class="hljs-keyword">from</span> ax.storage.sqa_store.db <span class="hljs-keyword">import</span> init_engine_and_session_factory
+<span class="hljs-keyword">from</span> ax.storage.sqa_store.save <span class="hljs-keyword">import</span> save_experiment
+
+init_engine_and_session_factory(creator=creator)
+experiment = Experiment(...)
+save_experiment(experiment)
+</code></pre>
+<h3><a class="anchor" aria-hidden="true" id="updating-1"></a><a href="#updating-1" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Updating</h3>
+<p>To update a SQL-backed experiment, call <code>save_experiment(experiment)</code> again. Ax will determine what updates to perform.</p>
+<h3><a class="anchor" aria-hidden="true" id="loading-1"></a><a href="#loading-1" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Loading</h3>
+<p>To load an experiment from SQL, specify the name:</p>
+<pre><code class="hljs css language-py"><span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> Experiment
+<span class="hljs-keyword">from</span> ax.storage.sqa_store.db <span class="hljs-keyword">import</span> init_engine_and_session_factory
+<span class="hljs-keyword">from</span> ax.storage.sqa_store.load <span class="hljs-keyword">import</span> load_experiment
+
+init_engine_and_session_factory(url=dialect+driver://username:password@host:port/database)
+experiment = load_experiment(experiment_name)
+</code></pre>
+<h3><a class="anchor" aria-hidden="true" id="customizing-1"></a><a href="#customizing-1" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Customizing</h3>
+<p><strong>Adding a new metric or runner:</strong></p>
+<p>If you add a custom <a href="/api/core.html#module-ax.core.metric"><code>Metric</code></a> or <a href="../api/core.html#ax.core.runner.Runner"><code>Runner</code></a> and want to ensure it is saved to SQL properly, simply call <a href="/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.storage.metric_registry.register_metric"><code>register_metric</code></a> or <a href="/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.storage.runner_registry.register_runner"><code>register_runner</code></a>:</p>
+<pre><code class="hljs css language-py"><span class="hljs-keyword">from</span> ax.storage.metric_registry <span class="hljs-keyword">import</span> register_metric
+<span class="hljs-keyword">from</span> ax.storage.runner_registry <span class="hljs-keyword">import</span> register_runner
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyRunner</span><span class="hljs-params">(Runner)</span>:</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">run</span><span class="hljs-params">()</span>:</span>
+        <span class="hljs-keyword">pass</span>
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyMetric</span><span class="hljs-params">(Metric)</span>:</span>
+    <span class="hljs-keyword">pass</span>
+
+register_metric(MyMetric)
+register_runner(MyRunner)
+</code></pre>
+<p><strong>Specifying experiment types:</strong></p>
+<p>If you choose to add types to your experiments, create an Enum mapping experiment types to integer representations, pass this Enum to a custom instance of <code>SQAConfig</code>, and then pass the config to <code>sqa_store.save</code>:</p>
+<pre><code class="hljs css language-py"><span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> Experiment
+<span class="hljs-keyword">from</span> ax.storage.sqa_store.save <span class="hljs-keyword">import</span> save_experiment
+<span class="hljs-keyword">from</span> ax.storage.sqa_store.sqa_config <span class="hljs-keyword">import</span> SQAConfig
+<span class="hljs-keyword">from</span> enum <span class="hljs-keyword">import</span> Enum
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ExperimentType</span><span class="hljs-params">(Enum)</span>:</span>
+    DEFAULT: <span class="hljs-number">0</span>
+
+config = SQAConfig(experiment_type_enum=ExperimentType)
+save_experiment(experiment, config=config)
+</code></pre>
+<p><strong>Specifying generator run types:</strong></p>
+<p>If you choose to add types to your generator runs (beyond the existing <code>status_quo</code> type), create an enum mapping generator run types to integer representations, pass this enum to a custom instance of <code>SQAConfig</code>, and then pass the config to <code>sqa_store.save</code>:</p>
+<pre><code class="hljs css language-py"><span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> Experiment
+<span class="hljs-keyword">from</span> ax.storage.sqa_store.save <span class="hljs-keyword">import</span> save_experiment
+<span class="hljs-keyword">from</span> ax.storage.sqa_store.sqa_config <span class="hljs-keyword">import</span> SQAConfig
+<span class="hljs-keyword">from</span> enum <span class="hljs-keyword">import</span> Enum
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">GeneratorRunType</span><span class="hljs-params">(Enum)</span>:</span>
+    DEFAULT: <span class="hljs-number">0</span>
+    STATUS_QUO: <span class="hljs-number">1</span>
+
+config = SQAConfig(generator_run_type_enum=GeneratorRunType)
+save_experiment(experiment, config=config)
+</code></pre>
+</span></div></article></div><div class="docs-prevnext"><a class="docs-prev button" href="/versions/0.2.5/docs/models.html"><span class="arrow-prev">← </span><span>Models</span></a></div></div></div><nav class="onPageNav"><ul class="toc-headings"><li><a href="#json">JSON</a><ul class="toc-headings"><li><a href="#saving">Saving</a></li><li><a href="#updating">Updating</a></li><li><a href="#loading">Loading</a></li><li><a href="#customizing">Customizing</a></li></ul></li><li><a href="#sql">SQL</a><ul class="toc-headings"><li><a href="#saving-1">Saving</a></li><li><a href="#updating-1">Updating</a></li><li><a href="#loading-1">Loading</a></li><li><a href="#customizing-1">Customizing</a></li></ul></li></ul></nav></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.5/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

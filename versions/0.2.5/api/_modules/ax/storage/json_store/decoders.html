@@ -1,0 +1,270 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.5/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.5/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.5/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.5/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.5/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.5/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.5/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.5/css/main.css"/><script src="/versions/0.2.5/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.5/"><img class="logo" src="/versions/0.2.5/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.5/versions.html"><h3>0.2.5</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.5/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.5/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.5/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.storage.json_store.decoders</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">TYPE_CHECKING</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.arm</span> <span class="kn">import</span> <span class="n">Arm</span>
+<span class="kn">from</span> <span class="nn">ax.core.base_trial</span> <span class="kn">import</span> <span class="n">TrialStatus</span>
+<span class="kn">from</span> <span class="nn">ax.core.batch_trial</span> <span class="kn">import</span> <span class="n">AbandonedArm</span><span class="p">,</span> <span class="n">BatchTrial</span><span class="p">,</span> <span class="n">GeneratorRunStruct</span>
+<span class="kn">from</span> <span class="nn">ax.core.generator_run</span> <span class="kn">import</span> <span class="n">GeneratorRun</span>
+<span class="kn">from</span> <span class="nn">ax.core.runner</span> <span class="kn">import</span> <span class="n">Runner</span>
+<span class="kn">from</span> <span class="nn">ax.core.trial</span> <span class="kn">import</span> <span class="n">Trial</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.base</span> <span class="kn">import</span> <span class="n">Transform</span>
+<span class="kn">from</span> <span class="nn">ax.storage.botorch_modular_registry</span> <span class="kn">import</span> <span class="n">CLASS_TO_REVERSE_REGISTRY</span>
+<span class="kn">from</span> <span class="nn">ax.storage.transform_registry</span> <span class="kn">import</span> <span class="n">REVERSE_TRANSFORM_REGISTRY</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.kwargs</span> <span class="kn">import</span> <span class="n">warn_on_kwargs</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+
+<span class="n">logger</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="c1"># import as module to make sphinx-autodoc-typehints happy</span>
+    <span class="kn">from</span> <span class="nn">ax</span> <span class="kn">import</span> <span class="n">core</span>  <span class="c1"># noqa F401  # pragma: no cover</span>
+
+
+<div class="viewcode-block" id="batch_trial_from_json"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.decoders.batch_trial_from_json">[docs]</a><span class="k">def</span> <span class="nf">batch_trial_from_json</span><span class="p">(</span>
+    <span class="n">experiment</span><span class="p">:</span> <span class="n">core</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">Experiment</span><span class="p">,</span>
+    <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">trial_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">status</span><span class="p">:</span> <span class="n">TrialStatus</span><span class="p">,</span>
+    <span class="n">time_created</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
+    <span class="n">time_completed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span>
+    <span class="n">time_staged</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span>
+    <span class="n">time_run_started</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span>
+    <span class="n">abandoned_reason</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">run_metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+    <span class="n">generator_run_structs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">GeneratorRunStruct</span><span class="p">],</span>
+    <span class="n">runner</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Runner</span><span class="p">],</span>
+    <span class="n">abandoned_arms_metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">AbandonedArm</span><span class="p">],</span>
+    <span class="n">num_arms_created</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">status_quo</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Arm</span><span class="p">],</span>
+    <span class="n">status_quo_weight_override</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">optimize_for_power</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">],</span>
+    <span class="c1"># Allowing default values for backwards compatibility with</span>
+    <span class="c1"># objects stored before these fields were added.</span>
+    <span class="n">ttl_seconds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">generation_step_index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">properties</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">stop_metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BatchTrial</span><span class="p">:</span>
+    <span class="sd">"""Load Ax BatchTrial from JSON.</span>
+
+<span class="sd">    Other classes don't need explicit deserializers, because we can just use</span>
+<span class="sd">    their constructors (see decoder.py). However, the constructor for Batch</span>
+<span class="sd">    does not allow us to exactly recreate an existing object.</span>
+<span class="sd">    """</span>
+
+    <span class="n">batch</span> <span class="o">=</span> <span class="n">BatchTrial</span><span class="p">(</span><span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> <span class="n">ttl_seconds</span><span class="o">=</span><span class="n">ttl_seconds</span><span class="p">)</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_index</span> <span class="o">=</span> <span class="n">index</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_trial_type</span> <span class="o">=</span> <span class="n">trial_type</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_status</span> <span class="o">=</span> <span class="n">status</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_time_created</span> <span class="o">=</span> <span class="n">time_created</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_time_completed</span> <span class="o">=</span> <span class="n">time_completed</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_time_staged</span> <span class="o">=</span> <span class="n">time_staged</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_time_run_started</span> <span class="o">=</span> <span class="n">time_run_started</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_abandoned_reason</span> <span class="o">=</span> <span class="n">abandoned_reason</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_run_metadata</span> <span class="o">=</span> <span class="n">run_metadata</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_stop_metadata</span> <span class="o">=</span> <span class="n">stop_metadata</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_generator_run_structs</span> <span class="o">=</span> <span class="n">generator_run_structs</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_runner</span> <span class="o">=</span> <span class="n">runner</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_abandoned_arms_metadata</span> <span class="o">=</span> <span class="n">abandoned_arms_metadata</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_num_arms_created</span> <span class="o">=</span> <span class="n">num_arms_created</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_status_quo</span> <span class="o">=</span> <span class="n">status_quo</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_status_quo_weight_override</span> <span class="o">=</span> <span class="n">status_quo_weight_override</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">optimize_for_power</span> <span class="o">=</span> <span class="n">optimize_for_power</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_generation_step_index</span> <span class="o">=</span> <span class="n">generation_step_index</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_properties</span> <span class="o">=</span> <span class="n">properties</span>
+    <span class="n">batch</span><span class="o">.</span><span class="n">_refresh_arms_by_name</span><span class="p">()</span>  <span class="c1"># Trigger cache build</span>
+    <span class="n">warn_on_kwargs</span><span class="p">(</span><span class="n">callable_with_kwargs</span><span class="o">=</span><span class="n">BatchTrial</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">batch</span></div>
+
+
+<div class="viewcode-block" id="trial_from_json"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.decoders.trial_from_json">[docs]</a><span class="k">def</span> <span class="nf">trial_from_json</span><span class="p">(</span>
+    <span class="n">experiment</span><span class="p">:</span> <span class="n">core</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">Experiment</span><span class="p">,</span>
+    <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">trial_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">status</span><span class="p">:</span> <span class="n">TrialStatus</span><span class="p">,</span>
+    <span class="n">time_created</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
+    <span class="n">time_completed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span>
+    <span class="n">time_staged</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span>
+    <span class="n">time_run_started</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span>
+    <span class="n">abandoned_reason</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">run_metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+    <span class="n">generator_run</span><span class="p">:</span> <span class="n">GeneratorRun</span><span class="p">,</span>
+    <span class="n">runner</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Runner</span><span class="p">],</span>
+    <span class="n">num_arms_created</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="c1"># Allowing default values for backwards compatibility with</span>
+    <span class="c1"># objects stored before these fields were added.</span>
+    <span class="n">ttl_seconds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">generation_step_index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">properties</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">stop_metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Trial</span><span class="p">:</span>
+    <span class="sd">"""Load Ax trial from JSON.</span>
+
+<span class="sd">    Other classes don't need explicit deserializers, because we can just use</span>
+<span class="sd">    their constructors (see decoder.py). However, the constructor for Trial</span>
+<span class="sd">    does not allow us to exactly recreate an existing object.</span>
+<span class="sd">    """</span>
+
+    <span class="n">trial</span> <span class="o">=</span> <span class="n">Trial</span><span class="p">(</span>
+        <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> <span class="n">generator_run</span><span class="o">=</span><span class="n">generator_run</span><span class="p">,</span> <span class="n">ttl_seconds</span><span class="o">=</span><span class="n">ttl_seconds</span>
+    <span class="p">)</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">_index</span> <span class="o">=</span> <span class="n">index</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">_trial_type</span> <span class="o">=</span> <span class="n">trial_type</span>
+    <span class="c1"># Swap `DISPATCHED` for `RUNNING`, since `DISPATCHED` is deprecated and nearly</span>
+    <span class="c1"># equivalent to `RUNNING`.</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">_status</span> <span class="o">=</span> <span class="n">status</span> <span class="k">if</span> <span class="n">status</span> <span class="o">!=</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">DISPATCHED</span> <span class="k">else</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">_time_created</span> <span class="o">=</span> <span class="n">time_created</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">_time_completed</span> <span class="o">=</span> <span class="n">time_completed</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">_time_staged</span> <span class="o">=</span> <span class="n">time_staged</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">_time_run_started</span> <span class="o">=</span> <span class="n">time_run_started</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">_abandoned_reason</span> <span class="o">=</span> <span class="n">abandoned_reason</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">_run_metadata</span> <span class="o">=</span> <span class="n">run_metadata</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">_stop_metadata</span> <span class="o">=</span> <span class="n">stop_metadata</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">_runner</span> <span class="o">=</span> <span class="n">runner</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">_num_arms_created</span> <span class="o">=</span> <span class="n">num_arms_created</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">_generation_step_index</span> <span class="o">=</span> <span class="n">generation_step_index</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">_properties</span> <span class="o">=</span> <span class="n">properties</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">warn_on_kwargs</span><span class="p">(</span><span class="n">callable_with_kwargs</span><span class="o">=</span><span class="n">Trial</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">trial</span></div>
+
+
+<div class="viewcode-block" id="transform_type_from_json"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.decoders.transform_type_from_json">[docs]</a><span class="k">def</span> <span class="nf">transform_type_from_json</span><span class="p">(</span><span class="n">object_json</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">Transform</span><span class="p">]:</span>
+    <span class="sd">"""Load the transform type from JSON."""</span>
+    <span class="n">index_in_registry</span> <span class="o">=</span> <span class="n">object_json</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"index_in_registry"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">index_in_registry</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">REVERSE_TRANSFORM_REGISTRY</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown transform '</span><span class="si">{</span><span class="n">object_json</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">'transform_type'</span><span class="p">)</span><span class="si">}</span><span class="s2">'"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">REVERSE_TRANSFORM_REGISTRY</span><span class="p">[</span><span class="n">index_in_registry</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="class_from_json"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.decoders.class_from_json">[docs]</a><span class="k">def</span> <span class="nf">class_from_json</span><span class="p">(</span><span class="n">json</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Load any class registered in `CLASS_DECODER_REGISTRY` from JSON."""</span>
+    <span class="n">index_in_registry</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"index"</span><span class="p">)</span>
+    <span class="n">class_path</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"class"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">_class</span> <span class="ow">in</span> <span class="n">CLASS_TO_REVERSE_REGISTRY</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">class_path</span> <span class="o">==</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">_class</span><span class="si">}</span><span class="s2">"</span><span class="p">:</span>
+            <span class="n">reverse_registry</span> <span class="o">=</span> <span class="n">CLASS_TO_REVERSE_REGISTRY</span><span class="p">[</span><span class="n">_class</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">index_in_registry</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">reverse_registry</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Index '</span><span class="si">{</span><span class="n">index_in_registry</span><span class="si">}</span><span class="s2">'"</span>
+                    <span class="s2">" is not registered in the reverse registry."</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">reverse_registry</span><span class="p">[</span><span class="n">index_in_registry</span><span class="p">]</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">class_path</span><span class="si">}</span><span class="s2"> does not have a corresponding entry in "</span>
+        <span class="s2">"CLASS_TO_REVERSE_REGISTRY."</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="botorch_component_from_json"><a class="viewcode-back" href="../../../../storage.html#ax.storage.json_store.decoders.botorch_component_from_json">[docs]</a><span class="k">def</span> <span class="nf">botorch_component_from_json</span><span class="p">(</span><span class="n">botorch_class</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">json</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+    <span class="sd">"""Load any instance of `gpytorch.Module` or descendent registered in</span>
+<span class="sd">    `CLASS_DECODER_REGISTRY` from state dict."""</span>
+    <span class="n">class_path</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"class"</span><span class="p">)</span>
+    <span class="n">state_dict</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"state_dict"</span><span class="p">)</span>
+    <span class="n">init_args</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">botorch_class</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span>
+    <span class="n">required_args</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">init_args</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="n">inspect</span><span class="o">.</span><span class="n">_empty</span><span class="p">}</span>
+    <span class="n">allowable_args</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">init_args</span><span class="p">)</span>
+    <span class="n">received_args</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">state_dict</span><span class="p">)</span>
+    <span class="n">missing_args</span> <span class="o">=</span> <span class="n">required_args</span> <span class="o">-</span> <span class="n">received_args</span>
+    <span class="k">if</span> <span class="n">missing_args</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Missing required initialization args </span><span class="si">{</span><span class="n">missing_args</span><span class="si">}</span><span class="s2"> for class "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">class_path</span><span class="si">}</span><span class="s2">. For gpytorch objects, this is likely because the "</span>
+            <span class="s2">"object's `state_dict` method does not return the args required "</span>
+            <span class="s2">"for initialization."</span>
+        <span class="p">)</span>
+    <span class="n">extra_args</span> <span class="o">=</span> <span class="n">received_args</span> <span class="o">-</span> <span class="n">allowable_args</span>
+    <span class="k">if</span> <span class="n">extra_args</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Received unused args </span><span class="si">{</span><span class="n">extra_args</span><span class="si">}</span><span class="s2"> for class </span><span class="si">{</span><span class="n">class_path</span><span class="si">}</span><span class="s2">. "</span>
+            <span class="s2">"For gpytorch objects, this is likely because the object's "</span>
+            <span class="s2">"`state_dict` method returns these extra args, which could "</span>
+            <span class="s2">"indicate that the object's state will not be fully recreated "</span>
+            <span class="s2">"by this serialization/deserialization method."</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">botorch_class</span><span class="p">(</span><span class="o">**</span><span class="n">state_dict</span><span class="p">)</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.5/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

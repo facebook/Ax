@@ -1,0 +1,759 @@
+<!DOCTYPE html><html lang=""><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/latest/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/latest/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/latest/img/ax.svg"/><link rel="shortcut icon" href="/versions/latest/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/latest/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/latest/js/mathjax.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS_SVG"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/latest/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/latest/css/main.css"/><script src="/versions/latest/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/latest/"><img class="logo" src="/versions/latest/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/latest/versions.html"><h3>latest</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/latest/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/latest/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/latest/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="container docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><div class="hamburger-menu"><div class="line1"></div><div class="line2"></div><div class="line3"></div></div></div><h2><i>›</i><span></span></h2><div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div></div><div class="navGroups"><div class="navGroup"><h3 class="navGroupCategoryTitle">Tutorials</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/">Overview</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">API Comparison</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/gpei_hartmann_service.html">[RECOMMENDED] Service API</a></li><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/gpei_hartmann_loop.html">Loop API</a></li><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/gpei_hartmann_developer.html">Developer API</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Deep Dives</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/visualizations.html">Visualizations</a></li><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/generation_strategy.html">Generation Strategy</a></li><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/scheduler.html">Scheduler</a></li><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/modular_botax.html">Modular `BoTorchModel`</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Bayesian Optimization</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/tune_cnn_service.html">Hyperparameter Optimization for PyTorch</a></li><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/submitit.html">Hyperparameter Optimization on SLURM via SubmitIt</a></li><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/multi_task.html">Multi-Task Modeling</a></li><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/multiobjective_optimization.html">Multi-Objective Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/saasbo.html">High-Dimensional Bayesian Optimization with Sparse Axis-Aligned Subspaces (SAASBO)</a></li><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/saasbo_nehvi.html">Fully Bayesian, High-Dimensional, Multi-Objective Optimization</a></li><li class="navListItem navListItemActive"><a class="navItem" href="/versions/latest/tutorials/sebo.html">Sparsity Exploration Bayesian Optimization (SEBO)</a></li><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/early_stopping/early_stopping.html">Trial-Level Early Stopping</a></li><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/gss.html">Global Stopping (Experiment-Level Early Stopping)</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Field Experiments</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/factorial.html">Bandit Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/human_in_the_loop/human_in_the_loop.html">Human-in-the-Loop Optimization</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Integrating External Strategies</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/latest/tutorials/external_generation_node.html">RandomForest with ExternalGenerationNode</a></li></ul></div></div></section></div><script>
+            var coll = document.getElementsByClassName('collapsible');
+            var checkActiveCategory = true;
+            for (var i = 0; i < coll.length; i++) {
+              var links = coll[i].nextElementSibling.getElementsByTagName('*');
+              if (checkActiveCategory){
+                for (var j = 0; j < links.length; j++) {
+                  if (links[j].classList.contains('navListItemActive')){
+                    coll[i].nextElementSibling.classList.toggle('hide');
+                    coll[i].childNodes[1].classList.toggle('rotate');
+                    checkActiveCategory = false;
+                    break;
+                  }
+                }
+              }
+
+              coll[i].addEventListener('click', function() {
+                var arrow = this.childNodes[1];
+                arrow.classList.toggle('rotate');
+                var content = this.nextElementSibling;
+                content.classList.toggle('hide');
+              });
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+              createToggler('#navToggler', '#docsNav', 'docsSliderActive');
+              createToggler('#tocToggler', 'body', 'tocActive');
+
+              var headings = document.querySelector('.toc-headings');
+              headings && headings.addEventListener('click', function(event) {
+                var el = event.target;
+                while(el !== headings){
+                  if (el.tagName === 'A') {
+                    document.body.classList.remove('tocActive');
+                    break;
+                  } else{
+                    el = el.parentNode;
+                  }
+                }
+              }, false);
+
+              function createToggler(togglerSelector, targetSelector, className) {
+                var toggler = document.querySelector(togglerSelector);
+                var target = document.querySelector(targetSelector);
+
+                if (!toggler) {
+                  return;
+                }
+
+                toggler.onclick = function(event) {
+                  event.preventDefault();
+
+                  target.classList.toggle(className);
+                };
+              }
+            });
+        </script></nav></div><div class="container mainContainer"><div class="wrapper"><div class="tutorialBody">
+<script>
+const requirejs = Object();
+requirejs.config = function() { };
+
+const dependencyMap = {
+    'plotly': Plotly,
+}
+
+function require(deps, fxn) {
+    return fxn(...deps.map(dep => dependencyMap[dep]));
+};
+</script>
+<div class="notebook">
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=80177bfe"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Sparsity-Exploration-Bayesian-Optimization-(SEBO)-Ax-API">Sparsity Exploration Bayesian Optimization (SEBO) Ax API<a class="anchor-link" href="#Sparsity-Exploration-Bayesian-Optimization-(SEBO)-Ax-API">¶</a></h1><p>This tutorial introduces the Sparsity Exploration Bayesian Optimization (SEBO) method and demonstrates how to utilize it using the Ax API. SEBO is designed to enhance Bayesian Optimization (BO) by taking the interpretability and simplicity of configurations into consideration. In essence, SEBO incorporates sparsity, modeled as the $L_0$ norm, as an additional objective in BO. By employing multi-objective optimization techniques such as Expected Hyper-Volume Improvement, SEBO enables the joint optimization of objectives while simultaneously incorporating feature-level sparsity. This allows users to efficiently explore different trade-offs between objectives and sparsity.</p>
+<p>For a more detailed understanding of the SEBO algorithm, please refer to the following publication:</p>
+<p>[1] <a href="https://proceedings.mlr.press/v206/liu23b/liu23b.pdf">S. Liu, Q. Feng, D. Eriksson, B. Letham and E. Bakshy. Sparse Bayesian Optimization. International Conference on Artificial Intelligence and Statistics, 2023.</a></p>
+<p>By following this tutorial, you will learn how to leverage the SEBO method through the Ax API, empowering you to effectively balance objectives and sparsity in your optimization tasks. Let's get started!</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=d6396d2e">
+<div class="input">
+<div class="prompt input_prompt">In [1]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="kn">import</span> <span class="nn">matplotlib</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">ax</span> <span class="kn">import</span> <span class="n">Data</span><span class="p">,</span> <span class="n">Experiment</span><span class="p">,</span> <span class="n">ParameterType</span><span class="p">,</span> <span class="n">RangeParameter</span><span class="p">,</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.core.objective</span> <span class="kn">import</span> <span class="n">Objective</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.metrics.noisy_function</span> <span class="kn">import</span> <span class="n">NoisyFunctionMetric</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.generation_strategy</span> <span class="kn">import</span> <span class="n">GenerationStep</span><span class="p">,</span> <span class="n">GenerationStrategy</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.registry</span> <span class="kn">import</span> <span class="n">Models</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_modular.sebo</span> <span class="kn">import</span> <span class="n">SEBOAcquisition</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch_modular.surrogate</span> <span class="kn">import</span> <span class="n">Surrogate</span>
+<span class="kn">from</span> <span class="nn">ax.runners.synthetic</span> <span class="kn">import</span> <span class="n">SyntheticRunner</span>
+<span class="kn">from</span> <span class="nn">ax.service.ax_client</span> <span class="kn">import</span> <span class="n">AxClient</span><span class="p">,</span> <span class="n">ObjectiveProperties</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">checked_cast</span>
+<span class="kn">from</span> <span class="nn">botorch.acquisition.multi_objective</span> <span class="kn">import</span> <span class="n">qNoisyExpectedHypervolumeImprovement</span>
+<span class="kn">from</span> <span class="nn">botorch.models</span> <span class="kn">import</span> <span class="n">SaasFullyBayesianSingleTaskGP</span><span class="p">,</span> <span class="n">SingleTaskGP</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=68cea97e">
+<div class="input">
+<div class="prompt input_prompt">In [2]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="o">%</span><span class="k">matplotlib</span> inline
+<span class="n">matplotlib</span><span class="o">.</span><span class="n">rcParams</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">"font.size"</span><span class="p">:</span> <span class="mi">16</span><span class="p">})</span>
+
+<span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s1">'ignore'</span><span class="p">)</span>
+<span class="n">SMOKE_TEST</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"SMOKE_TEST"</span><span class="p">)</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">12345</span><span class="p">)</span>  <span class="c1"># To always get the same Sobol points</span>
+<span class="n">tkwargs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"dtype"</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">double</span><span class="p">,</span>
+    <span class="s2">"device"</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">"cuda"</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">"cpu"</span><span class="p">),</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=9ee758a1"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Demo-of-using-Developer-API">Demo of using Developer API<a class="anchor-link" href="#Demo-of-using-Developer-API">¶</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=e8f260b3"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Problem-Setup">Problem Setup<a class="anchor-link" href="#Problem-Setup">¶</a></h2><p>In this simple experiment we use the Branin function embedded in a 10-dimensional space. Additional resources:</p>
+<ul>
+<li>To set up a custom metric for your problem, refer to the dedicated section of the Developer API tutorial: <a href="https://ax.dev/tutorials/gpei_hartmann_developer.html#8.-Defining-custom-metrics">https://ax.dev/tutorials/gpei_hartmann_developer.html#8.-Defining-custom-metrics</a>.</li>
+<li>To avoid needing to setup up custom metrics by Ax Service API: <a href="https://ax.dev/tutorials/gpei_hartmann_service.html">https://ax.dev/tutorials/gpei_hartmann_service.html</a>.</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=6cd1c243">
+<div class="input">
+<div class="prompt input_prompt">In [3]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">aug_dim</span> <span class="o">=</span> <span class="mi">8</span> 
+
+<span class="c1"># evaluation function </span>
+<span class="k">def</span> <span class="nf">branin_augment</span><span class="p">(</span><span class="n">x_vec</span><span class="p">,</span> <span class="n">augment_dim</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_vec</span><span class="p">)</span> <span class="o">==</span> <span class="n">augment_dim</span>
+    <span class="n">x1</span><span class="p">,</span> <span class="n">x2</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="mi">15</span> <span class="o">*</span> <span class="n">x_vec</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="mi">15</span> <span class="o">*</span> <span class="n">x_vec</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+    <span class="p">)</span>  <span class="c1"># Only dimensions 0 and augment_dim-1 affect the value of the function</span>
+    <span class="n">t1</span> <span class="o">=</span> <span class="n">x2</span> <span class="o">-</span> <span class="mf">5.1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">x1</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">5</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x1</span> <span class="o">-</span> <span class="mi">6</span>
+    <span class="n">t2</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">8</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">x1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">t1</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">t2</span> <span class="o">+</span> <span class="mi">10</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=ad11a713">
+<div class="input">
+<div class="prompt input_prompt">In [4]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">class</span> <span class="nc">AugBraninMetric</span><span class="p">(</span><span class="n">NoisyFunctionMetric</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">checked_cast</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">branin_augment</span><span class="p">(</span><span class="n">x_vec</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">augment_dim</span><span class="o">=</span><span class="n">aug_dim</span><span class="p">))</span>
+
+
+<span class="c1"># Create search space in Ax </span>
+<span class="n">search_space</span> <span class="o">=</span> <span class="n">SearchSpace</span><span class="p">(</span>
+    <span class="n">parameters</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">RangeParameter</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"x</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">,</span> 
+            <span class="n">lower</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mf">1.0</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">aug_dim</span><span class="p">)</span>
+    <span class="p">]</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=5fd94243">
+<div class="input">
+<div class="prompt input_prompt">In [5]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Create optimization goals </span>
+<span class="n">optimization_config</span> <span class="o">=</span> <span class="n">OptimizationConfig</span><span class="p">(</span>
+    <span class="n">objective</span><span class="o">=</span><span class="n">Objective</span><span class="p">(</span>
+        <span class="n">metric</span><span class="o">=</span><span class="n">AugBraninMetric</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"objective"</span><span class="p">,</span>
+            <span class="n">param_names</span><span class="o">=</span><span class="p">[</span><span class="sa">f</span><span class="s2">"x</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">aug_dim</span><span class="p">)],</span>
+            <span class="n">noise_sd</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># Set noise_sd=None if you want to learn the noise, otherwise it defaults to 1e-6</span>
+        <span class="p">),</span>
+        <span class="n">minimize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+
+<span class="c1"># Experiment</span>
+<span class="n">experiment</span> <span class="o">=</span> <span class="n">Experiment</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"sebo_experiment"</span><span class="p">,</span>
+    <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+    <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+    <span class="n">runner</span><span class="o">=</span><span class="n">SyntheticRunner</span><span class="p">(),</span>
+<span class="p">)</span>
+
+<span class="c1"># target sparse point to regularize towards to. Here we set target sparse value being zero for all the parameters. </span>
+<span class="n">target_point</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mi">0</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">aug_dim</span><span class="p">)],</span> <span class="o">**</span><span class="n">tkwargs</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=ce84463e"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Run-optimization-loop">Run optimization loop<a class="anchor-link" href="#Run-optimization-loop">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=af99bb39">
+<div class="input">
+<div class="prompt input_prompt">In [6]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">N_INIT</span> <span class="o">=</span> <span class="mi">10</span>
+
+<span class="k">if</span> <span class="n">SMOKE_TEST</span><span class="p">:</span>
+    <span class="n">N_BATCHES</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">BATCH_SIZE</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">SURROGATE_CLASS</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Auto-pick SingleTaskGP</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">N_BATCHES</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="n">BATCH_SIZE</span> <span class="o">=</span> <span class="mi">5</span>
+    <span class="n">SURROGATE_CLASS</span> <span class="o">=</span> <span class="n">SaasFullyBayesianSingleTaskGP</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Doing </span><span class="si">{</span><span class="n">N_INIT</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">N_BATCHES</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">BATCH_SIZE</span><span class="si">}</span><span class="s2"> evaluations"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Doing 30 evaluations
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=3dce9e1d">
+<div class="input">
+<div class="prompt input_prompt">In [7]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Initial Sobol points</span>
+<span class="n">sobol</span> <span class="o">=</span> <span class="n">Models</span><span class="o">.</span><span class="n">SOBOL</span><span class="p">(</span><span class="n">search_space</span><span class="o">=</span><span class="n">experiment</span><span class="o">.</span><span class="n">search_space</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N_INIT</span><span class="p">):</span>
+    <span class="n">experiment</span><span class="o">.</span><span class="n">new_trial</span><span class="p">(</span><span class="n">sobol</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=bd0f9145">
+<div class="input">
+<div class="prompt input_prompt">In [8]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">data</span> <span class="o">=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">()</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N_BATCHES</span><span class="p">):</span>
+
+    <span class="n">model</span> <span class="o">=</span> <span class="n">Models</span><span class="o">.</span><span class="n">BOTORCH_MODULAR</span><span class="p">(</span>
+        <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> 
+        <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+        <span class="n">surrogate</span><span class="o">=</span><span class="n">Surrogate</span><span class="p">(</span><span class="n">botorch_model_class</span><span class="o">=</span><span class="n">SURROGATE_CLASS</span><span class="p">),</span>  <span class="c1"># can use SAASGP (i.e. SaasFullyBayesianSingleTaskGP) for high-dim cases</span>
+        <span class="n">search_space</span><span class="o">=</span><span class="n">experiment</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span>
+        <span class="n">botorch_acqf_class</span><span class="o">=</span><span class="n">qNoisyExpectedHypervolumeImprovement</span><span class="p">,</span>
+        <span class="n">acquisition_class</span><span class="o">=</span><span class="n">SEBOAcquisition</span><span class="p">,</span>
+        <span class="n">acquisition_options</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">"penalty"</span><span class="p">:</span> <span class="s2">"L0_norm"</span><span class="p">,</span> <span class="c1"># it can be L0_norm or L1_norm. </span>
+            <span class="s2">"target_point"</span><span class="p">:</span> <span class="n">target_point</span><span class="p">,</span> 
+            <span class="s2">"sparsity_threshold"</span><span class="p">:</span> <span class="n">aug_dim</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="n">torch_device</span><span class="o">=</span><span class="n">tkwargs</span><span class="p">[</span><span class="s1">'device'</span><span class="p">],</span>
+    <span class="p">)</span>
+
+    <span class="n">generator_run</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span><span class="n">BATCH_SIZE</span><span class="p">)</span>
+    <span class="n">trial</span> <span class="o">=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">(</span><span class="n">generator_run</span><span class="o">=</span><span class="n">generator_run</span><span class="p">)</span>
+    <span class="n">trial</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+
+    <span class="n">new_data</span> <span class="o">=</span> <span class="n">trial</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">(</span><span class="n">metrics</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">experiment</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">Data</span><span class="o">.</span><span class="n">from_multiple_data</span><span class="p">([</span><span class="n">data</span><span class="p">,</span> <span class="n">new_data</span><span class="p">])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Iteration: </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">, Best so far: </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s1">'mean'</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Iteration: 0, Best so far: 2.494
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Iteration: 1, Best so far: 2.494
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Iteration: 2, Best so far: 1.946
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Iteration: 3, Best so far: 1.946
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=3d27f561"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Plot-sparisty-vs-objective">Plot sparisty vs objective<a class="anchor-link" href="#Plot-sparisty-vs-objective">¶</a></h2><p>Visualize the objective and sparsity trade-offs using SEBO. Each point represent designs along the Pareto frontier found by SEBO. The x-axis corresponds to the number of active parameters used, i.e.
+non-sparse parameters, and the y-axis corresponds the best identified objective values. Based on this, decision-makers balance both simplicity/interpretability of generated policies and optimization performance when deciding which configuration to use.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=9fb3ce72">
+<div class="input">
+<div class="prompt input_prompt">In [9]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">nnz_exact</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">sparse_point</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">sparse_point</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+    
+<span class="n">df</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">df</span>
+<span class="n">df</span><span class="p">[</span><span class="s1">'L0_norm'</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">'arm_name'</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="n">nnz_exact</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">experiment</span><span class="o">.</span><span class="n">arms_by_name</span><span class="p">[</span><span class="n">d</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="p">[</span><span class="mi">0</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">aug_dim</span><span class="p">)])</span> <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=d53ff4b5">
+<div class="input">
+<div class="prompt input_prompt">In [10]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">result_by_sparsity</span> <span class="o">=</span> <span class="p">{</span><span class="n">l</span><span class="p">:</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="o">.</span><span class="n">L0_norm</span> <span class="o">&lt;=</span> <span class="n">l</span><span class="p">][</span><span class="s1">'mean'</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">aug_dim</span><span class="o">+</span><span class="mi">1</span><span class="p">)}</span>
+<span class="n">result_by_sparsity</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[10]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>{1: 8.584784227008157,
+ 2: 2.5071010533510405,
+ 3: 1.9459414636104224,
+ 4: 1.9459414636104224,
+ 5: 1.9459414636104224,
+ 6: 1.9459414636104224,
+ 7: 1.9459414636104224,
+ 8: 1.9459414636104224}</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=a77df659">
+<div class="input">
+<div class="prompt input_prompt">In [11]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">result_by_sparsity</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="n">result_by_sparsity</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="s1">'.b-'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"sebo"</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Branin, D=</span><span class="si">{</span><span class="n">aug_dim</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Number of active parameters"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Best value found"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+<span class="c1"># ax.legend(fontsize=18)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_png output_subarea">
+<img alt="No description has been provided for this image" src="data:image/png;base64,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"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=69a48e5a"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Demo-of-Using-GenerationStrategy-and-Service-API">Demo of Using GenerationStrategy and Service API<a class="anchor-link" href="#Demo-of-Using-GenerationStrategy-and-Service-API">¶</a></h1><p>Please check <a href="https://ax.dev/tutorials/gpei_hartmann_service.html">Service API tutorial</a> for more detailed information.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=b59ed5a3"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Create-GenerationStrategy">Create <code>GenerationStrategy</code><a class="anchor-link" href="#Create-GenerationStrategy">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=73735a7b">
+<div class="input">
+<div class="prompt input_prompt">In [12]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">gs</span> <span class="o">=</span> <span class="n">GenerationStrategy</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"SEBO_L0"</span><span class="p">,</span>
+    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">GenerationStep</span><span class="p">(</span>  <span class="c1"># Initialization step</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">Models</span><span class="o">.</span><span class="n">SOBOL</span><span class="p">,</span>     
+            <span class="n">num_trials</span><span class="o">=</span><span class="n">N_INIT</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">GenerationStep</span><span class="p">(</span>  <span class="c1"># BayesOpt step</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">Models</span><span class="o">.</span><span class="n">BOTORCH_MODULAR</span><span class="p">,</span>
+            <span class="c1"># No limit on how many generator runs will be produced</span>
+            <span class="n">num_trials</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">model_kwargs</span><span class="o">=</span><span class="p">{</span>  <span class="c1"># Kwargs to pass to `BoTorchModel.__init__`</span>
+                <span class="s2">"surrogate"</span><span class="p">:</span> <span class="n">Surrogate</span><span class="p">(</span><span class="n">botorch_model_class</span><span class="o">=</span><span class="n">SURROGATE_CLASS</span><span class="p">),</span>
+                <span class="s2">"acquisition_class"</span><span class="p">:</span> <span class="n">SEBOAcquisition</span><span class="p">,</span>
+                <span class="s2">"botorch_acqf_class"</span><span class="p">:</span> <span class="n">qNoisyExpectedHypervolumeImprovement</span><span class="p">,</span>
+                <span class="s2">"acquisition_options"</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">"penalty"</span><span class="p">:</span> <span class="s2">"L0_norm"</span><span class="p">,</span> <span class="c1"># it can be L0_norm or L1_norm.</span>
+                    <span class="s2">"target_point"</span><span class="p">:</span> <span class="n">target_point</span><span class="p">,</span> 
+                    <span class="s2">"sparsity_threshold"</span><span class="p">:</span> <span class="n">aug_dim</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+    <span class="p">]</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=0570ef68"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Initialize-client-and-set-up-experiment">Initialize client and set up experiment<a class="anchor-link" href="#Initialize-client-and-set-up-experiment">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=17dda34e">
+<div class="input">
+<div class="prompt input_prompt">In [13]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">ax_client</span> <span class="o">=</span> <span class="n">AxClient</span><span class="p">(</span><span class="n">generation_strategy</span><span class="o">=</span><span class="n">gs</span><span class="p">)</span>
+
+<span class="n">experiment_parameters</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">{</span>
+        <span class="s2">"name"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"x</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"range"</span><span class="p">,</span>
+        <span class="s2">"bounds"</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+        <span class="s2">"value_type"</span><span class="p">:</span> <span class="s2">"float"</span><span class="p">,</span>
+        <span class="s2">"log_scale"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">aug_dim</span><span class="p">)</span>
+<span class="p">]</span>
+
+<span class="n">objective_metrics</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"objective"</span><span class="p">:</span> <span class="n">ObjectiveProperties</span><span class="p">(</span><span class="n">minimize</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=-</span><span class="mi">10</span><span class="p">),</span>
+<span class="p">}</span>
+
+<span class="n">ax_client</span><span class="o">.</span><span class="n">create_experiment</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"branin_augment_sebo_experiment"</span><span class="p">,</span>
+    <span class="n">parameters</span><span class="o">=</span><span class="n">experiment_parameters</span><span class="p">,</span>
+    <span class="n">objectives</span><span class="o">=</span><span class="n">objective_metrics</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Starting optimization with verbose logging. To disable logging, set the `verbose_logging` argument to `False`. Note that float values in the logs are rounded to 6 decimal points.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.utils.instantiation: Created search space: SearchSpace(parameters=[RangeParameter(name='x0', parameter_type=FLOAT, range=[0.0, 1.0]), RangeParameter(name='x1', parameter_type=FLOAT, range=[0.0, 1.0]), RangeParameter(name='x2', parameter_type=FLOAT, range=[0.0, 1.0]), RangeParameter(name='x3', parameter_type=FLOAT, range=[0.0, 1.0]), RangeParameter(name='x4', parameter_type=FLOAT, range=[0.0, 1.0]), RangeParameter(name='x5', parameter_type=FLOAT, range=[0.0, 1.0]), RangeParameter(name='x6', parameter_type=FLOAT, range=[0.0, 1.0]), RangeParameter(name='x7', parameter_type=FLOAT, range=[0.0, 1.0])], parameter_constraints=[]).
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=20c15bc9"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Define-evaluation-function">Define evaluation function<a class="anchor-link" href="#Define-evaluation-function">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=6eaf480c">
+<div class="input">
+<div class="prompt input_prompt">In [14]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">evaluation</span><span class="p">(</span><span class="n">parameters</span><span class="p">):</span>
+    <span class="c1"># put parameters into 1-D array</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="p">[</span><span class="n">parameters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">param</span><span class="p">[</span><span class="s2">"name"</span><span class="p">])</span> <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">experiment_parameters</span><span class="p">]</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">branin_augment</span><span class="p">(</span><span class="n">x_vec</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">augment_dim</span><span class="o">=</span><span class="n">aug_dim</span><span class="p">)</span>
+    <span class="n">eval_res</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="c1"># flip the sign to maximize</span>
+        <span class="s2">"objective"</span><span class="p">:</span> <span class="p">(</span><span class="n">res</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">eval_res</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=55cf8895"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Run-optimization-loop">Run optimization loop<a class="anchor-link" href="#Run-optimization-loop">¶</a></h2><p>Running only 1 BO trial for demonstration.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=57105cef">
+<div class="input">
+<div class="prompt input_prompt">In [15]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N_INIT</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>    
+    <span class="n">parameters</span><span class="p">,</span> <span class="n">trial_index</span> <span class="o">=</span> <span class="n">ax_client</span><span class="o">.</span><span class="n">get_next_trial</span><span class="p">()</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">evaluation</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
+    <span class="n">ax_client</span><span class="o">.</span><span class="n">complete_trial</span><span class="p">(</span><span class="n">trial_index</span><span class="o">=</span><span class="n">trial_index</span><span class="p">,</span> <span class="n">raw_data</span><span class="o">=</span><span class="n">res</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Generated new trial 0 with parameters {'x0': 0.881679, 'x1': 0.826638, 'x2': 0.986564, 'x3': 0.81516, 'x4': 0.792416, 'x5': 0.39537, 'x6': 0.740307, 'x7': 0.592027} using model Sobol.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Completed trial 0 with data: {'objective': (-122.091292, 0.0)}.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Generated new trial 1 with parameters {'x0': 0.371065, 'x1': 0.323459, 'x2': 0.035239, 'x3': 0.051864, 'x4': 0.180011, 'x5': 0.554758, 'x6': 0.235981, 'x7': 0.041931} using model Sobol.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Completed trial 1 with data: {'objective': (-18.188211, 0.0)}.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Generated new trial 2 with parameters {'x0': 0.239406, 'x1': 0.533247, 'x2': 0.526534, 'x3': 0.574398, 'x4': 0.489368, 'x5': 0.872681, 'x6': 0.931139, 'x7': 0.443124} using model Sobol.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Completed trial 2 with data: {'objective': (-11.79769, 0.0)}.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Generated new trial 3 with parameters {'x0': 0.507844, 'x1': 0.038366, 'x2': 0.45021, 'x3': 0.308153, 'x4': 0.599757, 'x5': 0.204504, 'x6': 0.436323, 'x7': 0.922919} using model Sobol.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Completed trial 3 with data: {'objective': (-6.280868, 0.0)}.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Generated new trial 4 with parameters {'x0': 0.701992, 'x1': 0.706183, 'x2': 0.248473, 'x3': 0.443206, 'x4': 0.648716, 'x5': 0.303333, 'x6': 0.756511, 'x7': 0.351583} using model Sobol.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Completed trial 4 with data: {'objective': (-106.182223, 0.0)}.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Generated new trial 5 with parameters {'x0': 0.050752, 'x1': 0.209364, 'x2': 0.789337, 'x3': 0.674276, 'x4': 0.26118, 'x5': 0.650716, 'x6': 0.251088, 'x7': 0.778163} using model Sobol.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Completed trial 5 with data: {'objective': (-147.865957, 0.0)}.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Generated new trial 6 with parameters {'x0': 0.434717, 'x1': 0.936829, 'x2': 0.272926, 'x3': 0.198488, 'x4': 0.068585, 'x5': 0.968655, 'x6': 0.572042, 'x7': 0.738262} using model Sobol.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Completed trial 6 with data: {'objective': (-113.99134, 0.0)}.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Generated new trial 7 with parameters {'x0': 0.812531, 'x1': 0.431713, 'x2': 0.688788, 'x3': 0.934459, 'x4': 0.958011, 'x5': 0.112483, 'x6': 0.076609, 'x7': 0.131991} using model Sobol.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Completed trial 7 with data: {'objective': (-43.402338, 0.0)}.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Generated new trial 8 with parameters {'x0': 0.75281, 'x1': 0.581945, 'x2': 0.336592, 'x3': 0.719839, 'x4': 0.211008, 'x5': 0.141474, 'x6': 0.823963, 'x7': 0.252559} using model Sobol.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Completed trial 8 with data: {'objective': (-77.801437, 0.0)}.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Generated new trial 9 with parameters {'x0': 0.499809, 'x1': 0.084639, 'x2': 0.639175, 'x3': 0.397214, 'x4': 0.8234, 'x5': 0.808682, 'x6': 0.324262, 'x7': 0.86553} using model Sobol.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:01] ax.service.ax_client: Completed trial 9 with data: {'objective': (-4.762565, 0.0)}.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:48] ax.service.ax_client: Generated new trial 10 with parameters {'x0': 1.0, 'x1': 0.0, 'x2': 0.0, 'x3': 0.0, 'x4': 0.0, 'x5': 0.0, 'x6': 0.0, 'x7': 0.0} using model BoTorch.
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 10-21 06:44:48] ax.service.ax_client: Completed trial 10 with data: {'objective': (-10.960889, 0.0)}.
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/latest/files/sebo.ipynb" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Jupyter Notebook</a></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/latest/files//sebo.py" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Source Code</a></div><div class="tutorialRuntime"><p>Total runtime of script: 14 minutes, 0.09 seconds.</p></div></div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/latest/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2024 Meta Platforms, Inc.</section></footer></div></body></html>
