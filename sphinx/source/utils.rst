@@ -60,9 +60,17 @@ Equality
     :show-inheritance:
 
 Executils
-~~~~~~~~~~~~~~~
+~~~~~~~~~
 
 .. automodule:: ax.utils.common.executils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+FuncEnum
+~~~~~~~~
+
+.. automodule:: ax.utils.common.func_enum
     :members:
     :undoc-members:
     :show-inheritance:
