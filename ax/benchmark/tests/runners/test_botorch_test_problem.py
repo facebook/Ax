@@ -116,7 +116,6 @@ class TestSyntheticRunner(TestCase):
                     ),
                 )
                 self.assertEqual(runner, runner)
-                self.assertEqual(runner._is_moo, num_objectives > 1)
                 if issubclass(test_problem_class, BaseTestProblem):
                     self.assertEqual(
                         runner.test_problem.dim, test_problem_kwargs["dim"]

@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -221,18 +222,9 @@ def get_aggregated_benchmark_result() -> AggregatedBenchmarkResult:
     return AggregatedBenchmarkResult.from_benchmark_results([result, result])
 
 
+@dataclass(kw_only=True)
 class TestParamBasedTestProblem(ParamBasedTestProblem):
-    optimal_value: float = 0.0
-
-    def __init__(
-        self,
-        num_objectives: int,
-        noise_std: float | list[float] | None = None,
-        dim: int = 6,
-    ) -> None:
-        self.num_objectives = num_objectives
-        self.noise_std = noise_std
-        self.dim = dim
+    dim: int = 6
 
     # pyre-fixme[14]: Inconsistent override, as dict[str, float] is not a
     # `TParameterization`
