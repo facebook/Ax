@@ -19,7 +19,6 @@ from unittest.mock import call, Mock, patch, PropertyMock
 
 import pandas as pd
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
-
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
@@ -66,7 +65,6 @@ from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.save import save_experiment
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.structs import DBSettings
-
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
@@ -83,14 +81,13 @@ from ax.utils.testing.core_stubs import (
     get_branin_multi_objective_optimization_config,
     get_branin_search_space,
     get_generator_run,
-    get_online_sobol_gpei_generation_strategy,
+    get_online_sobol_mbm_generation_strategy,
     get_sobol,
     SpecialGenerationStrategy,
 )
 from ax.utils.testing.mock import fast_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_generation_strategy
 from pyre_extensions import none_throws
-
 from sqlalchemy.orm.exc import StaleDataError
 
 DUMMY_EXCEPTION = "test_exception"
@@ -346,7 +343,7 @@ class AxSchedulerTestCase(TestCase):
             ),
             name="branin_experiment_no_impl_runner_or_metrics",
         )
-        self.sobol_GPEI_GS = choose_generation_strategy(
+        self.sobol_MBM_GS = choose_generation_strategy(
             search_space=get_branin_search_space()
         )
         self.two_sobol_steps_GS = GenerationStrategy(  # Contrived GS to ensure
@@ -439,7 +436,7 @@ class AxSchedulerTestCase(TestCase):
                 experiment=self.branin_experiment_no_impl_runner_or_metrics,
                 generation_strategy=self._get_generation_strategy_strategy_for_test(
                     experiment=self.branin_experiment_no_impl_runner_or_metrics,
-                    generation_strategy=self.sobol_GPEI_GS,
+                    generation_strategy=self.sobol_MBM_GS,
                 ),
                 options=SchedulerOptions(
                     total_trials=10, **self.scheduler_options_kwargs
@@ -451,7 +448,7 @@ class AxSchedulerTestCase(TestCase):
         self.branin_experiment_no_impl_runner_or_metrics.runner = self.runner
         generation_strategy = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment_no_impl_runner_or_metrics,
-            generation_strategy=self.sobol_GPEI_GS,
+            generation_strategy=self.sobol_MBM_GS,
         )
         with self.assertRaisesRegex(
             UnsupportedError,
@@ -483,7 +480,7 @@ class AxSchedulerTestCase(TestCase):
     def test_init_with_branin_experiment(self) -> None:
         rgs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
-            generation_strategy=self.sobol_GPEI_GS,
+            generation_strategy=self.sobol_MBM_GS,
         )
         scheduler = Scheduler(
             experiment=self.branin_experiment,
@@ -514,7 +511,7 @@ class AxSchedulerTestCase(TestCase):
     def test_repr(self) -> None:
         branin_gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
-            generation_strategy=self.sobol_GPEI_GS,
+            generation_strategy=self.sobol_MBM_GS,
         )
         scheduler = Scheduler(
             experiment=self.branin_experiment,
@@ -536,7 +533,7 @@ class AxSchedulerTestCase(TestCase):
     def test_validate_early_stopping_strategy(self) -> None:
         branin_gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
-            generation_strategy=self.sobol_GPEI_GS,
+            generation_strategy=self.sobol_MBM_GS,
         )
         with patch(
             f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
@@ -566,7 +563,7 @@ class AxSchedulerTestCase(TestCase):
     def test_run_multi_arm_generator_run_error(self) -> None:
         branin_gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
-            generation_strategy=self.sobol_GPEI_GS,
+            generation_strategy=self.sobol_MBM_GS,
         )
         with patch.object(
             type(branin_gs),
@@ -992,7 +989,7 @@ class AxSchedulerTestCase(TestCase):
     def test_logging(self) -> None:
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
-            generation_strategy=self.sobol_GPEI_GS,
+            generation_strategy=self.sobol_MBM_GS,
         )
         with NamedTemporaryFile() as temp_file:
             Scheduler(
@@ -1013,7 +1010,7 @@ class AxSchedulerTestCase(TestCase):
     def test_logging_level(self) -> None:
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
-            generation_strategy=self.sobol_GPEI_GS,
+            generation_strategy=self.sobol_MBM_GS,
         )
         # We don't have any warnings yet, so warning level of logging shouldn't yield
         # any logs as of now.
@@ -1660,7 +1657,7 @@ class AxSchedulerTestCase(TestCase):
         # With runners & metrics, `BareBonesTestScheduler.run_all_trials` should run.
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
-            generation_strategy=self.sobol_GPEI_GS,
+            generation_strategy=self.sobol_MBM_GS,
         )
         scheduler = TestScheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
@@ -1754,7 +1751,7 @@ class AxSchedulerTestCase(TestCase):
 
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
-            generation_strategy=self.sobol_GPEI_GS,
+            generation_strategy=self.sobol_MBM_GS,
         )
 
         scheduler = Scheduler(
@@ -1991,7 +1988,7 @@ class AxSchedulerTestCase(TestCase):
         # Tests non-GSS parts of the completion criterion.
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
-            generation_strategy=self.sobol_GPEI_GS,
+            generation_strategy=self.sobol_MBM_GS,
         )
         scheduler = Scheduler(
             experiment=self.branin_experiment,
@@ -2038,7 +2035,7 @@ class AxSchedulerTestCase(TestCase):
                 GenerationStep(
                     model=Models.SOBOL, num_trials=NUM_SOBOL, max_parallelism=NUM_SOBOL
                 ),
-                GenerationStep(model=Models.GPEI, num_trials=-1),
+                GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=-1),
             ]
         )
         gs = self._get_generation_strategy_strategy_for_test(
@@ -2112,13 +2109,13 @@ class AxSchedulerTestCase(TestCase):
             # Tests standard GS creation.
             scheduler = Scheduler(
                 experiment=self.branin_experiment,
-                generation_strategy=self.sobol_GPEI_GS,
+                generation_strategy=self.sobol_MBM_GS,
                 options=SchedulerOptions(
                     **self.scheduler_options_kwargs,
                 ),
                 db_settings=self.db_settings_if_always_needed,
             )
-            self.assertEqual(scheduler.standard_generation_strategy, self.sobol_GPEI_GS)
+            self.assertEqual(scheduler.standard_generation_strategy, self.sobol_MBM_GS)
 
         with self.subTest("with a `SpecialGenerationStrategy`"):
             scheduler = Scheduler(
@@ -2175,7 +2172,7 @@ class AxSchedulerTestCase(TestCase):
 
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
-            generation_strategy=self.sobol_GPEI_GS,
+            generation_strategy=self.sobol_MBM_GS,
         )
 
         scheduler = Scheduler(
@@ -2346,7 +2343,7 @@ class AxSchedulerTestCase(TestCase):
                         num_trials=1,
                     ),
                     GenerationStep(
-                        model=Models.GPEI,
+                        model=Models.BOTORCH_MODULAR,
                         num_trials=1,
                     ),
                     GenerationStep(
@@ -2394,7 +2391,7 @@ class AxSchedulerTestCase(TestCase):
             experiment=experiment,
             generation_strategy=self._get_generation_strategy_strategy_for_test(
                 experiment=experiment,
-                generation_strategy=self.sobol_GPEI_GS,
+                generation_strategy=self.sobol_MBM_GS,
             ),
             options=SchedulerOptions(
                 total_trials=10,
@@ -2415,10 +2412,10 @@ class AxSchedulerTestCase(TestCase):
 
     def test_generate_candidates_works_for_sobol(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
-        # GIVEN a scheduler using a GS with GPEI
+        # GIVEN a scheduler using a GS with MBM.
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
-            generation_strategy=get_online_sobol_gpei_generation_strategy(),
+            generation_strategy=get_online_sobol_mbm_generation_strategy(),
         )
 
         # this is a HITL experiment, so we don't want trials completing on their own.
@@ -2468,7 +2465,7 @@ class AxSchedulerTestCase(TestCase):
         self.branin_experiment.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
-            generation_strategy=get_online_sobol_gpei_generation_strategy(),
+            generation_strategy=get_online_sobol_mbm_generation_strategy(),
         )
         # this is a HITL experiment, so we don't want trials completing on their own.
         self.branin_experiment.runner = InfinitePollRunner()
@@ -2504,10 +2501,10 @@ class AxSchedulerTestCase(TestCase):
 
     @fast_botorch_optimize
     def test_generate_candidates_works_for_iteration(self) -> None:
-        # GIVEN a scheduler using a GS with GPEI
+        # GIVEN a scheduler using a GS with MBM.
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
-            generation_strategy=get_online_sobol_gpei_generation_strategy(),
+            generation_strategy=get_online_sobol_mbm_generation_strategy(),
         )
 
         # this is a HITL experiment, so we don't want trials completing on their own.
@@ -2530,7 +2527,7 @@ class AxSchedulerTestCase(TestCase):
         # WHEN generating candidates
         scheduler.generate_candidates(num_trials=1)
 
-        # THEN the experiment should have a GPEI generated trial
+        # THEN the experiment should have a MBM generated trial.
         self.assertFalse(scheduler.experiment.lookup_data().df.empty)
         self.assertEqual(
             len(scheduler.experiment.trials), 2, str(scheduler.experiment.trials)
@@ -2548,9 +2545,9 @@ class AxSchedulerTestCase(TestCase):
         self.assertEqual(len(candidate_trial.generator_runs), 1)
         self.assertEqual(
             candidate_trial.generator_runs[0]._model_key,
-            Models.GPEI.value,
+            Models.BOTORCH_MODULAR.value,
         )
-        # GPEI may generate less than the requested batch size
+        # MBM may generate less than the requested batch size.
         self.assertLessEqual(
             len(candidate_trial.arms), none_throws(scheduler.options.batch_size)
         )
@@ -2565,7 +2562,7 @@ class AxSchedulerTestCase(TestCase):
         )
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
-            generation_strategy=get_online_sobol_gpei_generation_strategy(),
+            generation_strategy=get_online_sobol_mbm_generation_strategy(),
         )
         self.branin_experiment.runner = InfinitePollRunner()
         scheduler = Scheduler(
@@ -2594,7 +2591,7 @@ class AxSchedulerTestCase(TestCase):
         self.assertEqual(len(scheduler.experiment.trials), 1)
 
     def test_generate_candidates_does_not_generate_if_missing_opt_config(self) -> None:
-        # GIVEN a scheduler using a GS with GPEI
+        # GIVEN a scheduler using a GS with MBM.
         self.branin_experiment._optimization_config = None
         # this is a HITL experiment, so we don't want trials completing on their own.
         self.branin_experiment.runner = InfinitePollRunner()
@@ -2602,7 +2599,7 @@ class AxSchedulerTestCase(TestCase):
             self.branin_experiment.add_tracking_metric(get_branin_metric())
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
-            generation_strategy=get_online_sobol_gpei_generation_strategy(),
+            generation_strategy=get_online_sobol_mbm_generation_strategy(),
         )
         scheduler = Scheduler(
             experiment=self.branin_experiment,
