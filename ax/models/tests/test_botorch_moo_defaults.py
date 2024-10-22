@@ -13,6 +13,7 @@ from unittest import mock
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
+from ax.models.torch.botorch_defaults import NO_OBSERVED_POINTS_MESSAGE
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.botorch_moo_defaults import (
     get_outcome_constraint_transforms,
@@ -234,9 +235,7 @@ class BotorchMOODefaultsTest(TestCase):
         weights = torch.ones(2)
         objective_thresholds = torch.zeros(2)
         mm = MockModel(MockPosterior())
-        with self.assertRaisesRegex(
-            ValueError, "There are no feasible observed points."
-        ):
+        with self.assertRaisesRegex(ValueError, NO_OBSERVED_POINTS_MESSAGE):
             get_qLogEHVI(
                 model=mm,
                 objective_weights=weights,
@@ -261,9 +260,7 @@ class BotorchMOODefaultsTest(TestCase):
         model = MultiObjectiveBotorchModel()
         weights = torch.ones(2)
         objective_thresholds = torch.zeros(2)
-        with self.assertRaisesRegex(
-            ValueError, "There are no feasible observed points."
-        ):
+        with self.assertRaisesRegex(ValueError, NO_OBSERVED_POINTS_MESSAGE):
             get_qLogNEHVI(
                 # pyre-fixme[6]: For 1st param expected `Model` but got
                 #  `Optional[Model]`.

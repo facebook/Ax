@@ -18,7 +18,7 @@ from ax.models.torch.botorch_defaults import (
     _get_model,
     get_and_fit_model,
     get_warping_transform,
-    NO_FEASIBLE_POINTS_MESSAGE,
+    NO_OBSERVED_POINTS_MESSAGE,
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -399,7 +399,7 @@ class BotorchDefaultsTest(TestCase):
             for acqf_con, exp_con in zip(acqf_constraints, expected_constraints):
                 self.assertTrue(torch.allclose(acqf_con(samples), exp_con(samples)))
 
-            with self.assertRaisesRegex(ValueError, NO_FEASIBLE_POINTS_MESSAGE):
+            with self.assertRaisesRegex(ValueError, NO_OBSERVED_POINTS_MESSAGE):
                 _get_acquisition_func(
                     model=model,
                     acquisition_function_name=acqf_name,

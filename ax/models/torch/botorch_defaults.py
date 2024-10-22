@@ -50,9 +50,9 @@ from torch import Tensor
 
 
 MIN_OBSERVED_NOISE_LEVEL = 1e-6
-NO_FEASIBLE_POINTS_MESSAGE = (
-    "There are no feasible observed points.  This likely means that one "
-    "or more outcome constraints or objective thresholds is set too strictly.  "
+NO_OBSERVED_POINTS_MESSAGE = (
+    "There are no observed points meeting all parameter "
+    "constraints or have all necessary metrics attached."
 )
 
 
@@ -402,7 +402,7 @@ def _get_acquisition_func(
         raise NotImplementedError(f"{acquisition_function_name=} not implemented yet.")
 
     if X_observed is None:
-        raise ValueError(NO_FEASIBLE_POINTS_MESSAGE)
+        raise ValueError(NO_OBSERVED_POINTS_MESSAGE)
     # construct Objective module
     if chebyshev_scalarization:
         with torch.no_grad():
