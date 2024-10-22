@@ -33,7 +33,7 @@ from typing import cast, Optional, Union
 
 import torch
 from ax.exceptions.core import AxError
-from ax.models.torch.botorch_defaults import NO_FEASIBLE_POINTS_MESSAGE
+from ax.models.torch.botorch_defaults import NO_OBSERVED_POINTS_MESSAGE
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
     get_outcome_constraint_transforms,
@@ -80,6 +80,12 @@ TFrontierEvaluator = Callable[
     ],
     tuple[Tensor, Tensor, Tensor],
 ]
+
+NO_FEASIBLE_POINTS_MESSAGE = (
+    " Cannot infer objective thresholds due to no observed feasible points. "
+    " This likely means that one or more outcome constraints is set too strictly.  "
+    " Consider adding thresholds to your objectives to bypass this error."
+)
 
 
 def get_weighted_mc_objective_and_objective_thresholds(
@@ -262,7 +268,7 @@ def _get_NEHVI(
     seed: int | None = None,
 ) -> qNoisyExpectedHypervolumeImprovement | qLogNoisyExpectedHypervolumeImprovement:
     if X_observed is None:
-        raise ValueError(NO_FEASIBLE_POINTS_MESSAGE)
+        raise ValueError(NO_OBSERVED_POINTS_MESSAGE)
     # construct Objective module
     (
         objective,
@@ -439,7 +445,7 @@ def _get_EHVI(
     seed: int | None = None,
 ) -> qExpectedHypervolumeImprovement | qLogExpectedHypervolumeImprovement:
     if X_observed is None:
-        raise ValueError(NO_FEASIBLE_POINTS_MESSAGE)
+        raise ValueError(NO_OBSERVED_POINTS_MESSAGE)
     # construct Objective module
     (
         objective,
