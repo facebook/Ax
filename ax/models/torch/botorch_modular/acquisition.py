@@ -22,7 +22,6 @@ from ax.exceptions.core import AxWarning, SearchSpaceExhausted, UnsupportedError
 from ax.models.model_utils import enumerate_discrete_combinations, mk_discrete_choices
 from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.models.torch.botorch_modular.surrogate import Surrogate
-from ax.models.torch.botorch_modular.utils import get_post_processing_func
 from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
@@ -74,10 +73,8 @@ class Acquisition(Base):
             about the search space (e.g. bounds, parameter types).
         torch_opt_config: A TorchOptConfig object containing optimization
             arguments (e.g., objective weights, constraints).
-        botorch_acqf_class: Type of BoTorch `AcquistitionFunction` that
-            should be used. Subclasses of `Acquisition` often specify
-            these via `default_botorch_acqf_class` attribute, in which
-            case specifying one here is not required.
+        botorch_acqf_class: Type of BoTorch `AcquisitionFunction` that
+            should be used.
         options: Optional mapping of kwargs to the underlying `Acquisition
             Function` in BoTorch.
     """
@@ -316,22 +313,13 @@ class Acquisition(Base):
             candidates, a tensor with the associated acquisition values, and a tensor
             with the weight for each candidate.
         """
-        # NOTE: Could make use of `optimizer_class` when it's added to BoTorch
-        # instead of calling `optimizer_acqf` or `optimize_acqf_discrete` etc.
         _tensorize = partial(torch.tensor, dtype=self.dtype, device=self.device)
         ssd = search_space_digest
         bounds = _tensorize(ssd.bounds).t()
         discrete_features = sorted(ssd.ordinal_features + ssd.categorical_features)
         discrete_choices = mk_discrete_choices(ssd=ssd, fixed_features=fixed_features)
-        if (
-            optimizer_options is not None
-            and "force_use_optimize_acqf" in optimizer_options
-        ):
-            force_use_optimize_acqf = optimizer_options.pop("force_use_optimize_acqf")
-        else:
-            force_use_optimize_acqf = False
 
-        if (len(discrete_features) == 0) or force_use_optimize_acqf:
+        if len(discrete_features) == 0:
             optimizer = "optimize_acqf"
         else:
             fully_discrete = len(discrete_choices) == len(ssd.feature_names)
@@ -359,10 +347,6 @@ class Acquisition(Base):
             optimizer_options=optimizer_options,
             optimizer=optimizer,
         )
-        post_processing_func = get_post_processing_func(
-            rounding_func=rounding_func,
-            optimizer_options=optimizer_options_with_defaults,
-        )
         if fixed_features is not None:
             for i in fixed_features:
                 if not 0 <= i < len(ssd.feature_names):
@@ -378,7 +362,7 @@ class Acquisition(Base):
                 q=n,
                 inequality_constraints=inequality_constraints,
                 fixed_features=fixed_features,
-                post_processing_func=post_processing_func,
+                post_processing_func=rounding_func,
                 **optimizer_options_with_defaults,
             )
             return candidates, acqf_values, arm_weights
@@ -472,7 +456,7 @@ class Acquisition(Base):
                 discrete_choices=discrete_choices
             ),
             inequality_constraints=inequality_constraints,
-            post_processing_func=post_processing_func,
+            post_processing_func=rounding_func,
             **optimizer_options_with_defaults,
         )
         return candidates, acqf_values, arm_weights
