@@ -28,9 +28,6 @@ class ParamBasedTestProblem(ABC):
     """
 
     num_objectives: int
-    constraint_noise_std: float | list[float] | None = None
-    noise_std: float | list[float] | None = None
-    negate: bool = False
 
     @abstractmethod
     def evaluate_true(self, params: Mapping[str, TParamValue]) -> Tensor:
@@ -74,19 +71,22 @@ class SyntheticProblemRunner(BenchmarkRunner, ABC):
 
     test_problem: BaseTestProblem | ParamBasedTestProblem
     modified_bounds: list[tuple[float, float]] | None = None
+    constraint_noise_std: float | list[float] | None = None
+    noise_std: float | list[float] | None = None
+    negate: bool = False
 
     @property
     def _is_constrained(self) -> bool:
         return isinstance(self.test_problem, ConstrainedBaseTestProblem)
 
     def get_noise_stds(self) -> None | float | dict[str, float]:
-        noise_std = self.test_problem.noise_std
+        noise_std = self.noise_std
         noise_std_dict: dict[str, float] = {}
         num_obj = self.test_problem.num_objectives
 
         # populate any noise_stds for constraints
         if self._is_constrained:
-            constraint_noise_std = self.test_problem.constraint_noise_std
+            constraint_noise_std = self.constraint_noise_std
             if isinstance(constraint_noise_std, list):
                 for i, cns in enumerate(constraint_noise_std, start=num_obj):
                     if cns is not None:
@@ -141,6 +141,22 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
 
     def __post_init__(self, search_space_digest: SearchSpaceDigest | None) -> None:
         super().__post_init__(search_space_digest=search_space_digest)
+        if self.test_problem.noise_std is not None:
+            raise ValueError(
+                "noise_std should be set on the runner, not the test problem."
+            )
+        if (
+            hasattr(self.test_problem, "constraint_noise_std")
+            and self.test_problem.constraint_noise_std is not None
+        ):
+            raise ValueError(
+                "constraint_noise_std should be set on the runner, not the test "
+                "problem."
+            )
+        if self.test_problem.negate:
+            raise ValueError(
+                "negate should be set on the runner, not the test problem."
+            )
         self.test_problem = self.test_problem.to(dtype=torch.double)
 
     def get_Y_true(self, params: Mapping[str, TParamValue]) -> Tensor:
@@ -174,7 +190,7 @@ class BotorchTestProblemRunner(SyntheticProblemRunner):
 
         Y_true = self.test_problem.evaluate_true(X).view(-1)
         # `BaseTestProblem.evaluate_true()` does not negate the outcome
-        if self.test_problem.negate:
+        if self.negate:
             Y_true = -Y_true
 
         if self._is_constrained:
@@ -228,6 +244,6 @@ class ParamBasedTestProblemRunner(SyntheticProblemRunner):
         """
         Y_true = self.test_problem.evaluate_true(params).view(-1)
         # `ParamBasedTestProblem.evaluate_true()` does not negate the outcome
-        if self.test_problem.negate:
+        if self.negate:
             Y_true = -Y_true
         return Y_true
