@@ -31,11 +31,35 @@ from botorch.utils.transforms import normalize
 
 
 class TestSyntheticRunner(TestCase):
+    def test_runner_raises_for_botorch_attrs(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError, "noise_std should be set on the runner, not the test problem."
+        ):
+            BotorchTestProblemRunner(
+                test_problem=Hartmann(dim=6, noise_std=0.1),
+                outcome_names=["objective"],
+            )
+        with self.assertRaisesRegex(
+            ValueError,
+            "constraint_noise_std should be set on the runner, not the test problem.",
+        ):
+            BotorchTestProblemRunner(
+                test_problem=ConstrainedHartmann(dim=6, constraint_noise_std=0.1),
+                outcome_names=["objective", "constraint"],
+            )
+        with self.assertRaisesRegex(
+            ValueError, "negate should be set on the runner, not the test problem."
+        ):
+            BotorchTestProblemRunner(
+                test_problem=Hartmann(dim=6, negate=True),
+                outcome_names=["objective"],
+            )
+
     def test_synthetic_runner(self) -> None:
         botorch_cases = [
             (
                 BotorchTestProblemRunner,
-                test_problem_class(dim=6, noise_std=noise_std),
+                test_problem_class(dim=6),
                 modified_bounds,
                 noise_std,
             )
@@ -48,9 +72,7 @@ class TestSyntheticRunner(TestCase):
         param_based_cases = [
             (
                 ParamBasedTestProblemRunner,
-                TestParamBasedTestProblem(
-                    num_objectives=num_objectives, dim=6, noise_std=noise_std
-                ),
+                TestParamBasedTestProblem(num_objectives=num_objectives, dim=6),
                 None,
                 noise_std,
             )
@@ -76,6 +98,7 @@ class TestSyntheticRunner(TestCase):
                 test_problem=test_problem,
                 outcome_names=outcome_names,
                 modified_bounds=modified_bounds,
+                noise_std=noise_std,
             )
 
             test_description: str = (
@@ -168,9 +191,9 @@ class TestSyntheticRunner(TestCase):
 
     def test_botorch_test_problem_runner_heterogeneous_noise(self) -> None:
         runner = BotorchTestProblemRunner(
-            test_problem=ConstrainedHartmann(
-                dim=6, noise_std=0.1, constraint_noise_std=0.05
-            ),
+            test_problem=ConstrainedHartmann(dim=6),
+            noise_std=0.1,
+            constraint_noise_std=0.05,
             outcome_names=["objective", "constraint"],
         )
         self.assertDictEqual(
