@@ -14,7 +14,7 @@ from logging import WARNING
 from math import ceil
 from random import randint
 from tempfile import NamedTemporaryFile
-from typing import Any, Callable, cast, Dict, List, Optional, Tuple
+from typing import Any, Callable, cast, Optional
 from unittest.mock import call, Mock, patch, PropertyMock
 
 import pandas as pd
@@ -283,22 +283,22 @@ class AxSchedulerTestCase(TestCase):
     # TODO[@mgarrard]: Change this to `str(GenerationStrategy.__module__)`
     # once we are no longer splitting which `GS.gen` to call into based on
     # `Trial` vs. `BatchTrial`
-    PENDING_FEATURES_EXTRACTOR: Tuple[  # pyre-ignore[8]
+    PENDING_FEATURES_EXTRACTOR: tuple[  # pyre-ignore[8]
         str,
         Callable[
             [...],
-            Optional[Dict[str, List[ObservationFeatures]]],
+            Optional[dict[str, list[ObservationFeatures]]],
         ],
     ] = (
         f"{Scheduler.__module__}."
         + "get_pending_observation_features_based_on_trial_status",
         get_pending_observation_features_based_on_trial_status,
     )
-    PENDING_FEATURES_BATCH_EXTRACTOR: Tuple[  # pyre-ignore[8]
+    PENDING_FEATURES_BATCH_EXTRACTOR: tuple[  # pyre-ignore[8]
         str,
         Callable[
             [...],
-            Optional[Dict[str, List[ObservationFeatures]]],
+            Optional[dict[str, list[ObservationFeatures]]],
         ],
     ] = (
         f"{GenerationStrategy.__module__}.extract_pending_observations",

@@ -5,7 +5,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Union
+from typing import Optional, Union
 
 from ax.core.types import TParamValue
 
@@ -62,9 +62,9 @@ class ParameterConfig:
     scaling: Optional[ParameterScaling] = None
 
     # Fields for CHOICE ("FIXED" is Choice with len(values) == 1)
-    values: Optional[Union[List[float], List[str], List[bool]]] = None
+    values: Optional[Union[list[float], list[str], list[bool]]] = None
     is_ordered: Optional[bool] = None
-    dependent_parameters: Optional[Dict[TParamValue, str]] = None
+    dependent_parameters: Optional[dict[TParamValue, str]] = None
 
 
 @dataclass
@@ -79,10 +79,10 @@ class ExperimentConfig:
     """
 
     name: str
-    parameters: List[ParameterConfig]
+    parameters: list[ParameterConfig]
     # Parameter constraints will be parsed via SymPy
     # Ex: "num_layers1 <= num_layers2", "compound_a + compound_b <= 1"
-    parameter_constraints: List[str] = field(default_factory=list)
+    parameter_constraints: list[str] = field(default_factory=list)
 
     description: str | None = None
     owner: str | None = None

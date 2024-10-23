@@ -8,8 +8,8 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from collections.abc import Collection
 from logging import Logger
-from typing import Collection
 
 from ax import modelbridge
 

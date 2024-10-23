@@ -10,7 +10,7 @@ from collections.abc import Callable
 from logging import Logger
 from queue import Queue
 from threading import Event, Lock, Thread
-from typing import Any, Tuple
+from typing import Any
 
 from ax.core.types import TEvaluationOutcome, TParameterization
 
@@ -155,7 +155,7 @@ def interactive_optimize_with_client(
 
 
 def ax_client_candidate_generator(
-    queue: "Queue[Tuple[TParameterization, int]]",
+    queue: Queue[tuple[TParameterization, int]],
     stop_event: Event,
     num_trials: int,
     ax_client: AxClient,
@@ -188,7 +188,7 @@ def ax_client_candidate_generator(
 
 
 def ax_client_data_attacher(
-    queue: "Queue[Tuple[int, TEvaluationOutcome]]",
+    queue: Queue[tuple[int, TEvaluationOutcome]],
     stop_event: Event,
     ax_client: AxClient,
     lock: Lock,
