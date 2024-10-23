@@ -45,7 +45,6 @@ from ax.modelbridge.transforms.ivw import IVW
 from ax.modelbridge.transforms.log import Log
 from ax.modelbridge.transforms.logit import Logit
 from ax.modelbridge.transforms.one_hot import OneHot
-from ax.modelbridge.transforms.relativize import Relativize
 from ax.modelbridge.transforms.remove_fixed import RemoveFixed
 from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.modelbridge.transforms.standardize_y import StandardizeY
@@ -99,8 +98,6 @@ Mixed_transforms: list[type[Transform]] = [
     Logit,
     UnitX,
 ]
-
-EB_ashr_trans: list[type[Transform]] = [Relativize, IVW, SearchSpaceToChoice]
 
 Y_trans: list[type[Transform]] = [IVW, Derelativize, StandardizeY]
 
