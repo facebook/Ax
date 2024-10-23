@@ -50,6 +50,7 @@ from ax.exceptions.core import (
     OptimizationShouldStop,
     UnsupportedError,
     UnsupportedPlotError,
+    UserInputError,
 )
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
@@ -1118,6 +1119,11 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         )
         logger.info(f"Loaded {experiment}.")
         if generation_strategy is None:
+            if choose_generation_strategy_kwargs is None:
+                raise UserInputError(
+                    f"No generation strategy was found for {experiment}. Please "
+                    "pass `choose_generation_strategy_kwargs` to load it with one."
+                )
             self._set_generation_strategy(
                 choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
             )
