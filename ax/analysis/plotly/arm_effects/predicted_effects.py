@@ -127,20 +127,21 @@ class PredictedEffectsPlot(PlotlyAnalysis):
             df=df, metric_name=self.metric_name, outcome_constraints=outcome_constraints
         )
 
-        if (
-            experiment.optimization_config is None
-            or self.metric_name not in experiment.optimization_config.metrics
-        ):
-            level = AnalysisCardLevel.LOW
-        elif self.metric_name in experiment.optimization_config.objective.metric_names:
-            level = AnalysisCardLevel.HIGH
-        else:
-            level = AnalysisCardLevel.MID
+        level = AnalysisCardLevel.HIGH
+        nudge = -2
+        if experiment.optimization_config is not None:
+            if (
+                self.metric_name
+                in experiment.optimization_config.objective.metric_names
+            ):
+                nudge = 0
+            elif self.metric_name in experiment.optimization_config.metrics:
+                nudge = -1
 
         return self._create_plotly_analysis_card(
             title=f"Predicted Effects for {self.metric_name}",
             subtitle="View a candidate trial and its arms' predicted metric values",
-            level=level,
+            level=level + nudge,
             df=df,
             fig=fig,
         )
