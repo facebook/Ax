@@ -35,7 +35,11 @@ from ax.core.parameter import (
     RangeParameter,
     TParameterType,
 )
-from ax.core.parameter_constraint import OrderConstraint, ParameterConstraint
+from ax.core.parameter_constraint import (
+    OrderConstraint,
+    ParameterConstraint,
+    validate_constraint_parameters,
+)
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.types import ComparisonOp, TParameterization, TParamValue
 from ax.exceptions.core import UnsupportedError
@@ -403,6 +407,9 @@ class InstantiationBase:
             assert (
                 right in parameter_names
             ), f"Parameter {right} not in {parameter_names}."
+            validate_constraint_parameters(
+                parameters=[parameters[left], parameters[right]]
+            )
             return (
                 OrderConstraint(
                     lower_parameter=parameters[left], upper_parameter=parameters[right]
@@ -451,9 +458,12 @@ class InstantiationBase:
                         multiplier = -1.0
                     else:
                         multiplier = 1.0
+
                 assert (
                     parameter in parameter_names
                 ), f"Parameter {parameter} not in {parameter_names}."
+                validate_constraint_parameters(parameters=[parameters[parameter]])
+
                 parameter_weight[parameter] = operator_sign * multiplier
             # for operators
             else:
