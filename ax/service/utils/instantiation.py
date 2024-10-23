@@ -18,6 +18,7 @@ from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.experiment import DataType, Experiment
 from ax.core.metric import Metric
+from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
@@ -789,6 +790,7 @@ class InstantiationBase:
         immutable_search_space_and_opt_config: bool = True,
         auxiliary_experiments_by_purpose: None
         | (dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]) = None,
+        default_trial_type: str | None = None,
         is_test: bool = False,
     ) -> Experiment:
         """Instantiation wrapper that allows for Ax `Experiment` creation
@@ -844,6 +846,10 @@ class InstantiationBase:
                 improve storage performance.
             auxiliary_experiments_by_purpose: Dictionary of auxiliary experiments for
                 different use cases (e.g., transfer learning).
+            default_trial_type: The default trial type if multiple
+                trial types are intended to be used in the experiment. If not specified,
+                experiemnt of Experiment type will be created. If specified, experiment
+                of MultiTypeExperiment type will be created.
             is_test: Whether this experiment will be a test experiment (useful for
                 marking test experiments in storage etc). Defaults to False.
 
@@ -886,6 +892,20 @@ class InstantiationBase:
 
         if owners is not None:
             properties["owners"] = owners
+        if default_trial_type is not None:
+            return MultiTypeExperiment(
+                name=not_none(name),
+                search_space=cls.make_search_space(parameters, parameter_constraints),
+                default_trial_type=not_none(default_trial_type),
+                optimization_config=optimization_config,
+                tracking_metrics=tracking_metrics,
+                status_quo=status_quo_arm,
+                description=description,
+                is_test=is_test,
+                experiment_type=experiment_type,
+                properties=properties,
+                default_data_type=default_data_type,
+            )
 
         return Experiment(
             name=name,

@@ -324,3 +324,12 @@ class TestInstantiationtUtils(TestCase):
         self.assertIsInstance(search_space, HierarchicalSearchSpace)
         # pyre-fixme[16]: `SearchSpace` has no attribute `_root`.
         self.assertEqual(search_space._root.name, "root")
+
+    def test_make_multitype_experiment_with_default_trial_type(self) -> None:
+        experiment = InstantiationBase.make_experiment(
+            name="test_make_experiment",
+            parameters=[{"name": "x", "type": "range", "bounds": [0, 1]}],
+            tracking_metric_names=None,
+            default_trial_type="test_trial_type",
+        )
+        self.assertEqual(experiment.__class__.__name__, "MultiTypeExperiment")

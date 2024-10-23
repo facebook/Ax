@@ -47,8 +47,9 @@ class MultiTypeExperiment(Experiment):
         name: str,
         search_space: SearchSpace,
         default_trial_type: str,
-        default_runner: Runner,
+        default_runner: Runner | None = None,
         optimization_config: OptimizationConfig | None = None,
+        tracking_metrics: list[Metric] | None = None,
         status_quo: Arm | None = None,
         description: str | None = None,
         is_test: bool = False,
@@ -65,6 +66,7 @@ class MultiTypeExperiment(Experiment):
             default_runner: Default runner for trials of the default type.
             optimization_config: Optimization config of the experiment.
             tracking_metrics: Additional tracking metrics not used for optimization.
+                These are associated with the default trial type.
             runner: Default runner used for trials on this experiment.
             status_quo: Arm representing existing "control" arm.
             description: Description of the experiment.
@@ -77,7 +79,7 @@ class MultiTypeExperiment(Experiment):
         self._default_trial_type = default_trial_type
 
         # Map from trial type to default runner of that type
-        self._trial_type_to_runner: dict[str, Runner] = {
+        self._trial_type_to_runner: dict[str, Runner | None] = {
             default_trial_type: default_runner
         }
 
@@ -101,6 +103,7 @@ class MultiTypeExperiment(Experiment):
             experiment_type=experiment_type,
             properties=properties,
             default_data_type=default_data_type,
+            tracking_metrics=tracking_metrics,
         )
 
     def add_trial_type(self, trial_type: str, runner: Runner) -> "MultiTypeExperiment":
@@ -161,6 +164,30 @@ class MultiTypeExperiment(Experiment):
         self._metric_to_trial_type[metric.name] = trial_type
         if canonical_name is not None:
             self._metric_to_canonical_name[metric.name] = canonical_name
+        return self
+
+    def add_tracking_metrics(
+        self, metrics: list[Metric], trial_type: str | None = None
+    ) -> Experiment:
+        """Add a list of new metrics to the experiment.
+
+        If any of the metrics are already defined on the experiment,
+        we raise an error and don't add any of them to the experiment
+
+        Args:
+            metrics: Metrics to be added.
+            trial_type: The trial type for which these metrics are used.
+                If provided, then all provided metrics will be added to
+                this trial type. If not provided, then the default trial type
+                will be used.
+
+        Returns:
+            The experiment with the added metrics.
+        """
+        if trial_type is None:
+            trial_type = self._default_trial_type
+        for metric in metrics:
+            self.add_tracking_metric(metric=metric, trial_type=trial_type)
         return self
 
     # pyre-fixme[14]: `update_tracking_metric` overrides method defined in
