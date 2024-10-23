@@ -841,7 +841,9 @@ def get_experiment_with_observations(
     return exp
 
 
-def get_high_dimensional_branin_experiment(with_batch: bool = False) -> Experiment:
+def get_high_dimensional_branin_experiment(
+    with_batch: bool = False, with_status_quo: bool = False
+) -> Experiment:
     search_space = SearchSpace(
         # pyre-fixme[6]: In call `SearchSpace.__init__`, for 1st parameter `parameters`
         # expected `List[Parameter]` but got `List[RangeParameter]`.
@@ -865,6 +867,7 @@ def get_high_dimensional_branin_experiment(with_batch: bool = False) -> Experime
         ],
     )
 
+    sq_parameters = {f"x{i}": 1.0 if i < 25 else 2.0 for i in range(50)}
     optimization_config = OptimizationConfig(
         objective=Objective(
             metric=BraninMetric(
@@ -880,6 +883,8 @@ def get_high_dimensional_branin_experiment(with_batch: bool = False) -> Experime
         search_space=search_space,
         optimization_config=optimization_config,
         runner=SyntheticRunner(),
+        # pyre-fixme[6]: expects a union type for val instead of defined {str: float}
+        status_quo=Arm(sq_parameters) if with_status_quo else None,
     )
     if with_batch:
         sobol_generator = get_sobol(search_space=exp.search_space)
