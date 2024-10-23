@@ -337,51 +337,6 @@ class AcquisitionTest(TestCase):
         self.assertTrue(
             torch.equal(mock_optimize_acqf.call_args[1]["bounds"], expected_bounds)
         )
-        # Test with custom post processing function.
-        # First, without the rounding func.
-        post_processing_func = Mock(side_effect=lambda x: x**2)
-        optimizer_options = self.optimizer_options.copy()
-        optimizer_options["post_processing_func"] = post_processing_func
-        # Check that `force_use_optimize_acqf` does not lead to errors.
-        optimizer_options["force_use_optimize_acqf"] = True
-        mock_optimize_acqf.reset_mock()
-        acquisition.optimize(
-            n=n,
-            search_space_digest=self.search_space_digest,
-            inequality_constraints=self.inequality_constraints,
-            fixed_features=self.fixed_features,
-            rounding_func=None,
-            optimizer_options=optimizer_options,
-        )
-        mock_optimize_acqf.assert_called_with(
-            acq_function=acquisition.acqf,
-            sequential=True,
-            bounds=mock.ANY,
-            q=n,
-            options={"init_batch_limit": 32, "batch_limit": 5},
-            inequality_constraints=self.inequality_constraints,
-            fixed_features=self.fixed_features,
-            post_processing_func=post_processing_func,
-            **self.optimizer_options,
-        )
-        # Now using both rounding func and post processing func.
-        mock_optimize_acqf.reset_mock()
-        rounding_func = Mock(side_effect=lambda x: x // 4)
-        post_processing_func.reset_mock()
-        acquisition.optimize(
-            n=n,
-            search_space_digest=self.search_space_digest,
-            inequality_constraints=self.inequality_constraints,
-            fixed_features=self.fixed_features,
-            rounding_func=rounding_func,
-            optimizer_options=optimizer_options,
-        )
-        actual_func = mock_optimize_acqf.call_args[-1]["post_processing_func"]
-        # Call it with a known input to check that the functions are called in
-        # the correct order.
-        self.assertEqual(actual_func(3.0), 2)  # (3 ** 2) // 4 = 2
-        post_processing_func.assert_called_with(3.0)
-        rounding_func.assert_called_with(9.0)
 
     def test_optimize_discrete(self) -> None:
         ssd1 = SearchSpaceDigest(
@@ -674,35 +629,6 @@ class AcquisitionTest(TestCase):
             torch.equal(
                 mock_optimize_acqf_mixed.call_args[1]["bounds"], expected_bounds
             )
-        )
-        # Check that we don't use mixed optimizer if force_use_optimize_acqf is True.
-        optimizer_options = self.optimizer_options.copy()
-        optimizer_options["force_use_optimize_acqf"] = True
-        with mock.patch(
-            f"{ACQUISITION_PATH}.optimize_acqf", wraps=optimize_acqf
-        ) as mock_optimize_acqf, mock.patch(
-            f"{ACQUISITION_PATH}.optimize_acqf_mixed", wraps=optimize_acqf_mixed
-        ) as mock_optimize_acqf_mixed:
-            acquisition.optimize(
-                n=3,
-                search_space_digest=ssd,
-                inequality_constraints=self.inequality_constraints,
-                fixed_features=None,
-                rounding_func=self.rounding_func,
-                optimizer_options=optimizer_options,
-            )
-        self.assertEqual(mock_optimize_acqf_mixed.call_count, 0)
-        mock_optimize_acqf.assert_called_once()
-        mock_optimize_acqf.assert_called_with(
-            acq_function=acquisition.acqf,
-            sequential=True,
-            bounds=mock.ANY,
-            q=3,
-            options={"init_batch_limit": 32, "batch_limit": 5},
-            inequality_constraints=self.inequality_constraints,
-            fixed_features=None,
-            post_processing_func=self.rounding_func,
-            **self.optimizer_options,
         )
 
     @mock.patch(
