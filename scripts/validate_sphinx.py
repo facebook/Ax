@@ -8,7 +8,6 @@ import argparse
 import os
 import pkgutil
 import re
-from typing import Set
 
 
 # Paths are relative to top-level Ax directory (which is passed into fxn below)
@@ -31,7 +30,7 @@ EXCLUDE_MODULES = {
 
 # NOTE: Can't use set[str] here due to internal call site of this module
 # on an ancient (<py3.9) python version.
-def parse_rst(rst_filename: str) -> Set[str]:
+def parse_rst(rst_filename: str) -> set[str]:
     """Extract automodule directives from rst."""
     ret = set()
     with open(rst_filename, "r") as f:
