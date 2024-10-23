@@ -18,7 +18,7 @@ from unittest.mock import Mock
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import AxWarning, SearchSpaceExhausted, UnsupportedError
+from ax.exceptions.core import SearchSpaceExhausted, UnsupportedError
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -47,6 +47,7 @@ from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
 from botorch.acquisition.objective import LinearMCObjective
+from botorch.exceptions.warnings import OptimizationWarning
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.optim.optimize import (
     optimize_acqf,
@@ -369,7 +370,7 @@ class AcquisitionTest(TestCase):
             )
         acquisition = self.get_acquisition_function()
         with self.assertWarnsRegex(
-            AxWarning,
+            OptimizationWarning,
             "only.*possible choices remain.",
         ):
             acquisition.optimize(
@@ -417,22 +418,16 @@ class AcquisitionTest(TestCase):
             acq_function=acquisition.acqf,
             q=n,
             choices=mock.ANY,
+            X_avoid=mock.ANY,
+            inequality_constraints=None,
         )
-        expected_choices = torch.tensor(
-            [
-                elt
-                for elt in all_possible_choices
-                # not a pending observation
-                if not (self.pending_observations[0] == torch.tensor(elt)).all()
-                # not in training data
-                and not (self.X == torch.tensor(elt)).all(1).any()
-            ],
-        )
-        self.assertTrue(
-            torch.equal(
-                expected_choices, mock_optimize_acqf_discrete.call_args[1]["choices"]
-            )
-        )
+
+        expected_choices = torch.tensor([elt for elt in all_possible_choices])
+        expected_avoid = torch.cat([self.X, self.pending_observations[0]], dim=-2)
+
+        kwargs = mock_optimize_acqf_discrete.call_args.kwargs
+        self.assertTrue(torch.equal(expected_choices, kwargs["choices"]))
+        self.assertTrue(torch.equal(expected_avoid, kwargs["X_avoid"]))
 
         expected = torch.tensor([[2, 2, 4], [2, 3, 3]]).to(self.X)
         self.assertTrue(X_selected.shape == (2, 3))
@@ -473,6 +468,8 @@ class AcquisitionTest(TestCase):
             acq_function=acquisition.acqf,
             q=3,
             choices=mock.ANY,
+            X_avoid=mock.ANY,
+            inequality_constraints=None,
         )
 
         expected = torch.tensor([[4, 2, 4], [3, 2, 4], [4, 2, 3]]).to(self.X)

@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import operator
-import warnings
 from collections.abc import Callable
 from functools import partial, reduce
 from itertools import product
@@ -18,7 +17,7 @@ from typing import Any
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import AxWarning, SearchSpaceExhausted, UnsupportedError
+from ax.exceptions.core import SearchSpaceExhausted, UnsupportedError
 from ax.models.model_utils import enumerate_discrete_combinations, mk_discrete_choices
 from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -38,6 +37,7 @@ from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
 from botorch.acquisition.risk_measures import RiskMeasureMCObjective
+from botorch.exceptions.errors import InputDataError
 from botorch.models.model import Model
 from botorch.optim.optimize import (
     optimize_acqf,
@@ -50,7 +50,6 @@ from pyre_extensions import none_throws
 from torch import Tensor
 
 
-DUPLICATE_TOL = 1e-6
 MAX_CHOICES_ENUMERATE = 100_000
 
 logger: Logger = get_logger(__name__)
@@ -400,47 +399,19 @@ class Acquisition(Base):
             # Enumerate all possible choices
             all_choices = (discrete_choices[i] for i in range(len(discrete_choices)))
             all_choices = _tensorize(tuple(product(*all_choices)))
-
-            # This can be vectorized, but using a for-loop to avoid memory issues
-            if X_observed is not None:
-                for x in X_observed:
-                    all_choices = all_choices[
-                        (all_choices - x).abs().max(dim=-1).values > DUPLICATE_TOL
-                    ]
-
-            # Filter out candidates that violate the constraints
-            # TODO: It will be more memory-efficient to do this filtering before
-            # converting the generator into a tensor. However, if we run into memory
-            # issues we are likely better off being smarter in how we optimize the
-            # acquisition function.
-            inequality_constraints = inequality_constraints or []
-            is_feasible = torch.ones(all_choices.shape[0], dtype=torch.bool)
-            for inds, weights, bound in inequality_constraints:
-                is_feasible &= (all_choices[..., inds] * weights).sum(dim=-1) >= bound
-            all_choices = all_choices[is_feasible]
-
-            num_choices = all_choices.size(dim=0)
-            if num_choices == 0:
+            try:
+                candidates, acqf_values = optimize_acqf_discrete(
+                    acq_function=self.acqf,
+                    q=n,
+                    choices=all_choices,
+                    X_avoid=X_observed,
+                    inequality_constraints=inequality_constraints,
+                    **optimizer_options_with_defaults,
+                )
+            except InputDataError:
                 raise SearchSpaceExhausted(
                     "No more feasible choices in a fully discrete search space."
                 )
-            if num_choices < n:
-                warnings.warn(
-                    (
-                        f"Requested n={n} candidates from fully discrete search "
-                        f"space, but only {num_choices} possible choices remain."
-                    ),
-                    AxWarning,
-                    stacklevel=2,
-                )
-                n = num_choices
-
-            candidates, acqf_values = optimize_acqf_discrete(
-                acq_function=self.acqf,
-                q=n,
-                choices=all_choices,
-                **optimizer_options_with_defaults,
-            )
             return candidates, acqf_values, arm_weights
 
         # 2b. Handle mixed search spaces that have discrete and continuous features.
