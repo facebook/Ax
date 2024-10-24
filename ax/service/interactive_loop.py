@@ -103,6 +103,12 @@ def interactive_optimize(
     for _i in range(num_trials):
         candidate_item = candidate_queue.get()
 
+        if candidate_item is None:
+            # if candidate_item is None,
+            # it means the candidate generator has failed and stopped
+            optimization_completed = False
+            break
+
         response = elicitation_function(
             candidate_item, **(elicitation_function_kwargs or {})
         )
@@ -111,7 +117,8 @@ def interactive_optimize(
         if response is not None:
             data_queue.put(response)
         else:
-            # if resopnse is None, abort the optimization
+            # if resopnse is None, it means the user has stopped
+            # abort the optimization
             optimization_completed = False
             break
 
