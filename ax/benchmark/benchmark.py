@@ -113,11 +113,7 @@ def benchmark_replication(
     with with_rng_seed(seed=seed):
         start = monotonic()
         for _ in range(problem.num_trials):
-            next(
-                scheduler.run_trials_and_yield_results(
-                    max_trials=1, timeout_hours=remaining_hours
-                )
-            )
+            scheduler.run_n_trials(max_trials=1, timeout_hours=remaining_hours)
             if timeout_hours is not None:
                 elapsed_hours = (monotonic() - start) / 3600
                 remaining_hours = timeout_hours - elapsed_hours
