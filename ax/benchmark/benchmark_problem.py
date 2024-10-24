@@ -303,7 +303,6 @@ def create_problem_from_botorch(
     test_problem_kwargs: dict[str, Any],
     noise_std: float | list[float] | None = None,
     constraint_noise_std: float | list[float] | None = None,
-    negate: bool = False,
     num_trials: int,
     lower_is_better: bool = True,
     observe_noise_sd: bool = False,
@@ -327,8 +326,6 @@ def create_problem_from_botorch(
             for all objectives.
         constraint_noise_std: Standard deviation of synthetic noise added to
             constraints.
-        negate: Whether the values produced by the test function should be
-            negated. Does not apply to constraints.
         lower_is_better: Whether this is a minimization problem. For MOO, this
             applies to all objectives.
         num_trials: Simply the `num_trials` of the `BenchmarkProblem` created.
@@ -395,7 +392,6 @@ def create_problem_from_botorch(
                 param_names=list(search_space.parameters.keys()),
             ),
             noise_std=noise_std,
-            negate=negate,
             constraint_noise_std=constraint_noise_std,
         ),
         num_trials=num_trials,

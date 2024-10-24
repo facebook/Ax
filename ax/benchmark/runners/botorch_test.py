@@ -32,12 +32,7 @@ class ParamBasedTestProblem(ABC):
 
     @abstractmethod
     def evaluate_true(self, params: Mapping[str, TParamValue]) -> Tensor:
-        """
-        Evaluate noiselessly.
-
-        This method should not depend on the value of `negate`, as negation is
-        handled by the runner.
-        """
+        """Evaluate noiselessly."""
         ...
 
     def evaluate_slack_true(self, params: Mapping[str, TParamValue]) -> Tensor:
@@ -81,10 +76,6 @@ class BoTorchTestProblem(ParamBasedTestProblem):
                 "constraint_noise_std should be set on the runner, not the test "
                 "problem."
             )
-        if self.botorch_problem.negate:
-            raise ValueError(
-                "negate should be set on the runner, not the test problem."
-            )
         self.botorch_problem = self.botorch_problem.to(dtype=torch.double)
 
     def tensorize_params(self, params: Mapping[str, int | float]) -> torch.Tensor:
@@ -105,7 +96,7 @@ class BoTorchTestProblem(ParamBasedTestProblem):
     # pyre-fixme [14]: inconsistent override
     def evaluate_true(self, params: Mapping[str, float | int]) -> torch.Tensor:
         x = self.tensorize_params(params=params)
-        return self.botorch_problem.evaluate_true(x)
+        return self.botorch_problem(x)
 
     # pyre-fixme [14]: inconsistent override
     def evaluate_slack_true(self, params: Mapping[str, float | int]) -> torch.Tensor:
@@ -138,13 +129,11 @@ class ParamBasedTestProblemRunner(BenchmarkRunner):
             deterministic data before adding noise.
         noise_std: The standard deviation of the noise added to the data. Can be
             a list to be per-metric.
-        negate: Whether to negate the outcome.
     """
 
     test_problem: ParamBasedTestProblem
     noise_std: float | list[float] | None = None
     constraint_noise_std: float | list[float] | None = None
-    negate: bool = False
 
     @property
     def _is_constrained(self) -> bool:
@@ -196,9 +185,6 @@ class ParamBasedTestProblemRunner(BenchmarkRunner):
             A `batch_shape x m`-dim tensor of ground truth (noiseless) evaluations.
         """
         Y_true = self.test_problem.evaluate_true(params).view(-1)
-        # `ParamBasedTestProblem.evaluate_true()` does not negate the outcome
-        if self.negate:
-            Y_true = -Y_true
         if self._is_constrained:
             # Convention: Concatenate objective and black box constraints. `view()`
             # makes the inputs 1d, so the resulting `Y_true` are also 1d.

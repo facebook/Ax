@@ -386,7 +386,6 @@ class TestBenchmarkProblem(TestCase):
             test_problem_class=Branin,
             test_problem_kwargs={},
             num_trials=5,
-            negate=True,
         )
 
         # empty experiment
