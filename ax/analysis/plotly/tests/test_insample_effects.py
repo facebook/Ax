@@ -405,7 +405,9 @@ class TestInsampleEffectsPlot(TestCase):
                 str(non_sq_df["constraints_violated"][0]),
             )
             # AND THEN it marks that constraints are not violated for the SQ
-            self.assertEqual(sq_row["size_column"].iloc[0], 100)
+            self.assertEqual(
+                sq_row["overall_probability_constraints_violated"].iloc[0], 0
+            )
             self.assertEqual(
                 sq_row["constraints_violated"].iloc[0], "No constraints violated"
             )
