@@ -48,7 +48,7 @@ def get_single_objective_benchmark_problem(
     num_trials: int = 4,
     test_problem_kwargs: dict[str, Any] | None = None,
     report_inference_value_as_trace: bool = False,
-    noise_std: float | list[float] | None = None,
+    noise_std: float | list[float] = 0.0,
 ) -> BenchmarkProblem:
     return create_problem_from_botorch(
         test_problem_class=Branin,
@@ -232,7 +232,7 @@ class TestParamBasedTestProblem(ParamBasedTestProblem):
     # `TParameterization`
     def evaluate_true(self, params: dict[str, float]) -> torch.Tensor:
         value = sum(elt**2 for elt in params.values())
-        return value * torch.ones(self.num_objectives, dtype=torch.double)
+        return value * torch.ones(self.num_outcomes, dtype=torch.double)
 
 
 class TestDataset(Dataset):

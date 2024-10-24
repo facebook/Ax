@@ -55,7 +55,7 @@ def jenatton_test_function(
 class Jenatton(ParamBasedTestProblem):
     """Jenatton test function for hierarchical search spaces."""
 
-    num_objectives: int = 1
+    num_outcomes: int = 1
 
     # pyre-fixme[14]: Inconsistent override
     def evaluate_true(self, params: Mapping[str, float | int | None]) -> torch.Tensor:

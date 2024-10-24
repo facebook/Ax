@@ -84,8 +84,11 @@ class SurrogateRunner(BenchmarkRunner):
             self.set_surrogate_and_datasets()
         return none_throws(self._datasets)
 
-    def get_noise_stds(self) -> None | float | dict[str, float]:
-        return self.noise_stds
+    def get_noise_stds(self) -> dict[str, float]:
+        noise_std = self.noise_stds
+        if isinstance(noise_std, float):
+            return {name: noise_std for name in self.outcome_names}
+        return noise_std
 
     # pyre-fixme[14]: Inconsistent override
     def get_Y_true(self, params: Mapping[str, float | int]) -> Tensor:

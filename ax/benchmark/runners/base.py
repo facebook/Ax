@@ -84,7 +84,7 @@ class BenchmarkRunner(Runner, ABC):
         return self.get_Y_true(params=params).numpy()
 
     @abstractmethod
-    def get_noise_stds(self) -> None | float | dict[str, float]:
+    def get_noise_stds(self) -> dict[str, float]:
         """
         Return the standard errors for the synthetic noise to be applied to the
         observed values.
