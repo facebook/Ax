@@ -30,7 +30,7 @@ class TestInteractiveLoop(TestCase):
             parameterization_with_trial_index: tuple[TParameterization, int],
         ) -> tuple[int, TEvaluationOutcome] | None:
             parameterization, trial_index = parameterization_with_trial_index
-            x = np.array([parameterization.get(f"x{i+1}") for i in range(6)])
+            x = np.array([parameterization.get(f"x{i + 1}") for i in range(6)])
 
             return (
                 trial_index,
@@ -89,7 +89,7 @@ class TestInteractiveLoop(TestCase):
             parameterization, trial_index = parameterization_with_trial_index
             time.sleep(0.15)  # Sleep to induce MaxParallelismException in loop
 
-            x = np.array([parameterization.get(f"x{i+1}") for i in range(6)])
+            x = np.array([parameterization.get(f"x{i + 1}") for i in range(6)])
 
             return (
                 trial_index,

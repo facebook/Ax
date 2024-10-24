@@ -44,7 +44,7 @@ def replace_backticks(source_path, docs_path):
             for i, l in enumerate(lines):
                 match = re.search(pattern, l)
                 if match:
-                    print(f"{f}:{i+1} s/{match.group(0)}/{link}")
+                    print(f"{f}:{i + 1} s/{match.group(0)}/{link}")
                     lines[i] = re.sub(pattern, link, l)
             open(f, "w").writelines(lines)
 

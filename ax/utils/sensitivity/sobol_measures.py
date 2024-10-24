@@ -941,12 +941,12 @@ def _get_torch_model(
     """
     if not isinstance(model_bridge, TorchModelBridge):
         raise NotImplementedError(
-            f"{type(model_bridge) = }, but only TorchModelBridge is supported."
+            f"{type(model_bridge)=}, but only TorchModelBridge is supported."
         )
     model = model_bridge.model  # should be of type TorchModel
     if not (isinstance(model, BotorchModel) or isinstance(model, ModularBoTorchModel)):
         raise NotImplementedError(
-            f"{type(model_bridge.model) = }, but only "
+            f"{type(model_bridge.model)=}, but only "
             "Union[BotorchModel, ModularBoTorchModel] is supported."
         )
     return model

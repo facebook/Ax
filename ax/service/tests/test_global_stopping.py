@@ -47,7 +47,7 @@ class TestGlobalStoppingIntegration(TestCase):
 
     def evaluate(self, parameters: TParameterization) -> dict[str, tuple[float, float]]:
         """Evaluates the parameters for branin experiment."""
-        x = np.array([parameters.get(f"x{i+1}") for i in range(2)])
+        x = np.array([parameters.get(f"x{i + 1}") for i in range(2)])
         # pyre-fixme[7]: Expected `Dict[str, Tuple[float, float]]` but got
         #  `Dict[str, Tuple[Union[float, ndarray], float]]`.
         return {"branin": (branin(x), 0.0)}
