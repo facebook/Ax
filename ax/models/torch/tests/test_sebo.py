@@ -52,7 +52,7 @@ class TestSebo(TestCase):
         super().setUp()
         tkwargs: dict[str, Any] = {"dtype": torch.double}
         self.botorch_model_class = SingleTaskGP
-        self.surrogates = Surrogate(botorch_model_class=self.botorch_model_class)
+        self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
         self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)
         self.target_point = torch.tensor([1.0, 1.0, 1.0], **tkwargs)
         self.Y = torch.tensor([[3.0], [4.0]], **tkwargs)
@@ -67,7 +67,7 @@ class TestSebo(TestCase):
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
             target_values={2: 1.0},
         )
-        self.surrogates.fit(
+        self.surrogate.fit(
             datasets=self.training_data,
             search_space_digest=self.search_space_digest,
         )
@@ -119,7 +119,7 @@ class TestSebo(TestCase):
     ) -> SEBOAcquisition:
         return SEBOAcquisition(
             botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
-            surrogate=self.surrogates,
+            surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
             torch_opt_config=dataclasses.replace(
                 torch_opt_config or self.torch_opt_config,

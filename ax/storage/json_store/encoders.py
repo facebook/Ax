@@ -56,7 +56,6 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
 from ax.storage.transform_registry import TRANSFORM_REGISTRY
-from ax.utils.common.constants import Keys
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils_torch import torch_type_to_str
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
@@ -530,14 +529,8 @@ def botorch_model_to_dict(model: BoTorchModel) -> dict[str, Any]:
         "__type": model.__class__.__name__,
         "acquisition_class": model.acquisition_class,
         "acquisition_options": model.acquisition_options or {},
-        "surrogate": (
-            model._surrogates[Keys.ONLY_SURROGATE]
-            if Keys.ONLY_SURROGATE in model._surrogates
-            else None
-        ),
-        "surrogate_specs": (
-            model.surrogate_specs if len(model.surrogate_specs) > 0 else None
-        ),
+        "surrogate": (model._surrogate if model.surrogate_spec is None else None),
+        "surrogate_spec": model.surrogate_spec,
         "botorch_acqf_class": model._botorch_acqf_class,
         "refit_on_cv": model.refit_on_cv,
         "warm_start_refit": model.warm_start_refit,
