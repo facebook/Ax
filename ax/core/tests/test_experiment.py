@@ -210,7 +210,7 @@ class ExperimentTest(TestCase):
 
         # Try (and fail) to create an experiment with constraints on choice
         # paramaters
-        with self.assertRaises(UnsupportedError):
+        with self.assertRaises(ValueError):
             ax_client.create_experiment(
                 name="experiment",
                 parameters=[
@@ -231,7 +231,7 @@ class ExperimentTest(TestCase):
 
         # Try (and fail) to create an experiment with constraints on fixed
         # parameters
-        with self.assertRaises(UnsupportedError):
+        with self.assertRaises(ValueError):
             ax_client.create_experiment(
                 name="experiment",
                 parameters=[

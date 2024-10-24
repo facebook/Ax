@@ -51,7 +51,20 @@ class TestInstantiationtUtils(TestCase):
                 "x1 + x2 <= not_numerical_bound",
                 # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
                 #  got `Dict[str, None]`.
-                {"x1": None, "x2": None},
+                {
+                    "x1": RangeParameter(
+                        name="x1",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.1,
+                        upper=2.0,
+                    ),
+                    "x2": RangeParameter(
+                        name="x2",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.1,
+                        upper=2.0,
+                    ),
+                },
             )
         with self.assertRaisesRegex(ValueError, "Outcome constraint bound"):
             InstantiationBase.outcome_constraint_from_str("m1 <= not_numerical_bound")
@@ -92,7 +105,14 @@ class TestInstantiationtUtils(TestCase):
             "x1 <= 0",
             # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
             #  got `Dict[str, None]`.
-            {"x1": None, "x2": None},
+            {
+                "x1": RangeParameter(
+                    name="x1", parameter_type=ParameterType.FLOAT, lower=0.1, upper=2.0
+                ),
+                "x2": RangeParameter(
+                    name="x2", parameter_type=ParameterType.FLOAT, lower=0.1, upper=2.0
+                ),
+            },
         )
         self.assertEqual(one_val_constraint.bound, 0.0)
         self.assertEqual(one_val_constraint.constraint_dict, {"x1": 1.0})
@@ -100,7 +120,14 @@ class TestInstantiationtUtils(TestCase):
             "-0.5*x1 >= -0.1",
             # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
             #  got `Dict[str, None]`.
-            {"x1": None, "x2": None},
+            {
+                "x1": RangeParameter(
+                    name="x1", parameter_type=ParameterType.FLOAT, lower=0.1, upper=2.0
+                ),
+                "x2": RangeParameter(
+                    name="x2", parameter_type=ParameterType.FLOAT, lower=0.1, upper=2.0
+                ),
+            },
         )
         self.assertEqual(one_val_constraint.bound, 0.1)
         self.assertEqual(one_val_constraint.constraint_dict, {"x1": 0.5})
@@ -128,28 +155,122 @@ class TestInstantiationtUtils(TestCase):
                 "x1 - e*x2 + x3 <= 3",
                 # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
                 #  got `Dict[str, None]`.
-                {"x1": None, "x2": None, "x3": None},
+                {
+                    "x1": RangeParameter(
+                        name="x1",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.1,
+                        upper=4.0,
+                    ),
+                    "x2": RangeParameter(
+                        name="x2",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.1,
+                        upper=4.0,
+                    ),
+                    "x3": RangeParameter(
+                        name="x3",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.1,
+                        upper=4.0,
+                    ),
+                },
             )
         with self.assertRaisesRegex(ValueError, "A linear constraint should be"):
             InstantiationBase.constraint_from_str(
                 "x1 - 2 *x2 + 3 *x3 <= 3",
                 # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
                 #  got `Dict[str, None]`.
-                {"x1": None, "x2": None, "x3": None},
+                {
+                    "x1": RangeParameter(
+                        name="x1",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.1,
+                        upper=4.0,
+                    ),
+                    "x2": RangeParameter(
+                        name="x2",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.1,
+                        upper=4.0,
+                    ),
+                    "x3": RangeParameter(
+                        name="x3",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.1,
+                        upper=4.0,
+                    ),
+                },
             )
         with self.assertRaisesRegex(ValueError, "A linear constraint should be"):
             InstantiationBase.constraint_from_str(
                 "x1 - 2* x2 + 3* x3 <= 3",
                 # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
                 #  got `Dict[str, None]`.
-                {"x1": None, "x2": None, "x3": None},
+                {
+                    "x1": RangeParameter(
+                        name="x1",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.1,
+                        upper=4.0,
+                    ),
+                    "x2": RangeParameter(
+                        name="x2",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.1,
+                        upper=4.0,
+                    ),
+                    "x3": RangeParameter(
+                        name="x3",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.1,
+                        upper=4.0,
+                    ),
+                },
             )
         with self.assertRaisesRegex(ValueError, "A linear constraint should be"):
             InstantiationBase.constraint_from_str(
                 "x1 - 2 * x2 + 3*x3 <= 3",
                 # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
                 #  got `Dict[str, None]`.
-                {"x1": None, "x2": None, "x3": None},
+                {
+                    "x1": RangeParameter(
+                        name="x1",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.1,
+                        upper=4.0,
+                    ),
+                    "x2": RangeParameter(
+                        name="x2",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.1,
+                        upper=4.0,
+                    ),
+                    "x3": RangeParameter(
+                        name="x3",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.1,
+                        upper=4.0,
+                    ),
+                },
+            )
+
+        with self.assertRaisesRegex(
+            ValueError, "Parameter constraints not supported for ChoiceParameter"
+        ):
+            InstantiationBase.constraint_from_str(
+                "x1 + x2 <= 3",
+                {
+                    "x1": RangeParameter(
+                        name="x1",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.1,
+                        upper=2.0,
+                    ),
+                    "x2": ChoiceParameter(
+                        name="x2", parameter_type=ParameterType.FLOAT, values=[0, 1, 2]
+                    ),
+                },
             )
 
     def test_add_tracking_metrics(self) -> None:
