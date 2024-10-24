@@ -222,7 +222,7 @@ class TestSebo(TestCase):
             optimizer_options=self.optimizer_options,
         )
 
-        args, kwargs = mock_optimize_acqf.call_args
+        kwargs = mock_optimize_acqf.call_args.kwargs
         self.assertEqual(kwargs["acq_function"], acquisition.acqf)
         self.assertEqual(kwargs["q"], 2)
         self.assertEqual(kwargs["inequality_constraints"], self.inequality_constraints)
@@ -248,7 +248,7 @@ class TestSebo(TestCase):
             optimizer_options=self.optimizer_options,
         )
 
-        args, kwargs = mock_optimize_acqf_homotopy.call_args
+        kwargs = mock_optimize_acqf_homotopy.call_args.kwargs
         self.assertEqual(kwargs["acq_function"], acquisition.acqf)
         self.assertEqual(kwargs["q"], 2)
         self.assertEqual(kwargs["post_processing_func"], self.rounding_func)
@@ -270,7 +270,7 @@ class TestSebo(TestCase):
             rounding_func=self.rounding_func,
             optimizer_options=self.optimizer_options,
         )
-        args, kwargs = mock_optimize_acqf_homotopy.call_args
+        kwargs = mock_optimize_acqf_homotopy.call_args.kwargs
         self.assertEqual(kwargs["acq_function"], acquisition2.acqf)
         self.assertEqual(kwargs["q"], 2)
         self.assertEqual(kwargs["post_processing_func"], self.rounding_func)
@@ -282,19 +282,22 @@ class TestSebo(TestCase):
             fixed_features=self.fixed_features,
             options={"penalty": "L0_norm", "target_point": self.target_point},
         )
-        with self.assertRaisesRegex(
-            NotImplementedError,
-            "Homotopy does not support optimization with inequality "
-            "constraints. Use L1 penalty norm instead.",
-        ):
-            acquisition.optimize(
-                n=2,
-                search_space_digest=self.search_space_digest,
-                inequality_constraints=self.inequality_constraints,
-                fixed_features=self.fixed_features,
-                rounding_func=self.rounding_func,
-                optimizer_options=self.optimizer_options,
-            )
+        acquisition.optimize(
+            n=2,
+            search_space_digest=self.search_space_digest,
+            inequality_constraints=self.inequality_constraints,
+            fixed_features=self.fixed_features,
+            rounding_func=self.rounding_func,
+            optimizer_options=self.optimizer_options,
+        )
+        kwargs = mock_optimize_acqf_homotopy.call_args.kwargs
+        self.assertEqual(kwargs["acq_function"], acquisition.acqf)
+        self.assertEqual(kwargs["q"], 2)
+        self.assertEqual(kwargs["inequality_constraints"], self.inequality_constraints)
+        self.assertEqual(kwargs["post_processing_func"], self.rounding_func)
+        self.assertEqual(kwargs["batch_initial_conditions"], None)
+        self.assertEqual(kwargs["num_restarts"], self.optimizer_options["num_restarts"])
+        self.assertEqual(kwargs["raw_samples"], self.optimizer_options["raw_samples"])
 
     def test_clamp_to_target(self) -> None:
         X = torch.tensor(

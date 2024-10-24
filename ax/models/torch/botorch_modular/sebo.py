@@ -233,15 +233,11 @@ class SEBOAcquisition(Acquisition):
             with the weight for each candidate.
         """
         if self.penalty_name == "L0_norm":
-            if inequality_constraints is not None:
-                raise NotImplementedError(
-                    "Homotopy does not support optimization with inequality "
-                    + "constraints. Use L1 penalty norm instead."
-                )
             candidates, expected_acquisition_value, weights = (
                 self._optimize_with_homotopy(
                     n=n,
                     search_space_digest=search_space_digest,
+                    inequality_constraints=inequality_constraints,
                     fixed_features=fixed_features,
                     rounding_func=rounding_func,
                     optimizer_options=optimizer_options,
@@ -269,6 +265,7 @@ class SEBOAcquisition(Acquisition):
         n: int,
         search_space_digest: SearchSpaceDigest,
         fixed_features: dict[int, float] | None = None,
+        inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
         rounding_func: Callable[[Tensor], Tensor] | None = None,
         optimizer_options: dict[str, Any] | None = None,
     ) -> tuple[Tensor, Tensor, Tensor]:
@@ -296,14 +293,23 @@ class SEBOAcquisition(Acquisition):
                 )
             ],
         )
-        batch_initial_conditions = get_batch_initial_conditions(
-            acq_function=self.acqf,
-            raw_samples=optimizer_options_with_defaults["raw_samples"],
-            X_pareto=self.acqf.X_baseline,
-            target_point=self.target_point,
-            bounds=bounds,
-            num_restarts=optimizer_options_with_defaults["num_restarts"],
-        )
+        if inequality_constraints is None:
+            batch_initial_conditions = get_batch_initial_conditions(
+                acq_function=self.acqf,
+                raw_samples=optimizer_options_with_defaults["raw_samples"],
+                X_pareto=self.acqf.X_baseline,
+                target_point=self.target_point,
+                bounds=bounds,
+                num_restarts=optimizer_options_with_defaults["num_restarts"],
+            )
+        else:
+            warnings.warn(
+                "Adopting Botorch's default for sampling initial conditions as "
+                "inequality constraints are not supported for custom SEBO "
+                "initialization based on pareto front perturbation."
+            )
+            batch_initial_conditions = None
+
         candidates, expected_acquisition_value = optimize_acqf_homotopy(
             q=n,
             acq_function=self.acqf,
@@ -311,6 +317,7 @@ class SEBOAcquisition(Acquisition):
             homotopy=homotopy,
             num_restarts=optimizer_options_with_defaults["num_restarts"],
             raw_samples=optimizer_options_with_defaults["raw_samples"],
+            inequality_constraints=inequality_constraints,
             post_processing_func=rounding_func,
             fixed_features=fixed_features,
             batch_initial_conditions=batch_initial_conditions,
