@@ -14,8 +14,9 @@ from unittest.mock import Mock
 import numpy as np
 
 import torch
+from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_benchmark_problem
 from ax.benchmark.runners.botorch_test import (
-    BotorchTestProblemRunner,
+    BoTorchTestProblem,
     ParamBasedTestProblemRunner,
 )
 from ax.core.arm import Arm
@@ -25,7 +26,6 @@ from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.benchmark_stubs import TestParamBasedTestProblem
-from botorch.test_functions.base import BaseTestProblem
 from botorch.test_functions.synthetic import Ackley, ConstrainedHartmann, Hartmann
 from botorch.utils.transforms import normalize
 
@@ -35,32 +35,43 @@ class TestSyntheticRunner(TestCase):
         with self.assertRaisesRegex(
             ValueError, "noise_std should be set on the runner, not the test problem."
         ):
-            BotorchTestProblemRunner(
-                test_problem=Hartmann(dim=6, noise_std=0.1),
+            ParamBasedTestProblemRunner(
+                test_problem=BoTorchTestProblem(
+                    botorch_problem=Hartmann(dim=6, noise_std=0.1)
+                ),
                 outcome_names=["objective"],
             )
         with self.assertRaisesRegex(
             ValueError,
             "constraint_noise_std should be set on the runner, not the test problem.",
         ):
-            BotorchTestProblemRunner(
-                test_problem=ConstrainedHartmann(dim=6, constraint_noise_std=0.1),
+            ParamBasedTestProblemRunner(
+                test_problem=BoTorchTestProblem(
+                    botorch_problem=ConstrainedHartmann(dim=6, constraint_noise_std=0.1)
+                ),
                 outcome_names=["objective", "constraint"],
             )
         with self.assertRaisesRegex(
             ValueError, "negate should be set on the runner, not the test problem."
         ):
-            BotorchTestProblemRunner(
-                test_problem=Hartmann(dim=6, negate=True),
+            ParamBasedTestProblemRunner(
+                test_problem=BoTorchTestProblem(
+                    botorch_problem=Hartmann(dim=6, negate=True)
+                ),
                 outcome_names=["objective"],
             )
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.maxDiff = None
 
     def test_synthetic_runner(self) -> None:
         botorch_cases = [
             (
-                BotorchTestProblemRunner,
-                test_problem_class(dim=6),
-                modified_bounds,
+                BoTorchTestProblem(
+                    botorch_problem=test_problem_class(dim=6),
+                    modified_bounds=modified_bounds,
+                ),
                 noise_std,
             )
             for test_problem_class, modified_bounds, noise_std in product(
@@ -71,34 +82,30 @@ class TestSyntheticRunner(TestCase):
         ]
         param_based_cases = [
             (
-                ParamBasedTestProblemRunner,
                 TestParamBasedTestProblem(num_objectives=num_objectives, dim=6),
-                None,
                 noise_std,
             )
             for num_objectives, noise_std in product((1, 2), (None, 0.0, 1.0))
         ]
-        for (
-            runner_cls,
-            test_problem,
-            modified_bounds,
-            noise_std,
-        ) in botorch_cases + param_based_cases:
+        for test_problem, noise_std in botorch_cases + param_based_cases:
             num_objectives = test_problem.num_objectives
 
             outcome_names = [f"objective_{i}" for i in range(num_objectives)]
-            if isinstance(test_problem, ConstrainedHartmann):
+            is_constrained = isinstance(
+                test_problem, BoTorchTestProblem
+            ) and isinstance(test_problem.botorch_problem, ConstrainedHartmann)
+            if is_constrained:
                 outcome_names = outcome_names + ["constraint"]
 
-            runner = runner_cls(
-                # pyre-fixme[6]: Incompatible parameter type: In call
-                # `BotorchTestProblemRunner.__init__`, for argument
-                # `test_problem`, expected `BaseTestProblem` but got
-                # `Union[Hartmann, TestParamBasedTestProblem]`.
+            runner = ParamBasedTestProblemRunner(
                 test_problem=test_problem,
                 outcome_names=outcome_names,
-                modified_bounds=modified_bounds,
                 noise_std=noise_std,
+            )
+            modified_bounds = (
+                test_problem.modified_bounds
+                if isinstance(test_problem, BoTorchTestProblem)
+                else None
             )
 
             test_description: str = (
@@ -106,44 +113,65 @@ class TestSyntheticRunner(TestCase):
                 f"modified_bounds: {modified_bounds}, "
                 f"noise_std: {noise_std}."
             )
+            is_botorch = isinstance(test_problem, BoTorchTestProblem)
 
             with self.subTest(f"Test basic construction, {test_description}"):
                 self.assertIs(runner.test_problem, test_problem)
-                self.assertEqual(
-                    runner._is_constrained,
-                    isinstance(test_problem, ConstrainedHartmann),
-                )
-                self.assertEqual(runner.modified_bounds, modified_bounds)
+                self.assertEqual(runner._is_constrained, is_constrained)
+                self.assertEqual(runner.outcome_names, outcome_names)
                 if noise_std is not None:
                     self.assertEqual(runner.get_noise_stds(), noise_std)
                 else:
                     self.assertIsNone(runner.get_noise_stds())
 
                 # check equality
-                new_runner = replace(runner, test_problem=Ackley())
+                new_runner = replace(
+                    runner, test_problem=BoTorchTestProblem(botorch_problem=Ackley())
+                )
                 self.assertNotEqual(runner, new_runner)
 
                 self.assertEqual(runner, runner)
-                if isinstance(test_problem, BaseTestProblem):
-                    self.assertEqual(test_problem.bounds.dtype, torch.double)
+                if isinstance(test_problem, BoTorchTestProblem):
+                    self.assertEqual(
+                        test_problem.botorch_problem.bounds.dtype, torch.double
+                    )
 
             with self.subTest(f"test `get_Y_true()`, {test_description}"):
-                X = torch.rand(1, 6, dtype=torch.double)
-                params = {f"x{i}": x.item() for i, x in enumerate(X.unbind(-1))}
+                dim = 6 if is_botorch else 9
+                X = torch.rand(1, dim, dtype=torch.double)
+                param_names = (
+                    [f"x{i}" for i in range(6)]
+                    if is_botorch
+                    else list(
+                        get_jenatton_benchmark_problem().search_space.parameters.keys()
+                    )
+                )
+                params = dict(zip(param_names, (x.item() for x in X.unbind(-1))))
+
                 Y = runner.get_Y_true(params=params)
-                if modified_bounds is not None:
+                if (
+                    isinstance(test_problem, BoTorchTestProblem)
+                    and test_problem.modified_bounds is not None
+                ):
                     X_tf = normalize(
-                        X, torch.tensor(modified_bounds, dtype=torch.double).T
+                        X,
+                        torch.tensor(
+                            test_problem.modified_bounds, dtype=torch.double
+                        ).T,
                     )
                 else:
                     X_tf = X
-                if isinstance(test_problem, BaseTestProblem):
-                    obj = test_problem.evaluate_true(X_tf)
-                    if test_problem.negate:
+                if isinstance(test_problem, BoTorchTestProblem):
+                    botorch_problem = test_problem.botorch_problem
+                    obj = botorch_problem.evaluate_true(X_tf)
+                    if runner.negate:
                         obj = -obj
                     if runner._is_constrained:
                         expected_Y = torch.cat(
-                            [obj.view(-1), test_problem.evaluate_slack(X_tf).view(-1)],
+                            [
+                                obj.view(-1),
+                                botorch_problem.evaluate_slack(X_tf).view(-1),
+                            ],
                             dim=-1,
                         )
                     else:
@@ -183,15 +211,15 @@ class TestSyntheticRunner(TestCase):
                 with self.assertRaisesRegex(
                     UnsupportedError, "serialize_init_args is not a supported method"
                 ):
-                    runner_cls.serialize_init_args(obj=runner)
+                    ParamBasedTestProblemRunner.serialize_init_args(obj=runner)
                 with self.assertRaisesRegex(
                     UnsupportedError, "deserialize_init_args is not a supported method"
                 ):
-                    runner_cls.deserialize_init_args({})
+                    ParamBasedTestProblemRunner.deserialize_init_args({})
 
     def test_botorch_test_problem_runner_heterogeneous_noise(self) -> None:
-        runner = BotorchTestProblemRunner(
-            test_problem=ConstrainedHartmann(dim=6),
+        runner = ParamBasedTestProblemRunner(
+            test_problem=BoTorchTestProblem(botorch_problem=ConstrainedHartmann(dim=6)),
             noise_std=0.1,
             constraint_noise_std=0.05,
             outcome_names=["objective", "constraint"],
@@ -215,3 +243,10 @@ class TestSyntheticRunner(TestCase):
         self.assertSetEqual(set(res["Ys"].keys()), {"0_0"})
         self.assertEqual(res["Ystds"]["0_0"], [0.1, 0.05])
         self.assertEqual(res["outcome_names"], ["objective", "constraint"])
+
+    def test_unsupported_error(self) -> None:
+        test_function = BoTorchTestProblem(botorch_problem=Hartmann(dim=6))
+        with self.assertRaisesRegex(
+            UnsupportedError, "`evaluate_slack_true` is only supported when"
+        ):
+            test_function.evaluate_slack_true({"a": 3})
