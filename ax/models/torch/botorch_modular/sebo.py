@@ -21,7 +21,6 @@ from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch_base import TorchOptConfig
-from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -58,16 +57,12 @@ class SEBOAcquisition(Acquisition):
 
     def __init__(
         self,
-        surrogates: dict[str, Surrogate],
+        surrogate: Surrogate,
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
         botorch_acqf_class: type[AcquisitionFunction],
         options: dict[str, Any] | None = None,
     ) -> None:
-        if len(surrogates) > 1:
-            raise ValueError("SEBO does not support support multiple surrogates.")
-        surrogate = surrogates[Keys.ONLY_SURROGATE]
-
         tkwargs: dict[str, Any] = {"dtype": surrogate.dtype, "device": surrogate.device}
         options = {} if options is None else options
         self.penalty_name: str = options.pop("penalty", "L0_norm")
@@ -123,7 +118,7 @@ class SEBOAcquisition(Acquisition):
         if self.penalty_name == "L0_norm":
             self.deterministic_model._f.a.fill_(1e-6)
         super().__init__(
-            surrogates={"sebo": surrogate_f},
+            surrogate=surrogate_f,
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config_sebo,
             botorch_acqf_class=qLogNoisyExpectedHypervolumeImprovement,

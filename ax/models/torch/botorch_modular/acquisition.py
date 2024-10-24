@@ -17,7 +17,7 @@ from typing import Any
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import SearchSpaceExhausted, UnsupportedError
+from ax.exceptions.core import SearchSpaceExhausted
 from ax.models.model_utils import enumerate_discrete_combinations, mk_discrete_choices
 from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -65,9 +65,8 @@ class Acquisition(Base):
     of `BoTorchModel` and is not meant to be used outside of it.
 
     Args:
-        surrogates: Dict of name => Surrogate model pairs, with which this acquisition
+        surrogate: The Surrogate model, with which this acquisition
             function will be used.
-            NOTE: Only a single surrogate is currently supported!
         search_space_digest: A SearchSpaceDigest object containing metadata
             about the search space (e.g. bounds, parameter types).
         torch_opt_config: A TorchOptConfig object containing optimization
@@ -78,30 +77,24 @@ class Acquisition(Base):
             Function` in BoTorch.
     """
 
-    surrogates: dict[str, Surrogate]
+    surrogate: Surrogate
     acqf: AcquisitionFunction
     options: dict[str, Any]
 
     def __init__(
         self,
-        surrogates: dict[str, Surrogate],
+        surrogate: Surrogate,
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
         botorch_acqf_class: type[AcquisitionFunction],
         options: dict[str, Any] | None = None,
     ) -> None:
-        if len(surrogates) > 1:
-            raise UnsupportedError(
-                "The `Acquisition` class currently only supports a single surrogate."
-            )
-
-        self.surrogates = surrogates
+        self.surrogate = surrogate
         self.options = options or {}
-        primary_surrogate = next(iter(self.surrogates.values()))
 
         # Extract pending and observed points.
         X_pending, X_observed = _get_X_pending_and_observed(
-            Xs=primary_surrogate.Xs,
+            Xs=surrogate.Xs,
             objective_weights=torch_opt_config.objective_weights,
             bounds=search_space_digest.bounds,
             pending_observations=torch_opt_config.pending_observations,
@@ -120,7 +113,7 @@ class Acquisition(Base):
         # Subset model only to the outcomes we need for the optimization.
         if self.options.pop(Keys.SUBSET_MODEL, True):
             subset_model_results = subset_model(
-                model=primary_surrogate.model,
+                model=surrogate.model,
                 objective_weights=torch_opt_config.objective_weights,
                 outcome_constraints=torch_opt_config.outcome_constraints,
                 objective_thresholds=torch_opt_config.objective_thresholds,
@@ -131,7 +124,7 @@ class Acquisition(Base):
             objective_thresholds = subset_model_results.objective_thresholds
             subset_idcs = subset_model_results.indices
         else:
-            model = primary_surrogate.model
+            model = surrogate.model
             objective_weights = torch_opt_config.objective_weights
             outcome_constraints = torch_opt_config.outcome_constraints
             objective_thresholds = torch_opt_config.objective_thresholds
@@ -203,13 +196,11 @@ class Acquisition(Base):
         # If there is a single dataset, this will be the dataset itself.
         # If there are multiple datasets, this will be a dict mapping the outcome names
         # to the corresponding datasets.
-        training_data = primary_surrogate.training_data
+        training_data = surrogate.training_data
         if len(training_data) == 1:
             training_data = training_data[0]
         else:
-            training_data = dict(
-                zip(none_throws(primary_surrogate._outcomes), training_data)
-            )
+            training_data = dict(zip(none_throws(surrogate._outcomes), training_data))
 
         acqf_inputs = input_constructor(
             training_data=training_data,
@@ -230,35 +221,14 @@ class Acquisition(Base):
         """Torch data type of the tensors in the training data used in the model,
         of which this ``Acquisition`` is a subcomponent.
         """
-        dtypes = {
-            label: surrogate.dtype for label, surrogate in self.surrogates.items()
-        }
-
-        dtypes_list = list(dtypes.values())
-        if dtypes_list.count(dtypes_list[0]) != len(dtypes_list):
-            raise ValueError(
-                f"Expected all Surrogates to have same dtype, found {dtypes}"
-            )
-
-        return dtypes_list[0]
+        return self.surrogate.dtype
 
     @property
     def device(self) -> torch.device | None:
         """Torch device type of the tensors in the training data used in the model,
         of which this ``Acquisition`` is a subcomponent.
         """
-
-        devices = {
-            label: surrogate.device for label, surrogate in self.surrogates.items()
-        }
-
-        devices_list = list(devices.values())
-        if devices_list.count(devices_list[0]) != len(devices_list):
-            raise ValueError(
-                f"Expected all Surrogates to have same device, found {devices}"
-            )
-
-        return devices_list[0]
+        return self.surrogate.device
 
     @property
     def objective_thresholds(self) -> Tensor | None:

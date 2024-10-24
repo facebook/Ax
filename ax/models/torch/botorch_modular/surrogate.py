@@ -692,8 +692,8 @@ class Surrogate(Base):
         # Avoiding circular import between `Surrogate` and `Acquisition`.
         from ax.models.torch.botorch_modular.acquisition import Acquisition
 
-        acqf = Acquisition(  # TODO: For multi-fidelity, might need diff. class.
-            surrogates={"self": self},
+        acqf = Acquisition(
+            surrogate=self,
             botorch_acqf_class=acqf_class,
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,

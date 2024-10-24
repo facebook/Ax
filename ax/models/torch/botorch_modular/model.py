@@ -626,7 +626,7 @@ class BoTorchModel(TorchModel, Base):
             )
 
         return self.acquisition_class(
-            surrogates=self.surrogates,
+            surrogate=self.surrogate,
             botorch_acqf_class=self.botorch_acqf_class,
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
