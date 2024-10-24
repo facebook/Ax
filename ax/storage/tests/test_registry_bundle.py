@@ -6,7 +6,7 @@
 # pyre-strict
 
 from ax.benchmark.benchmark_metric import BenchmarkMetric
-from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
+from ax.benchmark.runners.botorch_test import ParamBasedTestProblemRunner
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.registry_bundle import RegistryBundle
@@ -26,7 +26,7 @@ class RegistryBundleTest(TestCase):
 
         right = RegistryBundle(
             metric_clss={BenchmarkMetric: None},
-            runner_clss={BotorchTestProblemRunner: None},
+            runner_clss={ParamBasedTestProblemRunner: None},
             json_encoder_registry={},
             json_class_encoder_registry={},
             json_decoder_registry={},
@@ -41,4 +41,4 @@ class RegistryBundleTest(TestCase):
         self.assertIn(BraninMetric, combined.encoder_registry)
         self.assertIn(SyntheticRunner, combined.encoder_registry)
         self.assertIn(BenchmarkMetric, combined.encoder_registry)
-        self.assertIn(BotorchTestProblemRunner, combined.encoder_registry)
+        self.assertIn(ParamBasedTestProblemRunner, combined.encoder_registry)
