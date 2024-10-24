@@ -16,8 +16,11 @@ from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.problems.surrogate import SurrogateBenchmarkProblem
-from ax.benchmark.runners.botorch_test import ParamBasedTestProblem
-from ax.benchmark.runners.surrogate import SurrogateRunner
+from ax.benchmark.runners.botorch_test import (
+    ParamBasedTestProblem,
+    ParamBasedTestProblemRunner,
+)
+from ax.benchmark.runners.surrogate import SurrogateRunner, SurrogateTestFunction
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
@@ -75,7 +78,58 @@ def get_multi_objective_benchmark_problem(
     )
 
 
-def get_soo_surrogate() -> SurrogateBenchmarkProblem:
+def get_soo_surrogate_test_function(lazy: bool = True) -> SurrogateTestFunction:
+    experiment = get_branin_experiment(with_completed_trial=True)
+    surrogate = TorchModelBridge(
+        experiment=experiment,
+        search_space=experiment.search_space,
+        model=BoTorchModel(surrogate=Surrogate(botorch_model_class=SingleTaskGP)),
+        data=experiment.lookup_data(),
+        transforms=[],
+    )
+    if lazy:
+        test_function = SurrogateTestFunction(
+            num_objectives=1,
+            name="test",
+            get_surrogate_and_datasets=lambda: (surrogate, []),
+        )
+    else:
+        test_function = SurrogateTestFunction(
+            num_objectives=1,
+            name="test",
+            _surrogate=surrogate,
+            _datasets=[],
+        )
+    return test_function
+
+
+def get_soo_surrogate() -> BenchmarkProblem:
+    experiment = get_branin_experiment(with_completed_trial=True)
+    test_function = get_soo_surrogate_test_function()
+    runner = ParamBasedTestProblemRunner(
+        test_problem=test_function, outcome_names=["branin"]
+    )
+
+    observe_noise_sd = True
+    objective = Objective(
+        metric=BenchmarkMetric(
+            name="branin", lower_is_better=True, observe_noise_sd=observe_noise_sd
+        ),
+    )
+    optimization_config = OptimizationConfig(objective=objective)
+
+    return BenchmarkProblem(
+        name="test",
+        search_space=experiment.search_space,
+        optimization_config=optimization_config,
+        num_trials=6,
+        observe_noise_stds=observe_noise_sd,
+        optimal_value=0.0,
+        runner=runner,
+    )
+
+
+def get_soo_surrogate_legacy() -> SurrogateBenchmarkProblem:
     experiment = get_branin_experiment(with_completed_trial=True)
     surrogate = TorchModelBridge(
         experiment=experiment,

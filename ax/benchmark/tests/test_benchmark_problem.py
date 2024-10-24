@@ -14,7 +14,10 @@ import torch
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
-from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
+from ax.benchmark.runners.botorch_test import (
+    BoTorchTestProblem,
+    ParamBasedTestProblemRunner,
+)
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -51,7 +54,10 @@ class TestBenchmarkProblem(TestCase):
             for name in ["Branin", "Currin"]
         ]
         optimization_config = OptimizationConfig(objective=objectives[0])
-        runner = BotorchTestProblemRunner(test_problem=Branin(), outcome_names=["foo"])
+        runner = ParamBasedTestProblemRunner(
+            test_problem=BoTorchTestProblem(botorch_problem=Branin()),
+            outcome_names=["foo"],
+        )
         with self.assertRaisesRegex(NotImplementedError, "Only `n_best_points=1`"):
             BenchmarkProblem(
                 name="foo",
@@ -211,9 +217,12 @@ class TestBenchmarkProblem(TestCase):
             noise_std=objective_noise_std,
             constraint_noise_std=constraint_noise_std,
         )
-        runner = checked_cast(BotorchTestProblemRunner, ax_problem.runner)
+        runner = assert_is_instance(ax_problem.runner, ParamBasedTestProblemRunner)
         self.assertTrue(runner._is_constrained)
-        botorch_problem = checked_cast(ConstrainedBaseTestProblem, runner.test_problem)
+        test_problem = assert_is_instance(runner.test_problem, BoTorchTestProblem)
+        botorch_problem = assert_is_instance(
+            test_problem.botorch_problem, ConstrainedBaseTestProblem
+        )
         self.assertEqual(runner.noise_std, objective_noise_std)
         self.assertEqual(runner.constraint_noise_std, constraint_noise_std)
         opt_config = ax_problem.optimization_config

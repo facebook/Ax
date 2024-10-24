@@ -524,7 +524,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self,
         max_trials: int,
         ignore_global_stopping_strategy: bool = False,
-        timeout_hours: int | None = None,
+        timeout_hours: float | None = None,
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         idle_callback: Callable[[Scheduler], Any] | None = None,
     ) -> OptimizationResult:
@@ -574,7 +574,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     def run_all_trials(
         self,
-        timeout_hours: int | None = None,
+        timeout_hours: float | None = None,
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         idle_callback: Callable[[Scheduler], Any] | None = None,
     ) -> OptimizationResult:
@@ -658,7 +658,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self,
         max_trials: int,
         ignore_global_stopping_strategy: bool = False,
-        timeout_hours: int | float | None = None,
+        timeout_hours: float | None = None,
         idle_callback: Callable[[Scheduler], None] | None = None,
     ) -> Generator[dict[str, Any], None, None]:
         """Make continuous calls to `run` and `process_results` to run up to

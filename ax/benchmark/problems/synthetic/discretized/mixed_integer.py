@@ -21,7 +21,10 @@ References
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem
-from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
+from ax.benchmark.runners.botorch_test import (
+    BoTorchTestProblem,
+    ParamBasedTestProblemRunner,
+)
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
@@ -101,8 +104,11 @@ def _get_problem_from_common_inputs(
         test_problem = test_problem_class(dim=dim)
     else:
         test_problem = test_problem_class(dim=dim, bounds=test_problem_bounds)
-    runner = BotorchTestProblemRunner(
-        test_problem=test_problem, outcome_names=[metric_name], modified_bounds=bounds
+    runner = ParamBasedTestProblemRunner(
+        test_problem=BoTorchTestProblem(
+            botorch_problem=test_problem, modified_bounds=bounds
+        ),
+        outcome_names=[metric_name],
     )
     return BenchmarkProblem(
         name=benchmark_name + ("_observed_noise" if observe_noise_sd else ""),
