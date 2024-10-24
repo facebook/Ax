@@ -30,7 +30,6 @@ from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
-from ax.utils.common.constants import Keys
 from ax.utils.common.kwargs import get_function_argument_names
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -74,11 +73,9 @@ class ModelRegistryTest(TestCase):
         self.assertEqual(gpei.model.botorch_acqf_class, qExpectedImprovement)
         self.assertEqual(gpei.model.acquisition_class, Acquisition)
         self.assertEqual(gpei.model.acquisition_options, {"best_f": 0.0})
-        self.assertIsInstance(gpei.model.surrogates[Keys.AUTOSET_SURROGATE], Surrogate)
+        self.assertIsInstance(gpei.model.surrogate, Surrogate)
         # SingleTaskGP should be picked.
-        self.assertIsInstance(
-            gpei.model.surrogates[Keys.AUTOSET_SURROGATE].model, SingleTaskGP
-        )
+        self.assertIsInstance(gpei.model.surrogate.model, SingleTaskGP)
 
         gr = gpei.gen(n=1)
         self.assertIsNotNone(gr.best_arm_predictions)
@@ -96,14 +93,10 @@ class ModelRegistryTest(TestCase):
         self.assertIsInstance(saasbo, TorchModelBridge)
         self.assertEqual(saasbo._model_key, "SAASBO")
         self.assertIsInstance(saasbo.model, BoTorchModel)
-        surrogate_specs = saasbo.model.surrogate_specs
+        surrogate_spec = saasbo.model.surrogate_spec
         self.assertEqual(
-            surrogate_specs,
-            {
-                "SAASBO_Surrogate": SurrogateSpec(
-                    botorch_model_class=SaasFullyBayesianSingleTaskGP
-                )
-            },
+            surrogate_spec,
+            SurrogateSpec(botorch_model_class=SaasFullyBayesianSingleTaskGP),
         )
         self.assertEqual(
             saasbo.model.surrogate.botorch_model_class, SaasFullyBayesianSingleTaskGP

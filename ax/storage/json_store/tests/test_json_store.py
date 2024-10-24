@@ -58,6 +58,7 @@ from ax.utils.testing.core_stubs import (
     get_batch_trial,
     get_botorch_model,
     get_botorch_model_with_default_acquisition_class,
+    get_botorch_model_with_surrogate_spec,
     get_botorch_model_with_surrogate_specs,
     get_branin_data,
     get_branin_experiment,
@@ -141,6 +142,7 @@ TEST_CASES = [
     ("BenchmarkResult", get_benchmark_result),
     ("BoTorchModel", get_botorch_model),
     ("BoTorchModel", get_botorch_model_with_default_acquisition_class),
+    ("BoTorchModel", get_botorch_model_with_surrogate_spec),
     ("BoTorchModel", get_botorch_model_with_surrogate_specs),
     ("BraninMetric", get_branin_metric),
     ("ChainedInputTransform", get_chained_input_transform),
@@ -799,3 +801,49 @@ class JSONStoreTest(TestCase):
         self.assertIsInstance(sampler_loaded, SobolQMCNormalSampler)
         self.assertEqual(sampler.sample_shape, sampler_loaded.sample_shape)
         self.assertEqual(sampler.seed, sampler_loaded.seed)
+
+    def test_mbm_backwards_compatibility(self) -> None:
+        # This is json of get_botorch_model_with_surrogate_specs() before D64875988.
+        object_json = {
+            "__type": "BoTorchModel",
+            "acquisition_class": {
+                "__type": "Type[Acquisition]",
+                "index": "Acquisition",
+                "class": (
+                    "<class 'ax.models.torch.botorch_modular.acquisition.Acquisition'>"
+                ),
+            },
+            "acquisition_options": {},
+            "surrogate": None,
+            "surrogate_specs": {
+                "name": {
+                    "__type": "SurrogateSpec",
+                    "botorch_model_class": None,
+                    "botorch_model_kwargs": {"some_option": "some_value"},
+                    "mll_class": {
+                        "__type": "Type[MarginalLogLikelihood]",
+                        "index": "ExactMarginalLogLikelihood",
+                        "class": (
+                            "<class 'gpytorch.mlls.marginal_log_likelihood."
+                            "MarginalLogLikelihood'>"
+                        ),
+                    },
+                    "mll_kwargs": {},
+                    "covar_module_class": None,
+                    "covar_module_kwargs": None,
+                    "likelihood_class": None,
+                    "likelihood_kwargs": None,
+                    "input_transform_classes": None,
+                    "input_transform_options": None,
+                    "outcome_transform_classes": None,
+                    "outcome_transform_options": None,
+                    "allow_batched_models": True,
+                    "outcomes": [],
+                }
+            },
+            "botorch_acqf_class": None,
+            "refit_on_cv": False,
+            "warm_start_refit": True,
+        }
+        expected_object = get_botorch_model_with_surrogate_spec()
+        self.assertEqual(object_from_json(object_json), expected_object)

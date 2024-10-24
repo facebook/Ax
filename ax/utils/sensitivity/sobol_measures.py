@@ -8,13 +8,10 @@
 import itertools
 from collections.abc import Callable
 from copy import deepcopy
-
 from typing import Any
 
 import numpy as np
-
 import torch
-
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
@@ -941,12 +938,12 @@ def _get_torch_model(
     """
     if not isinstance(model_bridge, TorchModelBridge):
         raise NotImplementedError(
-            f"{type(model_bridge) = }, but only TorchModelBridge is supported."
+            f"{type(model_bridge)=}, but only TorchModelBridge is supported."
         )
     model = model_bridge.model  # should be of type TorchModel
     if not (isinstance(model, BotorchModel) or isinstance(model, ModularBoTorchModel)):
         raise NotImplementedError(
-            f"{type(model_bridge.model) = }, but only "
+            f"{type(model_bridge.model)=}, but only "
             "Union[BotorchModel, ModularBoTorchModel] is supported."
         )
     return model
@@ -971,19 +968,18 @@ def _get_model_per_metric(
             )
         return [gp_model.models[i] for i in model_idx]
     else:  # isinstance(model, ModularBoTorchModel):
+        surrogate = model.surrogate
+        outcomes = surrogate.outcomes
         model_list = []
         for m in metrics:  # for each metric, find a corresponding surrogate
-            for label, outcomes in model.outcomes_by_surrogate_label.items():
-                if m in outcomes:
-                    i = outcomes.index(m)
-                    metric_model = model.surrogates[label].model
-                    # since model is a ModularBoTorchModel, metric_model will be a
-                    # `botorch.models.model.Model` object, which have the `num_outputs`
-                    # property and `subset_outputs` method.
-                    if metric_model.num_outputs > 1:  # subset to relevant output
-                        metric_model = metric_model.subset_output([i])
-                    model_list.append(metric_model)
-                    continue  # found surrogate for `m`, so we can move on to next `m`.
+            i = outcomes.index(m)
+            metric_model = surrogate.model
+            # since model is a ModularBoTorchModel, metric_model will be a
+            # `botorch.models.model.Model` object, which have the `num_outputs`
+            # property and `subset_outputs` method.
+            if metric_model.num_outputs > 1:  # subset to relevant output
+                metric_model = metric_model.subset_output([i])
+            model_list.append(metric_model)
         return model_list
 
 

@@ -7,13 +7,11 @@
 # pyre-strict
 
 import dataclasses
+import warnings
 from collections import OrderedDict
-from collections.abc import Callable, Mapping, Sequence
-from copy import deepcopy
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from functools import wraps
-from itertools import chain
-from typing import Any, TypeVar
+from typing import Any
 
 import numpy as np
 import torch
@@ -30,7 +28,6 @@ from ax.models.torch.botorch_modular.utils import (
     check_outcome_dataset_match,
     choose_botorch_acqf_class,
     construct_acquisition_and_optimizer_options,
-    get_subset_datasets,
 )
 from ax.models.torch.utils import _to_inequality_constraints
 from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
@@ -49,26 +46,6 @@ from gpytorch.likelihoods import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from torch import Tensor
-
-T = TypeVar("T")
-
-
-def single_surrogate_only(f: Callable[..., T]) -> Callable[..., T]:
-    """
-    For use as a decorator on functions only implemented for BotorchModels with a
-    single Surrogate.
-    """
-
-    @wraps(f)
-    def impl(self: "BoTorchModel", *args: list[Any], **kwargs: dict[str, Any]) -> T:
-        if len(self._surrogates) != 1:
-            raise NotImplementedError(
-                f"{f.__name__} not implemented for multi-surrogate case. Found "
-                f"{self.surrogates=}."
-            )
-        return f(self, *args, **kwargs)
-
-    return impl
 
 
 @dataclass(frozen=True)
@@ -110,41 +87,39 @@ class BoTorchModel(TorchModel, Base):
     construction, incomplete, and should be treated as alpha
     versions only.**
 
-    Modular `Model` class for combining BoTorch subcomponents
-    in Ax. Specified via `Surrogate` and `Acquisition`, which wrap
-    BoTorch `Model` and `AcquisitionFunction`, respectively, for
+    Modular ``Model`` class for combining BoTorch subcomponents
+    in Ax. Specified via ``Surrogate`` and ``Acquisition``, which wrap
+    BoTorch ``Model`` and ``AcquisitionFunction``, respectively, for
     convenient use in Ax.
 
     Args:
-        acquisition_class: Type of `Acquisition` to be used in
+        acquisition_class: Type of ``Acquisition`` to be used in
             this model, auto-selected based on experiment and data
             if not specified.
         acquisition_options: Optional dict of kwargs, passed to
-            the constructor of BoTorch `AcquisitionFunction`.
-        botorch_acqf_class: Type of `AcquisitionFunction` to be
+            the constructor of BoTorch ``AcquisitionFunction``.
+        botorch_acqf_class: Type of ``AcquisitionFunction`` to be
             used in this model, auto-selected based on experiment
             and data if not specified.
-        surrogate_specs: Optional Mapping of names onto SurrogateSpecs, which specify
-            how to initialize specific Surrogates to model specific outcomes. If None
-            is provided a single Surrogate will be created and set up automatically
-            based on the data provided.
-        surrogate: In liu of SurrogateSpecs, an instance of `Surrogate` may be
-            provided to be used as the sole Surrogate for all outcomes
+        surrogate_spec: An optional ``SurrogateSpec`` object specifying how to
+            construct the ``Surrogate`` and the underlying BoTorch ``Model``.
+        surrogate_specs: DEPRECATED. Please use ``surrogate_spec`` instead.
+        surrogate: In lieu of ``SurrogateSpec``, an instance of ``Surrogate`` may
+            be provided. In most cases, ``surrogate_spec`` should be used instead.
         refit_on_cv: Whether to reoptimize model parameters during call to
-            `BoTorchmodel.cross_validate`.
+            ``BoTorchmodel.cross_validate``.
         warm_start_refit: Whether to load parameters from either the provided
-            state dict or the state dict of the current BoTorch `Model` during
+            state dict or the state dict of the current BoTorch ``Model`` during
             refitting. If False, model parameters will be reoptimized from
             scratch on refit. NOTE: This setting is ignored during
-            `cross_validate` if the corresponding `refit_on_...` is False.
+            ``cross_validate`` if ``refit_on_cv`` is False.
     """
 
     acquisition_class: type[Acquisition]
     acquisition_options: dict[str, Any]
 
-    surrogate_specs: dict[str, SurrogateSpec]
-    _surrogates: dict[str, Surrogate]
-    _output_order: list[int] | None = None
+    surrogate_spec: SurrogateSpec | None
+    _surrogate: Surrogate | None
 
     _botorch_acqf_class: type[AcquisitionFunction] | None
     _search_space_digest: SearchSpaceDigest | None = None
@@ -152,53 +127,38 @@ class BoTorchModel(TorchModel, Base):
 
     def __init__(
         self,
+        surrogate_spec: SurrogateSpec | None = None,
         surrogate_specs: Mapping[str, SurrogateSpec] | None = None,
         surrogate: Surrogate | None = None,
         acquisition_class: type[Acquisition] | None = None,
         acquisition_options: dict[str, Any] | None = None,
         botorch_acqf_class: type[AcquisitionFunction] | None = None,
-        # TODO: [T168715924] Revisit these "refit" arguments.
         refit_on_cv: bool = False,
         warm_start_refit: bool = True,
     ) -> None:
-        # Ensure only surrogate_specs or surrogate is provided
-        if surrogate_specs and surrogate:
+        # Check that only one surrogate related option is provided.
+        if bool(surrogate_spec) + bool(surrogate_specs) + bool(surrogate) > 1:
             raise UserInputError(
-                "Only one of `surrogate_specs` and `surrogate` arguments is expected."
+                "Only one of `surrogate_spec`, `surrogate_specs`, and `surrogate` "
+                "can be specified. Please use `surrogate_spec`."
             )
-
-        # Ensure each outcome is only modeled by one Surrogate in the SurrogateSpecs
         if surrogate_specs is not None:
-            outcomes_by_surrogate_label = {
-                label: spec.outcomes for label, spec in surrogate_specs.items()
-            }
-            all_outcomes = list(
-                chain.from_iterable(outcomes_by_surrogate_label.values())
-            )
-            if len(all_outcomes) != len(set(all_outcomes)):
-                raise UserInputError(
-                    "Each outcome may be modeled by only one Surrogate, found "
-                    f"{outcomes_by_surrogate_label}"
+            if len(surrogate_specs) > 1:
+                raise DeprecationWarning(
+                    "Support for multiple `Surrogate`s has been deprecated. "
+                    "Please use the `surrogate_spec` input in the future to "
+                    "specify a single `Surrogate`."
                 )
-
-        # Ensure user does not use reserved Surrogate labels
-        if (
-            surrogate_specs is not None
-            and len(
-                {Keys.ONLY_SURROGATE, Keys.AUTOSET_SURROGATE} - surrogate_specs.keys()
+            warnings.warn(
+                "The `surrogate_specs` argument is deprecated in favor of "
+                "`surrogate_spec`, which accepts a single `SurrogateSpec` object. "
+                "Please use `surrogate_spec` in the future.",
+                DeprecationWarning,
+                stacklevel=2,
             )
-            < 2
-        ):
-            raise UserInputError(
-                f"SurrogateSpecs may not be labeled {Keys.ONLY_SURROGATE} or "
-                f"{Keys.AUTOSET_SURROGATE}, these are reserved."
-            )
-
-        self.surrogate_specs = dict((surrogate_specs or {}).items())
-        if surrogate is not None:
-            self._surrogates = {Keys.ONLY_SURROGATE: surrogate}
-        else:
-            self._surrogates = {}
+            surrogate_spec = next(iter(surrogate_specs.values()))
+        self.surrogate_spec = surrogate_spec
+        self._surrogate = surrogate
 
         self.acquisition_class = acquisition_class or Acquisition
         self.acquisition_options = acquisition_options or {}
@@ -208,18 +168,13 @@ class BoTorchModel(TorchModel, Base):
         self.warm_start_refit = warm_start_refit
 
     @property
-    def surrogates(self) -> dict[str, Surrogate]:
-        """Surrogates by label"""
-        return self._surrogates
-
-    @property
-    @single_surrogate_only
     def surrogate(self) -> Surrogate:
-        """Surrogate, if there is only one."""
-        return next(iter(self.surrogates.values()))
+        """Returns the ``Surrogate``, if it has been constructed."""
+        if self._surrogate is None:
+            raise ValueError("Surrogate has not yet been constructed.")
+        return self._surrogate
 
     @property
-    @single_surrogate_only
     def Xs(self) -> list[Tensor]:
         """A list of tensors, each of shape ``batch_shape x n_i x d``,
         where `n_i` is the number of training inputs for the i-th model.
@@ -243,8 +198,7 @@ class BoTorchModel(TorchModel, Base):
         datasets: Sequence[SupervisedDataset],
         search_space_digest: SearchSpaceDigest,
         candidate_metadata: list[list[TCandidateMetadata]] | None = None,
-        # state dict by surrogate label
-        state_dicts: Mapping[str, OrderedDict[str, Tensor]] | None = None,
+        state_dict: OrderedDict[str, Tensor] | None = None,
         refit: bool = True,
         **additional_model_inputs: Any,
     ) -> None:
@@ -257,9 +211,8 @@ class BoTorchModel(TorchModel, Base):
                 metadata on the features in the datasets.
             candidate_metadata: Model-produced metadata for candidates, in
                 the order corresponding to the Xs.
-            state_dicts: Optional state dict to load by model label as passed in via
-                surrogate_specs. If using a single, pre-instantiated model use
-                `Keys.ONLY_SURROGATE.
+            state_dict: An optional model statedict for the underlying ``Surrogate``.
+                Primarily used in ``BoTorchModel.cross_validate``.
             refit: Whether to re-optimize model parameters.
             additional_model_inputs: Additional kwargs to pass to the
                 model input constructor in ``Surrogate.fit``.
@@ -272,127 +225,51 @@ class BoTorchModel(TorchModel, Base):
         # Store search space info for later use (e.g. during generation)
         self._search_space_digest = search_space_digest
 
-        # Step 0. If the user passed in a preconstructed surrogate we won't have a
-        # SurrogateSpec and must assume we're fitting all metrics
-        if Keys.ONLY_SURROGATE in self._surrogates.keys():
-            surrogate = self._surrogates[Keys.ONLY_SURROGATE]
-            surrogate.model_options.update(additional_model_inputs)
-            surrogate.fit(
-                datasets=datasets,
-                search_space_digest=search_space_digest,
-                candidate_metadata=candidate_metadata,
-                state_dict=(
-                    state_dicts.get(Keys.ONLY_SURROGATE) if state_dicts else None
-                ),
-                refit=refit,
-            )
-            self._output_order = list(range(len(outcome_names)))
-            return
-
-        # Step 1. Initialize a Surrogate for every SurrogateSpec
-        self._surrogates = {
-            label: Surrogate(
-                # if None, Surrogate will autoset class per outcome at construct time
-                botorch_model_class=spec.botorch_model_class,
-                model_options=spec.botorch_model_kwargs,
-                mll_class=spec.mll_class,
-                mll_options=spec.mll_kwargs,
-                covar_module_class=spec.covar_module_class,
-                covar_module_options=spec.covar_module_kwargs,
-                likelihood_class=spec.likelihood_class,
-                likelihood_options=spec.likelihood_kwargs,
-                input_transform_classes=spec.input_transform_classes,
-                input_transform_options=spec.input_transform_options,
-                outcome_transform_classes=spec.outcome_transform_classes,
-                outcome_transform_options=spec.outcome_transform_options,
-                allow_batched_models=spec.allow_batched_models,
-            )
-            for label, spec in self.surrogate_specs.items()
-        }
-
-        # Step 1.5. If any outcomes are not explicitly assigned to a Surrogate, create
-        # a new Surrogate for all these outcomes (which will autoset its botorch model
-        # class per outcome) UNLESS there is only one SurrogateSpec with no outcomes
-        # assigned to it, in which case that will be used for all outcomes.
-        assigned_outcome_names = {
-            item
-            for sublist in [spec.outcomes for spec in self.surrogate_specs.values()]
-            for item in sublist
-        }
-        unassigned_outcome_names = [
-            name for name in outcome_names if name not in assigned_outcome_names
-        ]
-        if len(unassigned_outcome_names) > 0 and len(self.surrogates) != 1:
-            self._surrogates[Keys.AUTOSET_SURROGATE] = Surrogate()
-
-        # Step 2. Fit each Surrogate iteratively using its assigned outcomes
-        for label, surrogate in self.surrogates.items():
-            if label == Keys.AUTOSET_SURROGATE or len(self.surrogates) == 1:
-                subset_outcome_names = unassigned_outcome_names
+        # If a surrogate has not been constructed, construct it.
+        if self._surrogate is None:
+            if (spec := self.surrogate_spec) is not None:
+                self._surrogate = Surrogate(
+                    botorch_model_class=spec.botorch_model_class,
+                    model_options=spec.botorch_model_kwargs,
+                    mll_class=spec.mll_class,
+                    mll_options=spec.mll_kwargs,
+                    covar_module_class=spec.covar_module_class,
+                    covar_module_options=spec.covar_module_kwargs,
+                    likelihood_class=spec.likelihood_class,
+                    likelihood_options=spec.likelihood_kwargs,
+                    input_transform_classes=spec.input_transform_classes,
+                    input_transform_options=spec.input_transform_options,
+                    outcome_transform_classes=spec.outcome_transform_classes,
+                    outcome_transform_options=spec.outcome_transform_options,
+                    allow_batched_models=spec.allow_batched_models,
+                )
             else:
-                subset_outcome_names = self.surrogate_specs[label].outcomes
-            subset_datasets = get_subset_datasets(
-                datasets=datasets, subset_outcome_names=subset_outcome_names
-            )
-            surrogate.model_options.update(additional_model_inputs)
-            surrogate.fit(
-                datasets=subset_datasets,
-                search_space_digest=search_space_digest,
-                candidate_metadata=candidate_metadata,
-                state_dict=(state_dicts or {}).get(label),
-                refit=refit,
-            )
+                self._surrogate = Surrogate()
 
-        # Step 3. Output order of outcomes must match input order, but now outcomes are
-        # grouped according to surrogate. Compute the permutation from surrogate order
-        # to input ordering.
-        surrogate_order = []
-        for surrogate in self.surrogates.values():
-            surrogate_order.extend(surrogate.outcomes)
-        self._output_order = list(
-            np.argsort([outcome_names.index(name) for name in surrogate_order])
+        # Fit the surrogate.
+        self.surrogate.model_options.update(additional_model_inputs)
+        self.surrogate.fit(
+            datasets=datasets,
+            search_space_digest=search_space_digest,
+            candidate_metadata=candidate_metadata,
+            state_dict=state_dict,
+            refit=refit,
         )
 
-    def predict(self, X: Tensor) -> tuple[Tensor, Tensor]:
+    def predict(
+        self, X: Tensor, use_posterior_predictive: bool = False
+    ) -> tuple[Tensor, Tensor]:
         """Predicts, potentially from multiple surrogates.
-
-        If predictions are from multiple surrogates, will stitch outputs together
-        in same order as input datasets, using self.output_order.
 
         Args:
             X: (n x d) Tensor of input locations.
+            use_posterior_predictive: A boolean indicating if the predictions
+                should be from the posterior predictive (i.e. including
+                observation noise).
 
         Returns: Tuple of tensors: (n x m) mean, (n x m x m) covariance.
         """
-        if len(self.surrogates) == 1:
-            return self.surrogate.predict(X=X)
-        fs, covs = [], []
-        for surrogate in self.surrogates.values():
-            f, cov = surrogate.predict(X=X)
-            fs.append(f)
-            covs.append(cov)
-        f = torch.cat(fs, dim=-1)
-        cov = torch.zeros(
-            f.shape[0], f.shape[1], f.shape[1], dtype=X.dtype, device=X.device
-        )
-        i = 0
-        for cov_i in covs:
-            d = cov_i.shape[-1]
-            cov[:, i : (i + d), i : (i + d)] = cov_i
-            i += d
-        # Permute from surrogate order to input ordering
-        f = f[:, self.output_order]
-        cov = cov[:, :, self.output_order][:, self.output_order, :]
-        return f, cov
-
-    def predict_from_surrogate(
-        self,
-        surrogate_label: str,
-        X: Tensor,
-        use_posterior_predictive: bool = False,
-    ) -> tuple[Tensor, Tensor]:
-        """Predict from the Surrogate with the given label."""
-        return self.surrogates[surrogate_label].predict(
+        return self.surrogate.predict(
             X=X, use_posterior_predictive=use_posterior_predictive
         )
 
@@ -464,7 +341,6 @@ class BoTorchModel(TorchModel, Base):
         return gen_metadata
 
     @copy_doc(TorchModel.best_point)
-    @single_surrogate_only
     def best_point(
         self,
         search_space_digest: SearchSpaceDigest,
@@ -502,46 +378,21 @@ class BoTorchModel(TorchModel, Base):
         use_posterior_predictive: bool = False,
         **additional_model_inputs: Any,
     ) -> tuple[Tensor, Tensor]:
-        # Will fail if metric_names exist across multiple models
-        metric_names = sum((ds.outcome_names for ds in datasets), [])
-        surrogate_labels = (
-            [
-                label
-                for label, surrogate in self.surrogates.items()
-                if any(metric in surrogate.outcomes for metric in metric_names)
-            ]
-            if len(self.surrogates) > 1
-            else [*self.surrogates.keys()]
-        )
-        if len(surrogate_labels) != 1:
-            raise UserInputError(
-                "May not cross validate multiple Surrogates at once. Please input "
-                f"datasets that exist on one Surrogate. {metric_names} spans "
-                f"{surrogate_labels}"
-            )
-        surrogate_label = surrogate_labels[0]
-
-        current_surrogates = self.surrogates
+        current_surrogate = self.surrogate
         # If we should be refitting but not warm-starting the refit, set
-        # `state_dicts` to None to avoid loading it.
-        state_dicts = (
+        # `state_dict` to None to avoid loading it.
+        state_dict = (
             None
             if self.refit_on_cv and not self.warm_start_refit
-            else {
-                label: deepcopy(checked_cast(OrderedDict, surrogate.model.state_dict()))
-                for label, surrogate in current_surrogates.items()
-            }
+            else current_surrogate.model.state_dict()
         )
 
-        # Temporarily set `_surrogates` to cloned surrogates to set
-        # the training data on cloned surrogates to train set and
+        # Temporarily set `_surrogate` to cloned surrogate to set
+        # the training data on cloned surrogate to train set and
         # use it to predict the test point.
-        surrogate_clones = {
-            label: surrogate.clone_reset()
-            for label, surrogate in self.surrogates.items()
-        }
-        self._surrogates = surrogate_clones
-        # Remove the robust_digest since we do not want to use perturbations here.
+        self._surrogate = current_surrogate.clone_reset()
+
+        # Remove the `robust_digest` since we do not want to use perturbations here.
         search_space_digest = dataclasses.replace(
             search_space_digest,
             robust_digest=None,
@@ -551,12 +402,13 @@ class BoTorchModel(TorchModel, Base):
             self.fit(
                 datasets=datasets,
                 search_space_digest=search_space_digest,
-                state_dicts=state_dicts,
+                # pyre-fixme [6]: state_dict() has a generic dict[str, Any] return type
+                # but it is actually an OrderedDict[str, Tensor].
+                state_dict=state_dict,
                 refit=self.refit_on_cv,
                 **additional_model_inputs,
             )
-            X_test_prediction = self.predict_from_surrogate(
-                surrogate_label=surrogate_label,
+            X_test_prediction = self.predict(
                 X=X_test,
                 use_posterior_predictive=use_posterior_predictive,
             )
@@ -564,7 +416,7 @@ class BoTorchModel(TorchModel, Base):
             # Reset the surrogates back to this model's surrogate, make
             # sure the cloned surrogate doesn't stay around if fit or
             # predict fail.
-            self._surrogates = current_surrogates
+            self._surrogate = current_surrogate
         return X_test_prediction
 
     @property
@@ -572,35 +424,14 @@ class BoTorchModel(TorchModel, Base):
         """Torch data type of the tensors in the training data used in the model,
         of which this ``Acquisition`` is a subcomponent.
         """
-        dtypes = {
-            label: surrogate.dtype for label, surrogate in self.surrogates.items()
-        }
-
-        dtypes_list = list(dtypes.values())
-        if dtypes_list.count(dtypes_list[0]) != len(dtypes_list):
-            raise NotImplementedError(
-                f"Expected all Surrogates to have same dtype, found {dtypes}"
-            )
-
-        return dtypes_list[0]
+        return self.surrogate.dtype
 
     @property
     def device(self) -> torch.device:
         """Torch device type of the tensors in the training data used in the model,
         of which this ``Acquisition`` is a subcomponent.
         """
-
-        devices = {
-            label: surrogate.device for label, surrogate in self.surrogates.items()
-        }
-
-        devices_list = list(devices.values())
-        if devices_list.count(devices_list[0]) != len(devices_list):
-            raise NotImplementedError(
-                f"Expected all Surrogates to have same device, found {devices}"
-            )
-
-        return devices_list[0]
+        return self.surrogate.device
 
     def _instantiate_acquisition(
         self,
@@ -633,14 +464,12 @@ class BoTorchModel(TorchModel, Base):
             options=acq_options,
         )
 
-    @single_surrogate_only
     # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def feature_importances(self) -> np.ndarray:
         """Compute feature importances from the model.
 
-        Caveat: This assumes the following:
-            1. There is a single surrogate model (potentially a `ModelList`).
-            2. We can get model lengthscales from `covar_module.base_kernel.lengthscale`
+        This assumes that we can get model lengthscales from either
+        ``covar_module.base_kernel.lengthscale`` or ``covar_module.lengthscale``.
 
         Returns:
             The feature importances as a numpy array of size len(metrics) x 1 x dim
@@ -659,19 +488,3 @@ class BoTorchModel(TorchModel, Base):
     @search_space_digest.setter
     def search_space_digest(self, value: SearchSpaceDigest) -> None:
         raise RuntimeError("Setting search_space_digest manually is disallowed.")
-
-    @property
-    def outcomes_by_surrogate_label(self) -> dict[str, list[str]]:
-        """Returns a dictionary mapping from surrogate label to a list of outcomes."""
-        outcomes_by_surrogate_label = {}
-        for k, v in self.surrogates.items():
-            outcomes_by_surrogate_label[k] = v.outcomes
-        return outcomes_by_surrogate_label
-
-    @property
-    def output_order(self) -> list[int]:
-        if self._output_order is None:
-            raise RuntimeError(
-                "`output_order` is not initialized. Must `fit` the model first."
-            )
-        return self._output_order
