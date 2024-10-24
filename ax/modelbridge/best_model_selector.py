@@ -9,15 +9,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
-from enum import Enum
-from functools import partial
+from enum import unique
 from typing import Any, Union
 
 import numpy as np
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.model_spec import ModelSpec
 from ax.utils.common.base import Base
+from ax.utils.common.func_enum import FuncEnum
 from ax.utils.common.typeutils import not_none
 
 # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
@@ -36,27 +35,24 @@ class BestModelSelector(ABC, Base):
         """
 
 
-class ReductionCriterion(Enum):
+@unique
+class ReductionCriterion(FuncEnum):
     """An enum for callables that are used for aggregating diagnostics over metrics
     and selecting the best diagnostic in ``SingleDiagnosticBestModelSelector``.
+
+    NOTE: The methods defined by this enum should all share identical signatures:
+    ``Callable[[ARRAYLIKE], np.ndarray]``, and reside in this file.
 
     NOTE: This is used to ensure serializability of the callables.
     """
 
-    # NOTE: Callables need to be wrapped in `partial` to be registered as members.
-    # pyre-fixme[35]: Target cannot be annotated.
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    MEAN: Callable[[ARRAYLIKE], np.ndarray] = partial(np.mean)
-    # pyre-fixme[35]: Target cannot be annotated.
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    MIN: Callable[[ARRAYLIKE], np.ndarray] = partial(np.min)
-    # pyre-fixme[35]: Target cannot be annotated.
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    MAX: Callable[[ARRAYLIKE], np.ndarray] = partial(np.max)
+    MEAN = "mean_reduction_criterion"
+    MIN = "min_reduction_criterion"
+    MAX = "max_reduction_criterion"
 
     # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     def __call__(self, array_like: ARRAYLIKE) -> np.ndarray:
-        return self.value(array_like)
+        return super().__call__(array_like=array_like)
 
 
 class SingleDiagnosticBestModelSelector(BestModelSelector):
@@ -132,3 +128,23 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
         best_diagnostic = self.criterion(aggregated_diagnostic_values).item()
         best_index = aggregated_diagnostic_values.index(best_diagnostic)
         return model_specs[best_index]
+
+
+# ------------------------- Reduction criteria ------------------------- #
+
+
+# Wrap the numpy functions, to be able to access them directly from this
+# module in `ReductionCriterion(FuncEnum)` and to have typechecking
+def mean_reduction_criterion(array_like: ARRAYLIKE) -> np.ndarray:
+    """Compute the mean of an array-like object."""
+    return np.mean(array_like)
+
+
+def min_reduction_criterion(array_like: ARRAYLIKE) -> np.ndarray:
+    """Compute the min of an array-like object."""
+    return np.min(array_like)
+
+
+def max_reduction_criterion(array_like: ARRAYLIKE) -> np.ndarray:
+    """Compute the max of an array-like object."""
+    return np.max(array_like)
