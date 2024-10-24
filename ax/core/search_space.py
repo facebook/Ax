@@ -714,7 +714,7 @@ class HierarchicalSearchSpace(SearchSpace):
         ):
             raise RuntimeError(
                 error_msg_prefix
-                + f"Parameters {applicable_paramers- set(parameters.keys())} are"
+                + f"Parameters {applicable_paramers - set(parameters.keys())} are"
                 " missing."
             )
 

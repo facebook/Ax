@@ -162,5 +162,5 @@ def _attach_completed_trials(ax_client: AxClient) -> None:
 
 # Test metric evaluation method
 def _evaluate_test_metrics(parameters: TParameterization) -> TEvaluationOutcome:
-    x = np.array([parameters.get(f"x{i+1}") for i in range(2)])
+    x = np.array([parameters.get(f"x{i + 1}") for i in range(2)])
     return {"test_metric1": (x[0] / x[1], 0.0), "test_metric2": (x[0] + x[1], 0.0)}
