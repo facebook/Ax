@@ -336,8 +336,7 @@ class Acquisition(Base):
             )
             return candidates, acqf_values, arm_weights
 
-        # 2. Handle search spaces with discrete features.
-        # 2a. Handle the fully discrete search space.
+        # 2. Handle fully discrete search spaces.
         if optimizer in (
             "optimize_acqf_discrete",
             "optimize_acqf_discrete_local_search",
@@ -384,7 +383,7 @@ class Acquisition(Base):
                 )
             return candidates, acqf_values, arm_weights
 
-        # 2b. Handle mixed search spaces that have discrete and continuous features.
+        # 3. Handle mixed search spaces that have discrete and continuous features.
         # Only sequential optimization is supported for `optimize_acqf_mixed`.
         candidates, acqf_values = optimize_acqf_mixed(
             acq_function=self.acqf,
