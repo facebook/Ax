@@ -63,7 +63,7 @@ class Jenatton(ParamBasedTestProblem):
         # `jenatton_test_function`, for 1st positional argument, expected
         # `Optional[float]` but got `Union[None, bool, float, int, str]`.
         value = jenatton_test_function(**params)
-        return torch.tensor(value)
+        return torch.tensor(value, dtype=torch.double)
 
 
 def get_jenatton_benchmark_problem(

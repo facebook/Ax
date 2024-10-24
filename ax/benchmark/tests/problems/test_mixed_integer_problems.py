@@ -15,13 +15,16 @@ from ax.benchmark.problems.synthetic.discretized.mixed_integer import (
     get_discrete_hartmann,
     get_discrete_rosenbrock,
 )
-from ax.benchmark.runners.botorch_test import BotorchTestProblemRunner
+from ax.benchmark.runners.botorch_test import (
+    BoTorchTestProblem,
+    ParamBasedTestProblemRunner,
+)
 from ax.core.arm import Arm
 from ax.core.parameter import ParameterType
 from ax.core.trial import Trial
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast
 from botorch.test_functions.synthetic import Ackley, Hartmann, Rosenbrock
+from pyre_extensions import assert_is_instance
 
 
 class MixedIntegerProblemsTest(TestCase):
@@ -34,10 +37,10 @@ class MixedIntegerProblemsTest(TestCase):
             name = problem_cls.__name__
             problem = constructor()
             self.assertEqual(f"Discrete {name}", problem.name)
-            self.assertIsInstance(
-                checked_cast(BotorchTestProblemRunner, problem.runner).test_problem,
-                problem_cls,
-            )
+            runner = assert_is_instance(problem.runner, ParamBasedTestProblemRunner)
+            test_problem = assert_is_instance(runner.test_problem, BoTorchTestProblem)
+            botorch_problem = test_problem.botorch_problem
+            self.assertIsInstance(botorch_problem, problem_cls)
             self.assertEqual(len(problem.search_space.parameters), dim)
             self.assertEqual(
                 sum(
@@ -51,12 +54,7 @@ class MixedIntegerProblemsTest(TestCase):
                 expected_bounds = [(-5.0, 10.0) for _ in range(dim)]
             else:
                 expected_bounds = [(0.0, 1.0) for _ in range(dim)]
-            self.assertEqual(
-                checked_cast(
-                    BotorchTestProblemRunner, problem.runner
-                ).test_problem._bounds,
-                expected_bounds,
-            )
+            self.assertEqual(botorch_problem._bounds, expected_bounds)
             self.assertGreaterEqual(problem.optimal_value, problem_cls().optimal_value)
 
         # Test that they match correctly to the original problems.
@@ -101,7 +99,8 @@ class MixedIntegerProblemsTest(TestCase):
         ]
 
         for problem, params, expected_arg in cases:
-            runner = checked_cast(BotorchTestProblemRunner, problem.runner)
+            runner = assert_is_instance(problem.runner, ParamBasedTestProblemRunner)
+            test_problem = assert_is_instance(runner.test_problem, BoTorchTestProblem)
             trial = Trial(experiment=MagicMock())
             # pyre-fixme: Incompatible parameter type [6]: In call
             # `Arm.__init__`, for argument `parameters`, expected `Dict[str,
@@ -109,9 +108,9 @@ class MixedIntegerProblemsTest(TestCase):
             arm = Arm(parameters=params, name="--")
             trial.add_arm(arm)
             with patch.object(
-                runner.test_problem,
+                test_problem.botorch_problem,
                 attribute="evaluate_true",
-                wraps=runner.test_problem.evaluate_true,
+                wraps=test_problem.botorch_problem.evaluate_true,
             ) as mock_call:
                 runner.run(trial)
             actual = mock_call.call_args[0][0]
