@@ -18,7 +18,7 @@ from unittest.mock import Mock
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import SearchSpaceExhausted, UnsupportedError
+from ax.exceptions.core import SearchSpaceExhausted
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -178,7 +178,7 @@ class AcquisitionTest(TestCase):
             botorch_acqf_class=(
                 DummyOneShotAcquisitionFunction if one_shot else self.botorch_acqf_class
             ),
-            surrogates={"surrogate": self.surrogate},
+            surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
             torch_opt_config=dataclasses.replace(
                 self.torch_opt_config, fixed_features=fixed_features or {}
@@ -194,7 +194,7 @@ class AcquisitionTest(TestCase):
         with self.assertRaisesRegex(TypeError, ".* missing .* 'botorch_acqf_class'"):
             # pyre-ignore[20]: Argument `botorch_acqf_class` expected.
             Acquisition(
-                surrogates={"surrogate": self.surrogate},
+                surrogate=self.surrogate,
                 search_space_digest=self.search_space_digest,
                 torch_opt_config=self.torch_opt_config,
             )
@@ -210,7 +210,7 @@ class AcquisitionTest(TestCase):
         mock_get_X: Mock,
     ) -> None:
         acquisition = Acquisition(
-            surrogates={"surrogate": self.surrogate},
+            surrogate=self.surrogate,
             search_space_digest=self.search_space_digest,
             torch_opt_config=self.torch_opt_config,
             botorch_acqf_class=self.botorch_acqf_class,
@@ -234,7 +234,7 @@ class AcquisitionTest(TestCase):
 
         # Call `subset_model` only when needed
         mock_subset_model.assert_called_with(
-            model=acquisition.surrogates["surrogate"].model,
+            model=acquisition.surrogate.model,
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
             objective_thresholds=self.objective_thresholds,
@@ -265,7 +265,7 @@ class AcquisitionTest(TestCase):
             return_value=self.constraints,
         ) as mock_get_outcome_constraint_transforms:
             acquisition = Acquisition(
-                surrogates={"surrogate": self.surrogate},
+                surrogate=self.surrogate,
                 search_space_digest=self.search_space_digest,
                 torch_opt_config=self.torch_opt_config,
                 botorch_acqf_class=self.botorch_acqf_class,
@@ -275,14 +275,14 @@ class AcquisitionTest(TestCase):
         # Check `get_botorch_objective_and_transform` kwargs
         mock_get_objective_and_transform.assert_called_once()
         _, ckwargs = mock_get_objective_and_transform.call_args
-        self.assertIs(ckwargs["model"], acquisition.surrogates["surrogate"].model)
+        self.assertIs(ckwargs["model"], acquisition.surrogate.model)
         self.assertIs(ckwargs["objective_weights"], self.objective_weights)
         self.assertIs(ckwargs["outcome_constraints"], self.outcome_constraints)
         self.assertTrue(torch.equal(ckwargs["X_observed"], self.X[:1]))
         # Check final `acqf` creation
         self.mock_input_constructor.assert_called_once()
         _, ckwargs = self.mock_input_constructor.call_args
-        self.assertIs(ckwargs["model"], acquisition.surrogates["surrogate"].model)
+        self.assertIs(ckwargs["model"], acquisition.surrogate.model)
         self.assertIs(ckwargs["objective"], botorch_objective)
         self.assertTrue(torch.equal(ckwargs["X_pending"], self.pending_observations[0]))
         for k, v in self.options.items():
@@ -422,7 +422,7 @@ class AcquisitionTest(TestCase):
             inequality_constraints=None,
         )
 
-        expected_choices = torch.tensor([elt for elt in all_possible_choices])
+        expected_choices = torch.tensor(all_possible_choices)
         expected_avoid = torch.cat([self.X, self.pending_observations[0]], dim=-2)
 
         kwargs = mock_optimize_acqf_discrete.call_args.kwargs
@@ -702,7 +702,7 @@ class AcquisitionTest(TestCase):
             is_moo=True,
         )
         acquisition = Acquisition(
-            surrogates={"surrogate": self.surrogate},
+            surrogate=self.surrogate,
             botorch_acqf_class=acqf_class,
             search_space_digest=self.search_space_digest,
             torch_opt_config=torch_opt_config,
@@ -736,7 +736,7 @@ class AcquisitionTest(TestCase):
                 )
             )
             acquisition = Acquisition(
-                surrogates={"surrogate": self.surrogate},
+                surrogate=self.surrogate,
                 search_space_digest=self.search_space_digest,
                 botorch_acqf_class=acqf_class,
                 torch_opt_config=dataclasses.replace(
@@ -757,7 +757,7 @@ class AcquisitionTest(TestCase):
                 self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))
             # With partial thresholds.
             acquisition = Acquisition(
-                surrogates={"surrogate": self.surrogate},
+                surrogate=self.surrogate,
                 search_space_digest=self.search_space_digest,
                 botorch_acqf_class=acqf_class,
                 torch_opt_config=dataclasses.replace(
@@ -784,18 +784,3 @@ class AcquisitionTest(TestCase):
 
     def test_init_no_X_observed(self) -> None:
         self.test_init_moo(with_no_X_observed=True, with_outcome_constraints=False)
-
-    def test_init_multiple_surrogates(self) -> None:
-        with self.assertRaisesRegex(
-            UnsupportedError, "currently only supports a single surrogate"
-        ):
-            Acquisition(
-                surrogates={
-                    "surrogate_1": self.surrogate,
-                    "surrogate_2": self.surrogate,
-                },
-                search_space_digest=self.search_space_digest,
-                torch_opt_config=self.torch_opt_config,
-                botorch_acqf_class=self.botorch_acqf_class,
-                options=self.options,
-            )

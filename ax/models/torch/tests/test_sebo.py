@@ -119,7 +119,7 @@ class TestSebo(TestCase):
     ) -> SEBOAcquisition:
         return SEBOAcquisition(
             botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
-            surrogates={Keys.ONLY_SURROGATE: self.surrogates},
+            surrogate=self.surrogates,
             search_space_digest=self.search_space_digest,
             torch_opt_config=dataclasses.replace(
                 torch_opt_config or self.torch_opt_config,
@@ -133,7 +133,7 @@ class TestSebo(TestCase):
             options={"target_point": self.target_point},
         )
         # Check that determinstic metric is added to surrogate
-        surrogate = acquisition1.surrogates["sebo"]
+        surrogate = acquisition1.surrogate
         model_list = not_none(surrogate._model)
         self.assertIsInstance(model_list, ModelList)
         self.assertIsInstance(model_list.models[0], SingleTaskGP)
@@ -167,7 +167,7 @@ class TestSebo(TestCase):
             options={"penalty": "L1_norm", "target_point": self.target_point},
         )
         self.assertEqual(acquisition2.penalty_name, "L1_norm")
-        surrogate = acquisition2.surrogates["sebo"]
+        surrogate = acquisition2.surrogate
         model_list = not_none(surrogate._model)
         self.assertIsInstance(model_list.models[1]._f, functools.partial)
         self.assertIs(model_list.models[1]._f.func, L1_norm_func)
@@ -179,21 +179,6 @@ class TestSebo(TestCase):
             self.get_acquisition_function(
                 fixed_features=self.fixed_features,
                 options={"penalty": "L2_norm", "target_point": self.target_point},
-            )
-
-        # assert error raise if multiple surrogates are given
-        with self.assertRaisesRegex(
-            ValueError, "SEBO does not support support multiple surrogates."
-        ):
-            SEBOAcquisition(
-                botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
-                surrogates={
-                    Keys.ONLY_SURROGATE: self.surrogates,
-                    "sebo2": self.surrogates,
-                },
-                search_space_digest=self.search_space_digest,
-                torch_opt_config=self.torch_opt_config,
-                options=self.options,
             )
 
         # assert error raise if target point is not given
