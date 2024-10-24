@@ -68,6 +68,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils import checked_cast, not_none
+from libfb.py.pyre import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -189,7 +190,7 @@ class Encoder:
         if isinstance(experiment, MultiTypeExperiment):
             properties[Keys.SUBCLASS] = "MultiTypeExperiment"
             for trial_type, runner in experiment._trial_type_to_runner.items():
-                runner_sqa = self.runner_to_sqa(runner, trial_type)
+                runner_sqa = self.runner_to_sqa(none_throws(runner), trial_type)
                 runners.append(runner_sqa)
 
             for metric in tracking_metrics:

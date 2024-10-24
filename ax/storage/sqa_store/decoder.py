@@ -236,7 +236,9 @@ class Decoder:
             properties=properties,
             default_data_type=default_data_type,
         )
-        experiment._trial_type_to_runner = trial_type_to_runner
+        experiment._trial_type_to_runner = cast(
+            dict[str, Runner | None], trial_type_to_runner
+        )
         sqa_metric_dict = {metric.name: metric for metric in experiment_sqa.metrics}
         for tracking_metric in tracking_metrics:
             sqa_metric = sqa_metric_dict[tracking_metric.name]

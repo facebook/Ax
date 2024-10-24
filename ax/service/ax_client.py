@@ -251,6 +251,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         immutable_search_space_and_opt_config: bool = True,
         is_test: bool = False,
         metric_definitions: dict[str, dict[str, Any]] | None = None,
+        default_trial_type: Optional[str] = None,
     ) -> None:
         """Create a new experiment and save it if DBSettings available.
 
@@ -316,6 +317,10 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 to that metric. Note these are modified in-place. Each
                 Metric must have its own dictionary (metrics cannot share a
                 single dictionary object).
+            default_trial_type: The default trial type if multiple
+                trial types are intended to be used in the experiment. If not specified,
+                experiemnt of Experiment type will be created. If specified, experiment
+                of MultiTypeExperiment type will be created.
         """
         self._validate_early_stopping_strategy(support_intermediate_data)
 
@@ -344,6 +349,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             support_intermediate_data=support_intermediate_data,
             immutable_search_space_and_opt_config=immutable_search_space_and_opt_config,
             is_test=is_test,
+            default_trial_type=default_trial_type,
             **objective_kwargs,
         )
         self._set_runner(experiment=experiment)
