@@ -124,7 +124,6 @@ class PyTorchCNNTorchvisionParamBasedProblem(ParamBasedTestProblem):
             "cuda" if torch.cuda.is_available() else "cpu"
         )
     )
-    negate: bool = False
     # Using `InitVar` prevents the DataLoaders from being serialized; instead
     # they are reconstructed upon deserialization.
     # Pyre doesn't understand InitVars.

@@ -30,37 +30,69 @@ from botorch.test_functions.synthetic import Ackley, ConstrainedHartmann, Hartma
 from botorch.utils.transforms import normalize
 
 
-class TestSyntheticRunner(TestCase):
-    def test_runner_raises_for_botorch_attrs(self) -> None:
+class TestBoTorchTestProblem(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        botorch_base_test_functions = {
+            "base Hartmann": Hartmann(dim=6),
+            "negated Hartmann": Hartmann(dim=6, negate=True),
+            "constrained Hartmann": ConstrainedHartmann(dim=6),
+            "negated constrained Hartmann": ConstrainedHartmann(dim=6, negate=True),
+        }
+        self.botorch_test_problems = {
+            k: BoTorchTestProblem(botorch_problem=v)
+            for k, v in botorch_base_test_functions.items()
+        }
+
+    def test_negation(self) -> None:
+        params = {f"x{i}": 0.5 for i in range(6)}
+        evaluate_true_results = {
+            k: v.evaluate_true(params) for k, v in self.botorch_test_problems.items()
+        }
+        self.assertEqual(
+            evaluate_true_results["base Hartmann"],
+            evaluate_true_results["constrained Hartmann"],
+        )
+        self.assertEqual(
+            evaluate_true_results["base Hartmann"],
+            -evaluate_true_results["negated Hartmann"],
+        )
+        self.assertEqual(
+            evaluate_true_results["negated Hartmann"],
+            evaluate_true_results["negated constrained Hartmann"],
+        )
+
+        self.assertEqual(
+            self.botorch_test_problems["constrained Hartmann"].evaluate_slack_true(
+                params
+            ),
+            self.botorch_test_problems[
+                "negated constrained Hartmann"
+            ].evaluate_slack_true(params),
+        )
+
+    def test_unsupported_error(self) -> None:
+        test_function = BoTorchTestProblem(botorch_problem=Hartmann(dim=6))
+        with self.assertRaisesRegex(
+            UnsupportedError, "`evaluate_slack_true` is only supported when"
+        ):
+            test_function.evaluate_slack_true({"a": 3})
+
+    def test_raises_for_botorch_attrs(self) -> None:
         with self.assertRaisesRegex(
             ValueError, "noise_std should be set on the runner, not the test problem."
         ):
-            ParamBasedTestProblemRunner(
-                test_problem=BoTorchTestProblem(
-                    botorch_problem=Hartmann(dim=6, noise_std=0.1)
-                ),
-                outcome_names=["objective"],
-            )
+            BoTorchTestProblem(botorch_problem=Hartmann(dim=6, noise_std=0.1))
         with self.assertRaisesRegex(
             ValueError,
             "constraint_noise_std should be set on the runner, not the test problem.",
         ):
-            ParamBasedTestProblemRunner(
-                test_problem=BoTorchTestProblem(
-                    botorch_problem=ConstrainedHartmann(dim=6, constraint_noise_std=0.1)
-                ),
-                outcome_names=["objective", "constraint"],
-            )
-        with self.assertRaisesRegex(
-            ValueError, "negate should be set on the runner, not the test problem."
-        ):
-            ParamBasedTestProblemRunner(
-                test_problem=BoTorchTestProblem(
-                    botorch_problem=Hartmann(dim=6, negate=True)
-                ),
-                outcome_names=["objective"],
+            BoTorchTestProblem(
+                botorch_problem=ConstrainedHartmann(dim=6, constraint_noise_std=0.1)
             )
 
+
+class TestSyntheticRunner(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.maxDiff = None
@@ -164,8 +196,6 @@ class TestSyntheticRunner(TestCase):
                 if isinstance(test_problem, BoTorchTestProblem):
                     botorch_problem = test_problem.botorch_problem
                     obj = botorch_problem.evaluate_true(X_tf)
-                    if runner.negate:
-                        obj = -obj
                     if runner._is_constrained:
                         expected_Y = torch.cat(
                             [
@@ -243,10 +273,3 @@ class TestSyntheticRunner(TestCase):
         self.assertSetEqual(set(res["Ys"].keys()), {"0_0"})
         self.assertEqual(res["Ystds"]["0_0"], [0.1, 0.05])
         self.assertEqual(res["outcome_names"], ["objective", "constraint"])
-
-    def test_unsupported_error(self) -> None:
-        test_function = BoTorchTestProblem(botorch_problem=Hartmann(dim=6))
-        with self.assertRaisesRegex(
-            UnsupportedError, "`evaluate_slack_true` is only supported when"
-        ):
-            test_function.evaluate_slack_true({"a": 3})
