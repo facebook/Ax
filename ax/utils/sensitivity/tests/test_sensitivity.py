@@ -65,9 +65,7 @@ class SensitivityAnalysisTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.model = get_modelbridge().model.model
-        self.saas_model = (
-            get_modelbridge(saasbo=True).model.surrogates["SAASBO_Surrogate"].model
-        )
+        self.saas_model = get_modelbridge(saasbo=True).model.surrogate.model
 
     def test_DgsmGpMean(self) -> None:
         bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()

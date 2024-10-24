@@ -2217,6 +2217,12 @@ def get_botorch_model_with_surrogate_specs() -> BoTorchModel:
     )
 
 
+def get_botorch_model_with_surrogate_spec() -> BoTorchModel:
+    return BoTorchModel(
+        surrogate_spec=SurrogateSpec(botorch_model_kwargs={"some_option": "some_value"})
+    )
+
+
 def get_surrogate() -> Surrogate:
     return Surrogate(
         botorch_model_class=get_model_type(),

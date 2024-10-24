@@ -265,6 +265,7 @@ class BotorchModel(TorchModel):
             "instead. If you run into a use case that is not supported by MBM, "
             "please raise this with an issue at https://github.com/facebook/Ax",
             DeprecationWarning,
+            stacklevel=2,
         )
         self.model_constructor = model_constructor
         self.model_predictor = model_predictor
