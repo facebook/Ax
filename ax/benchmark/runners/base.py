@@ -84,7 +84,7 @@ class BenchmarkRunner(Runner, ABC):
         return self.get_Y_true(params=params).numpy()
 
     @abstractmethod
-    def get_noise_stds(self) -> None | float | dict[str, float]:
+    def get_noise_stds(self) -> dict[str, float]:
         """
         Return the standard errors for the synthetic noise to be applied to the
         observed values.
@@ -110,7 +110,9 @@ class BenchmarkRunner(Runner, ABC):
         Ys, Ystds = {}, {}
         noise_stds = self.get_noise_stds()
 
-        if noise_stds is not None:
+        noiseless = all(v == 0 for v in noise_stds.values())
+
+        if not noiseless:
             # extract arm weights to adjust noise levels accordingly
             if isinstance(trial, BatchTrial):
                 # normalize arm weights (we assume that the noise level is defined)
@@ -122,22 +124,15 @@ class BenchmarkRunner(Runner, ABC):
             else:
                 nlzd_arm_weights = {checked_cast(Trial, trial).arm: 1.0}
             # generate a tensor of noise levels that we'll reuse below
-            if isinstance(noise_stds, float):
-                noise_stds_tsr = torch.full(
-                    (len(self.outcome_names),),
-                    noise_stds,
-                    dtype=torch.double,
-                )
-            else:
-                noise_stds_tsr = torch.tensor(
-                    [noise_stds[metric_name] for metric_name in self.outcome_names],
-                    dtype=torch.double,
-                )
+            noise_stds_tsr = torch.tensor(
+                [noise_stds[metric_name] for metric_name in self.outcome_names],
+                dtype=torch.double,
+            )
 
         for arm in trial.arms:
             # Case where we do have a ground truth
             Y_true = self.get_Y_true(arm.parameters)
-            if noise_stds is None:
+            if noiseless:
                 # No noise, so just return the true outcome.
                 Ystds[arm.name] = [0.0] * len(Y_true)
                 Ys[arm.name] = Y_true.tolist()
