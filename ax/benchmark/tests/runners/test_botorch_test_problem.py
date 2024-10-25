@@ -7,9 +7,10 @@
 # pyre-strict
 
 
+from contextlib import nullcontext
 from dataclasses import replace
 from itertools import product
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import numpy as np
 
@@ -19,13 +20,17 @@ from ax.benchmark.runners.botorch_test import (
     BoTorchTestProblem,
     ParamBasedTestProblemRunner,
 )
+from ax.benchmark.runners.surrogate import SurrogateTestFunction
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.trial import Trial
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
-from ax.utils.testing.benchmark_stubs import TestParamBasedTestProblem
+from ax.utils.testing.benchmark_stubs import (
+    get_soo_surrogate_test_function,
+    TestParamBasedTestProblem,
+)
 from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.test_functions.synthetic import Ackley, ConstrainedHartmann, Hartmann
 from botorch.utils.transforms import normalize
@@ -130,34 +135,35 @@ class TestSyntheticRunner(TestCase):
             for num_outcomes in (1, 2)
             for noise_std in (0.0, [float(i) for i in range(num_outcomes)])
         ]
-        for test_problem, noise_std, num_outcomes in botorch_cases + param_based_cases:
-            is_constrained = isinstance(
-                test_problem, BoTorchTestProblem
-            ) and isinstance(test_problem.botorch_problem, ConstrainedHartmann)
-            num_constraints = 1 if is_constrained else 0
-            outcome_names = [
-                f"objective_{i}" for i in range(num_outcomes - num_constraints)
-            ] + ["constraint"] * num_constraints
+        surrogate_cases = [
+            (get_soo_surrogate_test_function(lazy=False), noise_std, 1)
+            for noise_std in (0.0, 1.0, [0.0], [1.0])
+        ]
+        for test_problem, noise_std, num_outcomes in (
+            botorch_cases + param_based_cases + surrogate_cases
+        ):
+            # Set up outcome names
+            if isinstance(test_problem, BoTorchTestProblem):
+                if isinstance(test_problem.botorch_problem, ConstrainedHartmann):
+                    outcome_names = ["objective_0", "constraint"]
+                else:
+                    outcome_names = ["objective_0"]
+            elif isinstance(test_problem, TestParamBasedTestProblem):
+                outcome_names = [f"objective_{i}" for i in range(num_outcomes)]
+            else:  # SurrogateTestFunction
+                outcome_names = ["branin"]
 
+            # Set up runner
             runner = ParamBasedTestProblemRunner(
                 test_problem=test_problem,
                 outcome_names=outcome_names,
                 noise_std=noise_std,
             )
-            modified_bounds = (
-                test_problem.modified_bounds
-                if isinstance(test_problem, BoTorchTestProblem)
-                else None
-            )
 
-            test_description: str = (
-                f"test problem: {test_problem.__class__.__name__}, "
-                f"modified_bounds: {modified_bounds}, "
-                f"noise_std: {noise_std}."
-            )
-            is_botorch = isinstance(test_problem, BoTorchTestProblem)
-
-            with self.subTest(f"Test basic construction, {test_description}"):
+            test_description = f"{test_problem=}, {noise_std=}"
+            with self.subTest(
+                f"Test basic construction, {test_problem=}, {noise_std=}"
+            ):
                 self.assertIs(runner.test_problem, test_problem)
                 self.assertEqual(runner.outcome_names, outcome_names)
                 if isinstance(noise_std, list):
@@ -183,6 +189,7 @@ class TestSyntheticRunner(TestCase):
                         test_problem.botorch_problem.bounds.dtype, torch.double
                     )
 
+            is_botorch = isinstance(test_problem, BoTorchTestProblem)
             with self.subTest(f"test `get_Y_true()`, {test_description}"):
                 dim = 6 if is_botorch else 9
                 X = torch.rand(1, dim, dtype=torch.double)
@@ -195,7 +202,20 @@ class TestSyntheticRunner(TestCase):
                 )
                 params = dict(zip(param_names, (x.item() for x in X.unbind(-1))))
 
-                Y = runner.get_Y_true(params=params)
+                with (
+                    nullcontext()
+                    if not isinstance(test_problem, SurrogateTestFunction)
+                    else patch.object(
+                        # pyre-fixme: ParamBasedTestProblem` has no attribute
+                        # `_surrogate`.
+                        runner.test_problem._surrogate,
+                        "predict",
+                        return_value=({"branin": [4.2]}, None),
+                    )
+                ):
+                    Y = runner.get_Y_true(params=params)
+                    oracle = runner.evaluate_oracle(parameters=params)
+
                 if (
                     isinstance(test_problem, BoTorchTestProblem)
                     and test_problem.modified_bounds is not None
@@ -221,12 +241,13 @@ class TestSyntheticRunner(TestCase):
                         )
                     else:
                         expected_Y = obj
+                elif isinstance(test_problem, SurrogateTestFunction):
+                    expected_Y = torch.tensor([4.2], dtype=torch.double)
                 else:
                     expected_Y = torch.full(
                         torch.Size([2]), X.pow(2).sum().item(), dtype=torch.double
                     )
                 self.assertTrue(torch.allclose(Y, expected_Y))
-                oracle = runner.evaluate_oracle(parameters=params)
                 self.assertTrue(np.equal(Y.numpy(), oracle).all())
 
             with self.subTest(f"test `run()`, {test_description}"):
@@ -237,7 +258,19 @@ class TestSyntheticRunner(TestCase):
                 trial.arms = [arm]
                 trial.arm = arm
                 trial.index = 0
-                res = runner.run(trial=trial)
+
+                with (
+                    nullcontext()
+                    if not isinstance(test_problem, SurrogateTestFunction)
+                    else patch.object(
+                        # pyre-fixme: ParamBasedTestProblem` has no attribute
+                        # `_surrogate`.
+                        runner.test_problem._surrogate,
+                        "predict",
+                        return_value=({"branin": [4.2]}, None),
+                    )
+                ):
+                    res = runner.run(trial=trial)
                 self.assertEqual({"Ys", "Ystds", "outcome_names"}, res.keys())
                 self.assertEqual({"0_0"}, res["Ys"].keys())
 
