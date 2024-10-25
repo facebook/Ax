@@ -62,7 +62,7 @@ class TestCanGenerateCandidates(TestCase):
             card.subtitle,
             (
                 f"{CanGenerateCandidatesAnalysis.REASON_PREFIX}"
-                "The data is borked.\n"
+                "The data is borked.\n\n"
                 "LAST TRIAL RUN: 1 day(s) ago"
             ),
         )
@@ -128,7 +128,7 @@ class TestCanGenerateCandidates(TestCase):
             card.subtitle,
             (
                 f"{CanGenerateCandidatesAnalysis.REASON_PREFIX}"
-                "The data is old.\n"
+                "The data is old.\n\n"
                 "LAST TRIAL RUN: 3 day(s) ago"
             ),
         )
