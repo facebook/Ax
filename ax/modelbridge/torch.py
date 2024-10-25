@@ -343,6 +343,7 @@ class TorchModelBridge(ModelBridge):
             Yvars,
             candidate_metadata_dict,
             any_candidate_metadata_is_not_none,
+            trial_indices,
         ) = self._extract_observation_data(
             observation_data, observation_features, parameters
         )
@@ -369,6 +370,9 @@ class TorchModelBridge(ModelBridge):
                 Yvar=Yvar,
                 feature_names=parameters,
                 outcome_names=[outcome],
+                trial_indices=torch.tensor(trial_indices[outcome])
+                if trial_indices
+                else None,
             )
             datasets.append(dataset)
             candidate_metadata.append(candidate_metadata_dict[outcome])
@@ -656,7 +660,7 @@ class TorchModelBridge(ModelBridge):
         )
         # Fit
         self.model = model
-        self.model.fit(
+        not_none(self.model).fit(
             datasets=datasets,
             search_space_digest=search_space_digest,
             candidate_metadata=candidate_metadata,
@@ -970,6 +974,7 @@ class TorchModelBridge(ModelBridge):
         dict[str, list[Tensor]],
         dict[str, list[TCandidateMetadata]],
         bool,
+        dict[str, list[int]] | None,
     ]:
         """Extract observation features & data into tensors and metadata.
 
@@ -991,14 +996,19 @@ class TorchModelBridge(ModelBridge):
                 observation tensors `Yvar`.
             - A dictionary mapping metric names to lists of corresponding metadata.
             - A boolean denoting whether any candidate metadata is not none.
+            - A dictionary mapping metric names to lists of corresponding trial indices,
+                or None if trial indices are not provided. This is used to support
+                learning-curve-based modeling.
         """
         Xs: dict[str, list[Tensor]] = defaultdict(list)
         Ys: dict[str, list[Tensor]] = defaultdict(list)
         Yvars: dict[str, list[Tensor]] = defaultdict(list)
         candidate_metadata_dict: dict[str, list[TCandidateMetadata]] = defaultdict(list)
         any_candidate_metadata_is_not_none = False
+        trial_indices: dict[str, list[int]] = defaultdict(list)
 
-        for obsd, obsf in zip(observation_data, observation_features):
+        at_least_one_trial_index_is_none = False
+        for obsd, obsf in zip(observation_data, observation_features, strict=True):
             try:
                 x = torch.tensor(
                     [obsf.parameters[p] for p in parameters],
@@ -1016,6 +1026,16 @@ class TorchModelBridge(ModelBridge):
                 if obsf.metadata is not None:
                     any_candidate_metadata_is_not_none = True
                 candidate_metadata_dict[metric_name].append(obsf.metadata)
+                trial_index = obsf.trial_index
+                if trial_index is not None:
+                    trial_indices[metric_name].append(trial_index)
+                else:
+                    at_least_one_trial_index_is_none = True
+        if len(trial_indices) > 0 and at_least_one_trial_index_is_none:
+            raise ValueError(
+                "Trial indices must be provided for all observation_features "
+                "or none of them."
+            )
 
         return (
             Xs,
@@ -1023,6 +1043,7 @@ class TorchModelBridge(ModelBridge):
             Yvars,
             candidate_metadata_dict,
             any_candidate_metadata_is_not_none,
+            trial_indices if len(trial_indices) > 0 else None,
         )
 
 
