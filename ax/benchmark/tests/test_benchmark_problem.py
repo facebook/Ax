@@ -204,8 +204,7 @@ class TestBenchmarkProblem(TestCase):
     def _test_constrained_from_botorch(
         self,
         observe_noise_sd: bool,
-        objective_noise_std: float | None,
-        constraint_noise_std: float | list[float] | None,
+        noise_std: float | list[float],
         test_problem_class: type[ConstrainedBaseTestProblem],
     ) -> None:
         ax_problem = create_problem_from_botorch(
@@ -214,17 +213,14 @@ class TestBenchmarkProblem(TestCase):
             lower_is_better=True,
             num_trials=1,
             observe_noise_sd=observe_noise_sd,
-            noise_std=objective_noise_std,
-            constraint_noise_std=constraint_noise_std,
+            noise_std=noise_std,
         )
         runner = assert_is_instance(ax_problem.runner, ParamBasedTestProblemRunner)
-        self.assertTrue(runner._is_constrained)
         test_problem = assert_is_instance(runner.test_problem, BoTorchTestProblem)
         botorch_problem = assert_is_instance(
             test_problem.botorch_problem, ConstrainedBaseTestProblem
         )
-        self.assertEqual(runner.noise_std, objective_noise_std)
-        self.assertEqual(runner.constraint_noise_std, constraint_noise_std)
+        self.assertEqual(runner.noise_std, noise_std)
         opt_config = ax_problem.optimization_config
         outcome_constraints = opt_config.outcome_constraints
         self.assertEqual(
@@ -251,26 +247,21 @@ class TestBenchmarkProblem(TestCase):
             )
 
     def test_constrained_soo_from_botorch(self) -> None:
-        for observe_noise_sd, objective_noise_std, constraint_noise_std in product(
-            [False, True], [None, 0.1], [None, 0.2, [0.3, 0.4]]
+        for observe_noise_sd, noise_std in product(
+            [False, True],
+            [0.0, 0.1, [0.1, 0.3, 0.4]],
         ):
-            with self.subTest(
-                observe_noise_sd=observe_noise_sd,
-                objective_noise_std=objective_noise_std,
-                constraint_noise_std=constraint_noise_std,
-            ):
+            with self.subTest(observe_noise_sd=observe_noise_sd, noise_std=noise_std):
                 self._test_constrained_from_botorch(
                     observe_noise_sd=observe_noise_sd,
-                    objective_noise_std=objective_noise_std,
-                    constraint_noise_std=constraint_noise_std,
+                    noise_std=noise_std,
                     test_problem_class=ConstrainedGramacy,
                 )
 
     def test_constrained_moo_from_botorch(self) -> None:
         self._test_constrained_from_botorch(
             observe_noise_sd=False,
-            objective_noise_std=None,
-            constraint_noise_std=None,
+            noise_std=0.0,
             test_problem_class=ConstrainedBraninCurrin,
         )
 

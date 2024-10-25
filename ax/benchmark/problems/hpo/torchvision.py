@@ -118,7 +118,6 @@ def train_and_evaluate(
 @dataclass(kw_only=True)
 class PyTorchCNNTorchvisionParamBasedProblem(ParamBasedTestProblem):
     name: str  # The name of the dataset to load -- MNIST or FashionMNIST
-    num_objectives: int = 1
     device: torch.device = field(
         default_factory=lambda: torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
