@@ -492,7 +492,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self,
         num_trials: int = 1,
         reduce_state_generator_runs: bool = False,
-    ) -> list[BaseTrial]:
+    ) -> tuple[list[BaseTrial], Exception | None]:
         """Fetch the latest data and generate new candidate trials.
 
         Args:
@@ -505,7 +505,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         Returns:
             List of trials, empty if generation is not possible.
         """
-        new_trials = self._get_next_trials(
+        new_trials, err = self._get_next_trials(
             num_trials=num_trials,
             n=self.options.batch_size,
         )
@@ -518,7 +518,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 new_generator_runs=new_generator_runs,
                 reduce_state_generator_runs=reduce_state_generator_runs,
             )
-        return new_trials
+        return new_trials, err
 
     def run_n_trials(
         self,
@@ -1776,16 +1776,19 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         existing_candidate_trials = self.candidate_trials[:n]
         n_new = min(n - len(existing_candidate_trials), max_new_trials)
-        new_trials = (
+        new_trials, _err = (
             self._get_next_trials(num_trials=n_new, n=self.options.batch_size)
             if n_new > 0
-            else []
+            else (
+                [],
+                None,
+            )
         )
         return existing_candidate_trials, new_trials
 
     def _get_next_trials(
         self, num_trials: int = 1, n: int | None = None
-    ) -> list[BaseTrial]:
+    ) -> tuple[list[BaseTrial], Exception | None]:
         """Produce up to `num_trials` new generator runs from the underlying
         generation strategy and create new trials with them. Logs errors
         encountered during generation.
@@ -1805,7 +1808,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             self.logger.info(completion_str)
             self.markdown_messages["Optimization complete"] = completion_str
             self._optimization_complete = True
-            return []
+            return [], err
         except DataRequiredError as err:
             # TODO[T62606107]: consider adding a `more_data_required` property to
             # check to generation strategy to avoid running into this exception.
@@ -1815,7 +1818,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                     "Model requires more data to generate more trials."
                 )
             self.logger.debug(f"Message from generation strategy: {err}")
-            return []
+            return [], err
         except MaxParallelismReachedException as err:
             # TODO[T62606107]: consider adding a `step_max_parallelism_reached`
             # check to generation strategy to avoid running into this exception.
@@ -1825,7 +1828,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                     "Max parallelism currently reached."
                 )
             self.logger.debug(f"Message from generation strategy: {err}")
-            return []
+            return [], err
         except AxGenerationException as err:
             if self._log_next_no_trials_reason:
                 self.logger.info(
@@ -1834,7 +1837,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                     f"{err}."
                 )
             self.logger.debug(f"Message from generation strategy: {err}")
-            return []
+            return [], err
         except OptimizationConfigRequired as err:
             if self._log_next_no_trials_reason:
                 self.logger.info(
@@ -1843,7 +1846,12 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                     "to be set before generating more trials."
                 )
             self.logger.debug(f"Message from generation strategy: {err}")
-            return []
+            return [], err
+        except Exception as err:
+            self.logger.exception(
+                f"An unexpected error occurred while generating trials. {err}"
+            )
+            return [], err
 
         if self.options.trial_type == TrialType.TRIAL and any(
             len(generator_run_list[0].arms) > 1 or len(generator_run_list) > 1
@@ -1873,7 +1881,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 )
 
             trials.append(trial)
-        return trials
+        return trials, None
 
     def _choose_analyses(self) -> list[Analysis]:
         """
