@@ -174,8 +174,8 @@ class TestInsampleEffectsPlot(TestCase):
         self.assertEqual(
             card.subtitle, "View a trial and its arms' predicted metric values"
         )
-        # high because it's on objective
-        self.assertEqual(card.level, AnalysisCardLevel.HIGH)
+        # +2 because it's on objective, +1 because it's modeled
+        self.assertEqual(card.level, AnalysisCardLevel.MID + 3)
 
     def test_compute_modeled_can_use_ebts_for_no_gs(self) -> None:
         # GIVEN an experiment with a trial with data
@@ -220,8 +220,8 @@ class TestInsampleEffectsPlot(TestCase):
         self.assertEqual(
             card.subtitle, "View a trial and its arms' predicted metric values"
         )
-        # high because it's on objective
-        self.assertEqual(card.level, AnalysisCardLevel.HIGH)
+        # +2 because it's on objective, +1 because it's modeled
+        self.assertEqual(card.level, AnalysisCardLevel.MID + 3)
 
     def test_compute_unmodeled_uses_thompson(self) -> None:
         # GIVEN an experiment with a trial with data
@@ -272,13 +272,13 @@ class TestInsampleEffectsPlot(TestCase):
             )
 
         # AND THEN the card is labeled correctly
-        self.assertEqual(card.name, "RawEffectsPlot")
-        self.assertEqual(card.title, "Raw Effects for branin on trial 0")
+        self.assertEqual(card.name, "ObservedEffectsPlot")
+        self.assertEqual(card.title, "Observed Effects for branin on trial 0")
         self.assertEqual(
             card.subtitle, "View a trial and its arms' observed metric values"
         )
-        # high because it's on objective
-        self.assertEqual(card.level, AnalysisCardLevel.HIGH)
+        # +2 because it's on objective
+        self.assertEqual(card.level, AnalysisCardLevel.MID + 2)
 
     def test_compute_requires_data_for_the_metric_on_the_trial_without_a_model(
         self,
@@ -448,9 +448,9 @@ class TestInsampleEffectsPlot(TestCase):
         experiment.fetch_data()
 
         metric_to_level = {
-            "branin": AnalysisCardLevel.HIGH,
-            "constraint_branin": AnalysisCardLevel.MID,
-            "tracking_branin": AnalysisCardLevel.LOW,
+            "branin": AnalysisCardLevel.MID + 2,
+            "constraint_branin": AnalysisCardLevel.MID + 1,
+            "tracking_branin": AnalysisCardLevel.MID,
         }
 
         for metric, level in metric_to_level.items():
