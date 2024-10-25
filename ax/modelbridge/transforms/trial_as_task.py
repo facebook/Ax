@@ -124,6 +124,13 @@ class TrialAsTask(Transform):
                     #  typing.SupportsInt]` for 1st param but got `Optional[np.int64]`.
                     obsf.parameters[p_name] = level_dict[int(obsf.trial_index)]
                 obsf.trial_index = None
+            elif len(obsf.parameters) > 0:
+                # If the trial index is none, but the parameters are not empty
+                # perform the transform by assuming the observation is from the
+                # most recent trial. This is needed for generating trials composed
+                # of points from multiple models.
+                for p_name, level_dict in self.trial_level_map.items():
+                    obsf.parameters[p_name] = level_dict[max(level_dict)]
         return observation_features
 
     def _transform_search_space(self, search_space: SearchSpace) -> SearchSpace:

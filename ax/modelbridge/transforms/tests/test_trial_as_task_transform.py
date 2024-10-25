@@ -132,6 +132,46 @@ class TrialAsTaskTransformTest(TestCase):
         obs_ft4 = self.t3.untransform_observation_features(obs_ft4)
         self.assertEqual(obs_ft4, self.training_feats)
 
+    def test_TransformObservationFeaturesWithoutTrialIndex(self) -> None:
+        obs_ft_no_trial_index = deepcopy(self.training_feats)
+        obs_ft_no_trial_index.append(
+            ObservationFeatures(
+                {"x": 20},
+            )
+        )
+        obs_ft_trans = [
+            ObservationFeatures({"x": 1, "TRIAL_PARAM": "0"}),
+            ObservationFeatures({"x": 2, "TRIAL_PARAM": "0"}),
+            ObservationFeatures({"x": 3, "TRIAL_PARAM": "1"}),
+            ObservationFeatures({"x": 4, "TRIAL_PARAM": "2"}),
+            ObservationFeatures({"x": 20, "TRIAL_PARAM": "2"}),
+        ]
+        obs_ft_trans2 = [
+            ObservationFeatures({"x": 1, "bp1": "v1", "bp2": "u1"}),
+            ObservationFeatures({"x": 2, "bp1": "v1", "bp2": "u1"}),
+            ObservationFeatures({"x": 3, "bp1": "v2", "bp2": "u1"}),
+            ObservationFeatures({"x": 4, "bp1": "v3", "bp2": "u2"}),
+            ObservationFeatures({"x": 20, "bp1": "v3", "bp2": "u2"}),
+        ]
+
+        # test can transform and untransform with no config
+        obs_ft_no_trial_index_transformed = self.t.transform_observation_features(
+            obs_ft_no_trial_index
+        )
+        self.assertEqual(obs_ft_no_trial_index_transformed, obs_ft_trans)
+        untransformed = self.t.untransform_observation_features(
+            obs_ft_no_trial_index_transformed
+        )
+        # test can transform and untransform with config trial level map
+        self.assertEqual(untransformed, obs_ft_no_trial_index)
+        obs_ft_no_index_transformed_2 = self.t2.transform_observation_features(
+            obs_ft_no_trial_index
+        )
+        self.assertEqual(obs_ft_no_index_transformed_2, obs_ft_trans2)
+        # can transform and untransform are equal with empty config
+        obs_ft4 = self.t3.untransform_observation_features(obs_ft_no_trial_index)
+        self.assertEqual(obs_ft4, obs_ft_no_trial_index)
+
     def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
