@@ -301,8 +301,7 @@ def create_problem_from_botorch(
     *,
     test_problem_class: type[BaseTestProblem],
     test_problem_kwargs: dict[str, Any],
-    noise_std: float | list[float] | None = None,
-    constraint_noise_std: float | list[float] | None = None,
+    noise_std: float | list[float] = 0.0,
     num_trials: int,
     lower_is_better: bool = True,
     observe_noise_sd: bool = False,
@@ -321,11 +320,8 @@ def create_problem_from_botorch(
             to define the `search_space`, `optimization_config`, and `runner`.
         test_problem_kwargs: Keyword arguments used to instantiate the
             `test_problem_class`.
-        noise_std: Standard deviation of synthetic noise added to objectives. If
-            `None`, no noise is added. If a float, the same noise level is used
-            for all objectives.
-        constraint_noise_std: Standard deviation of synthetic noise added to
-            constraints.
+        noise_std: Standard deviation of synthetic noise added to outcomes. If a
+            float, the same noise level is used for all objectives.
         lower_is_better: Whether this is a minimization problem. For MOO, this
             applies to all objectives.
         num_trials: Simply the `num_trials` of the `BenchmarkProblem` created.
@@ -392,7 +388,6 @@ def create_problem_from_botorch(
                 param_names=list(search_space.parameters.keys()),
             ),
             noise_std=noise_std,
-            constraint_noise_std=constraint_noise_std,
         ),
         num_trials=num_trials,
         observe_noise_stds=observe_noise_sd,
