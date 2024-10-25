@@ -711,6 +711,33 @@ def generation_node_from_json(
     )
 
 
+def _extract_surrogate_spec_from_surrogate_specs(
+    model_kwargs: dict[str, Any],
+) -> dict[str, Any]:
+    """If `model_kwargs` includes a `surrogate_specs` key that is a dict
+    with a single element, this method replaces it with `surrogate_spec`
+    key with the value of that element.
+
+    This helper will keep deserialization of MBM models backwards compatible
+    even after we remove the ``surrogate_specs`` argument from ``BoTorchModel``.
+
+    Args:
+        model_kwargs: A dictionary of model kwargs to update.
+
+    Returns:
+        If ``surrogate_specs`` is not found or it is found but has multiple elements,
+        returns ``model_kwargs`` unchanged.
+        Otherwise, returns a new dictionary with the ``surrogate_specs`` element
+        replaced with ``surrogate_spec``.
+    """
+    if (specs := model_kwargs.get("surrogate_specs", None)) is None or len(specs) > 1:
+        return model_kwargs
+    new_kwargs = model_kwargs.copy()
+    new_kwargs.pop("surrogate_specs")
+    new_kwargs["surrogate_spec"] = next(iter(specs.values()))
+    return new_kwargs
+
+
 def generation_step_from_json(
     generation_step_json: dict[str, Any],
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
@@ -722,6 +749,8 @@ def generation_step_from_json(
     )
     kwargs = generation_step_json.pop("model_kwargs", None)
     kwargs.pop("fit_on_update", None)  # Remove deprecated fit_on_update.
+    if kwargs is not None:
+        kwargs = _extract_surrogate_spec_from_surrogate_specs(kwargs)
     gen_kwargs = generation_step_json.pop("model_gen_kwargs", None)
     completion_criteria = (
         object_from_json(
@@ -781,6 +810,8 @@ def model_spec_from_json(
     """Load ModelSpec from JSON."""
     kwargs = model_spec_json.pop("model_kwargs", None)
     kwargs.pop("fit_on_update", None)  # Remove deprecated fit_on_update.
+    if kwargs is not None:
+        kwargs = _extract_surrogate_spec_from_surrogate_specs(kwargs)
     gen_kwargs = model_spec_json.pop("model_gen_kwargs", None)
     return ModelSpec(
         model_enum=object_from_json(

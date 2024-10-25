@@ -218,11 +218,9 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         model_class=ModularBoTorchModel,
         transforms=Cont_X_trans + Y_trans,
         default_model_kwargs={
-            "surrogate_specs": {
-                "SAASBO_Surrogate": SurrogateSpec(
-                    botorch_model_class=SaasFullyBayesianSingleTaskGP
-                )
-            },
+            "surrogate_spec": SurrogateSpec(
+                botorch_model_class=SaasFullyBayesianSingleTaskGP
+            )
         },
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
@@ -231,11 +229,9 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         model_class=ModularBoTorchModel,
         transforms=ST_MTGP_trans,
         default_model_kwargs={
-            "surrogate_specs": {
-                "SAAS_MTGP_Surrogate": SurrogateSpec(
-                    botorch_model_class=SaasFullyBayesianMultiTaskGP
-                )
-            },
+            "surrogate_spec": SurrogateSpec(
+                botorch_model_class=SaasFullyBayesianMultiTaskGP
+            )
         },
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
