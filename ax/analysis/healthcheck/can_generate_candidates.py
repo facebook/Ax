@@ -22,7 +22,7 @@ from pyre_extensions import none_throws
 
 class CanGenerateCandidatesAnalysis(HealthcheckAnalysis):
     REASON_PREFIX: str = "This experiment cannot generate candidates.\nREASON: "
-    LAST_RUN_TEMPLATE: str = "\nLAST TRIAL RUN: {days} day(s) ago"
+    LAST_RUN_TEMPLATE: str = "\n\nLAST TRIAL RUN: {days} day(s) ago"
 
     def __init__(
         self, can_generate_candidates: bool, reason: str, days_till_fail: int
