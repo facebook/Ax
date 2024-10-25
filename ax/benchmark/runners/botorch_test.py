@@ -207,6 +207,3 @@ class ParamBasedTestProblemRunner(BenchmarkRunner):
                 dim=-1,
             )
         return Y_true
-
-
-BotorchTestProblemRunner = ParamBasedTestProblemRunner
