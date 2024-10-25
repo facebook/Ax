@@ -113,5 +113,5 @@ class MixedIntegerProblemsTest(TestCase):
                 wraps=test_problem.botorch_problem.evaluate_true,
             ) as mock_call:
                 runner.run(trial)
-            actual = mock_call.call_args[0][0]
+            actual = mock_call.call_args.kwargs["X"]
             self.assertTrue(torch.allclose(actual, expected_arg))
