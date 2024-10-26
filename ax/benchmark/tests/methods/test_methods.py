@@ -63,7 +63,7 @@ class TestMethods(TestCase):
         self.assertEqual(kg.model, Models.BOTORCH_MODULAR)
         model_kwargs = none_throws(kg.model_kwargs)
         self.assertEqual(model_kwargs["botorch_acqf_class"], qKnowledgeGradient)
-        surrogate_spec = next(iter(model_kwargs["surrogate_specs"].values()))
+        surrogate_spec = model_kwargs["surrogate_spec"]
         self.assertEqual(
             surrogate_spec.botorch_model_class.__name__,
             "SingleTaskGP",

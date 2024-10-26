@@ -95,11 +95,9 @@ def get_sobol_botorch_modular_acquisition(
         ...     num_sobol_trials=1,
         ... )
     """
-    model_kwargs: dict[
-        str, type[AcquisitionFunction] | dict[str, SurrogateSpec] | bool
-    ] = {
+    model_kwargs: dict[str, type[AcquisitionFunction] | SurrogateSpec | bool] = {
         "botorch_acqf_class": acquisition_cls,
-        "surrogate_specs": {"BoTorch": SurrogateSpec(botorch_model_class=model_cls)},
+        "surrogate_spec": SurrogateSpec(botorch_model_class=model_cls),
     }
 
     model_name = model_names_abbrevations.get(model_cls.__name__, model_cls.__name__)
