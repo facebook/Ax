@@ -78,6 +78,7 @@ from botorch.sampling.normal import SobolQMCNormalSampler
 # Miscellaneous BoTorch imports
 from gpytorch.constraints import Interval
 from gpytorch.kernels.kernel import Kernel
+from gpytorch.kernels.linear_kernel import LinearKernel
 from gpytorch.kernels.rbf_kernel import RBFKernel
 from gpytorch.likelihoods.gaussian_likelihood import GaussianLikelihood
 from gpytorch.likelihoods.likelihood import Likelihood
@@ -154,6 +155,7 @@ MLL_REGISTRY: dict[type[MarginalLogLikelihood], str] = {
 }
 
 KERNEL_REGISTRY: dict[type[Kernel], str] = {
+    LinearKernel: "LinearKernel",
     ScaleMaternKernel: "ScaleMaternKernel",
     RBFKernel: "RBFKernel",
 }
