@@ -2460,6 +2460,146 @@ class AxSchedulerTestCase(TestCase):
             options.batch_size,
         )
 
+    def test_generate_candidates_can_remove_stale_candidates(self) -> None:
+        init_test_engine_and_session_factory(force_init=True)
+        # GIVEN a scheduler using a GS with MBM.
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=self.two_sobol_steps_GS,
+        )
+
+        # this is a HITL experiment, so we don't want trials completing on their own.
+        if isinstance(self.branin_experiment, MultiTypeExperiment):
+            self.branin_experiment.update_runner("type1", InfinitePollRunner())
+        else:
+            self.branin_experiment.runner = InfinitePollRunner()
+        options = SchedulerOptions(
+            init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+            batch_size=10,
+            trial_type=TrialType.BATCH_TRIAL,
+            **self.scheduler_options_kwargs,
+        )
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=options,
+            db_settings=self.db_settings,
+        )
+
+        # WHEN generating candidates on a new experiment twice
+        scheduler.generate_candidates(num_trials=1)
+        scheduler.generate_candidates(num_trials=1, remove_stale_candidates=True)
+
+        # THEN the first candidate should be failed
+        scheduler = Scheduler.from_stored_experiment(
+            experiment_name=self.branin_experiment.name,
+            options=options,
+            db_settings=self.db_settings,
+        )
+        self.assertEqual(len(scheduler.experiment.trials), 2)
+        self.assertEqual(
+            scheduler.experiment.trials[0].status,
+            TrialStatus.FAILED,
+        )
+        self.assertEqual(
+            scheduler.experiment.trials[0].failed_reason, "Newer candidates generated."
+        )
+        self.assertEqual(
+            scheduler.experiment.trials[1].status,
+            TrialStatus.CANDIDATE,
+        )
+
+    def test_generate_candidates_can_choose_not_to_remove_stale_candidates(
+        self,
+    ) -> None:
+        init_test_engine_and_session_factory(force_init=True)
+        # GIVEN a scheduler using a GS with MBM.
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=self.two_sobol_steps_GS,
+        )
+
+        # this is a HITL experiment, so we don't want trials completing on their own.
+        if isinstance(self.branin_experiment, MultiTypeExperiment):
+            self.branin_experiment.update_runner("type1", InfinitePollRunner())
+        else:
+            self.branin_experiment.runner = InfinitePollRunner()
+        options = SchedulerOptions(
+            init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+            batch_size=10,
+            trial_type=TrialType.BATCH_TRIAL,
+            **self.scheduler_options_kwargs,
+        )
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=options,
+            db_settings=self.db_settings,
+        )
+
+        # WHEN generating candidates on a new experiment twice
+        scheduler.generate_candidates(num_trials=1)
+        scheduler.generate_candidates(num_trials=1, remove_stale_candidates=False)
+
+        # THEN the first candidate should be failed
+        scheduler = Scheduler.from_stored_experiment(
+            experiment_name=self.branin_experiment.name,
+            options=options,
+            db_settings=self.db_settings,
+        )
+        self.assertEqual(len(scheduler.experiment.trials), 2)
+        self.assertEqual(
+            len(scheduler.experiment.trials_by_status[TrialStatus.CANDIDATE]),
+            2,
+        )
+
+    def test_generate_candidates_does_not_fail_stale_candidates_if_fails_to_gen(
+        self,
+    ) -> None:
+        init_test_engine_and_session_factory(force_init=True)
+        # GIVEN a scheduler using a GS with MBM.
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=self.two_sobol_steps_GS,
+        )
+
+        # this is a HITL experiment, so we don't want trials completing on their own.
+        if isinstance(self.branin_experiment, MultiTypeExperiment):
+            self.branin_experiment.update_runner("type1", InfinitePollRunner())
+        else:
+            self.branin_experiment.runner = InfinitePollRunner()
+        options = SchedulerOptions(
+            init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+            batch_size=10,
+            trial_type=TrialType.BATCH_TRIAL,
+            **self.scheduler_options_kwargs,
+        )
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=options,
+            db_settings=self.db_settings,
+        )
+
+        # WHEN generating candidates on a new experiment twice
+        scheduler.generate_candidates(num_trials=1)
+        with patch.object(
+            Scheduler, "_gen_new_trials_from_generation_strategy", return_value=[]
+        ):
+            scheduler.generate_candidates(num_trials=1, remove_stale_candidates=True)
+
+        # THEN the first candidate should be failed
+        scheduler = Scheduler.from_stored_experiment(
+            experiment_name=self.branin_experiment.name,
+            options=options,
+            db_settings=self.db_settings,
+        )
+        self.assertEqual(len(scheduler.experiment.trials), 1)
+        self.assertEqual(
+            len(scheduler.experiment.trials_by_status[TrialStatus.CANDIDATE]),
+            1,
+        )
+
     def test_generate_candidates_works_with_status_quo(self) -> None:
         # GIVEN a scheduler with an experiment that has a status quo
         self.branin_experiment.status_quo = Arm(parameters={"x1": 0.0, "x2": 0.0})

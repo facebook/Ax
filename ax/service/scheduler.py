@@ -492,6 +492,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self,
         num_trials: int = 1,
         reduce_state_generator_runs: bool = False,
+        remove_stale_candidates: bool = False,
     ) -> tuple[list[BaseTrial], Exception | None]:
         """Fetch the latest data and generate new candidate trials.
 
@@ -501,10 +502,22 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 whether to save model state for every generator run (default)
                 or to only save model state on the final generator run of each
                 batch.
+            remove_stale_candidates: If true, mark any existing candidate trials
+                failed before trial generation because:
+                - they should not be treated as pending points
+                - they will no longer be relevant
 
         Returns:
             List of trials, empty if generation is not possible.
         """
+        if remove_stale_candidates:
+            stale_candidate_trials = self.experiment.trials_by_status[
+                TrialStatus.CANDIDATE
+            ]
+            for trial in stale_candidate_trials:
+                trial.mark_failed(reason="Newer candidates generated.", unsafe=True)
+        else:
+            stale_candidate_trials = []
         new_trials, err = self._get_next_trials(
             num_trials=num_trials,
             n=self.options.batch_size,
@@ -513,7 +526,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             new_generator_runs = [gr for t in new_trials for gr in t.generator_runs]
             self._save_or_update_trials_and_generation_strategy_if_possible(
                 experiment=self.experiment,
-                trials=new_trials,
+                trials=new_trials + stale_candidate_trials,
                 generation_strategy=self.generation_strategy,
                 new_generator_runs=new_generator_runs,
                 reduce_state_generator_runs=reduce_state_generator_runs,
