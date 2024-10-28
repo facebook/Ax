@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from functools import reduce
 from logging import Logger
 from random import choice, uniform
+from typing import Sequence
 
 import numpy as np
 import pandas as pd
@@ -714,7 +715,7 @@ class HierarchicalSearchSpace(SearchSpace):
         ):
             raise RuntimeError(
                 error_msg_prefix
-                + f"Parameters {applicable_paramers- set(parameters.keys())} are"
+                + f"Parameters {applicable_paramers - set(parameters.keys())} are"
                 " missing."
             )
 
@@ -1074,7 +1075,7 @@ class SearchSpaceDigest:
     bounds: list[tuple[int | float, int | float]]
     ordinal_features: list[int] = field(default_factory=list)
     categorical_features: list[int] = field(default_factory=list)
-    discrete_choices: Mapping[int, list[int | float]] = field(default_factory=dict)
+    discrete_choices: Mapping[int, Sequence[int | float]] = field(default_factory=dict)
     task_features: list[int] = field(default_factory=list)
     fidelity_features: list[int] = field(default_factory=list)
     target_values: dict[int, int | float] = field(default_factory=dict)

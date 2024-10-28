@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import math
 import operator
 from collections.abc import Callable
 from functools import partial, reduce
@@ -17,8 +18,12 @@ from typing import Any
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import SearchSpaceExhausted
-from ax.models.model_utils import enumerate_discrete_combinations, mk_discrete_choices
+from ax.exceptions.core import AxError, SearchSpaceExhausted
+from ax.models.model_utils import (
+    all_ordinal_features_are_integer_valued,
+    enumerate_discrete_combinations,
+    mk_discrete_choices,
+)
 from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argparse
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_moo_defaults import infer_objective_thresholds
@@ -45,12 +50,14 @@ from botorch.optim.optimize import (
     optimize_acqf_discrete_local_search,
     optimize_acqf_mixed,
 )
+from botorch.optim.optimize_acqf_mixed import optimize_acqf_mixed_alternating
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from pyre_extensions import none_throws
 from torch import Tensor
 
 
-MAX_CHOICES_ENUMERATE = 100_000
+MAX_CHOICES_ENUMERATE = 100_000  # For fully discrete search spaces.
+ALTERNATING_OPTIMIZER_THRESHOLD = 10  # For mixed search spaces.
 
 logger: Logger = get_logger(__name__)
 
@@ -293,6 +300,9 @@ class Acquisition(Base):
         else:
             fully_discrete = len(discrete_choices) == len(ssd.feature_names)
             if fully_discrete:
+                # If there are less than `MAX_CHOICES_ENUMERATE` choices, we will
+                # evaluate all of them and pick the best. Otherwise, we will use
+                # local search.
                 total_discrete_choices = reduce(
                     operator.mul, [float(len(c)) for c in discrete_choices.values()]
                 )
@@ -306,7 +316,24 @@ class Acquisition(Base):
                     if optimizer_options is not None:
                         optimizer_options.pop("raw_samples", None)
             else:
-                optimizer = "optimize_acqf_mixed"
+                n_combos = math.prod([len(v) for v in discrete_choices.values()])
+                # If there are
+                # - any categorical features (except for those handled by transforms),
+                # - any ordinal features with non-integer choices,
+                # - or less than `ALTERNATING_OPTIMIZER_THRESHOLD` combinations
+                # of discrete choices, we will use `optimize_acqf_mixed`, which
+                # enumerates all discrete combinations and optimizes the continuous
+                # features with discrete features being fixed. Otherwise, we will
+                # use `optimize_acqf_mixed_alternating`, which alternates between
+                # continuous and discrete optimization steps.
+                if (
+                    n_combos <= ALTERNATING_OPTIMIZER_THRESHOLD
+                    or len(ssd.categorical_features) > 0
+                    or not all_ordinal_features_are_integer_valued(ssd=ssd)
+                ):
+                    optimizer = "optimize_acqf_mixed"
+                else:
+                    optimizer = "optimize_acqf_mixed_alternating"
 
         # Prepare arguments for optimizer
         optimizer_options_with_defaults = optimizer_argparse(
@@ -384,21 +411,33 @@ class Acquisition(Base):
             return candidates, acqf_values, arm_weights
 
         # 3. Handle mixed search spaces that have discrete and continuous features.
-        # Only sequential optimization is supported for `optimize_acqf_mixed`.
-        candidates, acqf_values = optimize_acqf_mixed(
-            acq_function=self.acqf,
-            bounds=bounds,
-            q=n,
-            # For now we just enumerate all possible discrete combinations. This is not
-            # scalable and and only works for a reasonably small number of choices. A
-            # slowdown warning is logged in `enumerate_discrete_combinations` if needed.
-            fixed_features_list=enumerate_discrete_combinations(
-                discrete_choices=discrete_choices
-            ),
-            inequality_constraints=inequality_constraints,
-            post_processing_func=rounding_func,
-            **optimizer_options_with_defaults,
-        )
+        if optimizer == "optimize_acqf_mixed":
+            candidates, acqf_values = optimize_acqf_mixed(
+                acq_function=self.acqf,
+                bounds=bounds,
+                q=n,
+                fixed_features_list=enumerate_discrete_combinations(
+                    discrete_choices=discrete_choices
+                ),
+                inequality_constraints=inequality_constraints,
+                post_processing_func=rounding_func,
+                **optimizer_options_with_defaults,
+            )
+        elif optimizer == "optimize_acqf_mixed_alternating":
+            candidates, acqf_values = optimize_acqf_mixed_alternating(
+                acq_function=self.acqf,
+                bounds=bounds,
+                discrete_dims=search_space_digest.ordinal_features,
+                q=n,
+                post_processing_func=rounding_func,
+                fixed_features=fixed_features,
+                inequality_constraints=inequality_constraints,
+                **optimizer_options_with_defaults,
+            )
+        else:
+            raise AxError(  # pragma: no cover
+                f"Unknown optimizer: {optimizer}. This code should be unreachable."
+            )
         return candidates, acqf_values, arm_weights
 
     def evaluate(self, X: Tensor) -> Tensor:

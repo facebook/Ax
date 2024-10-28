@@ -54,6 +54,7 @@ from botorch.optim.optimize import (
     optimize_acqf_discrete,
     optimize_acqf_mixed,
 )
+from botorch.optim.optimize_acqf_mixed import optimize_acqf_mixed_alternating
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.testing import MockPosterior
@@ -80,9 +81,11 @@ class DummyAcquisitionFunction(AcquisitionFunction):
     def forward(self, X: torch.Tensor) -> None:
         # take the norm and sum over the q-batch dim
         if len(X.shape) > 2:
-            return torch.linalg.norm(X, dim=-1).sum(-1)
+            res = torch.linalg.norm(X, dim=-1).sum(-1)
         else:
-            return torch.linalg.norm(X, dim=-1).squeeze(-1)
+            res = torch.linalg.norm(X, dim=-1).squeeze(-1)
+        # At least 1d is required for sequential optimize_acqf.
+        return torch.atleast_1d(res)
 
 
 class DummyOneShotAcquisitionFunction(DummyAcquisitionFunction, qKnowledgeGradient):
@@ -106,12 +109,12 @@ class AcquisitionTest(TestCase):
             acqf_cls=DummyOneShotAcquisitionFunction,
             input_constructor=self.mock_input_constructor,
         )
-        tkwargs: dict[str, Any] = {"dtype": torch.double}
+        self.tkwargs: dict[str, Any] = {"dtype": torch.double}
         self.botorch_model_class = SingleTaskGP
         self.surrogate = Surrogate(botorch_model_class=self.botorch_model_class)
-        self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)
-        self.Y = torch.tensor([[3.0], [4.0]], **tkwargs)
-        self.Yvar = torch.tensor([[0.0], [2.0]], **tkwargs)
+        self.X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **self.tkwargs)
+        self.Y = torch.tensor([[3.0], [4.0]], **self.tkwargs)
+        self.Yvar = torch.tensor([[0.0], [2.0]], **self.tkwargs)
         self.fidelity_features = [2]
         self.feature_names = ["a", "b", "c"]
         self.metric_names = ["metric"]
@@ -141,10 +144,10 @@ class AcquisitionTest(TestCase):
         self.botorch_acqf_class = DummyAcquisitionFunction
         self.objective_weights = torch.tensor([1.0])
         self.objective_thresholds = None
-        self.pending_observations = [torch.tensor([[1.0, 3.0, 4.0]], **tkwargs)]
+        self.pending_observations = [torch.tensor([[1.0, 3.0, 4.0]], **self.tkwargs)]
         self.outcome_constraints = (
-            torch.tensor([[1.0]], **tkwargs),
-            torch.tensor([[0.5]], **tkwargs),
+            torch.tensor([[1.0]], **self.tkwargs),
+            torch.tensor([[0.5]], **self.tkwargs),
         )
         self.constraints = get_outcome_constraint_transforms(
             outcome_constraints=self.outcome_constraints
@@ -155,13 +158,12 @@ class AcquisitionTest(TestCase):
         self.inequality_constraints = [
             (
                 torch.tensor([0, 1], dtype=torch.int),
-                torch.tensor([-1.0, 1.0], **tkwargs),
+                torch.tensor([-1.0, 1.0], **self.tkwargs),
                 1,
             )
         ]
         self.rounding_func = lambda x: x
         self.optimizer_options = {Keys.NUM_RESTARTS: 20, Keys.RAW_SAMPLES: 1024}
-        self.tkwargs = tkwargs
         self.torch_opt_config = TorchOptConfig(
             objective_weights=self.objective_weights,
             objective_thresholds=self.objective_thresholds,
@@ -529,7 +531,6 @@ class AcquisitionTest(TestCase):
         self,
         mock_optimize_acqf_discrete_local_search: Mock,
     ) -> None:
-        tkwargs = {"dtype": self.X.dtype, "device": self.X.device}
         ssd = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             bounds=[(0, 1) for _ in range(3)],
@@ -579,7 +580,7 @@ class AcquisitionTest(TestCase):
         self.assertEqual(kwargs["raw_samples"], self.optimizer_options["raw_samples"])
         self.assertTrue(
             all(
-                torch.allclose(torch.linspace(0, 1, 30 * (k + 1), **tkwargs), c)
+                torch.allclose(torch.linspace(0, 1, 30 * (k + 1), **self.tkwargs), c)
                 for k, c in enumerate(kwargs["discrete_choices"])
             )
         )
@@ -591,7 +592,6 @@ class AcquisitionTest(TestCase):
 
     @fast_botorch_optimize
     def test_optimize_mixed(self) -> None:
-        tkwargs = {"dtype": self.X.dtype, "device": self.X.device}
         ssd = SearchSpaceDigest(
             feature_names=["a", "b"],
             bounds=[(0, 1), (0, 2)],
@@ -621,12 +621,69 @@ class AcquisitionTest(TestCase):
             **self.optimizer_options,
         )
         # can't use assert_called_with on bounds due to ambiguous bool comparison
-        expected_bounds = torch.tensor(ssd.bounds, **tkwargs).transpose(0, 1)
+        expected_bounds = torch.tensor(ssd.bounds, **self.tkwargs).transpose(0, 1)
         self.assertTrue(
             torch.equal(
                 mock_optimize_acqf_mixed.call_args[1]["bounds"], expected_bounds
             )
         )
+
+    @fast_botorch_optimize
+    def test_optimize_acqf_mixed_alternating(self) -> None:
+        ssd = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(0, 1), (0, 25), (0, 5)],
+            ordinal_features=[1],
+            discrete_choices={1: list(range(26))},
+        )
+        acquisition = self.get_acquisition_function()
+        with mock.patch(
+            f"{ACQUISITION_PATH}.optimize_acqf_mixed_alternating",
+            wraps=optimize_acqf_mixed_alternating,
+        ) as mock_alternating:
+            acquisition.optimize(
+                n=3,
+                search_space_digest=ssd,
+                inequality_constraints=self.inequality_constraints,
+                fixed_features={0: 0.5},
+                rounding_func=self.rounding_func,
+                optimizer_options={
+                    "options": {"maxiter_alternating": 2},
+                    "num_restarts": 2,
+                    "raw_samples": 4,
+                },
+            )
+        mock_alternating.assert_called_with(
+            acq_function=acquisition.acqf,
+            bounds=mock.ANY,
+            discrete_dims=[1],
+            q=3,
+            options={
+                "init_batch_limit": 32,
+                "batch_limit": 5,
+                "maxiter_alternating": 2,
+            },
+            inequality_constraints=self.inequality_constraints,
+            fixed_features={0: 0.5},
+            post_processing_func=self.rounding_func,
+            num_restarts=2,
+            raw_samples=4,
+        )
+        # Check that it is not used if there are non-integer or categorical
+        # discrete dimensions.
+        ssd1 = dataclasses.replace(ssd, categorical_features=[0])
+        ssd2 = dataclasses.replace(
+            ssd,
+            ordinal_features=[0, 1],
+            discrete_choices={0: [0.1, 0.6], 1: list(range(26))},
+        )
+        for ssd in [ssd1, ssd2]:
+            with mock.patch(
+                f"{ACQUISITION_PATH}.optimize_acqf_mixed_alternating",
+                wraps=optimize_acqf_mixed_alternating,
+            ) as mock_alternating:
+                acquisition.optimize(n=3, search_space_digest=ssd)
+            mock_alternating.assert_not_called()
 
     @mock.patch(
         f"{DummyOneShotAcquisitionFunction.__module__}."

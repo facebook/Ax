@@ -11,7 +11,7 @@ from __future__ import annotations
 import itertools
 import warnings
 from collections.abc import Callable, Mapping
-from typing import Protocol, Union
+from typing import Protocol, Sequence, Union
 
 import numpy as np
 import torch
@@ -20,6 +20,7 @@ from ax.exceptions.core import SearchSpaceExhausted, UnsupportedError
 from ax.models.types import TConfig
 from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.risk_measures import RiskMeasureMCObjective
+from botorch.exceptions.warnings import OptimizationWarning
 from torch import Tensor
 
 
@@ -605,8 +606,8 @@ def filter_constraints_and_fixed_features(
 
 def mk_discrete_choices(
     ssd: SearchSpaceDigest,
-    fixed_features: dict[int, float] | None = None,
-) -> Mapping[int, list[int | float]]:
+    fixed_features: Mapping[int, float] | None = None,
+) -> Mapping[int, Sequence[float]]:
     discrete_choices = ssd.discrete_choices
     # Add in fixed features.
     if fixed_features is not None:
@@ -619,13 +620,14 @@ def mk_discrete_choices(
 
 
 def enumerate_discrete_combinations(
-    discrete_choices: Mapping[int, list[int | float]],
-) -> list[dict[int, float | int]]:
+    discrete_choices: Mapping[int, Sequence[float]],
+) -> list[dict[int, float]]:
     n_combos = np.prod([len(v) for v in discrete_choices.values()])
     if n_combos > 50:
         warnings.warn(
             f"Enumerating {n_combos} combinations of discrete parameter values "
             "while optimizing over a mixed search space. This can be very slow.",
+            OptimizationWarning,
             stacklevel=2,
         )
     fixed_features_list = [
@@ -633,3 +635,22 @@ def enumerate_discrete_combinations(
         for c in itertools.product(*discrete_choices.values())
     ]
     return fixed_features_list
+
+
+def all_ordinal_features_are_integer_valued(
+    ssd: SearchSpaceDigest,
+) -> bool:
+    """Check if all ordinal features are integer-valued.
+
+    Args:
+        ssd: A SearchSpaceDigest.
+
+    Returns:
+        True if all ordinal features are integer-valued, False otherwise.
+    """
+    for feature_idx in ssd.ordinal_features:
+        choices = ssd.discrete_choices[feature_idx]
+        int_choices = [int(c) for c in choices]
+        if choices != int_choices:
+            return False
+    return True
