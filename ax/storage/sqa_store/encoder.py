@@ -83,6 +83,11 @@ class Encoder:
     """
 
     def __init__(self, config: SQAConfig) -> None:
+        logger.error(
+            "ATTENTION: The Ax team is considering deprecating SQLAlchemy storage. "
+            "If you are currently using SQLAlchemy storage, please reach out to us "
+            "via GitHub Issues here: https://github.com/facebook/Ax/issues/2975"
+        )
         self.config = config
 
     @classmethod
