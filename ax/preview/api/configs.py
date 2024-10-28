@@ -3,24 +3,14 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-strict
+
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Union
+from typing import List, Optional
 
-from ax.core.types import TParamValue
 
 # Note: I'm not sold these should be dataclasses, just using this as a placeholder
-
-
-class DomainType(Enum):
-    """
-    The DomainType enum allows the ParameterConfig to know whether to expect inputs for
-    a RangeParameter or ChoiceParameter (or FixedParameter) during the parameter
-    instantiation and validation process.
-    """
-
-    RANGE = "range"
-    CHOICE = "choice"
 
 
 class ParameterType(Enum):
@@ -28,10 +18,10 @@ class ParameterType(Enum):
     The ParameterType enum allows users to specify the type of a parameter.
     """
 
-    INT = "int"
     FLOAT = "float"
+    INT = "int"
+    STRING = "str"
     BOOL = "bool"
-    STR = "str"
 
 
 class ParameterScaling(Enum):
@@ -46,25 +36,32 @@ class ParameterScaling(Enum):
 
 
 @dataclass
-class ParameterConfig:
+class RangeParameterConfig:
     """
-    ParameterConfig allows users to specify the parameters of an experiment and will
-    internally validate the inputs to ensure they are valid for the given DomainType.
+    RangeParameterConfig allows users to specify the a continuous dimension of an
+    experiment's search space and will internally validate the inputs.
     """
 
     name: str
-    domain_type: DomainType
-    parameter_type: ParameterType | None = None
 
-    # Fields for RANGE
-    bounds: Optional[tuple[float, float]] = None
-    step_size: Optional[float] = None
-    scaling: Optional[ParameterScaling] = None
+    bounds: tuple[float, float]
+    parameter_type: ParameterType
+    step_size: float | None = None
+    scaling: ParameterScaling | None = None
 
-    # Fields for CHOICE ("FIXED" is Choice with len(values) == 1)
-    values: Optional[Union[list[float], list[str], list[bool]]] = None
-    is_ordered: Optional[bool] = None
-    dependent_parameters: Optional[dict[TParamValue, str]] = None
+
+@dataclass
+class ChoiceParameterConfig:
+    """
+    ChoiceParameterConfig allows users to specify the a discrete dimension of an
+    experiment's search space and will internally validate the inputs.
+    """
+
+    name: str
+    values: List[float] | List[int] | List[str] | List[bool]
+    parameter_type: ParameterType
+    is_ordered: bool | None = None
+    dependent_parameters: dict[float | int | str | bool, str] | None = None
 
 
 @dataclass
@@ -79,7 +76,7 @@ class ExperimentConfig:
     """
 
     name: str
-    parameters: list[ParameterConfig]
+    parameters: list[RangeParameterConfig | ChoiceParameterConfig]
     # Parameter constraints will be parsed via SymPy
     # Ex: "num_layers1 <= num_layers2", "compound_a + compound_b <= 1"
     parameter_constraints: list[str] = field(default_factory=list)
