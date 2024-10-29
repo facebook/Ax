@@ -7,6 +7,7 @@
 
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.batch_trial import BatchTrial
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.transforms.base import Transform
@@ -28,8 +29,7 @@ class TransformToNewSQTest(RelativizeDataTest):
     # [Type[TransformToNewSQ]]` is not a subtype of the
     # overridden attribute `List[Type[Transform]]`
     relativize_classes = [TransformToNewSQ]
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    cases: list[tuple[type[Transform], list[tuple[np.ndarray, np.ndarray]]]] = [
+    cases: list[tuple[type[Transform], list[tuple[npt.NDArray, npt.NDArray]]]] = [
         (
             TransformToNewSQ,
             [

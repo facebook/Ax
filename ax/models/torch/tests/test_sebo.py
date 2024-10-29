@@ -164,9 +164,7 @@ class TestSebo(TestCase):
         # Check transformed objective threshold
         self.assertTrue(
             torch.equal(
-                # pyre-fixme[6]: For 2nd argument expected `Tensor` but got `int`.
                 acquisition1.acqf.ref_point[-1],
-                # pyre-fixme[6]: For 2nd argument expected `Tensor` but got `int`.
                 -self.objective_thresholds_sebo[-1],
             )
         )

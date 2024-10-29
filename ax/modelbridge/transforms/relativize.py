@@ -15,6 +15,7 @@ from math import sqrt
 from typing import TYPE_CHECKING
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -170,8 +171,7 @@ class BaseRelativize(Transform, ABC):
     def _get_relative_data_from_obs(
         self,
         obs: Observation,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
+        rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
     ) -> ObservationData:
         idx = (
             int(obs.features.trial_index)
@@ -192,8 +192,7 @@ class BaseRelativize(Transform, ABC):
     def _rel_op_on_observations(
         self,
         observations: list[Observation],
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
+        rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
     ) -> list[Observation]:
         return [
             Observation(
@@ -208,8 +207,7 @@ class BaseRelativize(Transform, ABC):
         self,
         data: ObservationData,
         status_quo_data: ObservationData,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
+        rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
     ) -> ObservationData:
         r"""
         Relativize or unrelativize `data` based on `status_quo_data` based on `rel_op`
@@ -256,10 +254,8 @@ class BaseRelativize(Transform, ABC):
         mean_c: float,
         sem_c: float,
         metric: str,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    ) -> tuple[float | np.ndarray, float | np.ndarray]:
+        rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
+    ) -> tuple[float | npt.NDArray, float | npt.NDArray]:
         """Compute (un)relativized mean and sem for a single metric."""
         # if the is the status quo
         if means_t == mean_c and sems_t == sem_c:

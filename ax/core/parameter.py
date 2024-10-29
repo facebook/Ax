@@ -153,7 +153,6 @@ class Parameter(SortableBase, metaclass=ABCMeta):
 
     # pyre-fixme[7]: Expected `Parameter` but got implicit return value of `None`.
     def clone(self) -> Parameter:
-        # pyre-fixme[7]: Expected `Parameter` but got implicit return value of `None`.
         pass
 
     @property

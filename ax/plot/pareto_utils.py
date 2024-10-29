@@ -12,6 +12,7 @@ from logging import Logger
 from typing import NamedTuple
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
@@ -54,12 +55,10 @@ logger: Logger = get_logger(__name__)
 
 
 def _extract_observed_pareto_2d(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    Y: np.ndarray,
+    Y: npt.NDArray,
     reference_point: tuple[float, float] | None,
     minimize: bool | tuple[bool, bool] = True,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-) -> np.ndarray:
+) -> npt.NDArray:
     if Y.shape[1] != 2:
         raise NotImplementedError("Currently only the 2-dim case is handled.")
     # If `minimize` is a bool, apply to both dimensions
@@ -553,8 +552,7 @@ def _validate_outcome_constraints(
 
 
 def _build_scalarized_optimization_config(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    weights: np.ndarray,
+    weights: npt.NDArray,
     primary_objective: Metric,
     secondary_objective: Metric,
     outcome_constraints: list[OutcomeConstraint] | None = None,

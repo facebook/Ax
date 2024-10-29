@@ -9,6 +9,7 @@
 from logging import Logger
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.observation import ObservationData
 from ax.modelbridge.transforms.base import Transform
 from ax.utils.common.logger import get_logger
@@ -48,8 +49,7 @@ def ivw_metric_merge(
     # weights is a map from metric name to a vector of the weights for each
     # measurement of that metric. indicies gives the corresponding index in
     # obsd.means for each measurement.
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    weights: dict[str, np.ndarray] = {}
+    weights: dict[str, npt.NDArray] = {}
     indicies: dict[str, list[int]] = {}
     for metric_name in set(obsd.metric_names):
         indcs = [i for i, mn in enumerate(obsd.metric_names) if mn == metric_name]
@@ -64,7 +64,6 @@ def ivw_metric_merge(
             # Weight is inverse of variance, normalized
             # Expected `np.ndarray` for 3rd anonymous parameter to call
             # `dict.__setitem__` but got `float`.
-            # pyre-fixme[6]:
             weights[metric_name] = 1.0 / sigma2s
             weights[metric_name] /= np.sum(weights[metric_name])
         else:
@@ -99,8 +98,7 @@ def ivw_metric_merge(
 
 
 def _check_conflicting_means(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    means_noiseless: np.ndarray,
+    means_noiseless: npt.NDArray,
     metric_name: str,
     conflicting_noiseless: str,
 ) -> None:

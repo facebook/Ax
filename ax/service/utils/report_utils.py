@@ -18,6 +18,7 @@ from typing import Any, cast, TYPE_CHECKING
 
 import gpytorch
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import plotly.graph_objects as go
 from ax.core.base_trial import TrialStatus
@@ -148,9 +149,8 @@ def _get_objective_trace_plot(
 def _get_objective_v_param_plots(
     experiment: Experiment,
     model: ModelBridge,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     importance: None
-    | (dict[str, dict[str, np.ndarray]] | dict[str, dict[str, float]]) = None,
+    | (dict[str, dict[str, npt.NDArray]] | dict[str, dict[str, float]]) = None,
     # Chosen to take ~1min on local benchmarks.
     max_num_slice_plots: int = 200,
     # Chosen to take ~2min on local benchmarks.
@@ -525,12 +525,10 @@ def get_standard_plots(
 
 
 def _transform_progression_to_walltime(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    progressions: np.ndarray,
+    progressions: npt.NDArray,
     exp_df: pd.DataFrame,
     trial_idx: int,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-) -> np.ndarray | None:
+) -> npt.NDArray | None:
     try:
         trial_df = exp_df[exp_df["trial_index"] == trial_idx]
         time_run_started = trial_df["time_run_started"].iloc[0]

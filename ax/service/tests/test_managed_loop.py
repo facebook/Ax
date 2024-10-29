@@ -9,6 +9,7 @@
 from unittest.mock import Mock, patch
 
 import numpy as np
+import numpy.typing as npt
 from ax.exceptions.core import UserInputError
 from ax.metrics.branin import branin
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
@@ -16,15 +17,13 @@ from ax.modelbridge.registry import Models
 from ax.service.managed_loop import OptimizationLoop, optimize
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import fast_botorch_optimize
-from numpy import ndarray
 
 
 def _branin_evaluation_function(
     # pyre-fixme[2]: Parameter must be annotated.
     parameterization,
     weight=None,  # pyre-fixme[2]: Parameter must be annotated.
-    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
-) -> dict[str, tuple[float | ndarray, float]]:
+) -> dict[str, tuple[float | npt.NDArray, float]]:
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
     x1, x2 = parameterization["x1"], parameterization["x2"]
@@ -38,8 +37,7 @@ def _branin_evaluation_function_v2(
     # pyre-fixme[2]: Parameter must be annotated.
     parameterization,
     weight=None,  # pyre-fixme[2]: Parameter must be annotated.
-    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
-) -> tuple[float | ndarray, float]:
+) -> tuple[float | npt.NDArray, float]:
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
     x1, x2 = parameterization["x1"], parameterization["x2"]
@@ -50,8 +48,7 @@ def _branin_evaluation_function_with_unknown_sem(
     # pyre-fixme[2]: Parameter must be annotated.
     parameterization,
     weight=None,  # pyre-fixme[2]: Parameter must be annotated.
-    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
-) -> tuple[float | ndarray, None]:
+) -> tuple[float | npt.NDArray, None]:
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
     x1, x2 = parameterization["x1"], parameterization["x2"]

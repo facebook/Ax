@@ -15,6 +15,7 @@ from logging import Logger
 from typing import TYPE_CHECKING
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
@@ -102,8 +103,9 @@ class LogY(Transform):
     def _tf_obs_data(
         self,
         observation_data: list[ObservationData],
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        transform: Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]],
+        transform: Callable[
+            [npt.NDArray, npt.NDArray], tuple[npt.NDArray, npt.NDArray]
+        ],
     ) -> list[ObservationData]:
         for obsd in observation_data:
             cov = obsd.covariance
@@ -158,15 +160,11 @@ class LogY(Transform):
 
 
 def match_ci_width(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    mean: np.ndarray,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    variance: np.ndarray,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    transform: Callable[[np.ndarray], np.ndarray],
+    mean: npt.NDArray,
+    variance: npt.NDArray,
+    transform: Callable[[npt.NDArray], npt.NDArray],
     level: float = 0.95,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-) -> np.ndarray:
+) -> npt.NDArray:
     fac = norm.ppf(1 - (1 - level) / 2)
     d = fac * np.sqrt(variance)
     width_asym = transform(mean + d) - transform(mean - d)
@@ -177,12 +175,9 @@ def match_ci_width(
 
 
 def lognorm_to_norm(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    mu_ln: np.ndarray,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    Cov_ln: np.ndarray,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-) -> tuple[np.ndarray, np.ndarray]:
+    mu_ln: npt.NDArray,
+    Cov_ln: npt.NDArray,
+) -> tuple[npt.NDArray, npt.NDArray]:
     """Compute mean and covariance of a MVN from those of the associated log-MVN
 
     If `Y` is log-normal with mean mu_ln and covariance Cov_ln, then
@@ -197,12 +192,9 @@ def lognorm_to_norm(
 
 
 def norm_to_lognorm(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    mu_n: np.ndarray,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    Cov_n: np.ndarray,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-) -> tuple[np.ndarray, np.ndarray]:
+    mu_n: npt.NDArray,
+    Cov_n: npt.NDArray,
+) -> tuple[npt.NDArray, npt.NDArray]:
     """Compute mean and covariance of a log-MVN from its MVN sufficient statistics
 
     If `X ~ N(mu_n, Cov_n)` and `Y = exp(X)`, then `Y` is log-normal with

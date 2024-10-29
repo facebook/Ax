@@ -145,8 +145,6 @@ class CrossValidationTest(TestCase):
             self.assertEqual(len(set(train[i]).intersection(test[i])), 0)
             self.assertEqual(len(train[i]) + len(test[i]), 4)
         # Test all points used as test points
-        # pyre-fixme[6]: For 1st param expected `Collection[ndarray]` but got
-        #  `List[List[typing.Any]]`.
         all_test = np.hstack(test)
         self.assertTrue(
             np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0, 4.0]))
@@ -167,8 +165,6 @@ class CrossValidationTest(TestCase):
             self.assertEqual(len(set(train[i]).intersection(test[i])), 0)
             self.assertEqual(len(train[i]) + len(test[i]), 4)
         # Test all points used as test points
-        # pyre-fixme[6]: For 1st param expected `Collection[ndarray]` but got
-        #  `List[List[typing.Any]]`.
         all_test = np.hstack(test)
         self.assertTrue(
             np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0, 4.0]))
@@ -192,8 +188,6 @@ class CrossValidationTest(TestCase):
             self.assertEqual(len(set(train[i]).intersection(test[i])), 0)
             self.assertEqual(len(train[i]) + len(test[i]), 4)
         # Test all points used as test points
-        # pyre-fixme[6]: For 1st param expected `Collection[ndarray]` but got
-        #  `List[List[typing.Any]]`.
         all_test = np.hstack(test)
         self.assertTrue(
             np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0, 4.0]))
@@ -215,8 +209,6 @@ class CrossValidationTest(TestCase):
         z = ma.cross_validate.mock_calls[5:]
         self.assertEqual(len(z), 2)
         all_test = np.hstack(
-            # pyre-fixme[6]: For 1st param expected `Collection[ndarray]` but got
-            #  `List[List[typing.Any]]`.
             [[obsf.parameters["x"] for obsf in r[2]["cv_test_points"]] for r in z]
         )
         self.assertTrue(np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0])))

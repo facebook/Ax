@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import NamedTuple
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
@@ -129,12 +130,9 @@ def _get_missing_arm_trial_pairs(data: Data, metric_name: str) -> set[TArmTrial]
 
 
 def best_feasible_objective(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     optimization_config: OptimizationConfig,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    values: dict[str, np.ndarray],
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-) -> np.ndarray:
+    values: dict[str, npt.NDArray],
+) -> npt.NDArray:
     """Compute the best feasible objective value found by each iteration.
 
     Args:

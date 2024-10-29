@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
@@ -87,12 +88,9 @@ class RandomForest(TorchModel):
 
 
 def _get_rf(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    X: np.ndarray,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    Y: np.ndarray,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    Yvar: np.ndarray,
+    X: npt.NDArray,
+    Y: npt.NDArray,
+    Yvar: npt.NDArray,
     num_trees: int,
     max_features: str | None,
 ) -> RandomForestRegressor:

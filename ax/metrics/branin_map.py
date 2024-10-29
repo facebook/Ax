@@ -15,6 +15,7 @@ from random import random
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 from ax.core.base_trial import BaseTrial
 from ax.core.map_data import MapData, MapKeyInfo
@@ -117,8 +118,7 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
 
     # pyre-fixme[14]: `f` overrides method defined in `NoisyFunctionMapMetric`
     #  inconsistently.
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    def f(self, x: np.ndarray, timestamp: int) -> Mapping[str, Any]:
+    def f(self, x: npt.NDArray, timestamp: int) -> Mapping[str, Any]:
         x1, x2 = x
 
         if self.rate is not None:
@@ -161,8 +161,7 @@ class BraninFidelityMapMetric(NoisyFunctionMapMetric):
             **kwargs,
         )
 
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    def f(self, x: np.ndarray) -> Mapping[str, Any]:
+    def f(self, x: npt.NDArray) -> Mapping[str, Any]:
         if self.index < len(FIDELITY):
             self.index += 1
 

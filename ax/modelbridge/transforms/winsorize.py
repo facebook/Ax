@@ -11,6 +11,7 @@ from logging import Logger
 from typing import Optional, TYPE_CHECKING
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.observation import Observation, ObservationData
 from ax.core.optimization_config import (
@@ -344,8 +345,7 @@ def _get_objective_threshold_from_moo_config(
     ]
 
 
-# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-def _get_tukey_cutoffs(Y: np.ndarray, lower: bool) -> float:
+def _get_tukey_cutoffs(Y: npt.NDArray, lower: bool) -> float:
     """Compute winsorization cutoffs similarly to Tukey boxplots.
 
     See https://mathworld.wolfram.com/Box-and-WhiskerPlot.html for more details.

@@ -9,6 +9,7 @@
 from typing import Any, Optional, TYPE_CHECKING
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -225,8 +226,7 @@ class OrderedChoiceEncode(DeprecatedTransformMixin, OrderedChoiceToIntegerRange)
         super().__init__(*args, **kwargs)
 
 
-# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-def transform_choice_values(p: ChoiceParameter) -> tuple[np.ndarray, ParameterType]:
+def transform_choice_values(p: ChoiceParameter) -> tuple[npt.NDArray, ParameterType]:
     """Transforms the choice values and returns the new parameter type.
 
     If the choices were numeric (int or float) and ordered, then they're cast

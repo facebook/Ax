@@ -9,6 +9,7 @@
 from dataclasses import dataclass
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective
@@ -42,7 +43,7 @@ class TestModelBridgeUtils(TestCase):
 
         @dataclass
         class MockModelbridge(ModelBridge):
-            def _array_to_tensor(self, array: np.ndarray | list[float]):
+            def _array_to_tensor(self, array: npt.NDArray | list[float]):
                 return _array_to_tensor(array=array)
 
         mock_modelbridge = MockModelbridge()

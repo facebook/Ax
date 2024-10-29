@@ -11,7 +11,7 @@ import logging
 from functools import reduce
 from operator import mul
 
-import numpy as np
+import numpy.typing as npt
 from ax.core.types import TGenMetadata, TParamValue, TParamValueList
 from ax.models.discrete_base import DiscreteModel
 from ax.models.types import TConfig
@@ -52,10 +52,8 @@ class FullFactorialGenerator(DiscreteModel):
         self,
         n: int,
         parameter_values: list[TParamValueList],
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        objective_weights: np.ndarray | None,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        outcome_constraints: tuple[np.ndarray, np.ndarray] | None = None,
+        objective_weights: npt.NDArray | None,
+        outcome_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
         fixed_features: dict[int, TParamValue] | None = None,
         pending_observations: list[list[TParamValueList]] | None = None,
         model_gen_options: TConfig | None = None,

@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import plotly.graph_objs as go
 from ax.core.experiment import Experiment
@@ -28,10 +29,8 @@ Traces = list[dict[str, Any]]
 
 
 def map_data_single_trace_scatters(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    x: np.ndarray,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    y: np.ndarray,
+    x: npt.NDArray,
+    y: npt.NDArray,
     legend_label: str,
     xlabel: str = "Trial progression",
     ylabel: str = "Trial performance",
@@ -99,10 +98,8 @@ def map_data_single_trace_scatters(
 def map_data_multiple_metrics_dropdown_plotly(
     title: str,
     metric_names: list[str],
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    xs_by_metric: dict[str, list[np.ndarray]],
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    ys_by_metric: dict[str, list[np.ndarray]],
+    xs_by_metric: dict[str, list[npt.NDArray]],
+    ys_by_metric: dict[str, list[npt.NDArray]],
     legend_labels_by_metric: dict[str, list[str]],
     stopping_markers_by_metric: dict[str, list[bool]],
     xlabels_by_metric: dict[str, str],
@@ -213,8 +210,7 @@ def map_data_multiple_metrics_dropdown_plotly(
 
 
 def mean_trace_scatter(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    y: np.ndarray,
+    y: npt.NDArray,
     trace_color: tuple[int] = COLORS.STEELBLUE.value,
     legend_label: str = "mean",
     hover_labels: list[str] | None = None,
@@ -247,8 +243,7 @@ def mean_trace_scatter(
 
 
 def sem_range_scatter(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    y: np.ndarray,
+    y: npt.NDArray,
     trace_color: tuple[int] = COLORS.STEELBLUE.value,
     legend_label: str = "",
 ) -> tuple[go.Scatter, go.Scatter]:
@@ -291,8 +286,7 @@ def sem_range_scatter(
 
 
 def mean_markers_scatter(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    y: np.ndarray,
+    y: npt.NDArray,
     marker_color: tuple[int] = COLORS.LIGHT_PURPLE.value,
     legend_label: str = "",
     hover_labels: list[str] | None = None,
@@ -353,8 +347,7 @@ def optimum_objective_scatter(
 
 
 def optimization_trace_single_method_plotly(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    y: np.ndarray,
+    y: npt.NDArray,
     optimum: float | None = None,
     model_transitions: list[int] | None = None,
     title: str = "",
@@ -457,8 +450,7 @@ def optimization_trace_single_method_plotly(
 
 
 def _autoset_axis_limits(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    y: np.ndarray,
+    y: npt.NDArray,
     optimization_direction: str,
     force_include_value: float | None = None,
 ) -> list[float]:
@@ -490,8 +482,7 @@ def _autoset_axis_limits(
 
 
 def optimization_trace_single_method(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    y: np.ndarray,
+    y: npt.NDArray,
     optimum: float | None = None,
     model_transitions: list[int] | None = None,
     title: str = "",
@@ -558,8 +549,7 @@ def optimization_trace_single_method(
 
 
 def optimization_trace_all_methods(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    y_dict: dict[str, np.ndarray],
+    y_dict: dict[str, npt.NDArray],
     optimum: float | None = None,
     title: str = "",
     ylabel: str = "",

@@ -444,8 +444,6 @@ class AcquisitionTest(TestCase):
             feature_names=["a", "b", "c"],
             bounds=[(0, 4) for _ in range(3)],
             categorical_features=[0, 1, 2],
-            # pyre-fixme[6]: For 4th param expected `Dict[int, List[Union[float,
-            #  int]]]` but got `Dict[int, List[int]]`.
             discrete_choices={k: [0, 1, 2, 3, 4] for k in range(3)},
         )
         with mock.patch(

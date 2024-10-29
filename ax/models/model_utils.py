@@ -14,6 +14,7 @@ from collections.abc import Callable, Mapping
 from typing import Protocol, Sequence, Union
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import SearchSpaceExhausted, UnsupportedError
@@ -50,25 +51,19 @@ DEFAULT_MAX_RS_DRAWS = 10000
 
 
 def rejection_sample(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     gen_unconstrained: Callable[
-        [int, int, np.ndarray, dict[int, float] | None], np.ndarray
+        [int, int, npt.NDArray, dict[int, float] | None], npt.NDArray
     ],
     n: int,
     d: int,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    tunable_feature_indices: np.ndarray,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    linear_constraints: tuple[np.ndarray, np.ndarray] | None = None,
+    tunable_feature_indices: npt.NDArray,
+    linear_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
     deduplicate: bool = False,
     max_draws: int | None = None,
     fixed_features: dict[int, float] | None = None,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    rounding_func: Callable[[np.ndarray], np.ndarray] | None = None,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    existing_points: np.ndarray | None = None,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-) -> tuple[np.ndarray, int]:
+    rounding_func: Callable[[npt.NDArray], npt.NDArray] | None = None,
+    existing_points: npt.NDArray | None = None,
+) -> tuple[npt.NDArray, int]:
     """Rejection sample in parameter space. Parameter space is typically
     [0, 1] for all tunable parameters.
 
@@ -164,8 +159,7 @@ def rejection_sample(
         return (points, attempted_draws)
 
 
-# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-def check_duplicate(point: np.ndarray, points: np.ndarray) -> bool:
+def check_duplicate(point: npt.NDArray, points: npt.NDArray) -> bool:
     """Check if a point exists in another array.
 
     Args:
@@ -182,14 +176,11 @@ def check_duplicate(point: np.ndarray, points: np.ndarray) -> bool:
 
 
 def add_fixed_features(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    tunable_points: np.ndarray,
+    tunable_points: npt.NDArray,
     d: int,
     fixed_features: dict[int, float] | None,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    tunable_feature_indices: np.ndarray,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-) -> np.ndarray:
+    tunable_feature_indices: npt.NDArray,
+) -> npt.NDArray:
     """Add fixed features to points in tunable space.
 
     Args:
@@ -213,12 +204,9 @@ def add_fixed_features(
 
 
 def check_param_constraints(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    linear_constraints: tuple[np.ndarray, np.ndarray],
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    point: np.ndarray,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-) -> tuple[bool, np.ndarray]:
+    linear_constraints: tuple[npt.NDArray, npt.NDArray],
+    point: npt.NDArray,
+) -> tuple[bool, npt.NDArray]:
     """Check if a point satisfies parameter constraints.
 
     Args:
@@ -245,8 +233,7 @@ def check_param_constraints(
 def tunable_feature_indices(
     bounds: list[tuple[float, float]],
     fixed_features: dict[int, float] | None = None,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-) -> np.ndarray:
+) -> npt.NDArray:
     """Get the feature indices of tunable features.
 
     Args:
@@ -263,10 +250,8 @@ def tunable_feature_indices(
 
 
 def validate_bounds(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     bounds: list[tuple[float, float]],
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    fixed_feature_indices: np.ndarray,
+    fixed_feature_indices: npt.NDArray,
 ) -> None:
     """Ensure the requested space is [0,1]^d.
 
@@ -364,8 +349,7 @@ def best_observed_point(
 
 
 def best_in_sample_point(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    Xs: list[torch.Tensor] | list[np.ndarray],
+    Xs: list[torch.Tensor] | list[npt.NDArray],
     model: TorchModelLike,
     bounds: list[tuple[float, float]],
     objective_weights: Tensoray | None,
@@ -492,8 +476,9 @@ def best_in_sample_point(
         return X_obs[i, :], utility[i]
 
 
-# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-def as_array(x: Tensoray | tuple[Tensoray, ...]) -> np.ndarray | tuple[np.ndarray, ...]:
+def as_array(
+    x: Tensoray | tuple[Tensoray, ...],
+) -> npt.NDArray | tuple[npt.NDArray, ...]:
     """Convert every item in a tuple of tensors/arrays into an array.
 
     Args:
@@ -513,8 +498,7 @@ def as_array(x: Tensoray | tuple[Tensoray, ...]) -> np.ndarray | tuple[np.ndarra
 
 
 def get_observed(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    Xs: list[torch.Tensor] | list[np.ndarray],
+    Xs: list[torch.Tensor] | list[npt.NDArray],
     objective_weights: Tensoray,
     outcome_constraints: tuple[Tensoray, Tensoray] | None = None,
     # pyre-fixme[7]: Expected `Union[ndarray[typing.Any, typing.Any], Tensor]` but got
@@ -553,8 +537,6 @@ def get_observed(
         # pyre-fixme[6]: For 2nd param expected `Union[None, Dict[str, Tuple[typing.A...
         return np.array(list(X_obs_set), dtype=Xs[0].dtype)  # (n x d)
     if isinstance(Xs[0], torch.Tensor):
-        # pyre-fixme[7]: Expected `Union[np.ndarray, torch.Tensor]` but got implicit
-        #  return value of `None`.
         # pyre-fixme[6]: For 3rd param expected `Optional[_C.dtype]` but got
         #  `Union[np.dtype, _C.dtype]`.
         # pyre-fixme[16]: Item `ndarray` of `Union[ndarray[typing.Any, typing.Any],

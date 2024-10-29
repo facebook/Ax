@@ -14,7 +14,7 @@ from functools import lru_cache
 from math import sqrt
 from typing import Any
 
-import numpy as np
+import numpy.typing as npt
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
@@ -46,8 +46,7 @@ class SklearnDataset(Enum):
 
 @lru_cache(maxsize=8)
 # pyre-fixme[2]: Parameter must be annotated.
-# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-def _get_data(dataset) -> dict[str, np.ndarray]:
+def _get_data(dataset) -> dict[str, npt.NDArray]:
     """Return sklearn dataset, loading and caching if necessary."""
     if dataset is SklearnDataset.DIGITS:
         return datasets.load_digits()

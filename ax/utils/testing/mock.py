@@ -33,9 +33,7 @@ def fast_botorch_optimize_context_manager(
             USE RESPONSIBLY.
     """
 
-    def one_iteration_minimize(
-        *args: Any, **kwargs: Any
-    ) -> OptimizeResult:  # pyre-ignore[11]
+    def one_iteration_minimize(*args: Any, **kwargs: Any) -> OptimizeResult:
         if kwargs["options"] is None:
             kwargs["options"] = {}
 

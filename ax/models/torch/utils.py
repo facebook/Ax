@@ -12,6 +12,7 @@ from logging import Logger
 from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from ax.exceptions.core import UnsupportedError
 from ax.exceptions.model import ModelError
@@ -364,12 +365,10 @@ def _to_inequality_constraints(
 def tensor_callable_to_array_callable(
     tensor_func: Callable[[Tensor], Tensor],
     device: torch.device,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-) -> Callable[[np.ndarray], np.ndarray]:
+) -> Callable[[npt.NDArray], npt.NDArray]:
     """transfer a tensor callable to an array callable"""
 
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    def array_func(x: np.ndarray) -> np.ndarray:
+    def array_func(x: npt.NDArray) -> npt.NDArray:
         return tensor_func(torch.from_numpy(x).to(device)).detach().cpu().numpy()
 
     return array_func

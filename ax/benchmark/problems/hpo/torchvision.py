@@ -111,7 +111,6 @@ def train_and_evaluate(
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
-    # pyre-fixme[7]: Expected `Tensor` but got `float`.
     return correct / total
 
 

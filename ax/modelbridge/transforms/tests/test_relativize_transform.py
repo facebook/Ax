@@ -9,6 +9,7 @@ from copy import deepcopy
 from unittest.mock import Mock
 
 import numpy as np
+import numpy.typing as npt
 from ax.core import BatchTrial
 from ax.core.observation import (
     Observation,
@@ -48,8 +49,7 @@ class RelativizeDataTest(TestCase):
         Relativize,
         RelativizeWithConstantControl,
     ]
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    cases: list[tuple[type[Transform], list[tuple[np.ndarray, np.ndarray]]]] = [
+    cases: list[tuple[type[Transform], list[tuple[npt.NDArray, npt.NDArray]]]] = [
         (
             Relativize,
             [
@@ -204,8 +204,7 @@ class RelativizeDataTest(TestCase):
         def _check_transform_observations(
             tf: Transform,
             observations: list[Observation],
-            # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-            expected_mean_and_covar: list[tuple[np.ndarray, np.ndarray]],
+            expected_mean_and_covar: list[tuple[npt.NDArray, npt.NDArray]],
         ) -> None:
             results = tf.transform_observations(observations)
             for i, tsfm_obs in enumerate(results):

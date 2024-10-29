@@ -8,6 +8,7 @@
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 import torch
 from ax.core.base_trial import TrialStatus
@@ -224,10 +225,8 @@ class MapTorchModelBridge(TorchModelBridge):
         )
 
     def _array_to_observation_features(
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         self,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        X: np.ndarray,
+        X: npt.NDArray,
         candidate_metadata: list[TCandidateMetadata] | None,
     ) -> list[ObservationFeatures]:
         """The difference b/t this method and
