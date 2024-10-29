@@ -50,7 +50,7 @@ from botorch.optim.optimize import (
     optimize_acqf_discrete_local_search,
     optimize_acqf_mixed,
 )
-from botorch.optim.optimize_acqf_mixed import optimize_acqf_mixed_alternating
+from botorch.optim.optimize_mixed import optimize_acqf_mixed_alternating
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from pyre_extensions import none_throws
 from torch import Tensor

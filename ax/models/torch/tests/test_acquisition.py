@@ -54,7 +54,7 @@ from botorch.optim.optimize import (
     optimize_acqf_discrete,
     optimize_acqf_mixed,
 )
-from botorch.optim.optimize_acqf_mixed import optimize_acqf_mixed_alternating
+from botorch.optim.optimize_mixed import optimize_acqf_mixed_alternating
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.testing import MockPosterior
