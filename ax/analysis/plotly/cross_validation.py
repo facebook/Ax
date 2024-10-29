@@ -44,7 +44,11 @@ class CrossValidationPlot(PlotlyAnalysis):
     """
 
     def __init__(
-        self, metric_name: str | None = None, folds: int = -1, untransform: bool = True
+        self,
+        metric_name: str | None = None,
+        folds: int = -1,
+        untransform: bool = True,
+        trial_index: int | None = None,
     ) -> None:
         """
         Args:
@@ -64,11 +68,16 @@ class CrossValidationPlot(PlotlyAnalysis):
                 regions where outliers have been removed, we have found it to better
                 reflect the how good the model used for candidate generation actually
                 is.
+            trial_index: Optional trial index that the model from generation_strategy
+                was used to generate.  We should therefore only have observations from
+                trials prior to this trial index in our plot.  If this is not True, we
+                should error out.
         """
 
         self.metric_name = metric_name
         self.folds = folds
         self.untransform = untransform
+        self.trial_index = trial_index
 
     def compute(
         self,
@@ -91,6 +100,7 @@ class CrossValidationPlot(PlotlyAnalysis):
             metric_name=metric_name,
             folds=self.folds,
             untransform=self.untransform,
+            trial_index=self.trial_index,
         )
         fig = _prepare_plot(df=df, metric_name=metric_name)
 
@@ -127,6 +137,7 @@ def _prepare_data(
     metric_name: str,
     folds: int,
     untransform: bool,
+    trial_index: int | None,
 ) -> pd.DataFrame:
     # If model is not fit already, fit it
     if generation_strategy.model is None:
@@ -140,6 +151,16 @@ def _prepare_data(
 
     records = []
     for observed, predicted in cv_results:
+        if trial_index is not None:
+            if (
+                observed.features.trial_index is not None
+                and observed.features.trial_index >= trial_index
+            ):
+                raise UserInputError(
+                    "CrossValidationPlot was specified to be for the generation of "
+                    f"trial {trial_index}, but has observations from trial "
+                    f"{observed.features.trial_index}."
+                )
         for i in range(len(observed.data.metric_names)):
             # Find the index of the metric we want to plot
             if not (
