@@ -33,7 +33,7 @@ from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition import qLogNoisyExpectedImprovement
 from botorch.acquisition.input_constructors import (
@@ -417,7 +417,7 @@ class BoTorchModelTest(TestCase):
                     kwargs["state_dict"].keys(), expected_state_dict.keys()
                 )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     @mock.patch(
         f"{MODEL_PATH}.construct_acquisition_and_optimizer_options",
         wraps=construct_acquisition_and_optimizer_options,
@@ -566,7 +566,7 @@ class BoTorchModelTest(TestCase):
             search_space_digest=self.mf_search_space_digest,
         )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_feature_importances(self) -> None:
         for botorch_model_class in [SingleTaskGP, SaasFullyBayesianSingleTaskGP]:
             surrogate = Surrogate(botorch_model_class=botorch_model_class)
@@ -635,7 +635,7 @@ class BoTorchModelTest(TestCase):
         ):
             model.feature_importances()
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_best_point(self) -> None:
         self.model._surrogate = None
         self.model.fit(
@@ -664,7 +664,7 @@ class BoTorchModelTest(TestCase):
                 ),
             )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     @mock.patch(
         f"{MODEL_PATH}.construct_acquisition_and_optimizer_options",
         return_value=({"num_fantasies": 64}, {"num_restarts": 40, "raw_samples": 1024}),

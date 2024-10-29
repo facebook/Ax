@@ -40,7 +40,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_observations,
     get_sobol,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 
 best_point_module: str = _derel_opt_config_wrapper.__module__
 DUMMY_OPTIMIZATION_CONFIG = "test_optimization_config"
@@ -50,7 +50,7 @@ class TestBestPointUtils(TestCase):
     """Testing the best point utilities functionality that is not tested in
     main `AxClient` testing suite (`TestServiceAPI`)."""
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_best_from_model_prediction(self) -> None:
         exp = get_branin_experiment()
 

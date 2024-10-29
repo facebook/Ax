@@ -29,7 +29,7 @@ from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
@@ -47,7 +47,7 @@ SURROGATE_PATH: str = Surrogate.__module__
 
 
 class TestSebo(TestCase):
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def setUp(self) -> None:
         super().setUp()
         tkwargs: dict[str, Any] = {"dtype": torch.double}

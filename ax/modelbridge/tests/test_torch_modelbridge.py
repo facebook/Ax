@@ -48,7 +48,7 @@ from ax.utils.testing.core_stubs import (
     get_optimization_config_no_constraints,
     get_search_space_for_range_value,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_observation1, transform_1, transform_2
 from botorch.utils.datasets import (
     ContextualDataset,
@@ -898,7 +898,7 @@ class TorchModelBridgeTest(TestCase):
         )
         self.assertEqual(mb.outcomes, expected_outcomes)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_gen_metadata_untransform(self) -> None:
         experiment = get_experiment_with_observations(
             observations=[[0.0, 1.0], [2.0, 3.0]]

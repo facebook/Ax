@@ -16,11 +16,11 @@ from ax.plot.diagnostic import (
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 
 
 class DiagnosticTest(TestCase):
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def setUp(self) -> None:
         super().setUp()
         exp = get_branin_experiment(with_batch=True)

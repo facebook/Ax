@@ -35,7 +35,7 @@ from ax.utils.sensitivity.sobol_measures import (
     SobolSensitivityGPSampling,
 )
 from ax.utils.testing.core_stubs import get_branin_experiment
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel, GPyTorchModel
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.utils.transforms import unnormalize
@@ -43,7 +43,7 @@ from gpytorch.distributions import MultivariateNormal
 from torch import Tensor
 
 
-@fast_botorch_optimize
+@mock_botorch_optimize
 def get_modelbridge(modular: bool = False, saasbo: bool = False) -> ModelBridge:
     exp = get_branin_experiment(with_batch=True)
     exp.trials[0].run()

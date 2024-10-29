@@ -28,7 +28,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_optimization_config,
     get_factorial_experiment,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 
 
 # pyre-fixme[3]: Return type must be annotated.
@@ -52,7 +52,7 @@ def get_multi_obj_exp_and_opt_config():
 
 
 class ModelBridgeFactoryTestSingleObjective(TestCase):
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_sobol_GPEI(self) -> None:
         """Tests sobol + GPEI instantiation."""
         exp = get_branin_experiment()

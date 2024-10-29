@@ -16,7 +16,7 @@ from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrateg
 from ax.modelbridge.registry import Models
 from ax.service.managed_loop import OptimizationLoop, optimize
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 
 
 def _branin_evaluation_function(
@@ -95,7 +95,7 @@ class TestManagedLoop(TestCase):
                 len(loop.experiment.search_space.parameter_constraints) == 0
             )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_branin(self) -> None:
         """Basic async synthetic function managed loop case."""
         loop = OptimizationLoop.with_evaluation_function(
@@ -123,7 +123,7 @@ class TestManagedLoop(TestCase):
         with self.assertRaisesRegex(ValueError, "Optimization is complete"):
             loop.run_trial()
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_branin_with_active_parameter_constraints(self) -> None:
         """Basic async synthetic function managed loop case."""
         loop = OptimizationLoop.with_evaluation_function(
@@ -154,7 +154,7 @@ class TestManagedLoop(TestCase):
         with self.assertRaisesRegex(ValueError, "Optimization is complete"):
             loop.run_trial()
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_branin_without_objective_name(self) -> None:
         loop = OptimizationLoop.with_evaluation_function(
             parameters=[
@@ -176,7 +176,7 @@ class TestManagedLoop(TestCase):
         self.assertIn("x1", bp)
         self.assertIn("x2", bp)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_branin_with_unknown_sem(self) -> None:
         loop = OptimizationLoop.with_evaluation_function(
             parameters=[
@@ -198,7 +198,7 @@ class TestManagedLoop(TestCase):
         self.assertIn("x1", bp)
         self.assertIn("x2", bp)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_branin_batch(self) -> None:
         """Basic async synthetic function managed loop case."""
 
@@ -275,7 +275,7 @@ class TestManagedLoop(TestCase):
         autospec=True,
         return_value=({"x1": 2.0, "x2": 3.0}, ({"a": 9.0}, {"a": {"a": 3.0}})),
     )
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_optimize_with_predictions(self, _) -> None:
         """Tests optimization as a single call."""
         best, vals, exp, model = optimize(
@@ -300,7 +300,7 @@ class TestManagedLoop(TestCase):
         # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         self.assertIn("a", vals[1]["a"])
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_optimize_unknown_sem(self) -> None:
         """Tests optimization as a single call."""
         best, vals, exp, model = optimize(

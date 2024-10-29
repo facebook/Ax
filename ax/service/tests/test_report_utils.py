@@ -60,7 +60,7 @@ from ax.utils.testing.core_stubs import (
     get_multi_type_experiment,
     get_test_map_data_experiment,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_generation_strategy
 from plotly import graph_objects as go
 
@@ -368,7 +368,7 @@ class ReportUtilsTest(TestCase):
         )
         self.assertDictEqual(expected_output, actual_output)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_get_standard_plots(self) -> None:
         exp = get_branin_experiment()
         self.assertEqual(
@@ -419,7 +419,7 @@ class ReportUtilsTest(TestCase):
             self.assertEqual(len(plots), num_expected_plots)  # TODO: this failed
             self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_get_standard_plots_moo(self) -> None:
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
         exp.optimization_config.objective.objectives[0].minimize = False
@@ -466,7 +466,7 @@ class ReportUtilsTest(TestCase):
                 self.assertTrue(any(expected_msg in msg for msg in created_plots_logs))
         self.assertEqual(len(plots), 6)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_get_standard_plots_moo_relative_constraints(self) -> None:
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
         exp.optimization_config.objective.objectives[0].minimize = False
@@ -492,7 +492,7 @@ class ReportUtilsTest(TestCase):
         )
         self.assertEqual(len(plots), 8)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_get_standard_plots_moo_no_objective_thresholds(self) -> None:
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
         exp.optimization_config.objective.objectives[0].minimize = False
@@ -503,7 +503,7 @@ class ReportUtilsTest(TestCase):
         )
         self.assertEqual(len(plots), 8)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_get_standard_plots_map_data(self) -> None:
         exp = get_branin_experiment_with_timestamp_map_metric(with_status_quo=True)
         exp.new_trial().add_arm(exp.status_quo)
@@ -536,7 +536,7 @@ class ReportUtilsTest(TestCase):
                 true_objective_metric_name="not_present",
             )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_skip_contour_high_dimensional(self) -> None:
         exp = get_high_dimensional_branin_experiment()
         # Initial Sobol points

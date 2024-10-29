@@ -35,7 +35,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.sampling.normal import SobolQMCNormalSampler
 
 logger: Logger = get_logger(__name__)
@@ -168,7 +168,7 @@ class TestGenerationNode(TestCase):
         # pyre-fixme[16]: Optional type has no attribute `get`.
         self.assertEqual(gr._model_kwargs.get("init_position"), 3)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_gen_with_trial_type(self) -> None:
         mbm_short = GenerationNode(
             node_name="test",
@@ -241,7 +241,7 @@ class TestGenerationNode(TestCase):
         )
         self.assertIsNone(sampler.base_samples)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_properties(self) -> None:
         node = GenerationNode(
             node_name="test",
@@ -431,7 +431,7 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
             ),
         )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_gen(self) -> None:
         self.model_selection_node.fit(
             experiment=self.branin_experiment, data=self.branin_experiment.lookup_data()

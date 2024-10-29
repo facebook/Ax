@@ -31,8 +31,8 @@ from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import (
-    fast_botorch_optimize,
-    fast_botorch_optimize_context_manager,
+    mock_botorch_optimize,
+    mock_botorch_optimize_context_manager,
 )
 from ax.utils.testing.utils import generic_equals
 from botorch.acquisition.acquisition import AcquisitionFunction
@@ -131,7 +131,7 @@ class AcquisitionTest(TestCase):
             bounds=[(0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
             target_values={2: 1.0},
         )
-        with fast_botorch_optimize_context_manager():
+        with mock_botorch_optimize_context_manager():
             self.surrogate.fit(
                 datasets=self.training_data,
                 search_space_digest=SearchSpaceDigest(
@@ -297,7 +297,7 @@ class AcquisitionTest(TestCase):
             outcome_constraints=self.outcome_constraints
         )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     @mock.patch(f"{ACQUISITION_PATH}.optimize_acqf", wraps=optimize_acqf)
     def test_optimize(self, mock_optimize_acqf: Mock) -> None:
         acquisition = self.get_acquisition_function(fixed_features=self.fixed_features)
@@ -520,7 +520,7 @@ class AcquisitionTest(TestCase):
         )
 
     # mock `optimize_acqf_discrete_local_search` because it isn't handled by
-    # `fast_botorch_optimize`
+    # `mock_botorch_optimize`
     @mock.patch(
         f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search",
         return_value=(Mock(), Mock()),
@@ -588,7 +588,7 @@ class AcquisitionTest(TestCase):
             all((X_avoid_true == x).all(dim=-1).any().item() for x in kwargs["X_avoid"])
         )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_optimize_mixed(self) -> None:
         ssd = SearchSpaceDigest(
             feature_names=["a", "b"],
@@ -626,7 +626,7 @@ class AcquisitionTest(TestCase):
             )
         )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_optimize_acqf_mixed_alternating(self) -> None:
         ssd = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
@@ -702,7 +702,7 @@ class AcquisitionTest(TestCase):
         acquisition.evaluate(X=self.X)
         mock_evaluate.assert_called_with(X=self.X)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     @mock.patch(  # pyre-ignore
         "ax.models.torch.botorch_moo_defaults._check_posterior_type",
         wraps=lambda y: y,

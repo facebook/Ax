@@ -66,7 +66,7 @@ from ax.utils.testing.core_stubs import (
     get_status_quo,
     get_test_map_data_experiment,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 
 DUMMY_RUN_METADATA_KEY = "test_run_metadata_key"
 DUMMY_RUN_METADATA_VALUE = "test_run_metadata_value"
@@ -1477,7 +1477,7 @@ class ExperimentWithMapDataTest(TestCase):
             new_df.drop(["arm_name", "trial_index"], axis=1),
         )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_batch_with_multiple_generator_runs(self) -> None:
         exp = get_branin_experiment()
         # set seed to avoid transient errors caused by duplicate arms,

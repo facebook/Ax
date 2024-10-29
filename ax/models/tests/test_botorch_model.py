@@ -29,7 +29,7 @@ from ax.models.torch.utils import sample_simplex
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models import ModelListGP, SingleTaskGP
@@ -195,7 +195,7 @@ class BotorchModelTest(TestCase):
                 0.6,
             )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_BotorchModel(
         self, dtype: torch.dtype = torch.float, cuda: bool = False
     ) -> None:

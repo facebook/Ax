@@ -13,14 +13,14 @@ import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.torch.cbo_lcea import LCEABO
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.models.contextual import LCEAGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.utils.datasets import SupervisedDataset
 
 
 class LCEABOTest(TestCase):
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_LCEABO(self) -> None:
         train_X = torch.tensor(
             [[0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0], [2.0, 2.0, 2.0, 2.0]]

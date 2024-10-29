@@ -23,7 +23,7 @@ from ax.models.torch.botorch_modular.utils import choose_model_class, fit_botorc
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from ax.utils.testing.utils import generic_equals
 from botorch.models import ModelListGP, SaasFullyBayesianSingleTaskGP, SingleTaskGP
@@ -239,7 +239,7 @@ class SurrogateTest(TestCase):
         )
         self.assertEqual(mock_mll.call_args[1]["some_option"], "some_value")
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_copy_options(self) -> None:
         training_data = self.training_data + [self.ds2]
         d = self.Xs[0].shape[-1]
@@ -356,7 +356,7 @@ class SurrogateTest(TestCase):
             ):
                 surrogate.training_data
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_dtype_and_device_properties(self) -> None:
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
@@ -496,7 +496,7 @@ class SurrogateTest(TestCase):
                 surrogate._submodels[key], SingleTaskGPWithDifferentConstructor
             )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_construct_custom_model(self) -> None:
         # Test error for unsupported covar_module and likelihood.
         surrogate = Surrogate(
@@ -536,7 +536,7 @@ class SurrogateTest(TestCase):
         self.assertEqual(type(model.covar_module), RBFKernel)
         self.assertEqual(model.covar_module.ard_num_dims, 3)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     @patch(f"{SURROGATE_PATH}.predict_from_model")
     def test_predict(self, mock_predict: Mock) -> None:
         for botorch_model_class, use_posterior_predictive in product(
@@ -556,7 +556,7 @@ class SurrogateTest(TestCase):
                 use_posterior_predictive=use_posterior_predictive,
             )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_best_in_sample_point(self) -> None:
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
             surrogate, _ = self._get_surrogate(botorch_model_class=botorch_model_class)
@@ -599,7 +599,7 @@ class SurrogateTest(TestCase):
                 ):
                     self.assertTrue(generic_equals(ckwargs[attr], getattr(self, attr)))
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_best_out_of_sample_point(self) -> None:
         torch.manual_seed(0)
         for botorch_model_class in [SaasFullyBayesianSingleTaskGP, SingleTaskGP]:
@@ -637,7 +637,7 @@ class SurrogateTest(TestCase):
             self.assertEqual(acqf_value.shape, torch.Size([]))
             # In realistic cases the maximum posterior mean would exceed the
             # sample mean (because the data is standardized), but that might not
-            # be true when using `fast_botorch_optimize`
+            # be true when using `mock_botorch_optimize`
             eps = 1
             self.assertGreaterEqual(
                 acqf_value.item(), assert_is_instance(sample_mean, float) - eps
@@ -651,7 +651,7 @@ class SurrogateTest(TestCase):
             }
             self.assertEqual(surrogate._serialize_attributes_as_kwargs(), expected)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_w_robust_digest(self) -> None:
         surrogate = Surrogate(
             botorch_model_class=SingleTaskGP,
@@ -1036,7 +1036,7 @@ class SurrogateWithModelListTest(TestCase):
                 mll_class=self.mll_class,
             )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_with_botorch_transforms(self) -> None:
         surrogate = Surrogate(
             botorch_model_class=SingleTaskGPWithDifferentConstructor,
@@ -1116,7 +1116,7 @@ class SurrogateWithModelListTest(TestCase):
         #     expected.pop(attr_name)
         # self.assertEqual(self.surrogate._serialize_attributes_as_kwargs(), expected)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_construct_custom_model(self) -> None:
         noise_constraint = Interval(1e-4, 10.0)
         for submodel_covar_module_options, submodel_likelihood_options in [
@@ -1173,7 +1173,7 @@ class SurrogateWithModelListTest(TestCase):
                     self.assertEqual(type(m_noise_constraint), GreaterThan)
                     self.assertAlmostEqual(m_noise_constraint.lower_bound.item(), 1e-4)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_w_robust_digest(self) -> None:
         surrogate = Surrogate(
             botorch_model_class=SingleTaskGP,

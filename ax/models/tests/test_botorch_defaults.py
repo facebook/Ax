@@ -22,7 +22,7 @@ from ax.models.torch.botorch_defaults import (
 )
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.logei import (
     qLogExpectedImprovement,
     qLogNoisyExpectedImprovement,
@@ -237,7 +237,7 @@ class BotorchDefaultsTest(TestCase):
             )
 
     @mock.patch("ax.models.torch.botorch_defaults._get_model", wraps=_get_model)
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     # pyre-fixme[3]: Return type must be annotated.
     # pyre-fixme[2]: Parameter must be annotated.
     def test_task_feature(self, get_model_mock):
@@ -297,7 +297,7 @@ class BotorchDefaultsTest(TestCase):
             )
 
     @mock.patch("ax.models.torch.botorch_defaults._get_model", wraps=_get_model)
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_pass_customized_prior(self, get_model_mock: Mock) -> None:
         x = [torch.zeros(2, 2)]
         y = [torch.zeros(2, 1)]
