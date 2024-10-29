@@ -31,7 +31,6 @@ from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_node import GenerationNode, GenerationStep
 from ax.modelbridge.generation_node_input_constructors import InputConstructorPurpose
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec
-from ax.modelbridge.modelbridge_utils import get_fixed_features_from_experiment
 from ax.modelbridge.transition_criterion import TrialBasedCriterion
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.typeutils import checked_cast_list, not_none
@@ -964,6 +963,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         if passed_fixed_features is not None:
             return passed_fixed_features
 
+        node_fixed_features = None
         if (
             InputConstructorPurpose.FIXED_FEATURES
             in node_to_gen_from.input_constructors
@@ -975,12 +975,6 @@ class GenerationStrategy(GenerationStrategyInterface):
                 next_node=node_to_gen_from,
                 gs_gen_call_kwargs=gen_kwargs,
                 experiment=self.experiment,
-            )
-        else:
-            # TODO: @mgarrard remove this special casing once rt gs is converted to
-            # nodes from steps.
-            node_fixed_features = get_fixed_features_from_experiment(
-                experiment=self.experiment
             )
         return node_fixed_features
 
