@@ -312,7 +312,9 @@ class RangeParameter(Parameter):
             ParameterType.INT,
             ParameterType.FLOAT,
         ):
-            raise UserInputError("RangeParameter type must be int or float.")
+            raise UserInputError(
+                f"RangeParameter {self.name}type must be int or float."
+            )
 
         upper = float(upper)
         if lower >= upper:
@@ -323,19 +325,19 @@ class RangeParameter(Parameter):
         width: float = upper - lower
         if width < 100 * EPS:
             raise UserInputError(
-                f"Parameter range ({width}) is very small and likely "
+                f"Parameter {self.name}'s range ({width}) is very small and likely "
                 "to cause numerical errors. Consider reparameterizing your "
                 "problem by scaling the parameter."
             )
         if log_scale and logit_scale:
-            raise UserInputError("Can't use both log and logit.")
+            raise UserInputError(f"{self.name} can't use both log and logit.")
         if log_scale and lower <= 0:
-            raise UserInputError("Cannot take log when min <= 0.")
+            raise UserInputError(f"{self.name} cannot take log when min <= 0.")
         if logit_scale and (lower <= 0 or upper >= 1):
-            raise UserInputError("Logit requires lower > 0 and upper < 1")
+            raise UserInputError(f"{self.name} logit requires lower > 0 and upper < 1")
         if not (self.is_valid_type(lower)) or not (self.is_valid_type(upper)):
             raise UserInputError(
-                f"[{lower}, {upper}] is an invalid range for this parameter."
+                f"[{lower}, {upper}] is an invalid range for {self.name}."
             )
 
     @property
