@@ -77,8 +77,6 @@ class TestSyntheticFunctions(TestCase):
         #  SupportsAbs[SupportsRound[object]]]` but got `float`.
         self.assertAlmostEqual(aug_hartmann6(1, 2, 3, 4, 5, 6, 1), 0.0)
         self.assertAlmostEqual(
-            # pyre-fixme[6]: For 2nd argument expected `SupportsRSub[Variable[_T],
-            #  SupportsAbs[SupportsRound[object]]]` but got `float`.
             aug_hartmann6(x1=1, x2=2, x3=3, x4=4, x5=5, x6=6, x7=1),
             # pyre-fixme[6]: For 2nd argument expected `SupportsRSub[Variable[_T],
             #  SupportsAbs[SupportsRound[object]]]` but got `float`.

@@ -10,6 +10,7 @@ from copy import deepcopy
 from typing import Any, Optional, Union
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.observation import ObservationFeatures
 from ax.modelbridge.base import ModelBridge
 from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotData
@@ -342,8 +343,7 @@ def interact_slice_plotly(
 
         plot_data_dict = {}
         raw_data_dict = {}
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        sd_plt_dict: dict[str, dict[str, np.ndarray]] = {}
+        sd_plt_dict: dict[str, dict[str, npt.NDArray]] = {}
 
         cond_name_to_parameters_dict = {}
         is_log_dict: dict[str, bool] = {}

@@ -16,6 +16,7 @@ from logging import Logger
 
 import ax.core.experiment as experiment
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base_trial import NON_ABANDONED_STATUSES, TrialStatus
@@ -187,13 +188,10 @@ class ObservationData(Base):
     """
 
     def __init__(
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         self,
         metric_names: list[str],
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        means: np.ndarray,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        covariance: np.ndarray,
+        means: npt.NDArray,
+        covariance: npt.NDArray,
     ) -> None:
         k = len(metric_names)
         if means.shape != (k,):

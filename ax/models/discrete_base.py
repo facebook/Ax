@@ -7,7 +7,7 @@
 # pyre-strict
 
 
-import numpy as np
+import numpy.typing as npt
 from ax.core.types import TGenMetadata, TParamValue, TParamValueList
 from ax.models.base import Model
 from ax.models.types import TConfig
@@ -42,8 +42,7 @@ class DiscreteModel(Model):
         """
         pass
 
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    def predict(self, X: list[TParamValueList]) -> tuple[np.ndarray, np.ndarray]:
+    def predict(self, X: list[TParamValueList]) -> tuple[npt.NDArray, npt.NDArray]:
         """Predict
 
         Args:
@@ -62,10 +61,8 @@ class DiscreteModel(Model):
         self,
         n: int,
         parameter_values: list[TParamValueList],
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        objective_weights: np.ndarray | None,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        outcome_constraints: tuple[np.ndarray, np.ndarray] | None = None,
+        objective_weights: npt.NDArray | None,
+        outcome_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
         fixed_features: dict[int, TParamValue] | None = None,
         pending_observations: list[list[TParamValueList]] | None = None,
         model_gen_options: TConfig | None = None,
@@ -105,8 +102,7 @@ class DiscreteModel(Model):
         Yvars_train: list[list[float]],
         X_test: list[TParamValueList],
         use_posterior_predictive: bool = False,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[npt.NDArray, npt.NDArray]:
         """Do cross validation with the given training and test sets.
 
         Training set is given in the same format as to fit. Test set is given
@@ -137,10 +133,8 @@ class DiscreteModel(Model):
         self,
         n: int,
         parameter_values: list[TParamValueList],
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        objective_weights: np.ndarray | None,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        outcome_constraints: tuple[np.ndarray, np.ndarray] | None = None,
+        objective_weights: npt.NDArray | None,
+        outcome_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
         fixed_features: dict[int, TParamValue] | None = None,
         pending_observations: list[list[TParamValueList]] | None = None,
         model_gen_options: TConfig | None = None,

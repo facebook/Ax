@@ -15,6 +15,7 @@ from functools import partial
 from typing import Any, Union
 
 import numpy as np
+import numpy.typing as npt
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.model_spec import ModelSpec
 from ax.utils.common.base import Base
@@ -45,17 +46,13 @@ class ReductionCriterion(Enum):
 
     # NOTE: Callables need to be wrapped in `partial` to be registered as members.
     # pyre-fixme[35]: Target cannot be annotated.
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    MEAN: Callable[[ARRAYLIKE], np.ndarray] = partial(np.mean)
+    MEAN: Callable[[ARRAYLIKE], npt.NDArray] = partial(np.mean)
     # pyre-fixme[35]: Target cannot be annotated.
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    MIN: Callable[[ARRAYLIKE], np.ndarray] = partial(np.min)
+    MIN: Callable[[ARRAYLIKE], npt.NDArray] = partial(np.min)
     # pyre-fixme[35]: Target cannot be annotated.
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    MAX: Callable[[ARRAYLIKE], np.ndarray] = partial(np.max)
+    MAX: Callable[[ARRAYLIKE], npt.NDArray] = partial(np.max)
 
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    def __call__(self, array_like: ARRAYLIKE) -> np.ndarray:
+    def __call__(self, array_like: ARRAYLIKE) -> npt.NDArray:
         return self.value(array_like)
 
 

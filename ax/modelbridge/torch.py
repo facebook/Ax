@@ -15,6 +15,7 @@ from logging import Logger
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from ax.core.arm import Arm
 from ax.core.data import Data
@@ -76,7 +77,6 @@ logger: Logger = get_logger(__name__)
 FIT_MODEL_ERROR = "Model must be fit before {action}."
 
 
-# pyre-fixme [13]: Attributes are never initialized.
 class TorchModelBridge(ModelBridge):
     """A model bridge for using torch-based models.
 
@@ -283,22 +283,18 @@ class TorchModelBridge(ModelBridge):
         return best_arm, best_point_predictions
 
     def _array_callable_to_tensor_callable(
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         self,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        array_func: Callable[[np.ndarray], np.ndarray],
+        array_func: Callable[[npt.NDArray], npt.NDArray],
     ) -> Callable[[Tensor], Tensor]:
         tensor_func: Callable[[Tensor], Tensor] = lambda x: (
             self._array_to_tensor(array_func(x.detach().cpu().clone().numpy()))
         )
         return tensor_func
 
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    def _array_list_to_tensors(self, arrays: list[np.ndarray]) -> list[Tensor]:
+    def _array_list_to_tensors(self, arrays: list[npt.NDArray]) -> list[Tensor]:
         return [self._array_to_tensor(x) for x in arrays]
 
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    def _array_to_tensor(self, array: np.ndarray | list[float]) -> Tensor:
+    def _array_to_tensor(self, array: npt.NDArray | list[float]) -> Tensor:
         return torch.as_tensor(array, dtype=self.dtype, device=self.device)
 
     def _convert_observations(
@@ -766,10 +762,8 @@ class TorchModelBridge(ModelBridge):
         return array_to_observation_data(f=f, cov=cov, outcomes=self.outcomes)
 
     def _array_to_observation_features(
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
         self,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        X: np.ndarray,
+        X: npt.NDArray,
         candidate_metadata: list[TCandidateMetadata] | None,
     ) -> list[ObservationFeatures]:
         return parse_observation_features(

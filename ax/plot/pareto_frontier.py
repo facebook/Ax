@@ -10,6 +10,7 @@ import warnings
 from collections.abc import Iterable
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import plotly.graph_objs as go
 from ax.core.experiment import Experiment
@@ -47,8 +48,7 @@ def _make_label(
     return f"{name}: {estimate}{perc} {ci}<br>"
 
 
-# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-def _filter_outliers(Y: np.ndarray, m: float = 2.0) -> np.ndarray:
+def _filter_outliers(Y: npt.NDArray, m: float = 2.0) -> npt.NDArray:
     std_filter = abs(Y - np.median(Y, axis=0)) < m * np.std(Y, axis=0)
     return Y[np.all(abs(std_filter), axis=1)]
 
@@ -81,10 +81,8 @@ def scatter_plot_with_hypervolume_trace_plotly(experiment: Experiment) -> go.Fig
 
 
 def scatter_plot_with_pareto_frontier_plotly(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    Y: np.ndarray,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    Y_pareto: np.ndarray | None,
+    Y: npt.NDArray,
+    Y_pareto: npt.NDArray | None,
     metric_x: str | None,
     metric_y: str | None,
     reference_point: tuple[float, float] | None,
@@ -241,10 +239,8 @@ def scatter_plot_with_pareto_frontier_plotly(
 
 
 def scatter_plot_with_pareto_frontier(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    Y: np.ndarray,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    Y_pareto: np.ndarray,
+    Y: npt.NDArray,
+    Y_pareto: npt.NDArray,
     metric_x: str,
     metric_y: str,
     reference_point: tuple[float, float],

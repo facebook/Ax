@@ -13,7 +13,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-import numpy as np
+import numpy.typing as npt
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TGenMetadata
@@ -464,8 +464,7 @@ class BoTorchModel(TorchModel, Base):
             options=acq_options,
         )
 
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    def feature_importances(self) -> np.ndarray:
+    def feature_importances(self) -> npt.NDArray:
         """Compute feature importances from the model.
 
         This assumes that we can get model lengthscales from either

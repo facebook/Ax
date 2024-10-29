@@ -959,7 +959,6 @@ class AxSchedulerTestCase(TestCase):
         with patch.object(
             scheduler, "wait_for_completed_trials_and_report_results", return_value=None
         ) as mock_await_trials:
-            # pyre-fixme[6]: For 1st param expected `Optional[int]` but got `float`.
             scheduler.run_all_trials(timeout_hours=1 / 60 / 15)  # 4 second timeout.
             # We should be calling `wait_for_completed_trials_and_report_results`
             # N = total runtime / `test_stop_at_MAX_SECONDS_BETWEEN_REPORTS` times.

@@ -10,7 +10,7 @@ from collections.abc import Callable
 from copy import deepcopy
 from typing import Any
 
-import numpy as np
+import numpy.typing as npt
 import torch
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.torch.botorch import BotorchModel
@@ -830,8 +830,7 @@ def ax_parameter_sens(
     order: str = "first",
     signed: bool = True,
     **sobol_kwargs: Any,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-) -> dict[str, dict[str, np.ndarray]]:
+) -> dict[str, dict[str, npt.NDArray]]:
     """
     Compute sensitivity for all metrics on an TorchModelBridge.
 
@@ -984,13 +983,10 @@ def _get_model_per_metric(
 
 
 def array_with_string_indices_to_dict(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     rows: list[str],
     cols: list[str],
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    A: np.ndarray,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-) -> dict[str, dict[str, np.ndarray]]:
+    A: npt.NDArray,
+) -> dict[str, dict[str, npt.NDArray]]:
     """
     Args:
         rows: A list of strings with which to index rows of A.

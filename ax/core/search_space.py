@@ -17,7 +17,7 @@ from logging import Logger
 from random import choice, uniform
 from typing import Sequence
 
-import numpy as np
+import numpy.typing as npt
 import pandas as pd
 from ax import core
 from ax.core.arm import Arm
@@ -1103,10 +1103,8 @@ class RobustSearchSpaceDigest:
             Only relevant if paired with a `distribution_sampler`.
     """
 
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    sample_param_perturbations: Callable[[], np.ndarray] | None = None
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    sample_environmental: Callable[[], np.ndarray] | None = None
+    sample_param_perturbations: Callable[[], npt.NDArray] | None = None
+    sample_environmental: Callable[[], npt.NDArray] | None = None
     environmental_variables: list[str] = field(default_factory=list)
     multiplicative: bool = False
 

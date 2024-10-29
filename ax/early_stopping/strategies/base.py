@@ -12,7 +12,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from logging import Logger
 
-import numpy as np
+import numpy.typing as npt
 import pandas as pd
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
@@ -54,12 +54,9 @@ class EarlyStoppingTrainingData:
             which data come from the same arm.
     """
 
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    X: np.ndarray
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    Y: np.ndarray
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    Yvar: np.ndarray
+    X: npt.NDArray
+    Y: npt.NDArray
+    Yvar: npt.NDArray
     arm_names: list[str | None]
 
 

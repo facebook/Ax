@@ -10,6 +10,7 @@ import hashlib
 import json
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.types import TGenMetadata, TParamValue, TParamValueList
 from ax.exceptions.constants import TS_MIN_WEIGHT_ERROR, TS_NO_FEASIBLE_ARMS_ERROR
 from ax.exceptions.model import ModelError
@@ -76,10 +77,8 @@ class ThompsonSampler(DiscreteModel):
         self,
         n: int,
         parameter_values: list[TParamValueList],
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        objective_weights: np.ndarray | None,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        outcome_constraints: tuple[np.ndarray, np.ndarray] | None = None,
+        objective_weights: npt.NDArray | None,
+        outcome_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
         fixed_features: dict[int, TParamValue] | None = None,
         pending_observations: list[list[TParamValueList]] | None = None,
         model_gen_options: TConfig | None = None,
@@ -124,8 +123,7 @@ class ThompsonSampler(DiscreteModel):
         return top_arms, top_weights, {"arms_to_weights": list(zip(arms, weights))}
 
     @copy_doc(DiscreteModel.predict)
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    def predict(self, X: list[TParamValueList]) -> tuple[np.ndarray, np.ndarray]:
+    def predict(self, X: list[TParamValueList]) -> tuple[npt.NDArray, npt.NDArray]:
         n = len(X)  # number of parameterizations at which to make predictions
         m = len(self.Ys)  # number of outcomes
         f = np.zeros((n, m))  # array of outcome predictions
@@ -144,10 +142,8 @@ class ThompsonSampler(DiscreteModel):
 
     def _generate_weights(
         self,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        objective_weights: np.ndarray,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        outcome_constraints: tuple[np.ndarray, np.ndarray] | None = None,
+        objective_weights: npt.NDArray,
+        outcome_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
     ) -> list[float]:
         samples, fraction_all_infeasible = self._produce_samples(
             num_samples=self.num_samples,
@@ -178,8 +174,7 @@ class ThompsonSampler(DiscreteModel):
         weights = winner_counts / winner_counts.sum()
         return weights.tolist()
 
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    def _generate_samples_per_metric(self, num_samples: int) -> np.ndarray:
+    def _generate_samples_per_metric(self, num_samples: int) -> npt.NDArray:
         k = len(self.X)
         samples_per_metric = np.zeros(
             (k, num_samples, len(self.Ys))
@@ -196,12 +191,9 @@ class ThompsonSampler(DiscreteModel):
     def _produce_samples(
         self,
         num_samples: int,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        objective_weights: np.ndarray,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        outcome_constraints: tuple[np.ndarray, np.ndarray] | None,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    ) -> tuple[np.ndarray, float]:
+        objective_weights: npt.NDArray,
+        outcome_constraints: tuple[npt.NDArray, npt.NDArray] | None,
+    ) -> tuple[npt.NDArray, float]:
         k = len(self.X)
         samples_per_metric = self._generate_samples_per_metric(num_samples=num_samples)
 

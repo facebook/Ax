@@ -49,8 +49,6 @@ class TestInstantiationtUtils(TestCase):
         with self.assertRaisesRegex(ValueError, "Bound for the constraint"):
             InstantiationBase.constraint_from_str(
                 "x1 + x2 <= not_numerical_bound",
-                # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
-                #  got `Dict[str, None]`.
                 {
                     "x1": RangeParameter(
                         name="x1",
@@ -103,8 +101,6 @@ class TestInstantiationtUtils(TestCase):
             )
         one_val_constraint = InstantiationBase.constraint_from_str(
             "x1 <= 0",
-            # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
-            #  got `Dict[str, None]`.
             {
                 "x1": RangeParameter(
                     name="x1", parameter_type=ParameterType.FLOAT, lower=0.1, upper=2.0
@@ -118,8 +114,6 @@ class TestInstantiationtUtils(TestCase):
         self.assertEqual(one_val_constraint.constraint_dict, {"x1": 1.0})
         one_val_constraint = InstantiationBase.constraint_from_str(
             "-0.5*x1 >= -0.1",
-            # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
-            #  got `Dict[str, None]`.
             {
                 "x1": RangeParameter(
                     name="x1", parameter_type=ParameterType.FLOAT, lower=0.1, upper=2.0
@@ -153,8 +147,6 @@ class TestInstantiationtUtils(TestCase):
         with self.assertRaisesRegex(ValueError, "Multiplier should be float"):
             InstantiationBase.constraint_from_str(
                 "x1 - e*x2 + x3 <= 3",
-                # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
-                #  got `Dict[str, None]`.
                 {
                     "x1": RangeParameter(
                         name="x1",
@@ -179,8 +171,6 @@ class TestInstantiationtUtils(TestCase):
         with self.assertRaisesRegex(ValueError, "A linear constraint should be"):
             InstantiationBase.constraint_from_str(
                 "x1 - 2 *x2 + 3 *x3 <= 3",
-                # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
-                #  got `Dict[str, None]`.
                 {
                     "x1": RangeParameter(
                         name="x1",
@@ -205,8 +195,6 @@ class TestInstantiationtUtils(TestCase):
         with self.assertRaisesRegex(ValueError, "A linear constraint should be"):
             InstantiationBase.constraint_from_str(
                 "x1 - 2* x2 + 3* x3 <= 3",
-                # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
-                #  got `Dict[str, None]`.
                 {
                     "x1": RangeParameter(
                         name="x1",
@@ -231,8 +219,6 @@ class TestInstantiationtUtils(TestCase):
         with self.assertRaisesRegex(ValueError, "A linear constraint should be"):
             InstantiationBase.constraint_from_str(
                 "x1 - 2 * x2 + 3*x3 <= 3",
-                # pyre-fixme[6]: For 2nd param expected `Dict[str, Parameter]` but
-                #  got `Dict[str, None]`.
                 {
                     "x1": RangeParameter(
                         name="x1",

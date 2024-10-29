@@ -14,6 +14,7 @@ from math import sqrt
 from typing import TYPE_CHECKING
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
@@ -86,8 +87,7 @@ class TransformToNewSQ(BaseRelativize):
     def _get_relative_data_from_obs(
         self,
         obs: Observation,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
+        rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
     ) -> ObservationData:
         idx = (
             int(obs.features.trial_index)
@@ -105,8 +105,7 @@ class TransformToNewSQ(BaseRelativize):
     def _rel_op_on_observations(
         self,
         observations: list[Observation],
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
+        rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
     ) -> list[Observation]:
         rel_observations = super()._rel_op_on_observations(
             observations=observations,
@@ -126,8 +125,7 @@ class TransformToNewSQ(BaseRelativize):
         self,
         data: ObservationData,
         status_quo_data: ObservationData,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
+        rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
     ) -> ObservationData:
         r"""
         Transform or untransform `data` based on `status_quo_data` based on `rel_op`.
@@ -174,8 +172,7 @@ class TransformToNewSQ(BaseRelativize):
         mean_c: float,
         sem_c: float,
         metric: str,
-        # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-        rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
+        rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
     ) -> tuple[float, float]:
         """Compute (un)transformed mean and sem for a single metric."""
         target_status_quo_data = self.status_quo_data_by_trial[self.default_trial_idx]

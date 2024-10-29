@@ -69,7 +69,6 @@ METRIC_DF_COLNAMES: Mapping[Hashable, str] = {
 }
 
 
-# pyre-fixme[13]: Attribute `_search_space` is never initialized.
 class Experiment(Base):
     """Base class for defining an experiment."""
 

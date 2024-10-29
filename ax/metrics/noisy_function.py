@@ -13,6 +13,7 @@ from collections.abc import Callable
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
@@ -104,8 +105,7 @@ class NoisyFunctionMetric(Metric):
         x = np.array([params[p] for p in self.param_names])
         return self.f(x)
 
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    def f(self, x: np.ndarray) -> float:
+    def f(self, x: npt.NDArray) -> float:
         """The deterministic function that produces the metric outcomes."""
         raise NotImplementedError
 

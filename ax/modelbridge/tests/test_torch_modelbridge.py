@@ -744,7 +744,7 @@ class TorchModelBridgeTest(TestCase):
                 feature_names=feature_names,
                 bounds=[(0.0, 5.0)] * 3,
                 ordinal_features=[2],
-                discrete_choices={2: list(range(0, 11))},  # pyre-ignore
+                discrete_choices={2: list(range(0, 11))},
                 task_features=[2] if use_task else [],
                 target_values={2: 0} if use_task else {},  # pyre-ignore
             )
@@ -827,7 +827,7 @@ class TorchModelBridgeTest(TestCase):
                 feature_names=feature_names,
                 bounds=[(0.0, 5.0)] * 3,
                 ordinal_features=[2],
-                discrete_choices={2: list(range(0, 11))},  # pyre-ignore
+                discrete_choices={2: list(range(0, 11))},
                 task_features=[],
                 target_values={},
             ),

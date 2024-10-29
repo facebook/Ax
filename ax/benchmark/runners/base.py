@@ -11,6 +11,8 @@ from dataclasses import dataclass, field, InitVar
 from math import sqrt
 from typing import Any
 
+import numpy.typing as npt
+
 import torch
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
@@ -22,7 +24,6 @@ from ax.exceptions.core import UnsupportedError
 from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
 
 from ax.utils.common.typeutils import checked_cast
-from numpy import ndarray
 from torch import Tensor
 
 
@@ -68,8 +69,7 @@ class BenchmarkRunner(Runner, ABC):
         """
         ...
 
-    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
-    def evaluate_oracle(self, parameters: Mapping[str, TParamValue]) -> ndarray:
+    def evaluate_oracle(self, parameters: Mapping[str, TParamValue]) -> npt.NDArray:
         """
         Evaluate oracle metric values at a parameterization. In the base class,
         oracle values are underlying noiseless function values evaluated at the

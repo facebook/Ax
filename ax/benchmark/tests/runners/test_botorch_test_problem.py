@@ -263,8 +263,6 @@ class TestSyntheticRunner(TestCase):
                     nullcontext()
                     if not isinstance(test_problem, SurrogateTestFunction)
                     else patch.object(
-                        # pyre-fixme: ParamBasedTestProblem` has no attribute
-                        # `_surrogate`.
                         runner.test_problem._surrogate,
                         "predict",
                         return_value=({"branin": [4.2]}, None),

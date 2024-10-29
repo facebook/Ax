@@ -17,6 +17,7 @@ from typing import NamedTuple
 from warnings import warn
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.observation import Observation, ObservationData, recombine_observations
 from ax.core.optimization_config import OptimizationConfig
 from ax.modelbridge.base import ModelBridge, unwrap_observation_data
@@ -328,8 +329,7 @@ def compute_diagnostics(result: list[CVResult]) -> CVDiagnostics:
     return diagnostics
 
 
-# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-def _arrayify_dict_values(d: dict[str, list[float]]) -> dict[str, np.ndarray]:
+def _arrayify_dict_values(d: dict[str, list[float]]) -> dict[str, npt.NDArray]:
     """Helper to convert dictionary values to numpy arrays."""
     return {k: np.array(v) for k, v in d.items()}
 
@@ -403,10 +403,8 @@ def has_good_opt_config_model_fit(
 
 
 def _gen_train_test_split(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
     folds: int,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    arm_names: np.ndarray,
+    arm_names: npt.NDArray,
 ) -> Iterable[tuple[set[str], set[str]]]:
     """Return train/test splits of arm names.
 
@@ -539,8 +537,7 @@ def _model_fit_metric(metric_dict: dict[str, dict[str, float]]) -> float:
     return min(metric_dict["coefficient_of_determination"].values())
 
 
-# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-def _model_std_quality(std: np.ndarray) -> float:
+def _model_std_quality(std: npt.NDArray) -> float:
     """Quantifies quality of the model uncertainty. A value of one means the
     uncertainty is perfectly predictive of the true standard deviation of the error.
     Values larger than one indicate over-estimation and negative values indicate
@@ -566,11 +563,10 @@ def _model_std_quality(std: np.ndarray) -> float:
 def _predict_on_training_data(
     model_bridge: ModelBridge,
     untransform: bool = False,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> tuple[
-    dict[str, np.ndarray],
-    dict[str, np.ndarray],
-    dict[str, np.ndarray],
+    dict[str, npt.NDArray],
+    dict[str, npt.NDArray],
+    dict[str, npt.NDArray],
 ]:
     """Makes predictions on the training data of a given experiment using a ModelBridge
     and returning the observed values, and the corresponding predictive means and
@@ -631,11 +627,10 @@ def _predict_on_training_data(
 def _predict_on_cross_validation_data(
     model_bridge: ModelBridge,
     untransform: bool = False,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ) -> tuple[
-    dict[str, np.ndarray],
-    dict[str, np.ndarray],
-    dict[str, np.ndarray],
+    dict[str, npt.NDArray],
+    dict[str, npt.NDArray],
+    dict[str, npt.NDArray],
 ]:
     """Makes leave-one-out cross-validation predictions on the training data of the
     ModelBridge and returns the observed values, and the corresponding predictive means

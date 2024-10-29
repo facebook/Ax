@@ -14,6 +14,7 @@ from logging import Logger
 from typing import Any, Optional, Union
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.generator_run import GeneratorRun
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.parameter import ChoiceParameter, FixedParameter, Parameter, RangeParameter
@@ -460,8 +461,7 @@ def get_range_parameters(
     )
 
 
-# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-def get_grid_for_parameter(parameter: RangeParameter, density: int) -> np.ndarray:
+def get_grid_for_parameter(parameter: RangeParameter, density: int) -> npt.NDArray:
     """Get a grid of points along the range of the parameter.
 
     Will be a log-scale grid if parameter is log scale.

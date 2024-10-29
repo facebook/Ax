@@ -25,6 +25,7 @@ from logging import Logger
 from time import monotonic, time
 
 import numpy as np
+import numpy.typing as npt
 
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import BenchmarkProblem
@@ -41,12 +42,10 @@ logger: Logger = get_logger(__name__)
 
 
 def compute_score_trace(
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    optimization_trace: np.ndarray,
+    optimization_trace: npt.NDArray,
     num_baseline_trials: int,
     problem: BenchmarkProblem,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-) -> np.ndarray:
+) -> npt.NDArray:
     """Computes a score trace from the optimization trace."""
 
     # Use the first GenerationStep's best found point as baseline. Sometimes (ex. in

@@ -10,6 +10,7 @@ from logging import Logger
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import plotly.graph_objs as go
 from ax.core.parameter import ChoiceParameter
@@ -102,8 +103,7 @@ def plot_feature_importance_by_metric(model: ModelBridge) -> AxPlotConfig:
 
 def plot_feature_importance_by_feature_plotly(
     model: ModelBridge | None = None,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    sensitivity_values: dict[str, dict[str, float | np.ndarray]] | None = None,
+    sensitivity_values: dict[str, dict[str, float | npt.NDArray]] | None = None,
     relative: bool = False,
     caption: str = "",
     importance_measure: str = "",
@@ -280,8 +280,7 @@ def plot_feature_importance_by_feature_plotly(
 
 def plot_feature_importance_by_feature(
     model: ModelBridge | None = None,
-    # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-    sensitivity_values: dict[str, dict[str, float | np.ndarray]] | None = None,
+    sensitivity_values: dict[str, dict[str, float | npt.NDArray]] | None = None,
     relative: bool = False,
     caption: str = "",
     importance_measure: str = "",

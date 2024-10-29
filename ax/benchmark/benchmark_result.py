@@ -13,10 +13,10 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-import numpy as np
+import numpy.typing as npt
 from ax.core.experiment import Experiment
 from ax.utils.common.base import Base
-from numpy import nanmean, nanquantile, ndarray
+from numpy import nanmean, nanquantile
 from pandas import DataFrame
 from scipy.stats import sem
 
@@ -78,14 +78,10 @@ class BenchmarkResult(Base):
     name: str
     seed: int
 
-    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
-    oracle_trace: ndarray
-    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
-    inference_trace: ndarray
-    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
-    optimization_trace: ndarray
-    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
-    score_trace: ndarray
+    oracle_trace: npt.NDArray
+    inference_trace: npt.NDArray
+    optimization_trace: npt.NDArray
+    score_trace: npt.NDArray
 
     fit_time: float
     gen_time: float
@@ -160,8 +156,7 @@ class AggregatedBenchmarkResult(Base):
 
 
 def _get_stats(
-    # pyre-fixme[24]: Generic type `ndarray` expects 2 type parameters.
-    step_data: Iterable[np.ndarray],
+    step_data: Iterable[npt.NDArray],
     percentiles: list[float],
 ) -> dict[str, list[float]]:
     quantiles = []
