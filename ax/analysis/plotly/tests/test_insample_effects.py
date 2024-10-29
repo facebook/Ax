@@ -23,7 +23,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_metric,
     get_branin_outcome_constraint,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from pyre_extensions import none_throws
 
@@ -81,7 +81,7 @@ class TestInsampleEffectsPlot(TestCase):
         with self.assertRaisesRegex(UserInputError, "requires an Experiment"):
             analysis.compute()
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_compute_uses_gs_model_if_possible(self) -> None:
         # GIVEN an experiment and GS with a Botorch model
         experiment = get_branin_experiment(with_status_quo=True)
@@ -306,7 +306,7 @@ class TestInsampleEffectsPlot(TestCase):
             analysis.compute(experiment=experiment, generation_strategy=None)
             # THEN it raises an error
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_compute_requires_data_for_the_metric_on_the_trial_with_a_model(
         self,
     ) -> None:
@@ -351,7 +351,7 @@ class TestInsampleEffectsPlot(TestCase):
             )
             # THEN it raises an error
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_constraints(self) -> None:
         # GIVEN an experiment with metrics and batch trials
         experiment = get_branin_experiment(with_status_quo=True)

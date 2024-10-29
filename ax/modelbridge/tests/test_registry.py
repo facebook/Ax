@@ -39,7 +39,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_optimization_config,
     get_factorial_experiment,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.monte_carlo import qExpectedImprovement
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
@@ -55,7 +55,7 @@ from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
 
 
 class ModelRegistryTest(TestCase):
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_botorch_modular(self) -> None:
         exp = get_branin_experiment(with_batch=True)
         exp.trials[0].run()
@@ -80,7 +80,7 @@ class ModelRegistryTest(TestCase):
         gr = gpei.gen(n=1)
         self.assertIsNotNone(gr.best_arm_predictions)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_SAASBO(self) -> None:
         exp = get_branin_experiment()
         sobol = Models.SOBOL(search_space=exp.search_space)
@@ -102,7 +102,7 @@ class ModelRegistryTest(TestCase):
             saasbo.model.surrogate.botorch_model_class, SaasFullyBayesianSingleTaskGP
         )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_enum_sobol_GPEI(self) -> None:
         """Tests Sobol and GPEI instantiation through the Models enum."""
         exp = get_branin_experiment()
@@ -286,7 +286,7 @@ class ModelRegistryTest(TestCase):
             ),
         )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_get_model_from_generator_run(self) -> None:
         """Tests that it is possible to restore a model from a generator run it
         produced, if `Models` registry was used.
@@ -362,7 +362,7 @@ class ModelRegistryTest(TestCase):
             # Intersection of two sets should be empty
             self.assertEqual(model_args & bridge_args, set())
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_ST_MTGP_LEGACY(self) -> None:
         """Tests single type MTGP instantiation."""
         # Test Single-type MTGP
@@ -390,7 +390,7 @@ class ModelRegistryTest(TestCase):
                 status_quo_features=status_quo_features,
             )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_ST_MTGP_NEHVI(self) -> None:
         """Tests single type MTGP NEHVI instantiation."""
         exp, status_quo_features = get_branin_experiment_with_status_quo_trials(
@@ -416,7 +416,7 @@ class ModelRegistryTest(TestCase):
         t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
         t.run().mark_completed()
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_ST_MTGP(self, use_saas: bool = False) -> None:
         """Tests single type MTGP via Modular BoTorch instantiation
         with both single & multi objective optimization."""

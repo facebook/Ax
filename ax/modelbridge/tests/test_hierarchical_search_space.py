@@ -29,7 +29,7 @@ from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast, not_none
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 
 
 class TestHierarchicalSearchSpace(TestCase):
@@ -116,7 +116,7 @@ class TestHierarchicalSearchSpace(TestCase):
             ]
         )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def _test_gen_base(
         self,
         hss: HierarchicalSearchSpace,
@@ -176,7 +176,7 @@ class TestHierarchicalSearchSpace(TestCase):
 
         return experiment
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def _base_test_predict_and_cv(
         self,
         experiment: Experiment,

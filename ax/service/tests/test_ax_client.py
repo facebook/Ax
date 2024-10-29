@@ -80,7 +80,7 @@ from ax.utils.testing.core_stubs import (
     DummyEarlyStoppingStrategy,
     get_branin_experiment,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_observation1, get_observation1trans
 from botorch.test_functions.multi_objective import BraninCurrin
 from pyre_extensions import none_throws
@@ -275,7 +275,7 @@ def get_client_with_simple_discrete_moo_problem(
 class TestAxClient(TestCase):
     """Tests service-like API functionality."""
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_interruption(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
@@ -489,7 +489,7 @@ class TestAxClient(TestCase):
         autospec=True,
         return_value={"x": 0.9, "y": 1.1},
     )
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_default_generation_strategy_continuous(self, _a, _b, _c, _d) -> None:
         """
         Test that Sobol+BoTorch is used if no GenerationStrategy is provided.
@@ -538,7 +538,7 @@ class TestAxClient(TestCase):
         autospec=True,
         return_value=([get_observation1(first_metric_name="branin")]),
     )
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_default_generation_strategy_continuous_gen_trials_in_batches(
         self, _
     ) -> None:
@@ -694,7 +694,7 @@ class TestAxClient(TestCase):
         autospec=True,
         return_value={"x": 0.9, "y": 1.1},
     )
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_default_generation_strategy_continuous_for_moo(
         self, _a, _b, _c, _d
     ) -> None:
@@ -1376,7 +1376,7 @@ class TestAxClient(TestCase):
                 outcome_constraints=["test_objective >= 3"],
             )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_raw_data_format(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
@@ -1397,7 +1397,7 @@ class TestAxClient(TestCase):
             # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, Union...
             ax_client.update_trial_data(trial_index, raw_data="invalid_data")
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_raw_data_format_with_map_results(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
@@ -1842,7 +1842,7 @@ class TestAxClient(TestCase):
                 outcome_constraints=["some_metric <= 4.0%"],
             )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_recommended_parallelism(self) -> None:
         ax_client = AxClient()
         with self.assertRaisesRegex(ValueError, "No generation strategy"):
@@ -2305,7 +2305,7 @@ class TestAxClient(TestCase):
         f"{get_pareto_optimal_parameters.__module__}.observed_pareto",
         wraps=observed_pareto,
     )
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def helper_test_get_pareto_optimal_points(
         self,
         mock_observed_pareto: Mock,
@@ -2338,7 +2338,7 @@ class TestAxClient(TestCase):
         solution = 14
 
         # Check model-predicted Pareto frontier using model on GS.
-        # NOTE: model predictions are very poor due to `fast_botorch_optimize`.
+        # NOTE: model predictions are very poor due to `mock_botorch_optimize`.
         # This overwrites the `predict` call to return the original observations,
         # while testing the rest of the code as if we're using predictions.
         # pyre-fixme[16]: `Optional` has no attribute `model`.
@@ -2453,7 +2453,7 @@ class TestAxClient(TestCase):
         self.assertTrue((input_data == pareto_y_list).all())
 
     # Part 1/3 of tests run by helper_test_get_pareto_optimal_points_from_sobol_step
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_get_pareto_optimal_points_from_sobol_step_no_constraint(self) -> None:
         outcome_constraints = None
         for minimize in [False, True]:
@@ -2462,7 +2462,7 @@ class TestAxClient(TestCase):
             )
 
     # Part 2/3 of tests run by helper_test_get_pareto_optimal_points_from_sobol_step
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_get_pareto_optimal_points_from_sobol_step_with_constraint_minimize_true(
         self,
     ) -> None:
@@ -2471,7 +2471,7 @@ class TestAxClient(TestCase):
         )
 
     # Part 3/3 of tests run by helper_test_get_pareto_optimal_points_from_sobol_step
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_get_pareto_optimal_points_from_sobol_step_with_constraint_minimize_false(
         self,
     ) -> None:
@@ -2487,7 +2487,7 @@ class TestAxClient(TestCase):
         f"{get_pareto_optimal_parameters.__module__}.observed_pareto",
         wraps=observed_pareto,
     )
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_get_pareto_optimal_points_objective_threshold_inference(
         self,
         # pyre-fixme[2]: Parameter must be annotated.
@@ -2638,7 +2638,7 @@ class TestAxClient(TestCase):
             sol, _get_parameterizations_from_pareto_frontier(pareto_mod)
         )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_get_hypervolume(self) -> None:
         # First check that hypervolume gets returned for observed data
         ax_client, _ = get_branin_currin_optimization_with_N_sobol_trials(num_trials=20)
@@ -2659,7 +2659,7 @@ class TestAxClient(TestCase):
 
         self.assertGreaterEqual(ax_client.get_hypervolume(), 0)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_with_hss(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(

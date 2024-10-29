@@ -13,7 +13,7 @@ from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.utils import generic_equals, run_trials_with_gs
 
 
@@ -51,7 +51,7 @@ class TestUtils(TestCase):
         self.assertTrue(generic_equals({1, 2}, {1, 2}))
         self.assertFalse(generic_equals({1, 2}, {1, 2, 3}))
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_run_trials_with_gs(self) -> None:
         experiment = get_experiment_with_observations(
             observations=[[1.0, 5.0], [2.0, 4.0]]

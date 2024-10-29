@@ -18,11 +18,11 @@ from ax.plot.trace import (
 from ax.service.utils.report_utils import exp_to_df
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 
 
 class TracesTest(TestCase):
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def setUp(self) -> None:
         super().setUp()
         self.exp = get_branin_experiment(with_batch=True)
@@ -68,7 +68,7 @@ class TracesTest(TestCase):
             else:
                 self.assertIsNone(plot.layout.yaxis.range)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_plot_objective_value_vs_trial_index(self) -> None:
         # Generate some trials with different model types, including batch trial.
         exp = get_branin_experiment(with_batch=True)

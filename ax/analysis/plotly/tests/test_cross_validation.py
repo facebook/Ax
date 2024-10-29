@@ -12,12 +12,12 @@ from ax.exceptions.core import UserInputError
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from pyre_extensions import none_throws
 
 
 class TestCrossValidationPlot(TestCase):
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def setUp(self) -> None:
         super().setUp()
         self.client = AxClient()

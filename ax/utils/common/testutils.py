@@ -312,7 +312,7 @@ class TestCase(fake_filesystem_unittest.TestCase):
                     " To specify a reason for a long running test,"
                     + " utilize the @ax_long_test decorator. If your test "
                     + "is long because it's doing modeling, please use the "
-                    + "@fast_botorch_optimize decorator and see if that helps."
+                    + "@mock_botorch_optimize decorator and see if that helps."
                 )
                 raise TimeoutError(message)
             else:

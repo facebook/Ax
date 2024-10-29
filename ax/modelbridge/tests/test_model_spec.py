@@ -19,7 +19,7 @@ from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import get_branin_experiment
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 
 
 class BaseModelSpecTest(TestCase):
@@ -35,7 +35,7 @@ class BaseModelSpecTest(TestCase):
 
 
 class ModelSpecTest(BaseModelSpecTest):
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_construct(self) -> None:
         ms = ModelSpec(model_enum=Models.BOTORCH_MODULAR)
         with self.assertRaises(UserInputError):
@@ -43,7 +43,7 @@ class ModelSpecTest(BaseModelSpecTest):
         ms.fit(experiment=self.experiment, data=self.data)
         ms.gen(n=1)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     # We can use `extract_search_space_digest` as a surrogate for executing
     # the full TorchModelBridge._fit.
     @mock.patch(

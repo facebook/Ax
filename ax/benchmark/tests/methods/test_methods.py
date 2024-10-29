@@ -25,7 +25,7 @@ from ax.service.utils.best_point import (
 from ax.service.utils.scheduler_options import SchedulerOptions
 from ax.utils.common.random import with_rng_seed
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import LogExpectedImprovement
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
@@ -74,7 +74,7 @@ class TestMethods(TestCase):
             with self.subTest(name=name):
                 self._test_mbm_acquisition(scheduler_options=scheduler_options)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def _test_benchmark_replication_runs(
         self, scheduler_options: SchedulerOptions, acqf_cls: type[AcquisitionFunction]
     ) -> None:

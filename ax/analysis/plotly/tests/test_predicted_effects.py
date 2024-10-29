@@ -28,7 +28,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_metric,
     get_branin_outcome_constraint,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from pyre_extensions import none_throws
 
@@ -116,7 +116,7 @@ class TestPredictedEffectsPlot(TestCase):
                 experiment=experiment, generation_strategy=generation_strategy
             )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_compute(self) -> None:
         # GIVEN an experiment with metrics and batch trials
         experiment = get_branin_experiment(with_status_quo=True)
@@ -189,7 +189,7 @@ class TestPredictedEffectsPlot(TestCase):
                     for arm in trial.arms:
                         self.assertIn(arm.name, card.df["arm_name"].unique())
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_compute_multitask(self) -> None:
         # GIVEN an experiment with candidates generated with a multitask model
         experiment = get_branin_experiment(with_status_quo=True)
@@ -260,7 +260,7 @@ class TestPredictedEffectsPlot(TestCase):
             1,
         )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_it_does_not_plot_abandoned_trials(self) -> None:
         # GIVEN an experiment with candidate and abandoned trials
         experiment = get_branin_experiment()
@@ -297,7 +297,7 @@ class TestPredictedEffectsPlot(TestCase):
                 arm.name,
             )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_it_works_for_non_batch_experiments(self) -> None:
         # GIVEN an experiment with the default generation strategy
         experiment = get_branin_experiment(with_batch=False)
@@ -333,7 +333,7 @@ class TestPredictedEffectsPlot(TestCase):
                 card.df["arm_name"].unique(),
             )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_constraints(self) -> None:
         # GIVEN an experiment with metrics and batch trials
         experiment = get_branin_experiment(with_status_quo=True)

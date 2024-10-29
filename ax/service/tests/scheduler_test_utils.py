@@ -85,7 +85,7 @@ from ax.utils.testing.core_stubs import (
     get_sobol,
     SpecialGenerationStrategy,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_generation_strategy
 from pyre_extensions import none_throws
 from sqlalchemy.orm.exc import StaleDataError
@@ -2022,7 +2022,7 @@ class AxSchedulerTestCase(TestCase):
         self.assertTrue(should_stop)
         self.assertEqual(message, "Exceeding the total number of trials.")
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_get_fitted_model_bridge(self) -> None:
         self.branin_experiment._properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF] = (
             True
@@ -2329,7 +2329,7 @@ class AxSchedulerTestCase(TestCase):
         self.assertIn(TEST_MEAN, attached_means)
         self.assertEqual(len(attached_means), 2)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_it_works_with_multitask_models(
         self,
     ) -> None:
@@ -2638,7 +2638,7 @@ class AxSchedulerTestCase(TestCase):
         self.assertIn(self.branin_experiment.status_quo, candidate_trial.arms)
         self.assertIsNotNone(checked_cast(BatchTrial, candidate_trial).status_quo)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_generate_candidates_works_for_iteration(self) -> None:
         # GIVEN a scheduler using a GS with MBM.
         gs = self._get_generation_strategy_strategy_for_test(

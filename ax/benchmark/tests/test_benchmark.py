@@ -41,7 +41,7 @@ from ax.utils.testing.benchmark_stubs import (
     TestDataset,
 )
 from ax.utils.testing.core_stubs import get_experiment
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
@@ -54,7 +54,7 @@ from pyre_extensions import none_throws
 
 
 class TestBenchmark(TestCase):
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_batch(self) -> None:
         batch_size = 5
 
@@ -186,7 +186,7 @@ class TestBenchmark(TestCase):
                 self.assertTrue(np.isfinite(res.score_trace).all())
                 self.assertTrue(np.all(res.score_trace <= 100))
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def _test_replication_with_inference_value(
         self,
         batch_size: int,
@@ -252,7 +252,7 @@ class TestBenchmark(TestCase):
         ):
             get_multi_objective_benchmark_problem(report_inference_value_as_trace=True)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_replication_mbm(self) -> None:
         with patch.dict(
             "ax.benchmark.problems.hpo.torchvision._REGISTRY",
@@ -374,7 +374,7 @@ class TestBenchmark(TestCase):
         for col in ["mean", "P25", "P50", "P75"]:
             self.assertTrue((agg.score_trace[col] <= 100).all())
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_benchmark_multiple_problems_methods(self) -> None:
         aggs = benchmark_multiple_problems_methods(
             problems=[get_single_objective_benchmark_problem(num_trials=6)],

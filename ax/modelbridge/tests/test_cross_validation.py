@@ -33,7 +33,7 @@ from ax.modelbridge.cross_validation import (
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_observation1trans, get_observation2trans
 
 
@@ -285,7 +285,7 @@ class CrossValidationTest(TestCase):
         with self.assertRaisesRegex(ValueError, "no training data"):
             cross_validate(model=sobol)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_cross_validate_catches_warnings(self) -> None:
         exp = get_branin_experiment(with_batch=True, with_completed_batch=True)
         model = Models.BOTORCH_MODULAR(

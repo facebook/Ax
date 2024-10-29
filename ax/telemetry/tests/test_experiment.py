@@ -14,7 +14,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_experiment_with_custom_runner_and_metric,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 
 
 class TestExperiment(TestCase):
@@ -69,7 +69,7 @@ class TestExperiment(TestCase):
         )
         self.assertEqual(record, expected)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_bayesopt_trials_are_trials_containing_bayesopt(self) -> None:
         experiment = get_branin_experiment()
         sobol = Models.SOBOL(search_space=experiment.search_space)

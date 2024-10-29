@@ -68,7 +68,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment_with_multi_objective,
     get_hierarchical_search_space_experiment,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 
 
 class TestGenerationStrategyWithoutModelBridgeMocks(TestCase):
@@ -77,7 +77,7 @@ class TestGenerationStrategyWithoutModelBridgeMocks(TestCase):
     test class that makes use of mocking rather sparingly.
     """
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     @patch(
         "ax.modelbridge.generation_node._extract_model_state_after_gen",
         wraps=_extract_model_state_after_gen,
@@ -1083,7 +1083,7 @@ class TestGenerationStrategy(TestCase):
                         for p in original_pending[m]:
                             self.assertIn(p, pending[m])
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_gen_for_multiple_trials_with_multiple_models_with_fixed_features(
         self,
     ) -> None:

@@ -36,13 +36,13 @@ from ax.utils.testing.core_stubs import (
     get_search_space_with_choice_parameters,
     run_branin_experiment_with_generation_strategy,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 
 
 class TestDispatchUtils(TestCase):
     """Tests that dispatching utilities correctly select generation strategies."""
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_choose_generation_strategy(self) -> None:
         expected_transforms = [Winsorize] + Cont_X_trans + Y_trans
         expected_transform_configs = {
@@ -339,7 +339,7 @@ class TestDispatchUtils(TestCase):
             },
         )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_disable_progbar(self) -> None:
         for disable_progbar in (True, False):
             with self.subTest(str(disable_progbar)):
@@ -369,7 +369,7 @@ class TestDispatchUtils(TestCase):
                     generation_strategy=sobol_saasbo
                 )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_disable_progbar_for_non_saasbo_discards_the_model_kwarg(self) -> None:
         for disable_progbar in (True, False):
             with self.subTest(str(disable_progbar)):
@@ -723,7 +723,7 @@ class TestDispatchUtils(TestCase):
                 5,
             )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_jit_compile(self) -> None:
         for jit_compile in (True, False):
             with self.subTest(str(jit_compile)):
@@ -753,7 +753,7 @@ class TestDispatchUtils(TestCase):
                     generation_strategy=sobol_saasbo,
                 )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_jit_compile_for_non_saasbo_discards_the_model_kwarg(self) -> None:
         for jit_compile in (True, False):
             with self.subTest(str(jit_compile)):
