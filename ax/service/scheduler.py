@@ -514,6 +514,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             stale_candidate_trials = self.experiment.trials_by_status[
                 TrialStatus.CANDIDATE
             ]
+            self.logger.info(
+                "Marking the following trials as failed because they are stale: "
+                f"{[t.index for t in stale_candidate_trials]}"
+            )
             for trial in stale_candidate_trials:
                 trial.mark_failed(reason="Newer candidates generated.", unsafe=True)
         else:
