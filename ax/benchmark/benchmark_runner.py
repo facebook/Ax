@@ -48,7 +48,7 @@ class BenchmarkRunner(Runner):
 
     Args:
         outcome_names: The names of the outcomes returned by the problem.
-        test_problem: A ``BenchmarkTestFunction`` from which to generate
+        test_function: A ``BenchmarkTestFunction`` from which to generate
             deterministic data before adding noise.
         noise_std: The standard deviation of the noise added to the data. Can be
             a list or dict to be per-metric.
@@ -56,7 +56,7 @@ class BenchmarkRunner(Runner):
     """
 
     outcome_names: list[str]
-    test_problem: BenchmarkTestFunction
+    test_function: BenchmarkTestFunction
     noise_std: float | list[float] | dict[str, float] = 0.0
     # pyre-fixme[16]: Pyre doesn't understand InitVars
     search_space_digest: InitVar[SearchSpaceDigest | None] = None
@@ -77,7 +77,7 @@ class BenchmarkRunner(Runner):
         Returns:
             An `m`-dim tensor of ground truth (noiseless) evaluations.
         """
-        return torch.atleast_1d(self.test_problem.evaluate_true(params=params))
+        return torch.atleast_1d(self.test_function.evaluate_true(params=params))
 
     def evaluate_oracle(self, parameters: Mapping[str, TParamValue]) -> npt.NDArray:
         """
