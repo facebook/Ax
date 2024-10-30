@@ -8,7 +8,6 @@
 
 
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.cap_parameter import CapParameter
 from ax.modelbridge.transforms.choice_encode import (
     ChoiceEncode,
     ChoiceToNumericChoice,
@@ -81,7 +80,7 @@ TRANSFORM_REGISTRY: dict[type[Transform], int] = {
     TrialAsTask: 14,
     UnitX: 15,
     Winsorize: 16,
-    CapParameter: 17,
+    # CapParameter: 17,  DEPRECATED
     PowerTransformY: 18,
     ChoiceEncode: 19,  # TO BE DEPRECATED
     ChoiceToNumericChoice: 19,
