@@ -8,7 +8,7 @@
 from unittest.mock import MagicMock, patch
 
 import torch
-from ax.benchmark.runners.surrogate import SurrogateTestFunction
+from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
 from ax.modelbridge.torch import TorchModelBridge
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import get_soo_surrogate_test_function

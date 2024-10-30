@@ -13,7 +13,7 @@ from typing import Any
 import numpy.typing as npt
 
 import torch
-from ax.benchmark.runners.botorch_test import ParamBasedTestProblem
+from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.runner import Runner
@@ -48,7 +48,7 @@ class BenchmarkRunner(Runner):
 
     Args:
         outcome_names: The names of the outcomes returned by the problem.
-        test_problem: A ``ParamBasedTestProblem`` from which to generate
+        test_problem: A ``BenchmarkTestFunction`` from which to generate
             deterministic data before adding noise.
         noise_std: The standard deviation of the noise added to the data. Can be
             a list or dict to be per-metric.
@@ -56,7 +56,7 @@ class BenchmarkRunner(Runner):
     """
 
     outcome_names: list[str]
-    test_problem: ParamBasedTestProblem
+    test_problem: BenchmarkTestFunction
     noise_std: float | list[float] | dict[str, float] = 0.0
     # pyre-fixme[16]: Pyre doesn't understand InitVars
     search_space_digest: InitVar[SearchSpaceDigest | None] = None

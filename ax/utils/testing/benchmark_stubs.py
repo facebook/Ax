@@ -15,9 +15,9 @@ from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
-from ax.benchmark.runners.base import BenchmarkRunner
-from ax.benchmark.runners.botorch_test import ParamBasedTestProblem
-from ax.benchmark.runners.surrogate import SurrogateTestFunction
+from ax.benchmark.benchmark_runner import BenchmarkRunner
+from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
+from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
@@ -242,7 +242,7 @@ def get_aggregated_benchmark_result() -> AggregatedBenchmarkResult:
 
 
 @dataclass(kw_only=True)
-class TestParamBasedTestProblem(ParamBasedTestProblem):
+class DummyTestFunction(BenchmarkTestFunction):
     num_outcomes: int = 1
     dim: int = 6
 
