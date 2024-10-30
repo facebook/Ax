@@ -102,7 +102,7 @@ class CrossValidationPlot(PlotlyAnalysis):
             untransform=self.untransform,
             trial_index=self.trial_index,
         )
-        fig = _prepare_plot(df=df, metric_name=metric_name)
+        fig = _prepare_plot(df=df)
 
         k_folds_substring = f"{self.folds}-fold" if self.folds > 0 else "leave-one-out"
 
@@ -183,7 +183,7 @@ def _prepare_data(
     return pd.DataFrame.from_records(records)
 
 
-def _prepare_plot(df: pd.DataFrame, metric_name: str) -> go.Figure:
+def _prepare_plot(df: pd.DataFrame) -> go.Figure:
     fig = px.scatter(
         df,
         x="observed",
