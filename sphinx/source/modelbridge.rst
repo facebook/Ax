@@ -230,14 +230,6 @@ Transforms
     :undoc-members:
     :show-inheritance:
 
-`ax.modelbridge.transforms.inverse_gaussian_cdf_y`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.modelbridge.transforms.inverse_gaussian_cdf_y
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 `ax.modelbridge.transforms.log`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
