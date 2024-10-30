@@ -182,14 +182,6 @@ Transforms
     :undoc-members:
     :show-inheritance:
 
-`ax.modelbridge.transforms.cap_parameter`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.modelbridge.transforms.cap_parameter
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 `ax.modelbridge.transforms.centered_unit_x`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
