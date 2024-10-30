@@ -9,7 +9,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
 import torch
-from ax.benchmark.runners.botorch_test import ParamBasedTestProblem
+from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.core.observation import ObservationFeatures
 from ax.core.types import TParamValue
 from ax.modelbridge.torch import TorchModelBridge
@@ -21,7 +21,7 @@ from torch import Tensor
 
 
 @dataclass(kw_only=True)
-class SurrogateTestFunction(ParamBasedTestProblem):
+class SurrogateTestFunction(BenchmarkTestFunction):
     """
     Data-generating function for surrogate benchmark problems.
 

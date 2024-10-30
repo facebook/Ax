@@ -5,39 +5,18 @@
 
 # pyre-strict
 
-from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
 from itertools import islice
 
 import torch
-from ax.core.types import TParamValue
+from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from botorch.test_functions.synthetic import BaseTestProblem, ConstrainedBaseTestProblem
 from botorch.utils.transforms import normalize, unnormalize
-from torch import Tensor
 
 
 @dataclass(kw_only=True)
-class ParamBasedTestProblem(ABC):
-    """
-    The basic Ax class for generating deterministic data to benchmark against.
-
-    (Noise - if desired - is added by the runner.)
-    """
-
-    @abstractmethod
-    def evaluate_true(self, params: Mapping[str, TParamValue]) -> Tensor:
-        """
-        Evaluate noiselessly.
-
-        Returns:
-            1d tensor of shape (num_outcomes,).
-        """
-        ...
-
-
-@dataclass(kw_only=True)
-class BoTorchTestProblem(ParamBasedTestProblem):
+class BoTorchTestFunction(BenchmarkTestFunction):
     """
     Class for generating data from a BoTorch ``BaseTestProblem``.
 

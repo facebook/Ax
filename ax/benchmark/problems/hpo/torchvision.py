@@ -14,8 +14,8 @@ from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     get_soo_config_and_outcome_names,
 )
-from ax.benchmark.runners.base import BenchmarkRunner
-from ax.benchmark.runners.botorch_test import ParamBasedTestProblem
+from ax.benchmark.benchmark_runner import BenchmarkRunner
+from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
@@ -113,7 +113,7 @@ def train_and_evaluate(
 
 
 @dataclass(kw_only=True)
-class PyTorchCNNTorchvisionParamBasedProblem(ParamBasedTestProblem):
+class PyTorchCNNTorchvisionBenchmarkTestFunction(BenchmarkTestFunction):
     name: str  # The name of the dataset to load -- MNIST or FashionMNIST
     device: torch.device = field(
         default_factory=lambda: torch.device(
@@ -151,7 +151,7 @@ class PyTorchCNNTorchvisionParamBasedProblem(ParamBasedTestProblem):
             transform=transforms.ToTensor(),
         )
         # pyre-fixme: Undefined attribute [16]:
-        # `PyTorchCNNTorchvisionParamBasedProblem` has no attribute
+        # `PyTorchCNNTorchvisionBenchmarkTestFunction` has no attribute
         # `train_loader`.
         self.train_loader = DataLoader(train_set, num_workers=1)
         # pyre-fixme
@@ -163,10 +163,10 @@ class PyTorchCNNTorchvisionParamBasedProblem(ParamBasedTestProblem):
         frac_correct = train_and_evaluate(
             **params,
             device=self.device,
-            # pyre-fixme[16]: `PyTorchCNNTorchvisionParamBasedProblem` has no
+            # pyre-fixme[16]: `PyTorchCNNTorchvisionBenchmarkTestFunction` has no
             #  attribute `train_loader`.
             train_loader=self.train_loader,
-            # pyre-fixme[16]: `PyTorchCNNTorchvisionParamBasedProblem` has no
+            # pyre-fixme[16]: `PyTorchCNNTorchvisionBenchmarkTestFunction` has no
             #  attribute `test_loader`.
             test_loader=self.test_loader,
         )
@@ -215,7 +215,7 @@ def get_pytorch_cnn_torchvision_benchmark_problem(
         objective_name="accuracy",
     )
     runner = BenchmarkRunner(
-        test_problem=PyTorchCNNTorchvisionParamBasedProblem(name=name),
+        test_problem=PyTorchCNNTorchvisionBenchmarkTestFunction(name=name),
         outcome_names=outcome_names,
     )
     return BenchmarkProblem(
