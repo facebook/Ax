@@ -16,10 +16,8 @@ import numpy as np
 
 import torch
 from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_benchmark_problem
-from ax.benchmark.runners.botorch_test import (
-    BoTorchTestProblem,
-    ParamBasedTestProblemRunner,
-)
+from ax.benchmark.runners.base import BenchmarkRunner
+from ax.benchmark.runners.botorch_test import BoTorchTestProblem
 from ax.benchmark.runners.surrogate import SurrogateTestFunction
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
@@ -154,7 +152,7 @@ class TestSyntheticRunner(TestCase):
                 outcome_names = ["branin"]
 
             # Set up runner
-            runner = ParamBasedTestProblemRunner(
+            runner = BenchmarkRunner(
                 test_problem=test_problem,
                 outcome_names=outcome_names,
                 noise_std=noise_std,
@@ -291,15 +289,15 @@ class TestSyntheticRunner(TestCase):
                 with self.assertRaisesRegex(
                     UnsupportedError, "serialize_init_args is not a supported method"
                 ):
-                    ParamBasedTestProblemRunner.serialize_init_args(obj=runner)
+                    BenchmarkRunner.serialize_init_args(obj=runner)
                 with self.assertRaisesRegex(
                     UnsupportedError, "deserialize_init_args is not a supported method"
                 ):
-                    ParamBasedTestProblemRunner.deserialize_init_args({})
+                    BenchmarkRunner.deserialize_init_args({})
 
     def test_botorch_test_problem_runner_heterogeneous_noise(self) -> None:
         for noise_std in [[0.1, 0.05], {"objective": 0.1, "constraint": 0.05}]:
-            runner = ParamBasedTestProblemRunner(
+            runner = BenchmarkRunner(
                 test_problem=BoTorchTestProblem(
                     botorch_problem=ConstrainedHartmann(dim=6)
                 ),

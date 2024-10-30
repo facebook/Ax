@@ -15,10 +15,8 @@ from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
-from ax.benchmark.runners.botorch_test import (
-    ParamBasedTestProblem,
-    ParamBasedTestProblemRunner,
-)
+from ax.benchmark.runners.base import BenchmarkRunner
+from ax.benchmark.runners.botorch_test import ParamBasedTestProblem
 from ax.benchmark.runners.surrogate import SurrogateTestFunction
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective
@@ -105,9 +103,7 @@ def get_soo_surrogate_test_function(lazy: bool = True) -> SurrogateTestFunction:
 def get_soo_surrogate() -> BenchmarkProblem:
     experiment = get_branin_experiment(with_completed_trial=True)
     test_function = get_soo_surrogate_test_function()
-    runner = ParamBasedTestProblemRunner(
-        test_problem=test_function, outcome_names=["branin"]
-    )
+    runner = BenchmarkRunner(test_problem=test_function, outcome_names=["branin"])
 
     observe_noise_sd = True
     objective = Objective(
@@ -144,9 +140,7 @@ def get_moo_surrogate() -> BenchmarkProblem:
         outcome_names=outcome_names,
         get_surrogate_and_datasets=lambda: (surrogate, []),
     )
-    runner = ParamBasedTestProblemRunner(
-        test_problem=test_function, outcome_names=outcome_names
-    )
+    runner = BenchmarkRunner(test_problem=test_function, outcome_names=outcome_names)
     observe_noise_sd = True
     optimization_config = MultiObjectiveOptimizationConfig(
         objective=MultiObjective(

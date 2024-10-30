@@ -14,10 +14,8 @@ import torch
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
-from ax.benchmark.runners.botorch_test import (
-    BoTorchTestProblem,
-    ParamBasedTestProblemRunner,
-)
+from ax.benchmark.runners.base import BenchmarkRunner
+from ax.benchmark.runners.botorch_test import BoTorchTestProblem
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -54,7 +52,7 @@ class TestBenchmarkProblem(TestCase):
             for name in ["Branin", "Currin"]
         ]
         optimization_config = OptimizationConfig(objective=objectives[0])
-        runner = ParamBasedTestProblemRunner(
+        runner = BenchmarkRunner(
             test_problem=BoTorchTestProblem(botorch_problem=Branin()),
             outcome_names=["foo"],
         )
@@ -215,7 +213,7 @@ class TestBenchmarkProblem(TestCase):
             observe_noise_sd=observe_noise_sd,
             noise_std=noise_std,
         )
-        runner = assert_is_instance(ax_problem.runner, ParamBasedTestProblemRunner)
+        runner = ax_problem.runner
         test_problem = assert_is_instance(runner.test_problem, BoTorchTestProblem)
         botorch_problem = assert_is_instance(
             test_problem.botorch_problem, ConstrainedBaseTestProblem

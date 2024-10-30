@@ -14,7 +14,6 @@ from ax.benchmark.problems.synthetic.hss.jenatton import (
     get_jenatton_benchmark_problem,
     jenatton_test_function,
 )
-from ax.benchmark.runners.botorch_test import ParamBasedTestProblemRunner
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -106,10 +105,7 @@ class JenattonTest(TestCase):
         self.assertEqual(metric.name, "Jenatton")
         self.assertTrue(objective.minimize)
         self.assertTrue(metric.lower_is_better)
-        self.assertEqual(
-            assert_is_instance(problem.runner, ParamBasedTestProblemRunner).noise_std,
-            0.0,
-        )
+        self.assertEqual(problem.runner.noise_std, 0.0)
         self.assertFalse(assert_is_instance(metric, BenchmarkMetric).observe_noise_sd)
 
         problem = get_jenatton_benchmark_problem(
@@ -118,10 +114,7 @@ class JenattonTest(TestCase):
         objective = problem.optimization_config.objective
         metric = objective.metric
         self.assertTrue(metric.lower_is_better)
-        self.assertEqual(
-            assert_is_instance(problem.runner, ParamBasedTestProblemRunner).noise_std,
-            0.1,
-        )
+        self.assertEqual(problem.runner.noise_std, 0.1)
         self.assertTrue(assert_is_instance(metric, BenchmarkMetric).observe_noise_sd)
 
     def test_fetch_trial_data(self) -> None:

@@ -14,10 +14,8 @@ from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     get_soo_config_and_outcome_names,
 )
-from ax.benchmark.runners.botorch_test import (
-    ParamBasedTestProblem,
-    ParamBasedTestProblemRunner,
-)
+from ax.benchmark.runners.base import BenchmarkRunner
+from ax.benchmark.runners.botorch_test import ParamBasedTestProblem
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
@@ -216,7 +214,7 @@ def get_pytorch_cnn_torchvision_benchmark_problem(
         observe_noise_sd=False,
         objective_name="accuracy",
     )
-    runner = ParamBasedTestProblemRunner(
+    runner = BenchmarkRunner(
         test_problem=PyTorchCNNTorchvisionParamBasedProblem(name=name),
         outcome_names=outcome_names,
     )

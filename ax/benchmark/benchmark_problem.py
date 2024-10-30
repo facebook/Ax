@@ -13,10 +13,7 @@ import pandas as pd
 
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.runners.base import BenchmarkRunner
-from ax.benchmark.runners.botorch_test import (
-    BoTorchTestProblem,
-    ParamBasedTestProblemRunner,
-)
+from ax.benchmark.runners.botorch_test import BoTorchTestProblem
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective
@@ -380,7 +377,7 @@ def create_problem_from_botorch(
         name=name,
         search_space=search_space,
         optimization_config=optimization_config,
-        runner=ParamBasedTestProblemRunner(
+        runner=BenchmarkRunner(
             test_problem=BoTorchTestProblem(botorch_problem=test_problem),
             outcome_names=outcome_names,
             search_space_digest=extract_search_space_digest(
