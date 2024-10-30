@@ -615,6 +615,7 @@ def get_branin_experiment_with_multi_objective(
     num_objectives: int = 2,
     with_trial: bool = False,
     with_completed_trial: bool = False,
+    with_relative_constraint: bool = False,
 ) -> Experiment:
     exp = Experiment(
         name="branin_test_experiment",
@@ -625,6 +626,7 @@ def get_branin_experiment_with_multi_objective(
             get_branin_multi_objective_optimization_config(
                 has_objective_thresholds=has_objective_thresholds,
                 num_objectives=num_objectives,
+                with_relative_constraint=with_relative_constraint,
             )
             if has_optimization_config
             else None
@@ -1708,6 +1710,7 @@ def _validate_num_objectives(num_objectives: int) -> None:
 def get_branin_multi_objective_optimization_config(
     has_objective_thresholds: bool = False,
     num_objectives: int = 2,
+    with_relative_constraint: bool = False,
 ) -> MultiObjectiveOptimizationConfig:
     _validate_num_objectives(num_objectives=num_objectives)
     # minimum Branin value is 0.397887
@@ -1740,6 +1743,11 @@ def get_branin_multi_objective_optimization_config(
     return MultiObjectiveOptimizationConfig(
         objective=get_branin_multi_objective(num_objectives=num_objectives),
         objective_thresholds=objective_thresholds,
+        outcome_constraints=[
+            get_outcome_constraint(get_branin_metric(name="branin_d"), relative=True)
+        ]
+        if with_relative_constraint
+        else None,
     )
 
 
