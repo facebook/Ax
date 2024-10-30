@@ -458,6 +458,12 @@ class OptimizationCompletedRecord:
     estimated_early_stopping_savings: float
     estimated_global_stopping_savings: float
 
+    # OptimizationConfig info which might be updated for human in the
+    # loop experiments
+    num_objectives: int
+    num_tracking_metrics: int
+    num_outcome_constraints: int  # Includes ObjectiveThresholds in MOO
+
     @classmethod
     def from_scheduler(
         cls,
@@ -503,6 +509,9 @@ class OptimizationCompletedRecord:
             deployed_job_id=deployed_job_id,
             estimated_early_stopping_savings=estimated_early_stopping_savings,
             estimated_global_stopping_savings=estimated_global_stopping_savings,
+            num_objectives=experiment_completed_record.num_objectives,
+            num_tracking_metrics=experiment_completed_record.num_tracking_metrics,
+            num_outcome_constraints=experiment_completed_record.num_outcome_constraints,
         )
 
     @classmethod
@@ -541,6 +550,9 @@ class OptimizationCompletedRecord:
             deployed_job_id=deployed_job_id,
             estimated_early_stopping_savings=estimated_early_stopping_savings,
             estimated_global_stopping_savings=estimated_global_stopping_savings,
+            num_objectives=experiment_completed_record.num_objectives,
+            num_tracking_metrics=experiment_completed_record.num_tracking_metrics,
+            num_outcome_constraints=experiment_completed_record.num_outcome_constraints,
             # The following are not applicable for AxClient
             improvement_over_baseline=float("nan"),
             num_metric_fetch_e_encountered=-1,

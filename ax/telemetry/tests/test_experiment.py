@@ -66,6 +66,9 @@ class TestExperiment(TestCase):
             num_early_stopped_trials=0,
             total_fit_time=int(fit_time),
             total_gen_time=int(gen_time),
+            num_objectives=1,
+            num_outcome_constraints=1,
+            num_tracking_metrics=1,
         )
         self.assertEqual(record, expected)
 
