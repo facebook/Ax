@@ -273,7 +273,7 @@ def get_branin_experiment(
         status_quo=Arm(parameters={"x1": 0.0, "x2": 0.0}) if with_status_quo else None,
     )
 
-    if with_batch:
+    if with_batch or with_completed_batch:
         for _ in range(num_batch_trial):
             sobol_generator = get_sobol(search_space=exp.search_space)
             sobol_run = sobol_generator.gen(n=15)
