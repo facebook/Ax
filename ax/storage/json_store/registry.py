@@ -370,8 +370,6 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "SumConstraint": SumConstraint,
     "Surrogate": Surrogate,
     "SurrogateMetric": BenchmarkMetric,  # backward-compatiblity
-    # NOTE: SurrogateRunners -> SyntheticRunner on load due to complications
-    "SurrogateRunner": SyntheticRunner,
     "SobolQMCNormalSampler": SobolQMCNormalSampler,
     "SyntheticRunner": SyntheticRunner,
     "SurrogateSpec": SurrogateSpec,
