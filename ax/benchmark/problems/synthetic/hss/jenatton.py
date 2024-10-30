@@ -11,8 +11,8 @@ from dataclasses import dataclass
 import torch
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.benchmark_problem import BenchmarkProblem
-from ax.benchmark.runners.base import BenchmarkRunner
-from ax.benchmark.runners.botorch_test import ParamBasedTestProblem
+from ax.benchmark.benchmark_runner import BenchmarkRunner
+from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -50,7 +50,7 @@ def jenatton_test_function(
 
 
 @dataclass(kw_only=True)
-class Jenatton(ParamBasedTestProblem):
+class Jenatton(BenchmarkTestFunction):
     """Jenatton test function for hierarchical search spaces."""
 
     # pyre-fixme[14]: Inconsistent override

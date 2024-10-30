@@ -12,8 +12,8 @@ from typing import Any
 import pandas as pd
 
 from ax.benchmark.benchmark_metric import BenchmarkMetric
-from ax.benchmark.runners.base import BenchmarkRunner
-from ax.benchmark.runners.botorch_test import BoTorchTestProblem
+from ax.benchmark.benchmark_runner import BenchmarkRunner
+from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective
@@ -309,7 +309,7 @@ def create_problem_from_botorch(
     Create a `BenchmarkProblem` from a BoTorch `BaseTestProblem`.
 
     Uses specialized Metrics and Runners for benchmarking. The test problem's
-    result will be computed by the Runner, `BoTorchTestProblemRunner`, and
+    result will be computed by the Runner, `BenchmarkRunner`, and
     retrieved by the Metric(s), which are `BenchmarkMetric`s.
 
     Args:
@@ -378,7 +378,7 @@ def create_problem_from_botorch(
         search_space=search_space,
         optimization_config=optimization_config,
         runner=BenchmarkRunner(
-            test_problem=BoTorchTestProblem(botorch_problem=test_problem),
+            test_problem=BoTorchTestFunction(botorch_problem=test_problem),
             outcome_names=outcome_names,
             search_space_digest=extract_search_space_digest(
                 search_space=search_space,

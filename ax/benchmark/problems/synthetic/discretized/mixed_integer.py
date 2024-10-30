@@ -21,8 +21,8 @@ References
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem
-from ax.benchmark.runners.base import BenchmarkRunner
-from ax.benchmark.runners.botorch_test import BoTorchTestProblem
+from ax.benchmark.benchmark_runner import BenchmarkRunner
+from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
@@ -47,7 +47,7 @@ def _get_problem_from_common_inputs(
 
     Args:
         bounds: The parameter bounds. These will be passed to
-            `BotorchTestProblemRunner` as `modified_bounds`, and the parameters
+            `BotorchTestFunction` as `modified_bounds`, and the parameters
             will be renormalized from these bounds to the bounds of the original
             problem. For example, if `bounds` are [(0, 3)] and the test
             problem's original bounds are [(0, 2)], then the original problem
@@ -103,7 +103,7 @@ def _get_problem_from_common_inputs(
     else:
         test_problem = test_problem_class(dim=dim, bounds=test_problem_bounds)
     runner = BenchmarkRunner(
-        test_problem=BoTorchTestProblem(
+        test_problem=BoTorchTestFunction(
             botorch_problem=test_problem, modified_bounds=bounds
         ),
         outcome_names=[metric_name],
