@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, InitVar
 from math import sqrt
@@ -14,6 +13,7 @@ from typing import Any
 import numpy.typing as npt
 
 import torch
+from ax.benchmark.runners.botorch_test import ParamBasedTestProblem
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.runner import Runner
@@ -28,7 +28,7 @@ from torch import Tensor
 
 
 @dataclass(kw_only=True)
-class BenchmarkRunner(Runner, ABC):
+class BenchmarkRunner(Runner):
     """
     A Runner that produces both observed and ground-truth values.
 
@@ -45,9 +45,19 @@ class BenchmarkRunner(Runner, ABC):
         - If they are not deterministc, they are not supported. It is not
           conceptually clear how to benchmark such problems, so we decided to
           not over-engineer for that before such a use case arrives.
+
+    Args:
+        outcome_names: The names of the outcomes returned by the problem.
+        test_problem: A ``ParamBasedTestProblem`` from which to generate
+            deterministic data before adding noise.
+        noise_std: The standard deviation of the noise added to the data. Can be
+            a list or dict to be per-metric.
+        search_space_digest: Used to extract target fidelity and task.
     """
 
     outcome_names: list[str]
+    test_problem: ParamBasedTestProblem
+    noise_std: float | list[float] | dict[str, float] = 0.0
     # pyre-fixme[16]: Pyre doesn't understand InitVars
     search_space_digest: InitVar[SearchSpaceDigest | None] = None
     target_fidelity_and_task: Mapping[str, float | int] = field(init=False)
@@ -62,12 +72,12 @@ class BenchmarkRunner(Runner, ABC):
             self.target_fidelity_and_task = {}
 
     def get_Y_true(self, params: Mapping[str, TParamValue]) -> Tensor:
-        """
-        Return the ground truth values for a given arm.
+        """Evaluates the test problem.
 
-        Synthetic noise is added as part of the Runner's `run()` method.
+        Returns:
+            An `m`-dim tensor of ground truth (noiseless) evaluations.
         """
-        ...
+        return torch.atleast_1d(self.test_problem.evaluate_true(params=params))
 
     def evaluate_oracle(self, parameters: Mapping[str, TParamValue]) -> npt.NDArray:
         """
@@ -83,13 +93,19 @@ class BenchmarkRunner(Runner, ABC):
         params = {**parameters, **self.target_fidelity_and_task}
         return self.get_Y_true(params=params).numpy()
 
-    @abstractmethod
     def get_noise_stds(self) -> dict[str, float]:
-        """
-        Return the standard errors for the synthetic noise to be applied to the
-        observed values.
-        """
-        ...
+        noise_std = self.noise_std
+        if isinstance(noise_std, float):
+            return {name: noise_std for name in self.outcome_names}
+        elif isinstance(noise_std, dict):
+            if not set(noise_std.keys()) == set(self.outcome_names):
+                raise ValueError(
+                    "Noise std must have keys equal to outcome names if given as "
+                    "a dict."
+                )
+            return noise_std
+        # list of floats
+        return dict(zip(self.outcome_names, noise_std, strict=True))
 
     def run(self, trial: BaseTrial) -> dict[str, Any]:
         """Run the trial by evaluating its parameterization(s).

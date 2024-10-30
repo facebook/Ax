@@ -15,10 +15,7 @@ from ax.benchmark.problems.synthetic.discretized.mixed_integer import (
     get_discrete_hartmann,
     get_discrete_rosenbrock,
 )
-from ax.benchmark.runners.botorch_test import (
-    BoTorchTestProblem,
-    ParamBasedTestProblemRunner,
-)
+from ax.benchmark.runners.botorch_test import BoTorchTestProblem
 from ax.core.arm import Arm
 from ax.core.parameter import ParameterType
 from ax.core.trial import Trial
@@ -37,7 +34,7 @@ class MixedIntegerProblemsTest(TestCase):
             name = problem_cls.__name__
             problem = constructor()
             self.assertEqual(f"Discrete {name}", problem.name)
-            runner = assert_is_instance(problem.runner, ParamBasedTestProblemRunner)
+            runner = problem.runner
             test_problem = assert_is_instance(runner.test_problem, BoTorchTestProblem)
             botorch_problem = test_problem.botorch_problem
             self.assertIsInstance(botorch_problem, problem_cls)
@@ -99,7 +96,7 @@ class MixedIntegerProblemsTest(TestCase):
         ]
 
         for problem, params, expected_arg in cases:
-            runner = assert_is_instance(problem.runner, ParamBasedTestProblemRunner)
+            runner = problem.runner
             test_problem = assert_is_instance(runner.test_problem, BoTorchTestProblem)
             trial = Trial(experiment=MagicMock())
             # pyre-fixme: Incompatible parameter type [6]: In call

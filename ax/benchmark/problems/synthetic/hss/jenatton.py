@@ -11,10 +11,8 @@ from dataclasses import dataclass
 import torch
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.benchmark_problem import BenchmarkProblem
-from ax.benchmark.runners.botorch_test import (
-    ParamBasedTestProblem,
-    ParamBasedTestProblemRunner,
-)
+from ax.benchmark.runners.base import BenchmarkRunner
+from ax.benchmark.runners.botorch_test import ParamBasedTestProblem
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -120,7 +118,7 @@ def get_jenatton_benchmark_problem(
         name=name,
         search_space=search_space,
         optimization_config=optimization_config,
-        runner=ParamBasedTestProblemRunner(
+        runner=BenchmarkRunner(
             test_problem=Jenatton(), outcome_names=[name], noise_std=noise_std
         ),
         num_trials=num_trials,

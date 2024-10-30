@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from itertools import islice
 
 import torch
-from ax.benchmark.runners.base import BenchmarkRunner
 from ax.core.types import TParamValue
 from botorch.test_functions.synthetic import BaseTestProblem, ConstrainedBaseTestProblem
 from botorch.utils.transforms import normalize, unnormalize
@@ -91,48 +90,3 @@ class BoTorchTestProblem(ParamBasedTestProblem):
             constraints = self.botorch_problem.evaluate_slack_true(x).view(-1)
             return torch.cat([objectives, constraints], dim=-1)
         return objectives
-
-
-@dataclass(kw_only=True)
-class ParamBasedTestProblemRunner(BenchmarkRunner):
-    """
-    A Runner for evaluating `ParamBasedTestProblem`s.
-
-    Given a trial, the Runner will use its `test_problem` to evaluate the
-    problem noiselessly for each arm in the trial, and then add noise as
-    specified by the `noise_std`. It will return
-    metadata including the outcome names and values of metrics.
-
-    Args:
-        outcome_names: The names of the outcomes returned by the problem.
-        search_space_digest: Used to extract target fidelity and task.
-        test_problem: A ``ParamBasedTestProblem`` from which to generate
-            deterministic data before adding noise.
-        noise_std: The standard deviation of the noise added to the data. Can be
-            a list to be per-metric.
-    """
-
-    test_problem: ParamBasedTestProblem
-    noise_std: float | list[float] | dict[str, float] = 0.0
-
-    def get_noise_stds(self) -> dict[str, float]:
-        noise_std = self.noise_std
-        if isinstance(noise_std, float):
-            return {name: noise_std for name in self.outcome_names}
-        elif isinstance(noise_std, dict):
-            if not set(noise_std.keys()) == set(self.outcome_names):
-                raise ValueError(
-                    "Noise std must have keys equal to outcome names if given as "
-                    "a dict."
-                )
-            return noise_std
-        # list of floats
-        return dict(zip(self.outcome_names, noise_std, strict=True))
-
-    def get_Y_true(self, params: Mapping[str, TParamValue]) -> Tensor:
-        """Evaluates the test problem.
-
-        Returns:
-            An `m`-dim tensor of ground truth (noiseless) evaluations.
-        """
-        return torch.atleast_1d(self.test_problem.evaluate_true(params=params))
