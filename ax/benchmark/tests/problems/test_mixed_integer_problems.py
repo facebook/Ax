@@ -35,8 +35,10 @@ class MixedIntegerProblemsTest(TestCase):
             problem = constructor()
             self.assertEqual(f"Discrete {name}", problem.name)
             runner = problem.runner
-            test_problem = assert_is_instance(runner.test_problem, BoTorchTestFunction)
-            botorch_problem = test_problem.botorch_problem
+            test_function = assert_is_instance(
+                runner.test_function, BoTorchTestFunction
+            )
+            botorch_problem = test_function.botorch_problem
             self.assertIsInstance(botorch_problem, problem_cls)
             self.assertEqual(len(problem.search_space.parameters), dim)
             self.assertEqual(
@@ -97,7 +99,9 @@ class MixedIntegerProblemsTest(TestCase):
 
         for problem, params, expected_arg in cases:
             runner = problem.runner
-            test_problem = assert_is_instance(runner.test_problem, BoTorchTestFunction)
+            test_function = assert_is_instance(
+                runner.test_function, BoTorchTestFunction
+            )
             trial = Trial(experiment=MagicMock())
             # pyre-fixme: Incompatible parameter type [6]: In call
             # `Arm.__init__`, for argument `parameters`, expected `Dict[str,
@@ -105,9 +109,9 @@ class MixedIntegerProblemsTest(TestCase):
             arm = Arm(parameters=params, name="--")
             trial.add_arm(arm)
             with patch.object(
-                test_problem.botorch_problem,
+                test_function.botorch_problem,
                 attribute="evaluate_true",
-                wraps=test_problem.botorch_problem.evaluate_true,
+                wraps=test_function.botorch_problem.evaluate_true,
             ) as mock_call:
                 runner.run(trial)
             actual = mock_call.call_args.kwargs["X"]

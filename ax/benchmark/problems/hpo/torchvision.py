@@ -215,7 +215,7 @@ def get_pytorch_cnn_torchvision_benchmark_problem(
         objective_name="accuracy",
     )
     runner = BenchmarkRunner(
-        test_problem=PyTorchCNNTorchvisionBenchmarkTestFunction(name=name),
+        test_function=PyTorchCNNTorchvisionBenchmarkTestFunction(name=name),
         outcome_names=outcome_names,
     )
     return BenchmarkProblem(

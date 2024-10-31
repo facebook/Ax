@@ -378,7 +378,7 @@ def create_problem_from_botorch(
         search_space=search_space,
         optimization_config=optimization_config,
         runner=BenchmarkRunner(
-            test_problem=BoTorchTestFunction(botorch_problem=test_problem),
+            test_function=BoTorchTestFunction(botorch_problem=test_problem),
             outcome_names=outcome_names,
             search_space_digest=extract_search_space_digest(
                 search_space=search_space,

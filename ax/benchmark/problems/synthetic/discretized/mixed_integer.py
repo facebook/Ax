@@ -103,7 +103,7 @@ def _get_problem_from_common_inputs(
     else:
         test_problem = test_problem_class(dim=dim, bounds=test_problem_bounds)
     runner = BenchmarkRunner(
-        test_problem=BoTorchTestFunction(
+        test_function=BoTorchTestFunction(
             botorch_problem=test_problem, modified_bounds=bounds
         ),
         outcome_names=[metric_name],
