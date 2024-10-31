@@ -8,12 +8,10 @@
 
 from __future__ import annotations
 
-from importlib import reload
 from itertools import product
 from unittest.mock import patch
 
 from ax.exceptions.core import UnsupportedError
-from ax.models.torch.botorch_modular import optimizer_argparse as Argparse
 from ax.models.torch.botorch_modular.optimizer_argparse import (
     _argparse_base,
     BATCH_LIMIT,
@@ -23,7 +21,6 @@ from ax.models.torch.botorch_modular.optimizer_argparse import (
     optimizer_argparse,
     RAW_SAMPLES,
 )
-from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import LogExpectedImprovement
@@ -182,23 +179,23 @@ class OptimizerArgparseTest(TestCase):
                     func(None, sequential=False, optimizer=optimizer)
 
     def test_kg(self) -> None:
-        with patch(
-            "botorch.optim.initializers.gen_one_shot_kg_initial_conditions"
-        ) as mock_gen_initial_conditions:
-            mock_gen_initial_conditions.return_value = "TEST"
-            reload(Argparse)
+        user_options = {"foo": "bar", "num_restarts": 114}
+        generic_options = _argparse_base(
+            None, optimizer_options=user_options, optimizer="optimize_acqf"
+        )
+        for acqf in (qKnowledgeGradient, qMultiFidelityKnowledgeGradient):
+            with self.subTest(acqf=acqf):
+                options = optimizer_argparse(
+                    acqf,
+                    q=None,
+                    bounds=None,
+                    optimizer_options=user_options,
+                )
+                self.assertEqual(options, generic_options)
 
-            user_options = {"foo": "bar", "num_restarts": 114}
-            generic_options = _argparse_base(
-                None, optimizer_options=user_options, optimizer="optimize_acqf"
-            )
-            for acqf in (qKnowledgeGradient, qMultiFidelityKnowledgeGradient):
-                with self.subTest(acqf=acqf):
-                    options = optimizer_argparse(
-                        acqf,
-                        q=None,
-                        bounds=None,
-                        optimizer_options=user_options,
-                    )
-                    self.assertEqual(options.pop(Keys.BATCH_INIT_CONDITIONS), "TEST")
-                    self.assertEqual(options, generic_options)
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "Ax is attempting to use a discrete or mixed optimizer, "
+                    "`optimize_acqf_mixed`, ",
+                ):
+                    optimizer_argparse(acqf, optimizer="optimize_acqf_mixed")
