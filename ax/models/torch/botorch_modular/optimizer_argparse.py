@@ -25,20 +25,9 @@ def optimizer_argparse(
     acqf: AcquisitionFunction,
     *,
     optimizer: str,
-    sequential: bool = True,
-    num_restarts: int = NUM_RESTARTS,
-    raw_samples: int = RAW_SAMPLES,
-    init_batch_limit: int = INIT_BATCH_LIMIT,
-    batch_limit: int = BATCH_LIMIT,
     optimizer_options: dict[str, Any] | None = None,
-    **ignore: Any,
 ) -> dict[str, Any]:
     """Extract the kwargs to be passed to a BoTorch optimizer.
-
-    NOTE: Since `optimizer_options` is how the user would typically pass in these
-    options, it takes precedence over other arguments. E.g., if both `num_restarts`
-    and `optimizer_options["num_restarts"]` are provided, this will use
-    `num_restarts` from `optimizer_options`.
 
     Args:
         acqf: The acquisition function being optimized.
@@ -50,24 +39,10 @@ def optimizer_argparse(
             - "optimize_acqf_homotopy",
             - "optimize_acqf_mixed",
             - "optimize_acqf_mixed_alternating".
-        sequential: Whether we choose one candidate at a time in a sequential
-            manner. `sequential=False` is not supported by optimizers other than
-            `optimize_acqf` and will lead to an error.
-        num_restarts: The number of starting points for multistart acquisition
-            function optimization. Ignored if the optimizer is
-            `optimize_acqf_discrete`.
-        raw_samples: The number of samples for initialization. Ignored if the
-            optimizer is `optimize_acqf_discrete`.
-        init_batch_limit: The size of mini-batches used to evaluate the `raw_samples`.
-            This helps reduce peak memory usage. Ignored if the optimizer is
-            `optimize_acqf_discrete` or `optimize_acqf_discrete_local_search`.
-        batch_limit: The size of mini-batches used while optimizing the `acqf`.
-            This helps reduce peak memory usage. Ignored if the optimizer is
-            `optimize_acqf_discrete` or `optimize_acqf_discrete_local_search`.
-        optimizer_options: An optional dictionary of optimizer options. This may
-            include overrides for the above options (some of these under an `options`
-            dictionary) or any other option that is accepted by the optimizer. See
-            the docstrings in `botorch/optim/optimize.py` for supported options.
+        optimizer_options: An optional dictionary of optimizer options (some of
+            these under an `options` dictionary); default values will be used
+            where not specified. See the docstrings in
+            `botorch/optim/optimize.py` for supported options.
             Example:
                 >>> optimizer_options = {
                 >>>     "num_restarts": 20,
@@ -108,8 +83,8 @@ def optimizer_argparse(
         options = {}
     else:
         options = {
-            "num_restarts": num_restarts,
-            "raw_samples": raw_samples,
+            "num_restarts": NUM_RESTARTS,
+            "raw_samples": RAW_SAMPLES,
         }
 
     if optimizer in [
@@ -119,8 +94,8 @@ def optimizer_argparse(
         "optimize_acqf_mixed_alternating",
     ]:
         options["options"] = {
-            "init_batch_limit": init_batch_limit,
-            "batch_limit": batch_limit,
+            "init_batch_limit": INIT_BATCH_LIMIT,
+            "batch_limit": BATCH_LIMIT,
             **provided_options.get("options", {}),
         }
     # Error out if options are specified for an optimizer that does not support the arg.
@@ -130,9 +105,7 @@ def optimizer_argparse(
         )
 
     if optimizer == "optimize_acqf":
-        options["sequential"] = sequential
-    elif sequential is False:
-        raise UnsupportedError(f"`{optimizer=}` does not support `sequential=False`.")
+        options["sequential"] = True
 
     options.update(**{k: v for k, v in provided_options.items() if k != "options"})
     return options
