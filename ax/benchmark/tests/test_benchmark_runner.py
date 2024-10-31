@@ -29,83 +29,16 @@ from ax.utils.testing.benchmark_stubs import (
     DummyTestFunction,
     get_soo_surrogate_test_function,
 )
-from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.test_functions.synthetic import Ackley, ConstrainedHartmann, Hartmann
 from botorch.utils.transforms import normalize
 
 
-class TestBoTorchTestFunction(TestCase):
-    def setUp(self) -> None:
-        super().setUp()
-        botorch_base_test_functions = {
-            "base Hartmann": Hartmann(dim=6),
-            "negated Hartmann": Hartmann(dim=6, negate=True),
-            "constrained Hartmann": ConstrainedHartmann(dim=6),
-            "negated constrained Hartmann": ConstrainedHartmann(dim=6, negate=True),
-        }
-        self.botorch_test_problems = {
-            k: BoTorchTestFunction(botorch_problem=v)
-            for k, v in botorch_base_test_functions.items()
-        }
-
-    def test_negation(self) -> None:
-        params = {f"x{i}": 0.5 for i in range(6)}
-        evaluate_true_results = {
-            k: v.evaluate_true(params) for k, v in self.botorch_test_problems.items()
-        }
-        self.assertEqual(
-            evaluate_true_results["base Hartmann"],
-            evaluate_true_results["constrained Hartmann"][0],
-        )
-        self.assertEqual(
-            evaluate_true_results["base Hartmann"],
-            -evaluate_true_results["negated Hartmann"],
-        )
-        self.assertEqual(
-            evaluate_true_results["negated Hartmann"],
-            evaluate_true_results["negated constrained Hartmann"][0],
-        )
-        self.assertEqual(
-            evaluate_true_results["constrained Hartmann"][1],
-            evaluate_true_results["negated constrained Hartmann"][1],
-        )
-
-    def test_raises_for_botorch_attrs(self) -> None:
-        msg = "noise should be set on the `BenchmarkRunner`, not the test function."
-        with self.assertRaisesRegex(ValueError, msg):
-            BoTorchTestFunction(botorch_problem=Hartmann(dim=6, noise_std=0.1))
-        with self.assertRaisesRegex(ValueError, msg):
-            BoTorchTestFunction(
-                botorch_problem=ConstrainedHartmann(dim=6, constraint_noise_std=0.1)
-            )
-
-    def test_tensor_shapes(self) -> None:
-        params = {f"x{i}": 0.5 for i in range(6)}
-        evaluate_true_results = {
-            k: v.evaluate_true(params) for k, v in self.botorch_test_problems.items()
-        }
-        evaluate_true_results["BraninCurrin"] = BoTorchTestFunction(
-            botorch_problem=BraninCurrin()
-        ).evaluate_true(params)
-        expected_len = {
-            "base Hartmann": 1,
-            "constrained Hartmann": 2,
-            "negated Hartmann": 1,
-            "negated constrained Hartmann": 2,
-            "BraninCurrin": 2,
-        }
-        for name, result in evaluate_true_results.items():
-            with self.subTest(name=name):
-                self.assertEqual(result.dtype, torch.double)
-                self.assertEqual(result.shape, torch.Size([expected_len[name]]))
-
-
-class TestSyntheticRunner(TestCase):
+class TestBenchmarkRunner(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.maxDiff = None
 
-    def test_synthetic_runner(self) -> None:
+    def test_runner(self) -> None:
         botorch_cases = [
             (
                 BoTorchTestFunction(
@@ -297,7 +230,7 @@ class TestSyntheticRunner(TestCase):
                 ):
                     BenchmarkRunner.deserialize_init_args({})
 
-    def test_botorch_test_problem_runner_heterogeneous_noise(self) -> None:
+    def test_heterogeneous_noise(self) -> None:
         for noise_std in [[0.1, 0.05], {"objective": 0.1, "constraint": 0.05}]:
             runner = BenchmarkRunner(
                 test_function=BoTorchTestFunction(
