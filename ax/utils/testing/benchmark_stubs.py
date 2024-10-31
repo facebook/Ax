@@ -103,7 +103,7 @@ def get_soo_surrogate_test_function(lazy: bool = True) -> SurrogateTestFunction:
 def get_soo_surrogate() -> BenchmarkProblem:
     experiment = get_branin_experiment(with_completed_trial=True)
     test_function = get_soo_surrogate_test_function()
-    runner = BenchmarkRunner(test_problem=test_function, outcome_names=["branin"])
+    runner = BenchmarkRunner(test_function=test_function, outcome_names=["branin"])
 
     observe_noise_sd = True
     objective = Objective(
@@ -140,7 +140,7 @@ def get_moo_surrogate() -> BenchmarkProblem:
         outcome_names=outcome_names,
         get_surrogate_and_datasets=lambda: (surrogate, []),
     )
-    runner = BenchmarkRunner(test_problem=test_function, outcome_names=outcome_names)
+    runner = BenchmarkRunner(test_function=test_function, outcome_names=outcome_names)
     observe_noise_sd = True
     optimization_config = MultiObjectiveOptimizationConfig(
         objective=MultiObjective(

@@ -137,32 +137,32 @@ class TestSyntheticRunner(TestCase):
             (get_soo_surrogate_test_function(lazy=False), noise_std, 1)
             for noise_std in (0.0, 1.0, [0.0], [1.0])
         ]
-        for test_problem, noise_std, num_outcomes in (
+        for test_function, noise_std, num_outcomes in (
             botorch_cases + param_based_cases + surrogate_cases
         ):
             # Set up outcome names
-            if isinstance(test_problem, BoTorchTestFunction):
-                if isinstance(test_problem.botorch_problem, ConstrainedHartmann):
+            if isinstance(test_function, BoTorchTestFunction):
+                if isinstance(test_function.botorch_problem, ConstrainedHartmann):
                     outcome_names = ["objective_0", "constraint"]
                 else:
                     outcome_names = ["objective_0"]
-            elif isinstance(test_problem, DummyTestFunction):
+            elif isinstance(test_function, DummyTestFunction):
                 outcome_names = [f"objective_{i}" for i in range(num_outcomes)]
             else:  # SurrogateTestFunction
                 outcome_names = ["branin"]
 
             # Set up runner
             runner = BenchmarkRunner(
-                test_problem=test_problem,
+                test_function=test_function,
                 outcome_names=outcome_names,
                 noise_std=noise_std,
             )
 
-            test_description = f"{test_problem=}, {noise_std=}"
+            test_description = f"{test_function=}, {noise_std=}"
             with self.subTest(
-                f"Test basic construction, {test_problem=}, {noise_std=}"
+                f"Test basic construction, {test_function=}, {noise_std=}"
             ):
-                self.assertIs(runner.test_problem, test_problem)
+                self.assertIs(runner.test_function, test_function)
                 self.assertEqual(runner.outcome_names, outcome_names)
                 if isinstance(noise_std, list):
                     self.assertEqual(
@@ -177,17 +177,17 @@ class TestSyntheticRunner(TestCase):
 
                 # check equality
                 new_runner = replace(
-                    runner, test_problem=BoTorchTestFunction(botorch_problem=Ackley())
+                    runner, test_function=BoTorchTestFunction(botorch_problem=Ackley())
                 )
                 self.assertNotEqual(runner, new_runner)
 
                 self.assertEqual(runner, runner)
-                if isinstance(test_problem, BoTorchTestFunction):
+                if isinstance(test_function, BoTorchTestFunction):
                     self.assertEqual(
-                        test_problem.botorch_problem.bounds.dtype, torch.double
+                        test_function.botorch_problem.bounds.dtype, torch.double
                     )
 
-            is_botorch = isinstance(test_problem, BoTorchTestFunction)
+            is_botorch = isinstance(test_function, BoTorchTestFunction)
             with self.subTest(f"test `get_Y_true()`, {test_description}"):
                 dim = 6 if is_botorch else 9
                 X = torch.rand(1, dim, dtype=torch.double)
@@ -202,11 +202,11 @@ class TestSyntheticRunner(TestCase):
 
                 with (
                     nullcontext()
-                    if not isinstance(test_problem, SurrogateTestFunction)
+                    if not isinstance(test_function, SurrogateTestFunction)
                     else patch.object(
                         # pyre-fixme: BenchmarkTestFunction` has no attribute
                         # `_surrogate`.
-                        runner.test_problem._surrogate,
+                        runner.test_function._surrogate,
                         "predict",
                         return_value=({"branin": [4.2]}, None),
                     )
@@ -215,19 +215,19 @@ class TestSyntheticRunner(TestCase):
                     oracle = runner.evaluate_oracle(parameters=params)
 
                 if (
-                    isinstance(test_problem, BoTorchTestFunction)
-                    and test_problem.modified_bounds is not None
+                    isinstance(test_function, BoTorchTestFunction)
+                    and test_function.modified_bounds is not None
                 ):
                     X_tf = normalize(
                         X,
                         torch.tensor(
-                            test_problem.modified_bounds, dtype=torch.double
+                            test_function.modified_bounds, dtype=torch.double
                         ).T,
                     )
                 else:
                     X_tf = X
-                if isinstance(test_problem, BoTorchTestFunction):
-                    botorch_problem = test_problem.botorch_problem
+                if isinstance(test_function, BoTorchTestFunction):
+                    botorch_problem = test_function.botorch_problem
                     obj = botorch_problem.evaluate_true(X_tf)
                     if isinstance(botorch_problem, ConstrainedHartmann):
                         expected_Y = torch.cat(
@@ -239,7 +239,7 @@ class TestSyntheticRunner(TestCase):
                         )
                     else:
                         expected_Y = obj
-                elif isinstance(test_problem, SurrogateTestFunction):
+                elif isinstance(test_function, SurrogateTestFunction):
                     expected_Y = torch.tensor([4.2], dtype=torch.double)
                 else:
                     expected_Y = torch.full(
@@ -259,11 +259,11 @@ class TestSyntheticRunner(TestCase):
 
                 with (
                     nullcontext()
-                    if not isinstance(test_problem, SurrogateTestFunction)
+                    if not isinstance(test_function, SurrogateTestFunction)
                     else patch.object(
                         # pyre-fixme: BenchmarkTestFunction` has no attribute
                         # `_surrogate`.
-                        runner.test_problem._surrogate,
+                        runner.test_function._surrogate,
                         "predict",
                         return_value=({"branin": [4.2]}, None),
                     )
@@ -300,7 +300,7 @@ class TestSyntheticRunner(TestCase):
     def test_botorch_test_problem_runner_heterogeneous_noise(self) -> None:
         for noise_std in [[0.1, 0.05], {"objective": 0.1, "constraint": 0.05}]:
             runner = BenchmarkRunner(
-                test_problem=BoTorchTestFunction(
+                test_function=BoTorchTestFunction(
                     botorch_problem=ConstrainedHartmann(dim=6)
                 ),
                 noise_std=noise_std,

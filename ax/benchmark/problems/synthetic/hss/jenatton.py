@@ -119,7 +119,7 @@ def get_jenatton_benchmark_problem(
         search_space=search_space,
         optimization_config=optimization_config,
         runner=BenchmarkRunner(
-            test_problem=Jenatton(), outcome_names=[name], noise_std=noise_std
+            test_function=Jenatton(), outcome_names=[name], noise_std=noise_std
         ),
         num_trials=num_trials,
         observe_noise_stds=observe_noise_sd,

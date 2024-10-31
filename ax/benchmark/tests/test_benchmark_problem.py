@@ -53,7 +53,7 @@ class TestBenchmarkProblem(TestCase):
         ]
         optimization_config = OptimizationConfig(objective=objectives[0])
         runner = BenchmarkRunner(
-            test_problem=BoTorchTestFunction(botorch_problem=Branin()),
+            test_function=BoTorchTestFunction(botorch_problem=Branin()),
             outcome_names=["foo"],
         )
         with self.assertRaisesRegex(NotImplementedError, "Only `n_best_points=1`"):
@@ -214,7 +214,7 @@ class TestBenchmarkProblem(TestCase):
             noise_std=noise_std,
         )
         runner = ax_problem.runner
-        test_problem = assert_is_instance(runner.test_problem, BoTorchTestFunction)
+        test_problem = assert_is_instance(runner.test_function, BoTorchTestFunction)
         botorch_problem = assert_is_instance(
             test_problem.botorch_problem, ConstrainedBaseTestProblem
         )
