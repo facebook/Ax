@@ -8,16 +8,11 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeVar, Union
+from typing import Any
 
 from ax.exceptions.core import UnsupportedError
-from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
-from botorch.utils.dispatcher import Dispatcher
-
-T = TypeVar("T")
-MaybeType = Union[T, type[T]]  # Annotation for a type or instance thereof
 
 # Acquisition defaults
 NUM_RESTARTS = 20
@@ -26,14 +21,8 @@ INIT_BATCH_LIMIT = 32
 BATCH_LIMIT = 5
 
 
-optimizer_argparse = Dispatcher(
-    name="optimizer_argparse", encoder=_argparse_type_encoder
-)
-
-
-@optimizer_argparse.register(AcquisitionFunction)
-def _argparse_base(
-    acqf: MaybeType[AcquisitionFunction],
+def optimizer_argparse(
+    acqf: AcquisitionFunction,
     *,
     optimizer: str,
     sequential: bool = True,
@@ -102,6 +91,15 @@ def _argparse_base(
             f"optimizer=`{optimizer}` is not supported. Accepted options are "
             f"{supported_optimizers}"
         )
+    if (optimizer != "optimize_acqf") and isinstance(acqf, qKnowledgeGradient):
+        raise RuntimeError(
+            "Ax is attempting to use a discrete or mixed optimizer, "
+            f"`{optimizer}`, but this is not compatible with "
+            "`qKnowledgeGradient` or its subclasses. To address this, please "
+            "either use a different acquisition class or make parameters "
+            "continuous using the transform "
+            "`ax.modelbridge.registry.Cont_X_trans`."
+        )
     provided_options = optimizer_options if optimizer_options is not None else {}
 
     # Construct arguments from options that are not `provided_options`.
@@ -138,41 +136,3 @@ def _argparse_base(
 
     options.update(**{k: v for k, v in provided_options.items() if k != "options"})
     return options
-
-
-@optimizer_argparse.register(qKnowledgeGradient)
-def _argparse_kg(
-    acqf: qKnowledgeGradient,
-    *,
-    optimizer: str = "optimize_acqf",
-    sequential: bool = True,
-    num_restarts: int = NUM_RESTARTS,
-    raw_samples: int = RAW_SAMPLES,
-    init_batch_limit: int = INIT_BATCH_LIMIT,
-    batch_limit: int = BATCH_LIMIT,
-    optimizer_options: dict[str, Any] | None = None,
-    **ignore: Any,
-) -> dict[str, Any]:
-    """
-    Argument constructor for optimization with qKG, differing from the
-    base case in that it errors if the optimizer is not `optimize_acqf`.
-    """
-    if optimizer != "optimize_acqf":
-        raise RuntimeError(
-            "Ax is attempting to use a discrete or mixed optimizer, "
-            f"`{optimizer}`, but this is not compatible with "
-            "`qKnowledgeGradient` or its subclasses. To address this, please "
-            "either use a different acquisition class or make parameters "
-            "continuous using the transform "
-            "`ax.modelbridge.registry.Cont_X_trans`."
-        )
-    return _argparse_base(
-        acqf=acqf,
-        optimizer="optimize_acqf",
-        sequential=sequential,
-        num_restarts=num_restarts,
-        raw_samples=raw_samples,
-        init_batch_limit=init_batch_limit,
-        batch_limit=batch_limit,
-        optimizer_options=optimizer_options,
-    )
