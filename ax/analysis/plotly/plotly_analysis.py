@@ -53,8 +53,8 @@ class PlotlyAnalysis(Analysis):
         details about the Analysis class.
         """
         return PlotlyAnalysisCard(
-            name=self.__class__.__name__,
-            attributes=self.__dict__,
+            name=self.name,
+            attributes=self.attributes,
             title=title,
             subtitle=subtitle,
             level=level,

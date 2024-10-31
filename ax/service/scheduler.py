@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import traceback
+
 from collections import defaultdict
 from collections.abc import Callable, Generator, Iterable
 from copy import deepcopy
@@ -17,7 +19,9 @@ from time import sleep
 from typing import Any, cast, NamedTuple, Optional
 
 import ax.service.utils.early_stopping as early_stopping_utils
-from ax.analysis.analysis import Analysis, AnalysisCard
+import pandas as pd
+from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardLevel, AnalysisE
+from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
@@ -68,6 +72,7 @@ from ax.utils.common.logger import (
     set_stderr_log_level,
 )
 from ax.utils.common.timeutils import current_timestamp_in_millis
+from ax.utils.common.typeutils import checked_cast
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -663,6 +668,30 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         # TODO Accumulate Es into their own card, perhaps via unwrap_or_else
         cards = [result.unwrap() for result in results if result.is_ok()]
+
+        for result in results:
+            if result.is_err():
+                e = checked_cast(AnalysisE, result.err)
+                traceback_str = "".join(
+                    traceback.format_exception(
+                        type(result.err.exception),
+                        e.exception,
+                        e.exception.__traceback__,
+                    )
+                )
+                cards.append(
+                    MarkdownAnalysisCard(
+                        name=e.analysis.name,
+                        # It would be better if we could reliably compute the title
+                        # without risking another error
+                        title=f"{e.analysis.name} Error",
+                        subtitle=f"An error occurred while computing {e.analysis}",
+                        attributes=e.analysis.attributes,
+                        blob=traceback_str,
+                        df=pd.DataFrame(),
+                        level=AnalysisCardLevel.DEBUG,
+                    )
+                )
 
         self._save_analysis_cards_to_db_if_possible(
             analysis_cards=cards,

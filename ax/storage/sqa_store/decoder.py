@@ -1024,7 +1024,7 @@ class Decoder:
         analysis_card_sqa: SQAAnalysisCard,
     ) -> AnalysisCard:
         """Convert SQLAlchemy Analysis to Ax Analysis Object."""
-        return AnalysisCard(
+        card = AnalysisCard(
             name=analysis_card_sqa.name,
             title=analysis_card_sqa.title,
             subtitle=analysis_card_sqa.subtitle,
@@ -1037,6 +1037,8 @@ class Decoder:
                 else json.loads(analysis_card_sqa.attributes)
             ),
         )
+        card.db_id = analysis_card_sqa.id
+        return card
 
     def _metric_from_sqa_util(self, metric_sqa: SQAMetric) -> Metric:
         """Convert SQLAlchemy Metric to Ax Metric"""
