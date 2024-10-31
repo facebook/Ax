@@ -10,13 +10,10 @@ from __future__ import annotations
 
 from typing import Any, TypeVar, Union
 
-import torch
 from ax.exceptions.core import UnsupportedError
-from ax.utils.common.constants import Keys
 from ax.utils.common.typeutils import _argparse_type_encoder
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
-from botorch.optim.initializers import gen_one_shot_kg_initial_conditions
 from botorch.utils.dispatcher import Dispatcher
 
 T = TypeVar("T")
@@ -146,44 +143,36 @@ def _argparse_base(
 @optimizer_argparse.register(qKnowledgeGradient)
 def _argparse_kg(
     acqf: qKnowledgeGradient,
-    q: int,
-    bounds: torch.Tensor,
+    *,
+    optimizer: str = "optimize_acqf",
+    sequential: bool = True,
     num_restarts: int = NUM_RESTARTS,
     raw_samples: int = RAW_SAMPLES,
-    frac_random: float = 0.1,
+    init_batch_limit: int = INIT_BATCH_LIMIT,
+    batch_limit: int = BATCH_LIMIT,
     optimizer_options: dict[str, Any] | None = None,
-    **kwargs: Any,
+    **ignore: Any,
 ) -> dict[str, Any]:
     """
     Argument constructor for optimization with qKG, differing from the
-    base case in that it computes and returns initial conditions.
-
-    To do so, it requires specifying additional arguments `q` and `bounds` and
-    allows for specifying `frac_random`.
+    base case in that it errors if the optimizer is not `optimize_acqf`.
     """
-    base_options = _argparse_base(
-        acqf,
-        num_restarts=num_restarts,
-        raw_samples=raw_samples,
-        optimizer_options=optimizer_options,
+    if optimizer != "optimize_acqf":
+        raise RuntimeError(
+            "Ax is attempting to use a discrete or mixed optimizer, "
+            f"`{optimizer}`, but this is not compatible with "
+            "`qKnowledgeGradient` or its subclasses. To address this, please "
+            "either use a different acquisition class or make parameters "
+            "continuous using the transform "
+            "`ax.modelbridge.registry.Cont_X_trans`."
+        )
+    return _argparse_base(
+        acqf=acqf,
         optimizer="optimize_acqf",
-        **kwargs,
-    )
-
-    initial_conditions = gen_one_shot_kg_initial_conditions(
-        acq_function=acqf,
-        bounds=bounds,
-        q=q,
+        sequential=sequential,
         num_restarts=num_restarts,
         raw_samples=raw_samples,
-        options={
-            Keys.FRAC_RANDOM: frac_random,
-            Keys.NUM_INNER_RESTARTS: num_restarts,
-            Keys.RAW_INNER_SAMPLES: raw_samples,
-        },
+        init_batch_limit=init_batch_limit,
+        batch_limit=batch_limit,
+        optimizer_options=optimizer_options,
     )
-
-    return {
-        **base_options,
-        Keys.BATCH_INIT_CONDITIONS: initial_conditions,
-    }
