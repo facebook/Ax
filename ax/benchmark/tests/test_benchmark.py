@@ -42,6 +42,7 @@ from ax.utils.testing.benchmark_stubs import (
 )
 from ax.utils.testing.core_stubs import get_experiment
 from ax.utils.testing.mock import mock_botorch_optimize
+from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
@@ -322,6 +323,17 @@ class TestBenchmark(TestCase):
                 ),
                 mnist_problem,
                 "MBM::SingleTaskGP_qLogNEI",
+            ),
+            (
+                get_sobol_botorch_modular_acquisition(
+                    model_cls=SingleTaskGP,
+                    acquisition_cls=qKnowledgeGradient,
+                    distribute_replications=False,
+                ),
+                get_single_objective_benchmark_problem(
+                    observe_noise_sd=False, num_trials=6
+                ),
+                "MBM::SingleTaskGP_qKnowledgeGradient",
             ),
         ]:
             with self.subTest(method=method, problem=problem):
