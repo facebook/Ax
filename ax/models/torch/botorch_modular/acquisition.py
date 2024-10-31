@@ -338,8 +338,6 @@ class Acquisition(Base):
         # Prepare arguments for optimizer
         optimizer_options_with_defaults = optimizer_argparse(
             self.acqf,
-            bounds=bounds,
-            q=n,
             optimizer_options=optimizer_options,
             optimizer=optimizer,
         )

@@ -132,19 +132,6 @@ class OptimizerArgparseTest(TestCase):
                     optimizer=optimizer,
                 )
 
-        # `sequential=False` with optimizers other than `optimize_acqf`.
-        for optimizer in [
-            "optimize_acqf_homotopy",
-            "optimize_acqf_mixed",
-            "optimize_acqf_mixed_alternating",
-            "optimize_acqf_discrete",
-            "optimize_acqf_discrete_local_search",
-        ]:
-            with self.assertRaisesRegex(
-                UnsupportedError, "does not support `sequential=False`"
-            ):
-                optimizer_argparse(self.acqf, sequential=False, optimizer=optimizer)
-
     def test_kg(self) -> None:
         user_options = {"foo": "bar", "num_restarts": 114}
         generic_options = optimizer_argparse(
@@ -158,11 +145,7 @@ class OptimizerArgparseTest(TestCase):
         ):
             with self.subTest(acqf=acqf):
                 options = optimizer_argparse(
-                    acqf,
-                    q=None,
-                    bounds=None,
-                    optimizer_options=user_options,
-                    optimizer="optimize_acqf",
+                    acqf, optimizer_options=user_options, optimizer="optimize_acqf"
                 )
                 self.assertEqual(options, generic_options)
 

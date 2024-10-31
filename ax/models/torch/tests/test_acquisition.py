@@ -315,8 +315,6 @@ class AcquisitionTest(TestCase):
             )
         mock_optimizer_argparse.assert_called_once_with(
             acquisition.acqf,
-            bounds=mock.ANY,
-            q=n,
             optimizer_options=self.optimizer_options,
             optimizer="optimize_acqf",
         )
@@ -410,8 +408,6 @@ class AcquisitionTest(TestCase):
             )
         mock_optimizer_argparse.assert_called_once_with(
             acquisition.acqf,
-            bounds=mock.ANY,
-            q=n,
             optimizer_options=None,
             optimizer="optimize_acqf_discrete",
         )
@@ -459,8 +455,6 @@ class AcquisitionTest(TestCase):
             )
         mock_optimizer_argparse.assert_called_once_with(
             acquisition.acqf,
-            bounds=mock.ANY,
-            q=3,
             optimizer_options=None,
             optimizer="optimize_acqf_discrete",
         )
@@ -551,8 +545,6 @@ class AcquisitionTest(TestCase):
             )
         mock_optimizer_argparse.assert_called_once_with(
             acquisition.acqf,
-            bounds=mock.ANY,
-            q=3,
             optimizer_options=self.optimizer_options,
             optimizer="optimize_acqf_discrete_local_search",
         )
