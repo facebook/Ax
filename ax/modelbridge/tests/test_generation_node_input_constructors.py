@@ -77,15 +77,20 @@ class TestGenerationNodeInputConstructors(TestCase):
         # InputConstructorPurpose.N matches NodeInputConstructors.*_N. We may need
         # to switch to constructing this mapping manually in the future.
         self.purposes_to_input_constructors = {
-            p: [ip for ip in NodeInputConstructors if ip.name.endswith(f"_{p.name}")]
+            p: [ip for ip in NodeInputConstructors if ip.name.endswith(f"{p.name}")]
             for p in InputConstructorPurpose
         }
+
         self.all_purposes_expected_signatures = {
             InputConstructorPurpose.N: inspect.Signature(
                 parameters=EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS,
                 return_annotation=int,
             ),
             InputConstructorPurpose.FIXED_FEATURES: inspect.Signature(
+                parameters=EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS,
+                return_annotation=ObservationFeatures | None,
+            ),
+            InputConstructorPurpose.STATUS_QUO_FEATURES: inspect.Signature(
                 parameters=EXPECTED_INPUT_CONSTRUCTOR_PARAMETER_ANNOTATIONS,
                 return_annotation=ObservationFeatures | None,
             ),
@@ -108,6 +113,7 @@ class TestGenerationNodeInputConstructors(TestCase):
                     untested_constructors.remove(constructor)
 
         # There should be no untested constructors left.
+        print(untested_constructors)
         self.assertEqual(len(untested_constructors), 0)
 
     def test_consume_all_n_constructor(self) -> None:
@@ -299,6 +305,50 @@ class TestGenerationNodeInputConstructors(TestCase):
                 parameters={},
                 trial_index=0,
             ),
+        )
+
+    def test_status_quo_features_no_sq(self) -> None:
+        self._add_sobol_trial(
+            experiment=self.experiment,
+            trial_type=Keys.SHORT_RUN,
+            complete=False,
+            num_arms=1,
+        )
+        with self.assertRaisesRegex(
+            AxGenerationException,
+            "experiment has no status quo",
+        ):
+            NodeInputConstructors.STATUS_QUO_FEATURES(
+                previous_node=None,
+                next_node=self.sobol_generation_node,
+                gs_gen_call_kwargs={},
+                experiment=self.experiment,
+            )
+
+    def test_status_quo_features(self) -> None:
+        self._add_sobol_trial(
+            experiment=self.experiment,
+            trial_type=Keys.LONG_RUN,
+            complete=False,
+            num_arms=1,
+            with_status_quo=True,
+        )
+        self._add_sobol_trial(
+            experiment=self.experiment,
+            trial_type=Keys.LONG_RUN,
+            complete=False,
+            num_arms=3,
+            with_status_quo=True,
+        )
+        sq_ft = NodeInputConstructors.STATUS_QUO_FEATURES(
+            previous_node=None,
+            next_node=self.sobol_generation_node,
+            gs_gen_call_kwargs={},
+            experiment=self.experiment,
+        )
+        self.assertEqual(
+            sq_ft,
+            ObservationFeatures(parameters={"x1": 0, "x2": 0}, trial_index=1),
         )
 
     def test_set_target_trial_most_arms_long_run_wins(self) -> None:
@@ -544,6 +594,7 @@ class TestGenerationNodeInputConstructors(TestCase):
         trial_type: str | None = None,
         complete: bool = True,
         num_arms: int = 1,
+        with_status_quo: bool = False,
     ) -> BatchTrial:
         """Helper function to add a trial to an experiment, takes a trial type and
         whether or not the trial is complete, and number of arms"""
@@ -554,7 +605,14 @@ class TestGenerationNodeInputConstructors(TestCase):
             optimize_for_power=False,
             trial_type=trial_type,
             generator_runs=grs,
-        ).run()
+        )
+        if with_status_quo:
+            experiment.status_quo = Arm(parameters={"x1": 0, "x2": 0})
+            trial.set_status_quo_with_weight(
+                status_quo=self.experiment.status_quo,
+                weight=1.0,
+            )
+        trial.run()
         if complete:
             trial.mark_completed()
         return trial

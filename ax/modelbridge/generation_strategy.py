@@ -466,6 +466,9 @@ class GenerationStrategy(GenerationStrategyInterface):
                 gen_kwargs=gen_kwargs,
                 passed_fixed_features=fixed_features,
             )
+            sq_ft_from_node = self._determine_sq_features_from_node(
+                node_to_gen_from=node_to_gen_from, gen_kwargs=gen_kwargs
+            )
             # TODO: @mgarrard clean this up after gens merge. This is currently needed
             # because the actual transition occurs in gs.gen(), but if a node is
             # skipped, we need to transition here to actually initiate that transition
@@ -481,6 +484,7 @@ class GenerationStrategy(GenerationStrategyInterface):
                         n=arms_from_node,
                         pending_observations=pending_observations,
                         fixed_features=fixed_features_from_node,
+                        status_quo_features=sq_ft_from_node,
                     )
                 )
                 # ensure that the points generated from each node are marked as pending
@@ -833,6 +837,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         data: Data | None = None,
         n: int = 1,
         pending_observations: dict[str, list[ObservationFeatures]] | None = None,
+        status_quo_features: ObservationFeatures | None = None,
         **model_gen_kwargs: Any,
     ) -> list[GeneratorRun]:
         """Produce multiple generator runs at once, to be made into multiple
@@ -866,11 +871,13 @@ class GenerationStrategy(GenerationStrategyInterface):
             model_gen_kwargs: Keyword arguments that are passed through to
                 ``GenerationNode.gen``, which will pass them through to
                 ``ModelSpec.gen``, which will pass them to ``ModelBridge.gen``.
+            status_quo_features: An ``ObservationFeature`` of the status quo arm,
+                needed by some models during fit to accomadate relative constraints.
+                Includes the status quo parameterization and target trial index.
         """
         self.experiment = experiment
         self._maybe_transition_to_next_node()
-        self._fit_current_model(data=data)
-
+        self._fit_current_model(data=data, status_quo_features=status_quo_features)
         # Get GeneratorRun limit that respects the node's transition criterion that
         # affect the number of generator runs that can be produced.
         gr_limit = self._curr.generator_run_limit(raise_generation_errors=True)
@@ -978,6 +985,28 @@ class GenerationStrategy(GenerationStrategyInterface):
             )
         return node_fixed_features
 
+    def _determine_sq_features_from_node(
+        self,
+        node_to_gen_from: GenerationNode,
+        gen_kwargs: dict[str, Any],
+    ) -> ObservationFeatures | None:
+        """todo"""
+        # TODO: @mgarrard to merge the input constructor logic into a single method
+        node_sq_features = None
+        if (
+            InputConstructorPurpose.STATUS_QUO_FEATURES
+            in node_to_gen_from.input_constructors
+        ):
+            node_sq_features = node_to_gen_from.input_constructors[
+                InputConstructorPurpose.STATUS_QUO_FEATURES
+            ](
+                previous_node=node_to_gen_from.previous_node,
+                next_node=node_to_gen_from,
+                gs_gen_call_kwargs=gen_kwargs,
+                experiment=self.experiment,
+            )
+        return node_sq_features
+
     def _determine_arms_from_node(
         self,
         node_to_gen_from: GenerationNode,
@@ -1029,16 +1058,36 @@ class GenerationStrategy(GenerationStrategyInterface):
 
     # ------------------------- Model selection logic helpers. -------------------------
 
-    def _fit_current_model(self, data: Data | None) -> None:
+    def _fit_current_model(
+        self,
+        data: Data | None,
+        status_quo_features: ObservationFeatures | None = None,
+    ) -> None:
         """Fits or update the model on the current generation node (does not move
         between generation nodes).
 
         Args:
             data: Optional ``Data`` to fit or update with; if not specified, generation
                 strategy will obtain the data via ``experiment.lookup_data``.
+            status_quo_features: An ``ObservationFeature`` of the status quo arm,
+                needed by some models during fit to accomadate relative constraints.
+                Includes the status quo parameterization and target trial index.
         """
         data = self.experiment.lookup_data() if data is None else data
-        self._curr.fit(experiment=self.experiment, data=data)
+
+        # Only pass status_quo_features if not None to avoid errors
+        # with ``ExternalGenerationNode``.
+        if status_quo_features is not None:
+            self._curr.fit(
+                experiment=self.experiment,
+                data=data,
+                status_quo_features=status_quo_features,
+            )
+        else:
+            self._curr.fit(
+                experiment=self.experiment,
+                data=data,
+            )
         self._model = self._curr._fitted_model
 
     def _maybe_transition_to_next_node(
