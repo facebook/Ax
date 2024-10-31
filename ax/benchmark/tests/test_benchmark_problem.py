@@ -14,8 +14,8 @@ import torch
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
-from ax.benchmark.runners.base import BenchmarkRunner
-from ax.benchmark.runners.botorch_test import BoTorchTestProblem
+from ax.benchmark.benchmark_runner import BenchmarkRunner
+from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -53,7 +53,7 @@ class TestBenchmarkProblem(TestCase):
         ]
         optimization_config = OptimizationConfig(objective=objectives[0])
         runner = BenchmarkRunner(
-            test_problem=BoTorchTestProblem(botorch_problem=Branin()),
+            test_problem=BoTorchTestFunction(botorch_problem=Branin()),
             outcome_names=["foo"],
         )
         with self.assertRaisesRegex(NotImplementedError, "Only `n_best_points=1`"):
@@ -214,7 +214,7 @@ class TestBenchmarkProblem(TestCase):
             noise_std=noise_std,
         )
         runner = ax_problem.runner
-        test_problem = assert_is_instance(runner.test_problem, BoTorchTestProblem)
+        test_problem = assert_is_instance(runner.test_problem, BoTorchTestFunction)
         botorch_problem = assert_is_instance(
             test_problem.botorch_problem, ConstrainedBaseTestProblem
         )

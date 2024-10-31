@@ -9,13 +9,13 @@ from unittest.mock import MagicMock, patch
 
 import torch
 from ax.benchmark.benchmark_problem import BenchmarkProblem
+from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
 
 from ax.benchmark.problems.synthetic.discretized.mixed_integer import (
     get_discrete_ackley,
     get_discrete_hartmann,
     get_discrete_rosenbrock,
 )
-from ax.benchmark.runners.botorch_test import BoTorchTestProblem
 from ax.core.arm import Arm
 from ax.core.parameter import ParameterType
 from ax.core.trial import Trial
@@ -35,7 +35,7 @@ class MixedIntegerProblemsTest(TestCase):
             problem = constructor()
             self.assertEqual(f"Discrete {name}", problem.name)
             runner = problem.runner
-            test_problem = assert_is_instance(runner.test_problem, BoTorchTestProblem)
+            test_problem = assert_is_instance(runner.test_problem, BoTorchTestFunction)
             botorch_problem = test_problem.botorch_problem
             self.assertIsInstance(botorch_problem, problem_cls)
             self.assertEqual(len(problem.search_space.parameters), dim)
@@ -97,7 +97,7 @@ class MixedIntegerProblemsTest(TestCase):
 
         for problem, params, expected_arg in cases:
             runner = problem.runner
-            test_problem = assert_is_instance(runner.test_problem, BoTorchTestProblem)
+            test_problem = assert_is_instance(runner.test_problem, BoTorchTestFunction)
             trial = Trial(experiment=MagicMock())
             # pyre-fixme: Incompatible parameter type [6]: In call
             # `Arm.__init__`, for argument `parameters`, expected `Dict[str,

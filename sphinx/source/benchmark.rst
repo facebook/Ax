@@ -34,7 +34,6 @@ Benchmark Problem
     :undoc-members:
     :show-inheritance:
 
-
 Benchmark Result
 ~~~~~~~~~~~~~~~~
 
@@ -47,6 +46,22 @@ Benchmark
 ~~~~~~~~~
 
 .. automodule:: ax.benchmark.benchmark
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Benchmark Runner
+~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.benchmark_runner
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Benchmark Test Function
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.benchmark_test_function
     :members:
     :undoc-members:
     :show-inheritance:
@@ -83,14 +98,6 @@ Benchmark Problems High Dimensional Embedding
     :undoc-members:
     :show-inheritance:
 
-Benchmark Problems Surrogate
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.benchmark.problems.surrogate
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Benchmark Problems Mixed Integer Synthetic
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -123,26 +130,19 @@ Benchmark Problems PyTorchCNN TorchVision
     :undoc-members:
     :show-inheritance:
 
-Benchmark Runners Base
-~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ax.benchmark.runners.base
+Benchmark Test Functions: BoTorch Test
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.benchmark_test_functions.botorch_test
     :members:
     :undoc-members:
     :show-inheritance:
 
-Benchmark Runners BoTorch Test
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Benchmark Test Functions: Surrogate
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: ax.benchmark.runners.botorch_test
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Benchmark Runners Surrogate
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.benchmark.runners.surrogate
+.. automodule:: ax.benchmark.benchmark_test_functions.surrogate
     :members:
     :undoc-members:
     :show-inheritance:
