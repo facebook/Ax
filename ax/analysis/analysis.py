@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+import json
 from collections.abc import Iterable
 from enum import IntEnum
 from logging import Logger
@@ -146,9 +147,10 @@ class Analysis(Protocol):
             logger.error(f"Failed to compute {self.__class__.__name__}: {e}")
 
             return Err(
-                value=ExceptionE(
+                value=AnalysisE(
                     message=f"Failed to compute {self.__class__.__name__}",
                     exception=e,
+                    analysis=self,
                 )
             )
 
@@ -164,11 +166,44 @@ class Analysis(Protocol):
         details about the Analysis class.
         """
         return AnalysisCard(
-            name=self.__class__.__name__,
-            attributes=self.__dict__,
+            name=self.name,
+            attributes=self.attributes,
             title=title,
             subtitle=subtitle,
             level=level,
             df=df,
             blob=df.to_json(),
         )
+
+    @property
+    def name(self) -> str:
+        """The name the AnalysisCard will be given in compute."""
+        return self.__class__.__name__
+
+    @property
+    def attributes(self) -> dict[str, Any]:
+        """The attributes the AnalysisCard will be given in compute."""
+        return self.__dict__
+
+    def __repr__(self) -> str:
+        try:
+            return (
+                f"{self.__class__.__name__}(name={self.name}, "
+                f"attributes={json.dumps(self.attributes)})"
+            )
+        # in case there is logic in name or attributes that throws a json error
+        except Exception:
+            return self.__class__.__name__
+
+
+class AnalysisE(ExceptionE):
+    analysis: Analysis
+
+    def __init__(
+        self,
+        message: str,
+        exception: Exception,
+        analysis: Analysis,
+    ) -> None:
+        super().__init__(message, exception)
+        self.analysis = analysis
