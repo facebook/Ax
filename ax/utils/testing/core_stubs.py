@@ -616,6 +616,7 @@ def get_branin_experiment_with_multi_objective(
     with_trial: bool = False,
     with_completed_trial: bool = False,
     with_relative_constraint: bool = False,
+    with_absolute_constraint: bool = False,
 ) -> Experiment:
     exp = Experiment(
         name="branin_test_experiment",
@@ -627,6 +628,7 @@ def get_branin_experiment_with_multi_objective(
                 has_objective_thresholds=has_objective_thresholds,
                 num_objectives=num_objectives,
                 with_relative_constraint=with_relative_constraint,
+                with_absolute_constraint=with_absolute_constraint,
             )
             if has_optimization_config
             else None
@@ -1711,6 +1713,7 @@ def get_branin_multi_objective_optimization_config(
     has_objective_thresholds: bool = False,
     num_objectives: int = 2,
     with_relative_constraint: bool = False,
+    with_absolute_constraint: bool = False,
 ) -> MultiObjectiveOptimizationConfig:
     _validate_num_objectives(num_objectives=num_objectives)
     # minimum Branin value is 0.397887
@@ -1740,14 +1743,24 @@ def get_branin_multi_objective_optimization_config(
             )
     else:
         objective_thresholds = None
+    outcome_constraints = []
+    if with_relative_constraint:
+        outcome_constraints.append(
+            get_outcome_constraint(
+                metric=get_branin_metric(name="branin_d"), relative=True
+            )
+        )
+
+    if with_absolute_constraint:
+        outcome_constraints.append(
+            get_outcome_constraint(
+                metric=get_branin_metric(name="branin_e"), relative=False
+            )
+        )
     return MultiObjectiveOptimizationConfig(
         objective=get_branin_multi_objective(num_objectives=num_objectives),
         objective_thresholds=objective_thresholds,
-        outcome_constraints=[
-            get_outcome_constraint(get_branin_metric(name="branin_d"), relative=True)
-        ]
-        if with_relative_constraint
-        else None,
+        outcome_constraints=outcome_constraints,
     )
 
 
