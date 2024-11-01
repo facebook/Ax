@@ -11,7 +11,7 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum, unique
 from logging import Logger
-from typing import Any
+from typing import Any, Callable, TypeVar
 from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 
@@ -32,7 +32,7 @@ from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.runner import Runner
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import ObjectNotFoundError
-from ax.exceptions.storage import SQADecodeError, SQAEncodeError
+from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeError
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.registry import Models
@@ -133,6 +133,7 @@ from pyre_extensions import none_throws
 logger: Logger = get_logger(__name__)
 
 GET_GS_SQA_IMM_FUNC = _get_generation_strategy_sqa_immutable_opt_config_and_search_space
+T = TypeVar("T")
 
 
 @unique
@@ -563,6 +564,35 @@ class SQAStoreTest(TestCase):
             skip_runners_and_metrics=True,
         )
         self.assertEqual(loaded_experiment.trials[1], exp.trials[1])
+
+    def test_load_gr_with_non_decodable_metadata_and_reduced_state(self) -> None:
+        def spy(original_method: Callable[..., T]) -> Callable[..., T]:
+            def wrapper(*args: Any, **kwargs: Any) -> T:
+                # Check if a specific argument is set to a certain value
+                if "reduced_state" in kwargs and not kwargs["reduced_state"]:
+                    raise JSONDecodeError("Can't decode gen_metadata")
+                return original_method(*args, **kwargs)
+
+            return wrapper
+
+        gs = get_generation_strategy(
+            with_experiment=True, with_callable_model_kwarg=False
+        )
+        gs.gen(gs.experiment)
+        gs.gen(gs.experiment)
+
+        save_experiment(gs.experiment)
+        save_generation_strategy(gs)
+
+        with self.assertLogs("ax", level=logging.ERROR):
+            with patch.object(
+                Decoder, "generator_run_from_sqa", spy(Decoder.generator_run_from_sqa)
+            ):
+                load_generation_strategy_by_id(
+                    gs_id=none_throws(gs.db_id),
+                    experiment=gs.experiment,
+                    reduced_state=True,
+                )
 
     def test_MTExperimentSaveAndLoad(self) -> None:
         experiment = get_multi_type_experiment(add_trials=True)

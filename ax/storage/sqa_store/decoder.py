@@ -46,7 +46,7 @@ from ax.core.risk_measures import RiskMeasure
 from ax.core.runner import Runner
 from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
 from ax.core.trial import Trial
-from ax.exceptions.storage import SQADecodeError
+from ax.exceptions.storage import JSONDecodeError, SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.json_store.decoder import object_from_json
 from ax.storage.sqa_store.db import session_scope
@@ -814,33 +814,46 @@ class Decoder:
             if experiment is not None
             else False
         )
-        if reduced_state and gs_sqa.generator_runs:
-            # Only fully load the last of the generator runs, load the rest with
-            # reduced state.
-            gs._generator_runs = [
-                self.generator_run_from_sqa(
-                    generator_run_sqa=gr,
-                    reduced_state=True,
-                    immutable_search_space_and_opt_config=immutable_ss_and_oc,
-                )
-                for gr in gs_sqa.generator_runs[:-1]
-            ]
-            gs._generator_runs.append(
-                self.generator_run_from_sqa(
-                    generator_run_sqa=gs_sqa.generator_runs[-1],
-                    reduced_state=False,
-                    immutable_search_space_and_opt_config=immutable_ss_and_oc,
-                )
+
+        gs._generator_runs = [
+            self.generator_run_from_sqa(
+                generator_run_sqa=gr,
+                reduced_state=reduced_state,
+                immutable_search_space_and_opt_config=immutable_ss_and_oc,
             )
-        else:
-            gs._generator_runs = [
-                self.generator_run_from_sqa(
-                    generator_run_sqa=gr,
-                    reduced_state=False,
-                    immutable_search_space_and_opt_config=immutable_ss_and_oc,
+            for gr in gs_sqa.generator_runs[:-1]
+        ]
+        # This check is necessary to prevent an index error
+        # on `gs_sqa.generator_runs[-1]`
+        if gs_sqa.generator_runs:
+            # Only fully load the last of the generator runs, load the rest with
+            # reduced state.  This is necessary for stateful models.  The only
+            # stateful models available in open source ax is currently SOBOL.
+            try:
+                gs._generator_runs.append(
+                    self.generator_run_from_sqa(
+                        generator_run_sqa=gs_sqa.generator_runs[-1],
+                        reduced_state=False,
+                        immutable_search_space_and_opt_config=immutable_ss_and_oc,
+                    )
                 )
-                for gr in gs_sqa.generator_runs
-            ]
+            except JSONDecodeError:
+                if not reduced_state:
+                    raise
+
+                logger.exception(
+                    "Failed to decode the last generator run because of the following "
+                    "error.  Loading with reduced state:"
+                )
+                # If the last generator run is not fully loadable, load it with
+                # reduced state.
+                gs._generator_runs.append(
+                    self.generator_run_from_sqa(
+                        generator_run_sqa=gs_sqa.generator_runs[-1],
+                        reduced_state=True,
+                        immutable_search_space_and_opt_config=immutable_ss_and_oc,
+                    )
+                )
         gs._experiment = experiment
 
         if len(gs._generator_runs) > 0:
