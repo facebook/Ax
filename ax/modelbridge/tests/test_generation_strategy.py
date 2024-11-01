@@ -77,6 +77,9 @@ class TestGenerationStrategyWithoutModelBridgeMocks(TestCase):
     test class that makes use of mocking rather sparingly.
     """
 
+    def _setUp(self) -> None:
+        super().setUp()
+
     @mock_botorch_optimize
     @patch(
         "ax.modelbridge.generation_node._extract_model_state_after_gen",
