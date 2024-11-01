@@ -172,7 +172,7 @@ class TestInsampleEffectsPlot(TestCase):
         self.assertEqual(card.name, "ModeledEffectsPlot")
         self.assertEqual(card.title, "Modeled Effects for branin on trial 0")
         self.assertEqual(
-            card.subtitle, "View a trial and its arms' predicted metric values"
+            card.subtitle, "View a trial and its arms' modeled metric values"
         )
         # +2 because it's on objective, +1 because it's modeled
         self.assertEqual(card.level, AnalysisCardLevel.MID + 3)
@@ -218,7 +218,7 @@ class TestInsampleEffectsPlot(TestCase):
         self.assertEqual(card.name, "ModeledEffectsPlot")
         self.assertEqual(card.title, "Modeled Effects for branin on trial 0")
         self.assertEqual(
-            card.subtitle, "View a trial and its arms' predicted metric values"
+            card.subtitle, "View a trial and its arms' modeled metric values"
         )
         # +2 because it's on objective, +1 because it's modeled
         self.assertEqual(card.level, AnalysisCardLevel.MID + 3)

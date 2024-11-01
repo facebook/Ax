@@ -129,15 +129,14 @@ class InSampleEffectsPlot(PlotlyAnalysis):
         max_trial_index = max(experiment.trial_indices_expecting_data, default=0)
         nudge -= min(max_trial_index - self.trial_index, 9)
 
-        plot_type = "Modeled" if self.use_modeled_effects else "Observed"
         subtitle = (
             "View a trial and its arms' "
-            f"{'predicted' if self.use_modeled_effects else 'observed'} "
+            f"{self._plot_type_string.lower()} "
             "metric values"
         )
         card = self._create_plotly_analysis_card(
             title=(
-                f"{plot_type} Effects for {self.metric_name} "
+                f"{self._plot_type_string} Effects for {self.metric_name} "
                 f"on trial {self.trial_index}"
             ),
             subtitle=subtitle,
@@ -145,8 +144,15 @@ class InSampleEffectsPlot(PlotlyAnalysis):
             df=df,
             fig=fig,
         )
-        card.name = f"{plot_type}EffectsPlot"
         return card
+
+    @property
+    def name(self) -> str:
+        return f"{self._plot_type_string}EffectsPlot"
+
+    @property
+    def _plot_type_string(self) -> str:
+        return "Modeled" if self.use_modeled_effects else "Observed"
 
 
 def _get_max_observed_trial_index(model: ModelBridge) -> int | None:
