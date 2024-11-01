@@ -47,6 +47,14 @@ Can Generate Candidates Healthcheck Analysis
     :undoc-members:
     :show-inheritance:
 
+Should Generate Candidates Healthcheck Analysis
+~~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.healthcheck.should_generate_candidates
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Healthcheck Analysis
 ~~~~~~~~~~~~~~~~~~~~
 

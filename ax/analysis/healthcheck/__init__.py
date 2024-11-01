@@ -13,10 +13,12 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
+from ax.analysis.healthcheck.should_generate_candidates import ShouldGenerateCandidates
 
 __all__ = [
     "CanGenerateCandidatesAnalysis",
     "HealthcheckAnalysis",
     "HealthcheckAnalysisCard",
     "HealthcheckStatus",
+    "ShouldGenerateCandidates",
 ]
