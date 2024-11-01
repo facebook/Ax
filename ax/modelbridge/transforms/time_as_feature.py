@@ -22,7 +22,8 @@ from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.timeutils import unixtime_to_pandas_ts
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -68,7 +69,7 @@ class TimeAsFeature(Transform):
                     "Unable to use TimeAsFeature since not all observations have "
                     "start time specified."
                 )
-            start_time = not_none(obsf.start_time).timestamp()
+            start_time = none_throws(obsf.start_time).timestamp()
             self.min_start_time = min(self.min_start_time, start_time)
             self.max_start_time = max(self.max_start_time, start_time)
             duration = self._get_duration(start_time=start_time, end_time=obsf.end_time)

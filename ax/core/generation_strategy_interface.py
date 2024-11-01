@@ -17,7 +17,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.exceptions.core import AxError, UnsupportedError
 from ax.utils.common.base import Base
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 
 class GenerationStrategyInterface(ABC, Base):
@@ -148,7 +148,7 @@ class GenerationStrategyInterface(ABC, Base):
         """Experiment, currently set on this generation strategy."""
         if self._experiment is None:
             raise AxError("No experiment set on generation strategy.")
-        return not_none(self._experiment)
+        return none_throws(self._experiment)
 
     @experiment.setter
     def experiment(self, experiment: Experiment) -> None:

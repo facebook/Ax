@@ -38,7 +38,7 @@ from ax.utils.common.kwargs import (
     get_function_argument_names,
 )
 from ax.utils.common.serialization import SerializationMixin
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 
 TModelFactory = Callable[..., ModelBridge]
@@ -91,7 +91,7 @@ class ModelSpec(SortableBase, SerializationMixin):
     def fitted_model(self) -> ModelBridge:
         """Returns the fitted Ax model, asserting fit() was called"""
         self._assert_fitted()
-        return not_none(self._fitted_model)
+        return none_throws(self._fitted_model)
 
     @property
     def fixed_features(self) -> ObservationFeatures | None:
@@ -351,7 +351,7 @@ class FactoryFunctionModelSpec(ModelSpec):
             try:
                 # `model` is defined via a factory function.
                 # pyre-ignore[16]: Anonymous callable has no attribute `__name__`.
-                self.model_key_override = not_none(self.factory_function).__name__
+                self.model_key_override = none_throws(self.factory_function).__name__
             except Exception:
                 raise TypeError(
                     f"{self.factory_function} is not a valid function, cannot extract "
@@ -377,7 +377,7 @@ class FactoryFunctionModelSpec(ModelSpec):
         model kwargs set on the model spec, alongside any passed down as
         kwargs to this function (local kwargs take precedent)
         """
-        factory_function = not_none(self.factory_function)
+        factory_function = none_throws(self.factory_function)
         all_kwargs = deepcopy(self.model_kwargs)
         all_kwargs.update(model_kwargs)
         self._fitted_model = factory_function(

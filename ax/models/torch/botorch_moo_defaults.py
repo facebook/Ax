@@ -40,7 +40,7 @@ from ax.models.torch.utils import (
     subset_model,
 )
 from ax.models.torch_base import TorchModel
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition import get_acquisition_function
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.multi_objective.logei import (
@@ -60,6 +60,7 @@ from botorch.posteriors.posterior import Posterior
 from botorch.posteriors.posterior_list import PosteriorList
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
 from botorch.utils.multi_objective.pareto import is_non_dominated
+from pyre_extensions import none_throws
 from torch import Tensor
 
 DEFAULT_EHVI_MC_SAMPLES = 128
@@ -587,7 +588,7 @@ def pareto_frontier_evaluator(
     # TODO: better input validation, making more explicit whether we are using
     # model predictions or not
     if X is not None:
-        Y, Yvar = not_none(model).predict(X)
+        Y, Yvar = none_throws(model).predict(X)
         # model.predict returns cpu tensors
         Y = Y.to(X.device)
         Yvar = Yvar.to(X.device)
@@ -749,7 +750,7 @@ def infer_objective_thresholds(
             )
     with torch.no_grad():
         pred = _check_posterior_type(
-            not_none(model).posterior(not_none(X_observed))
+            none_throws(model).posterior(none_throws(X_observed))
         ).mean
 
     if outcome_constraints is not None:

@@ -8,7 +8,7 @@
 
 from ax.core.experiment import Experiment
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 
 def should_stop_trials_early(
@@ -31,7 +31,7 @@ def should_stop_trials_early(
     if early_stopping_strategy is None:
         return {}
 
-    early_stopping_strategy = not_none(early_stopping_strategy)
+    early_stopping_strategy = none_throws(early_stopping_strategy)
     return early_stopping_strategy.should_stop_trials_early(
         trial_indices=trial_indices, experiment=experiment
     )

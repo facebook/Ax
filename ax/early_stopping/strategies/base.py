@@ -33,7 +33,8 @@ from ax.modelbridge.transforms.map_unit_x import MapUnitX
 from ax.models.torch_base import TorchModel
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -290,7 +291,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             self._log_and_return_completed_trials(
                 logger=logger,
                 num_completed=num_completed,
-                min_curves=not_none(self.min_curves),
+                min_curves=none_throws(self.min_curves),
             )
             return False
 
@@ -388,7 +389,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         self, experiment: Experiment
     ) -> tuple[str, bool]:
         if self.metric_names is None:
-            optimization_config = not_none(experiment.optimization_config)
+            optimization_config = none_throws(experiment.optimization_config)
             objective = optimization_config.objective
 
             # if multi-objective optimization, infer as first objective

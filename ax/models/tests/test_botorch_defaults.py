@@ -21,7 +21,7 @@ from ax.models.torch.botorch_defaults import (
     NO_OBSERVED_POINTS_MESSAGE,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.logei import (
     qLogExpectedImprovement,
@@ -50,6 +50,7 @@ from gpytorch.module import Module
 from gpytorch.priors import GammaPrior
 from gpytorch.priors.lkj_prior import LKJCovariancePrior
 from gpytorch.priors.prior import Prior
+from pyre_extensions import none_throws
 
 
 class BotorchDefaultsTest(TestCase):
@@ -367,7 +368,7 @@ class BotorchDefaultsTest(TestCase):
             torch.tensor([[1.0], [-1.0], [0.0]]),  # k x 1
         )
         X_observed = torch.zeros(2, d)
-        expected_constraints = not_none(
+        expected_constraints = none_throws(
             get_outcome_constraint_transforms(outcome_constraints)
         )
         samples = torch.zeros(n, m)  # to test constraints

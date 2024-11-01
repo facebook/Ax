@@ -31,10 +31,10 @@ from ax.modelbridge.modelbridge_utils import (
 )
 from ax.modelbridge.registry import Cont_X_trans, Y_trans
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import get_robust_search_space, get_search_space
 from botorch.acquisition.risk_measures import VaR
 from botorch.utils.datasets import ContextualDataset, SupervisedDataset
+from pyre_extensions import none_throws
 
 
 class TestModelBridgeUtils(TestCase):
@@ -108,11 +108,13 @@ class TestModelBridgeUtils(TestCase):
                 for p in rss.parameter_distributions:
                     p.multiplicative = True
                 rss.multiplicative = True
-            robust_digest = not_none(extract_robust_digest(rss, list(rss.parameters)))
+            robust_digest = none_throws(
+                extract_robust_digest(rss, list(rss.parameters))
+            )
             self.assertEqual(robust_digest.multiplicative, multiplicative)
             self.assertEqual(robust_digest.environmental_variables, [])
             self.assertIsNone(robust_digest.sample_environmental)
-            samples = not_none(robust_digest.sample_param_perturbations)()
+            samples = none_throws(robust_digest.sample_param_perturbations)()
             self.assertEqual(samples.shape, (8, 4))
             constructor = np.ones if multiplicative else np.zeros
             self.assertTrue(np.equal(samples[:, 2:], constructor((8, 2))).all())
@@ -120,10 +122,10 @@ class TestModelBridgeUtils(TestCase):
             self.assertTrue(np.all(samples[:, 1] > 0))
             # Check that it works as expected if param_names is missing some
             # non-distributional parameters.
-            robust_digest = not_none(
+            robust_digest = none_throws(
                 extract_robust_digest(rss, list(rss.parameters)[:-1])
             )
-            samples = not_none(robust_digest.sample_param_perturbations)()
+            samples = none_throws(robust_digest.sample_param_perturbations)()
             self.assertEqual(samples.shape, (8, 3))
             self.assertTrue(np.equal(samples[:, 2:], constructor((8, 1))).all())
             self.assertTrue(np.all(samples[:, 1] > 0))
@@ -138,11 +140,11 @@ class TestModelBridgeUtils(TestCase):
             num_samples=8,
             environmental_variables=all_params[:2],
         )
-        robust_digest = not_none(extract_robust_digest(rss, list(rss.parameters)))
+        robust_digest = none_throws(extract_robust_digest(rss, list(rss.parameters)))
         self.assertFalse(robust_digest.multiplicative)
         self.assertIsNone(robust_digest.sample_param_perturbations)
         self.assertEqual(robust_digest.environmental_variables, ["x", "y"])
-        samples = not_none(robust_digest.sample_environmental)()
+        samples = none_throws(robust_digest.sample_environmental)()
         self.assertEqual(samples.shape, (8, 2))
         # Both are continuous distributions, should be non-zero.
         self.assertTrue(np.all(samples != 0))
@@ -156,12 +158,14 @@ class TestModelBridgeUtils(TestCase):
             num_samples=8,
             environmental_variables=all_params[:1],
         )
-        robust_digest = not_none(extract_robust_digest(rss, list(rss.parameters)))
+        robust_digest = none_throws(extract_robust_digest(rss, list(rss.parameters)))
         self.assertFalse(robust_digest.multiplicative)
         self.assertEqual(
-            not_none(robust_digest.sample_param_perturbations)().shape, (8, 3)
+            none_throws(robust_digest.sample_param_perturbations)().shape, (8, 3)
         )
-        self.assertEqual(not_none(robust_digest.sample_environmental)().shape, (8, 1))
+        self.assertEqual(
+            none_throws(robust_digest.sample_environmental)().shape, (8, 1)
+        )
         self.assertEqual(robust_digest.environmental_variables, ["x"])
 
     def test_feasible_hypervolume(self) -> None:

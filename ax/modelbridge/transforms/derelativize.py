@@ -18,7 +18,7 @@ from ax.modelbridge.base import unwrap_observation_data
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.ivw import ivw_metric_merge
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 
 if TYPE_CHECKING:
@@ -67,7 +67,7 @@ class Derelativize(Transform):
                 "not fit with status quo."
             )
 
-        sq = not_none(modelbridge.status_quo)
+        sq = none_throws(modelbridge.status_quo)
         # Only use model predictions if the status quo is in the search space (including
         # parameter constraints) and `use_raw_sq` is false.
         if not use_raw_sq and modelbridge.model_space.check_membership(

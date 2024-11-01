@@ -17,12 +17,12 @@ from ax.models.torch.utils import (
     tensor_callable_to_array_callable,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
 from botorch.models import HeteroskedasticSingleTaskGP, SingleTaskGP
 from botorch.models.deterministic import GenericDeterministicModel
 from botorch.models.model import ModelList
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
+from pyre_extensions import none_throws
 from torch import Tensor
 
 
@@ -169,7 +169,7 @@ class SubsetModelTest(TestCase):
         )
         model_sub = subset_model_results.model
         obj_weights_sub = subset_model_results.objective_weights
-        ocs_sub = not_none(subset_model_results.outcome_constraints)
+        ocs_sub = none_throws(subset_model_results.outcome_constraints)
         obj_t_sub = subset_model_results.objective_thresholds
         self.assertTrue(torch.equal(subset_model_results.indices, torch.tensor([0])))
         self.assertEqual(model_sub.num_outputs, 1)

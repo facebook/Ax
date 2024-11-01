@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from ax.models.random.base import RandomModel
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 
 class RandomModelTest(TestCase):
@@ -44,7 +44,7 @@ class RandomModelTest(TestCase):
     def test_ConvertEqualityConstraints(self) -> None:
         fixed_features = {3: 0.7, 1: 0.5}
         d = 4
-        C, c = not_none(
+        C, c = none_throws(
             self.random_model._convert_equality_constraints(d, fixed_features)
         )
         c_expected = torch.tensor([[0.5], [0.7]], dtype=torch.double)
@@ -58,7 +58,7 @@ class RandomModelTest(TestCase):
     def test_ConvertInequalityConstraints(self) -> None:
         A = np.array([[1, 2], [3, 4]])
         b = np.array([[5], [6]])
-        A_result, b_result = not_none(
+        A_result, b_result = none_throws(
             self.random_model._convert_inequality_constraints((A, b))
         )
         A_expected = torch.tensor([[1, 2], [3, 4]], dtype=torch.double)

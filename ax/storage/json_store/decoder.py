@@ -62,8 +62,9 @@ from ax.utils.common.serialization import (
     TClassDecoderRegistry,
     TDecoderRegistry,
 )
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.common.typeutils_torch import torch_type_from_str
+from pyre_extensions import none_throws
 
 
 logger: Logger = get_logger(__name__)
@@ -629,7 +630,7 @@ def _load_experiment_info(
         if trial.ttl_seconds is not None:
             exp._trials_have_ttl = True
     if exp.status_quo is not None:
-        sq = not_none(exp.status_quo)
+        sq = none_throws(exp.status_quo)
         exp._register_arm(sq)
 
 

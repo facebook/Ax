@@ -26,7 +26,7 @@ from ax.core.runner import Runner
 from ax.core.types import TCandidateMetadata, TEvaluationOutcome
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import SortableBase
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 
 if TYPE_CHECKING:
@@ -283,7 +283,7 @@ class BaseTrial(ABC, SortableBase):
     def status(self) -> TrialStatus:
         """The status of the trial in the experimentation lifecycle."""
         self._mark_failed_if_past_TTL()
-        return not_none(self._status)
+        return none_throws(self._status)
 
     @status.setter
     def status(self, status: TrialStatus) -> None:
@@ -413,9 +413,9 @@ class BaseTrial(ABC, SortableBase):
         if self._runner is None:
             raise ValueError("No runner set on trial or experiment.")
 
-        self.update_run_metadata(not_none(self._runner).run(self))
+        self.update_run_metadata(none_throws(self._runner).run(self))
 
-        if not_none(self._runner).staging_required:
+        if none_throws(self._runner).staging_required:
             self.mark_staged()
         else:
             self.mark_running()
@@ -452,7 +452,7 @@ class BaseTrial(ABC, SortableBase):
         self.assign_runner()
         if self._runner is None:
             raise ValueError("No runner set on trial or experiment.")
-        runner = not_none(self._runner)
+        runner = none_throws(self._runner)
 
         self._stop_metadata = runner.stop(self, reason=reason)
         self.mark_as(new_status)
@@ -713,7 +713,7 @@ class BaseTrial(ABC, SortableBase):
         Returns:
             The trial instance.
         """
-        if not unsafe and not_none(self._status).is_terminal:
+        if not unsafe and none_throws(self._status).is_terminal:
             raise ValueError("Cannot abandon a trial in a terminal state.")
 
         self._abandoned_reason = reason
@@ -792,12 +792,12 @@ class BaseTrial(ABC, SortableBase):
         """If trial has TTL set and is running, check if the TTL has elapsed
         and mark the trial failed if so.
         """
-        if self.ttl_seconds is None or not not_none(self._status).is_running:
+        if self.ttl_seconds is None or not none_throws(self._status).is_running:
             return
         time_run_started = self._time_run_started
         assert time_run_started is not None
         dt = datetime.now() - time_run_started
-        if dt > timedelta(seconds=not_none(self.ttl_seconds)):
+        if dt > timedelta(seconds=none_throws(self.ttl_seconds)):
             self.mark_failed()
 
     @property

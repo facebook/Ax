@@ -45,9 +45,10 @@ from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
+from pyre_extensions import none_throws
 from torch import Tensor
 
 
@@ -254,7 +255,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
         if (
             torch_opt_config.objective_thresholds is not None
             and torch_opt_config.objective_weights.shape[0]
-            != not_none(torch_opt_config.objective_thresholds).shape[0]
+            != none_throws(torch_opt_config.objective_thresholds).shape[0]
         ):
             raise AxError(
                 "Objective weights and thresholds most both contain an element for"
@@ -271,7 +272,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
             fixed_features=torch_opt_config.fixed_features,
         )
 
-        model = not_none(self.model)
+        model = none_throws(self.model)
         full_objective_thresholds = torch_opt_config.objective_thresholds
         full_objective_weights = torch_opt_config.objective_weights
         full_outcome_constraints = torch_opt_config.outcome_constraints
@@ -352,7 +353,7 @@ class MultiObjectiveBotorchModel(BotorchModel):
             ):
                 full_objective_thresholds = infer_objective_thresholds(
                     model=model,
-                    X_observed=not_none(X_observed),
+                    X_observed=none_throws(X_observed),
                     objective_weights=full_objective_weights,
                     outcome_constraints=full_outcome_constraints,
                     subset_idcs=idcs,

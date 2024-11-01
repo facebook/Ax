@@ -49,7 +49,7 @@ from ax.service.utils.report_utils import (
 )
 from ax.service.utils.scheduler_options import SchedulerOptions
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
@@ -63,6 +63,7 @@ from ax.utils.testing.core_stubs import (
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_generation_strategy
 from plotly import graph_objects as go
+from pyre_extensions import none_throws
 
 OBJECTIVE_NAME = "branin"
 PARAMETER_COLUMNS = ["x1", "x2"]
@@ -1115,7 +1116,7 @@ class ReportUtilsTest(TestCase):
                 digits=2,
             )
 
-            result = not_none(
+            result = none_throws(
                 compare_to_baseline(
                     experiment=experiment,
                     optimization_config=None,

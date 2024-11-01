@@ -43,7 +43,7 @@ from ax.utils.common.base import SortableBase
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import SerializationMixin
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 
 logger: Logger = get_logger(__name__)
@@ -212,7 +212,7 @@ class GenerationNode(SerializationMixin, SortableBase):
             raise ValueError(
                 "Generation strategy has not been initialized on this node."
             )
-        return not_none(self._generation_strategy)
+        return none_throws(self._generation_strategy)
 
     @property
     def transition_criteria(self) -> Sequence[TransitionCriterion]:
@@ -504,7 +504,7 @@ class GenerationNode(SerializationMixin, SortableBase):
                 raise UserInputError(MISSING_MODEL_SELECTOR_MESSAGE)
             return self.model_specs[0]
 
-        best_model = not_none(self.best_model_selector).best_model(
+        best_model = none_throws(self.best_model_selector).best_model(
             model_specs=self.model_specs,
         )
         return best_model

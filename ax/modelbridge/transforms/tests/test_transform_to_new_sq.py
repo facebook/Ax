@@ -77,7 +77,7 @@ class TransformToNewSQSpecificTest(TestCase):
         self.modelbridge._status_quo_name = None
 
         with self.assertRaisesRegex(
-            ValueError, "TransformToNewSQ requires status quo data."
+            AssertionError, "TransformToNewSQ requires status quo data."
         ):
             TransformToNewSQ(
                 search_space=None,

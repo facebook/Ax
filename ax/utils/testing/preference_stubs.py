@@ -15,8 +15,9 @@ from ax.core.experiment import Experiment
 from ax.core.types import TEvaluationOutcome, TParameterization
 from ax.service.utils.instantiation import InstantiationBase
 from ax.utils.common.constants import Keys
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.utils.sampling import draw_sobol_samples
+from pyre_extensions import none_throws
 
 # from ExperimentType in ae/lazarus/fb/utils/if/ae.thrift
 PBO_EXPERIMENT_TYPE: str = "PREFERENCE_LEARNING"
@@ -155,7 +156,7 @@ def get_pbo_experiment(
     for t in range(num_experimental_trials):
         arm = {}
         for i, param_name in enumerate(experiment.search_space.parameters.keys()):
-            arm[param_name] = not_none(X)[t, i].item()
+            arm[param_name] = none_throws(X)[t, i].item()
         gr = (
             # pyre-ignore: Incompatible parameter type [6]
             GeneratorRun([Arm(arm), Arm(sq)])
@@ -192,7 +193,7 @@ def get_pbo_experiment(
                         metric_name=param_name, metric_names=parameter_names
                     )
                 else:
-                    param_dict[param_name] = not_none(X)[t * 2 + j, i].item()
+                    param_dict[param_name] = none_throws(X)[t * 2 + j, i].item()
             arms.append(Arm(parameters=param_dict))
         gr = GeneratorRun(arms)
 

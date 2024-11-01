@@ -36,7 +36,6 @@ from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
@@ -163,7 +162,7 @@ class Acquisition(Base):
                 objective_thresholds=self._objective_thresholds,
             )
             objective_thresholds = (
-                not_none(self._objective_thresholds)[subset_idcs]
+                none_throws(self._objective_thresholds)[subset_idcs]
                 if subset_idcs is not None
                 else self._objective_thresholds
             )

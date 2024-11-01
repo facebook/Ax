@@ -25,7 +25,7 @@ from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.utils.common.base import SortableBase
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import SerializationMixin, serialize_init_args
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -765,7 +765,7 @@ class AuxiliaryExperimentCheck(TransitionCriterion):
         """Helper method to check if all elements in expected_aux_exp_purposes
         are in (or not in) aux_exp_purposes"""
         if expected_aux_exp_purposes is not None:
-            for purpose in not_none(expected_aux_exp_purposes):
+            for purpose in none_throws(expected_aux_exp_purposes):
                 purpose_present = purpose in aux_exp_purposes
                 if purpose_present != include:
                     return False

@@ -49,7 +49,8 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.result import Err, Ok
 from ax.utils.common.timeutils import current_timestamp_in_millis
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 logger: logging.Logger = get_logger(__name__)
 
@@ -366,7 +367,7 @@ class Experiment(Base):
         """Whether the experiment's optimization config contains multiple objectives."""
         if self.optimization_config is None:
             return False
-        return not_none(self.optimization_config).is_moo_problem
+        return none_throws(self.optimization_config).is_moo_problem
 
     @property
     def data_by_trial(self) -> dict[int, OrderedDict[int, Data]]:
@@ -1296,7 +1297,7 @@ class Experiment(Base):
                     "Only experiments with 1-arm trials currently supported."
                 )
             self.search_space.check_membership(
-                not_none(trial.arm).parameters,
+                none_throws(trial.arm).parameters,
                 raise_error=search_space_check_membership_raise_error,
             )
             dat, ts = old_experiment.lookup_data_for_trial(trial_index=trial.index)
@@ -1331,7 +1332,7 @@ class Experiment(Base):
                     {trial.index: new_trial.index}, inplace=True
                 )
                 new_df["arm_name"].replace(
-                    {not_none(trial.arm).name: not_none(new_trial.arm).name},
+                    {none_throws(trial.arm).name: none_throws(new_trial.arm).name},
                     inplace=True,
                 )
                 # Attach updated data to new trial on experiment.
@@ -1783,20 +1784,20 @@ def add_arm_and_prevent_naming_collision(
     # the arm name. Preserves all names not matching the automatic naming format.
     # experiment is not named, clear the arm's name.
     # `arm_index` is 0 since all trials are single-armed.
-    old_arm_name = not_none(old_trial.arm).name
+    old_arm_name = none_throws(old_trial.arm).name
     has_default_name = bool(old_arm_name == old_trial._get_default_name(arm_index=0))
     if has_default_name:
-        new_arm = not_none(old_trial.arm).clone(clear_name=True)
+        new_arm = none_throws(old_trial.arm).clone(clear_name=True)
         if old_experiment_name is not None:
             new_arm.name = f"{old_arm_name}_{old_experiment_name}"
         new_trial.add_arm(new_arm)
     else:
         try:
-            new_trial.add_arm(not_none(old_trial.arm).clone(clear_name=False))
+            new_trial.add_arm(none_throws(old_trial.arm).clone(clear_name=False))
         except ValueError as e:
             warnings.warn(
                 f"Attaching arm {old_trial.arm} to trial {new_trial} while preserving "
                 f"its name failed with error: {e}. Retrying with `clear_name=True`.",
                 stacklevel=2,
             )
-            new_trial.add_arm(not_none(old_trial.arm).clone(clear_name=True))
+            new_trial.add_arm(none_throws(old_trial.arm).clone(clear_name=True))

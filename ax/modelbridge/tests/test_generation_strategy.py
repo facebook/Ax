@@ -59,7 +59,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.equality import same_elements
 from ax.utils.common.mock import mock_patch_method_original
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_data,
     get_branin_experiment,
@@ -69,6 +69,7 @@ from ax.utils.testing.core_stubs import (
     get_hierarchical_search_space_experiment,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
+from pyre_extensions import none_throws
 
 
 class TestGenerationStrategyWithoutModelBridgeMocks(TestCase):
@@ -573,9 +574,9 @@ class TestGenerationStrategy(TestCase):
                         "fit_on_init": True,
                     },
                 )
-                ms = not_none(g._model_state_after_gen).copy()
+                ms = none_throws(g._model_state_after_gen).copy()
                 # Compare the model state to Sobol state.
-                sobol_model = not_none(gs.model).model
+                sobol_model = none_throws(gs.model).model
                 self.assertTrue(
                     np.array_equal(
                         ms.pop("generated_points"), sobol_model.generated_points
@@ -737,18 +738,18 @@ class TestGenerationStrategy(TestCase):
         self.assertIsNone(sobol_generation_strategy.trials_as_df)
         # Now the trial should appear in the DF.
         trial = exp.new_trial(sobol_generation_strategy.gen(experiment=exp))
-        trials_df = not_none(sobol_generation_strategy.trials_as_df)
+        trials_df = none_throws(sobol_generation_strategy.trials_as_df)
         self.assertFalse(trials_df.empty)
         self.assertEqual(trials_df.head()["Trial Status"][0], "CANDIDATE")
         # Changes in trial status should be reflected in the DF.
         trial._status = TrialStatus.RUNNING
-        trials_df = not_none(sobol_generation_strategy.trials_as_df)
+        trials_df = none_throws(sobol_generation_strategy.trials_as_df)
         self.assertEqual(trials_df.head()["Trial Status"][0], "RUNNING")
         # Check that rows are present for step 0 and 1 after moving to step 1
         for _i in range(3):
             # attach necessary trials to fill up the Generation Strategy
             trial = exp.new_trial(sobol_generation_strategy.gen(experiment=exp))
-        trials_df = not_none(sobol_generation_strategy.trials_as_df)
+        trials_df = none_throws(sobol_generation_strategy.trials_as_df)
         self.assertEqual(trials_df.head()["Generation Step"][0], ["GenerationStep_0"])
         self.assertEqual(trials_df.head()["Generation Step"][2], ["GenerationStep_1"])
 
@@ -962,7 +963,7 @@ class TestGenerationStrategy(TestCase):
 
             # Check case with pending features initially specified; we should get two
             # GRs now (remaining in Sobol step) even though we requested 3.
-            original_pending = not_none(get_pending(experiment=exp))
+            original_pending = none_throws(get_pending(experiment=exp))
             first_3_trials_obs_feats = [
                 ObservationFeatures.from_arm(arm=a, trial_index=idx)
                 for idx, trial in exp.trials.items()
@@ -1047,7 +1048,7 @@ class TestGenerationStrategy(TestCase):
 
         # Check case with pending features initially specified; we should get two
         # GRs now (remaining in Sobol step) even though we requested 3.
-        original_pending = not_none(get_pending(experiment=exp))
+        original_pending = none_throws(get_pending(experiment=exp))
         first_3_trials_obs_feats = [
             ObservationFeatures.from_arm(arm=a, trial_index=idx)
             for idx, trial in exp.trials.items()
@@ -1410,7 +1411,7 @@ class TestGenerationStrategy(TestCase):
             model_spec_gen_mock.reset_mock()
 
             # check that the pending points line up
-            original_pending = not_none(get_pending(experiment=exp))
+            original_pending = none_throws(get_pending(experiment=exp))
             first_3_trials_obs_feats = [
                 ObservationFeatures.from_arm(arm=a, trial_index=idx)
                 for idx, trial in exp.trials.items()
@@ -1518,9 +1519,9 @@ class TestGenerationStrategy(TestCase):
                         "fit_on_init": True,
                     },
                 )
-                ms = not_none(g._model_state_after_gen).copy()
+                ms = none_throws(g._model_state_after_gen).copy()
                 # Compare the model state to Sobol state.
-                sobol_model = not_none(self.sobol_MBM_GS_nodes.model).model
+                sobol_model = none_throws(self.sobol_MBM_GS_nodes.model).model
                 self.assertTrue(
                     np.array_equal(
                         ms.pop("generated_points"), sobol_model.generated_points
@@ -1848,20 +1849,22 @@ class TestGenerationStrategy(TestCase):
         trial = exp.new_batch_trial(
             generator_runs=gs.gen_with_multiple_nodes(exp, arms_per_node=arms_per_node)
         )
-        trials_df = not_none(gs.trials_as_df)
+        trials_df = none_throws(gs.trials_as_df)
         self.assertFalse(trials_df.empty)
         self.assertEqual(trials_df.head()["Trial Status"][0], "CANDIDATE")
         self.assertEqual(trials_df.head()["Generation Model(s)"][0], ["Sobol"])
         # Changes in trial status should be reflected in the DF.
         trial.run()
-        self.assertEqual(not_none(gs.trials_as_df).head()["Trial Status"][0], "RUNNING")
+        self.assertEqual(
+            none_throws(gs.trials_as_df).head()["Trial Status"][0], "RUNNING"
+        )
         # Add a new trial which will be generated from multiple nodes, and check that
         # is properly reflected in the DF.
         trial = exp.new_batch_trial(
             generator_runs=gs.gen_with_multiple_nodes(exp, arms_per_node=arms_per_node)
         )
         self.assertEqual(
-            not_none(gs.trials_as_df).head()["Generation Nodes"][1],
+            none_throws(gs.trials_as_df).head()["Generation Nodes"][1],
             ["mbm", "sobol_2", "sobol_3"],
         )
 

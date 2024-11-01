@@ -24,8 +24,8 @@ from ax.plot.helper import (
     slice_config_to_trace,
     TNullableGeneratorRunsDict,
 )
-from ax.utils.common.typeutils import not_none
 from plotly import graph_objs as go
+from pyre_extensions import none_throws
 
 
 # type aliases
@@ -349,13 +349,13 @@ def interact_slice_plotly(
         is_log_dict: dict[str, bool] = {}
 
         if should_replace_slice_values:
-            slice_values = not_none(fixed_features).parameters
+            slice_values = none_throws(fixed_features).parameters
         else:
             fixed_features = ObservationFeatures(parameters={})
         fixed_values = get_fixed_values(model, slice_values, trial_index)
         prediction_features = []
         for x in grid:
-            predf = deepcopy(not_none(fixed_features))
+            predf = deepcopy(none_throws(fixed_features))
             predf.parameters = fixed_values.copy()
             predf.parameters[param_name] = x
             prediction_features.append(predf)

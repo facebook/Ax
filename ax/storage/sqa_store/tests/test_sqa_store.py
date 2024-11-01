@@ -91,7 +91,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     CustomTestMetric,
     CustomTestRunner,
@@ -128,6 +128,7 @@ from ax.utils.testing.modeling_stubs import (
     sobol_gpei_generation_node_gs,
 )
 from plotly import graph_objects as go, io as pio
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -436,7 +437,7 @@ class SQAStoreTest(TestCase):
                 gr = trial.generator_runs[0]
                 if multi_objective and not immutable:
                     objectives = checked_cast(
-                        MultiObjective, not_none(gr.optimization_config).objective
+                        MultiObjective, none_throws(gr.optimization_config).objective
                     ).objectives
                     for i, objective in enumerate(objectives):
                         metric = objective.metric
@@ -1500,7 +1501,7 @@ class SQAStoreTest(TestCase):
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
-            not_none(new_generation_strategy._experiment)._name, experiment._name
+            none_throws(new_generation_strategy._experiment)._name, experiment._name
         )
 
     def test_EncodeDecodeGenerationNodeGSWithAdvancedSettings(self) -> None:
@@ -1555,7 +1556,7 @@ class SQAStoreTest(TestCase):
         )
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
-            not_none(new_generation_strategy._experiment)._name, experiment._name
+            none_throws(new_generation_strategy._experiment)._name, experiment._name
         )
 
     def test_EncodeDecodeGenerationNodeBasedGenerationStrategy(self) -> None:
@@ -1612,7 +1613,7 @@ class SQAStoreTest(TestCase):
         )
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
-            not_none(new_generation_strategy._experiment)._name, experiment._name
+            none_throws(new_generation_strategy._experiment)._name, experiment._name
         )
 
     def test_EncodeDecodeGenerationStrategyReducedState(self) -> None:
@@ -1659,7 +1660,7 @@ class SQAStoreTest(TestCase):
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
-            not_none(new_generation_strategy._experiment)._name, experiment._name
+            none_throws(new_generation_strategy._experiment)._name, experiment._name
         )
         experiment.new_trial(new_generation_strategy.gen(experiment=experiment))
 
@@ -1719,7 +1720,7 @@ class SQAStoreTest(TestCase):
         self.assertIsInstance(new_generation_strategy._steps[0].model, Models)
         self.assertEqual(len(new_generation_strategy._generator_runs), 2)
         self.assertEqual(
-            not_none(new_generation_strategy._experiment)._name, experiment._name
+            none_throws(new_generation_strategy._experiment)._name, experiment._name
         )
         experiment.new_trial(new_generation_strategy.gen(experiment=experiment))
 
@@ -1770,12 +1771,12 @@ class SQAStoreTest(TestCase):
         self.assertEqual(generation_strategy, loaded_generation_strategy)
         self.assertIsNotNone(loaded_generation_strategy._experiment)
         self.assertEqual(
-            not_none(generation_strategy._experiment).description,
+            none_throws(generation_strategy._experiment).description,
             experiment.description,
         )
         self.assertEqual(
-            not_none(generation_strategy._experiment).description,
-            not_none(loaded_generation_strategy._experiment).description,
+            none_throws(generation_strategy._experiment).description,
+            none_throws(loaded_generation_strategy._experiment).description,
         )
 
     def test_GeneratorRunGenMetadata(self) -> None:

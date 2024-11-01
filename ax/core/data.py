@@ -28,7 +28,8 @@ from ax.utils.common.serialization import (
     TClassDecoderRegistry,
     TDecoderRegistry,
 )
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 TBaseData = TypeVar("TBaseData", bound="BaseData")
 DF_REPR_MAX_LENGTH = 1000
@@ -235,7 +236,7 @@ class BaseData(Base, SerializationMixin):
             str: The hash of the DataFrame.
 
         """
-        return md5(not_none(self.df.to_json()).encode("utf-8")).hexdigest()
+        return md5(none_throws(self.df.to_json()).encode("utf-8")).hexdigest()
 
     def get_filtered_results(
         self: TBaseData, **filters: dict[str, Any]

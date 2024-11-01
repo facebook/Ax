@@ -34,7 +34,8 @@ from ax.utils.common.base import SortableBase
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import datetime_equals, equality_typechecker
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -317,7 +318,9 @@ class BatchTrial(BaseTrial):
         generator_run.index = len(self._generator_run_structs) - 1
 
         if self.status_quo is not None and self.optimize_for_power:
-            self.set_status_quo_and_optimize_power(status_quo=not_none(self.status_quo))
+            self.set_status_quo_and_optimize_power(
+                status_quo=none_throws(self.status_quo)
+            )
 
         if generator_run._generation_step_index is not None:
             self._set_generation_step_index(
@@ -403,7 +406,7 @@ class BatchTrial(BaseTrial):
             return self
 
         # arm_weights should always have at least one arm now
-        arm_weights = not_none(self.arm_weights)
+        arm_weights = none_throws(self.arm_weights)
         sum_weights = sum(w for arm, w in arm_weights.items() if arm != status_quo)
         optimal_status_quo_weight_override = np.sqrt(sum_weights)
         self.set_status_quo_with_weight(
@@ -480,7 +483,7 @@ class BatchTrial(BaseTrial):
         param_levels: defaultdict[str, dict[str | float, int]] = defaultdict(dict)
         for arm in self.arms:
             for param_name, param_value in arm.parameters.items():
-                param_levels[param_name][not_none(param_value)] = 1
+                param_levels[param_name][none_throws(param_value)] = 1
         param_cardinality = 1
         for param_values in param_levels.values():
             param_cardinality *= len(param_values)
@@ -701,7 +704,7 @@ class BatchTrial(BaseTrial):
         for gr_struct in self._generator_run_structs:
             gr = gr_struct.generator_run
             if gr and gr.candidate_metadata_by_arm_signature and arm in gr.arms:
-                return not_none(gr.candidate_metadata_by_arm_signature).get(
+                return none_throws(gr.candidate_metadata_by_arm_signature).get(
                     arm.signature
                 )
         return None
@@ -710,8 +713,8 @@ class BatchTrial(BaseTrial):
         """Utility function to validate batch data before further processing."""
         if (
             self.status_quo
-            and not_none(self.status_quo).name in self.arms_by_name
-            and not_none(self.status_quo).name not in data.df["arm_name"].values
+            and none_throws(self.status_quo).name in self.arms_by_name
+            and none_throws(self.status_quo).name not in data.df["arm_name"].values
         ):
             raise AxError(
                 f"Trial #{self.index} was completed with data that did "

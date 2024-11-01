@@ -33,7 +33,7 @@ from ax.modelbridge.generation_node_input_constructors import InputConstructorPu
 from ax.modelbridge.model_spec import FactoryFunctionModelSpec
 from ax.modelbridge.transition_criterion import TrialBasedCriterion
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import checked_cast_list, not_none
+from ax.utils.common.typeutils import checked_cast_list
 from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
@@ -238,7 +238,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         """Experiment, currently set on this generation strategy."""
         if self._experiment is None:
             raise ValueError("No experiment set on generation strategy.")
-        return not_none(self._experiment)
+        return none_throws(self._experiment)
 
     @experiment.setter
     def experiment(self, experiment: Experiment) -> None:
