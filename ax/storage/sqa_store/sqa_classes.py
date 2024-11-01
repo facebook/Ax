@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, List
 
 from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import LifecycleStage
@@ -79,10 +79,10 @@ class SQAParameter(Base):
     upper: Column[Decimal | None] = Column(Float)
 
     # Attributes for Choice Parameters
-    choice_values: Column[list[TParamValue] | None] = Column(JSONEncodedList)
+    choice_values: Column[List[TParamValue] | None] = Column(JSONEncodedList)
     is_ordered: Column[bool | None] = Column(Boolean)
     is_task: Column[bool | None] = Column(Boolean)
-    dependents: Column[dict[TParamValue, list[str]] | None] = Column(JSONEncodedObject)
+    dependents: Column[dict[TParamValue, List[str]] | None] = Column(JSONEncodedObject)
 
     # Attributes for Fixed Parameters
     fixed_value: Column[TParamValue | None] = Column(JSONEncodedObject)
@@ -134,7 +134,7 @@ class SQAMetric(Base):
     # of Multi/Scalarized Objective contains all children of the parent metric
     # join_depth argument: used for loading self-referential relationships
     # https://docs.sqlalchemy.org/en/13/orm/self_referential.html#configuring-self-referential-eager-loading
-    scalarized_objective_children_metrics: list[SQAMetric] = relationship(
+    scalarized_objective_children_metrics: List["SQAMetric"] = relationship(
         "SQAMetric",
         cascade="all, delete-orphan",
         lazy=True,
@@ -146,7 +146,7 @@ class SQAMetric(Base):
     scalarized_outcome_constraint_id: Column[int | None] = Column(
         Integer, ForeignKey("metric_v2.id")
     )
-    scalarized_outcome_constraint_children_metrics: list[SQAMetric] = relationship(
+    scalarized_outcome_constraint_children_metrics: List["SQAMetric"] = relationship(
         "SQAMetric",
         cascade="all, delete-orphan",
         lazy=True,
@@ -213,19 +213,19 @@ class SQAGeneratorRun(Base):
     # relationships
     # Use selectin loading for collections to prevent idle timeout errors
     # (https://docs.sqlalchemy.org/en/13/orm/loading_relationships.html#selectin-eager-loading)
-    arms: list[SQAArm] = relationship(
+    arms: List[SQAArm] = relationship(
         "SQAArm",
         cascade="all, delete-orphan",
         lazy="selectin",
         order_by=lambda: SQAArm.id,
     )
-    metrics: list[SQAMetric] = relationship(
+    metrics: List[SQAMetric] = relationship(
         "SQAMetric", cascade="all, delete-orphan", lazy="selectin"
     )
-    parameters: list[SQAParameter] = relationship(
+    parameters: List[SQAParameter] = relationship(
         "SQAParameter", cascade="all, delete-orphan", lazy="selectin"
     )
-    parameter_constraints: list[SQAParameterConstraint] = relationship(
+    parameter_constraints: List[SQAParameterConstraint] = relationship(
         "SQAParameterConstraint", cascade="all, delete-orphan", lazy="selectin"
     )
 
@@ -267,15 +267,15 @@ class SQAGenerationStrategy(Base):
 
     id: Column[int] = Column(Integer, primary_key=True)
     name: Column[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
-    steps: Column[list[dict[str, Any]]] = Column(JSONEncodedList, nullable=False)
+    steps: Column[List[dict[str, Any]]] = Column(JSONEncodedList, nullable=False)
     curr_index: Column[int | None] = Column(Integer, nullable=True)
     experiment_id: Column[int | None] = Column(Integer, ForeignKey("experiment_v2.id"))
-    nodes: Column[list[dict[str, Any]]] = Column(JSONEncodedList, nullable=True)
+    nodes: Column[List[dict[str, Any]]] = Column(JSONEncodedList, nullable=True)
     curr_node_name: Column[str | None] = Column(
         String(NAME_OR_TYPE_FIELD_LENGTH), nullable=True
     )
 
-    generator_runs: list[SQAGeneratorRun] = relationship(
+    generator_runs: List[SQAGeneratorRun] = relationship(
         "SQAGeneratorRun",
         cascade="all, delete-orphan",
         lazy="selectin",
@@ -321,10 +321,10 @@ class SQATrial(Base):
     # a child, the old one will be deleted.
     # Use selectin loading for collections to prevent idle timeout errors
     # (https://docs.sqlalchemy.org/en/13/orm/loading_relationships.html#selectin-eager-loading)
-    abandoned_arms: list[SQAAbandonedArm] = relationship(
+    abandoned_arms: List[SQAAbandonedArm] = relationship(
         "SQAAbandonedArm", cascade="all, delete-orphan", lazy="selectin"
     )
-    generator_runs: list[SQAGeneratorRun] = relationship(
+    generator_runs: List[SQAGeneratorRun] = relationship(
         "SQAGeneratorRun", cascade="all, delete-orphan", lazy="selectin"
     )
     runner: SQARunner = relationship(
@@ -371,7 +371,7 @@ class SQAExperiment(Base):
     # pyre-fixme[8]: Incompatible attribute type [8]: Attribute
     # `auxiliary_experiments_by_purpose` declared in class `SQAExperiment` has
     # type `Optional[Dict[str, List[str]]]` but is used as type `Column[typing.Any]`
-    auxiliary_experiments_by_purpose: dict[str, list[str]] | None = Column(
+    auxiliary_experiments_by_purpose: dict[str, List[str]] | None = Column(
         JSONEncodedTextDict, nullable=True, default={}
     )
 
@@ -381,22 +381,22 @@ class SQAExperiment(Base):
     # a child, the old one will be deleted.
     # Use selectin loading for collections to prevent idle timeout errors
     # (https://docs.sqlalchemy.org/en/13/orm/loading_relationships.html#selectin-eager-loading)
-    data: list[SQAData] = relationship(
+    data: List[SQAData] = relationship(
         "SQAData", cascade="all, delete-orphan", lazy="selectin"
     )
-    metrics: list[SQAMetric] = relationship(
+    metrics: List[SQAMetric] = relationship(
         "SQAMetric", cascade="all, delete-orphan", lazy="selectin"
     )
-    parameters: list[SQAParameter] = relationship(
+    parameters: List[SQAParameter] = relationship(
         "SQAParameter", cascade="all, delete-orphan", lazy="selectin"
     )
-    parameter_constraints: list[SQAParameterConstraint] = relationship(
+    parameter_constraints: List[SQAParameterConstraint] = relationship(
         "SQAParameterConstraint", cascade="all, delete-orphan", lazy="selectin"
     )
-    runners: list[SQARunner] = relationship(
+    runners: List[SQARunner] = relationship(
         "SQARunner", cascade="all, delete-orphan", lazy=False
     )
-    trials: list[SQATrial] = relationship(
+    trials: List[SQATrial] = relationship(
         "SQATrial", cascade="all, delete-orphan", lazy="selectin"
     )
     generation_strategy: SQAGenerationStrategy | None = relationship(
@@ -405,6 +405,6 @@ class SQAExperiment(Base):
         uselist=False,
         lazy=True,
     )
-    analysis_cards: list[SQAAnalysisCard] = relationship(
+    analysis_cards: List[SQAAnalysisCard] = relationship(
         "SQAAnalysisCard", cascade="all, delete-orphan", lazy="selectin"
     )
