@@ -72,9 +72,10 @@ from ax.utils.common.kwargs import (
 )
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import callable_from_reference, callable_to_reference
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -276,7 +277,7 @@ class ModelRegistryBase(Enum):
         assert self.value in MODEL_KEY_TO_MODEL_SETUP, f"Unknown model {self.value}"
         # All model bridges require either a search space or an experiment.
         assert search_space or experiment, "Search space or experiment required."
-        search_space = search_space or not_none(experiment).search_space
+        search_space = search_space or none_throws(experiment).search_space
         model_setup_info = MODEL_KEY_TO_MODEL_SETUP[self.value]
         model_class = model_setup_info.model_class
         bridge_class = model_setup_info.bridge_class
@@ -335,7 +336,7 @@ class ModelRegistryBase(Enum):
 
         # Create model bridge with the consolidated kwargs.
         model_bridge = bridge_class(
-            search_space=search_space or not_none(experiment).search_space,
+            search_space=search_space or none_throws(experiment).search_space,
             experiment=experiment,
             data=data,
             model=model,
@@ -362,7 +363,7 @@ class ModelRegistryBase(Enum):
         Returns:
             A tuple of default keyword arguments for the model and the model bridge.
         """
-        model_setup_info = not_none(MODEL_KEY_TO_MODEL_SETUP.get(self.value))
+        model_setup_info = none_throws(MODEL_KEY_TO_MODEL_SETUP.get(self.value))
         return (
             self._get_model_kwargs(info=model_setup_info),
             self._get_bridge_kwargs(info=model_setup_info),

@@ -108,7 +108,7 @@ from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import set_rng_seed
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.measurement.synthetic_functions import branin
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.monte_carlo import qExpectedImprovement
@@ -122,6 +122,7 @@ from gpytorch.kernels.rbf_kernel import RBFKernel
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -683,9 +684,9 @@ def get_branin_with_multi_task(with_multi_objective: bool = False) -> Experiment
     sobol_generator = get_sobol(search_space=exp.search_space, seed=TEST_SOBOL_SEED)
     sobol_run = sobol_generator.gen(n=5)
     exp.new_batch_trial(optimize_for_power=True).add_generator_run(sobol_run)
-    not_none(exp.trials.get(0)).run()
+    none_throws(exp.trials.get(0)).run()
     exp.new_batch_trial(optimize_for_power=True).add_generator_run(sobol_run)
-    not_none(exp.trials.get(1)).run()
+    none_throws(exp.trials.get(1)).run()
 
     return exp
 
@@ -2011,10 +2012,10 @@ def get_branin_data(
             {
                 "trial_index": trial.index,
                 "metric_name": "branin",
-                "arm_name": not_none(checked_cast(Trial, trial).arm).name,
+                "arm_name": none_throws(checked_cast(Trial, trial).arm).name,
                 "mean": branin(
-                    float(not_none(not_none(trial.arm).parameters["x1"])),
-                    float(not_none(not_none(trial.arm).parameters["x2"])),
+                    float(none_throws(none_throws(trial.arm).parameters["x1"])),
+                    float(none_throws(none_throws(trial.arm).parameters["x2"])),
                 ),
                 "sem": 0.0,
             }
@@ -2042,8 +2043,8 @@ def get_branin_data_batch(batch: BatchTrial) -> Data:
         else:
             means.append(
                 branin(
-                    float(not_none(arm.parameters["x1"])),
-                    float(not_none(arm.parameters["x2"])),
+                    float(none_throws(arm.parameters["x1"])),
+                    float(none_throws(arm.parameters["x2"])),
                 )
             )
     return Data(

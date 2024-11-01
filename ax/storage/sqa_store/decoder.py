@@ -68,9 +68,8 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
 from pandas import read_json
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
 from sqlalchemy.orm.exc import DetachedInstanceError
 
 logger: Logger = get_logger(__name__)
@@ -112,7 +111,7 @@ class Decoder:
             from ax.storage.sqa_store.load import load_experiment
 
             auxiliary_experiments_by_purpose = {}
-            aux_exp_name_dict = not_none(
+            aux_exp_name_dict = none_throws(
                 experiment_sqa.auxiliary_experiments_by_purpose
             )
             for aux_exp_purpose_str, aux_exp_names in aux_exp_name_dict.items():
@@ -219,10 +218,10 @@ class Decoder:
             else None
         )
         trial_type_to_runner = {
-            not_none(sqa_runner.trial_type): self.runner_from_sqa(sqa_runner)
+            none_throws(sqa_runner.trial_type): self.runner_from_sqa(sqa_runner)
             for sqa_runner in experiment_sqa.runners
         }
-        default_trial_type = not_none(experiment_sqa.default_trial_type)
+        default_trial_type = none_throws(experiment_sqa.default_trial_type)
         properties = dict(experiment_sqa.properties or {})
         default_data_type = experiment_sqa.default_data_type
         experiment = MultiTypeExperiment(
@@ -242,7 +241,7 @@ class Decoder:
             sqa_metric = sqa_metric_dict[tracking_metric.name]
             experiment.add_tracking_metric(
                 tracking_metric,
-                trial_type=not_none(sqa_metric.trial_type),
+                trial_type=none_throws(sqa_metric.trial_type),
                 canonical_name=sqa_metric.canonical_name,
             )
         return experiment
@@ -301,7 +300,7 @@ class Decoder:
             for arm in trial.arms:
                 experiment._register_arm(arm)
         if experiment.status_quo is not None:
-            sq = not_none(experiment.status_quo)
+            sq = none_throws(experiment.status_quo)
             experiment._register_arm(sq)
         experiment._time_created = experiment_sqa.time_created
         experiment._experiment_type = self.get_enum_name(
@@ -327,8 +326,8 @@ class Decoder:
             parameter = RangeParameter(
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
-                lower=float(not_none(parameter_sqa.lower)),
-                upper=float(not_none(parameter_sqa.upper)),
+                lower=float(none_throws(parameter_sqa.lower)),
+                upper=float(none_throws(parameter_sqa.upper)),
                 log_scale=parameter_sqa.log_scale or False,
                 digits=parameter_sqa.digits,
                 is_fidelity=parameter_sqa.is_fidelity or False,
@@ -342,7 +341,7 @@ class Decoder:
                     f" parameter {parameter_sqa.name}."
                 )
             if bool(parameter_sqa.is_task) and target_value is None:
-                target_value = not_none(parameter_sqa.choice_values)[0]
+                target_value = none_throws(parameter_sqa.choice_values)[0]
                 logger.debug(
                     f"Target value is null for parameter {parameter_sqa.name}. "
                     f"Defaulting to first choice {target_value}."
@@ -350,7 +349,7 @@ class Decoder:
             parameter = ChoiceParameter(
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
-                values=not_none(parameter_sqa.choice_values),
+                values=none_throws(parameter_sqa.choice_values),
                 is_fidelity=parameter_sqa.is_fidelity or False,
                 target_value=target_value,
                 is_ordered=parameter_sqa.is_ordered,
@@ -471,8 +470,8 @@ class Decoder:
             parameter = RangeParameter(
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
-                lower=float(not_none(parameter_sqa.lower)),
-                upper=float(not_none(parameter_sqa.upper)),
+                lower=float(none_throws(parameter_sqa.lower)),
+                upper=float(none_throws(parameter_sqa.upper)),
                 log_scale=parameter_sqa.log_scale or False,
                 digits=parameter_sqa.digits,
                 is_fidelity=parameter_sqa.is_fidelity or False,
@@ -688,14 +687,14 @@ class Decoder:
         ):
             best_arm = Arm(
                 name=generator_run_sqa.best_arm_name,
-                parameters=not_none(generator_run_sqa.best_arm_parameters),
+                parameters=none_throws(generator_run_sqa.best_arm_parameters),
             )
             best_arm_predictions = (
                 best_arm,
-                tuple(not_none(generator_run_sqa.best_arm_predictions)),
+                tuple(none_throws(generator_run_sqa.best_arm_predictions)),
             )
         model_predictions = (
-            tuple(not_none(generator_run_sqa.model_predictions))
+            tuple(none_throws(generator_run_sqa.model_predictions))
             if generator_run_sqa.model_predictions is not None
             else None
         )
@@ -1156,7 +1155,7 @@ class Decoder:
         scalarized_objective = ScalarizedObjective(
             metrics=list(metrics),
             weights=list(weights),
-            minimize=not_none(parent_metric_sqa.minimize),
+            minimize=none_throws(parent_metric_sqa.minimize),
         )
         scalarized_objective.db_id = parent_metric_sqa.id
         return scalarized_objective
@@ -1175,9 +1174,9 @@ class Decoder:
             )
         return OutcomeConstraint(
             metric=metric,
-            bound=float(not_none(metric_sqa.bound)),
-            op=not_none(metric_sqa.op),
-            relative=not_none(metric_sqa.relative),
+            bound=float(none_throws(metric_sqa.bound)),
+            op=none_throws(metric_sqa.op),
+            relative=none_throws(metric_sqa.relative),
         )
 
     def _scalarized_outcome_constraint_from_sqa(
@@ -1221,9 +1220,9 @@ class Decoder:
         scalarized_outcome_constraint = ScalarizedOutcomeConstraint(
             metrics=list(metrics),
             weights=list(weights),
-            bound=float(not_none(metric_sqa.bound)),
-            op=not_none(metric_sqa.op),
-            relative=not_none(metric_sqa.relative),
+            bound=float(none_throws(metric_sqa.bound)),
+            op=none_throws(metric_sqa.op),
+            relative=none_throws(metric_sqa.relative),
         )
         scalarized_outcome_constraint.db_id = metric_sqa.id
         return scalarized_outcome_constraint
@@ -1238,8 +1237,8 @@ class Decoder:
             )
         ot = ObjectiveThreshold(
             metric=metric,
-            bound=float(not_none(metric_sqa.bound)),
-            relative=not_none(metric_sqa.relative),
+            bound=float(none_throws(metric_sqa.bound)),
+            relative=none_throws(metric_sqa.relative),
             op=metric_sqa.op,
         )
         # ObjectiveThreshold constructor clones the passed-in metric, which means

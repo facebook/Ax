@@ -18,12 +18,12 @@ from ax.modelbridge.external_generation_node import ExternalGenerationNode
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.random import RandomModelBridge
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
     get_branin_data,
     get_branin_experiment,
     get_sobol,
 )
+from pyre_extensions import none_throws
 
 
 class DummyNode(ExternalGenerationNode):
@@ -43,7 +43,7 @@ class DummyNode(ExternalGenerationNode):
     ) -> TParameterization:
         self.gen_count += 1
         self.last_pending = deepcopy(pending_parameters)
-        return not_none(self.generator).gen(n=1).arms[0].parameters
+        return none_throws(self.generator).gen(n=1).arms[0].parameters
 
 
 class TestExternalGenerationNode(TestCase):
@@ -97,7 +97,7 @@ class TestExternalGenerationNode(TestCase):
         self.assertEqual(node.gen_count, 9)
         self.assertEqual(node.update_count, 5)
         self.assertEqual(len(gr.arms), 5)
-        self.assertGreater(not_none(gr.fit_time), 0.0)
-        self.assertGreater(not_none(gr.gen_time), 0.0)
+        self.assertGreater(none_throws(gr.fit_time), 0.0)
+        self.assertGreater(none_throws(gr.gen_time), 0.0)
         self.assertEqual(gr._model_key, "dummy")
         self.assertEqual(len(node.last_pending), 4)

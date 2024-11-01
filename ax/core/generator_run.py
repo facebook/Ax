@@ -30,7 +30,7 @@ from ax.core.types import (
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.base import Base, SortableBase
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -303,7 +303,7 @@ class GeneratorRun(SortableBase):
         predictions: dict[str, TModelPredictArm] = {}
         for idx, cond in enumerate(self.arms):
             predictions[cond.signature] = extract_arm_predictions(
-                model_predictions=not_none(self._model_predictions), arm_idx=idx
+                model_predictions=none_throws(self._model_predictions), arm_idx=idx
             )
         return predictions
 

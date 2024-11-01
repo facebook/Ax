@@ -60,7 +60,6 @@ from ax.utils.common.typeutils import (
     checked_cast,
     checked_cast_optional,
     checked_cast_to_tuple,
-    not_none,
 )
 from botorch.acquisition.multi_objective.multi_output_risk_measures import (
     IndependentCVaR,
@@ -80,6 +79,8 @@ from botorch.utils.datasets import ContextualDataset, SupervisedDataset
 from botorch.utils.multi_objective.box_decompositions.dominated import (
     DominatedPartitioning,
 )
+
+from pyre_extensions import none_throws
 from torch import Tensor
 
 logger: Logger = get_logger(__name__)
@@ -144,7 +145,7 @@ def check_has_multi_objective_and_data(
     optimization_config: OptimizationConfig | None = None,
 ) -> None:
     """Raise an error if not using a `MultiObjective` or if the data is empty."""
-    optimization_config = not_none(
+    optimization_config = none_throws(
         optimization_config or experiment.optimization_config
     )
     if not isinstance(optimization_config.objective, MultiObjective):
@@ -729,7 +730,7 @@ def get_pareto_frontier_and_configs(
             observation_features=observation_features
         )
     Y, Yvar = observation_data_to_array(
-        outcomes=modelbridge.outcomes, observation_data=not_none(observation_data)
+        outcomes=modelbridge.outcomes, observation_data=none_throws(observation_data)
     )
     Y, Yvar = (array_to_tensor(Y), array_to_tensor(Yvar))
     if arm_names is None:
@@ -793,7 +794,7 @@ def get_pareto_frontier_and_configs(
     f, cov = f.detach().cpu().clone(), cov.detach().cpu().clone()
     indx = indx.tolist()
     frontier_observation_data = array_to_observation_data(
-        f=f.numpy(), cov=cov.numpy(), outcomes=not_none(modelbridge.outcomes)
+        f=f.numpy(), cov=cov.numpy(), outcomes=none_throws(modelbridge.outcomes)
     )
     # Construct observations
     frontier_observations = []
@@ -1030,7 +1031,7 @@ def hypervolume(
     )
     # Apply appropriate weights and thresholds
     obj, obj_t = get_weighted_mc_objective_and_objective_thresholds(
-        objective_weights=obj_w, objective_thresholds=not_none(obj_t)
+        objective_weights=obj_w, objective_thresholds=none_throws(obj_t)
     )
     f_t = obj(f)
     obj_mask = obj_w.nonzero().view(-1)

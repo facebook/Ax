@@ -19,7 +19,7 @@ import numpy.typing as npt
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.model_spec import ModelSpec
 from ax.utils.common.base import Base
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 # pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ARRAYLIKE = Union[np.ndarray, list[float], list[np.ndarray]]
@@ -122,7 +122,7 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
             model_spec.cross_validate(model_cv_kwargs=self.model_cv_kwargs)
         aggregated_diagnostic_values = [
             self.metric_aggregation(
-                list(not_none(model_spec.diagnostics)[self.diagnostic].values())
+                list(none_throws(model_spec.diagnostics)[self.diagnostic].values())
             )
             for model_spec in model_specs
         ]

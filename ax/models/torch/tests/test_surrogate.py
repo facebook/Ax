@@ -22,7 +22,7 @@ from ax.models.torch.botorch_modular.surrogate import _extract_model_kwargs, Sur
 from ax.models.torch.botorch_modular.utils import choose_model_class, fit_botorch_model
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from ax.utils.testing.utils import generic_equals
@@ -40,7 +40,7 @@ from gpytorch.constraints import GreaterThan, Interval
 from gpytorch.kernels import Kernel, MaternKernel, RBFKernel, ScaleKernel
 from gpytorch.likelihoods import FixedNoiseGaussianLikelihood, GaussianLikelihood
 from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 from torch.nn import ModuleList  # @manual -- autodeps can't figure it out.
 
@@ -524,7 +524,7 @@ class SurrogateTest(TestCase):
             self.training_data,
             search_space_digest=self.search_space_digest,
         )
-        model = not_none(surrogate._model)
+        model = none_throws(surrogate._model)
         self.assertEqual(type(model.likelihood), GaussianLikelihood)
         noise_constraint.eval()  # For the equality check.
         self.assertEqual(

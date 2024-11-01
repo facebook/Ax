@@ -26,8 +26,8 @@ from ax.core.search_space import SearchSpace
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
-from ax.utils.common.typeutils import not_none
 from ax.utils.stats.statstools import relativize, unrelativize
+from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -65,11 +65,11 @@ class BaseRelativize(Transform, ABC):
             config=config,
         )
         # self.modelbridge should NOT be modified
-        self.modelbridge: ModelBridge = not_none(
+        self.modelbridge: ModelBridge = none_throws(
             modelbridge, f"{cls_name} transform requires a modelbridge"
         )
 
-        self.status_quo_data_by_trial: dict[int, ObservationData] = not_none(
+        self.status_quo_data_by_trial: dict[int, ObservationData] = none_throws(
             self.modelbridge.status_quo_data_by_trial,
             f"{cls_name} requires status quo data.",
         )

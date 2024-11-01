@@ -40,7 +40,8 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.utils import copy_db_ids
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -146,7 +147,7 @@ def _save_generation_strategy(
         decode_args={"experiment": experiment},
     )
 
-    return not_none(generation_strategy.db_id)
+    return none_throws(generation_strategy.db_id)
 
 
 def save_or_update_trial(

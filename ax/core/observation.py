@@ -28,7 +28,8 @@ from ax.core.types import TCandidateMetadata, TParameterization
 from ax.utils.common.base import Base
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -308,7 +309,7 @@ def _observations_from_dataframe(
             metadata = trial._get_candidate_metadata(arm_name) or {}
             if Keys.TRIAL_COMPLETION_TIMESTAMP not in metadata:
                 if trial._time_completed is not None:
-                    metadata[Keys.TRIAL_COMPLETION_TIMESTAMP] = not_none(
+                    metadata[Keys.TRIAL_COMPLETION_TIMESTAMP] = none_throws(
                         trial._time_completed
                     ).timestamp()
             obs_kwargs[Keys.METADATA] = metadata

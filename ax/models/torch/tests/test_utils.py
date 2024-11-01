@@ -29,7 +29,7 @@ from ax.models.torch.utils import _to_inequality_constraints
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.logei import (
@@ -42,6 +42,7 @@ from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
 from botorch.utils.datasets import SupervisedDataset
+from pyre_extensions import none_throws
 
 
 class BoTorchModelUtilsTest(TestCase):
@@ -434,7 +435,7 @@ class BoTorchModelUtilsTest(TestCase):
         self.assertTrue(torch.equal(new_datasets[0].X, X))
         self.assertTrue(torch.equal(new_datasets[0].Y, torch.cat(Ys, dim=-1)))
         self.assertTrue(
-            torch.equal(not_none(new_datasets[0].Yvar), torch.cat(Yvars, dim=-1))
+            torch.equal(none_throws(new_datasets[0].Yvar), torch.cat(Yvars, dim=-1))
         )
         self.assertEqual(new_datasets[0].outcome_names, metric_names)
 
@@ -496,7 +497,7 @@ class BoTorchModelUtilsTest(TestCase):
         )
         self.assertTrue(
             torch.equal(
-                not_none(new_datasets[0].Yvar),
+                none_throws(new_datasets[0].Yvar),
                 torch.cat([Yvar[:3] for Yvar in Yvars], dim=-1),
             )
         )
@@ -505,7 +506,7 @@ class BoTorchModelUtilsTest(TestCase):
     def test_to_inequality_constraints(self) -> None:
         A = torch.tensor([[0, 1, -2, 3], [0, 1, 0, 0]])
         b = torch.tensor([[1], [2]])
-        ineq_constraints = not_none(
+        ineq_constraints = none_throws(
             _to_inequality_constraints(linear_constraints=(A, b))
         )
         self.assertEqual(len(ineq_constraints), 2)

@@ -17,7 +17,7 @@ from ax.modelbridge.generation_strategy import (
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 
 class TestBenchmarkMethod(TestCase):
@@ -33,7 +33,7 @@ class TestBenchmarkMethod(TestCase):
 
         # test that `fit_tracking_metrics` has been correctly set to False
         for step in method.generation_strategy._steps:
-            self.assertFalse(not_none(step.model_kwargs).get("fit_tracking_metrics"))
+            self.assertFalse(none_throws(step.model_kwargs).get("fit_tracking_metrics"))
 
         self.assertEqual(method.scheduler_options, options)
         self.assertEqual(options.max_pending_trials, 1)
@@ -60,7 +60,7 @@ class TestBenchmarkMethod(TestCase):
         )
         for node in method.generation_strategy._nodes:
             self.assertFalse(
-                not_none(node.model_spec_to_gen_from.model_kwargs).get(
+                none_throws(node.model_spec_to_gen_from.model_kwargs).get(
                     "fit_tracking_metrics"
                 )
             )

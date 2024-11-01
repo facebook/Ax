@@ -14,7 +14,7 @@ import torch
 from ax.models.model_utils import tunable_feature_indices
 from ax.models.random.base import RandomModel
 from ax.models.types import TConfig
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 from torch.quasirandom import SobolEngine
 
 
@@ -115,7 +115,7 @@ class SobolGenerator(RandomModel):
             rounding_func=rounding_func,
         )
         if self.engine:
-            self.init_position = not_none(self.engine).num_generated
+            self.init_position = none_throws(self.engine).num_generated
         return points, weights
 
     def _gen_samples(self, n: int, tunable_d: int) -> npt.NDArray:
@@ -136,4 +136,4 @@ class SobolGenerator(RandomModel):
             raise ValueError(
                 "Sobol Engine must be initialized before candidate generation."
             )
-        return not_none(self.engine).draw(n, dtype=torch.double).numpy()
+        return none_throws(self.engine).draw(n, dtype=torch.double).numpy()

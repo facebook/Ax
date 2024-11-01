@@ -28,7 +28,7 @@ from ax.early_stopping.strategies.logical import (
 from ax.early_stopping.utils import align_partial_results
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_arms,
     get_branin_experiment,
@@ -698,7 +698,7 @@ def _evaluate_early_stopping_with_df(
 ) -> dict[int, str | None]:
     """Helper function for testing PercentileEarlyStoppingStrategy
     on an arbitrary (MapData) df."""
-    data = not_none(
+    data = none_throws(
         early_stopping_strategy._check_validity_and_get_data(experiment, [metric_name])
     )
     metric_to_aligned_means, _ = align_partial_results(

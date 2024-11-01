@@ -27,7 +27,7 @@ from ax.modelbridge.prediction_utils import (
 from ax.modelbridge.transforms.ivw import IVW
 from ax.plot.base import DECIMALS, PlotData, PlotInSampleArm, PlotOutOfSampleArm, Z
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -269,8 +269,8 @@ def _get_in_sample_arms(
         else:
             pred_y = obs_y
             pred_se = obs_se
-        in_sample_plot[not_none(obs.arm_name)] = PlotInSampleArm(
-            name=not_none(obs.arm_name),
+        in_sample_plot[none_throws(obs.arm_name)] = PlotInSampleArm(
+            name=none_throws(obs.arm_name),
             y=obs_y,
             se=obs_se,
             parameters=obs.features.parameters,
@@ -792,7 +792,7 @@ def infer_is_relative(
     relative = {}
     constraint_relativity = {}
     if model._optimization_config:
-        constraints = not_none(model._optimization_config).outcome_constraints
+        constraints = none_throws(model._optimization_config).outcome_constraints
         constraint_relativity = {
             constraint.metric.name: constraint.relative for constraint in constraints
         }

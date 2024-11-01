@@ -32,7 +32,6 @@ from ax.service.utils.scheduler_options import SchedulerOptions
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
 from ax.utils.testing.benchmark_stubs import (
     get_moo_surrogate,
     get_multi_objective_benchmark_problem,
@@ -103,7 +102,7 @@ class TestBenchmark(TestCase):
 
         # test saving to temporary file
         with tempfile.NamedTemporaryFile(mode="w", delete=True, suffix=".json") as f:
-            save_experiment(not_none(res.experiment), f.name)
+            save_experiment(none_throws(res.experiment), f.name)
             res.experiment_storage_id = f.name
             res.experiment = None
             self.assertIsNone(res.experiment)
@@ -155,7 +154,9 @@ class TestBenchmark(TestCase):
         for problem in problems:
             res = benchmark_replication(problem=problem, method=method, seed=0)
 
-            self.assertEqual(problem.num_trials, len(not_none(res.experiment).trials))
+            self.assertEqual(
+                problem.num_trials, len(none_throws(res.experiment).trials)
+            )
             self.assertTrue(np.isfinite(res.score_trace).all())
             self.assertTrue(np.all(res.score_trace <= 100))
             experiment = none_throws(res.experiment)
@@ -181,7 +182,7 @@ class TestBenchmark(TestCase):
 
                 self.assertEqual(
                     problem.num_trials,
-                    len(not_none(res.experiment).trials),
+                    len(none_throws(res.experiment).trials),
                 )
 
                 self.assertTrue(np.isfinite(res.score_trace).all())
@@ -340,7 +341,7 @@ class TestBenchmark(TestCase):
                 res = benchmark_replication(problem=problem, method=method, seed=0)
                 self.assertEqual(
                     problem.num_trials,
-                    len(not_none(res.experiment).trials),
+                    len(none_throws(res.experiment).trials),
                 )
                 self.assertTrue(np.all(res.score_trace <= 100))
                 self.assertEqual(method.name, method.generation_strategy.name)
@@ -357,11 +358,11 @@ class TestBenchmark(TestCase):
 
         self.assertEqual(
             problem.num_trials,
-            len(not_none(res.experiment).trials),
+            len(none_throws(res.experiment).trials),
         )
         self.assertEqual(
             problem.num_trials * 2,
-            len(not_none(res.experiment).fetch_data().df),
+            len(none_throws(res.experiment).fetch_data().df),
         )
 
         self.assertTrue(np.all(res.score_trace <= 100))
@@ -377,7 +378,7 @@ class TestBenchmark(TestCase):
         self.assertEqual(len(agg.results), 2)
         self.assertTrue(
             all(
-                len(not_none(result.experiment).trials) == problem.num_trials
+                len(none_throws(result.experiment).trials) == problem.num_trials
                 for result in agg.results
             ),
             "All experiments must have 4 trials",
@@ -469,5 +470,5 @@ class TestBenchmark(TestCase):
         problem = get_single_objective_benchmark_problem()
         res = benchmark_replication(problem=problem, method=method, seed=0)
 
-        self.assertEqual(problem.num_trials, len(not_none(res.experiment).trials))
+        self.assertEqual(problem.num_trials, len(none_throws(res.experiment).trials))
         self.assertTrue(np.isnan(res.score_trace).all())

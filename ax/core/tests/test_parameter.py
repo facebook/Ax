@@ -18,7 +18,7 @@ from ax.core.parameter import (
 )
 from ax.exceptions.core import AxParameterWarning, AxWarning, UserInputError
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 
 class RangeParameterTest(TestCase):
@@ -358,7 +358,7 @@ class ChoiceParameterTest(TestCase):
             dependents={"foo": ["y", "z"], "bar": ["w"]},
         )
         param_clone = param.clone()
-        not_none(param_clone._dependents)["foo"] = ["y"]
+        none_throws(param_clone._dependents)["foo"] = ["y"]
         self.assertEqual(param.dependents, {"foo": ["y", "z"], "bar": ["w"]})
         self.assertEqual(param_clone.dependents, {"foo": ["y"], "bar": ["w"]})
 

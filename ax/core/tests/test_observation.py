@@ -31,7 +31,7 @@ from ax.core.observation import (
 from ax.core.trial import Trial
 from ax.core.types import TParameterization
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 
 class ObservationsTest(TestCase):
@@ -842,14 +842,14 @@ class ObservationsTest(TestCase):
             self.assertEqual(obs.arm_name, obs_truth["arm_name"][i])
             if i == 0:
                 self.assertEqual(
-                    not_none(obs.features.start_time).strftime("%Y-%m-%d %X"),
+                    none_throws(obs.features.start_time).strftime("%Y-%m-%d %X"),
                     "2024-03-20 08:45:00",
                 )
                 self.assertIsNone(obs.features.end_time)
             else:
                 self.assertIsNone(obs.features.start_time)
                 self.assertEqual(
-                    not_none(obs.features.end_time).strftime("%Y-%m-%d %X"),
+                    none_throws(obs.features.end_time).strftime("%Y-%m-%d %X"),
                     "2024-03-20 08:46:00",
                 )
 

@@ -49,8 +49,8 @@ from ax.utils.common.typeutils import (
     checked_cast,
     checked_cast_optional,
     checked_cast_to_tuple,
-    not_none,
 )
+from pyre_extensions import none_throws
 
 DEFAULT_OBJECTIVE_NAME = "objective"
 
@@ -193,7 +193,7 @@ class InstantiationBase:
         field_name: str,
     ) -> ParameterType:
         if typ is None:
-            typ = type(not_none(vals[0]))
+            typ = type(none_throws(vals[0]))
             parameter_type = cls._get_parameter_type(typ)  # pyre-ignore[6]
             assert all(isinstance(x, typ) for x in vals), (
                 f"Values in `{field_name}` not of the same type and no "

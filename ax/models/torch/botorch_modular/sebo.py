@@ -22,7 +22,6 @@ from ax.models.torch.botorch_modular.optimizer_argparse import optimizer_argpars
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
@@ -38,6 +37,7 @@ from botorch.optim import (
 )
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.transforms import unnormalize
+from pyre_extensions import none_throws
 from torch import Tensor
 from torch.quasirandom import SobolEngine
 
@@ -85,7 +85,7 @@ class SEBOAcquisition(Acquisition):
             clamp_tol=CLAMP_TOL,
         )
         # update the training data in new surrogate
-        not_none(surrogate_f._training_data).append(
+        none_throws(surrogate_f._training_data).append(
             SupervisedDataset(
                 X=X_sparse,
                 Y=self.deterministic_model(X_sparse),
@@ -161,7 +161,7 @@ class SEBOAcquisition(Acquisition):
         )
         if torch_opt_config.outcome_constraints is not None:
             # update the shape of A matrix in outcome_constraints
-            A, b = not_none(torch_opt_config.outcome_constraints)
+            A, b = none_throws(torch_opt_config.outcome_constraints)
             outcome_constraints_sebo = (
                 torch.cat([A, torch.zeros(A.shape[0], 1, **tkwargs)], dim=1),
                 b,

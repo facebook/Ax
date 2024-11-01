@@ -28,7 +28,6 @@ from ax.models.torch.botorch_defaults import (
 from ax.models.torch.utils import sample_simplex
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.utils import get_infeasible_cost
@@ -42,6 +41,7 @@ from gpytorch.likelihoods.gaussian_likelihood import FixedNoiseGaussianLikelihoo
 from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
 from gpytorch.priors import GammaPrior
 from gpytorch.priors.lkj_prior import LKJCovariancePrior
+from pyre_extensions import none_throws
 
 
 FIT_MODEL_MO_PATH = f"{get_and_fit_model.__module__}.fit_gpytorch_mll"
@@ -475,7 +475,7 @@ class BotorchModelTest(TestCase):
                 )
 
             # test get_rounding_func
-            dummy_rounding = not_none(get_rounding_func(rounding_func=dummy_func))
+            dummy_rounding = none_throws(get_rounding_func(rounding_func=dummy_func))
             X_temp = torch.rand(1, 2, 3, 4)
             self.assertTrue(torch.equal(X_temp, dummy_rounding(X_temp)))
 

@@ -23,8 +23,9 @@ from ax.core.map_metric import MapMetricFetchResult
 from ax.core.metric import MetricFetchE
 from ax.metrics.noisy_function_map import NoisyFunctionMapMetric
 from ax.utils.common.result import Err, Ok
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.measurement.synthetic_functions import branin
+from pyre_extensions import none_throws
 
 FIDELITY = [0.1, 0.4, 0.7, 1.0]
 
@@ -122,7 +123,7 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
         x1, x2 = x
 
         if self.rate is not None:
-            weight = 1.0 + np.exp(-not_none(self.rate) * timestamp)
+            weight = 1.0 + np.exp(-none_throws(self.rate) * timestamp)
         else:
             weight = 1.0
 

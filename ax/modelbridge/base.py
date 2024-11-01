@@ -40,8 +40,9 @@ from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.exceptions.warnings import InputDataWarning
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -995,13 +996,13 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         """Obtains the state of the underlying model (if using a stateful one)
         in a readily JSON-serializable form.
         """
-        model = not_none(self.model)
+        model = none_throws(self.model)
         return model.serialize_state(raw_state=model._get_state())
 
     def _deserialize_model_state(
         self, serialized_state: dict[str, Any]
     ) -> dict[str, Any]:
-        model = not_none(self.model)
+        model = none_throws(self.model)
         return model.deserialize_state(serialized_state=serialized_state)
 
     def feature_importances(self, metric_name: str) -> dict[str, float]:
@@ -1179,7 +1180,7 @@ def _get_status_quo_by_trial(
     if status_quo_name is not None:
         # identify status quo by arm name
         trial_idx_to_sq_data = {
-            int(not_none(obs.features.trial_index)): obs.data
+            int(none_throws(obs.features.trial_index)): obs.data
             for obs in observations
             if obs.arm_name == status_quo_name
         }
@@ -1189,7 +1190,7 @@ def _get_status_quo_by_trial(
             status_quo_features.parameters, sort_keys=True
         )
         trial_idx_to_sq_data = {
-            int(not_none(obs.features.trial_index)): obs.data
+            int(none_throws(obs.features.trial_index)): obs.data
             for obs in observations
             if json.dumps(obs.features.parameters, sort_keys=True)
             == status_quo_signature

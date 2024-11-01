@@ -27,7 +27,8 @@ from ax.plot.pareto_utils import (
     infer_reference_point_from_experiment,
 )
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 
 logger: Logger = get_logger(__name__)
@@ -188,7 +189,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             return self._should_stop_moo(
                 experiment=experiment,
                 trial_to_check=trial_to_check,
-                objective_thresholds=not_none(objective_thresholds),
+                objective_thresholds=none_throws(objective_thresholds),
             )
         else:
             return self._should_stop_single_objective(
@@ -347,7 +348,7 @@ def constraint_satisfaction(trial: BaseTrial) -> bool:
     Returns:
         A boolean which is True iff all outcome constraints are satisfied.
     """
-    outcome_constraints = not_none(
+    outcome_constraints = none_throws(
         trial.experiment.optimization_config
     ).outcome_constraints
     if len(outcome_constraints) == 0:

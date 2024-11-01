@@ -74,7 +74,7 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.random import with_rng_seed
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.measurement.synthetic_functions import Branin
 from ax.utils.testing.core_stubs import (
     DummyEarlyStoppingStrategy,
@@ -343,10 +343,10 @@ class TestAxClient(TestCase):
         )
         self.assertEqual(ax_client.status_quo, status_quo_params)
         with self.subTest("it returns a copy"):
-            not_none(ax_client.status_quo).update({"x": 2.0})
-            not_none(ax_client.status_quo)["y"] = 2.0
-            self.assertEqual(not_none(ax_client.status_quo)["x"], 1.0)
-            self.assertEqual(not_none(ax_client.status_quo)["y"], 1.0)
+            none_throws(ax_client.status_quo).update({"x": 2.0})
+            none_throws(ax_client.status_quo)["y"] = 2.0
+            self.assertEqual(none_throws(ax_client.status_quo)["x"], 1.0)
+            self.assertEqual(none_throws(ax_client.status_quo)["y"], 1.0)
 
     def test_set_optimization_config_to_moo_with_constraints(self) -> None:
         ax_client = AxClient()
@@ -496,7 +496,7 @@ class TestAxClient(TestCase):
         """
         ax_client = get_branin_optimization()
         self.assertEqual(
-            [s.model for s in not_none(ax_client.generation_strategy)._steps],
+            [s.model for s in none_throws(ax_client.generation_strategy)._steps],
             [Models.SOBOL, Models.BOTORCH_MODULAR],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
@@ -711,7 +711,7 @@ class TestAxClient(TestCase):
             },
         )
         self.assertEqual(
-            [s.model for s in not_none(ax_client.generation_strategy)._steps],
+            [s.model for s in none_throws(ax_client.generation_strategy)._steps],
             [Models.SOBOL, Models.BOTORCH_MODULAR],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
@@ -774,7 +774,7 @@ class TestAxClient(TestCase):
                 steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
             )
         )
-        with self.assertRaisesRegex(ValueError, "Experiment not set on Ax client"):
+        with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
             ax_client.experiment
         ax_client.create_experiment(
             name="test_experiment",
@@ -909,7 +909,7 @@ class TestAxClient(TestCase):
                 steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
             )
         )
-        with self.assertRaisesRegex(ValueError, "Experiment not set on Ax client"):
+        with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
             ax_client.experiment
         ax_client.create_experiment(
             name="test_experiment",
@@ -974,7 +974,7 @@ class TestAxClient(TestCase):
                 steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
             )
         )
-        with self.assertRaisesRegex(ValueError, "Experiment not set on Ax client"):
+        with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
             ax_client.experiment
 
         metric_definitions = {
@@ -1202,7 +1202,7 @@ class TestAxClient(TestCase):
                 steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
             )
         )
-        with self.assertRaisesRegex(ValueError, "Experiment not set on Ax client"):
+        with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
             ax_client.experiment
         ax_client.create_experiment(
             name="test_experiment",
@@ -1775,7 +1775,7 @@ class TestAxClient(TestCase):
             ax_client.get_trial_parameters(trial_index=idx), {"x": 0, "y": 1}
         )
         self.assertEqual(
-            not_none(ax_client.get_trial(trial_index=idx).arm).name, ARM_NAME
+            none_throws(ax_client.get_trial(trial_index=idx).arm).name, ARM_NAME
         )
         with self.assertRaises(KeyError):
             ax_client.get_trial_parameters(
@@ -1845,7 +1845,7 @@ class TestAxClient(TestCase):
     @mock_botorch_optimize
     def test_recommended_parallelism(self) -> None:
         ax_client = AxClient()
-        with self.assertRaisesRegex(ValueError, "No generation strategy"):
+        with self.assertRaisesRegex(AssertionError, "No generation strategy"):
             ax_client.get_max_parallelism()
         ax_client.create_experiment(
             parameters=[
@@ -2391,7 +2391,7 @@ class TestAxClient(TestCase):
             "Sobol",
         )
 
-        cfg = not_none(ax_client.experiment.optimization_config)
+        cfg = none_throws(ax_client.experiment.optimization_config)
         assert isinstance(cfg, MultiObjectiveOptimizationConfig)
         thresholds = np.array([t.bound for t in cfg.objective_thresholds])
 

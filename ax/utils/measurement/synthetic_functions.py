@@ -13,9 +13,9 @@ import numpy as np
 import numpy.typing as npt
 import torch
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.test_functions import synthetic as botorch_synthetic
-from pyre_extensions import override
+from pyre_extensions import none_throws, override
 
 T = TypeVar("T")
 
@@ -31,7 +31,7 @@ class SyntheticFunction(ABC):
     def informative_failure_on_none(self, attr: T | None) -> T:
         if attr is None:
             raise NotImplementedError(f"{self.name} does not specify property.")
-        return not_none(attr)
+        return none_throws(attr)
 
     @property
     def name(self) -> str:

@@ -19,7 +19,7 @@ from ax.models.torch_base import TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.logei import (
@@ -37,6 +37,7 @@ from botorch.models.pairwise_gp import PairwiseGP
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.transforms import is_fully_bayesian
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
+from pyre_extensions import none_throws
 from torch import Tensor
 
 MIN_OBSERVED_NOISE_LEVEL = 1e-7
@@ -231,7 +232,7 @@ def convert_to_block_design(
     # data complies to block design, can concat with impunity
     Y = torch.cat([ds.Y for ds in datasets], dim=-1)
     if is_fixed:
-        Yvar = torch.cat([not_none(ds.Yvar) for ds in datasets], dim=-1)
+        Yvar = torch.cat([none_throws(ds.Yvar) for ds in datasets], dim=-1)
     else:
         Yvar = None
     datasets = [

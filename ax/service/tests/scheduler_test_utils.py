@@ -68,7 +68,7 @@ from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     CustomTestMetric,
     CustomTestRunner,
@@ -368,7 +368,7 @@ class AxSchedulerTestCase(TestCase):
         experiment: Experiment,
         generation_strategy: GenerationStrategy | None = None,
     ) -> GenerationStrategyInterface:
-        return not_none(generation_strategy)
+        return none_throws(generation_strategy)
 
     @property
     def runner_registry(self) -> dict[type[Runner], int]:
@@ -1260,7 +1260,7 @@ class AxSchedulerTestCase(TestCase):
             # interface to node-level from strategy-level (the latter is likely the
             # better option) TODO
             len(gs._generator_runs),
-            len(not_none(loaded_gs)._generator_runs),
+            len(none_throws(loaded_gs)._generator_runs),
         )
         scheduler.run_all_trials()
         # Check that experiment and GS were saved and test reloading with reduced state.
@@ -1710,9 +1710,9 @@ class AxSchedulerTestCase(TestCase):
 
         scheduler.run_n_trials(max_trials=1)
 
-        trial, params, _arm = not_none(scheduler.get_best_trial())
-        just_params, _just_arm = not_none(scheduler.get_best_parameters())
-        just_params_unmodeled, _just_arm_unmodled = not_none(
+        trial, params, _arm = none_throws(scheduler.get_best_trial())
+        just_params, _just_arm = none_throws(scheduler.get_best_parameters())
+        just_params_unmodeled, _just_arm_unmodled = none_throws(
             scheduler.get_best_parameters(use_model_predictions=False)
         )
         with self.assertRaisesRegex(

@@ -39,7 +39,7 @@ from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch_base import TorchGenResults, TorchModel
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_data,
     get_branin_experiment,
@@ -55,6 +55,7 @@ from botorch.utils.datasets import (
     MultiTaskDataset,
     SupervisedDataset,
 )
+from pyre_extensions import none_throws
 
 
 def _get_mock_modelbridge(
@@ -132,8 +133,8 @@ class TorchModelBridgeTest(TestCase):
             for y1, y2, yvar1, yvar2 in zip(
                 datasets["y1"].Y.tolist(),
                 datasets["y2"].Y.tolist(),
-                not_none(datasets["y1"].Yvar).tolist(),
-                not_none(datasets["y2"].Yvar).tolist(),
+                none_throws(datasets["y1"].Yvar).tolist(),
+                none_throws(datasets["y2"].Yvar).tolist(),
             )
         ]
         observations = recombine_observations(observation_features, observation_data)
@@ -500,10 +501,10 @@ class TorchModelBridgeTest(TestCase):
             autospec=True,
         ):
             run = modelbridge.gen(n=1, optimization_config=oc)
-            arm, predictions = not_none(run.best_arm_predictions)
-            model_arm, model_predictions = not_none(modelbridge.model_best_point())
-            predictions = not_none(predictions)
-            model_predictions = not_none(model_predictions)
+            arm, predictions = none_throws(run.best_arm_predictions)
+            model_arm, model_predictions = none_throws(modelbridge.model_best_point())
+            predictions = none_throws(predictions)
+            model_predictions = none_throws(model_predictions)
         self.assertEqual(arm.parameters, {})
         self.assertEqual(predictions[0], {"m": 1.0})
         self.assertEqual(predictions[1], {"m": {"m": 2.0}})
@@ -756,7 +757,7 @@ class TorchModelBridgeTest(TestCase):
                 search_space_digest=search_space_digest,
             )
             self.assertEqual(len(converted_datasets), 1)
-            dataset = not_none(converted_datasets[0])
+            dataset = none_throws(converted_datasets[0])
             self.assertIs(dataset.__class__, expected_class)
             if use_task:
                 sort_idx = torch.argsort(raw_X[:, -1])
@@ -854,7 +855,7 @@ class TorchModelBridgeTest(TestCase):
                     ["c0", "c1", "c2"],
                 )
                 self.assertDictEqual(
-                    not_none(
+                    none_throws(
                         checked_cast(ContextualDataset, dataset).metric_decomposition
                     ),
                     metric_decomposition,

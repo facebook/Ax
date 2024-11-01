@@ -28,7 +28,6 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
 from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
@@ -38,6 +37,7 @@ from botorch.models.deterministic import GenericDeterministicModel
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.model import ModelList
 from botorch.utils.datasets import SupervisedDataset
+from pyre_extensions import none_throws
 
 
 SEBOACQUISITION_PATH: str = SEBOAcquisition.__module__
@@ -150,7 +150,7 @@ class TestSebo(TestCase):
         )
         # Check that determinstic metric is added to surrogate
         surrogate = acquisition1.surrogate
-        model_list = not_none(surrogate._model)
+        model_list = none_throws(surrogate._model)
         self.assertIsInstance(model_list, ModelList)
         self.assertIsInstance(model_list.models[0], SingleTaskGP)
         self.assertIsInstance(model_list.models[1], GenericDeterministicModel)
@@ -170,7 +170,7 @@ class TestSebo(TestCase):
         )
         self.assertTrue(
             torch.equal(
-                not_none(acquisition1.objective_thresholds),
+                none_throws(acquisition1.objective_thresholds),
                 self.objective_thresholds_sebo,
             )
         )
@@ -182,7 +182,7 @@ class TestSebo(TestCase):
         )
         self.assertEqual(acquisition2.penalty_name, "L1_norm")
         surrogate = acquisition2.surrogate
-        model_list = not_none(surrogate._model)
+        model_list = none_throws(surrogate._model)
         self.assertIsInstance(model_list.models[1]._f, functools.partial)
         self.assertIs(model_list.models[1]._f.func, L1_norm_func)
 
