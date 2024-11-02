@@ -22,6 +22,7 @@ from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
+from ax.core.base_trial import TrialStatus
 from ax.core.batch_trial import BatchTrial, LifecycleStage
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -72,6 +73,7 @@ from ax.storage.sqa_store.save import (
     update_properties_on_experiment,
     update_properties_on_trial,
     update_runner_on_experiment,
+    update_trial_status,
 )
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
@@ -2058,6 +2060,27 @@ class SQAStoreTest(TestCase):
         ):
             update_properties_on_trial(
                 trial_with_updated_properties=experiment.trials[0],
+            )
+
+    def test_update_trial_status(self) -> None:
+        experiment = get_experiment_with_batch_trial()
+        self.assertEqual(experiment.trials[0].status, TrialStatus.CANDIDATE)
+        save_experiment(experiment)
+        experiment.trials[0].mark_running(no_runner_required=False)
+
+        update_trial_status(
+            trial_with_updated_status=experiment.trials[0],
+        )
+        loaded_experiment = load_experiment(experiment.name)
+        self.assertEqual(loaded_experiment.trials[0].status, TrialStatus.RUNNING)
+
+    def test_update_trial_status_not_saved(self) -> None:
+        experiment = get_experiment_with_batch_trial()
+        with self.assertRaisesRegex(
+            ValueError, "Trial must be saved before being updated."
+        ):
+            update_trial_status(
+                trial_with_updated_status=experiment.trials[0],
             )
 
     def test_RepeatedArmStorage(self) -> None:
