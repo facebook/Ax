@@ -18,6 +18,7 @@ from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.experiment import DataType, Experiment
 from ax.core.metric import Metric
+from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
@@ -40,6 +41,7 @@ from ax.core.parameter_constraint import (
     ParameterConstraint,
     validate_constraint_parameters,
 )
+from ax.core.runner import Runner
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.types import ComparisonOp, TParameterization, TParamValue
 from ax.exceptions.core import UnsupportedError
@@ -799,6 +801,8 @@ class InstantiationBase:
         immutable_search_space_and_opt_config: bool = True,
         auxiliary_experiments_by_purpose: None
         | (dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]) = None,
+        default_trial_type: str | None = None,
+        default_runner: Runner | None = None,
         is_test: bool = False,
     ) -> Experiment:
         """Instantiation wrapper that allows for Ax `Experiment` creation
@@ -854,10 +858,23 @@ class InstantiationBase:
                 improve storage performance.
             auxiliary_experiments_by_purpose: Dictionary of auxiliary experiments for
                 different use cases (e.g., transfer learning).
+            default_trial_type: The default trial type if multiple
+                trial types are intended to be used in the experiment.  If specified,
+                a MultiTypeExperiment will be created. Otherwise, a single-type
+                Experiment will be created.
+            default_runner: The default runner in this experiment.
+                This only applies to MultiTypeExperiment (when default_trial_type
+                is specified).
             is_test: Whether this experiment will be a test experiment (useful for
                 marking test experiments in storage etc). Defaults to False.
 
         """
+        if (default_trial_type is None) != (default_runner is None):
+            raise ValueError(
+                "Must specify both default_trial_type and default_runner if "
+                "using a MultiTypeExperiment."
+            )
+
         status_quo_arm = None if status_quo is None else Arm(parameters=status_quo)
 
         objectives = objectives or cls._get_default_objectives()
@@ -896,6 +913,21 @@ class InstantiationBase:
 
         if owners is not None:
             properties["owners"] = owners
+        if default_trial_type is not None:
+            return MultiTypeExperiment(
+                name=none_throws(name),
+                search_space=cls.make_search_space(parameters, parameter_constraints),
+                default_trial_type=none_throws(default_trial_type),
+                default_runner=none_throws(default_runner),
+                optimization_config=optimization_config,
+                tracking_metrics=tracking_metrics,
+                status_quo=status_quo_arm,
+                description=description,
+                is_test=is_test,
+                experiment_type=experiment_type,
+                properties=properties,
+                default_data_type=default_data_type,
+            )
 
         return Experiment(
             name=name,

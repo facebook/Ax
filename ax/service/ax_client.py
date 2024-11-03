@@ -27,12 +27,14 @@ from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
+from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
+from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.types import (
     TEvaluationOutcome,
@@ -40,6 +42,7 @@ from ax.core.types import (
     TParameterization,
     TParamValue,
 )
+
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.early_stopping.utils import estimate_early_stopping_savings
@@ -89,6 +92,7 @@ from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.random import with_rng_seed
 from ax.utils.common.typeutils import checked_cast
 from pyre_extensions import assert_is_instance, none_throws
+
 
 logger: Logger = get_logger(__name__)
 
@@ -251,6 +255,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         immutable_search_space_and_opt_config: bool = True,
         is_test: bool = False,
         metric_definitions: dict[str, dict[str, Any]] | None = None,
+        default_trial_type: str | None = None,
+        default_runner: Runner | None = None,
     ) -> None:
         """Create a new experiment and save it if DBSettings available.
 
@@ -316,6 +322,15 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 to that metric. Note these are modified in-place. Each
                 Metric must have its own dictionary (metrics cannot share a
                 single dictionary object).
+            default_trial_type: The default trial type if multiple
+                trial types are intended to be used in the experiment.  If specified,
+                a MultiTypeExperiment will be created. Otherwise, a single-type
+                Experiment will be created.
+            default_runner: The default runner in this experiment.
+                This applies to MultiTypeExperiment (when default_trial_type
+                is specified) and needs to be specified together with
+                default_trial_type. This will be ignored for single-type Experiment
+                (when default_trial_type is not specified).
         """
         self._validate_early_stopping_strategy(support_intermediate_data)
 
@@ -344,6 +359,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             support_intermediate_data=support_intermediate_data,
             immutable_search_space_and_opt_config=immutable_search_space_and_opt_config,
             is_test=is_test,
+            default_trial_type=default_trial_type,
+            default_runner=default_runner,
             **objective_kwargs,
         )
         self._set_runner(experiment=experiment)
@@ -416,6 +433,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         self,
         metric_names: list[str],
         metric_definitions: dict[str, dict[str, Any]] | None = None,
+        metrics_to_trial_types: dict[str, str] | None = None,
+        canonical_names: dict[str, str] | None = None,
     ) -> None:
         """Add a list of new metrics to the experiment.
 
@@ -428,20 +447,34 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 to that metric. Note these are modified in-place. Each
                 Metric must have its is own dictionary (metrics cannot share a
                 single dictionary object).
+            metrics_to_trial_types: Only applicable to MultiTypeExperiment.
+                The mapping from metric names to corresponding
+                trial types for each metric. If provided, the metrics will be
+                added with their respective trial types. If not provided, then the
+                default trial type will be used.
+            canonical_names: A mapping from metric name (of a particular trial type)
+                to the metric name of the default trial type. Only applicable to
+                MultiTypeExperiment.
         """
         metric_definitions = (
             self.metric_definitions
             if metric_definitions is None
             else metric_definitions
         )
-        self.experiment.add_tracking_metrics(
-            metrics=[
-                self._make_metric(
-                    name=metric_name, metric_definitions=metric_definitions
-                )
-                for metric_name in metric_names
-            ]
-        )
+        metric_objects = [
+            self._make_metric(name=metric_name, metric_definitions=metric_definitions)
+            for metric_name in metric_names
+        ]
+
+        if isinstance(self.experiment, MultiTypeExperiment):
+            experiment = assert_is_instance(self.experiment, MultiTypeExperiment)
+            experiment.add_tracking_metrics(
+                metrics=metric_objects,
+                metrics_to_trial_types=metrics_to_trial_types,
+                canonical_names=canonical_names,
+            )
+        else:
+            self.experiment.add_tracking_metrics(metrics=metric_objects)
 
     @copy_doc(Experiment.remove_tracking_metric)
     def remove_tracking_metric(self, metric_name: str) -> None:
