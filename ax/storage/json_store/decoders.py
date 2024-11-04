@@ -13,7 +13,7 @@ import logging
 from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, TypeVar
 
 import torch
 from ax.core.arm import Arm
@@ -50,6 +50,8 @@ logger: logging.Logger = get_logger(__name__)
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import core  # noqa F401
+
+T = TypeVar("T")
 
 
 def batch_trial_from_json(
@@ -257,7 +259,7 @@ def tensor_or_size_from_json(json: dict[str, Any]) -> torch.Tensor | torch.Size:
 
 # pyre-fixme[3]: Return annotation cannot contain `Any`.
 # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-def botorch_component_from_json(botorch_class: Any, json: dict[str, Any]) -> type[Any]:
+def botorch_component_from_json(botorch_class: type[T], json: dict[str, Any]) -> T:
     """Load any instance of `torch.nn.Module` or descendants registered in
     `CLASS_DECODER_REGISTRY` from state dict."""
     state_dict = json.pop("state_dict")

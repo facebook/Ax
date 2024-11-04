@@ -577,7 +577,8 @@ class ChoiceParameter(Parameter):
             )
         # Remove duplicate values.
         # Using dict to deduplicate here since set doesn't preserve order but dict does.
-        if len(values) != len(dict_values := dict.fromkeys(values)):
+        dict_values = dict.fromkeys(values)
+        if len(values) != len(dict_values):
             warn(
                 f"Duplicate values found for ChoiceParameter {name}. "
                 "Initializing the parameter with duplicate values removed. ",

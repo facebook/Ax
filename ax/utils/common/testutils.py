@@ -24,7 +24,7 @@ from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager
 from logging import Logger
 from pstats import Stats
-from types import FrameType
+from types import FrameType, ModuleType
 from typing import Any, TypeVar, Union
 from unittest.mock import MagicMock
 
@@ -262,7 +262,7 @@ def setup_import_mocks(
     """
 
     # pyre-fixme[3]
-    def custom_import(name: str, *args: Any, **kwargs: Any) -> Any:
+    def custom_import(name: str, *args: Any, **kwargs: Any) -> ModuleType:
         for import_path in mocked_import_paths:
             if name == import_path or name.startswith(f"{import_path}."):
                 mymock = MagicMock()
@@ -278,8 +278,8 @@ def setup_import_mocks(
             raise Exception(f"{import_path} has already been imported!")
 
     # Replace the original import with the custom one
-    # pyre-fixme[61]
-    original_import = builtins.__import__
+    # pyre-fixme[61][53]
+    original_import: Callable[..., ModuleType] = builtins.__import__
     # pyre-fixme[9]: __import__ has type `(name: str, globals: Optional[Mapping[str,
     #  object]] = ..., locals: Optional[Mapping[str, object]] = ..., fromlist:
     #  Sequence[str] = ..., level: int = ...) -> ModuleType`; used as `(name: str,
@@ -442,6 +442,8 @@ class TestCase(fake_filesystem_unittest.TestCase):
         exc: type[Exception],
         line: str | None = None,
         regex: str | None = None,
+        # pyre-ignore[24]: Generic type `AbstractContextManager`
+        # expects 2 type parameters, received 1.
     ) -> AbstractContextManager[None]:
         """Assert that an exception is raised on a specific line."""
         context = _AssertRaisesContextOn(exc, self, line, regex)
