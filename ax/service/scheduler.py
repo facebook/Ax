@@ -1893,11 +1893,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 )
             self.logger.debug(f"Message from generation strategy: {err}")
             return [], err
-        except Exception as err:
-            self.logger.exception(
-                f"An unexpected error occurred while generating trials. {err}"
-            )
-            return [], err
 
         if self.options.trial_type == TrialType.TRIAL and any(
             len(generator_run_list[0].arms) > 1 or len(generator_run_list) > 1
