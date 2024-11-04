@@ -575,6 +575,7 @@ def filter_constraints_and_fixed_features(
         feas &= (X_np[:, i] >= b[0]) & (X_np[:, i] <= b[1])
     if linear_constraints is not None:
         A, b = as_array(linear_constraints)  # (m x d) and (m x 1)
+        # pyre-fixme[20]: Call `torch._C.TensorBase.transpose` expects argument `dim0`.
         feas &= (A @ X_np.transpose() <= b).all(axis=0)
     if fixed_features is not None:
         for idx, val in fixed_features.items():

@@ -239,7 +239,7 @@ class RelativizeDataTest(TestCase):
                 )
                 j += 1
 
-        metric_names = ["foobar", "foobaz"]
+        metric_names: list[str] = ["foobar", "foobaz"]
         arm_names = ["status_quo", "0_0", "status_quo", "1_0"]
         obs_data = [
             ObservationData(

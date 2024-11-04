@@ -914,6 +914,9 @@ class TorchModelBridge(ModelBridge):
             thresholds.append(
                 ObjectiveThreshold(
                     metric=opt_config_metrics[self.outcomes[idx]],
+                    # pyre-fixme[6]: In call `ObjectiveThreshold.__init__`,
+                    # for argument `bound`, expected `float` but got
+                    # `ndarray[typing.Any, typing.Any]`
                     bound=thresholds_np[idx],
                     relative=False,
                     op=ComparisonOp.LEQ if sign < 0 else ComparisonOp.GEQ,
