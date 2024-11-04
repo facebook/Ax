@@ -17,6 +17,7 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.search_space import HierarchicalSearchSpace
+from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.instantiation import InstantiationBase
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
@@ -431,3 +432,21 @@ class TestInstantiationtUtils(TestCase):
         self.assertIsInstance(search_space, HierarchicalSearchSpace)
         # pyre-fixme[16]: `SearchSpace` has no attribute `_root`.
         self.assertEqual(search_space._root.name, "root")
+
+    def test_make_multitype_experiment_with_default_trial_type(self) -> None:
+        experiment = InstantiationBase.make_experiment(
+            name="test_make_experiment",
+            parameters=[{"name": "x", "type": "range", "bounds": [0, 1]}],
+            tracking_metric_names=None,
+            default_trial_type="test_trial_type",
+            default_runner=SyntheticRunner(),
+        )
+        self.assertEqual(experiment.__class__.__name__, "MultiTypeExperiment")
+
+    def test_make_single_type_experiment_with_no_default_trial_type(self) -> None:
+        experiment = InstantiationBase.make_experiment(
+            name="test_make_experiment",
+            parameters=[{"name": "x", "type": "range", "bounds": [0, 1]}],
+            tracking_metric_names=None,
+        )
+        self.assertEqual(experiment.__class__.__name__, "Experiment")

@@ -171,6 +171,40 @@ class MultiTypeExperimentTest(TestCase):
         ):
             self.experiment.runner_for_trial_type(trial_type="invalid")
 
+    def test_add_tracking_metrics(self) -> None:
+        type1_metrics = [
+            BraninMetric("m3_type1", ["x1", "x2"]),
+            BraninMetric("m4_type1", ["x1", "x2"]),
+        ]
+        type2_metrics = [
+            BraninMetric("m3_type2", ["x1", "x2"]),
+            BraninMetric("m4_type2", ["x1", "x2"]),
+        ]
+        default_type_metrics = [
+            BraninMetric("m5_default_type", ["x1", "x2"]),
+        ]
+        self.experiment.add_tracking_metrics(
+            metrics=type1_metrics + type2_metrics + default_type_metrics,
+            metrics_to_trial_types={
+                "m3_type1": "type1",
+                "m4_type1": "type1",
+                "m3_type2": "type2",
+                "m4_type2": "type2",
+            },
+        )
+        self.assertDictEqual(
+            self.experiment._metric_to_trial_type,
+            {
+                "m1": "type1",
+                "m2": "type2",
+                "m3_type1": "type1",
+                "m4_type1": "type1",
+                "m3_type2": "type2",
+                "m4_type2": "type2",
+                "m5_default_type": "type1",
+            },
+        )
+
 
 class MultiTypeExperimentUtilsTest(TestCase):
     def setUp(self) -> None:

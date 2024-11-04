@@ -49,6 +49,7 @@ class MultiTypeExperiment(Experiment):
         default_trial_type: str,
         default_runner: Runner,
         optimization_config: OptimizationConfig | None = None,
+        tracking_metrics: list[Metric] | None = None,
         status_quo: Arm | None = None,
         description: str | None = None,
         is_test: bool = False,
@@ -65,6 +66,7 @@ class MultiTypeExperiment(Experiment):
             default_runner: Default runner for trials of the default type.
             optimization_config: Optimization config of the experiment.
             tracking_metrics: Additional tracking metrics not used for optimization.
+                These are associated with the default trial type.
             runner: Default runner used for trials on this experiment.
             status_quo: Arm representing existing "control" arm.
             description: Description of the experiment.
@@ -101,6 +103,7 @@ class MultiTypeExperiment(Experiment):
             experiment_type=experiment_type,
             properties=properties,
             default_data_type=default_data_type,
+            tracking_metrics=tracking_metrics,
         )
 
     def add_trial_type(self, trial_type: str, runner: Runner) -> "MultiTypeExperiment":
@@ -161,6 +164,45 @@ class MultiTypeExperiment(Experiment):
         self._metric_to_trial_type[metric.name] = trial_type
         if canonical_name is not None:
             self._metric_to_canonical_name[metric.name] = canonical_name
+        return self
+
+    def add_tracking_metrics(
+        self,
+        metrics: list[Metric],
+        metrics_to_trial_types: dict[str, str] | None = None,
+        canonical_names: dict[str, str] | None = None,
+    ) -> Experiment:
+        """Add a list of new metrics to the experiment.
+
+        If any of the metrics are already defined on the experiment,
+        we raise an error and don't add any of them to the experiment
+
+        Args:
+            metrics: Metrics to be added.
+            metrics_to_trial_types: The mapping from metric names to corresponding
+                trial types for each metric. If provided, the metrics will be
+                added to their trial types. If not provided, then the default
+                trial type will be used.
+            canonical_names: A mapping of metric names to their
+                canonical names(The default metrics for which the metrics are
+                proxies.)
+
+        Returns:
+            The experiment with the added metrics.
+        """
+        metrics_to_trial_types = metrics_to_trial_types or {}
+        canonical_name = None
+        for metric in metrics:
+            if canonical_names is not None:
+                canonical_name = none_throws(canonical_names).get(metric.name, None)
+
+            self.add_tracking_metric(
+                metric=metric,
+                trial_type=metrics_to_trial_types.get(
+                    metric.name, self._default_trial_type
+                ),
+                canonical_name=canonical_name,
+            )
         return self
 
     # pyre-fixme[14]: `update_tracking_metric` overrides method defined in

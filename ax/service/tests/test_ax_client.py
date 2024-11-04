@@ -21,6 +21,7 @@ import torch
 from ax.core.arm import Arm
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
+from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import (
@@ -57,6 +58,7 @@ from ax.modelbridge.generation_strategy import (
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import Models
+from ax.runners.synthetic import SyntheticRunner
 
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.service.utils.best_point import (
@@ -83,7 +85,7 @@ from ax.utils.testing.core_stubs import (
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_observation1, get_observation1trans
 from botorch.test_functions.multi_objective import BraninCurrin
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     from ax.core.types import TTrialEvaluation
@@ -821,6 +823,7 @@ class TestAxClient(TestCase):
             is_test=True,
         )
         assert ax_client._experiment is not None
+        self.assertEqual(ax_client.experiment.__class__.__name__, "Experiment")
         self.assertEqual(ax_client._experiment, ax_client.experiment)
         self.assertEqual(
             # pyre-fixme[16]: `Optional` has no attribute `search_space`.
@@ -902,6 +905,107 @@ class TestAxClient(TestCase):
                 ax_client.metric_names,
                 {"test_objective", "some_metric", "test_tracking_metric"},
             )
+
+    def test_create_multitype_experiment(self) -> None:
+        """
+        Test create multitype experiment, add trial type, and add metrics to
+        different trial types
+        """
+        ax_client = AxClient(
+            GenerationStrategy(
+                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
+            )
+        )
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x",
+                    "type": "range",
+                    "bounds": [0.001, 0.1],
+                    "value_type": "float",
+                    "log_scale": True,
+                    "digits": 6,
+                },
+                {
+                    "name": "y",
+                    "type": "choice",
+                    "values": [1, 2, 3],
+                    "value_type": "int",
+                    "is_ordered": True,
+                },
+                {"name": "x3", "type": "fixed", "value": 2, "value_type": "int"},
+                {
+                    "name": "x4",
+                    "type": "range",
+                    "bounds": [1.0, 3.0],
+                    "value_type": "int",
+                },
+                {
+                    "name": "x5",
+                    "type": "choice",
+                    "values": ["one", "two", "three"],
+                    "value_type": "str",
+                },
+                {
+                    "name": "x6",
+                    "type": "range",
+                    "bounds": [1.0, 3.0],
+                    "value_type": "int",
+                },
+            ],
+            objectives={"test_objective": ObjectiveProperties(minimize=True)},
+            outcome_constraints=["some_metric >= 3", "some_metric <= 4.0"],
+            parameter_constraints=["x4 <= x6"],
+            tracking_metric_names=["test_tracking_metric"],
+            is_test=True,
+            default_trial_type="test_trial_type",
+            default_runner=SyntheticRunner(),
+        )
+
+        self.assertEqual(ax_client.experiment.__class__.__name__, "MultiTypeExperiment")
+        experiment = assert_is_instance(ax_client.experiment, MultiTypeExperiment)
+        self.assertEqual(
+            experiment._trial_type_to_runner["test_trial_type"].__class__.__name__,
+            "SyntheticRunner",
+        )
+        self.assertEqual(
+            experiment._metric_to_trial_type,
+            {
+                "test_tracking_metric": "test_trial_type",
+                "test_objective": "test_trial_type",
+                "some_metric": "test_trial_type",
+            },
+        )
+        experiment.add_trial_type(
+            trial_type="test_trial_type_2",
+            runner=SyntheticRunner(),
+        )
+        ax_client.add_tracking_metrics(
+            metric_names=[
+                "some_metric2_type1",
+                "some_metric3_type1",
+                "some_metric4_type2",
+                "some_metric5_type2",
+            ],
+            metrics_to_trial_types={
+                "some_metric2_type1": "test_trial_type",
+                "some_metric4_type2": "test_trial_type_2",
+                "some_metric5_type2": "test_trial_type_2",
+            },
+        )
+        self.assertEqual(
+            experiment._metric_to_trial_type,
+            {
+                "test_tracking_metric": "test_trial_type",
+                "test_objective": "test_trial_type",
+                "some_metric": "test_trial_type",
+                "some_metric2_type1": "test_trial_type",
+                "some_metric3_type1": "test_trial_type",
+                "some_metric4_type2": "test_trial_type_2",
+                "some_metric5_type2": "test_trial_type_2",
+            },
+        )
 
     def test_create_single_objective_experiment_with_objectives_dict(self) -> None:
         ax_client = AxClient(
