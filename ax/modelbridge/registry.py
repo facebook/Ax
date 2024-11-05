@@ -159,7 +159,7 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         transforms=Cont_X_trans + Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
-    "GPEI": ModelSetup(
+    "Legacy_GPEI": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=BotorchModel,
         transforms=Cont_X_trans + Y_trans,
@@ -427,12 +427,11 @@ class Models(ModelRegistryBase):
     """
 
     SOBOL = "Sobol"
-    GPEI = "GPEI"
     FACTORIAL = "Factorial"
     SAASBO = "SAASBO"
     SAAS_MTGP = "SAAS_MTGP"
     THOMPSON = "Thompson"
-    LEGACY_BOTORCH = "GPEI"
+    LEGACY_BOTORCH = "Legacy_GPEI"
     BOTORCH_MODULAR = "BoTorch"
     EMPIRICAL_BAYES_THOMPSON = "EB"
     UNIFORM = "Uniform"
@@ -442,6 +441,13 @@ class Models(ModelRegistryBase):
     BO_MIXED = "BO_MIXED"
     ST_MTGP_NEHVI = "ST_MTGP_NEHVI"
     CONTEXT_SACBO = "Contextual_SACBO"
+
+    @classmethod
+    @property
+    def GPEI(cls) -> Models:
+        return _deprecated_model_with_warning(
+            old_model_str="GPEI", new_model=cls.BOTORCH_MODULAR
+        )
 
     @classmethod
     @property

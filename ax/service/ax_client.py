@@ -157,7 +157,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
         torch_device: An optional `torch.device` object, used to choose the device
             used for generating new points for trials. Works only for torch-based
-            models, such as GPEI. Ignored if a `generation_strategy` is passed in
+            models, such as MBM. Ignored if a `generation_strategy` is passed in
             manually. To specify the device for a custom `generation_strategy`,
             pass in `torch_device` as part of `model_kwargs`. See
             https://ax.dev/tutorials/generation_strategy.html for a tutorial on
@@ -1119,8 +1119,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 logger.info(
                     f"Model {self.generation_strategy.model} does not implement "
                     "`feature_importances`, so it cannot be used to generate "
-                    "this plot. Only certain models, specifically GPEI, implement "
-                    "feature importances."
+                    "this plot. Only certain models, implement feature importances."
                 )
 
         raise ValueError(

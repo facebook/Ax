@@ -103,8 +103,8 @@ class ModelRegistryTest(TestCase):
         )
 
     @mock_botorch_optimize
-    def test_enum_sobol_GPEI(self) -> None:
-        """Tests Sobol and GPEI instantiation through the Models enum."""
+    def test_enum_sobol_legacy_GPEI(self) -> None:
+        """Tests Sobol and Legacy GPEI instantiation through the Models enum."""
         exp = get_branin_experiment()
         # Check that factory generates a valid sobol modelbridge.
         sobol = Models.SOBOL(search_space=exp.search_space)
@@ -115,9 +115,9 @@ class ModelRegistryTest(TestCase):
             exp.new_batch_trial().add_generator_run(sobol_run).run()
         # Check that factory generates a valid GP+EI modelbridge.
         exp.optimization_config = get_branin_optimization_config()
-        gpei = Models.GPEI(experiment=exp, data=exp.fetch_data())
+        gpei = Models.LEGACY_BOTORCH(experiment=exp, data=exp.fetch_data())
         self.assertIsInstance(gpei, TorchModelBridge)
-        self.assertEqual(gpei._model_key, "GPEI")
+        self.assertEqual(gpei._model_key, "Legacy_GPEI")
         botorch_defaults = "ax.models.torch.botorch_defaults"
         # Check that the callable kwargs and the torch kwargs were recorded.
         self.assertEqual(
@@ -168,7 +168,7 @@ class ModelRegistryTest(TestCase):
             },
         )
         prior_kwargs = {"lengthscale_prior": GammaPrior(6.0, 6.0)}
-        gpei = Models.GPEI(
+        gpei = Models.LEGACY_BOTORCH(
             experiment=exp,
             data=exp.fetch_data(),
             search_space=exp.search_space,
@@ -316,10 +316,10 @@ class ModelRegistryTest(TestCase):
         self.assertEqual(initial_sobol.gen(n=1).arms, sobol_after_gen.gen(n=1).arms)
         exp.new_trial(generator_run=gr)
         # Check restoration of GPEI, to ensure proper restoration of callable kwargs
-        gpei = Models.GPEI(experiment=exp, data=get_branin_data())
+        gpei = Models.LEGACY_BOTORCH(experiment=exp, data=get_branin_data())
         # Punch GPEI model + bridge kwargs into the Sobol generator run, to avoid
         # a slow call to `gpei.gen`, and remove Sobol's model state.
-        gr._model_key = "GPEI"
+        gr._model_key = "Legacy_GPEI"
         gr._model_kwargs = gpei._model_kwargs
         gr._bridge_kwargs = gpei._bridge_kwargs
         gr._model_state_after_gen = {}
@@ -496,6 +496,7 @@ class ModelRegistryTest(TestCase):
         same check in a couple different ways.
         """
         for old_model_str, new_model in [
+            ("GPEI", Models.BOTORCH_MODULAR),
             ("FULLYBAYESIAN", Models.SAASBO),
             ("FULLYBAYESIANMOO", Models.SAASBO),
             ("FULLYBAYESIAN_MTGP", Models.SAAS_MTGP),
