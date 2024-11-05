@@ -22,11 +22,11 @@ Additional arguments can be passed to [`get_sobol`](../api/modelbridge.html#ax.m
 Sobol sequences are typically used to select initialization points, and this model does not implement [`predict`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.predict). It can be used on search spaces with any combination of discrete and continuous parameters.
 
 #### Gaussian Process with EI
-Gaussian Processes (GPs) are used for [Bayesian Optimization](bayesopt.md) in Ax, the [`get_GPEI`](../api/modelbridge.html#ax.modelbridge.factory.get_gpei) function constructs a model that fits a GP to the data, and uses the EI acquisition function to generate new points on calls to [`gen`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.gen). This code fits a GP and generates a batch of 5 points which maximizes EI:
+Gaussian Processes (GPs) are used for [Bayesian Optimization](bayesopt.md) in Ax, the [`Models.BOTORCH_MODULAR`](../api/modelbridge.html#ax.modelbridge.registry.Models) registry entry constructs a modular BoTorch model that fits a GP to the data, and uses qLogNEI (or qLogNEHVI for MOO) acquisition function to generate new points on calls to [`gen`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.gen). This code fits a GP and generates a batch of 5 points which maximizes EI:
 ```Python
-from ax.modelbridge.factory import get_GPEI
+from ax.modelbridge.registry import Models
 
-m = get_GPEI(experiment, data)
+m = Models.BOTORCH_MODULAR(experiment=experiment, data=data)
 gr = m.gen(n=5, optimization_config=optimization_config)
 ```
 
@@ -158,7 +158,7 @@ The primary role of the [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.b
 
 ## Transforms
 
-The transformations in the [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) are done by chaining together a set of individual Transform objects. For continuous space models obtained via factory functions ([`get_sobol`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.modelbridge.factory.get_sobol) and [`get_GPEI`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.modelbridge.factory.get_GPEI)), the following transforms will be applied by default, in this sequence:
+The transformations in the [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) are done by chaining together a set of individual Transform objects. For continuous space models obtained via factory functions ([`get_sobol`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.modelbridge.factory.get_sobol) and [`Models.BOTORCH_MODULAR`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.modelbridge.registry.Models)), the following transforms will be applied by default, in this sequence:
 * [`RemoveFixed`](../api/modelbridge.html#ax.modelbridge.transforms.remove_fixed.RemoveFixed): Remove [`FixedParameters`](../api/core.html#ax.core.parameter.FixedParameter) from the search space.
 * [`OrderedChoiceEncode`](../api/modelbridge.html#ax.modelbridge.transforms.choice_encode.OrderedChoiceEncode): [`ChoiceParameters`](../api/core.html#ax.core.parameter.ChoiceParameter) with `is_ordered` set to `True` are encoded as a sequence of integers.
 * [`OneHot`](../api/modelbridge.html#ax.modelbridge.transforms.one_hot.OneHot): [`ChoiceParameters`](../api/core.html#ax.core.parameter.ChoiceParameter) with `is_ordered` set to `False` are one-hot encoded.
