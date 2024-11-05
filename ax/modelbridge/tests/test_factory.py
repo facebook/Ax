@@ -9,26 +9,21 @@
 from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.factory import (
-    get_botorch,
     get_empirical_bayes_thompson,
     get_factorial,
-    get_GPEI,
     get_sobol,
     get_thompson,
     get_uniform,
 )
 from ax.modelbridge.random import RandomModelBridge
-from ax.modelbridge.torch import TorchModelBridge
 from ax.models.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.models.discrete.thompson import ThompsonSampler
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
-    get_branin_optimization_config,
     get_factorial_experiment,
 )
-from ax.utils.testing.mock import mock_botorch_optimize
 
 
 # pyre-fixme[3]: Return type must be annotated.
@@ -52,31 +47,6 @@ def get_multi_obj_exp_and_opt_config():
 
 
 class ModelBridgeFactoryTestSingleObjective(TestCase):
-    @mock_botorch_optimize
-    def test_sobol_GPEI(self) -> None:
-        """Tests sobol + GPEI instantiation."""
-        exp = get_branin_experiment()
-        # Check that factory generates a valid sobol modelbridge.
-        sobol = get_sobol(search_space=exp.search_space)
-        self.assertIsInstance(sobol, RandomModelBridge)
-        for _ in range(5):
-            sobol_run = sobol.gen(n=1)
-            exp.new_batch_trial().add_generator_run(sobol_run).run().mark_completed()
-        # Check that factory generates a valid GP+EI modelbridge.
-        exp.optimization_config = get_branin_optimization_config()
-        gpei = get_GPEI(experiment=exp, data=exp.fetch_data())
-        self.assertIsInstance(gpei, TorchModelBridge)
-        gpei = get_GPEI(
-            experiment=exp, data=exp.fetch_data(), search_space=exp.search_space
-        )
-        self.assertIsInstance(gpei, TorchModelBridge)
-        botorch = get_botorch(experiment=exp, data=exp.fetch_data())
-        self.assertIsInstance(botorch, TorchModelBridge)
-
-        # Check that .gen returns without failure
-        gpei_run = gpei.gen(n=1)
-        self.assertEqual(len(gpei_run.arms), 1)
-
     def test_model_kwargs(self) -> None:
         """Tests that model kwargs are passed correctly."""
         exp = get_branin_experiment()
