@@ -140,28 +140,6 @@ def get_botorch(
     )
 
 
-def get_GPEI(
-    experiment: Experiment,
-    data: Data,
-    search_space: SearchSpace | None = None,
-    dtype: torch.dtype = torch.double,
-    device: torch.device = DEFAULT_TORCH_DEVICE,
-) -> TorchModelBridge:
-    """Instantiates a GP model that generates points with EI."""
-    if data.df.empty:
-        raise ValueError("GP+EI BotorchModel requires non-empty data.")
-    return checked_cast(
-        TorchModelBridge,
-        Models.LEGACY_BOTORCH(
-            experiment=experiment,
-            data=data,
-            search_space=search_space or experiment.search_space,
-            torch_dtype=dtype,
-            torch_device=device,
-        ),
-    )
-
-
 def get_factorial(search_space: SearchSpace) -> DiscreteModelBridge:
     """Instantiates a factorial generator."""
     return checked_cast(
