@@ -39,12 +39,12 @@ class TestInsampleEffectsPlot(TestCase):
                     transition_criteria=[
                         MaxTrials(
                             threshold=1,
-                            transition_to="GPEI",
+                            transition_to="MBM",
                         )
                     ],
                 ),
                 GenerationNode(
-                    node_name="GPEI",
+                    node_name="MBM",
                     model_specs=[
                         ModelSpec(
                             model_enum=Models.BOTORCH_MODULAR,

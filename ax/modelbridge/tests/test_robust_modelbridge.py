@@ -129,7 +129,7 @@ class TestRobust(TestCase):
     def test_unsupported_model(self) -> None:
         exp = get_robust_branin_experiment()
         with self.assertRaisesRegex(UnsupportedError, "support robust"):
-            Models.GPEI(
+            Models.LEGACY_BOTORCH(
                 experiment=exp,
                 data=exp.fetch_data(),
             ).gen(n=1)
