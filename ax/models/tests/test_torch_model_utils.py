@@ -6,18 +6,18 @@
 
 # pyre-strict
 
+from unittest import mock
+
 import numpy as np
 import torch
-from ax.exceptions.model import ModelError
 from ax.models.torch.utils import (
     _generate_sobol_points,
-    is_noiseless,
     normalize_indices,
     subset_model,
     tensor_callable_to_array_callable,
 )
 from ax.utils.common.testutils import TestCase
-from botorch.models import HeteroskedasticSingleTaskGP, SingleTaskGP
+from botorch.models import SingleTaskGP
 from botorch.models.deterministic import GenericDeterministicModel
 from botorch.models.model import ModelList
 from botorch.models.model_list_gp_regression import ModelListGP
@@ -27,17 +27,6 @@ from torch import Tensor
 
 
 class TorchUtilsTest(TestCase):
-    def test_is_noiseless(self) -> None:
-        x = torch.zeros(1, 1)
-        y = torch.zeros(1, 1)
-        se = torch.zeros(1, 1)
-        model = SingleTaskGP(x, y)
-        self.assertTrue(is_noiseless(model))
-        model = HeteroskedasticSingleTaskGP(x, y, se)
-        self.assertFalse(is_noiseless(model))
-        with self.assertRaises(ModelError):
-            is_noiseless(ModelListGP())
-
     def test_NormalizeIndices(self) -> None:
         indices = [0, 2]
         nlzd_indices = normalize_indices(indices, 3)
@@ -181,8 +170,9 @@ class SubsetModelTest(TestCase):
 
     def test_unsupported(self) -> None:
         yvar = torch.ones(1, 2)
-        model = HeteroskedasticSingleTaskGP(self.x, self.y, yvar)
-        subset_model_results = subset_model(model, self.obj_weights)
+        model = SingleTaskGP(train_X=self.x, train_Y=self.y, train_Yvar=yvar)
+        with mock.patch.object(model, "subset_output", side_effect=NotImplementedError):
+            subset_model_results = subset_model(model, self.obj_weights)
         model_sub = subset_model_results.model
         obj_weights_sub = subset_model_results.objective_weights
         ocs_sub = subset_model_results.outcome_constraints
