@@ -3,6 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 from ax.analysis.plotly.utils import get_constraint_violated_probabilities
 from ax.core.metric import Metric
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
