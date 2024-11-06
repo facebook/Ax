@@ -28,6 +28,7 @@ from ax.models.torch.botorch_modular.utils import (
     check_outcome_dataset_match,
     choose_botorch_acqf_class,
     construct_acquisition_and_optimizer_options,
+    ModelConfig,
 )
 from ax.models.torch.utils import _to_inequality_constraints
 from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
@@ -79,6 +80,8 @@ class SurrogateSpec:
 
     allow_batched_models: bool = True
 
+    model_configs: list[ModelConfig] = field(default_factory=list)
+    metric_to_model_configs: dict[str, list[ModelConfig]] = field(default_factory=dict)
     outcomes: list[str] = field(default_factory=list)
 
 
@@ -241,13 +244,19 @@ class BoTorchModel(TorchModel, Base):
                     input_transform_options=spec.input_transform_options,
                     outcome_transform_classes=spec.outcome_transform_classes,
                     outcome_transform_options=spec.outcome_transform_options,
+                    model_configs=spec.model_configs,
+                    metric_to_model_configs=spec.metric_to_model_configs,
                     allow_batched_models=spec.allow_batched_models,
                 )
             else:
                 self._surrogate = Surrogate()
 
         # Fit the surrogate.
-        self.surrogate.model_options.update(additional_model_inputs)
+        for config in self.surrogate.model_configs:
+            config.model_options.update(additional_model_inputs)
+        for config_list in self.surrogate.metric_to_model_configs.values():
+            for config in config_list:
+                config.model_options.update(additional_model_inputs)
         self.surrogate.fit(
             datasets=datasets,
             search_space_digest=search_space_digest,

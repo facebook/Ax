@@ -98,6 +98,7 @@ from ax.modelbridge.transition_criterion import (
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
 from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch.botorch_modular.utils import ModelConfig
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
@@ -330,6 +331,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "AuxiliaryExperimentCheck": AuxiliaryExperimentCheck,
     "Models": Models,
     "ModelRegistryBase": ModelRegistryBase,
+    "ModelConfig": ModelConfig,
     "ModelSpec": ModelSpec,
     "MultiObjective": MultiObjective,
     "MultiObjectiveOptimizationConfig": MultiObjectiveOptimizationConfig,
