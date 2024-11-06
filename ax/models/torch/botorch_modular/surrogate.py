@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import inspect
+import warnings
 from collections import OrderedDict
 from collections.abc import Sequence
 from copy import deepcopy
@@ -33,6 +34,7 @@ from ax.models.torch.botorch_modular.utils import (
     choose_model_class,
     convert_to_block_design,
     fit_botorch_model,
+    ModelConfig,
     subset_state_dict,
     use_model_list,
 )
@@ -50,11 +52,11 @@ from ax.utils.common.typeutils import (
     _argparse_type_encoder,
     checked_cast,
     checked_cast_optional,
+    not_none,
 )
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
-from botorch.models.pairwise_gp import PairwiseGP
 from botorch.models.transforms.input import (
     ChainedInputTransform,
     InputPerturbation,
@@ -68,6 +70,7 @@ from gpytorch.kernels import Kernel
 from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
+from pyre_extensions import none_throws
 from torch import Tensor
 
 NOT_YET_FIT_MSG = (
@@ -268,6 +271,19 @@ def _set_formatted_inputs(
             formatted_model_inputs[input_name] = input_class(**input_options)
 
 
+def _raise_deprecation_warning(*args: Any, **kwargs: Any) -> None:
+    for k, v in kwargs.items():
+        if (v is not None and k != "mll_class") or (
+            k == "mll_class" and v is not ExactMarginalLogLikelihood
+        ):
+            warnings.warn(
+                f"{k} is deprecated and will be removed in a future version. "
+                f"Please specify {k} via `model_configs`.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+
+
 class Surrogate(Base):
     """
     **All classes in 'botorch_modular' directory are under
@@ -282,15 +298,20 @@ class Surrogate(Base):
             BoTorch model. If None is provided a model class will be selected (either
             one for all outcomes or a ModelList with separate models for each outcome)
             will be selected automatically based off the datasets at `construct` time.
+            This argument is deprecated in favor of model_configs.
         model_options: Dictionary of options / kwargs for the BoTorch
             ``Model`` constructed during ``Surrogate.fit``.
             Note that the corresponding attribute will later be updated to include any
             additional kwargs passed into ``BoTorchModel.fit``.
+            This argument is deprecated in favor of model_configs.
         mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
-        mll_options: Dictionary of options / kwargs for the MLL.
+            This argument is deprecated in favor of model_configs.
+        mll_options: Dictionary of options / kwargs for the MLL. This argument is
+            deprecated in favor of model_configs.
         outcome_transform_classes: List of BoTorch outcome transforms classes. Passed
             down to the BoTorch ``Model``. Multiple outcome transforms can be chained
-            together using ``ChainedOutcomeTransform``.
+            together using ``ChainedOutcomeTransform``. This argument is deprecated in
+            favor of model_configs.
         outcome_transform_options: Outcome transform classes kwargs. The keys are
             class string names and the values are dictionaries of outcome transform
             kwargs. For example,
@@ -299,10 +320,12 @@ class Surrogate(Base):
             outcome_transform_options = {
                 "Standardize": {"m": 1},
             `
-            For more options see `botorch/models/transforms/outcome.py`.
+            For more options see `botorch/models/transforms/outcome.py`. This argument
+                is deprecated in favor of model_configs.
         input_transform_classes: List of BoTorch input transforms classes.
             Passed down to the BoTorch ``Model``. Multiple input transforms
             will be chained together using ``ChainedInputTransform``.
+            This argument is deprecated in favor of model_configs.
         input_transform_options: Input transform classes kwargs. The keys are
             class string names and the values are dictionaries of input transform
             kwargs. For example,
@@ -314,13 +337,22 @@ class Surrogate(Base):
             }
             `
             For more input options see `botorch/models/transforms/input.py`.
+            This argument is deprecated in favor of model_configs.
         covar_module_class: Covariance module class. This gets initialized after
             parsing the ``covar_module_options`` in ``covar_module_argparse``,
             and gets passed to the model constructor as ``covar_module``.
-        covar_module_options: Covariance module kwargs.
+            This argument is deprecated in favor of model_configs.
+        covar_module_options: Covariance module kwargs. This argument is deprecated
+            in favor of model_configs.
         likelihood: ``Likelihood`` class. This gets initialized with
             ``likelihood_options`` and gets passed to the model constructor.
-        likelihood_options: Likelihood options.
+            This argument is deprecated in favor of model_configs.
+        likelihood_options: Likelihood options. This argument is deprecated in favor
+            of model_configs.
+        model_configs: List of model configs. Each model config is a specification of
+            a model. These should be used in favor of the above deprecated arguments.
+        metric_to_model_configs: Dictionary mapping metric names to a list of model
+            configs for that metric.
         allow_batched_models: Set to true to fit the models in a batch if supported.
             Set to false to fit individual models to each metric in a loop.
     """
@@ -339,22 +371,60 @@ class Surrogate(Base):
         covar_module_options: dict[str, Any] | None = None,
         likelihood_class: type[Likelihood] | None = None,
         likelihood_options: dict[str, Any] | None = None,
+        model_configs: list[ModelConfig] | None = None,
+        metric_to_model_configs: dict[str, list[ModelConfig]] | None = None,
         allow_batched_models: bool = True,
     ) -> None:
-        self.botorch_model_class = botorch_model_class
-        # Copying model options to avoid mutating the original dict.
-        # We later update it with any additional kwargs passed into `BoTorchModel.fit`.
-        self.model_options: dict[str, Any] = (model_options or {}).copy()
-        self.mll_class = mll_class
-        self.mll_options: dict[str, Any] = mll_options or {}
-        self.outcome_transform_classes = outcome_transform_classes
-        self.outcome_transform_options: dict[str, Any] = outcome_transform_options or {}
-        self.input_transform_classes = input_transform_classes
-        self.input_transform_options: dict[str, Any] = input_transform_options or {}
-        self.covar_module_class = covar_module_class
-        self.covar_module_options: dict[str, Any] = covar_module_options or {}
-        self.likelihood_class = likelihood_class
-        self.likelihood_options: dict[str, Any] = likelihood_options or {}
+        _raise_deprecation_warning(
+            botorch_model_class=botorch_model_class,
+            model_options=model_options,
+            mll_class=mll_class,
+            mll_options=mll_options,
+            outcome_transform_classes=outcome_transform_classes,
+            outcome_transform_options=outcome_transform_options,
+            input_transform_classes=input_transform_classes,
+            input_transform_options=input_transform_options,
+            covar_module_class=covar_module_class,
+            covar_module_options=covar_module_options,
+            likelihood_class=likelihood_class,
+            likelihood_options=likelihood_options,
+        )
+        model_configs = model_configs or []
+        if len(model_configs) == 0:
+            model_config_kwargs = {
+                "botorch_model_class": botorch_model_class,
+                "model_options": (model_options or {}).copy(),
+                "mll_class": mll_class,
+                "mll_options": mll_options,
+                "outcome_transform_classes": outcome_transform_classes,
+                "outcome_transform_options": outcome_transform_options,
+                "input_transform_classes": input_transform_classes,
+                "input_transform_options": input_transform_options,
+                "covar_module_class": covar_module_class,
+                "covar_module_options": covar_module_options,
+                "likelihood_class": likelihood_class,
+                "likelihood_options": likelihood_options,
+            }
+            model_config_kwargs = {
+                k: v for k, v in model_config_kwargs.items() if v is not None
+            }
+            # pyre-fixme [6]: Incompatible parameter type [6]: In call
+            # `ModelConfig.__init__`, for 1st positional argument, expected
+            # `Dict[str, typing.Any]` but got `Union[Dict[str, typing.Any],
+            # Dict[str, Dict[str, typing.Any]], Sequence[Type[InputTransform]],
+            # Sequence[Type[OutcomeTransform]], Type[Union[MarginalLogLikelihood,
+            #  Model]], Type[Likelihood], Type[Kernel]]`.
+            model_configs = [ModelConfig(**model_config_kwargs)]
+        self.model_configs: list[ModelConfig] = model_configs
+        self.metric_to_model_configs: dict[str, list[ModelConfig]] = (
+            metric_to_model_configs or {}
+        )
+        if len(self.model_configs) > 1 or any(
+            len(model_config) > 1
+            for model_config in self.metric_to_model_configs.values()
+        ):
+            raise NotImplementedError("Only one model config per metric is supported.")
+
         self.allow_batched_models = allow_batched_models
         # Store the last dataset used to fit the model for a given metric(s).
         # If the new dataset is identical, we will skip model fitting for that metric.
@@ -377,10 +447,8 @@ class Surrogate(Base):
     def __repr__(self) -> str:
         return (
             f"<{self.__class__.__name__}"
-            f" botorch_model_class={self.botorch_model_class} "
-            f"mll_class={self.mll_class} "
-            f"outcome_transform_classes={self.outcome_transform_classes} "
-            f"input_transform_classes={self.input_transform_classes} "
+            f" model_configs={self.model_configs},"
+            f" metric_to_model_configs={self.metric_to_model_configs}>"
         )
 
     @property
@@ -404,9 +472,7 @@ class Surrogate(Base):
         training_data = self.training_data
         Xs = []
         for dataset in training_data:
-            if self.botorch_model_class == PairwiseGP and isinstance(
-                dataset, RankingDataset
-            ):
+            if isinstance(dataset, RankingDataset):
                 # directly accessing the d-dim X tensor values
                 # instead of the augmented 2*d-dim dataset.X from RankingDataset
                 Xi = checked_cast(SliceContainer, dataset._X).values
@@ -431,7 +497,8 @@ class Surrogate(Base):
         self,
         dataset: SupervisedDataset,
         search_space_digest: SearchSpaceDigest,
-        botorch_model_class: type[Model],
+        model_config: ModelConfig,
+        default_botorch_model_class: type[Model],
         state_dict: OrderedDict[str, Tensor] | None,
         refit: bool,
     ) -> Model:
@@ -446,19 +513,24 @@ class Surrogate(Base):
                 multi-output case, where training data is formatted with just
                 one X and concatenated Ys).
             search_space_digest: Search space digest used to set up model arguments.
-            botorch_model_class: ``Model`` class to be used as the underlying
-                BoTorch model.
+            model_config: The model_config.
+            default_botorch_model_class: The default ``Model`` class to be used as the
+                underlying BoTorch model, if the model_config does not specify one.
             state_dict: Optional state dict to load. This should be subsetted for
                 the current submodel being constructed.
             refit: Whether to re-optimize model parameters.
         """
         outcome_names = tuple(dataset.outcome_names)
+        botorch_model_class = (
+            model_config.botorch_model_class or default_botorch_model_class
+        )
         if self._should_reuse_last_model(
             dataset=dataset, botorch_model_class=botorch_model_class
         ):
             return self._submodels[outcome_names]
         formatted_model_inputs = submodel_input_constructor(
             botorch_model_class,  # Do not pass as kwarg since this is used to dispatch.
+            model_config=model_config,
             dataset=dataset,
             search_space_digest=search_space_digest,
             surrogate=self,
@@ -469,7 +541,9 @@ class Surrogate(Base):
             model.load_state_dict(state_dict)
         if state_dict is None or refit:
             fit_botorch_model(
-                model=model, mll_class=self.mll_class, mll_options=self.mll_options
+                model=model,
+                mll_class=model_config.mll_class,
+                mll_options=model_config.mll_options,
             )
         self._submodels[outcome_names] = model
         self._last_datasets[outcome_names] = dataset
@@ -539,14 +613,21 @@ class Surrogate(Base):
         # To determine whether to use ModelList under the hood, we need to check for
         # the batched multi-output case, so we first see which model would be chosen
         # given the Yvars and the properties of data.
-        botorch_model_class = self.botorch_model_class or choose_model_class(
-            datasets=datasets, search_space_digest=search_space_digest
-        )
-
+        if (
+            len(self.model_configs) == 1
+            and self.model_configs[0].botorch_model_class is None
+        ):
+            default_botorch_model_class = choose_model_class(
+                datasets=datasets, search_space_digest=search_space_digest
+            )
+        else:
+            default_botorch_model_class = self.model_configs[0].botorch_model_class
         should_use_model_list = use_model_list(
             datasets=datasets,
-            botorch_model_class=botorch_model_class,
+            botorch_model_class=not_none(default_botorch_model_class),
+            model_configs=self.model_configs,
             allow_batched_models=self.allow_batched_models,
+            metric_to_model_configs=self.metric_to_model_configs,
         )
 
         if not should_use_model_list and len(datasets) > 1:
@@ -564,10 +645,30 @@ class Surrogate(Base):
                     )
                 else:
                     submodel_state_dict = state_dict
+            model_config = None
+            if len(self.metric_to_model_configs) > 0:
+                # if metric_to_model_configs is not empty, then
+                # we are using a model list and each dataset
+                # should have only one outcome.
+                if len(dataset.outcome_names) > 1:
+                    raise ValueError(
+                        "Each dataset should have only one outcome when "
+                        "metric_to_model_configs is specified."
+                    )
+                model_config_list = self.metric_to_model_configs.get(
+                    dataset.outcome_names[0]
+                )
+
+                # TODO: add support for automated model selection
+                if model_config_list is not None:
+                    model_config = model_config_list[0]
+            if model_config is None:
+                model_config = self.model_configs[0]
             model = self._construct_model(
                 dataset=dataset,
                 search_space_digest=search_space_digest,
-                botorch_model_class=botorch_model_class,
+                model_config=model_config,
+                default_botorch_model_class=not_none(default_botorch_model_class),
                 state_dict=submodel_state_dict,
                 refit=refit,
             )
@@ -728,23 +829,12 @@ class Surrogate(Base):
         as kwargs on reinstantiation.
         """
         return {
-            "botorch_model_class": self.botorch_model_class,
-            "model_options": self.model_options,
-            "mll_class": self.mll_class,
-            "mll_options": self.mll_options,
-            "outcome_transform_classes": self.outcome_transform_classes,
-            "outcome_transform_options": self.outcome_transform_options,
-            "input_transform_classes": self.input_transform_classes,
-            "input_transform_options": self.input_transform_options,
-            "covar_module_class": self.covar_module_class,
-            "covar_module_options": self.covar_module_options,
-            "likelihood_class": self.likelihood_class,
-            "likelihood_options": self.likelihood_options,
-            "allow_batched_models": self.allow_batched_models,
+            "model_configs": self.model_configs,
+            "metric_to_model_configs": self.metric_to_model_configs,
         }
 
     def _extract_construct_input_transform_args(
-        self, search_space_digest: SearchSpaceDigest
+        self, model_config: ModelConfig, search_space_digest: SearchSpaceDigest
     ) -> tuple[Sequence[type[InputTransform]] | None, dict[str, dict[str, Any]]]:
         """
         Extracts input transform classes and input transform options that will
@@ -777,19 +867,19 @@ class Surrogate(Base):
                 InputPerturbation
             ]
 
-            if self.input_transform_classes is not None:
+            if model_config.input_transform_classes is not None:
                 # TODO: Support mixing with user supplied transforms.
                 raise NotImplementedError(
                     "User supplied input transforms are not supported "
                     "in robust optimization."
                 )
         else:
-            submodel_input_transform_classes = self.input_transform_classes
-            submodel_input_transform_options = self.input_transform_options
+            submodel_input_transform_classes = model_config.input_transform_classes
+            submodel_input_transform_options = model_config.input_transform_options
 
         return (
             submodel_input_transform_classes,
-            submodel_input_transform_options,
+            none_throws(submodel_input_transform_options),
         )
 
     @property
@@ -811,6 +901,7 @@ submodel_input_constructor = Dispatcher(
 @submodel_input_constructor.register(Model)
 def _submodel_input_constructor_base(
     botorch_model_class: type[Model],
+    model_config: ModelConfig,
     dataset: SupervisedDataset,
     search_space_digest: SearchSpaceDigest,
     surrogate: Surrogate,
@@ -819,6 +910,7 @@ def _submodel_input_constructor_base(
 
     Args:
         botorch_model_class: The BoTorch model class to instantiate.
+        model_config: The model config.
         dataset: The training data for the model.
         search_space_digest: Search space digest used to set up model arguments.
         surrogate: A reference to the surrogate that created the model.
@@ -836,12 +928,12 @@ def _submodel_input_constructor_base(
         input_transform_classes,
         input_transform_options,
     ) = surrogate._extract_construct_input_transform_args(
-        search_space_digest=search_space_digest
+        model_config=model_config, search_space_digest=search_space_digest
     )
 
     formatted_model_inputs = botorch_model_class.construct_inputs(
         training_data=dataset,
-        **surrogate.model_options,
+        **model_config.model_options,
         **model_kwargs_from_ss,
     )
 
@@ -851,14 +943,18 @@ def _submodel_input_constructor_base(
         inputs=[
             (
                 "covar_module",
-                surrogate.covar_module_class,
-                surrogate.covar_module_options,
+                model_config.covar_module_class,
+                model_config.covar_module_options,
             ),
-            ("likelihood", surrogate.likelihood_class, surrogate.likelihood_options),
+            (
+                "likelihood",
+                model_config.likelihood_class,
+                model_config.likelihood_options,
+            ),
             (
                 "outcome_transform",
-                surrogate.outcome_transform_classes,
-                surrogate.outcome_transform_options,
+                model_config.outcome_transform_classes,
+                model_config.outcome_transform_options,
             ),
             (
                 "input_transform",
@@ -880,6 +976,7 @@ def _submodel_input_constructor_base(
 @submodel_input_constructor.register(MultiTaskGP)
 def _submodel_input_constructor_mtgp(
     botorch_model_class: type[Model],
+    model_config: ModelConfig,
     dataset: SupervisedDataset,
     search_space_digest: SearchSpaceDigest,
     surrogate: Surrogate,
@@ -888,6 +985,7 @@ def _submodel_input_constructor_mtgp(
         raise NotImplementedError("Multi-output Multi-task GPs are not yet supported.")
     formatted_model_inputs = _submodel_input_constructor_base(
         botorch_model_class=botorch_model_class,
+        model_config=model_config,
         dataset=dataset,
         search_space_digest=search_space_digest,
         surrogate=surrogate,

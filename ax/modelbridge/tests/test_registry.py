@@ -10,6 +10,7 @@ from collections import OrderedDict
 
 import torch
 from ax.core.observation import ObservationFeatures
+from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.modelbridge.discrete import DiscreteModelBridge
 from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import (
@@ -99,7 +100,8 @@ class ModelRegistryTest(TestCase):
             SurrogateSpec(botorch_model_class=SaasFullyBayesianSingleTaskGP),
         )
         self.assertEqual(
-            saasbo.model.surrogate.botorch_model_class, SaasFullyBayesianSingleTaskGP
+            saasbo.model.surrogate.model_configs[0].botorch_model_class,
+            SaasFullyBayesianSingleTaskGP,
         )
 
     @mock_botorch_optimize
@@ -459,9 +461,16 @@ class ModelRegistryTest(TestCase):
                 self.assertIsInstance(mtgp, TorchModelBridge)
                 self.assertIsInstance(mtgp.model, BoTorchModel)
                 self.assertEqual(mtgp.model.acquisition_class, Acquisition)
-                self.assertIsInstance(mtgp.model.surrogate.model, ModelListGP)
+                is_moo = isinstance(
+                    exp.optimization_config, MultiObjectiveOptimizationConfig
+                )
+                if is_moo:
+                    self.assertIsInstance(mtgp.model.surrogate.model, ModelListGP)
+                    models = mtgp.model.surrogate.model.models
+                else:
+                    models = [mtgp.model.surrogate.model]
 
-                for model in mtgp.model.surrogate.model.models:
+                for model in models:
                     self.assertIsInstance(
                         model,
                         SaasFullyBayesianMultiTaskGP if use_saas else MultiTaskGP,

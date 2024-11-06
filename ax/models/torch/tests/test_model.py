@@ -27,6 +27,7 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.torch.botorch_modular.utils import (
     choose_model_class,
     construct_acquisition_and_optimizer_options,
+    ModelConfig,
 )
 from ax.models.torch.utils import _filter_X_observed
 from ax.models.torch_base import TorchOptConfig
@@ -327,7 +328,21 @@ class BoTorchModelTest(TestCase):
         mock_fit.assert_called_with(
             dataset=self.block_design_training_data[0],
             search_space_digest=self.mf_search_space_digest,
-            botorch_model_class=SingleTaskMultiFidelityGP,
+            model_config=ModelConfig(
+                botorch_model_class=None,
+                model_options={},
+                mll_class=ExactMarginalLogLikelihood,
+                mll_options={},
+                input_transform_classes=None,
+                input_transform_options={},
+                outcome_transform_classes=None,
+                outcome_transform_options={},
+                covar_module_class=None,
+                covar_module_options={},
+                likelihood_class=None,
+                likelihood_options={},
+            ),
+            default_botorch_model_class=SingleTaskMultiFidelityGP,
             state_dict=None,
             refit=True,
         )
@@ -727,6 +742,8 @@ class BoTorchModelTest(TestCase):
             input_transform_options=None,
             outcome_transform_classes=None,
             outcome_transform_options=None,
+            model_configs=[],
+            metric_to_model_configs={},
             allow_batched_models=True,
         )
 
@@ -755,6 +772,8 @@ class BoTorchModelTest(TestCase):
             input_transform_options=None,
             outcome_transform_classes=None,
             outcome_transform_options=None,
+            model_configs=[],
+            metric_to_model_configs={},
             allow_batched_models=False,
         )
 

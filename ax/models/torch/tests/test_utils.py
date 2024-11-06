@@ -306,7 +306,7 @@ class BoTorchModelUtilsTest(TestCase):
                 botorch_model_class=SingleTaskGP,
             )
         )
-        self.assertTrue(
+        self.assertFalse(
             use_model_list(
                 datasets=self.supervised_datasets, botorch_model_class=MultiTaskGP
             )
