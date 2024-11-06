@@ -28,7 +28,7 @@ from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrateg
 from ax.modelbridge.registry import Models
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.torch.botorch_modular.model import BoTorchModel
-from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.service.scheduler import SchedulerOptions
 from ax.utils.common.constants import Keys
 from ax.utils.testing.core_stubs import (
@@ -189,7 +189,11 @@ def get_sobol_gpei_benchmark_method() -> BenchmarkMethod:
                     model=Models.BOTORCH_MODULAR,
                     num_trials=-1,
                     model_kwargs={
-                        "surrogate": Surrogate(SingleTaskGP),
+                        "surrogate": Surrogate(
+                            surrogate_spec=SurrogateSpec(
+                                botorch_model_class=SingleTaskGP
+                            )
+                        ),
                         # TODO: tests should better reflect defaults and not
                         # re-implement this logic.
                         "botorch_acqf_class": qNoisyExpectedImprovement,

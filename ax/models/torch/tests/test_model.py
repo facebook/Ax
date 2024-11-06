@@ -21,9 +21,8 @@ from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.model import (
     BoTorchModel,
     choose_botorch_acqf_class,
-    SurrogateSpec,
 )
-from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.models.torch.botorch_modular.utils import (
     choose_model_class,
     construct_acquisition_and_optimizer_options,
@@ -719,32 +718,17 @@ class BoTorchModelTest(TestCase):
     def test_surrogate_model_options_propagation(
         self, _m1: Mock, _m2: Mock, mock_init: Mock
     ) -> None:
-        model = BoTorchModel(
-            surrogate_spec=SurrogateSpec(
-                botorch_model_kwargs={"some_option": "some_value"}
-            )
+        surrogate_spec = SurrogateSpec(
+            botorch_model_kwargs={"some_option": "some_value"}
         )
+        model = BoTorchModel(surrogate_spec=surrogate_spec)
         model.fit(
             datasets=self.non_block_design_training_data,
             search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
         mock_init.assert_called_with(
-            botorch_model_class=None,
-            model_options={"some_option": "some_value"},
-            mll_class=ExactMarginalLogLikelihood,
-            mll_options={},
-            covar_module_class=None,
-            covar_module_options=None,
-            likelihood_class=None,
-            likelihood_options=None,
-            input_transform_classes=None,
-            input_transform_options=None,
-            outcome_transform_classes=None,
-            outcome_transform_options=None,
-            model_configs=[],
-            metric_to_model_configs={},
-            allow_batched_models=True,
+            surrogate_spec=surrogate_spec,
         )
 
     @mock.patch(f"{MODEL_PATH}.Surrogate", wraps=Surrogate)
@@ -753,28 +737,15 @@ class BoTorchModelTest(TestCase):
     def test_surrogate_options_propagation(
         self, _m1: Mock, _m2: Mock, mock_init: Mock
     ) -> None:
-        model = BoTorchModel(surrogate_spec=SurrogateSpec(allow_batched_models=False))
+        surrogate_spec = SurrogateSpec(allow_batched_models=False)
+        model = BoTorchModel(surrogate_spec=surrogate_spec)
         model.fit(
             datasets=self.non_block_design_training_data,
             search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
         mock_init.assert_called_with(
-            botorch_model_class=None,
-            model_options={},
-            mll_class=ExactMarginalLogLikelihood,
-            mll_options={},
-            covar_module_class=None,
-            covar_module_options=None,
-            likelihood_class=None,
-            likelihood_options=None,
-            input_transform_classes=None,
-            input_transform_options=None,
-            outcome_transform_classes=None,
-            outcome_transform_options=None,
-            model_configs=[],
-            metric_to_model_configs={},
-            allow_batched_models=False,
+            surrogate_spec=surrogate_spec,
         )
 
     @mock.patch(

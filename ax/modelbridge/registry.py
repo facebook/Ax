@@ -59,10 +59,8 @@ from ax.models.discrete.thompson import ThompsonSampler
 from ax.models.random.sobol import SobolGenerator
 from ax.models.random.uniform import UniformGenerator
 from ax.models.torch.botorch import BotorchModel
-from ax.models.torch.botorch_modular.model import (
-    BoTorchModel as ModularBoTorchModel,
-    SurrogateSpec,
-)
+from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
+from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.cbo_sac import SACBO
 from ax.utils.common.kwargs import (

@@ -600,11 +600,11 @@ class JSONStoreTest(TestCase):
                 decoder_registry=CORE_DECODER_REGISTRY,
                 class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
             )
-            org_as_dict = dataclasses.asdict(org_object)
-            converted_as_dict = dataclasses.asdict(converted_object)
+            org_as_dict = dataclasses.asdict(org_object)["model_configs"][0]
+            converted_as_dict = dataclasses.asdict(converted_object)["model_configs"][0]
             # Covar module kwargs will fail comparison. Manually compare.
-            org_covar_kwargs = org_as_dict.pop("covar_module_kwargs")
-            converted_covar_kwargs = converted_as_dict.pop("covar_module_kwargs")
+            org_covar_kwargs = org_as_dict.pop("covar_module_options")
+            converted_covar_kwargs = converted_as_dict.pop("covar_module_options")
             self.assertEqual(org_covar_kwargs.keys(), converted_covar_kwargs.keys())
             for k in org_covar_kwargs:
                 org_ = org_covar_kwargs[k]
