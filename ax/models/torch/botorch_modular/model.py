@@ -10,7 +10,6 @@ import dataclasses
 import warnings
 from collections import OrderedDict
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
 from typing import Any
 
 import numpy.typing as npt
@@ -23,12 +22,11 @@ from ax.models.torch.botorch import (
     get_rounding_func,
 )
 from ax.models.torch.botorch_modular.acquisition import Acquisition
-from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.models.torch.botorch_modular.utils import (
     check_outcome_dataset_match,
     choose_botorch_acqf_class,
     construct_acquisition_and_optimizer_options,
-    ModelConfig,
 )
 from ax.models.torch.utils import _to_inequality_constraints
 from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
@@ -38,51 +36,8 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.deterministic import FixedSingleSampleModel
-from botorch.models.model import Model
-from botorch.models.transforms.input import InputTransform
-from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.utils.datasets import SupervisedDataset
-from gpytorch.kernels.kernel import Kernel
-from gpytorch.likelihoods import Likelihood
-from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
-from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from torch import Tensor
-
-
-@dataclass(frozen=True)
-class SurrogateSpec:
-    """
-    Fields in the SurrogateSpec dataclass correspond to arguments in
-    ``Surrogate.__init__``, except for ``outcomes`` which is used to specify which
-    outcomes the Surrogate is responsible for modeling.
-    When ``BotorchModel.fit`` is called, these fields will be used to construct the
-    requisite Surrogate objects.
-    If ``outcomes`` is left empty then no outcomes will be fit to the Surrogate.
-    """
-
-    botorch_model_class: type[Model] | None = None
-    botorch_model_kwargs: dict[str, Any] = field(default_factory=dict)
-
-    mll_class: type[MarginalLogLikelihood] = ExactMarginalLogLikelihood
-    mll_kwargs: dict[str, Any] = field(default_factory=dict)
-
-    covar_module_class: type[Kernel] | None = None
-    covar_module_kwargs: dict[str, Any] | None = None
-
-    likelihood_class: type[Likelihood] | None = None
-    likelihood_kwargs: dict[str, Any] | None = None
-
-    input_transform_classes: list[type[InputTransform]] | None = None
-    input_transform_options: dict[str, dict[str, Any]] | None = None
-
-    outcome_transform_classes: list[type[OutcomeTransform]] | None = None
-    outcome_transform_options: dict[str, dict[str, Any]] | None = None
-
-    allow_batched_models: bool = True
-
-    model_configs: list[ModelConfig] = field(default_factory=list)
-    metric_to_model_configs: dict[str, list[ModelConfig]] = field(default_factory=dict)
-    outcomes: list[str] = field(default_factory=list)
 
 
 class BoTorchModel(TorchModel, Base):
@@ -230,31 +185,17 @@ class BoTorchModel(TorchModel, Base):
 
         # If a surrogate has not been constructed, construct it.
         if self._surrogate is None:
-            if (spec := self.surrogate_spec) is not None:
-                self._surrogate = Surrogate(
-                    botorch_model_class=spec.botorch_model_class,
-                    model_options=spec.botorch_model_kwargs,
-                    mll_class=spec.mll_class,
-                    mll_options=spec.mll_kwargs,
-                    covar_module_class=spec.covar_module_class,
-                    covar_module_options=spec.covar_module_kwargs,
-                    likelihood_class=spec.likelihood_class,
-                    likelihood_options=spec.likelihood_kwargs,
-                    input_transform_classes=spec.input_transform_classes,
-                    input_transform_options=spec.input_transform_options,
-                    outcome_transform_classes=spec.outcome_transform_classes,
-                    outcome_transform_options=spec.outcome_transform_options,
-                    model_configs=spec.model_configs,
-                    metric_to_model_configs=spec.metric_to_model_configs,
-                    allow_batched_models=spec.allow_batched_models,
-                )
+            if self.surrogate_spec is not None:
+                self._surrogate = Surrogate(surrogate_spec=self.surrogate_spec)
             else:
                 self._surrogate = Surrogate()
 
         # Fit the surrogate.
-        for config in self.surrogate.model_configs:
+        for config in self.surrogate.surrogate_spec.model_configs:
             config.model_options.update(additional_model_inputs)
-        for config_list in self.surrogate.metric_to_model_configs.values():
+        for (
+            config_list
+        ) in self.surrogate.surrogate_spec.metric_to_model_configs.values():
             for config in config_list:
                 config.model_options.update(additional_model_inputs)
         self.surrogate.fit(

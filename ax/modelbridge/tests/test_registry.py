@@ -28,8 +28,8 @@ from ax.models.discrete.thompson import ThompsonSampler
 from ax.models.random.sobol import SobolGenerator
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
-from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
-from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch.botorch_modular.model import BoTorchModel
+from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.utils.common.kwargs import get_function_argument_names
 from ax.utils.common.testutils import TestCase
@@ -100,7 +100,7 @@ class ModelRegistryTest(TestCase):
             SurrogateSpec(botorch_model_class=SaasFullyBayesianSingleTaskGP),
         )
         self.assertEqual(
-            saasbo.model.surrogate.model_configs[0].botorch_model_class,
+            saasbo.model.surrogate.surrogate_spec.model_configs[0].botorch_model_class,
             SaasFullyBayesianSingleTaskGP,
         )
 

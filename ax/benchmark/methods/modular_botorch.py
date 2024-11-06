@@ -14,7 +14,7 @@ from ax.benchmark.benchmark_method import (
 from ax.modelbridge.generation_node import GenerationStep
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Models
-from ax.models.torch.botorch_modular.model import SurrogateSpec
+from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
 from ax.service.scheduler import SchedulerOptions
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import LogExpectedImprovement

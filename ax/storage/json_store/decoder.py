@@ -44,8 +44,7 @@ from ax.modelbridge.transition_criterion import (
     TransitionCriterion,
     TrialBasedCriterion,
 )
-from ax.models.torch.botorch_modular.model import SurrogateSpec
-from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.models.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoders import (
     batch_trial_from_json,

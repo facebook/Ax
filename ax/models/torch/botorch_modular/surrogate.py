@@ -13,6 +13,7 @@ import warnings
 from collections import OrderedDict
 from collections.abc import Sequence
 from copy import deepcopy
+from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any
 
@@ -271,17 +272,169 @@ def _set_formatted_inputs(
             formatted_model_inputs[input_name] = input_class(**input_options)
 
 
-def _raise_deprecation_warning(*args: Any, **kwargs: Any) -> None:
+def _raise_deprecation_warning(
+    is_surrogate: bool = False,
+    **kwargs: Any,
+) -> bool:
+    """Raise deprecation warnings for deprecated arguments.
+
+    Args:
+        is_surrogate: A boolean indicating whether the warning is called from
+            Surrogate.
+
+    Returns:
+        A boolean indicating whether any deprecation warnings were raised.
+    """
+    msg = "{k} is deprecated and will be removed in a future version. "
+    if is_surrogate:
+        msg += "Please specify {k} via `surrogate_spec.model_configs`."
+    else:
+        msg += "Please specify {k} via `model_configs`."
+    warnings_raised = False
+    default_is_dict = {"botorch_model_kwargs", "mll_kwargs"}
     for k, v in kwargs.items():
-        if (v is not None and k != "mll_class") or (
+        should_raise = False
+        if k in default_is_dict:
+            if v != {}:
+                should_raise = True
+        elif (v is not None and k != "mll_class") or (
             k == "mll_class" and v is not ExactMarginalLogLikelihood
         ):
+            should_raise = True
+        if should_raise:
             warnings.warn(
-                f"{k} is deprecated and will be removed in a future version. "
-                f"Please specify {k} via `model_configs`.",
+                msg.format(k=k),
                 DeprecationWarning,
                 stacklevel=3,
             )
+            warnings_raised = True
+    return warnings_raised
+
+
+def get_model_config_from_deprecated_args(
+    botorch_model_class: type[Model] | None,
+    model_options: dict[str, Any] | None,
+    mll_class: type[MarginalLogLikelihood] | None,
+    mll_options: dict[str, Any] | None,
+    outcome_transform_classes: list[type[OutcomeTransform]] | None,
+    outcome_transform_options: dict[str, dict[str, Any]] | None,
+    input_transform_classes: list[type[InputTransform]] | None,
+    input_transform_options: dict[str, dict[str, Any]] | None,
+    covar_module_class: type[Kernel] | None,
+    covar_module_options: dict[str, Any] | None,
+    likelihood_class: type[Likelihood] | None,
+    likelihood_options: dict[str, Any] | None,
+) -> ModelConfig:
+    """Construct a ModelConfig from deprecated arguments."""
+    model_config_kwargs = {
+        "botorch_model_class": botorch_model_class,
+        "model_options": (model_options or {}).copy(),
+        "mll_class": mll_class,
+        "mll_options": (mll_options or {}).copy(),
+        "outcome_transform_classes": outcome_transform_classes,
+        "outcome_transform_options": outcome_transform_options,
+        "input_transform_classes": input_transform_classes,
+        "input_transform_options": input_transform_options,
+        "covar_module_class": covar_module_class,
+        "covar_module_options": covar_module_options,
+        "likelihood_class": likelihood_class,
+        "likelihood_options": likelihood_options,
+    }
+    model_config_kwargs = {
+        k: v for k, v in model_config_kwargs.items() if v is not None
+    }
+    # pyre-fixme [6]: Incompatible parameter type [6]: In call
+    # `ModelConfig.__init__`, for 1st positional argument, expected
+    # `Dict[str, typing.Any]` but got `Union[Dict[str, typing.Any],
+    # Dict[str, Dict[str, typing.Any]], Sequence[Type[InputTransform]],
+    # Sequence[Type[OutcomeTransform]], Type[Union[MarginalLogLikelihood,
+    #  Model]], Type[Likelihood], Type[Kernel]]`.
+    return ModelConfig(**model_config_kwargs)
+
+
+@dataclass(frozen=True)
+class SurrogateSpec:
+    """
+    Fields in the SurrogateSpec dataclass correspond to arguments in
+    ``Surrogate.__init__``, except for ``outcomes`` which is used to specify which
+    outcomes the Surrogate is responsible for modeling.
+    When ``BotorchModel.fit`` is called, these fields will be used to construct the
+    requisite Surrogate objects.
+    If ``outcomes`` is left empty then no outcomes will be fit to the Surrogate.
+    """
+
+    botorch_model_class: type[Model] | None = None
+    botorch_model_kwargs: dict[str, Any] = field(default_factory=dict)
+
+    mll_class: type[MarginalLogLikelihood] = ExactMarginalLogLikelihood
+    mll_kwargs: dict[str, Any] = field(default_factory=dict)
+
+    covar_module_class: type[Kernel] | None = None
+    covar_module_kwargs: dict[str, Any] | None = None
+
+    likelihood_class: type[Likelihood] | None = None
+    likelihood_kwargs: dict[str, Any] | None = None
+
+    input_transform_classes: list[type[InputTransform]] | None = None
+    input_transform_options: dict[str, dict[str, Any]] | None = None
+
+    outcome_transform_classes: list[type[OutcomeTransform]] | None = None
+    outcome_transform_options: dict[str, dict[str, Any]] | None = None
+
+    allow_batched_models: bool = True
+
+    model_configs: list[ModelConfig] = field(default_factory=list)
+    metric_to_model_configs: dict[str, list[ModelConfig]] = field(default_factory=dict)
+    outcomes: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        warnings_raised = _raise_deprecation_warning(
+            is_surrogate=False,
+            botorch_model_class=self.botorch_model_class,
+            botorch_model_kwargs=self.botorch_model_kwargs,
+            mll_class=self.mll_class,
+            mll_kwargs=self.mll_kwargs,
+            outcome_transform_classes=self.outcome_transform_classes,
+            outcome_transform_options=self.outcome_transform_options,
+            input_transform_classes=self.input_transform_classes,
+            input_transform_options=self.input_transform_options,
+            covar_module_class=self.covar_module_class,
+            covar_module_options=self.covar_module_kwargs,
+            likelihood_class=self.likelihood_class,
+            likelihood_options=self.likelihood_kwargs,
+        )
+        if len(self.model_configs) == 0:
+            model_config = get_model_config_from_deprecated_args(
+                botorch_model_class=self.botorch_model_class,
+                model_options=self.botorch_model_kwargs,
+                mll_class=self.mll_class,
+                mll_options=self.mll_kwargs,
+                outcome_transform_classes=self.outcome_transform_classes,
+                outcome_transform_options=self.outcome_transform_options,
+                input_transform_classes=self.input_transform_classes,
+                input_transform_options=self.input_transform_options,
+                covar_module_class=self.covar_module_class,
+                covar_module_options=self.covar_module_kwargs,
+                likelihood_class=self.likelihood_class,
+                likelihood_options=self.likelihood_kwargs,
+            )
+            # re-initialize with the non-deprecated arguments
+            self.__init__(
+                model_configs=[model_config],
+                metric_to_model_configs=self.metric_to_model_configs,
+                allow_batched_models=self.allow_batched_models,
+                outcomes=self.outcomes,
+            )
+        elif warnings_raised:
+            raise UserInputError(
+                "model_configs and deprecated arguments were both specified. "
+                "Please use model_configs and remove deprecated arguments."
+            )
+        if len(self.model_configs) > 1 or any(
+            len(model_config) > 1
+            for model_config in self.metric_to_model_configs.values()
+        ):
+            raise NotImplementedError("Only one model config per metric is supported.")
 
 
 class Surrogate(Base):
@@ -359,23 +512,23 @@ class Surrogate(Base):
 
     def __init__(
         self,
+        surrogate_spec: SurrogateSpec | None = None,
         botorch_model_class: type[Model] | None = None,
         model_options: dict[str, Any] | None = None,
         mll_class: type[MarginalLogLikelihood] = ExactMarginalLogLikelihood,
         mll_options: dict[str, Any] | None = None,
-        outcome_transform_classes: Sequence[type[OutcomeTransform]] | None = None,
+        outcome_transform_classes: list[type[OutcomeTransform]] | None = None,
         outcome_transform_options: dict[str, dict[str, Any]] | None = None,
-        input_transform_classes: Sequence[type[InputTransform]] | None = None,
+        input_transform_classes: list[type[InputTransform]] | None = None,
         input_transform_options: dict[str, dict[str, Any]] | None = None,
         covar_module_class: type[Kernel] | None = None,
         covar_module_options: dict[str, Any] | None = None,
         likelihood_class: type[Likelihood] | None = None,
         likelihood_options: dict[str, Any] | None = None,
-        model_configs: list[ModelConfig] | None = None,
-        metric_to_model_configs: dict[str, list[ModelConfig]] | None = None,
         allow_batched_models: bool = True,
     ) -> None:
-        _raise_deprecation_warning(
+        warnings_raised = _raise_deprecation_warning(
+            is_surrogate=True,
             botorch_model_class=botorch_model_class,
             model_options=model_options,
             mll_class=mll_class,
@@ -389,43 +542,34 @@ class Surrogate(Base):
             likelihood_class=likelihood_class,
             likelihood_options=likelihood_options,
         )
-        model_configs = model_configs or []
-        if len(model_configs) == 0:
-            model_config_kwargs = {
-                "botorch_model_class": botorch_model_class,
-                "model_options": (model_options or {}).copy(),
-                "mll_class": mll_class,
-                "mll_options": mll_options,
-                "outcome_transform_classes": outcome_transform_classes,
-                "outcome_transform_options": outcome_transform_options,
-                "input_transform_classes": input_transform_classes,
-                "input_transform_options": input_transform_options,
-                "covar_module_class": covar_module_class,
-                "covar_module_options": covar_module_options,
-                "likelihood_class": likelihood_class,
-                "likelihood_options": likelihood_options,
-            }
-            model_config_kwargs = {
-                k: v for k, v in model_config_kwargs.items() if v is not None
-            }
-            # pyre-fixme [6]: Incompatible parameter type [6]: In call
-            # `ModelConfig.__init__`, for 1st positional argument, expected
-            # `Dict[str, typing.Any]` but got `Union[Dict[str, typing.Any],
-            # Dict[str, Dict[str, typing.Any]], Sequence[Type[InputTransform]],
-            # Sequence[Type[OutcomeTransform]], Type[Union[MarginalLogLikelihood,
-            #  Model]], Type[Likelihood], Type[Kernel]]`.
-            model_configs = [ModelConfig(**model_config_kwargs)]
-        self.model_configs: list[ModelConfig] = model_configs
-        self.metric_to_model_configs: dict[str, list[ModelConfig]] = (
-            metric_to_model_configs or {}
-        )
-        if len(self.model_configs) > 1 or any(
-            len(model_config) > 1
-            for model_config in self.metric_to_model_configs.values()
-        ):
-            raise NotImplementedError("Only one model config per metric is supported.")
+        # check if surrogate_spec is provided
+        if surrogate_spec is None:
+            # create surrogate spec from deprecated arguments
+            model_config = get_model_config_from_deprecated_args(
+                botorch_model_class=botorch_model_class,
+                model_options=model_options,
+                mll_class=mll_class,
+                mll_options=mll_options,
+                outcome_transform_classes=outcome_transform_classes,
+                outcome_transform_options=outcome_transform_options,
+                input_transform_classes=input_transform_classes,
+                input_transform_options=input_transform_options,
+                covar_module_class=covar_module_class,
+                covar_module_options=covar_module_options,
+                likelihood_class=likelihood_class,
+                likelihood_options=likelihood_options,
+            )
+            surrogate_spec = SurrogateSpec(
+                model_configs=[model_config], allow_batched_models=allow_batched_models
+            )
 
-        self.allow_batched_models = allow_batched_models
+        elif warnings_raised:
+            raise UserInputError(
+                "model_configs and deprecated arguments were both specified. "
+                "Please use model_configs and remove deprecated arguments."
+            )
+
+        self.surrogate_spec: SurrogateSpec = surrogate_spec
         # Store the last dataset used to fit the model for a given metric(s).
         # If the new dataset is identical, we will skip model fitting for that metric.
         # The keys are `tuple(dataset.outcome_names)`.
@@ -445,11 +589,7 @@ class Surrogate(Base):
         self._model: Model | None = None
 
     def __repr__(self) -> str:
-        return (
-            f"<{self.__class__.__name__}"
-            f" model_configs={self.model_configs},"
-            f" metric_to_model_configs={self.metric_to_model_configs}>"
-        )
+        return f"<{self.__class__.__name__}" f" surrogate_spec={self.surrogate_spec}>"
 
     @property
     def model(self) -> Model:
@@ -614,20 +754,22 @@ class Surrogate(Base):
         # the batched multi-output case, so we first see which model would be chosen
         # given the Yvars and the properties of data.
         if (
-            len(self.model_configs) == 1
-            and self.model_configs[0].botorch_model_class is None
+            len(self.surrogate_spec.model_configs) == 1
+            and self.surrogate_spec.model_configs[0].botorch_model_class is None
         ):
             default_botorch_model_class = choose_model_class(
                 datasets=datasets, search_space_digest=search_space_digest
             )
         else:
-            default_botorch_model_class = self.model_configs[0].botorch_model_class
+            default_botorch_model_class = self.surrogate_spec.model_configs[
+                0
+            ].botorch_model_class
         should_use_model_list = use_model_list(
             datasets=datasets,
             botorch_model_class=not_none(default_botorch_model_class),
-            model_configs=self.model_configs,
-            allow_batched_models=self.allow_batched_models,
-            metric_to_model_configs=self.metric_to_model_configs,
+            model_configs=self.surrogate_spec.model_configs,
+            allow_batched_models=self.surrogate_spec.allow_batched_models,
+            metric_to_model_configs=self.surrogate_spec.metric_to_model_configs,
         )
 
         if not should_use_model_list and len(datasets) > 1:
@@ -646,7 +788,7 @@ class Surrogate(Base):
                 else:
                     submodel_state_dict = state_dict
             model_config = None
-            if len(self.metric_to_model_configs) > 0:
+            if len(self.surrogate_spec.metric_to_model_configs) > 0:
                 # if metric_to_model_configs is not empty, then
                 # we are using a model list and each dataset
                 # should have only one outcome.
@@ -655,7 +797,7 @@ class Surrogate(Base):
                         "Each dataset should have only one outcome when "
                         "metric_to_model_configs is specified."
                     )
-                model_config_list = self.metric_to_model_configs.get(
+                model_config_list = self.surrogate_spec.metric_to_model_configs.get(
                     dataset.outcome_names[0]
                 )
 
@@ -663,7 +805,7 @@ class Surrogate(Base):
                 if model_config_list is not None:
                     model_config = model_config_list[0]
             if model_config is None:
-                model_config = self.model_configs[0]
+                model_config = self.surrogate_spec.model_configs[0]
             model = self._construct_model(
                 dataset=dataset,
                 search_space_digest=search_space_digest,
@@ -828,10 +970,7 @@ class Surrogate(Base):
         """Serialize attributes of this surrogate, to be passed back to it
         as kwargs on reinstantiation.
         """
-        return {
-            "model_configs": self.model_configs,
-            "metric_to_model_configs": self.metric_to_model_configs,
-        }
+        return {"surrogate_spec": self.surrogate_spec}
 
     def _extract_construct_input_transform_args(
         self, model_config: ModelConfig, search_space_digest: SearchSpaceDigest
