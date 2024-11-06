@@ -505,6 +505,7 @@ class ModelRegistryTest(TestCase):
         same check in a couple different ways.
         """
         for old_model_str, new_model in [
+            ("MOO", Models.BOTORCH_MODULAR),
             ("GPEI", Models.BOTORCH_MODULAR),
             ("FULLYBAYESIAN", Models.SAASBO),
             ("FULLYBAYESIANMOO", Models.SAASBO),

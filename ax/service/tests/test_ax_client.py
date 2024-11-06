@@ -220,7 +220,7 @@ def get_client_with_simple_discrete_moo_problem(
     gs = GenerationStrategy(
         steps=[
             GenerationStep(model=Models.SOBOL, num_trials=3),
-            GenerationStep(model=Models.MOO, num_trials=-1),
+            GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=-1),
         ]
     )
 

@@ -442,29 +442,21 @@ class ReportUtilsTest(TestCase):
         # https://bugs.python.org/issue41943 for more information.
         with self.assertLogs(logger="ax", level=INFO) as log:
             plots = get_standard_plots(
-                experiment=exp, model=Models.MOO(experiment=exp, data=exp.fetch_data())
+                experiment=exp,
+                model=Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
             )
-            self.assertEqual(len(log.output), 5)
+            self.assertEqual(len(log.output), 3)
             self.assertIn(
                 "Pareto plotting not supported for experiments with relative objective "
                 "thresholds.",
                 log.output[0],
             )
-            self.assertIn(
-                "Failed to compute signed global feature sensitivities",
-                log.output[1],
-            )
-            self.assertIn(
-                "Failed to compute unsigned feature sensitivities:",
-                log.output[2],
-            )
-            created_plots_logs = set(log.output[2:])
             for metric_suffix in ("a", "b"):
                 expected_msg = (
                     "Created contour plots for metric branin_"
                     f"{metric_suffix} and parameters ['x2', 'x1']"
                 )
-                self.assertTrue(any(expected_msg in msg for msg in created_plots_logs))
+                self.assertTrue(any(expected_msg in msg for msg in log.output[1:]))
         self.assertEqual(len(plots), 6)
 
     @mock_botorch_optimize
@@ -489,7 +481,8 @@ class ReportUtilsTest(TestCase):
         )._objective_thresholds:
             ot.relative = False
         plots = get_standard_plots(
-            experiment=exp, model=Models.MOO(experiment=exp, data=exp.fetch_data())
+            experiment=exp,
+            model=Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
         )
         self.assertEqual(len(plots), 8)
 
@@ -500,7 +493,8 @@ class ReportUtilsTest(TestCase):
         exp.optimization_config.objective.objectives[1].minimize = True
         exp.trials[0].run()
         plots = get_standard_plots(
-            experiment=exp, model=Models.MOO(experiment=exp, data=exp.fetch_data())
+            experiment=exp,
+            model=Models.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
         )
         self.assertEqual(len(plots), 8)
 
