@@ -558,7 +558,7 @@ def get_pareto_optimal_parameters(
     if is_moo_modelbridge:
         generation_strategy._fit_current_model(data=None)
     else:
-        modelbridge = Models.MOO(
+        modelbridge = Models.BOTORCH_MODULAR(
             experiment=experiment,
             data=checked_cast(
                 Data, experiment.lookup_data(trial_indices=trial_indices)
