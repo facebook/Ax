@@ -221,7 +221,6 @@ def get_pytorch_cnn_torchvision_benchmark_problem(
         search_space=search_space,
         optimization_config=optimization_config,
         num_trials=num_trials,
-        observe_noise_stds=False,
         optimal_value=CLASSIFICATION_OPTIMAL_VALUE,
         test_function=test_function,
     )

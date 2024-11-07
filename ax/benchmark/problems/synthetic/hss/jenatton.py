@@ -120,6 +120,5 @@ def get_jenatton_benchmark_problem(
         test_function=Jenatton(outcome_names=[name]),
         noise_std=noise_std,
         num_trials=num_trials,
-        observe_noise_stds=observe_noise_sd,
         optimal_value=JENATTON_OPTIMAL_VALUE,
     )

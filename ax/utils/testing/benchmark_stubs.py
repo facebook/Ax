@@ -116,7 +116,6 @@ def get_soo_surrogate() -> BenchmarkProblem:
         search_space=experiment.search_space,
         optimization_config=optimization_config,
         num_trials=6,
-        observe_noise_stds=observe_noise_sd,
         optimal_value=0.0,
         test_function=test_function,
     )
@@ -164,7 +163,6 @@ def get_moo_surrogate() -> BenchmarkProblem:
         search_space=experiment.search_space,
         optimization_config=optimization_config,
         num_trials=10,
-        observe_noise_stds=True,
         optimal_value=1.0,
         test_function=test_function,
     )
