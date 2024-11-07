@@ -30,6 +30,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Print event name
+      run: |
+        echo "Event name: ${{ github.event_name }}"
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
