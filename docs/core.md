@@ -44,7 +44,7 @@ fixed_param = FixedParameter(name="z", parameter_type=ParameterType.BOOL, value=
 
 Ax supports three types of parameter constraints, each of which can only be used on `int` or `float` parameters:
 
--   **Linear constraints**: `w * v` &lt;= b where w is the vector of parameter weights, v is a vector of parameter values, \* is the dot product, and b is the specified bound. Linear constraints are specified with the bound and a dictionary that maps parameter name to the weight
+-   **Linear constraints**: `w * v` &lt;= b where w is the vector of parameter weights, v is a vector of parameter values, * is the dot product, and b is the specified bound. Linear constraints are specified with the bound and a dictionary that maps parameter name to the weight
 
 ```python
 from ax import ParameterConstraint

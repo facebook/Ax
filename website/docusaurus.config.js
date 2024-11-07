@@ -1,5 +1,5 @@
-const remarkMath = require('remark-math');
-const rehypeKatex = require('rehype-katex');
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 
 module.exports={
   "title": "Ax",
@@ -12,8 +12,6 @@ module.exports={
     "https://cdn.plot.ly/plotly-latest.min.js",
     "/Ax/js/plotUtils.js",
     "https://buttons.github.io/buttons.js",
-    "/Ax/js/mathjax.js",
-    "https://cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS_SVG",
     'https://cdn.bokeh.org/bokeh/release/bokeh-2.4.2.min.js',
     'https://cdn.bokeh.org/bokeh/release/bokeh-widgets-2.4.2.min.js',
   ],
@@ -42,6 +40,15 @@ module.exports={
         }
       }
     ]
+  ],
+  stylesheets: [
+    {
+      href: 'https://cdn.jsdelivr.net/npm/katex@0.13.24/dist/katex.min.css',
+      type: 'text/css',
+      integrity:
+        'sha384-odtC+0UGzzFL/6PNoE8rX/SPcQDXBJ+uRepguP4QkPCm2LBxH3FA3y+fKSiJ+AmM',
+      crossorigin: 'anonymous',
+    },
   ],
   "plugins": [
     [
