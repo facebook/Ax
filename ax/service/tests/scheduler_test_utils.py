@@ -10,7 +10,7 @@ import os
 import re
 from collections.abc import Iterable
 from datetime import datetime, timedelta
-from logging import WARNING
+from logging import DEBUG, WARNING
 from math import ceil
 from random import randint
 from tempfile import NamedTemporaryFile
@@ -1006,7 +1006,27 @@ class AxSchedulerTestCase(TestCase):
             self.assertIn("Running trials [0]", str(temp_file.read()))
             temp_file.close()
 
-    def test_logging_level(self) -> None:
+    def test_logging_level_is_set(self) -> None:
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=self.sobol_MBM_GS,
+        )
+
+        testScheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=SchedulerOptions(
+                total_trials=3,
+                init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+                logging_level=DEBUG,
+                **self.scheduler_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+
+        self.assertTrue(testScheduler.logger.isEnabledFor(DEBUG))
+
+    def test_logging_level_warn(self) -> None:
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
             generation_strategy=self.sobol_MBM_GS,
@@ -1028,6 +1048,35 @@ class AxSchedulerTestCase(TestCase):
             ).run_all_trials()
             # Ensure that the temp file remains empty
             self.assertEqual(os.stat(temp_file.name).st_size, 0)
+            temp_file.close()
+
+    def test_logging_level_debug(self) -> None:
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=self.sobol_MBM_GS,
+        )
+        testInfoMessage = "testInfoMessage"
+        testDebugMessage = "testDebugMessage"
+
+        with NamedTemporaryFile() as temp_file:
+            testScheduler = Scheduler(
+                experiment=self.branin_experiment,
+                generation_strategy=gs,
+                options=SchedulerOptions(
+                    total_trials=3,
+                    init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+                    log_filepath=temp_file.name,
+                    logging_level=DEBUG,
+                    **self.scheduler_options_kwargs,
+                ),
+                db_settings=self.db_settings_if_always_needed,
+            )
+            testScheduler.logger.debug(testDebugMessage)
+            testScheduler.logger.info(testInfoMessage)
+            with open(temp_file.name, "r") as f:
+                log_contents = f.read()
+                self.assertIn(testDebugMessage, log_contents)
+                self.assertIn(testInfoMessage, log_contents)
             temp_file.close()
 
     def test_retries(self) -> None:
