@@ -64,9 +64,6 @@ class BenchmarkProblem(Base):
         optimization_config: Defines the objective of optimization.
         num_trials: Number of optimization iterations to run. BatchTrials count
             as one trial.
-        observe_noise_stds: If boolean, whether the standard deviation of the
-            observation noise is observed for all metrics. If a dictionary,
-            whether noise levels are observed on a per-metric basis.
         optimal_value: The best ground-truth objective value. Hypervolume for
             multi-objective problems. If the best value is not known, it is
             conventional to set it to a value that is almost certainly better
@@ -94,7 +91,6 @@ class BenchmarkProblem(Base):
     num_trials: int
     test_function: BenchmarkTestFunction
     noise_std: float | list[float] | dict[str, float] = 0.0
-    observe_noise_stds: bool | dict[str, bool] = False
     optimal_value: float
 
     search_space: SearchSpace = field(repr=False)
@@ -429,7 +425,6 @@ def create_problem_from_botorch(
         ),
         noise_std=noise_std,
         num_trials=num_trials,
-        observe_noise_stds=observe_noise_sd,
         optimal_value=optimal_value,
         report_inference_value_as_trace=report_inference_value_as_trace,
     )

@@ -8,6 +8,8 @@
 from random import choice
 from unittest.mock import MagicMock, patch
 
+from ax.benchmark.benchmark_metric import BenchmarkMetric
+
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 
 from ax.benchmark.problems.hpo.torchvision import CNN
@@ -16,6 +18,7 @@ from ax.core.arm import Arm
 from ax.core.trial import Trial
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import TestDataset
+from pyre_extensions import assert_is_instance
 
 
 class TestPyTorchCNNTorchvision(TestCase):
@@ -53,7 +56,10 @@ class TestPyTorchCNNTorchvision(TestCase):
         )
         self.assertFalse(problem.optimization_config.objective.minimize)
         self.assertEqual(problem.num_trials, num_trials)
-        self.assertFalse(problem.observe_noise_stds)
+        metric = assert_is_instance(
+            problem.optimization_config.objective.metric, BenchmarkMetric
+        )
+        self.assertFalse(metric.observe_noise_sd)
 
     def test_deterministic(self) -> None:
         problem_name = choice(["MNIST", "FashionMNIST"])
