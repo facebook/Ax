@@ -188,12 +188,6 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         model_class=UniformGenerator,
         transforms=Cont_X_trans,
     ),
-    "MOO": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=MultiObjectiveBotorchModel,
-        transforms=Cont_X_trans + Y_trans,
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
-    ),
     "ST_MTGP_LEGACY": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=BotorchModel,
@@ -433,12 +427,18 @@ class Models(ModelRegistryBase):
     BOTORCH_MODULAR = "BoTorch"
     EMPIRICAL_BAYES_THOMPSON = "EB"
     UNIFORM = "Uniform"
-    MOO = "MOO"
     ST_MTGP_LEGACY = "ST_MTGP_LEGACY"
     ST_MTGP = "ST_MTGP"
     BO_MIXED = "BO_MIXED"
     ST_MTGP_NEHVI = "ST_MTGP_NEHVI"
     CONTEXT_SACBO = "Contextual_SACBO"
+
+    @classmethod
+    @property
+    def MOO(cls) -> Models:
+        return _deprecated_model_with_warning(
+            old_model_str="MOO", new_model=cls.BOTORCH_MODULAR
+        )
 
     @classmethod
     @property
