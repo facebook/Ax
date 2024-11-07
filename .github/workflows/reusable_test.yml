@@ -66,5 +66,8 @@ jobs:
       name: Upload coverage
       uses: codecov/codecov-action@v4
       with:
-        fail_ci_if_error: true
+        # This will sometimes fail because of
+        # https://github.com/codecov/codecov-action/issues/1580
+        # Make true when closed.
+        fail_ci_if_error: false
         token: ${{ secrets.CODECOV_TOKEN }}
