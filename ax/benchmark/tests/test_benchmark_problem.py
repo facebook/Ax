@@ -21,6 +21,7 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
@@ -53,15 +54,15 @@ class TestBenchmarkProblem(TestCase):
         ]
         optimization_config = OptimizationConfig(objective=objectives[0])
         runner = BenchmarkRunner(
-            test_function=BoTorchTestFunction(botorch_problem=Branin()),
-            outcome_names=["foo"],
+            test_function=BoTorchTestFunction(
+                botorch_problem=Branin(), outcome_names=["Branin"]
+            ),
         )
         with self.assertRaisesRegex(NotImplementedError, "Only `n_best_points=1`"):
             BenchmarkProblem(
                 name="foo",
                 optimization_config=optimization_config,
                 num_trials=1,
-                observe_noise_stds=False,
                 optimal_value=0.0,
                 search_space=SearchSpace(parameters=[]),
                 runner=runner,
@@ -77,12 +78,64 @@ class TestBenchmarkProblem(TestCase):
                     objective=MultiObjective(objectives)
                 ),
                 num_trials=1,
-                observe_noise_stds=False,
                 optimal_value=0.0,
                 search_space=SearchSpace(parameters=[]),
                 runner=runner,
                 n_best_points=1,
                 report_inference_value_as_trace=True,
+            )
+
+    def test_mismatch_of_names_on_test_function_and_opt_config_raises(self) -> None:
+        objectives = [
+            Objective(metric=BenchmarkMetric(name, lower_is_better=True))
+            for name in ["Branin", "Currin"]
+        ]
+        runner = BenchmarkRunner(
+            test_function=BoTorchTestFunction(
+                botorch_problem=Branin(), outcome_names=["Branin"]
+            )
+        )
+        opt_config = MultiObjectiveOptimizationConfig(
+            objective=MultiObjective(objectives)
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "The following objectives are defined on "
+            "`optimization_config` but not included in "
+            "`runner.test_function.outcome_names`: {'Currin'}.",
+        ):
+            BenchmarkProblem(
+                name="foo",
+                optimization_config=opt_config,
+                num_trials=1,
+                optimal_value=0.0,
+                search_space=SearchSpace(parameters=[]),
+                runner=runner,
+            )
+
+        opt_config = OptimizationConfig(
+            objective=objectives[0],
+            outcome_constraints=[
+                OutcomeConstraint(
+                    BenchmarkMetric("c", lower_is_better=False),
+                    ComparisonOp.LEQ,
+                    0.0,
+                )
+            ],
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "The following constraints are defined on "
+            "`optimization_config` but not included in "
+            "`runner.test_function.outcome_names`: {'c'}.",
+        ):
+            BenchmarkProblem(
+                name="foo",
+                optimization_config=opt_config,
+                num_trials=1,
+                optimal_value=0.0,
+                search_space=SearchSpace(parameters=[]),
+                runner=runner,
             )
 
     def _test_multi_fidelity_or_multi_task(self, fidelity_or_task: str) -> None:
@@ -180,10 +233,8 @@ class TestBenchmarkProblem(TestCase):
                 test_problem.optimal_value, botorch_test_problem._optimal_value
             )
             # test optimization config
-            self.assertEqual(
-                test_problem.optimization_config.objective.metric.name,
-                test_problem.name,
-            )
+            metric_name = test_problem.optimization_config.objective.metric.name
+            self.assertEqual(metric_name, test_problem.name)
             self.assertTrue(test_problem.optimization_config.objective.minimize)
             # test repr method
             if isinstance(botorch_test_problem, Ackley):

@@ -44,13 +44,14 @@ class TestBenchmarkRunner(TestCase):
                 BoTorchTestFunction(
                     botorch_problem=test_problem_class(dim=6),
                     modified_bounds=modified_bounds,
+                    outcome_names=outcome_names,
                 ),
                 noise_std,
                 num_outcomes,
             )
-            for (test_problem_class, num_outcomes) in (
-                (Hartmann, 1),
-                (ConstrainedHartmann, 2),
+            for (test_problem_class, num_outcomes, outcome_names) in (
+                (Hartmann, 1, ["objective_0"]),
+                (ConstrainedHartmann, 2, ["objective_0", "constraint"]),
             )
             for modified_bounds, noise_std in product(
                 (None, [(0.0, 2.0)] * 6),
@@ -85,11 +86,7 @@ class TestBenchmarkRunner(TestCase):
                 outcome_names = ["branin"]
 
             # Set up runner
-            runner = BenchmarkRunner(
-                test_function=test_function,
-                outcome_names=outcome_names,
-                noise_std=noise_std,
-            )
+            runner = BenchmarkRunner(test_function=test_function, noise_std=noise_std)
 
             test_description = f"{test_function=}, {noise_std=}"
             with self.subTest(
@@ -110,7 +107,11 @@ class TestBenchmarkRunner(TestCase):
 
                 # check equality
                 new_runner = replace(
-                    runner, test_function=BoTorchTestFunction(botorch_problem=Ackley())
+                    runner,
+                    test_function=BoTorchTestFunction(
+                        botorch_problem=Ackley(),
+                        outcome_names=test_function.outcome_names,
+                    ),
                 )
                 self.assertNotEqual(runner, new_runner)
 
@@ -231,17 +232,17 @@ class TestBenchmarkRunner(TestCase):
                     BenchmarkRunner.deserialize_init_args({})
 
     def test_heterogeneous_noise(self) -> None:
-        for noise_std in [[0.1, 0.05], {"objective": 0.1, "constraint": 0.05}]:
+        for noise_std in [[0.1, 0.05], {"objective_0": 0.1, "constraint": 0.05}]:
             runner = BenchmarkRunner(
                 test_function=BoTorchTestFunction(
-                    botorch_problem=ConstrainedHartmann(dim=6)
+                    botorch_problem=ConstrainedHartmann(dim=6),
+                    outcome_names=["objective_0", "constraint"],
                 ),
                 noise_std=noise_std,
-                outcome_names=["objective", "constraint"],
             )
             self.assertDictEqual(
                 checked_cast(dict, runner.get_noise_stds()),
-                {"objective": 0.1, "constraint": 0.05},
+                {"objective_0": 0.1, "constraint": 0.05},
             )
 
             X = torch.rand(1, 6, dtype=torch.double)
@@ -257,4 +258,4 @@ class TestBenchmarkRunner(TestCase):
             self.assertSetEqual(set(res.keys()), {"Ys", "Ystds", "outcome_names"})
             self.assertSetEqual(set(res["Ys"].keys()), {"0_0"})
             self.assertEqual(res["Ystds"]["0_0"], [0.1, 0.05])
-            self.assertEqual(res["outcome_names"], ["objective", "constraint"])
+            self.assertEqual(res["outcome_names"], ["objective_0", "constraint"])

@@ -47,7 +47,6 @@ class BenchmarkRunner(Runner):
           not over-engineer for that before such a use case arrives.
 
     Args:
-        outcome_names: The names of the outcomes returned by the problem.
         test_function: A ``BenchmarkTestFunction`` from which to generate
             deterministic data before adding noise.
         noise_std: The standard deviation of the noise added to the data. Can be
@@ -55,7 +54,6 @@ class BenchmarkRunner(Runner):
         search_space_digest: Used to extract target fidelity and task.
     """
 
-    outcome_names: list[str]
     test_function: BenchmarkTestFunction
     noise_std: float | list[float] | dict[str, float] = 0.0
     # pyre-fixme[16]: Pyre doesn't understand InitVars
@@ -70,6 +68,11 @@ class BenchmarkRunner(Runner):
             }
         else:
             self.target_fidelity_and_task = {}
+
+    @property
+    def outcome_names(self) -> list[str]:
+        """The names of the outcomes."""
+        return self.test_function.outcome_names
 
     def get_Y_true(self, params: Mapping[str, TParamValue]) -> Tensor:
         """Evaluates the test problem.
