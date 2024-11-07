@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import torch
 from ax.benchmark.benchmark_problem import BenchmarkProblem
@@ -16,9 +16,7 @@ from ax.benchmark.problems.synthetic.discretized.mixed_integer import (
     get_discrete_hartmann,
     get_discrete_rosenbrock,
 )
-from ax.core.arm import Arm
 from ax.core.parameter import ParameterType
-from ax.core.trial import Trial
 from ax.utils.common.testutils import TestCase
 from botorch.test_functions.synthetic import Ackley, Hartmann, Rosenbrock
 from pyre_extensions import assert_is_instance
@@ -34,9 +32,8 @@ class MixedIntegerProblemsTest(TestCase):
             name = problem_cls.__name__
             problem = constructor()
             self.assertEqual(f"Discrete {name}", problem.name)
-            runner = problem.runner
             test_function = assert_is_instance(
-                runner.test_function, BoTorchTestFunction
+                problem.test_function, BoTorchTestFunction
             )
             botorch_problem = test_function.botorch_problem
             self.assertIsInstance(botorch_problem, problem_cls)
@@ -98,21 +95,14 @@ class MixedIntegerProblemsTest(TestCase):
         ]
 
         for problem, params, expected_arg in cases:
-            runner = problem.runner
             test_function = assert_is_instance(
-                runner.test_function, BoTorchTestFunction
+                problem.test_function, BoTorchTestFunction
             )
-            trial = Trial(experiment=MagicMock())
-            # pyre-fixme: Incompatible parameter type [6]: In call
-            # `Arm.__init__`, for argument `parameters`, expected `Dict[str,
-            # Union[None, bool, float, int, str]]` but got `dict[str, float]`.
-            arm = Arm(parameters=params, name="--")
-            trial.add_arm(arm)
             with patch.object(
                 test_function.botorch_problem,
                 attribute="evaluate_true",
                 wraps=test_function.botorch_problem.evaluate_true,
             ) as mock_call:
-                runner.run(trial)
+                test_function.evaluate_true(params=params)
             actual = mock_call.call_args.kwargs["X"]
             self.assertTrue(torch.allclose(actual, expected_arg))

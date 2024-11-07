@@ -9,10 +9,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+import numpy as np
+
+import numpy.typing as npt
 import pandas as pd
 
 from ax.benchmark.benchmark_metric import BenchmarkMetric
-from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
 from ax.core.data import Data
@@ -24,7 +26,7 @@ from ax.core.optimization_config import (
     OptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
-from ax.core.parameter import ParameterType, RangeParameter
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp, TParamValue
 from ax.utils.common.base import Base
@@ -61,7 +63,8 @@ class BenchmarkProblem(Base):
 
     Args:
         name: Can be generated programmatically with `_get_name`.
-        optimization_config: Defines the objective of optimization.
+        optimization_config: Defines the objective of optimization. Metrics must
+            be `BenchmarkMetric`s.
         num_trials: Number of optimization iterations to run. BatchTrials count
             as one trial.
         optimal_value: The best ground-truth objective value. Hypervolume for
@@ -94,9 +97,9 @@ class BenchmarkProblem(Base):
     optimal_value: float
 
     search_space: SearchSpace = field(repr=False)
-    runner: BenchmarkRunner = field(repr=False, init=False)
     report_inference_value_as_trace: bool = False
     n_best_points: int = 1
+    target_fidelity_and_task: Mapping[str, TParamValue] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         # Validate inputs
@@ -134,12 +137,26 @@ class BenchmarkProblem(Base):
                 "`optimization_config` but not included in "
                 f"`runner.test_function.outcome_names`: {missing}."
             )
-        # Construct runner
-        self.runner = BenchmarkRunner(
-            test_function=self.test_function,
-            noise_std=self.noise_std,
-            search_space=self.search_space,
-        )
+
+        self.target_fidelity_and_task = {
+            p.name: p.target_value
+            for p in self.search_space.parameters.values()
+            if (isinstance(p, ChoiceParameter) and p.is_task) or p.is_fidelity
+        }
+
+    def evaluate_oracle(self, parameters: Mapping[str, TParamValue]) -> npt.NDArray:
+        """
+        Evaluate oracle metric values at a parameterization. In the base class,
+        oracle values are underlying noiseless function values evaluated at the
+        target task and fidelity (if applicable).
+
+        This method can be customized for more complex setups based on different
+        notions of what the "oracle" value should be. For example, with a
+        preference-learned objective, the values might be true metrics evaluated
+        at the true utility function (which would be unobserved in reality).
+        """
+        params = {**parameters, **self.target_fidelity_and_task}
+        return np.atleast_1d(self.test_function.evaluate_true(params=params).numpy())
 
     def get_oracle_experiment_from_params(
         self,
@@ -181,8 +198,8 @@ class BenchmarkProblem(Base):
                 )
             for arm_name, params in dict_of_params.items():
                 for metric_name, metric_value in zip(
-                    self.runner.outcome_names,
-                    self.runner.evaluate_oracle(parameters=params),
+                    self.test_function.outcome_names,
+                    self.evaluate_oracle(parameters=params),
                 ):
                     records.append(
                         {

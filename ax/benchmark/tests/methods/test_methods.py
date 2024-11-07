@@ -6,11 +6,10 @@
 # pyre-strict
 
 
-from itertools import product
 from unittest.mock import patch
 
 import numpy as np
-from ax.benchmark.benchmark import benchmark_replication
+from ax.benchmark.benchmark import benchmark_replication, get_benchmark_runner
 from ax.benchmark.benchmark_method import get_benchmark_scheduler_options
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
@@ -135,9 +134,7 @@ class TestMethods(TestCase):
         result = benchmark_replication(problem=problem, method=method, seed=0)
         self.assertTrue(np.isfinite(result.score_trace).all())
 
-    def _test_get_best_parameters(
-        self, use_model_predictions: bool, as_batch: bool
-    ) -> None:
+    def _test_get_best_parameters(self, use_model_predictions: bool) -> None:
         problem = get_problem(problem_key="ackley4", num_trials=2, noise_std=1.0)
 
         method = get_sobol_botorch_modular_acquisition(
@@ -152,7 +149,7 @@ class TestMethods(TestCase):
             name="test",
             search_space=problem.search_space,
             optimization_config=problem.optimization_config,
-            runner=problem.runner,
+            runner=get_benchmark_runner(problem=problem),
         )
 
         scheduler = Scheduler(
@@ -189,8 +186,8 @@ class TestMethods(TestCase):
         self.assertEqual(len(best_params), 1)
 
     def test_get_best_parameters(self) -> None:
-        for use_model_predictions, as_batch in product([False, True], [False, True]):
-            with self.subTest(f"{use_model_predictions=}, {as_batch=}"):
+        for use_model_predictions in [False, True]:
+            with self.subTest(f"{use_model_predictions=}"):
                 self._test_get_best_parameters(
-                    use_model_predictions=use_model_predictions, as_batch=as_batch
+                    use_model_predictions=use_model_predictions
                 )

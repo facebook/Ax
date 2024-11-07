@@ -12,8 +12,6 @@ from dataclasses import replace
 from itertools import product
 from unittest.mock import Mock, patch
 
-import numpy as np
-
 import torch
 from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
@@ -146,7 +144,6 @@ class TestBenchmarkRunner(TestCase):
                     )
                 ):
                     Y = runner.get_Y_true(params=params)
-                    oracle = runner.evaluate_oracle(parameters=params)
 
                 if (
                     isinstance(test_function, BoTorchTestFunction)
@@ -180,7 +177,6 @@ class TestBenchmarkRunner(TestCase):
                         torch.Size([2]), X.pow(2).sum().item(), dtype=torch.double
                     )
                 self.assertTrue(torch.allclose(Y, expected_Y))
-                self.assertTrue(np.equal(Y.numpy(), oracle).all())
 
             with self.subTest(f"test `run()`, {test_description}"):
                 trial = Mock(spec=Trial)

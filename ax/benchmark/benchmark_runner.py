@@ -6,19 +6,15 @@
 # pyre-strict
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field, InitVar
+from dataclasses import dataclass
 from math import sqrt
 from typing import Any
-
-import numpy.typing as npt
 
 import torch
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
-from ax.core.parameter import ChoiceParameter
 from ax.core.runner import Runner
-from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import TParamValue
 from ax.exceptions.core import UnsupportedError
@@ -57,19 +53,6 @@ class BenchmarkRunner(Runner):
 
     test_function: BenchmarkTestFunction
     noise_std: float | list[float] | dict[str, float] = 0.0
-    # pyre-fixme[16]: Pyre doesn't understand InitVars
-    search_space: InitVar[SearchSpace | None] = None
-    target_fidelity_and_task: Mapping[str, TParamValue] = field(init=False)
-
-    def __post_init__(self, search_space: SearchSpace | None) -> None:
-        if search_space is not None:
-            self.target_fidelity_and_task = {
-                p.name: p.target_value
-                for p in search_space.parameters.values()
-                if (isinstance(p, ChoiceParameter) and p.is_task) or p.is_fidelity
-            }
-        else:
-            self.target_fidelity_and_task = {}
 
     @property
     def outcome_names(self) -> list[str]:
@@ -83,20 +66,6 @@ class BenchmarkRunner(Runner):
             An `m`-dim tensor of ground truth (noiseless) evaluations.
         """
         return torch.atleast_1d(self.test_function.evaluate_true(params=params))
-
-    def evaluate_oracle(self, parameters: Mapping[str, TParamValue]) -> npt.NDArray:
-        """
-        Evaluate oracle metric values at a parameterization. In the base class,
-        oracle values are underlying noiseless function values evaluated at the
-        target task and fidelity (if applicable).
-
-        This method can be customized for more complex setups based on different
-        notions of what the "oracle" value should be. For example, with a
-        preference-learned objective, the values might be true metrics evaluated
-        at the true utility function (which would be unobserved in reality).
-        """
-        params = {**parameters, **self.target_fidelity_and_task}
-        return self.get_Y_true(params=params).numpy()
 
     def get_noise_stds(self) -> dict[str, float]:
         noise_std = self.noise_std
