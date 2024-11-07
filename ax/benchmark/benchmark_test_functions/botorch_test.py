@@ -21,6 +21,8 @@ class BoTorchTestFunction(BenchmarkTestFunction):
     Class for generating data from a BoTorch ``BaseTestProblem``.
 
     Args:
+        outcome_names: Names of outcomes. Should have the same length as the
+            dimension of the test function, including constraints.
         botorch_problem: The BoTorch ``BaseTestProblem``.
         modified_bounds: The bounds that are used by the Ax search space
             while optimizing the problem. If different from the bounds of the
@@ -33,6 +35,7 @@ class BoTorchTestFunction(BenchmarkTestFunction):
             evaluated using the raw parameter values.
     """
 
+    outcome_names: list[str]
     botorch_problem: BaseTestProblem
     modified_bounds: list[tuple[float, float]] | None = None
 

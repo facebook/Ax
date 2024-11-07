@@ -128,6 +128,7 @@ class PyTorchCNNTorchvisionBenchmarkTestFunction(BenchmarkTestFunction):
     train_loader: InitVar[DataLoader | None] = None
     # pyre-ignore
     test_loader: InitVar[DataLoader | None] = None
+    outcome_names: list[str] = field(default_factory=lambda: ["accuracy"])
 
     def __post_init__(self, train_loader: None, test_loader: None) -> None:
         if self.name not in _REGISTRY:
@@ -208,16 +209,15 @@ def get_pytorch_cnn_torchvision_benchmark_problem(
             ),
         ]
     )
-    optimization_config, outcome_names = get_soo_config_and_outcome_names(
+
+    test_function = PyTorchCNNTorchvisionBenchmarkTestFunction(name=name)
+    optimization_config, _ = get_soo_config_and_outcome_names(
         num_constraints=0,
         lower_is_better=False,
         observe_noise_sd=False,
-        objective_name="accuracy",
+        objective_name=test_function.outcome_names[0],
     )
-    runner = BenchmarkRunner(
-        test_function=PyTorchCNNTorchvisionBenchmarkTestFunction(name=name),
-        outcome_names=outcome_names,
-    )
+    runner = BenchmarkRunner(test_function=test_function)
     return BenchmarkProblem(
         name=f"HPO_PyTorchCNN_Torchvision::{name}",
         search_space=search_space,

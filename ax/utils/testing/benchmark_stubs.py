@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
@@ -103,7 +103,7 @@ def get_soo_surrogate_test_function(lazy: bool = True) -> SurrogateTestFunction:
 def get_soo_surrogate() -> BenchmarkProblem:
     experiment = get_branin_experiment(with_completed_trial=True)
     test_function = get_soo_surrogate_test_function()
-    runner = BenchmarkRunner(test_function=test_function, outcome_names=["branin"])
+    runner = BenchmarkRunner(test_function=test_function)
 
     observe_noise_sd = True
     objective = Objective(
@@ -140,7 +140,7 @@ def get_moo_surrogate() -> BenchmarkProblem:
         outcome_names=outcome_names,
         get_surrogate_and_datasets=lambda: (surrogate, []),
     )
-    runner = BenchmarkRunner(test_function=test_function, outcome_names=outcome_names)
+    runner = BenchmarkRunner(test_function=test_function)
     observe_noise_sd = True
     optimization_config = MultiObjectiveOptimizationConfig(
         objective=MultiObjective(
@@ -247,8 +247,12 @@ def get_aggregated_benchmark_result() -> AggregatedBenchmarkResult:
 
 @dataclass(kw_only=True)
 class DummyTestFunction(BenchmarkTestFunction):
+    outcome_names: list[str] = field(default_factory=list)
     num_outcomes: int = 1
     dim: int = 6
+
+    def __post_init__(self) -> None:
+        self.outcome_names = [f"objective_{i}" for i in range(self.num_outcomes)]
 
     # pyre-fixme[14]: Inconsistent override, as dict[str, float] is not a
     # `TParameterization`
