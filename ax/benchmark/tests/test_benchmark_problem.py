@@ -173,7 +173,7 @@ class TestBenchmarkProblem(TestCase):
             float,
         )
         self.assertAlmostEqual(
-            problem.runner.evaluate_oracle(parameters=params)[0],
+            problem.evaluate_oracle(parameters=params)[0],
             at_target,
         )
         # first term: (-(b - 0.1) * (1 - x3)  + c - r)^2
@@ -182,7 +182,7 @@ class TestBenchmarkProblem(TestCase):
         t = -5.1 / (4 * math.pi**2) + 5 / math.pi - 6
         expected_change = (t + 0.1) ** 2 - t**2
         self.assertAlmostEqual(
-            problem.runner.get_Y_true(params=params).item(),
+            problem.test_function.evaluate_true(params=params).item(),
             at_target + expected_change,
         )
 
@@ -259,12 +259,11 @@ class TestBenchmarkProblem(TestCase):
             observe_noise_sd=observe_noise_sd,
             noise_std=noise_std,
         )
-        runner = ax_problem.runner
-        test_problem = assert_is_instance(runner.test_function, BoTorchTestFunction)
+        test_problem = assert_is_instance(ax_problem.test_function, BoTorchTestFunction)
         botorch_problem = assert_is_instance(
             test_problem.botorch_problem, ConstrainedBaseTestProblem
         )
-        self.assertEqual(runner.noise_std, noise_std)
+        self.assertEqual(ax_problem.noise_std, noise_std)
         opt_config = ax_problem.optimization_config
         outcome_constraints = opt_config.outcome_constraints
         self.assertEqual(

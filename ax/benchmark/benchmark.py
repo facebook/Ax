@@ -30,6 +30,7 @@ import numpy.typing as npt
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
+from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.core.experiment import Experiment
 from ax.core.types import TParameterization
 from ax.core.utils import get_model_times
@@ -65,6 +66,13 @@ def compute_score_trace(
     return score_trace.clip(min=0, max=100)
 
 
+def get_benchmark_runner(problem: BenchmarkProblem) -> BenchmarkRunner:
+    """Construct a BenchmarkRunner for the given problem."""
+    return BenchmarkRunner(
+        test_function=problem.test_function, noise_std=problem.noise_std
+    )
+
+
 def benchmark_replication(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
@@ -89,11 +97,13 @@ def benchmark_replication(
         ``BenchmarkResult`` object.
     """
 
+    runner = get_benchmark_runner(problem=problem)
+
     experiment = Experiment(
         name=f"{problem.name}|{method.name}_{int(time())}",
         search_space=problem.search_space,
         optimization_config=problem.optimization_config,
-        runner=problem.runner,
+        runner=runner,
     )
 
     scheduler = Scheduler(
@@ -105,7 +115,7 @@ def benchmark_replication(
     # list of parameters for each trial
     best_params_by_trial: list[list[TParameterization]] = []
 
-    is_mf_or_mt = len(problem.runner.target_fidelity_and_task) > 0
+    is_mf_or_mt = len(problem.target_fidelity_and_task) > 0
     # Run the optimization loop.
     timeout_hours = scheduler.options.timeout_hours
     remaining_hours = timeout_hours
