@@ -61,7 +61,6 @@ from ax.models.random.uniform import UniformGenerator
 from ax.models.torch.botorch import BotorchModel
 from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
 from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
-from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.models.torch.cbo_sac import SACBO
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
@@ -188,12 +187,6 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         model_class=UniformGenerator,
         transforms=Cont_X_trans,
     ),
-    "ST_MTGP_LEGACY": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=BotorchModel,
-        transforms=ST_MTGP_trans,
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
-    ),
     "ST_MTGP": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=ModularBoTorchModel,
@@ -226,12 +219,6 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
                 botorch_model_class=SaasFullyBayesianMultiTaskGP
             )
         },
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
-    ),
-    "ST_MTGP_NEHVI": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=MultiObjectiveBotorchModel,
-        transforms=ST_MTGP_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
     "Contextual_SACBO": ModelSetup(
@@ -427,11 +414,23 @@ class Models(ModelRegistryBase):
     BOTORCH_MODULAR = "BoTorch"
     EMPIRICAL_BAYES_THOMPSON = "EB"
     UNIFORM = "Uniform"
-    ST_MTGP_LEGACY = "ST_MTGP_LEGACY"
     ST_MTGP = "ST_MTGP"
     BO_MIXED = "BO_MIXED"
-    ST_MTGP_NEHVI = "ST_MTGP_NEHVI"
     CONTEXT_SACBO = "Contextual_SACBO"
+
+    @classmethod
+    @property
+    def ST_MTGP_LEGACY(cls) -> Models:
+        return _deprecated_model_with_warning(
+            old_model_str="ST_MTGP_LEGACY", new_model=cls.ST_MTGP
+        )
+
+    @classmethod
+    @property
+    def ST_MTGP_NEHVI(cls) -> Models:
+        return _deprecated_model_with_warning(
+            old_model_str="ST_MTGP_NEHVI", new_model=cls.ST_MTGP
+        )
 
     @classmethod
     @property

@@ -30,7 +30,6 @@ from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
-from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
 from ax.utils.common.kwargs import get_function_argument_names
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -365,60 +364,6 @@ class ModelRegistryTest(TestCase):
             self.assertEqual(model_args & bridge_args, set())
 
     @mock_botorch_optimize
-    def test_ST_MTGP_LEGACY(self) -> None:
-        """Tests single type MTGP instantiation."""
-        # Test Single-type MTGP
-        exp, status_quo_features = get_branin_experiment_with_status_quo_trials()
-        mtgp = Models.ST_MTGP_LEGACY(
-            experiment=exp,
-            data=exp.fetch_data(),
-            status_quo_features=status_quo_features,
-        )
-        self.assertIsInstance(mtgp, TorchModelBridge)
-        # Test that it can generate.
-        mtgp_run = mtgp.gen(
-            n=1,
-            fixed_features=ObservationFeatures(parameters={}, trial_index=1),
-        )
-        self.assertEqual(len(mtgp_run.arms), 1)
-
-        exp, status_quo_features = get_branin_experiment_with_status_quo_trials(
-            num_sobol_trials=1
-        )
-        with self.assertRaisesRegex(ValueError, "TrialAsTask transform expects"):
-            Models.ST_MTGP_LEGACY(
-                experiment=exp,
-                data=exp.fetch_data(),
-                status_quo_features=status_quo_features,
-            )
-
-    @mock_botorch_optimize
-    def test_ST_MTGP_NEHVI(self) -> None:
-        """Tests single type MTGP NEHVI instantiation."""
-        exp, status_quo_features = get_branin_experiment_with_status_quo_trials(
-            num_sobol_trials=2, multi_objective=True
-        )
-        mtgp = Models.ST_MTGP_NEHVI(
-            experiment=exp,
-            data=exp.fetch_data(),
-            status_quo_features=status_quo_features,
-            optimization_config=exp.optimization_config,
-        )
-        self.assertIsInstance(mtgp, TorchModelBridge)
-        self.assertIsInstance(mtgp.model, MultiObjectiveBotorchModel)
-
-        # test it can generate
-        mtgp_run = mtgp.gen(
-            n=1,
-            fixed_features=ObservationFeatures(parameters={}, trial_index=1),
-        )
-        self.assertEqual(len(mtgp_run.arms), 1)
-        # test a generated trial can be completed
-        t = exp.new_batch_trial().add_generator_run(mtgp_run)
-        t.set_status_quo_with_weight(status_quo=t.arms[0], weight=0.5)
-        t.run().mark_completed()
-
-    @mock_botorch_optimize
     def test_ST_MTGP(self, use_saas: bool = False) -> None:
         """Tests single type MTGP via Modular BoTorch instantiation
         with both single & multi objective optimization."""
@@ -505,6 +450,8 @@ class ModelRegistryTest(TestCase):
         same check in a couple different ways.
         """
         for old_model_str, new_model in [
+            ("ST_MTGP_NEHVI", Models.ST_MTGP),
+            ("ST_MTGP_LEGACY", Models.ST_MTGP),
             ("MOO", Models.BOTORCH_MODULAR),
             ("GPEI", Models.BOTORCH_MODULAR),
             ("FULLYBAYESIAN", Models.SAASBO),
