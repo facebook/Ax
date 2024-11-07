@@ -14,7 +14,6 @@ import torch
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
-from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
@@ -53,10 +52,8 @@ class TestBenchmarkProblem(TestCase):
             for name in ["Branin", "Currin"]
         ]
         optimization_config = OptimizationConfig(objective=objectives[0])
-        runner = BenchmarkRunner(
-            test_function=BoTorchTestFunction(
-                botorch_problem=Branin(), outcome_names=["Branin"]
-            ),
+        test_function = BoTorchTestFunction(
+            botorch_problem=Branin(), outcome_names=["Branin"]
         )
         with self.assertRaisesRegex(NotImplementedError, "Only `n_best_points=1`"):
             BenchmarkProblem(
@@ -65,7 +62,7 @@ class TestBenchmarkProblem(TestCase):
                 num_trials=1,
                 optimal_value=0.0,
                 search_space=SearchSpace(parameters=[]),
-                runner=runner,
+                test_function=test_function,
                 n_best_points=2,
             )
 
@@ -80,7 +77,7 @@ class TestBenchmarkProblem(TestCase):
                 num_trials=1,
                 optimal_value=0.0,
                 search_space=SearchSpace(parameters=[]),
-                runner=runner,
+                test_function=test_function,
                 n_best_points=1,
                 report_inference_value_as_trace=True,
             )
@@ -90,10 +87,8 @@ class TestBenchmarkProblem(TestCase):
             Objective(metric=BenchmarkMetric(name, lower_is_better=True))
             for name in ["Branin", "Currin"]
         ]
-        runner = BenchmarkRunner(
-            test_function=BoTorchTestFunction(
-                botorch_problem=Branin(), outcome_names=["Branin"]
-            )
+        test_function = BoTorchTestFunction(
+            botorch_problem=Branin(), outcome_names=["Branin"]
         )
         opt_config = MultiObjectiveOptimizationConfig(
             objective=MultiObjective(objectives)
@@ -110,7 +105,7 @@ class TestBenchmarkProblem(TestCase):
                 num_trials=1,
                 optimal_value=0.0,
                 search_space=SearchSpace(parameters=[]),
-                runner=runner,
+                test_function=test_function,
             )
 
         opt_config = OptimizationConfig(
@@ -135,7 +130,7 @@ class TestBenchmarkProblem(TestCase):
                 num_trials=1,
                 optimal_value=0.0,
                 search_space=SearchSpace(parameters=[]),
-                runner=runner,
+                test_function=test_function,
             )
 
     def _test_multi_fidelity_or_multi_task(self, fidelity_or_task: str) -> None:

@@ -16,8 +16,9 @@ import torch
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
+from ax.core.parameter import ChoiceParameter
 from ax.core.runner import Runner
-from ax.core.search_space import SearchSpaceDigest
+from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import TParamValue
 from ax.exceptions.core import UnsupportedError
@@ -51,20 +52,21 @@ class BenchmarkRunner(Runner):
             deterministic data before adding noise.
         noise_std: The standard deviation of the noise added to the data. Can be
             a list or dict to be per-metric.
-        search_space_digest: Used to extract target fidelity and task.
+        search_space: Used to extract target fidelity and task.
     """
 
     test_function: BenchmarkTestFunction
     noise_std: float | list[float] | dict[str, float] = 0.0
     # pyre-fixme[16]: Pyre doesn't understand InitVars
-    search_space_digest: InitVar[SearchSpaceDigest | None] = None
-    target_fidelity_and_task: Mapping[str, float | int] = field(init=False)
+    search_space: InitVar[SearchSpace | None] = None
+    target_fidelity_and_task: Mapping[str, TParamValue] = field(init=False)
 
-    def __post_init__(self, search_space_digest: SearchSpaceDigest | None) -> None:
-        if search_space_digest is not None:
-            self.target_fidelity_and_task: dict[str, float | int] = {
-                search_space_digest.feature_names[i]: target
-                for i, target in search_space_digest.target_values.items()
+    def __post_init__(self, search_space: SearchSpace | None) -> None:
+        if search_space is not None:
+            self.target_fidelity_and_task = {
+                p.name: p.target_value
+                for p in search_space.parameters.values()
+                if (isinstance(p, ChoiceParameter) and p.is_task) or p.is_fidelity
             }
         else:
             self.target_fidelity_and_task = {}
