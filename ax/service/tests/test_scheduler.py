@@ -37,7 +37,14 @@ from ax.utils.testing.core_stubs import (
 
 
 class TestAxScheduler(AxSchedulerTestCase):
-    pass
+    def test_logging_level_warn(self) -> None:
+        super().test_logging_level_warn()
+
+    def test_logging_level_debug(self) -> None:
+        super().test_logging_level_debug()
+
+    def test_logging_level_is_set(self) -> None:
+        super().test_logging_level_is_set()
 
 
 class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):

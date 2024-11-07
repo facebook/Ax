@@ -65,12 +65,7 @@ from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBas
 from ax.utils.common.constants import Keys
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
-from ax.utils.common.logger import (
-    build_file_handler,
-    get_logger,
-    make_indices_str,
-    set_stderr_log_level,
-)
+from ax.utils.common.logger import build_file_handler, get_logger, make_indices_str
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import checked_cast
 from pyre_extensions import assert_is_instance, none_throws
@@ -2045,8 +2040,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     def _set_logger(self, options: SchedulerOptions) -> None:
         """Set up the logger with appropriate logging levels."""
         cls_name = self.__class__.__name__
-        logger = get_logger(name=f"{__name__}.{cls_name}@{hex(id(self))}")
-        set_stderr_log_level(options.logging_level)
+        logger = get_logger(
+            name=f"{__name__}.{cls_name}@{hex(id(self))}", level=options.logging_level
+        )
         if options.log_filepath is not None:
             handler = build_file_handler(
                 filepath=none_throws(options.log_filepath),
