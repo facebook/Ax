@@ -238,6 +238,12 @@ class Encoder:
         # pyre-fixme[9]: Expected `Base` for 1st...typing.Type[Parameter]`.
         parameter_class: SQAParameter = self.config.class_to_sqa_class[Parameter]
         if isinstance(parameter, RangeParameter):
+            if parameter.logit_scale:
+                raise NotImplementedError(
+                    "Cannot encode logit-scale parameter to SQLAlchemy because "
+                    "the DB schema does not have a corresponding column. "
+                    "Please reach out to the AE team if you need this feature. "
+                )
             # pyre-fixme[29]: `SQAParameter` is not a function.
             return parameter_class(
                 id=parameter.db_id,
