@@ -348,6 +348,7 @@ class TorchModelBridgeTest(TestCase):
         model_eval_acqf.return_value = torch.tensor([5.0], dtype=torch.float64)
 
         ma._model_space = get_branin_search_space()
+        ma._search_space = get_branin_search_space()
         ma._optimization_config = None
         ma.outcomes = ["test_metric"]
         ma._fit_out_of_design = False

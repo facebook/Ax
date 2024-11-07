@@ -112,6 +112,7 @@ class TorchModelBridge(ModelBridge):
         status_quo_name: str | None = None,
         status_quo_features: ObservationFeatures | None = None,
         optimization_config: OptimizationConfig | None = None,
+        expand_model_space: bool = True,
         fit_out_of_design: bool = False,
         fit_abandoned: bool = False,
         fit_tracking_metrics: bool = True,
@@ -142,6 +143,7 @@ class TorchModelBridge(ModelBridge):
             status_quo_name=status_quo_name,
             status_quo_features=status_quo_features,
             optimization_config=optimization_config,
+            expand_model_space=expand_model_space,
             fit_out_of_design=fit_out_of_design,
             fit_abandoned=fit_abandoned,
             fit_tracking_metrics=fit_tracking_metrics,
@@ -177,7 +179,7 @@ class TorchModelBridge(ModelBridge):
                 "optimization."
             )
 
-        search_space = (search_space or self._model_space).clone()
+        search_space = (search_space or self._search_space).clone()
         base_gen_args = self._get_transformed_gen_args(
             search_space=search_space,
             optimization_config=optimization_config,
@@ -236,7 +238,7 @@ class TorchModelBridge(ModelBridge):
     ) -> tuple[Arm, TModelPredictArm | None] | None:
         # Get modifiable versions
         if search_space is None:
-            search_space = self._model_space
+            search_space = self._search_space
         search_space = search_space.clone()
 
         base_gen_args = self._get_transformed_gen_args(
@@ -502,7 +504,7 @@ class TorchModelBridge(ModelBridge):
             A list of acquisition function values, in the same order as the
             input observation features.
         """
-        search_space = search_space or self._model_space
+        search_space = search_space or self._search_space
         optimization_config = optimization_config or self._optimization_config
         if optimization_config is None:
             raise ValueError(

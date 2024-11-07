@@ -989,3 +989,61 @@ class testClampObservationFeatures(TestCase):
             elif obs.arm_name[0] == "0":
                 # These arms were all missing x2
                 self.assertEqual(obs.features.parameters["x2"], sq_vals["x2"])
+
+    def test_SetModelSpace(self) -> None:
+        # Set up experiment
+        experiment = get_branin_experiment()
+        # SQ values are OOD
+        sq_vals = {"x1": 5.0, "x2": 20.0}
+        # SQ is specified OOD
+        experiment.status_quo = Arm(
+            name="status_quo", parameters={"x1": None, "x2": None}
+        )
+        gr = get_sobol(search_space=experiment.search_space).gen(n=5)
+        trial = experiment.new_batch_trial()
+        trial.add_generator_run(gr)
+        trial.add_arm(Arm(name="custom", parameters={"x1": -20, "x2": 18.0}))
+        trial.add_arm(experiment.status_quo)
+        trial.mark_running(no_runner_required=True)
+        experiment.attach_data(get_branin_data_batch(batch=trial, fill_vals=sq_vals))
+        trial.mark_completed()
+        data = experiment.lookup_data()
+
+        # Check that SQ and custom are OOD
+        m = ModelBridge(
+            search_space=experiment.search_space,
+            model=None,
+            experiment=experiment,
+            data=data,
+            expand_model_space=False,
+        )
+        arm_names = [obs.arm_name for obs in m.get_training_data()]
+        ood_arms = [a for i, a in enumerate(arm_names) if not m.training_in_design[i]]
+        self.assertEqual(set(ood_arms), {"status_quo", "custom"})
+        self.assertEqual(m.model_space.parameters["x1"].lower, -5.0)  # pyre-ignore[16]
+        self.assertEqual(m.model_space.parameters["x2"].upper, 15.0)  # pyre-ignore[16]
+
+        # With expand model space, custom is not OOD, and model space is expanded
+        m = ModelBridge(
+            search_space=experiment.search_space,
+            model=None,
+            experiment=experiment,
+            data=data,
+        )
+        arm_names = [obs.arm_name for obs in m.get_training_data()]
+        ood_arms = [a for i, a in enumerate(arm_names) if not m.training_in_design[i]]
+        self.assertEqual(set(ood_arms), {"status_quo"})
+        self.assertEqual(m.model_space.parameters["x1"].lower, -20.0)
+        self.assertEqual(m.model_space.parameters["x2"].upper, 18.0)
+
+        # With fill values, SQ is also in design, and x2 is further expanded
+        m = ModelBridge(
+            search_space=experiment.search_space,
+            model=None,
+            experiment=experiment,
+            data=data,
+            transforms=[FillMissingParameters],
+            transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
+        )
+        self.assertEqual(sum(m.training_in_design), 7)
+        self.assertEqual(m.model_space.parameters["x2"].upper, 20)
