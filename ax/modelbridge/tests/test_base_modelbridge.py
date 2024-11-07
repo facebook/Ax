@@ -14,6 +14,7 @@ from unittest.mock import Mock
 import numpy as np
 from ax.core.arm import Arm
 from ax.core.data import Data
+from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import Objective, ScalarizedObjective
 from ax.core.observation import ObservationData, ObservationFeatures
@@ -28,14 +29,18 @@ from ax.modelbridge.base import (
     ModelBridge,
     unwrap_observation_data,
 )
+from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.registry import Models, Y_trans
+from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
 from ax.models.base import Model
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
+    get_branin_data_batch,
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
+    get_branin_optimization_config,
     get_experiment,
     get_experiment_with_repeated_arms,
     get_non_monolithic_branin_moo_data,
@@ -903,3 +908,84 @@ class testClampObservationFeatures(TestCase):
         for obs_ft, expected_obs_ft in cases:
             actual_obs_ft = clamp_observation_features([obs_ft], search_space)
             self.assertEqual(actual_obs_ft[0], expected_obs_ft)
+
+    @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
+    def test_FillMissingParameters(self, mock_fit: Mock) -> None:
+        # Create experiment with arms from two search spaces
+        ss1 = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x1", parameter_type=ParameterType.FLOAT, lower=-5, upper=10
+                )
+            ],
+        )
+        ss2 = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x1", parameter_type=ParameterType.FLOAT, lower=-5, upper=10
+                ),
+                RangeParameter(
+                    name="x2", parameter_type=ParameterType.FLOAT, lower=0, upper=15
+                ),
+            ],
+        )
+        sq_arm = Arm(name="status_quo", parameters={"x1": None})
+        experiment = Experiment(
+            name="test",
+            search_space=ss1,
+            optimization_config=get_branin_optimization_config(),
+            status_quo=sq_arm,
+            is_test=True,
+        )
+        generator1 = get_sobol(search_space=ss1)
+        gr1 = generator1.gen(n=5)
+        generator2 = get_sobol(search_space=ss2)
+        gr2 = generator2.gen(n=5)
+        sq_vals = {"x1": 5.0, "x2": 5.0}
+        for gr in [gr1, gr2]:
+            trial = experiment.new_batch_trial(optimize_for_power=True)
+            trial.add_generator_run(gr)
+            trial.mark_running(no_runner_required=True)
+            trial.mark_completed()
+            experiment.attach_data(
+                get_branin_data_batch(batch=trial, fill_vals=sq_vals)
+            )
+        # Fit model without filling missing parameters
+        m = ModelBridge(
+            search_space=ss1,
+            model=None,
+            experiment=experiment,
+            data=experiment.lookup_data(),
+        )
+        self.assertEqual(
+            [t.__name__ for t in m._raw_transforms],  # pyre-ignore[16]
+            ["Cast"],
+        )
+        # Check that SQ and all trial 1 are OOD
+        arm_names = [obs.arm_name for obs in m.get_training_data()]
+        ood_arms = [a for i, a in enumerate(arm_names) if not m.training_in_design[i]]
+        self.assertEqual(
+            set(ood_arms), {"status_quo", "1_0", "1_1", "1_2", "1_3", "1_4"}
+        )
+        # Fit with filling missing parameters
+        m = ModelBridge(
+            search_space=ss2,
+            model=None,
+            experiment=experiment,
+            data=experiment.lookup_data(),
+            transforms=[FillMissingParameters],
+            transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
+        )
+        self.assertEqual(
+            [t.__name__ for t in m._raw_transforms], ["Cast", "FillMissingParameters"]
+        )
+        # All arms are in design now
+        self.assertEqual(sum(m.training_in_design), 12)
+        # Check the arms with missing values were correctly filled
+        fit_args = mock_fit.mock_calls[1][2]
+        for obs in fit_args["observations"]:
+            if obs.arm_name == "status_quo":
+                self.assertEqual(obs.features.parameters, sq_vals)
+            elif obs.arm_name[0] == "0":
+                # These arms were all missing x2
+                self.assertEqual(obs.features.parameters["x2"], sq_vals["x2"])

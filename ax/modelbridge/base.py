@@ -38,6 +38,7 @@ from ax.core.types import TCandidateMetadata, TModelCov, TModelMean, TModelPredi
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
+from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
@@ -111,7 +112,9 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         Args:
             experiment: Is used to get arm parameters. Is not mutated.
             search_space: Search space for fitting the model. Constraints need
-                not be the same ones used in gen.
+                not be the same ones used in gen. RangeParameter bounds are
+                considered soft and will be expanded to match the range of the
+                data sent in for fitting.
             data: Ax Data.
             model: Interface will be specified in subclass. If model requires
                 initialization, that should be done prior to its use here.
@@ -127,8 +130,8 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
                 Either this or status_quo_name should be specified, not both.
             optimization_config: Optimization config defining how to optimize
                 the model.
-            fit_out_of_design: If specified, all training data is returned.
-                Otherwise, only in design points are returned.
+            fit_out_of_design: If specified, all training data are used.
+                Otherwise, only in design points are used.
             fit_abandoned: Whether data for abandoned arms or trials should be
                 included in model training data. If ``False``, only
                 non-abandoned points are returned.
@@ -145,8 +148,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         """
         t_fit_start = time.monotonic()
         transforms = transforms or []
-        # pyre-ignore: Cast is a Tranform
-        transforms: list[type[Transform]] = [Cast] + transforms
+        transforms = [Cast] + transforms
 
         self.fit_time: float = 0.0
         self.fit_time_since_gen: float = 0.0
@@ -364,9 +366,22 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         search_space: SearchSpace,
         observations: list[Observation],
     ) -> list[bool]:
+        """Compute in-design status for each observation, after filling missing
+        values if FillMissingParameters transform is used."""
+        observation_features = [obs.features for obs in observations]
+        if (
+            self._transform_configs is not None
+            and "FillMissingParameters" in self._transform_configs
+        ):
+            t = FillMissingParameters(
+                config=self._transform_configs["FillMissingParameters"]
+            )
+            observation_features = t.transform_observation_features(
+                deepcopy(observation_features)
+            )
         return [
-            search_space.check_membership(obs.features.parameters)
-            for obs in observations
+            search_space.check_membership(obsf.parameters)
+            for obsf in observation_features
         ]
 
     def _set_status_quo(

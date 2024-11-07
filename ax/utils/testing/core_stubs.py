@@ -2035,16 +2035,23 @@ def get_branin_data(
     return Data(df=pd.DataFrame.from_records(df_dicts))
 
 
-def get_branin_data_batch(batch: BatchTrial) -> Data:
+def get_branin_data_batch(
+    batch: BatchTrial, fill_vals: dict[str, float] | None = None
+) -> Data:
     means = []
+    fill_vals = fill_vals or {}
     for arm in batch.arms:
-        if arm.parameters["x1"] is None or arm.parameters["x2"] is None:
+        params = arm.parameters
+        for k, v in fill_vals.items():
+            if params.get(k, None) is None:
+                params[k] = v
+        if params["x1"] is None or params["x2"] is None:
             means.append(5.0)
         else:
             means.append(
                 branin(
-                    float(none_throws(arm.parameters["x1"])),
-                    float(none_throws(arm.parameters["x2"])),
+                    float(none_throws(params["x1"])),
+                    float(none_throws(params["x2"])),
                 )
             )
     return Data(

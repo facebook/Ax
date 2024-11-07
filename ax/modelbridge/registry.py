@@ -39,6 +39,7 @@ from ax.modelbridge.transforms.choice_encode import (
 )
 from ax.modelbridge.transforms.convert_metric_names import ConvertMetricNames
 from ax.modelbridge.transforms.derelativize import Derelativize
+from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
 from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.modelbridge.transforms.ivw import IVW
@@ -77,6 +78,7 @@ from pyre_extensions import none_throws
 logger: Logger = get_logger(__name__)
 
 Cont_X_trans: list[type[Transform]] = [
+    FillMissingParameters,
     RemoveFixed,
     OrderedChoiceToIntegerRange,
     OneHot,
@@ -89,6 +91,7 @@ Cont_X_trans: list[type[Transform]] = [
 Discrete_X_trans: list[type[Transform]] = [IntRangeToChoice]
 
 Mixed_transforms: list[type[Transform]] = [
+    FillMissingParameters,
     RemoveFixed,
     ChoiceToNumericChoice,
     IntToFloat,

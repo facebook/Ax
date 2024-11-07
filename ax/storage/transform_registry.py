@@ -16,6 +16,7 @@ from ax.modelbridge.transforms.choice_encode import (
 )
 from ax.modelbridge.transforms.convert_metric_names import ConvertMetricNames
 from ax.modelbridge.transforms.derelativize import Derelativize
+from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
 from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.modelbridge.transforms.ivw import IVW
@@ -93,6 +94,7 @@ TRANSFORM_REGISTRY: dict[type[Transform], int] = {
     MergeRepeatedMeasurements: 26,
     TimeAsFeature: 27,
     TransformToNewSQ: 28,
+    FillMissingParameters: 29,
 }
 
 """
