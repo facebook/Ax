@@ -23,8 +23,17 @@ class TestBoTorchTestFunction(TestCase):
             "constrained Hartmann": ConstrainedHartmann(dim=6),
             "negated constrained Hartmann": ConstrainedHartmann(dim=6, negate=True),
         }
+        self.outcome_names = {
+            "Hartmann": ["y"],
+            "constrained Hartmann": ["y", "c"],
+        }
         self.botorch_test_problems = {
-            k: BoTorchTestFunction(botorch_problem=v)
+            k: BoTorchTestFunction(
+                botorch_problem=v,
+                outcome_names=self.outcome_names[
+                    "constrained Hartmann" if "constrained" in k else "Hartmann"
+                ],
+            )
             for k, v in botorch_base_test_functions.items()
         }
 
@@ -53,10 +62,14 @@ class TestBoTorchTestFunction(TestCase):
     def test_raises_for_botorch_attrs(self) -> None:
         msg = "noise should be set on the `BenchmarkRunner`, not the test function."
         with self.assertRaisesRegex(ValueError, msg):
-            BoTorchTestFunction(botorch_problem=Hartmann(dim=6, noise_std=0.1))
+            BoTorchTestFunction(
+                botorch_problem=Hartmann(dim=6, noise_std=0.1),
+                outcome_names=self.outcome_names["Hartmann"],
+            )
         with self.assertRaisesRegex(ValueError, msg):
             BoTorchTestFunction(
-                botorch_problem=ConstrainedHartmann(dim=6, constraint_noise_std=0.1)
+                botorch_problem=ConstrainedHartmann(dim=6, constraint_noise_std=0.1),
+                outcome_names=self.outcome_names["constrained Hartmann"],
             )
 
     def test_tensor_shapes(self) -> None:
@@ -65,7 +78,7 @@ class TestBoTorchTestFunction(TestCase):
             k: v.evaluate_true(params) for k, v in self.botorch_test_problems.items()
         }
         evaluate_true_results["BraninCurrin"] = BoTorchTestFunction(
-            botorch_problem=BraninCurrin()
+            botorch_problem=BraninCurrin(), outcome_names=["f1", "f2"]
         ).evaluate_true(params)
         expected_len = {
             "base Hartmann": 1,
