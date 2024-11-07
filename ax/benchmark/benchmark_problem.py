@@ -13,6 +13,7 @@ import pandas as pd
 
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.benchmark_runner import BenchmarkRunner
+from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -26,7 +27,6 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp, TParamValue
-from ax.modelbridge.modelbridge_utils import extract_search_space_digest
 from ax.utils.common.base import Base
 from botorch.test_functions.base import (
     BaseTestProblem,
@@ -72,8 +72,14 @@ class BenchmarkProblem(Base):
             conventional to set it to a value that is almost certainly better
             than the best value, so that a benchmark's score will not exceed 100%.
         search_space: The search space.
-        runner: The Runner that will be used to generate data for the problem,
-            including any ground-truth data stored as tracking metrics.
+        test_function: A `BenchmarkTestFunction`, which will generate noiseless
+            data. This will be used by a `BenchmarkRunner`.
+        noise_std: Describes how noise is added to the output of the
+            `test_function`. If a float, IID random normal noise with that
+            standard deviation is added. A list of floats, or a dict whose keys
+            match `test_functions.outcome_names`, sets different noise
+            standard deviations for the different outcomes produced by the
+            `test_function`. This will be used by a `BenchmarkRunner`.
         report_inference_value_as_trace: Whether the ``optimization_trace`` on a
             ``BenchmarkResult`` should use the ``oracle_trace`` (if False,
             default) or the ``inference_trace``. See ``BenchmarkResult`` for
@@ -86,15 +92,18 @@ class BenchmarkProblem(Base):
     name: str
     optimization_config: OptimizationConfig
     num_trials: int
+    test_function: BenchmarkTestFunction
+    noise_std: float | list[float] | dict[str, float] = 0.0
     observe_noise_stds: bool | dict[str, bool] = False
     optimal_value: float
 
     search_space: SearchSpace = field(repr=False)
-    runner: BenchmarkRunner = field(repr=False)
+    runner: BenchmarkRunner = field(repr=False, init=False)
     report_inference_value_as_trace: bool = False
     n_best_points: int = 1
 
     def __post_init__(self) -> None:
+        # Validate inputs
         if self.n_best_points != 1:
             raise NotImplementedError("Only `n_best_points=1` is currently supported.")
         if self.report_inference_value_as_trace and self.is_moo:
@@ -102,13 +111,16 @@ class BenchmarkProblem(Base):
                 "Inference trace is not supported for MOO. Please set "
                 "`report_inference_value_as_trace` to False."
             )
+
+        # Validate that names on optimization config are contained in names on
+        # test function
         objective = self.optimization_config.objective
         if isinstance(objective, MultiObjective):
             objective_names = {obj.metric.name for obj in objective.objectives}
         else:
             objective_names = {objective.metric.name}
 
-        test_function_names = set(self.runner.test_function.outcome_names)
+        test_function_names = set(self.test_function.outcome_names)
         missing = objective_names - test_function_names
         if len(missing) > 0:
             raise ValueError(
@@ -126,10 +138,16 @@ class BenchmarkProblem(Base):
                 "`optimization_config` but not included in "
                 f"`runner.test_function.outcome_names`: {missing}."
             )
+        # Construct runner
+        self.runner = BenchmarkRunner(
+            test_function=self.test_function,
+            noise_std=self.noise_std,
+            search_space=self.search_space,
+        )
 
     def get_oracle_experiment_from_params(
         self,
-        dict_of_dict_of_params: Mapping[int, Mapping[str, [Mapping[str, TParamValue]]]],
+        dict_of_dict_of_params: Mapping[int, Mapping[str, Mapping[str, TParamValue]]],
     ) -> Experiment:
         """
         Get a new experiment with the same search space and optimization config
@@ -181,6 +199,11 @@ class BenchmarkProblem(Base):
                     )
 
             experiment.attach_trial(
+                # pyre-fixme: Incompatible parameter type [6]: In call
+                # `Experiment.attach_trial`, for argument `parameterizations`,
+                # expected `List[Dict[str, Union[None, bool, float, int, str]]]`
+                # but got `List[Mapping[str, Union[None, bool, float, int,
+                # str]]]`.
                 parameterizations=list(dict_of_params.values()),
                 arm_names=list(dict_of_params.keys()),
             )
@@ -401,16 +424,10 @@ def create_problem_from_botorch(
         name=name,
         search_space=search_space,
         optimization_config=optimization_config,
-        runner=BenchmarkRunner(
-            test_function=BoTorchTestFunction(
-                botorch_problem=test_problem, outcome_names=outcome_names
-            ),
-            search_space_digest=extract_search_space_digest(
-                search_space=search_space,
-                param_names=list(search_space.parameters.keys()),
-            ),
-            noise_std=noise_std,
+        test_function=BoTorchTestFunction(
+            botorch_problem=test_problem, outcome_names=outcome_names
         ),
+        noise_std=noise_std,
         num_trials=num_trials,
         observe_noise_stds=observe_noise_sd,
         optimal_value=optimal_value,
