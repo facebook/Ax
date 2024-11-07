@@ -11,7 +11,6 @@ from dataclasses import dataclass
 import torch
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.benchmark_problem import BenchmarkProblem
-from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
@@ -118,9 +117,8 @@ def get_jenatton_benchmark_problem(
         name=name,
         search_space=search_space,
         optimization_config=optimization_config,
-        runner=BenchmarkRunner(
-            test_function=Jenatton(outcome_names=[name]), noise_std=noise_std
-        ),
+        test_function=Jenatton(outcome_names=[name]),
+        noise_std=noise_std,
         num_trials=num_trials,
         observe_noise_stds=observe_noise_sd,
         optimal_value=JENATTON_OPTIMAL_VALUE,

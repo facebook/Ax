@@ -14,7 +14,6 @@ from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     get_soo_config_and_outcome_names,
 )
-from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -217,7 +216,6 @@ def get_pytorch_cnn_torchvision_benchmark_problem(
         observe_noise_sd=False,
         objective_name=test_function.outcome_names[0],
     )
-    runner = BenchmarkRunner(test_function=test_function)
     return BenchmarkProblem(
         name=f"HPO_PyTorchCNN_Torchvision::{name}",
         search_space=search_space,
@@ -225,5 +223,5 @@ def get_pytorch_cnn_torchvision_benchmark_problem(
         num_trials=num_trials,
         observe_noise_stds=False,
         optimal_value=CLASSIFICATION_OPTIMAL_VALUE,
-        runner=runner,
+        test_function=test_function,
     )
