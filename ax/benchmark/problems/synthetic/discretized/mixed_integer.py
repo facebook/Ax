@@ -104,9 +104,10 @@ def _get_problem_from_common_inputs(
         test_problem = test_problem_class(dim=dim, bounds=test_problem_bounds)
     runner = BenchmarkRunner(
         test_function=BoTorchTestFunction(
-            botorch_problem=test_problem, modified_bounds=bounds
+            botorch_problem=test_problem,
+            modified_bounds=bounds,
+            outcome_names=[metric_name],
         ),
-        outcome_names=[metric_name],
     )
     return BenchmarkProblem(
         name=benchmark_name + ("_observed_noise" if observe_noise_sd else ""),

@@ -21,12 +21,14 @@ class BenchmarkTestFunction(ABC):
     (Noise - if desired - is added by the runner.)
     """
 
+    outcome_names: list[str]
+
     @abstractmethod
     def evaluate_true(self, params: Mapping[str, TParamValue]) -> Tensor:
         """
         Evaluate noiselessly.
 
         Returns:
-            1d tensor of shape (num_outcomes,).
+            1d tensor of shape (len(outcome_names),).
         """
         ...
