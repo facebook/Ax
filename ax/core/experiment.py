@@ -251,7 +251,9 @@ class Experiment(Base):
     def status_quo(self, status_quo: Arm | None) -> None:
         if status_quo is not None:
             self.search_space.check_types(
-                parameterization=status_quo.parameters, raise_error=True
+                parameterization=status_quo.parameters,
+                allow_extra_params=False,
+                raise_error=True,
             )
             self.search_space.check_all_parameters_present(
                 parameterization=status_quo.parameters, raise_error=True
