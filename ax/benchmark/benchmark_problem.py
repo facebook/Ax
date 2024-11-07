@@ -102,6 +102,30 @@ class BenchmarkProblem(Base):
                 "Inference trace is not supported for MOO. Please set "
                 "`report_inference_value_as_trace` to False."
             )
+        objective = self.optimization_config.objective
+        if isinstance(objective, MultiObjective):
+            objective_names = {obj.metric.name for obj in objective.objectives}
+        else:
+            objective_names = {objective.metric.name}
+
+        test_function_names = set(self.runner.test_function.outcome_names)
+        missing = objective_names - test_function_names
+        if len(missing) > 0:
+            raise ValueError(
+                "The following objectives are defined on "
+                "`optimization_config` but not included in "
+                f"`runner.test_function.outcome_names`: {missing}."
+            )
+
+        constraints = self.optimization_config.outcome_constraints
+        constraint_names = {c.metric.name for c in constraints}
+        missing = constraint_names - test_function_names
+        if len(missing) > 0:
+            raise ValueError(
+                "The following constraints are defined on "
+                "`optimization_config` but not included in "
+                f"`runner.test_function.outcome_names`: {missing}."
+            )
 
     def get_oracle_experiment_from_params(
         self,
@@ -378,8 +402,9 @@ def create_problem_from_botorch(
         search_space=search_space,
         optimization_config=optimization_config,
         runner=BenchmarkRunner(
-            test_function=BoTorchTestFunction(botorch_problem=test_problem),
-            outcome_names=outcome_names,
+            test_function=BoTorchTestFunction(
+                botorch_problem=test_problem, outcome_names=outcome_names
+            ),
             search_space_digest=extract_search_space_digest(
                 search_space=search_space,
                 param_names=list(search_space.parameters.keys()),
