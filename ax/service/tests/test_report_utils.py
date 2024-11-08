@@ -583,7 +583,7 @@ class ReportUtilsTest(TestCase):
                 ]
             )
         )
-        with self.assertLogs(logger="ax", level=WARN) as log:
+        with self.assertLogs(logger="ax", level=INFO) as log:
             metric_name_pairs = _get_metric_name_pairs(experiment=exp)
             self.assertEqual(len(log.output), 1)
             self.assertIn(
