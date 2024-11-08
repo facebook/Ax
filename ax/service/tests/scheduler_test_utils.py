@@ -275,7 +275,11 @@ class AxSchedulerTestCase(TestCase):
     by overriding `GENERATION_STRATEGY_INTERFACE_CLASS` and
     `_get_generation_strategy_strategy_for_test()`. You may also need
     to subclass and change some specific tests that don't apply to
-    your specific `GenerationStrategyInterface`."""
+    your specific `GenerationStrategyInterface`.
+
+    IMPORTANT! Any class that inherits from AxSchedulerTestCase will automatically
+    inherit and run its associated tests.
+    """
 
     GENERATION_STRATEGY_INTERFACE_CLASS: type[GenerationStrategyInterface] = (
         GenerationStrategy
