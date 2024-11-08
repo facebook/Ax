@@ -319,13 +319,16 @@ class SearchSpaceTest(TestCase):
 
         # Unknown parameter
         p_dict["q"] = 40
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[float, str]]`.
-        self.assertFalse(self.ss2.check_types(p_dict))
+        self.assertTrue(self.ss2.check_types(p_dict))  # pyre-fixme[6]
+        self.assertFalse(
+            self.ss2.check_types(p_dict, allow_extra_params=False)  # pyre-fixme[6]
+        )
         with self.assertRaises(ValueError):
-            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Dict[str, Union[float, str]]`.
-            self.ss2.check_types(p_dict, raise_error=True)
+            self.ss2.check_types(
+                p_dict,  # pyre-fixme[6]
+                allow_extra_params=False,
+                raise_error=True,
+            )
 
     def test_CastArm(self) -> None:
         p_dict = {"a": 1.0, "b": 5.0, "c": "foo", "d": True, "e": 0.2, "f": 5}

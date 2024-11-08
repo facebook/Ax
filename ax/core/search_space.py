@@ -258,6 +258,7 @@ class SearchSpace(Base):
         self,
         parameterization: TParameterization,
         allow_none: bool = True,
+        allow_extra_params: bool = True,
         raise_error: bool = False,
     ) -> bool:
         """Checks that the given parameterization's types match the search space.
@@ -265,6 +266,7 @@ class SearchSpace(Base):
         Args:
             parameterization: Dict from parameter name to value to validate.
             allow_none: Whether None is a valid parameter value.
+            allow_extra_params: If parameterization can have params not in search space.
             raise_error: If true and parameterization does not belong, raises an error
                 with detailed explanation of why.
 
@@ -273,9 +275,12 @@ class SearchSpace(Base):
         """
         for name, value in parameterization.items():
             if name not in self.parameters:
-                if raise_error:
+                if allow_extra_params:
+                    continue
+                elif raise_error:
                     raise ValueError(f"Parameter {name} not defined in search space")
-                return False
+                else:
+                    return False
 
             if value is None and allow_none:
                 continue
