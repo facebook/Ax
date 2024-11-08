@@ -42,7 +42,11 @@ from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.model import Model, ModelList  # noqa: F401 -- used in Mocks.
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP, PairwiseLaplaceMarginalLogLikelihood
-from botorch.models.transforms.input import InputPerturbation, Normalize
+from botorch.models.transforms.input import (
+    ChainedInputTransform,
+    InputPerturbation,
+    Normalize,
+)
 from botorch.models.transforms.outcome import OutcomeTransform, Standardize
 from botorch.utils.datasets import SupervisedDataset
 from gpytorch.constraints import GreaterThan, Interval
@@ -749,11 +753,11 @@ class SurrogateTest(TestCase):
             botorch_model_class=SingleTaskGP,
         )
         # Error handling.
+        robust_digest = RobustSearchSpaceDigest(
+            environmental_variables=["a"],
+            sample_param_perturbations=lambda: np.zeros((2, 2)),
+        )
         with self.assertRaisesRegex(NotImplementedError, "Environmental variable"):
-            robust_digest = RobustSearchSpaceDigest(
-                environmental_variables=["a"],
-                sample_param_perturbations=lambda: np.zeros((2, 2)),
-            )
             surrogate.fit(
                 datasets=self.training_data,
                 search_space_digest=SearchSpaceDigest(
@@ -763,23 +767,23 @@ class SurrogateTest(TestCase):
                     robust_digest=robust_digest,
                 ),
             )
-
+        # Mixed with other transforms.
         robust_digest = RobustSearchSpaceDigest(
             sample_param_perturbations=lambda: np.zeros((2, 2)),
             environmental_variables=[],
             multiplicative=False,
         )
         surrogate.surrogate_spec.model_configs[0].input_transform_classes = [Normalize]
-        with self.assertRaisesRegex(NotImplementedError, "input transforms"):
-            surrogate.fit(
-                datasets=self.training_data,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=self.search_space_digest.feature_names,
-                    bounds=self.bounds,
-                    task_features=self.search_space_digest.task_features,
-                    robust_digest=robust_digest,
-                ),
-            )
+        surrogate.fit(
+            datasets=self.training_data,
+            search_space_digest=SearchSpaceDigest(
+                feature_names=self.search_space_digest.feature_names,
+                bounds=self.bounds,
+                task_features=self.search_space_digest.task_features,
+                robust_digest=robust_digest,
+            ),
+        )
+        self.assertIsInstance(surrogate.model.input_transform, ChainedInputTransform)
         # Input perturbation is constructed.
         surrogate = Surrogate(
             botorch_model_class=SingleTaskGP,
@@ -1280,17 +1284,6 @@ class SurrogateWithModelListTest(TestCase):
             environmental_variables=[],
             multiplicative=False,
         )
-        surrogate.surrogate_spec.model_configs[0].input_transform_classes = [Normalize]
-        with self.assertRaisesRegex(NotImplementedError, "input transforms"):
-            surrogate.fit(
-                datasets=self.supervised_training_data,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=self.feature_names,
-                    bounds=self.bounds,
-                    task_features=self.task_features,
-                    robust_digest=robust_digest,
-                ),
-            )
         # Input perturbation is constructed.
         surrogate = Surrogate(
             botorch_model_class=SingleTaskGP,

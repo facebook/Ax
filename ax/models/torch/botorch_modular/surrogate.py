@@ -71,8 +71,8 @@ from gpytorch.kernels import Kernel
 from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
-from pyre_extensions import none_throws
 from torch import Tensor
+from torch.nn import Module
 
 NOT_YET_FIT_MSG = (
     "Underlying BoTorch `Model` has not yet received its training_data. "
@@ -103,9 +103,6 @@ def _extract_model_kwargs(
             "Multi-Fidelity GP models with task_features are "
             "currently not supported."
         )
-
-    # TODO: Allow each metric having different task_features or fidelity_features
-    # TODO: Need upstream change in the modelbrdige
     if len(task_features) > 1:
         raise NotImplementedError("Multiple task features are not supported.")
 
@@ -120,41 +117,45 @@ def _extract_model_kwargs(
 
 
 def _make_botorch_input_transform(
-    input_classes: list[type[InputTransform]],
+    input_transform_classes: list[type[InputTransform]],
+    input_transform_options: dict[str, dict[str, Any]],
     dataset: SupervisedDataset,
     search_space_digest: SearchSpaceDigest,
-    input_options: dict[str, dict[str, Any]],
 ) -> InputTransform | None:
     """
     Makes a BoTorch input transform from the provided input classes and options.
     """
     if not (
-        isinstance(input_classes, list)
-        and all(issubclass(c, InputTransform) for c in input_classes)
+        isinstance(input_transform_classes, list)
+        and all(issubclass(c, InputTransform) for c in input_transform_classes)
     ):
         raise UserInputError("Expected a list of input transforms.")
-    if len(input_classes) == 0:
+    if search_space_digest.robust_digest is not None:
+        input_transform_classes = [InputPerturbation] + input_transform_classes
+    if len(input_transform_classes) == 0:
         return None
 
     input_transform_kwargs = [
         input_transform_argparse(
-            single_input_class,
+            transform_class,
             dataset=dataset,
             search_space_digest=search_space_digest,
-            input_transform_options=input_options.get(single_input_class.__name__, {}),
+            input_transform_options=deepcopy(  # In case of in-place modifications.
+                input_transform_options.get(transform_class.__name__, {})
+            ),
         )
-        for single_input_class in input_classes
+        for transform_class in input_transform_classes
     ]
 
     input_transforms = [
         # pyre-fixme[45]: Cannot instantiate abstract class `InputTransform`.
-        single_input_class(**single_input_transform_kwargs)
-        for single_input_class, single_input_transform_kwargs in zip(
-            input_classes, input_transform_kwargs
+        transform_class(**single_input_transform_kwargs)
+        for transform_class, single_input_transform_kwargs in zip(
+            input_transform_classes, input_transform_kwargs
         )
     ]
 
-    input_instance = (
+    input_transform_instance = (
         ChainedInputTransform(
             **{f"tf{i}": input_transforms[i] for i in range(len(input_transforms))}
         )
@@ -162,39 +163,41 @@ def _make_botorch_input_transform(
         else input_transforms[0]
     )
 
-    return input_instance
+    return input_transform_instance
 
 
 def _make_botorch_outcome_transform(
-    input_classes: list[type[OutcomeTransform]],
-    input_options: dict[str, dict[str, Any]],
+    outcome_transform_classes: list[type[OutcomeTransform]],
+    outcome_transform_options: dict[str, dict[str, Any]],
     dataset: SupervisedDataset,
 ) -> OutcomeTransform | None:
     """
     Makes a BoTorch outcome transform from the provided classes and options.
     """
     if not (
-        isinstance(input_classes, list)
-        and all(issubclass(c, OutcomeTransform) for c in input_classes)
+        isinstance(outcome_transform_classes, list)
+        and all(issubclass(c, OutcomeTransform) for c in outcome_transform_classes)
     ):
         raise UserInputError("Expected a list of outcome transforms.")
-    if len(input_classes) == 0:
+    if len(outcome_transform_classes) == 0:
         return None
 
     outcome_transform_kwargs = [
         outcome_transform_argparse(
-            input_class,
-            outcome_transform_options=input_options.get(input_class.__name__, {}),
+            transform_class,
+            outcome_transform_options=deepcopy(  # In case of in-place modifications.
+                outcome_transform_options.get(transform_class.__name__, {})
+            ),
             dataset=dataset,
         )
-        for input_class in input_classes
+        for transform_class in outcome_transform_classes
     ]
 
     outcome_transforms = [
         # pyre-fixme[45]: Cannot instantiate abstract class `OutcomeTransform`.
-        input_class(**single_outcome_transform_kwargs)
-        for input_class, single_outcome_transform_kwargs in zip(
-            input_classes, outcome_transform_kwargs
+        transform_class(**single_outcome_transform_kwargs)
+        for transform_class, single_outcome_transform_kwargs in zip(
+            outcome_transform_classes, outcome_transform_kwargs
         )
     ]
 
@@ -208,68 +211,78 @@ def _make_botorch_outcome_transform(
     return outcome_transform_instance
 
 
-def _set_formatted_inputs(
-    formatted_model_inputs: dict[str, Any],
-    # pyre-ignore [2] The proper hint for the second arg is Union[None,
-    # Type[Kernel], Type[Likelihood], List[Type[OutcomeTransform]],
-    # List[Type[InputTransform]]]. Keeping it as Any saves us from a
-    # bunch of checked_cast calls within the for loop.
-    inputs: list[tuple[str, Any, dict[str, Any]]],
+def _construct_submodules(
+    model_config: ModelConfig,
     dataset: SupervisedDataset,
-    botorch_model_class_args: list[str],
     search_space_digest: SearchSpaceDigest,
     botorch_model_class: type[Model],
-) -> None:
-    """Modifies `formatted_model_inputs` in place."""
-    for input_name, input_class, input_options in inputs:
-        if input_class is None:
-            # This is a temporary solution until all BoTorch models use
-            # `Standardize` by default, see TODO [T197435440].
-            # After this, we should update `Surrogate` to use `DEFAULT`
-            # (https://fburl.com/code/22f4397e) for both of these args. This will
-            # allow users to explicitly disable the default transforms by passing
-            # in `None`.
-            if (
-                input_name in ["outcome_transform"]
-                and input_name in botorch_model_class_args
-            ):
-                formatted_model_inputs[input_name] = None
-            continue
-        if input_name not in botorch_model_class_args:
+) -> dict[str, Module | None]:
+    """Constructs the submodules for the BoTorch model from the inputs
+    extracted from the ``ModelConfig``. If the corresponding inputs are
+    specified, the `covar_module`, `likelihood`, `input_transform`, and
+    `outcome_transform` submodules are constructed.
+    """
+    botorch_model_class_args: list[str] = inspect.getfullargspec(
+        botorch_model_class
+    ).args
+
+    def _error_if_arg_not_supported(arg_name: str) -> None:
+        if arg_name not in botorch_model_class_args:
             raise UserInputError(
                 f"The BoTorch model class {botorch_model_class.__name__} does not "
-                f"support the input {input_name}."
-            )
-        input_options = deepcopy(input_options) or {}
-
-        if input_name == "covar_module":
-            covar_module_with_defaults = covar_module_argparse(
-                input_class,
-                dataset=dataset,
-                botorch_model_class=botorch_model_class,
-                **input_options,
+                f"support the input {arg_name}."
             )
 
-            formatted_model_inputs[input_name] = input_class(
-                **covar_module_with_defaults
-            )
+    submodules: dict[str, Module | None] = {}
+    # NOTE: Using the walrus operator here and below helps pyre.
+    if (covar_class := model_config.covar_module_class) is not None:
+        _error_if_arg_not_supported("covar_module")
+        covar_module_kwargs = covar_module_argparse(
+            covar_class,
+            dataset=dataset,
+            botorch_model_class=botorch_model_class,
+            **deepcopy(model_config.covar_module_options),
+        )
+        # pyre-ignore [45]: Cannot instantiate abstract class `Kernel`.
+        submodules["covar_module"] = covar_class(**covar_module_kwargs)
 
-        elif input_name == "input_transform":
-            formatted_model_inputs[input_name] = _make_botorch_input_transform(
-                input_classes=input_class,
-                input_options=input_options,
-                dataset=dataset,
-                search_space_digest=search_space_digest,
-            )
+    if (likelihood_class := model_config.likelihood_class) is not None:
+        _error_if_arg_not_supported("likelihood")
+        # pyre-ignore [45]: Cannot instantiate abstract class `Likelihood`.
+        submodules["likelihood"] = likelihood_class(
+            **deepcopy(model_config.likelihood_options)
+        )
 
-        elif input_name == "outcome_transform":
-            formatted_model_inputs[input_name] = _make_botorch_outcome_transform(
-                input_classes=input_class,
-                input_options=input_options,
-                dataset=dataset,
-            )
-        else:
-            formatted_model_inputs[input_name] = input_class(**input_options)
+    if (
+        input_transform_classes := model_config.input_transform_classes
+    ) is not None or search_space_digest.robust_digest is not None:
+        _error_if_arg_not_supported("input_transform")
+        submodules["input_transform"] = _make_botorch_input_transform(
+            input_transform_classes=input_transform_classes or [],
+            input_transform_options=model_config.input_transform_options or {},
+            dataset=dataset,
+            search_space_digest=search_space_digest,
+        )
+
+    if (
+        outcome_transform_classes := model_config.outcome_transform_classes
+    ) is not None:
+        _error_if_arg_not_supported("outcome_transform")
+        submodules["outcome_transform"] = _make_botorch_outcome_transform(
+            outcome_transform_classes=outcome_transform_classes,
+            outcome_transform_options=model_config.outcome_transform_options or {},
+            dataset=dataset,
+        )
+    elif "outcome_transform" in botorch_model_class_args:
+        # This is a temporary solution until all BoTorch models use
+        # `Standardize` by default, see TODO [T197435440].
+        # After this, we should update `Surrogate` to use `DEFAULT`
+        # (https://fburl.com/code/22f4397e) for both of these args. This will
+        # allow users to explicitly disable the default transforms by passing
+        # in `None`.
+        submodules["outcome_transform"] = None
+
+    return submodules
 
 
 def _raise_deprecation_warning(
@@ -972,55 +985,6 @@ class Surrogate(Base):
         """
         return {"surrogate_spec": self.surrogate_spec}
 
-    def _extract_construct_input_transform_args(
-        self, model_config: ModelConfig, search_space_digest: SearchSpaceDigest
-    ) -> tuple[Sequence[type[InputTransform]] | None, dict[str, dict[str, Any]]]:
-        """
-        Extracts input transform classes and input transform options that will
-        be used in `_set_formatted_inputs` and ultimately passed to
-        BoTorch.
-
-        Args:
-            search_space_digest: A `SearchSpaceDigest`.
-
-        Returns:
-            A tuple containing
-                - Either `None` or a list of input transform classes,
-                - A dictionary of input transform options.
-        """
-
-        # Construct input perturbation if doing robust optimization.
-        # NOTE: Doing this here rather than in `_set_formatted_inputs` to make sure
-        # we use the same perturbations for each sub-model.
-        if (robust_digest := search_space_digest.robust_digest) is not None:
-            submodel_input_transform_options = {
-                "InputPerturbation": input_transform_argparse(
-                    InputTransform,
-                    search_space_digest=SearchSpaceDigest(
-                        feature_names=[], bounds=[], robust_digest=robust_digest
-                    ),
-                )
-            }
-
-            submodel_input_transform_classes: Sequence[type[InputTransform]] = [
-                InputPerturbation
-            ]
-
-            if model_config.input_transform_classes is not None:
-                # TODO: Support mixing with user supplied transforms.
-                raise NotImplementedError(
-                    "User supplied input transforms are not supported "
-                    "in robust optimization."
-                )
-        else:
-            submodel_input_transform_classes = model_config.input_transform_classes
-            submodel_input_transform_options = model_config.input_transform_options
-
-        return (
-            submodel_input_transform_classes,
-            none_throws(submodel_input_transform_options),
-        )
-
     @property
     def outcomes(self) -> list[str]:
         if self._outcomes is None:
@@ -1062,53 +1026,20 @@ def _submodel_input_constructor_base(
     model_kwargs_from_ss = _extract_model_kwargs(
         search_space_digest=search_space_digest
     )
-
-    (
-        input_transform_classes,
-        input_transform_options,
-    ) = surrogate._extract_construct_input_transform_args(
-        model_config=model_config, search_space_digest=search_space_digest
-    )
-
-    formatted_model_inputs = botorch_model_class.construct_inputs(
+    formatted_model_inputs: dict[str, Any] = botorch_model_class.construct_inputs(
         training_data=dataset,
         **model_config.model_options,
         **model_kwargs_from_ss,
     )
-
-    botorch_model_class_args = inspect.getfullargspec(botorch_model_class).args
-    _set_formatted_inputs(
-        formatted_model_inputs=formatted_model_inputs,
-        inputs=[
-            (
-                "covar_module",
-                model_config.covar_module_class,
-                model_config.covar_module_options,
-            ),
-            (
-                "likelihood",
-                model_config.likelihood_class,
-                model_config.likelihood_options,
-            ),
-            (
-                "outcome_transform",
-                model_config.outcome_transform_classes,
-                model_config.outcome_transform_options,
-            ),
-            (
-                "input_transform",
-                input_transform_classes,
-                deepcopy(input_transform_options),
-            ),
-        ],
+    submodules = _construct_submodules(
+        model_config=model_config,
         dataset=dataset,
         # This is used when constructing the input transforms.
         search_space_digest=search_space_digest,
-        # This is used to check if the arguments are supported.
-        botorch_model_class_args=botorch_model_class_args,
-        # Used to raise the appropriate error if arguments are not supported
+        # Used to check for supported arguments and in covar module input constructors.
         botorch_model_class=botorch_model_class,
     )
+    formatted_model_inputs.update(submodules)
     return formatted_model_inputs
 
 
