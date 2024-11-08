@@ -32,9 +32,15 @@ from ax.core.observation import (
     separate_observations,
 )
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.parameter import ParameterType, RangeParameter
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import TCandidateMetadata, TModelCov, TModelMean, TModelPredict
+from ax.core.types import (
+    TCandidateMetadata,
+    TModelCov,
+    TModelMean,
+    TModelPredict,
+    TParameterization,
+)
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
@@ -101,6 +107,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         status_quo_name: str | None = None,
         status_quo_features: ObservationFeatures | None = None,
         optimization_config: OptimizationConfig | None = None,
+        expand_model_space: bool = True,
         fit_out_of_design: bool = False,
         fit_abandoned: bool = False,
         fit_tracking_metrics: bool = True,
@@ -114,7 +121,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
             search_space: Search space for fitting the model. Constraints need
                 not be the same ones used in gen. RangeParameter bounds are
                 considered soft and will be expanded to match the range of the
-                data sent in for fitting.
+                data sent in for fitting, if expand_model_space is True.
             data: Ax Data.
             model: Interface will be specified in subclass. If model requires
                 initialization, that should be done prior to its use here.
@@ -130,6 +137,10 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
                 Either this or status_quo_name should be specified, not both.
             optimization_config: Optimization config defining how to optimize
                 the model.
+            expand_model_space: If True, expand range parameter bounds in model
+                space to cover given training data. This will make the modeling
+                space larger than the search space if training data fall outside
+                the search space.
             fit_out_of_design: If specified, all training data are used.
                 Otherwise, only in design points are used.
             fit_abandoned: Whether data for abandoned arms or trials should be
@@ -163,6 +174,10 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         self._model_key: str | None = None
         self._model_kwargs: dict[str, Any] | None = None
         self._bridge_kwargs: dict[str, Any] | None = None
+        # The space used for optimization.
+        self._search_space: SearchSpace = search_space.clone()
+        # The space used for modeling. Might be larger than the optimization
+        # space to cover training data.
         self._model_space: SearchSpace = search_space.clone()
         self._raw_transforms = transforms
         self._transform_configs: dict[str, TConfig] | None = transform_configs
@@ -192,6 +207,8 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         # Set training data (in the raw / untransformed space). This also omits
         # out-of-design and abandoned observations depending on the corresponding flags.
         observations_raw = self._prepare_observations(experiment=experiment, data=data)
+        if expand_model_space:
+            self._set_model_space(observations=observations_raw)
         observations_raw = self._set_training_data(
             observations=observations_raw, search_space=self._model_space
         )
@@ -383,6 +400,39 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
             search_space.check_membership(obsf.parameters)
             for obsf in observation_features
         ]
+
+    def _set_model_space(self, observations: list[Observation]) -> None:
+        """Set model space, possibly expanding range parameters to cover data."""
+        # If fill for missing values, include those in expansion.
+        fill_values: TParameterization | None = None
+        if (
+            self._transform_configs is not None
+            and "FillMissingParameters" in self._transform_configs
+        ):
+            fill_values = self._transform_configs[  # pyre-ignore[9]
+                "FillMissingParameters"
+            ].get("fill_values", None)
+        # Extract parameter values across arms
+        parameter_dicts = [obs.features.parameters for obs in observations]
+        if fill_values is not None:
+            parameter_dicts.append(fill_values)
+        param_vals = {p_name: [] for p_name in self._model_space.parameters.keys()}
+        for parameter_dict in parameter_dicts:
+            for p_name in self._model_space.parameters.keys():
+                p_val = parameter_dict.get(p_name, None)
+                if p_val is not None:
+                    param_vals[p_name].append(p_val)
+
+        # Update model space. Expand bounds as needed to cover the values found
+        # in the data.
+        for p in self._model_space.parameters.values():
+            if len(param_vals[p.name]) == 0:
+                continue
+            if isinstance(p, RangeParameter):
+                p.lower = min(p.lower, min(param_vals[p.name]))
+                p.upper = max(p.upper, max(param_vals[p.name]))
+            elif isinstance(p, ChoiceParameter) and not p.is_ordered:
+                p.set_values(values=list(set(p.values).union(set(param_vals[p.name]))))
 
     def _set_status_quo(
         self,
@@ -796,9 +846,8 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         t_gen_start = time.monotonic()
         # Get modifiable versions
         if search_space is None:
-            search_space = self._model_space
-        orig_search_space = search_space
-        search_space = search_space.clone()
+            search_space = self._search_space
+        orig_search_space = search_space.clone()
         base_gen_args = self._get_transformed_gen_args(
             search_space=search_space,
             optimization_config=optimization_config,
@@ -869,7 +918,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
             arms=arms,
             weights=gen_results.weights,
             optimization_config=optimization_config,
-            search_space=None if immutable else base_gen_args.search_space,
+            search_space=None if immutable else orig_search_space,
             model_predictions=model_predictions,
             best_arm_predictions=(
                 None if best_arm is None else (best_arm, best_point_predictions)
