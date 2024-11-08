@@ -37,17 +37,18 @@ from ax.utils.testing.core_stubs import (
 
 
 class TestAxScheduler(AxSchedulerTestCase):
-    def test_logging_level_warn(self) -> None:
-        super().test_logging_level_warn()
+    """IMPORTANT! This class inherits AxSchedulerTestCase and will also
+    run its associated tests.
+    """
 
-    def test_logging_level_debug(self) -> None:
-        super().test_logging_level_debug()
-
-    def test_logging_level_is_set(self) -> None:
-        super().test_logging_level_is_set()
+    pass
 
 
 class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):
+    """IMPORTANT! This class inherits AxSchedulerTestCase and will also
+    run its associated tests.
+    """
+
     EXPECTED_SCHEDULER_REPR: str = (
         "Scheduler(experiment=MultiTypeExperiment(branin_test_experiment), "
         "generation_strategy=GenerationStrategy(name='Sobol+BoTorch', "
