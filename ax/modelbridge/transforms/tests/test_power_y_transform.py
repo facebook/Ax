@@ -72,13 +72,12 @@ class PowerTransformYTest(TestCase):
             "search_space": None,
             "observations": self.observations[:2],
         }
-        # Test error for not specifying a config
-        with self.assertRaises(ValueError):
-            PowerTransformY(**shared_init_args)
-        # Test error for not specifying at least one metric
-        with self.assertRaises(ValueError):
-            PowerTransformY(**shared_init_args, config={})
-        # Test default init
+        # Init without a config.
+        t = PowerTransformY(**shared_init_args)
+        self.assertTrue(t.clip_mean)
+        self.assertEqual(t.metric_names, ["m1", "m2"])
+
+        # Test init with config.
         for m in ["m1", "m2"]:
             tf = PowerTransformY(**shared_init_args, config={"metrics": [m]})
             # tf.power_transforms should only exist for m and be a PowerTransformer
@@ -202,6 +201,12 @@ class PowerTransformYTest(TestCase):
         )[0]
         cov_results = np.array(transformed_obsd_nan.covariance)
         self.assertTrue(np.all(np.isnan(np.diag(cov_results))))
+        untransformed = pt._untransform_observation_data([transformed_obsd_nan])[0]
+        self.assertTrue(
+            np.array_equal(
+                untransformed.covariance, self.obsd_nan.covariance, equal_nan=True
+            )
+        )
 
     def test_TransformAndUntransformAllMetrics(self) -> None:
         pt = PowerTransformY(
