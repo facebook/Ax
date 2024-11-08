@@ -16,7 +16,6 @@ from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
-
 from ax.analysis.analysis import AnalysisCard, AnalysisCardLevel
 from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
@@ -1249,6 +1248,18 @@ class SQAStoreTest(TestCase):
         sqa_parameter.domain_type = 5
         with self.assertRaises(SQADecodeError):
             self.decoder.parameter_from_sqa(sqa_parameter)
+
+    def test_logit_scale(self) -> None:
+        with self.assertRaisesRegex(NotImplementedError, "logit-scale"):
+            self.encoder.parameter_to_sqa(
+                parameter=RangeParameter(
+                    name="foo",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.1,
+                    upper=0.99,
+                    logit_scale=True,
+                )
+            )
 
     def test_ParameterConstraintValidation(self) -> None:
         sqa_parameter_constraint = SQAParameterConstraint(
