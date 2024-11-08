@@ -678,15 +678,11 @@ def _merge_trials_dict_with_df(
         if not all(
             v is not None for v in trials_dict.values()
         ):  # not present for all trials
-            logger.warning(
+            logger.info(
                 f"Column {column_name} missing for some trials. "
                 "Filling with None when missing."
             )
         df[column_name] = [trials_dict[trial_index] for trial_index in df.trial_index]
-    else:
-        logger.warning(
-            f"Column {column_name} missing for all trials. " "Not appending column."
-        )
 
 
 def _get_generation_method_str(trial: BaseTrial) -> str:
@@ -1103,7 +1099,7 @@ def _get_metric_name_pairs(
         )
         metric_names = [obj.metric.name for obj in multi_objective.objectives]
         if len(metric_names) > use_first_n_metrics:
-            logger.warning(
+            logger.info(
                 f"Got `metric_names = {metric_names}` of length {len(metric_names)}. "
                 f"Creating pairwise Pareto plots for the first `use_n_metrics = "
                 f"{use_first_n_metrics}` of these and disregarding the remainder."
