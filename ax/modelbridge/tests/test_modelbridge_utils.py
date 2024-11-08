@@ -24,6 +24,7 @@ from ax.modelbridge.modelbridge_utils import (
     _array_to_tensor,
     extract_risk_measure,
     extract_robust_digest,
+    extract_search_space_digest,
     feasible_hypervolume,
     process_contextual_datasets,
     RISK_MEASURE_NAME_TO_CLASS,
@@ -348,3 +349,22 @@ class TestModelBridgeUtils(TestCase):
         self.assertEqual(len(contextual_datasets), 3)
         for d in contextual_datasets:
             self.assertIsInstance(d, ContextualDataset)
+
+    def test_extract_search_space_digest(self) -> None:
+        # This is also tested as part of broader TorchModelBridge tests.
+        # Test log & logit scale parameters.
+        for log_scale, logit_scale in [(True, False), (False, True)]:
+            ss = SearchSpace(
+                parameters=[
+                    RangeParameter(
+                        name="x1",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.1,
+                        upper=0.9,
+                        log_scale=log_scale,
+                        logit_scale=logit_scale,
+                    )
+                ]
+            )
+            with self.assertRaisesRegex(UserInputError, "Log and Logit"):
+                extract_search_space_digest(ss, list(ss.parameters))

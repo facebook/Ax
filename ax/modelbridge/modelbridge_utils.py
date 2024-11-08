@@ -231,8 +231,12 @@ def extract_search_space_digest(
             discrete_choices[i] = p.values  # pyre-ignore [6]
             bounds.append((min(p.values), max(p.values)))  # pyre-ignore [6]
         elif isinstance(p, RangeParameter):
-            if p.log_scale:
-                raise ValueError(f"{p} is log scale")
+            if p.log_scale or p.logit_scale:
+                raise UserInputError(
+                    "Log and Logit scale parameters must be transformed using the "
+                    "corresponding transform within the `ModelBridge`. After applying "
+                    f"the transforms, we have {p.log_scale=} and {p.logit_scale=}."
+                )
             if p.parameter_type == ParameterType.INT:
                 ordinal_features.append(i)
                 d_choices = list(range(int(p.lower), int(p.upper) + 1))
