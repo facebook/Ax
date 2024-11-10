@@ -22,6 +22,7 @@ from ax.modelbridge.generation_node import GenerationStep
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.storage.json_store.decoder import (
+    _DEPRECATED_MODEL_TO_REPLACEMENT,
     generation_strategy_from_json,
     object_from_json,
 )
@@ -853,3 +854,17 @@ class JSONStoreTest(TestCase):
         }
         expected_object = get_botorch_model_with_surrogate_spec()
         self.assertEqual(object_from_json(object_json), expected_object)
+
+    def test_model_registry_backwards_compatibility(self) -> None:
+        # Check that deprecated model registry entries can be loaded.
+        # Check for models with listed replacements.
+        for name, replacement in _DEPRECATED_MODEL_TO_REPLACEMENT.items():
+            with self.assertLogs(logger="ax", level="ERROR"):
+                from_json = object_from_json({"__type": "Models", "name": name})
+            self.assertEqual(from_json, Models[replacement])
+        # Check for non-deprecated models.
+        from_json = object_from_json({"__type": "Models", "name": "BO_MIXED"})
+        self.assertEqual(from_json, Models.BO_MIXED)
+        # Check for models with no replacement.
+        with self.assertRaisesRegex(KeyError, "nonexistent"):
+            object_from_json({"__type": "Models", "name": "nonexistent_model"})
