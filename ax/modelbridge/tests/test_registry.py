@@ -446,32 +446,6 @@ class ModelRegistryTest(TestCase):
     def test_SAAS_MTGP(self) -> None:
         self.test_ST_MTGP(use_saas=True)
 
-    def test_deprecated_models(self) -> None:
-        """Tests that deprecated models raise a warning and point to correct models.
-
-        Due to differences in internal and external Python, this test runs the
-        same check in a couple different ways.
-        """
-        for old_model_str, new_model in [
-            ("ST_MTGP_NEHVI", Models.ST_MTGP),
-            ("ST_MTGP_LEGACY", Models.ST_MTGP),
-            ("MOO", Models.BOTORCH_MODULAR),
-            ("GPEI", Models.BOTORCH_MODULAR),
-            ("FULLYBAYESIAN", Models.SAASBO),
-            ("FULLYBAYESIANMOO", Models.SAASBO),
-            ("FULLYBAYESIAN_MTGP", Models.SAAS_MTGP),
-            ("FULLYBAYESIANMOO_MTGP", Models.SAAS_MTGP),
-        ]:
-            with self.assertWarnsRegex(
-                DeprecationWarning, "deprecated and replaced by"
-            ):
-                try:
-                    self.assertEqual(new_model, getattr(Models, old_model_str))
-                except AssertionError:
-                    self.assertEqual(
-                        new_model, getattr(Models, old_model_str).fget(Models)
-                    )
-
     def test_extract_model_state_after_gen(self) -> None:
         # Test with actual state.
         exp = get_branin_experiment()

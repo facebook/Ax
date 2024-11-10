@@ -38,7 +38,7 @@ from ax.modelbridge.generation_strategy import (
     GenerationStrategy,
 )
 from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.registry import _decode_callables_from_references
+from ax.modelbridge.registry import _decode_callables_from_references, ModelRegistryBase
 from ax.modelbridge.transition_criterion import (
     AuxiliaryExperimentCheck,
     TransitionCriterion,
@@ -68,6 +68,19 @@ from pyre_extensions import none_throws
 
 
 logger: Logger = get_logger(__name__)
+
+# Deprecated model registry entries and their replacements.
+# Used below in `_update_deprecated_model_registry`.
+_DEPRECATED_MODEL_TO_REPLACEMENT: dict[str, str] = {
+    "GPEI": "BOTORCH_MODULAR",
+    "MOO": "BOTORCH_MODULAR",
+    "FULLYBAYESIAN": "SAASBO",
+    "FULLYBAYESIANMOO": "SAASBO",
+    "FULLYBAYESIAN_MTGP": "SAAS_MTGP",
+    "FULLYBAYESIANMOO_MTGP": "SAAS_MTGP",
+    "ST_MTGP_LEGACY": "ST_MTGP",
+    "ST_MTGP_NEHVI": "ST_MTGP",
+}
 
 
 # pyre-fixme[3]: Return annotation cannot be `Any`.
@@ -171,8 +184,11 @@ def object_from_json(
         # `typing.Type[<base type>]` to avoid runtime subscripting errors.
         _class: type = decoder_registry[_type]
         if isclass(_class) and issubclass(_class, Enum):
+            name = object_json["name"]
+            if issubclass(_class, ModelRegistryBase):
+                name = _update_deprecated_model_registry(name=name)
             # to access enum members by name, use item access
-            return _class[object_json["name"]]
+            return _class[name]
         elif isclass(_class) and issubclass(_class, torch.nn.Module):
             return botorch_component_from_json(botorch_class=_class, json=object_json)
         elif _class == GeneratorRun:
@@ -1059,3 +1075,30 @@ def objective_from_json(
         minimize=minimize,
         **input_args,  # For future compatibility.
     )
+
+
+def _update_deprecated_model_registry(name: str) -> str:
+    """Update the enum name for deprecated model registry entries to point to
+    a replacement model. This will log an exception to alert the user to the change.
+
+    The replacement models are listed in `_DEPRECATED_MODEL_TO_REPLACEMENT` above.
+    If a deprecated model does not list a replacement, nothing will be done and it
+    will error out while looking it up in the corresponding enum.
+
+    Args:
+        name: The name of the ``Models`` enum.
+
+    Returns:
+        Either the given name or the name of a replacement ``Models`` enum.
+    """
+    if name in _DEPRECATED_MODEL_TO_REPLACEMENT:
+        new_name = _DEPRECATED_MODEL_TO_REPLACEMENT[name]
+        logger.exception(
+            f"{name} model is deprecated and replaced by Models.{new_name}. "
+            f"Please use {new_name} in the future. Note that this warning only "
+            "enables deserialization of experiments with deprecated models. "
+            "Model fitting with the loaded experiment may still fail. "
+        )
+        return new_name
+    else:
+        return name

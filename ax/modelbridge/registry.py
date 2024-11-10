@@ -17,7 +17,6 @@ from generator run, use `get_model_from_generator_run` utility from this module.
 
 from __future__ import annotations
 
-import warnings
 from enum import Enum
 from inspect import isfunction, signature
 from logging import Logger
@@ -406,6 +405,10 @@ class Models(ModelRegistryBase):
     For instance, `Models.SOBOL(search_space=search_space, scramble=False)`
     will instantiate a `RandomModelBridge(search_space=search_space)`
     with a `SobolGenerator(scramble=False)` underlying model.
+
+    NOTE: If you deprecate a model, please add its replacement to
+    `ax.storage.json_store.decoder._DEPRECATED_MODEL_TO_REPLACEMENT` to ensure
+    backwards compatibility of the storage layer.
     """
 
     SOBOL = "Sobol"
@@ -420,72 +423,6 @@ class Models(ModelRegistryBase):
     ST_MTGP = "ST_MTGP"
     BO_MIXED = "BO_MIXED"
     CONTEXT_SACBO = "Contextual_SACBO"
-
-    @classmethod
-    @property
-    def ST_MTGP_LEGACY(cls) -> Models:
-        return _deprecated_model_with_warning(
-            old_model_str="ST_MTGP_LEGACY", new_model=cls.ST_MTGP
-        )
-
-    @classmethod
-    @property
-    def ST_MTGP_NEHVI(cls) -> Models:
-        return _deprecated_model_with_warning(
-            old_model_str="ST_MTGP_NEHVI", new_model=cls.ST_MTGP
-        )
-
-    @classmethod
-    @property
-    def MOO(cls) -> Models:
-        return _deprecated_model_with_warning(
-            old_model_str="MOO", new_model=cls.BOTORCH_MODULAR
-        )
-
-    @classmethod
-    @property
-    def GPEI(cls) -> Models:
-        return _deprecated_model_with_warning(
-            old_model_str="GPEI", new_model=cls.BOTORCH_MODULAR
-        )
-
-    @classmethod
-    @property
-    def FULLYBAYESIAN(cls) -> Models:
-        return _deprecated_model_with_warning(
-            old_model_str="FULLYBAYESIAN", new_model=cls.SAASBO
-        )
-
-    @classmethod
-    @property
-    def FULLYBAYESIANMOO(cls) -> Models:
-        return _deprecated_model_with_warning(
-            old_model_str="FULLYBAYESIANMOO", new_model=cls.SAASBO
-        )
-
-    @classmethod
-    @property
-    def FULLYBAYESIAN_MTGP(cls) -> Models:
-        return _deprecated_model_with_warning(
-            old_model_str="FULLYBAYESIAN_MTGP", new_model=cls.SAAS_MTGP
-        )
-
-    @classmethod
-    @property
-    def FULLYBAYESIANMOO_MTGP(cls) -> Models:
-        return _deprecated_model_with_warning(
-            old_model_str="FULLYBAYESIANMOO_MTGP", new_model=cls.SAAS_MTGP
-        )
-
-
-def _deprecated_model_with_warning(old_model_str: str, new_model: Models) -> Models:
-    warnings.warn(
-        f"{old_model_str} is deprecated and replaced by {new_model}. "
-        f"Please use {new_model}. This will become an error in a future release.",
-        DeprecationWarning,
-        stacklevel=3,
-    )
-    return new_model
 
 
 def get_model_from_generator_run(
