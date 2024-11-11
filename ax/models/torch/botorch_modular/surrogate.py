@@ -53,7 +53,6 @@ from ax.utils.common.typeutils import (
     _argparse_type_encoder,
     checked_cast,
     checked_cast_optional,
-    not_none,
 )
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
@@ -71,6 +70,7 @@ from gpytorch.kernels import Kernel
 from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
+from pyre_extensions import none_throws
 from torch import Tensor
 from torch.nn import Module
 
@@ -779,7 +779,7 @@ class Surrogate(Base):
             ].botorch_model_class
         should_use_model_list = use_model_list(
             datasets=datasets,
-            botorch_model_class=not_none(default_botorch_model_class),
+            botorch_model_class=none_throws(default_botorch_model_class),
             model_configs=self.surrogate_spec.model_configs,
             allow_batched_models=self.surrogate_spec.allow_batched_models,
             metric_to_model_configs=self.surrogate_spec.metric_to_model_configs,
@@ -823,7 +823,7 @@ class Surrogate(Base):
                 dataset=dataset,
                 search_space_digest=search_space_digest,
                 model_config=model_config,
-                default_botorch_model_class=not_none(default_botorch_model_class),
+                default_botorch_model_class=none_throws(default_botorch_model_class),
                 state_dict=submodel_state_dict,
                 refit=refit,
             )

@@ -14,17 +14,11 @@ from ax.utils.common.typeutils import (
     checked_cast_dict,
     checked_cast_list,
     checked_cast_optional,
-    not_none,
 )
 from ax.utils.common.typeutils_nonnative import numpy_type_to_python_type
 
 
 class TestTypeUtils(TestCase):
-    def test_not_none(self) -> None:
-        self.assertEqual(not_none("not_none"), "not_none")
-        with self.assertRaises(ValueError):
-            not_none(None)
-
     def test_checked_cast(self) -> None:
         self.assertEqual(checked_cast(float, 2.0), 2.0)
         with self.assertRaises(ValueError):
