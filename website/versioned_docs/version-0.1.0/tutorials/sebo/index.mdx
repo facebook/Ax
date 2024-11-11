@@ -3,9 +3,9 @@ title: Sparsity Exploration Bayesian Optimization (SEBO)
 sidebar_label: Sparsity Exploration Bayesian Optimization (SEBO)
 ---
 
-import LinkButtons from "../../../website/src/components/LinkButtons.jsx";
-import CellOutput from "../../../website/src/components/CellOutput.jsx";
-import {BokehFigure, PlotlyFigure} from "../../../website/src/components/Plotting.jsx";
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {BokehFigure, PlotlyFigure} from "@site/src/components/Plotting.jsx";
 
 <LinkButtons
   githubUrl="https://github.com/cristianlara/Ax/blob/main/tutorials/sebo.ipynb"
@@ -87,9 +87,9 @@ Additional resources:
   https://ax.dev/tutorials/gpei_hartmann_service.html.
 
 ```python
-aug_dim = 8 
+aug_dim = 8
 
-# evaluation function 
+# evaluation function
 def branin_augment(x_vec, augment_dim):
     assert len(x_vec) == augment_dim
     x1, x2 = (
@@ -107,12 +107,12 @@ class AugBraninMetric(NoisyFunctionMetric):
         return checked_cast(float, branin_augment(x_vec=x, augment_dim=aug_dim))
 
 
-# Create search space in Ax 
+# Create search space in Ax
 search_space = SearchSpace(
     parameters=[
         RangeParameter(
             name=f"x{i}",
-            parameter_type=ParameterType.FLOAT, 
+            parameter_type=ParameterType.FLOAT,
             lower=0.0, upper=1.0
         )
         for i in range(aug_dim)
@@ -121,7 +121,7 @@ search_space = SearchSpace(
 ```
 
 ```python
-# Create optimization goals 
+# Create optimization goals
 optimization_config = OptimizationConfig(
     objective=Objective(
         metric=AugBraninMetric(
@@ -141,7 +141,7 @@ experiment = Experiment(
     runner=SyntheticRunner(),
 )
 
-# target sparse point to regularize towards to. Here we set target sparse value being zero for all the parameters. 
+# target sparse point to regularize towards to. Here we set target sparse value being zero for all the parameters.
 target_point = torch.tensor([0 for _ in range(aug_dim)], **tkwargs)
 ```
 
@@ -181,15 +181,15 @@ data = experiment.fetch_data()
 for i in range(N_BATCHES):
 
     model = Models.BOTORCH_MODULAR(
-        experiment=experiment, 
+        experiment=experiment,
         data=data,
         surrogate=Surrogate(botorch_model_class=SURROGATE_CLASS),  # can use SAASGP (i.e. SaasFullyBayesianSingleTaskGP) for high-dim cases
         search_space=experiment.search_space,
         botorch_acqf_class=qNoisyExpectedHypervolumeImprovement,
         acquisition_class=SEBOAcquisition,
         acquisition_options={
-            "penalty": "L0_norm", # it can be L0_norm or L1_norm. 
-            "target_point": target_point, 
+            "penalty": "L0_norm", # it can be L0_norm or L1_norm.
+            "target_point": target_point,
             "sparsity_threshold": aug_dim,
         },
         torch_device=tkwargs['device'],
@@ -244,7 +244,7 @@ deciding which configuration to use.
 def nnz_exact(x, sparse_point):
     return len(x) - (np.array(x) == np.array(sparse_point)).sum()
 
-    
+
 df = data.df
 df['L0_norm'] = df['arm_name'].apply(lambda d: nnz_exact(list(experiment.arms_by_name[d].parameters.values()), [0 for _ in range(aug_dim)]) )
 ```
@@ -292,7 +292,7 @@ gs = GenerationStrategy(
     name="SEBO_L0",
     steps=[
         GenerationStep(  # Initialization step
-            model=Models.SOBOL,     
+            model=Models.SOBOL,
             num_trials=N_INIT,
         ),
         GenerationStep(  # BayesOpt step
@@ -305,7 +305,7 @@ gs = GenerationStrategy(
                 "botorch_acqf_class": qNoisyExpectedHypervolumeImprovement,
                 "acquisition_options": {
                     "penalty": "L0_norm", # it can be L0_norm or L1_norm.
-                    "target_point": target_point, 
+                    "target_point": target_point,
                     "sparsity_threshold": aug_dim,
                 },
             },
@@ -373,7 +373,7 @@ def evaluation(parameters):
 Running only 1 BO trial for demonstration.
 
 ```python
-for _ in range(N_INIT + 1):    
+for _ in range(N_INIT + 1):
     parameters, trial_index = ax_client.get_next_trial()
     res = evaluation(parameters)
     ax_client.complete_trial(trial_index=trial_index, raw_data=res)
@@ -531,4 +531,3 @@ for _ in range(N_INIT + 1):
   `[INFO 09-29 18:11:11] ax.service.ax_client: Completed trial 10 with data: {'objective': (-10.960889, 0.0)}.`
 }
 </CellOutput>
-

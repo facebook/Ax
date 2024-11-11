@@ -3,9 +3,9 @@ title: Hyperparameter Optimization for PyTorch
 sidebar_label: Hyperparameter Optimization for PyTorch
 ---
 
-import LinkButtons from "../../../website/src/components/LinkButtons.jsx";
-import CellOutput from "../../../website/src/components/CellOutput.jsx";
-import {BokehFigure, PlotlyFigure} from "../../../website/src/components/Plotting.jsx";
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {BokehFigure, PlotlyFigure} from "@site/src/components/Plotting.jsx";
 
 <LinkButtons
   githubUrl="https://github.com/cristianlara/Ax/blob/main/tutorials/tune_cnn_service.ipynb"
@@ -292,7 +292,7 @@ ax_client.create_experiment(
         {
             "name": "lr",  # The name of the parameter.
             "type": "range",  # The type of the parameter ("range", "choice" or "fixed").
-            "bounds": [1e-6, 0.4],  # The bounds for range parameters. 
+            "bounds": [1e-6, 0.4],  # The bounds for range parameters.
             # "values" The possible values for choice parameters .
             # "value" The fixed value for fixed parameters.
             "value_type": "float",  # Optional, the value type ("int", "float", "bool" or "str"). Defaults to inference from type of "bounds".
@@ -300,9 +300,9 @@ ax_client.create_experiment(
             # "is_ordered" Optional, a flag for choice parameters.
         },
         {
-            "name": "momentum",  
-            "type": "range",  
-            "bounds": [0.0, 1.0],  
+            "name": "momentum",
+            "type": "range",
+            "bounds": [0.0, 1.0],
         },
     ],
     objectives={"accuracy": ObjectiveProperties(minimize=False)},  # The objective name and minimization setting.
@@ -372,7 +372,7 @@ First we define a simple CNN class to classify the MNIST images
 
 ```python
 class CNN(nn.Module):
-    
+
     def __init__(self) -> None:
         super().__init__()
         self.conv1 = nn.Conv2d(1, 20, kernel_size=5, stride=1)
@@ -420,9 +420,9 @@ def train_evaluate(parameterization):
     )
 
     return evaluate(
-        net=net, 
-        data_loader=valid_loader, 
-        dtype=dtype, 
+        net=net,
+        data_loader=valid_loader,
+        dtype=dtype,
         device=device,
     )
 
@@ -440,7 +440,7 @@ ax_client.attach_trial(
     parameters={"lr": 0.000026, "momentum": 0.58}
 )
 
-# Get the parameters and run the trial 
+# Get the parameters and run the trial
 baseline_parameters = ax_client.get_trial_parameters(trial_index=0)
 ax_client.complete_trial(trial_index=0, raw_data=train_evaluate(baseline_parameters))
 ```
@@ -970,7 +970,7 @@ the optimal objective:
 ```python
 render(
     ax_client.get_optimization_trace()
-)  
+)
 ```
 
 <PlotlyFigure data={require('./assets/plot_data/c8297737-e51c-4985-bf60-7edaa5e6c094.json')} />
@@ -1249,4 +1249,3 @@ ax_client.get_max_parallelism()  # Max parallelism is now 10 for all stages of t
   `[(5, 10), (-1, 10)]`
 }
 </CellOutput>
-

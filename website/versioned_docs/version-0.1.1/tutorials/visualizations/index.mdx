@@ -3,9 +3,9 @@ title: Visualizations
 sidebar_label: Visualizations
 ---
 
-import LinkButtons from "../../../website/src/components/LinkButtons.jsx";
-import CellOutput from "../../../website/src/components/CellOutput.jsx";
-import {BokehFigure, PlotlyFigure} from "../../../website/src/components/Plotting.jsx";
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {BokehFigure, PlotlyFigure} from "@site/src/components/Plotting.jsx";
 
 <LinkButtons
   githubUrl="https://github.com/cristianlara/Ax/blob/main/tutorials/visualizations.ipynb"
@@ -612,4 +612,3 @@ render(ax_client.get_contour_plot(param_x="x1", param_y="x2", metric_name="hartm
 
 
 <PlotlyFigure data={require('./assets/plot_data/0c2ec8d9-0446-4d5d-85fe-56920a0d3a95.json')} />
-

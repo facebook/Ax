@@ -3,9 +3,9 @@ title: High-Dimensional Bayesian Optimization with Sparse Axis-Aligned Subspaces
 sidebar_label: High-Dimensional Bayesian Optimization with Sparse Axis-Aligned Subspaces (SAASBO)
 ---
 
-import LinkButtons from "../../../website/src/components/LinkButtons.jsx";
-import CellOutput from "../../../website/src/components/CellOutput.jsx";
-import {BokehFigure, PlotlyFigure} from "../../../website/src/components/Plotting.jsx";
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {BokehFigure, PlotlyFigure} from "@site/src/components/Plotting.jsx";
 
 <LinkButtons
   githubUrl="https://github.com/cristianlara/Ax/blob/main/tutorials/saasbo.ipynb"
@@ -103,7 +103,7 @@ optimization_config = OptimizationConfig(
             name="objective",
             param_names=["x19", "x34"],
              # Set noise_sd=None if you want to learn the noise, set to 0.0 for no noise
-            noise_sd=1e-4, 
+            noise_sd=1e-4,
         ),
         minimize=True,
     )
@@ -367,4 +367,3 @@ Parameter 42) Median lengthscale = 4.30e+01`
 ```python
 
 ```
-

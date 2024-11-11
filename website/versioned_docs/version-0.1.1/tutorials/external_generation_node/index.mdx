@@ -3,9 +3,9 @@ title: RandomForest with ExternalGenerationNode
 sidebar_label: RandomForest with ExternalGenerationNode
 ---
 
-import LinkButtons from "../../../website/src/components/LinkButtons.jsx";
-import CellOutput from "../../../website/src/components/CellOutput.jsx";
-import {BokehFigure, PlotlyFigure} from "../../../website/src/components/Plotting.jsx";
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {BokehFigure, PlotlyFigure} from "@site/src/components/Plotting.jsx";
 
 <LinkButtons
   githubUrl="https://github.com/cristianlara/Ax/blob/main/tutorials/external_generation_node.ipynb"
@@ -195,7 +195,7 @@ generation_strategy = GenerationStrategy(
             model_specs=[ModelSpec(Models.SOBOL)],
             transition_criteria=[
                 MaxTrials(
-                    # This specifies the maximum number of trials to generate from this node, 
+                    # This specifies the maximum number of trials to generate from this node,
                     # and the next node in the strategy.
                     threshold=5,
                     block_transition_if_unmet=True,
@@ -597,4 +597,3 @@ DataFrame.fillna with 'method' is deprecated and will raise in a future version.
 
 
 <PlotlyFigure data={require('./assets/plot_data/21269bf8-0d0f-4a28-9ac5-6cf4a76b3b4b.json')} />
-

@@ -3,9 +3,9 @@ title: Global Stopping (Experiment-Level Early Stopping)
 sidebar_label: Global Stopping (Experiment-Level Early Stopping)
 ---
 
-import LinkButtons from "../../../website/src/components/LinkButtons.jsx";
-import CellOutput from "../../../website/src/components/CellOutput.jsx";
-import {BokehFigure, PlotlyFigure} from "../../../website/src/components/Plotting.jsx";
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {BokehFigure, PlotlyFigure} from "@site/src/components/Plotting.jsx";
 
 <LinkButtons
   githubUrl="https://github.com/cristianlara/Ax/blob/main/tutorials/gss.ipynb"
@@ -370,7 +370,7 @@ class SimpleThresholdGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
             min_trials=min_trials,
             inactive_when_pending_trials=inactive_when_pending_trials
         )
-    
+
     def _should_stop_optimization(
         self, experiment: Experiment
     ) -> Tuple[bool, str]:
@@ -387,7 +387,7 @@ class SimpleThresholdGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         if len(feasible_objectives) <= 1:
             message = "There are not enough feasible arms tried yet."
             return False, message
-        
+
         minimize = experiment.optimization_config.objective.minimize
         if minimize:
             best = np.min(feasible_objectives)
@@ -532,4 +532,3 @@ render(ax_client_custom_gss.get_optimization_trace())
 ```python
 
 ```
-

@@ -3,9 +3,9 @@ title: Hyperparameter Optimization on SLURM via SubmitIt
 sidebar_label: Hyperparameter Optimization on SLURM via SubmitIt
 ---
 
-import LinkButtons from "../../../website/src/components/LinkButtons.jsx";
-import CellOutput from "../../../website/src/components/CellOutput.jsx";
-import {BokehFigure, PlotlyFigure} from "../../../website/src/components/Plotting.jsx";
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {BokehFigure, PlotlyFigure} from "@site/src/components/Plotting.jsx";
 
 <LinkButtons
   githubUrl="https://github.com/cristianlara/Ax/blob/main/tutorials/submitit.ipynb"
@@ -159,8 +159,8 @@ We'll use SubmitIt's `AutoExecutor` for this example. We start by initializing a
 
 ```python
 # Log folder and cluster. Specify cluster='local' or cluster='debug' to run the jobs locally during development.
-# When we're are ready for deployment, switch to cluster='slurm' 
-executor = AutoExecutor(folder="/tmp/submitit_runs", cluster='debug') 
+# When we're are ready for deployment, switch to cluster='slurm'
+executor = AutoExecutor(folder="/tmp/submitit_runs", cluster='debug')
 executor.update_parameters(timeout_min=60) # Timeout of the slurm job. Not including slurm scheduling delay.
 executor.update_parameters(cpus_per_task=2)
 ```
@@ -197,7 +197,7 @@ while submitted_jobs < total_budget or jobs:
             result = job.result()
             ax_client.complete_trial(trial_index=trial_index, raw_data=result)
             jobs.remove((job, trial_index))
-    
+
     # Schedule new jobs if there is availablity
     trial_index_to_param, _ = ax_client.get_next_trials(
         max_trials=min(num_parallel_jobs - len(jobs), total_budget - submitted_jobs))
@@ -206,11 +206,11 @@ while submitted_jobs < total_budget or jobs:
         submitted_jobs += 1
         jobs.append((job, trial_index))
         time.sleep(1)
-    
+
     # Display the current trials.
     display(exp_to_df(ax_client.experiment))
 
-    # Sleep for a bit before checking the jobs again to avoid overloading the cluster. 
+    # Sleep for a bit before checking the jobs again to avoid overloading the cluster.
     # If you have a large number of jobs, consider adding a sleep statement in the job polling loop aswell.
     time.sleep(30)
 ```
@@ -535,4 +535,3 @@ Mean objective value: {'result': 12.395281019540292}`
 
 
 <PlotlyFigure data={require('./assets/plot_data/84874ba1-3e9a-418a-8cc3-be35250ea46e.json')} />
-

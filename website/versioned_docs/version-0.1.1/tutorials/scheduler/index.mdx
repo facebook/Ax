@@ -3,9 +3,9 @@ title: Scheduler
 sidebar_label: Scheduler
 ---
 
-import LinkButtons from "../../../website/src/components/LinkButtons.jsx";
-import CellOutput from "../../../website/src/components/CellOutput.jsx";
-import {BokehFigure, PlotlyFigure} from "../../../website/src/components/Plotting.jsx";
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {BokehFigure, PlotlyFigure} from "@site/src/components/Plotting.jsx";
 
 <LinkButtons
   githubUrl="https://github.com/cristianlara/Ax/blob/main/tutorials/scheduler.ipynb"
@@ -1117,7 +1117,7 @@ are new completed trials if the user-implemented subclass implements
 ```
 class MySchedulerSubclass(Scheduler):
     ...
-    
+
     def report_results(self, force_refit: bool = False):
         write_to_external_database(len(self.experiment.trials))
         return (True, \{})  # Returns optimization success status and optional dict of outputs.
@@ -1370,4 +1370,3 @@ delete_experiment("branin_test_experiment")
 ```python
 
 ```
-

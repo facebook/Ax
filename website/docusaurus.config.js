@@ -85,6 +85,10 @@ module.exports={
           "target": "_blank",
         },
         {
+          type: 'docsVersionDropdown',
+          position: 'right',
+        },
+        {
           "href": "https://github.com/cristianlara/Ax",
           "className": "header-github-link",
           "aria-label": "GitHub",
