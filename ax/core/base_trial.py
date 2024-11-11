@@ -900,7 +900,7 @@ class BaseTrial(ABC, SortableBase):
             new_trial.mark_staged()
             return
         # Other statuses require the state first be set to `RUNNING`.
-        new_trial.mark_running(no_runner_required=True)
+        new_trial.mark_running(no_runner_required=True, unsafe=True)
         if self.status == TrialStatus.RUNNING:
             return
         if self.status == TrialStatus.ABANDONED:
