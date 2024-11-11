@@ -1,0 +1,1785 @@
+{
+  "config": {
+    "linkText": "Export to plot.ly",
+    "plotlyServerURL": "https://plot.ly",
+    "showLink": false
+  },
+  "data": [
+    {
+      "error_x": {
+        "array": [
+          0.5205646439608032,
+          0.9105274690527578,
+          0.9725977092158347,
+          1.0669782977880082,
+          1.0803499998271806,
+          1.056213721018547,
+          1.0810868080421863,
+          1.0646727177942992,
+          1.048287897726107,
+          1.0699714924908204,
+          1.0044799847095478,
+          0.9694448615326413,
+          1.1526497268980418,
+          1.056129089525654,
+          1.0581150790455403,
+          1.0853729636494531,
+          1.025297982327309,
+          1.1509354346821015,
+          1.0946224534113276,
+          1.080994735603789,
+          0.9349800939958878,
+          1.1063382644746038,
+          1.109747945764228,
+          1.1312428838918263,
+          1.0151345627364643,
+          1.113745664637434,
+          1.1070645021428274,
+          1.098298041303658,
+          1.011825279703854,
+          1.004076551317031,
+          1.1247628081965457,
+          1.0451840940805415,
+          0.8854990204077908,
+          1.1551313262975833,
+          1.1582540625351196,
+          1.088250532740983,
+          1.1152606223383992,
+          1.1132227750465398,
+          1.1136443399827738,
+          1.0928257948335294,
+          1.098342295748459,
+          0.9929499124720943,
+          1.0275183054522714,
+          1.0461406507525532,
+          1.0507233488011212,
+          1.1693056777789836,
+          1.0564300559878494,
+          1.012746475490335,
+          1.060503126319525,
+          1.0453978622119475,
+          1.0972242260284542,
+          1.1030844377466755,
+          1.0346109289273435,
+          1.0925727929561801,
+          1.0737167310801996,
+          1.0429450645429181,
+          1.0636626539145406,
+          1.108765950358755,
+          1.0083792696638647,
+          1.069964804645196,
+          1.1324679783490406,
+          1.149093505549881,
+          1.19450723179394,
+          0.9584867213686696,
+          0.9797729070203455
+        ],
+        "color": "rgba(128,177,211,0.4)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": [
+          0.3181115760489757,
+          0.6639175585103954,
+          0.6630929411298598,
+          0.6729502923953926,
+          0.6740882429740953,
+          0.665276789680729,
+          0.6708890082180987,
+          0.6647910226422914,
+          0.6724199160716084,
+          0.6676592507580481,
+          0.6614165175994707,
+          0.6719874423233675,
+          0.6935680367786019,
+          0.6821107678411614,
+          0.6721157287254815,
+          0.6675598394585217,
+          0.6588395471546759,
+          0.7005079335820925,
+          0.6734693768172479,
+          0.6678033173208016,
+          0.6639242874696609,
+          0.6673739566339196,
+          0.6808476824923786,
+          0.675618453499239,
+          0.6630338514495195,
+          0.6814341339540937,
+          0.6732139305974362,
+          0.678993016475866,
+          0.6717812932415321,
+          0.6668482051137559,
+          0.7215454438634975,
+          0.6694676526234568,
+          0.6554367403862607,
+          0.6871145937679641,
+          0.6973627667199596,
+          0.677839082032618,
+          0.6656099293584739,
+          0.6853610253860684,
+          0.7127045342173167,
+          0.6774929784721044,
+          0.6697791158632792,
+          0.6609617898538276,
+          0.6573670880847166,
+          0.6812573532252995,
+          0.6669304645971238,
+          0.7456805630690589,
+          0.6722619172607951,
+          0.6674666794827154,
+          0.71101954162863,
+          0.6581471114518421,
+          0.681784654518447,
+          0.6891795059009299,
+          0.6846723076532707,
+          0.6778079742730775,
+          0.6716150419025536,
+          0.6624185510214552,
+          0.6736751066980704,
+          0.6894763100114708,
+          0.6659339720000773,
+          0.6774968737338238,
+          0.6814011092512952,
+          0.6882834695714566,
+          0.7808801986391988,
+          0.6703813570659151,
+          0.666212972377905
+        ],
+        "color": "rgba(128,177,211,0.4)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "color": "rgba(128,177,211,1)"
+      },
+      "mode": "markers",
+      "name": "In-sample",
+      "showlegend": true,
+      "text": [
+        "<b>Arm status_quo</b><br><br>metric_1: -0.0% [-0.521%, 0.521%]<br>metric_2: -0.0% [-0.318%, 0.318%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_0</b><br><br>metric_1: -17.159% [-18.070%, -16.249%]<br>metric_2: -5.747% [-6.411%, -5.083%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_1</b><br><br>metric_1: -11.573% [-12.546%, -10.601%]<br>metric_2: -3.561% [-4.224%, -2.897%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_2</b><br><br>metric_1: -3.272% [-4.339%, -2.205%]<br>metric_2: -1.007% [-1.680%, -0.334%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_3</b><br><br>metric_1: -2.214% [-3.295%, -1.134%]<br>metric_2: -0.421% [-1.095%, 0.254%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_4</b><br><br>metric_1: -2.893% [-3.949%, -1.837%]<br>metric_2: -1.543% [-2.208%, -0.878%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_5</b><br><br>metric_1: -2.069% [-3.150%, -0.988%]<br>metric_2: -0.76% [-1.431%, -0.090%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_6</b><br><br>metric_1: -3.551% [-4.616%, -2.486%]<br>metric_2: -1.321% [-1.986%, -0.656%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_7</b><br><br>metric_1: -4.089% [-5.138%, -3.041%]<br>metric_2: -1.576% [-2.248%, -0.903%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_8</b><br><br>metric_1: -2.46% [-3.530%, -1.390%]<br>metric_2: -2.179% [-2.846%, -1.511%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_9</b><br><br>metric_1: -7.98% [-8.985%, -6.976%]<br>metric_2: -2.79% [-3.451%, -2.128%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_10</b><br><br>metric_1: -11.361% [-12.331%, -10.392%]<br>metric_2: -3.61% [-4.282%, -2.938%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_11</b><br><br>metric_1: 3.038% [1.885%, 4.190%]<br>metric_2: 2.514% [1.820%, 3.207%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_12</b><br><br>metric_1: -3.07% [-4.126%, -2.013%]<br>metric_2: -0.597% [-1.279%, 0.086%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_13</b><br><br>metric_1: -2.865% [-3.923%, -1.806%]<br>metric_2: -1.012% [-1.684%, -0.340%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_14</b><br><br>metric_1: -0.817% [-1.903%, 0.268%]<br>metric_2: -0.818% [-1.486%, -0.151%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_15</b><br><br>metric_1: -7.78% [-8.806%, -6.755%]<br>metric_2: -2.407% [-3.066%, -1.748%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_16</b><br><br>metric_1: 2.475% [1.324%, 3.626%]<br>metric_2: 2.558% [1.857%, 3.258%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_17</b><br><br>metric_1: -1.196% [-2.291%, -0.102%]<br>metric_2: 0.348% [-0.325%, 1.022%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_18</b><br><br>metric_1: -1.36% [-2.441%, -0.279%]<br>metric_2: -1.311% [-1.979%, -0.644%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_19</b><br><br>metric_1: -14.817% [-15.752%, -13.882%]<br>metric_2: -3.338% [-4.002%, -2.674%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_20</b><br><br>metric_1: 0.089% [-1.018%, 1.195%]<br>metric_2: -0.069% [-0.736%, 0.599%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_21</b><br><br>metric_1: 0.536% [-0.574%, 1.646%]<br>metric_2: 0.104% [-0.577%, 0.785%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_22</b><br><br>metric_1: 1.815% [0.683%, 2.946%]<br>metric_2: -0.072% [-0.748%, 0.604%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_23</b><br><br>metric_1: -6.471% [-7.486%, -5.456%]<br>metric_2: -3.188% [-3.851%, -2.525%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_24</b><br><br>metric_1: 0.888% [-0.226%, 2.001%]<br>metric_2: 1.96% [1.279%, 2.642%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_25</b><br><br>metric_1: 0.729% [-0.378%, 1.836%]<br>metric_2: 0.013% [-0.661%, 0.686%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_26</b><br><br>metric_1: 0.351% [-0.747%, 1.449%]<br>metric_2: 1.12% [0.441%, 1.799%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_27</b><br><br>metric_1: -6.985% [-7.997%, -5.973%]<br>metric_2: 0.616% [-0.056%, 1.287%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_28</b><br><br>metric_1: -7.506% [-8.510%, -6.502%]<br>metric_2: -2.55% [-3.217%, -1.884%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_29</b><br><br>metric_1: 1.577% [0.452%, 2.702%]<br>metric_2: 5.965% [5.243%, 6.686%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_30</b><br><br>metric_1: -4.596% [-5.641%, -3.550%]<br>metric_2: -2.727% [-3.396%, -2.057%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_31</b><br><br>metric_1: -19.189% [-20.075%, -18.304%]<br>metric_2: -5.859% [-6.515%, -5.204%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_32</b><br><br>metric_1: 3.429% [2.274%, 4.584%]<br>metric_2: 3.197% [2.510%, 3.884%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_33</b><br><br>metric_1: 3.371% [2.213%, 4.529%]<br>metric_2: 3.95% [3.253%, 4.648%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_34</b><br><br>metric_1: -3.89% [-4.978%, -2.802%]<br>metric_2: 2.057% [1.379%, 2.735%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_35</b><br><br>metric_1: 0.614% [-0.501%, 1.729%]<br>metric_2: 0.653% [-0.013%, 1.318%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_36</b><br><br>metric_1: 0.59% [-0.523%, 1.703%]<br>metric_2: 1.287% [0.601%, 1.972%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_37</b><br><br>metric_1: 0.865% [-0.248%, 1.979%]<br>metric_2: 4.621% [3.908%, 5.334%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_38</b><br><br>metric_1: -1.268% [-2.361%, -0.175%]<br>metric_2: -0.762% [-1.440%, -0.085%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_39</b><br><br>metric_1: -0.169% [-1.267%, 0.930%]<br>metric_2: 0.124% [-0.546%, 0.793%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_40</b><br><br>metric_1: -8.624% [-9.617%, -7.631%]<br>metric_2: -3.265% [-3.926%, -2.604%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_41</b><br><br>metric_1: -5.157% [-6.184%, -4.129%]<br>metric_2: -1.741% [-2.399%, -1.084%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_42</b><br><br>metric_1: -4.878% [-5.924%, -3.832%]<br>metric_2: -1.126% [-1.807%, -0.444%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_43</b><br><br>metric_1: -3.655% [-4.706%, -2.605%]<br>metric_2: -1.381% [-2.048%, -0.714%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_44</b><br><br>metric_1: 4.483% [3.314%, 5.652%]<br>metric_2: 7.652% [6.906%, 8.397%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_45</b><br><br>metric_1: -3.06% [-4.117%, -2.004%]<br>metric_2: -2.202% [-2.874%, -1.529%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_46</b><br><br>metric_1: -6.922% [-7.934%, -5.909%]<br>metric_2: -3.063% [-3.731%, -2.396%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_47</b><br><br>metric_1: -3.478% [-4.539%, -2.418%]<br>metric_2: 4.013% [3.302%, 4.724%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_48</b><br><br>metric_1: -4.546% [-5.591%, -3.501%]<br>metric_2: -1.169% [-1.827%, -0.511%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_49</b><br><br>metric_1: -0.305% [-1.403%, 0.792%]<br>metric_2: 0.753% [0.071%, 1.434%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_50</b><br><br>metric_1: 0.367% [-0.736%, 1.470%]<br>metric_2: 2.231% [1.542%, 2.920%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_51</b><br><br>metric_1: -4.597% [-5.631%, -3.562%]<br>metric_2: -1.371% [-2.056%, -0.687%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_52</b><br><br>metric_1: -0.715% [-1.807%, 0.378%]<br>metric_2: 0.898% [0.220%, 1.576%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_53</b><br><br>metric_1: -2.187% [-3.261%, -1.113%]<br>metric_2: -0.924% [-1.595%, -0.252%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_54</b><br><br>metric_1: -3.62% [-4.663%, -2.577%]<br>metric_2: -1.266% [-1.928%, -0.603%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_55</b><br><br>metric_1: -3.085% [-4.149%, -2.022%]<br>metric_2: -1.056% [-1.729%, -0.382%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_56</b><br><br>metric_1: 0.065% [-1.043%, 1.174%]<br>metric_2: 1.104% [0.414%, 1.793%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_57</b><br><br>metric_1: -8.045% [-9.053%, -7.036%]<br>metric_2: -3.231% [-3.897%, -2.565%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_58</b><br><br>metric_1: -2.417% [-3.486%, -1.347%]<br>metric_2: -1.461% [-2.139%, -0.784%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_59</b><br><br>metric_1: 2.155% [1.023%, 3.288%]<br>metric_2: 0.992% [0.310%, 1.673%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_60</b><br><br>metric_1: 3.0% [1.850%, 4.149%]<br>metric_2: 2.8% [2.112%, 3.488%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_61</b><br><br>metric_1: 5.54% [4.346%, 6.735%]<br>metric_2: 10.809% [10.028%, 11.590%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_62</b><br><br>metric_1: -13.137% [-14.095%, -12.178%]<br>metric_2: -3.839% [-4.509%, -3.169%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_63</b><br><br>metric_1: -9.683% [-10.662%, -8.703%]<br>metric_2: -2.765% [-3.432%, -2.099%]<br>Parameterization has too many items to render on hover (15)."
+      ],
+      "type": "scatter",
+      "visible": false,
+      "x": [
+        -0.0,
+        -17.15914516790823,
+        -11.573417823939199,
+        -3.2723491422755444,
+        -2.2143528351212733,
+        -2.893033151686222,
+        -2.068706090724009,
+        -3.550888972902983,
+        -4.089456620979975,
+        -2.4600469634137005,
+        -7.980395623816304,
+        -11.361067490605143,
+        3.037717284235046,
+        -3.069542768219942,
+        -2.864577054527247,
+        -0.8171324453854826,
+        -7.780377203320161,
+        2.475352747757105,
+        -1.1963952539982303,
+        -1.3598025263922875,
+        -14.817429080033943,
+        0.08873184010870934,
+        0.5359430531455063,
+        1.8145980354381517,
+        -6.471358153849177,
+        0.8877430970467538,
+        0.7286746192275023,
+        0.3510369131998831,
+        -6.984895697391649,
+        -7.505623786753492,
+        1.5767742612758522,
+        -4.595608658658678,
+        -19.18909654051259,
+        3.4292680540776312,
+        3.3710456099492796,
+        -3.889937358175768,
+        0.6139708178717305,
+        0.5900679364090252,
+        0.8653940325415319,
+        -1.2680473963845287,
+        -0.1686822762476349,
+        -8.623721510464856,
+        -5.156592129047242,
+        -4.878241533976907,
+        -3.655342272989576,
+        4.483189117418239,
+        -3.0603072946347587,
+        -6.921569399104486,
+        -3.4781006474949763,
+        -4.545929170059967,
+        -0.305361571312272,
+        0.36738131081906034,
+        -4.596829363692114,
+        -0.7145714514809897,
+        -2.1870440120521244,
+        -3.619802243175367,
+        -3.0854247199357574,
+        0.06528116501171306,
+        -8.04466137206524,
+        -2.416515121000999,
+        2.1550821626518215,
+        2.999501801038642,
+        5.540352816509654,
+        -13.136826425368891,
+        -9.682667832954975
+      ],
+      "y": [
+        -0.0,
+        -5.746731056831749,
+        -3.560535696444575,
+        -1.0068955594731426,
+        -0.4205314884998786,
+        -1.5431517157186252,
+        -0.7604599707221315,
+        -1.3210922238627325,
+        -1.5757183832623392,
+        -2.1787372563938,
+        -2.789593215553577,
+        -3.610268946914751,
+        2.5135502228088797,
+        -0.5965513852397577,
+        -1.0116808329390385,
+        -0.8182560448021005,
+        -2.4071834175723335,
+        2.5577489299929255,
+        0.348192434742279,
+        -1.3114357729283859,
+        -3.3382598457223502,
+        -0.06867630083734555,
+        0.10424166292801242,
+        -0.07210829452142886,
+        -3.188401274811581,
+        1.960086317210278,
+        0.012674904654773453,
+        1.1203410785772772,
+        0.6155055435112974,
+        -2.5504391581007666,
+        5.964668435375144,
+        -2.726644960728147,
+        -5.859418405279977,
+        3.1966830537300392,
+        3.950198735676712,
+        2.0568967995693455,
+        0.652872009905956,
+        1.286780707668062,
+        4.62085929335188,
+        -0.7622630447726769,
+        0.123503526062618,
+        -3.2650236570623457,
+        -1.7414179188197445,
+        -1.1257173899572386,
+        -1.3809544654506094,
+        7.651708533863019,
+        -2.2015816842718356,
+        -3.063188080332386,
+        4.012625447421733,
+        -1.168849751600452,
+        0.7526902410881314,
+        2.2308412374353317,
+        -1.371441760784444,
+        0.8978911718791985,
+        -0.9236769844543923,
+        -1.2656161965636414,
+        -1.0555488550285586,
+        1.1039153988973123,
+        -3.2310973947137103,
+        -1.4614566797717248,
+        0.9918050829129264,
+        2.8001328033355772,
+        10.809115959705165,
+        -3.839017981482167,
+        -2.765325873487098
+      ]
+    },
+    {
+      "error_x": {
+        "array": [
+          0.519679694491063,
+          0.88335307050686,
+          0.8975743914252357,
+          0.9577938813905731,
+          1.0023819719211131,
+          0.9820061889890468,
+          1.0176004854105627,
+          1.0263762672877428,
+          1.0275636096519845,
+          1.0193746887608488,
+          0.916083432703784,
+          0.9025141265410419,
+          0.9976700042309349,
+          0.9675641608094314,
+          0.9339587780715942,
+          0.9751163550029528,
+          0.9993620400438821,
+          0.9855064400445553,
+          1.0146354112663012,
+          1.0407275183580311,
+          0.9224511850210951,
+          0.9763571761203539,
+          0.9664081350251404,
+          1.0611749372992225,
+          0.9773860839373052,
+          1.0361129686571937,
+          0.9776433053826088,
+          1.0400450264376087,
+          0.9808828147314957,
+          0.9530223585297241,
+          1.0949551756238667,
+          0.9536874716609144,
+          0.8731389456866112,
+          1.113413943580513,
+          1.0738838172993141,
+          1.063190859550103,
+          1.001098029149985,
+          1.0158881090173169,
+          1.1012053142973943,
+          1.0359491864313648,
+          1.040390283245799,
+          0.9138313633823881,
+          0.9474721883821831,
+          0.9761250322105071,
+          0.9527967869553142,
+          1.1221278238179089,
+          1.0241202093794555,
+          0.9540079892189718,
+          1.0352177365151054,
+          0.9652961241485121,
+          1.0317918377035478,
+          1.0182992379114244,
+          0.9596867116384145,
+          1.0494639420261127,
+          0.9880448109545448,
+          1.016807048576718,
+          1.0112413340872917,
+          0.9465624201725995,
+          0.9585419430225854,
+          0.9969305968367125,
+          1.076749820589946,
+          1.0450033947806288,
+          1.1444594505890884,
+          0.9429073367076843,
+          0.9491755295045419
+        ],
+        "color": "rgba(128,177,211,0.4)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": [
+          0.31765176517185745,
+          0.6049078515379589,
+          0.5795002468244779,
+          0.5787559315877404,
+          0.6044967149558635,
+          0.6018627916254508,
+          0.618074784255102,
+          0.6145941690828405,
+          0.621367372254062,
+          0.5877329592590378,
+          0.5865659507463256,
+          0.5876849491822522,
+          0.6055870784054033,
+          0.5961585160227731,
+          0.5201376008947174,
+          0.5506798878503832,
+          0.6176950225337345,
+          0.6092168684358821,
+          0.5704970367734886,
+          0.6215265882596732,
+          0.6379947246667931,
+          0.5688337056158715,
+          0.5240768589259974,
+          0.576687457500267,
+          0.6321646320584068,
+          0.6147005287440231,
+          0.5927880517000813,
+          0.6150322324121045,
+          0.6485251302435604,
+          0.6147898813213025,
+          0.7022428212414027,
+          0.5737050001461246,
+          0.632501813915944,
+          0.6195217968221698,
+          0.6208121681446654,
+          0.6301144368568449,
+          0.5551636649542485,
+          0.58151596209502,
+          0.6953276915856508,
+          0.5975381608118339,
+          0.6030288258806612,
+          0.5692008399364687,
+          0.5815389178743027,
+          0.6182901297489023,
+          0.5647809250741901,
+          0.7188975765381227,
+          0.6435403120016165,
+          0.5682852095020232,
+          0.6978190184053052,
+          0.5652462612174852,
+          0.5920880187363639,
+          0.6413984882855922,
+          0.5817026475983221,
+          0.6377094082344352,
+          0.6015111443227392,
+          0.6190197217671459,
+          0.597118794048848,
+          0.575212001002251,
+          0.6066643802417007,
+          0.5936055797395957,
+          0.6165378156433154,
+          0.5998900565433238,
+          0.7597731238169674,
+          0.6413457484318048,
+          0.6202250889962738
+        ],
+        "color": "rgba(128,177,211,0.4)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "color": "rgba(128,177,211,1)"
+      },
+      "mode": "markers",
+      "name": "In-sample",
+      "showlegend": true,
+      "text": [
+        "<b>Arm status_quo</b><br><br>metric_1: -0.0% [-0.520%, 0.520%]<br>metric_2: -0.0% [-0.318%, 0.318%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_0</b><br><br>metric_1: -17.039% [-17.922%, -16.155%]<br>metric_2: -5.535% [-6.139%, -4.930%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_1</b><br><br>metric_1: -10.993% [-11.890%, -10.095%]<br>metric_2: -3.418% [-3.998%, -2.839%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_2</b><br><br>metric_1: -3.266% [-4.224%, -2.308%]<br>metric_2: -1.054% [-1.632%, -0.475%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_3</b><br><br>metric_1: -2.216% [-3.219%, -1.214%]<br>metric_2: -0.545% [-1.150%, 0.059%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_4</b><br><br>metric_1: -2.895% [-3.877%, -1.913%]<br>metric_2: -1.595% [-2.197%, -0.993%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_5</b><br><br>metric_1: -2.129% [-3.147%, -1.111%]<br>metric_2: -0.686% [-1.304%, -0.068%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_6</b><br><br>metric_1: -3.565% [-4.592%, -2.539%]<br>metric_2: -1.45% [-2.065%, -0.836%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_7</b><br><br>metric_1: -4.091% [-5.119%, -3.064%]<br>metric_2: -1.542% [-2.163%, -0.920%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_8</b><br><br>metric_1: -2.605% [-3.625%, -1.586%]<br>metric_2: -2.09% [-2.678%, -1.502%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_9</b><br><br>metric_1: -8.122% [-9.038%, -7.206%]<br>metric_2: -2.958% [-3.544%, -2.371%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_10</b><br><br>metric_1: -11.214% [-12.117%, -10.312%]<br>metric_2: -3.422% [-4.010%, -2.835%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_11</b><br><br>metric_1: 2.754% [1.756%, 3.751%]<br>metric_2: 2.471% [1.865%, 3.076%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_12</b><br><br>metric_1: -3.684% [-4.651%, -2.716%]<br>metric_2: -0.757% [-1.353%, -0.161%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_13</b><br><br>metric_1: -2.521% [-3.455%, -1.587%]<br>metric_2: -1.041% [-1.561%, -0.521%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_14</b><br><br>metric_1: -0.7% [-1.675%, 0.275%]<br>metric_2: -0.672% [-1.223%, -0.121%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_15</b><br><br>metric_1: -7.38% [-8.379%, -6.380%]<br>metric_2: -2.059% [-2.677%, -1.442%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_16</b><br><br>metric_1: 2.842% [1.856%, 3.827%]<br>metric_2: 2.851% [2.242%, 3.460%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_17</b><br><br>metric_1: -1.096% [-2.111%, -0.081%]<br>metric_2: 0.317% [-0.254%, 0.887%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_18</b><br><br>metric_1: -1.462% [-2.502%, -0.421%]<br>metric_2: -1.335% [-1.957%, -0.714%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_19</b><br><br>metric_1: -14.835% [-15.758%, -13.913%]<br>metric_2: -3.454% [-4.092%, -2.816%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_20</b><br><br>metric_1: -0.13% [-1.106%, 0.847%]<br>metric_2: -0.083% [-0.652%, 0.486%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_21</b><br><br>metric_1: 0.267% [-0.699%, 1.234%]<br>metric_2: -0.074% [-0.598%, 0.450%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_22</b><br><br>metric_1: 1.659% [0.598%, 2.720%]<br>metric_2: 0.237% [-0.339%, 0.814%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_23</b><br><br>metric_1: -6.422% [-7.400%, -5.445%]<br>metric_2: -3.078% [-3.710%, -2.446%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_24</b><br><br>metric_1: 0.915% [-0.122%, 1.951%]<br>metric_2: 1.865% [1.250%, 2.480%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_25</b><br><br>metric_1: 0.606% [-0.372%, 1.584%]<br>metric_2: 0.049% [-0.543%, 0.642%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_26</b><br><br>metric_1: 0.424% [-0.616%, 1.464%]<br>metric_2: 0.867% [0.252%, 1.482%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_27</b><br><br>metric_1: -7.03% [-8.011%, -6.049%]<br>metric_2: 0.569% [-0.079%, 1.218%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_28</b><br><br>metric_1: -7.371% [-8.324%, -6.418%]<br>metric_2: -2.486% [-3.101%, -1.871%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_29</b><br><br>metric_1: 1.494% [0.399%, 2.589%]<br>metric_2: 5.883% [5.181%, 6.585%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_30</b><br><br>metric_1: -4.797% [-5.751%, -3.844%]<br>metric_2: -2.775% [-3.348%, -2.201%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_31</b><br><br>metric_1: -19.145% [-20.019%, -18.272%]<br>metric_2: -5.795% [-6.428%, -5.163%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_32</b><br><br>metric_1: 3.322% [2.208%, 4.435%]<br>metric_2: 3.101% [2.482%, 3.721%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_33</b><br><br>metric_1: 3.23% [2.156%, 4.304%]<br>metric_2: 3.665% [3.044%, 4.286%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_34</b><br><br>metric_1: -3.674% [-4.737%, -2.611%]<br>metric_2: 2.119% [1.489%, 2.749%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_35</b><br><br>metric_1: 0.74% [-0.261%, 1.741%]<br>metric_2: 0.455% [-0.100%, 1.010%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_36</b><br><br>metric_1: 0.684% [-0.331%, 1.700%]<br>metric_2: 1.625% [1.044%, 2.207%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_37</b><br><br>metric_1: 0.75% [-0.351%, 1.852%]<br>metric_2: 4.62% [3.924%, 5.315%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_38</b><br><br>metric_1: -1.108% [-2.144%, -0.072%]<br>metric_2: -0.614% [-1.212%, -0.017%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_39</b><br><br>metric_1: -0.147% [-1.187%, 0.893%]<br>metric_2: 0.071% [-0.532%, 0.674%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_40</b><br><br>metric_1: -9.054% [-9.968%, -8.141%]<br>metric_2: -3.359% [-3.929%, -2.790%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_41</b><br><br>metric_1: -5.103% [-6.051%, -4.156%]<br>metric_2: -1.792% [-2.373%, -1.210%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_42</b><br><br>metric_1: -4.872% [-5.848%, -3.895%]<br>metric_2: -1.043% [-1.661%, -0.425%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_43</b><br><br>metric_1: -3.563% [-4.516%, -2.610%]<br>metric_2: -1.339% [-1.904%, -0.775%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_44</b><br><br>metric_1: 4.508% [3.385%, 5.630%]<br>metric_2: 7.675% [6.956%, 8.394%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_45</b><br><br>metric_1: -2.947% [-3.971%, -1.923%]<br>metric_2: -2.142% [-2.786%, -1.499%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_46</b><br><br>metric_1: -7.149% [-8.103%, -6.195%]<br>metric_2: -3.337% [-3.906%, -2.769%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_47</b><br><br>metric_1: -3.399% [-4.435%, -2.364%]<br>metric_2: 3.98% [3.282%, 4.677%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_48</b><br><br>metric_1: -4.569% [-5.534%, -3.604%]<br>metric_2: -1.217% [-1.782%, -0.651%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_49</b><br><br>metric_1: -0.254% [-1.286%, 0.778%]<br>metric_2: 0.739% [0.147%, 1.331%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_50</b><br><br>metric_1: 0.198% [-0.821%, 1.216%]<br>metric_2: 2.033% [1.392%, 2.675%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_51</b><br><br>metric_1: -4.326% [-5.286%, -3.367%]<br>metric_2: -1.324% [-1.906%, -0.742%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_52</b><br><br>metric_1: -0.92% [-1.969%, 0.130%]<br>metric_2: 0.703% [0.065%, 1.340%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_53</b><br><br>metric_1: -1.986% [-2.974%, -0.998%]<br>metric_2: -0.86% [-1.461%, -0.258%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_54</b><br><br>metric_1: -3.619% [-4.636%, -2.602%]<br>metric_2: -1.252% [-1.871%, -0.633%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_55</b><br><br>metric_1: -3.003% [-4.014%, -1.992%]<br>metric_2: -1.116% [-1.714%, -0.519%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_56</b><br><br>metric_1: 0.348% [-0.599%, 1.294%]<br>metric_2: 1.08% [0.505%, 1.655%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_57</b><br><br>metric_1: -7.828% [-8.787%, -6.870%]<br>metric_2: -3.203% [-3.810%, -2.597%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_58</b><br><br>metric_1: -2.516% [-3.513%, -1.519%]<br>metric_2: -1.462% [-2.055%, -0.868%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_59</b><br><br>metric_1: 2.023% [0.946%, 3.100%]<br>metric_2: 0.888% [0.271%, 1.504%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_60</b><br><br>metric_1: 2.879% [1.834%, 3.924%]<br>metric_2: 2.743% [2.143%, 3.342%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_61</b><br><br>metric_1: 5.312% [4.168%, 6.457%]<br>metric_2: 10.509% [9.750%, 11.269%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_62</b><br><br>metric_1: -13.047% [-13.990%, -12.104%]<br>metric_2: -3.77% [-4.411%, -3.129%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 0_63</b><br><br>metric_1: -9.553% [-10.502%, -8.603%]<br>metric_2: -2.831% [-3.451%, -2.211%]<br>Parameterization has too many items to render on hover (15)."
+      ],
+      "type": "scatter",
+      "visible": true,
+      "x": [
+        -0.0,
+        -17.038825449852414,
+        -10.99290030625465,
+        -3.2662361432204476,
+        -2.216427443693725,
+        -2.8954802188043067,
+        -2.1290922403563846,
+        -3.565257452440586,
+        -4.091268114562005,
+        -2.605469067927827,
+        -8.121803892438662,
+        -11.214126436301346,
+        2.7537098545932808,
+        -3.6836700860278757,
+        -2.5214462566333085,
+        -0.6999338986160059,
+        -7.379519694901192,
+        2.8415199907257263,
+        -1.095910487490671,
+        -1.461703848371241,
+        -14.835248953386687,
+        -0.12979281189854563,
+        0.26721186628584787,
+        1.6592687161125945,
+        -6.42228279513122,
+        0.9146074703188444,
+        0.6060755935265796,
+        0.42387470424365753,
+        -7.029761241088374,
+        -7.371002642759289,
+        1.4936470769592531,
+        -4.7973890305704225,
+        -19.14543158004127,
+        3.3217164552775147,
+        3.2301373246743106,
+        -3.673910111077782,
+        0.7398469721205765,
+        0.6844405588267656,
+        0.7503459592084366,
+        -1.1079839378757466,
+        -0.14702551028337962,
+        -9.054349858618766,
+        -5.103330004605475,
+        -4.871561920978028,
+        -3.563189768786521,
+        4.507579670470839,
+        -2.9466384430837667,
+        -7.1494455603992595,
+        -3.3994649252549296,
+        -4.569070200468139,
+        -0.25395684326031315,
+        0.19767957816365808,
+        -4.326217278583109,
+        -0.9197763701571198,
+        -1.985684065671418,
+        -3.6192320880919393,
+        -3.0030771283618956,
+        0.347673401959822,
+        -7.828230347896765,
+        -2.5157553152109693,
+        2.023179326878613,
+        2.8787033676712106,
+        5.312325102266963,
+        -13.046886215791275,
+        -9.552598014552856
+      ],
+      "y": [
+        -0.0,
+        -5.5345808124637355,
+        -3.418014693393017,
+        -1.0536724367099042,
+        -0.5452581547744348,
+        -1.5947300280083367,
+        -0.6858794571811208,
+        -1.4504776387928904,
+        -1.5417021466650973,
+        -2.090060162862633,
+        -2.9577200583562826,
+        -3.4224108318780337,
+        2.470639864492421,
+        -0.7571637794131496,
+        -1.041355251644477,
+        -0.6718257643859197,
+        -2.059421922477701,
+        2.8511243243176194,
+        0.31658635418670905,
+        -1.3352563509829531,
+        -3.4542343391423027,
+        -0.08268684831953324,
+        -0.07368123099223547,
+        0.23743323913383288,
+        -3.077729441664184,
+        1.865135716011987,
+        0.04933142861971025,
+        0.8674403815302248,
+        0.5693464544308475,
+        -2.485957640721157,
+        5.8829650052053895,
+        -2.7747053110306026,
+        -5.795052681147138,
+        3.101071996365488,
+        3.6650478940315674,
+        2.1188327469414174,
+        0.45503189894730656,
+        1.6253257646089778,
+        4.619697744157204,
+        -0.6143947043595941,
+        0.07056041543986821,
+        -3.359335350265549,
+        -1.7918504055035054,
+        -1.0430870044145497,
+        -1.339297062763178,
+        7.675050244137191,
+        -2.1423610167674267,
+        -3.3372727600776537,
+        3.9795777498883025,
+        -1.2165437358118913,
+        0.7387349574781508,
+        2.0332625053456987,
+        -1.324146524373517,
+        0.7027693136848123,
+        -0.8595425925886815,
+        -1.2519708017573807,
+        -1.1164566770907614,
+        1.0799015144769097,
+        -3.2033466452058943,
+        -1.4615390053001145,
+        0.8875318661897551,
+        2.7425728955737445,
+        10.509342834673435,
+        -3.7698620714857864,
+        -2.8308594785152392
+      ]
+    },
+    {
+      "error_x": {
+        "array": [
+          5.65295197537662,
+          3.7692808458197473,
+          4.590449454526922
+        ],
+        "color": "rgba(251,128,114,0.4)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": [
+          4.0336450174851395,
+          3.8475981086808932,
+          3.7715458039519048
+        ],
+        "color": "rgba(251,128,114,0.4)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "color": "rgba(251,128,114,1)"
+      },
+      "mode": "markers",
+      "name": "unconstrained",
+      "showlegend": true,
+      "text": [
+        "<b>Arm 8418b23f</b><br><br>metric_1: 6.474% [0.821%, 12.127%]<br>metric_2: 8.473% [4.440%, 12.507%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 53ec7a3c</b><br><br>metric_1: 8.214% [4.445%, 11.983%]<br>metric_2: 9.304% [5.456%, 13.152%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 297ba994</b><br><br>metric_1: 7.161% [2.571%, 11.752%]<br>metric_2: 9.506% [5.735%, 13.278%]<br>Parameterization has too many items to render on hover (15)."
+      ],
+      "type": "scatter",
+      "visible": true,
+      "x": [
+        6.474339129036025,
+        8.214056044248014,
+        7.161214961325715
+      ],
+      "y": [
+        8.473458282095809,
+        9.303942257594834,
+        9.506125780270885
+      ]
+    },
+    {
+      "error_x": {
+        "array": [
+          3.7042781594313428,
+          3.8692174612407104,
+          2.500091796327024
+        ],
+        "color": "rgba(188,128,189,0.4)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": [
+          1.735442188801332,
+          1.8021224983939677,
+          1.2763447396445897
+        ],
+        "color": "rgba(188,128,189,0.4)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "color": "rgba(188,128,189,1)"
+      },
+      "mode": "markers",
+      "name": "loose_constraint",
+      "showlegend": true,
+      "text": [
+        "<b>Arm afb92742</b><br><br>metric_1: 5.058% [1.354%, 8.762%]<br>metric_2: 4.149% [2.414%, 5.884%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm aec463b5</b><br><br>metric_1: 4.904% [1.035%, 8.773%]<br>metric_2: 4.277% [2.475%, 6.079%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 421f7f87</b><br><br>metric_1: 5.476% [2.976%, 7.976%]<br>metric_2: 3.186% [1.910%, 4.462%]<br>Parameterization has too many items to render on hover (15)."
+      ],
+      "type": "scatter",
+      "visible": true,
+      "x": [
+        5.057931186316666,
+        4.903877843567632,
+        5.4762649540634545
+      ],
+      "y": [
+        4.1490479043644575,
+        4.277102863405941,
+        3.185850348373456
+      ]
+    },
+    {
+      "error_x": {
+        "array": [
+          5.126243471341943,
+          8.137474507505091,
+          2.3138907196951677
+        ],
+        "color": "rgba(190,186,218,0.4)",
+        "type": "data"
+      },
+      "error_y": {
+        "array": [
+          1.911375929019474,
+          3.0386455066250373,
+          1.10678041862844
+        ],
+        "color": "rgba(190,186,218,0.4)",
+        "type": "data"
+      },
+      "hoverinfo": "text",
+      "marker": {
+        "color": "rgba(190,186,218,1)"
+      },
+      "mode": "markers",
+      "name": "tight_constraint",
+      "showlegend": true,
+      "text": [
+        "<b>Arm 69e32c73</b><br><br>metric_1: 2.296% [-2.830%, 7.422%]<br>metric_2: 0.709% [-1.203%, 2.620%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 6376f2d6</b><br><br>metric_1: 0.502% [-7.636%, 8.639%]<br>metric_2: -0.511% [-3.550%, 2.527%]<br>Parameterization has too many items to render on hover (15).",
+        "<b>Arm 4de6d382</b><br><br>metric_1: 4.011% [1.697%, 6.325%]<br>metric_2: 0.289% [-0.817%, 1.396%]<br>Parameterization has too many items to render on hover (15)."
+      ],
+      "type": "scatter",
+      "visible": true,
+      "x": [
+        2.296242134053629,
+        0.5018811489608187,
+        4.010675068980523
+      ],
+      "y": [
+        0.7086484514081253,
+        -0.5112261857815802,
+        0.2894418362928115
+      ]
+    }
+  ],
+  "layout": {
+    "annotations": [
+      {
+        "showarrow": false,
+        "text": "Show CI",
+        "x": 1.18,
+        "xref": "paper",
+        "y": 0.7,
+        "yanchor": "middle",
+        "yref": "paper"
+      },
+      {
+        "showarrow": false,
+        "text": "Type",
+        "x": 1.18,
+        "xref": "paper",
+        "y": 0.6,
+        "yanchor": "middle",
+        "yref": "paper"
+      }
+    ],
+    "font": {
+      "size": 10
+    },
+    "height": 600,
+    "hovermode": "closest",
+    "legend": {
+      "x": 1
+    },
+    "template": {
+      "data": {
+        "bar": [
+          {
+            "error_x": {
+              "color": "#2a3f5f"
+            },
+            "error_y": {
+              "color": "#2a3f5f"
+            },
+            "marker": {
+              "line": {
+                "color": "#E5ECF6",
+                "width": 0.5
+              },
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "bar"
+          }
+        ],
+        "barpolar": [
+          {
+            "marker": {
+              "line": {
+                "color": "#E5ECF6",
+                "width": 0.5
+              },
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "barpolar"
+          }
+        ],
+        "carpet": [
+          {
+            "aaxis": {
+              "endlinecolor": "#2a3f5f",
+              "gridcolor": "white",
+              "linecolor": "white",
+              "minorgridcolor": "white",
+              "startlinecolor": "#2a3f5f"
+            },
+            "baxis": {
+              "endlinecolor": "#2a3f5f",
+              "gridcolor": "white",
+              "linecolor": "white",
+              "minorgridcolor": "white",
+              "startlinecolor": "#2a3f5f"
+            },
+            "type": "carpet"
+          }
+        ],
+        "choropleth": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "choropleth"
+          }
+        ],
+        "contour": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "contour"
+          }
+        ],
+        "contourcarpet": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "contourcarpet"
+          }
+        ],
+        "heatmap": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "heatmap"
+          }
+        ],
+        "heatmapgl": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "heatmapgl"
+          }
+        ],
+        "histogram": [
+          {
+            "marker": {
+              "pattern": {
+                "fillmode": "overlay",
+                "size": 10,
+                "solidity": 0.2
+              }
+            },
+            "type": "histogram"
+          }
+        ],
+        "histogram2d": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "histogram2d"
+          }
+        ],
+        "histogram2dcontour": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "histogram2dcontour"
+          }
+        ],
+        "mesh3d": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "type": "mesh3d"
+          }
+        ],
+        "parcoords": [
+          {
+            "line": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "parcoords"
+          }
+        ],
+        "pie": [
+          {
+            "automargin": true,
+            "type": "pie"
+          }
+        ],
+        "scatter": [
+          {
+            "fillpattern": {
+              "fillmode": "overlay",
+              "size": 10,
+              "solidity": 0.2
+            },
+            "type": "scatter"
+          }
+        ],
+        "scatter3d": [
+          {
+            "line": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatter3d"
+          }
+        ],
+        "scattercarpet": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattercarpet"
+          }
+        ],
+        "scattergeo": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattergeo"
+          }
+        ],
+        "scattergl": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattergl"
+          }
+        ],
+        "scattermapbox": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scattermapbox"
+          }
+        ],
+        "scatterpolar": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterpolar"
+          }
+        ],
+        "scatterpolargl": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterpolargl"
+          }
+        ],
+        "scatterternary": [
+          {
+            "marker": {
+              "colorbar": {
+                "outlinewidth": 0,
+                "ticks": ""
+              }
+            },
+            "type": "scatterternary"
+          }
+        ],
+        "surface": [
+          {
+            "colorbar": {
+              "outlinewidth": 0,
+              "ticks": ""
+            },
+            "colorscale": [
+              [
+                0.0,
+                "#0d0887"
+              ],
+              [
+                0.1111111111111111,
+                "#46039f"
+              ],
+              [
+                0.2222222222222222,
+                "#7201a8"
+              ],
+              [
+                0.3333333333333333,
+                "#9c179e"
+              ],
+              [
+                0.4444444444444444,
+                "#bd3786"
+              ],
+              [
+                0.5555555555555556,
+                "#d8576b"
+              ],
+              [
+                0.6666666666666666,
+                "#ed7953"
+              ],
+              [
+                0.7777777777777778,
+                "#fb9f3a"
+              ],
+              [
+                0.8888888888888888,
+                "#fdca26"
+              ],
+              [
+                1.0,
+                "#f0f921"
+              ]
+            ],
+            "type": "surface"
+          }
+        ],
+        "table": [
+          {
+            "cells": {
+              "fill": {
+                "color": "#EBF0F8"
+              },
+              "line": {
+                "color": "white"
+              }
+            },
+            "header": {
+              "fill": {
+                "color": "#C8D4E3"
+              },
+              "line": {
+                "color": "white"
+              }
+            },
+            "type": "table"
+          }
+        ]
+      },
+      "layout": {
+        "annotationdefaults": {
+          "arrowcolor": "#2a3f5f",
+          "arrowhead": 0,
+          "arrowwidth": 1
+        },
+        "autotypenumbers": "strict",
+        "coloraxis": {
+          "colorbar": {
+            "outlinewidth": 0,
+            "ticks": ""
+          }
+        },
+        "colorscale": {
+          "diverging": [
+            [
+              0,
+              "#8e0152"
+            ],
+            [
+              0.1,
+              "#c51b7d"
+            ],
+            [
+              0.2,
+              "#de77ae"
+            ],
+            [
+              0.3,
+              "#f1b6da"
+            ],
+            [
+              0.4,
+              "#fde0ef"
+            ],
+            [
+              0.5,
+              "#f7f7f7"
+            ],
+            [
+              0.6,
+              "#e6f5d0"
+            ],
+            [
+              0.7,
+              "#b8e186"
+            ],
+            [
+              0.8,
+              "#7fbc41"
+            ],
+            [
+              0.9,
+              "#4d9221"
+            ],
+            [
+              1,
+              "#276419"
+            ]
+          ],
+          "sequential": [
+            [
+              0.0,
+              "#0d0887"
+            ],
+            [
+              0.1111111111111111,
+              "#46039f"
+            ],
+            [
+              0.2222222222222222,
+              "#7201a8"
+            ],
+            [
+              0.3333333333333333,
+              "#9c179e"
+            ],
+            [
+              0.4444444444444444,
+              "#bd3786"
+            ],
+            [
+              0.5555555555555556,
+              "#d8576b"
+            ],
+            [
+              0.6666666666666666,
+              "#ed7953"
+            ],
+            [
+              0.7777777777777778,
+              "#fb9f3a"
+            ],
+            [
+              0.8888888888888888,
+              "#fdca26"
+            ],
+            [
+              1.0,
+              "#f0f921"
+            ]
+          ],
+          "sequentialminus": [
+            [
+              0.0,
+              "#0d0887"
+            ],
+            [
+              0.1111111111111111,
+              "#46039f"
+            ],
+            [
+              0.2222222222222222,
+              "#7201a8"
+            ],
+            [
+              0.3333333333333333,
+              "#9c179e"
+            ],
+            [
+              0.4444444444444444,
+              "#bd3786"
+            ],
+            [
+              0.5555555555555556,
+              "#d8576b"
+            ],
+            [
+              0.6666666666666666,
+              "#ed7953"
+            ],
+            [
+              0.7777777777777778,
+              "#fb9f3a"
+            ],
+            [
+              0.8888888888888888,
+              "#fdca26"
+            ],
+            [
+              1.0,
+              "#f0f921"
+            ]
+          ]
+        },
+        "colorway": [
+          "#636efa",
+          "#EF553B",
+          "#00cc96",
+          "#ab63fa",
+          "#FFA15A",
+          "#19d3f3",
+          "#FF6692",
+          "#B6E880",
+          "#FF97FF",
+          "#FECB52"
+        ],
+        "font": {
+          "color": "#2a3f5f"
+        },
+        "geo": {
+          "bgcolor": "white",
+          "lakecolor": "white",
+          "landcolor": "#E5ECF6",
+          "showlakes": true,
+          "showland": true,
+          "subunitcolor": "white"
+        },
+        "hoverlabel": {
+          "align": "left"
+        },
+        "hovermode": "closest",
+        "mapbox": {
+          "style": "light"
+        },
+        "paper_bgcolor": "white",
+        "plot_bgcolor": "#E5ECF6",
+        "polar": {
+          "angularaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "bgcolor": "#E5ECF6",
+          "radialaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          }
+        },
+        "scene": {
+          "xaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          },
+          "yaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          },
+          "zaxis": {
+            "backgroundcolor": "#E5ECF6",
+            "gridcolor": "white",
+            "gridwidth": 2,
+            "linecolor": "white",
+            "showbackground": true,
+            "ticks": "",
+            "zerolinecolor": "white"
+          }
+        },
+        "shapedefaults": {
+          "line": {
+            "color": "#2a3f5f"
+          }
+        },
+        "ternary": {
+          "aaxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "baxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          },
+          "bgcolor": "#E5ECF6",
+          "caxis": {
+            "gridcolor": "white",
+            "linecolor": "white",
+            "ticks": ""
+          }
+        },
+        "title": {
+          "x": 0.05
+        },
+        "xaxis": {
+          "automargin": true,
+          "gridcolor": "white",
+          "linecolor": "white",
+          "ticks": "",
+          "title": {
+            "standoff": 15
+          },
+          "zerolinecolor": "white",
+          "zerolinewidth": 2
+        },
+        "yaxis": {
+          "automargin": true,
+          "gridcolor": "white",
+          "linecolor": "white",
+          "ticks": "",
+          "title": {
+            "standoff": 15
+          },
+          "zerolinecolor": "white",
+          "zerolinewidth": 2
+        }
+      }
+    },
+    "title": {
+      "text": "Objective Tradeoffs"
+    },
+    "updatemenus": [
+      {
+        "buttons": [
+          {
+            "args": [
+              {
+                "error_x.thickness": 2,
+                "error_x.width": 4,
+                "error_y.thickness": 2,
+                "error_y.width": 4
+              }
+            ],
+            "label": "Yes",
+            "method": "restyle"
+          },
+          {
+            "args": [
+              {
+                "error_x.thickness": 0,
+                "error_x.width": 0,
+                "error_y.thickness": 0,
+                "error_y.width": 0
+              }
+            ],
+            "label": "No",
+            "method": "restyle"
+          }
+        ],
+        "x": 1.25,
+        "xanchor": "left",
+        "y": 0.67,
+        "yanchor": "middle"
+      },
+      {
+        "buttons": [
+          {
+            "args": [
+              {
+                "visible": [
+                  false,
+                  true,
+                  true,
+                  true,
+                  true
+                ]
+              }
+            ],
+            "label": "Modeled",
+            "method": "restyle"
+          },
+          {
+            "args": [
+              {
+                "visible": [
+                  true,
+                  false,
+                  false,
+                  false,
+                  false
+                ]
+              }
+            ],
+            "label": "Observed",
+            "method": "restyle"
+          }
+        ],
+        "x": 1.25,
+        "xanchor": "left",
+        "y": 0.57,
+        "yanchor": "middle"
+      }
+    ],
+    "width": 800,
+    "xaxis": {
+      "title": {
+        "text": "metric_1"
+      },
+      "zeroline": true,
+      "zerolinecolor": "red"
+    },
+    "yaxis": {
+      "title": {
+        "text": "metric_2"
+      },
+      "zeroline": true,
+      "zerolinecolor": "red"
+    }
+  }
+}
