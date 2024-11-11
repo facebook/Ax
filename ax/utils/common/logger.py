@@ -150,6 +150,20 @@ def set_stderr_log_level(level: int) -> None:
     ROOT_STREAM_HANDLER.setLevel(level)
 
 
+def set_ax_logger_levels(level: int) -> None:
+    """Set the log level for all Ax loggers, such that logs of given level
+    are printed to STDERR by the root logger
+    """
+
+    for axLogger in logging.Logger.manager.loggerDict.values():
+        if isinstance(axLogger, logging.Logger) and axLogger.name.startswith(
+            AX_ROOT_LOGGER_NAME
+        ):
+            axLogger.setLevel(level)
+
+    set_stderr_log_level(level)
+
+
 class disable_logger(ClassDecorator):
     def __init__(self, name: str, level: int = logging.ERROR) -> None:
         """Disables a specific logger by name (e.g. module path) by setting the
