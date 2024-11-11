@@ -297,9 +297,10 @@ def sanitize_mdx(mdx: str) -> str:
     # Remove any HTML comments from the Markdown. They are fine to keep in the
     # notebooks, but are not really useful in the MDX.
     mdx = re.sub("(<!--.*?-->)", "", mdx, flags=re.DOTALL)
-    # "\" Escape brackets to make the text MDX compatible.
-    mdx = re.sub("([^\\\\]){", "\\g<1>\\{", mdx)
-    mdx = re.sub("([^\\\\])}", "\\g<1>\\}", mdx)
+    # "\" Escape braces to make the text MDX compatible.
+    mdx = re.sub("([^\\\\])([{}])", "\\g<1>\\\\\\g<2>", mdx)
+    # Escaping braces causes issues in math blocks, unescape them.
+    mdx = re.sub("\\$(.*?)\\$", lambda match: match[0].replace("\\{", "{").replace("\\}", "}"), mdx)
 
     return mdx
 
