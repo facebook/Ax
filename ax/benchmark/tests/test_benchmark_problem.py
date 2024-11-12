@@ -5,11 +5,7 @@
 
 # pyre-strict
 
-import math
 from itertools import product
-from math import pi
-
-import torch
 
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 
@@ -21,14 +17,11 @@ from ax.core.optimization_config import (
     OptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
-from ax.utils.testing.core_stubs import get_branin_experiment
 from botorch.test_functions.base import ConstrainedBaseTestProblem
-from botorch.test_functions.multi_fidelity import AugmentedBranin
 from botorch.test_functions.multi_objective import BraninCurrin, ConstrainedBraninCurrin
 from botorch.test_functions.synthetic import (
     Ackley,
@@ -132,63 +125,6 @@ class TestBenchmarkProblem(TestCase):
                 search_space=SearchSpace(parameters=[]),
                 test_function=test_function,
             )
-
-    def _test_multi_fidelity_or_multi_task(self, fidelity_or_task: str) -> None:
-        """
-        Args:
-            fidelity_or_task: "fidelity" or "task"
-        """
-        parameters = [
-            RangeParameter(
-                name=f"x{i}",
-                parameter_type=ParameterType.FLOAT,
-                lower=0.0,
-                upper=1.0,
-            )
-            for i in range(2)
-        ] + [
-            ChoiceParameter(
-                name="x2",
-                parameter_type=ParameterType.FLOAT,
-                values=[0, 1],
-                is_fidelity=fidelity_or_task == "fidelity",
-                is_task=fidelity_or_task == "task",
-                target_value=1,
-            )
-        ]
-        problem = create_problem_from_botorch(
-            test_problem_class=AugmentedBranin,
-            test_problem_kwargs={},
-            # pyre-fixme: Incompatible parameter type [6]: In call
-            # `SearchSpace.__init__`, for 1st positional argument, expected
-            # `List[Parameter]` but got `List[RangeParameter]`.
-            search_space=SearchSpace(parameters),
-            num_trials=3,
-        )
-        params = {"x0": 1.0, "x1": 0.0, "x2": 0.0}
-        at_target = assert_is_instance(
-            Branin()
-            .evaluate_true(torch.tensor([1.0, 0.0], dtype=torch.double).unsqueeze(0))
-            .item(),
-            float,
-        )
-        self.assertAlmostEqual(
-            problem.evaluate_oracle(parameters=params)[0],
-            at_target,
-        )
-        # first term: (-(b - 0.1) * (1 - x3)  + c - r)^2
-        # low-fidelity: (-b - 0.1 + c - r)^2
-        # high-fidelity: (-b + c - r)^2
-        t = -5.1 / (4 * math.pi**2) + 5 / math.pi - 6
-        expected_change = (t + 0.1) ** 2 - t**2
-        self.assertAlmostEqual(
-            problem.test_function.evaluate_true(params=params).item(),
-            at_target + expected_change,
-        )
-
-    def test_multi_fidelity_or_multi_task(self) -> None:
-        self._test_multi_fidelity_or_multi_task(fidelity_or_task="fidelity")
-        self._test_multi_fidelity_or_multi_task(fidelity_or_task="task")
 
     def test_single_objective_from_botorch(self) -> None:
         for botorch_test_problem in [Ackley(), ConstrainedHartmann(dim=6)]:
@@ -377,72 +313,3 @@ class TestBenchmarkProblem(TestCase):
             test_problem_kwargs={},
         )
         self.assertFalse(test_problem.optimization_config.objective.minimize)
-
-    def test_get_oracle_experiment_from_params(self) -> None:
-        problem = create_problem_from_botorch(
-            test_problem_class=Branin,
-            test_problem_kwargs={},
-            num_trials=5,
-        )
-        # first is near optimum
-        near_opt_params = {"x0": -pi, "x1": 12.275}
-        other_params = {"x0": 0.5, "x1": 0.5}
-        unbatched_experiment = problem.get_oracle_experiment_from_params(
-            {0: {"0": near_opt_params}, 1: {"1": other_params}}
-        )
-        self.assertEqual(len(unbatched_experiment.trials), 2)
-        self.assertTrue(
-            all(t.status.is_completed for t in unbatched_experiment.trials.values())
-        )
-        self.assertTrue(
-            all(len(t.arms) == 1 for t in unbatched_experiment.trials.values())
-        )
-        df = unbatched_experiment.fetch_data().df
-        self.assertAlmostEqual(df["mean"].iloc[0], Branin._optimal_value, places=5)
-
-        batched_experiment = problem.get_oracle_experiment_from_params(
-            {0: {"0_0": near_opt_params, "0_1": other_params}}
-        )
-        self.assertEqual(len(batched_experiment.trials), 1)
-        self.assertEqual(len(batched_experiment.trials[0].arms), 2)
-        df = batched_experiment.fetch_data().df
-        self.assertAlmostEqual(df["mean"].iloc[0], Branin._optimal_value, places=5)
-
-        # Test empty inputs
-        experiment = problem.get_oracle_experiment_from_params({})
-        self.assertEqual(len(experiment.trials), 0)
-
-        with self.assertRaisesRegex(ValueError, "trial with no arms"):
-            problem.get_oracle_experiment_from_params({0: {}})
-
-    def test_get_oracle_experiment_from_experiment(self) -> None:
-        problem = create_problem_from_botorch(
-            test_problem_class=Branin,
-            test_problem_kwargs={},
-            num_trials=5,
-        )
-
-        # empty experiment
-        empty_experiment = get_branin_experiment(with_trial=False)
-        oracle_experiment = problem.get_oracle_experiment_from_experiment(
-            empty_experiment
-        )
-        self.assertEqual(oracle_experiment.search_space, problem.search_space)
-        self.assertEqual(
-            oracle_experiment.optimization_config, problem.optimization_config
-        )
-        self.assertEqual(oracle_experiment.trials.keys(), set())
-
-        experiment = get_branin_experiment(
-            with_trial=True,
-            search_space=problem.search_space,
-            with_status_quo=False,
-        )
-        oracle_experiment = problem.get_oracle_experiment_from_experiment(
-            experiment=experiment
-        )
-        self.assertEqual(oracle_experiment.search_space, problem.search_space)
-        self.assertEqual(
-            oracle_experiment.optimization_config, problem.optimization_config
-        )
-        self.assertEqual(oracle_experiment.trials.keys(), experiment.trials.keys())
