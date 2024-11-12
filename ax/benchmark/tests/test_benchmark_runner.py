@@ -16,7 +16,10 @@ import torch
 from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
-from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_benchmark_problem
+from ax.benchmark.problems.synthetic.hss.jenatton import (
+    get_jenatton_benchmark_problem,
+    Jenatton,
+)
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.trial import Trial
@@ -25,16 +28,51 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.benchmark_stubs import (
     DummyTestFunction,
+    get_jenatton_trials,
     get_soo_surrogate_test_function,
 )
 from botorch.test_functions.synthetic import Ackley, ConstrainedHartmann, Hartmann
 from botorch.utils.transforms import normalize
+from pyre_extensions import none_throws
 
 
 class TestBenchmarkRunner(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.maxDiff = None
+
+    def test_simulated_backend_runner(self) -> None:
+        # Initialize
+        runner = BenchmarkRunner(
+            test_function=Jenatton(outcome_names=["objective"]),
+            trial_runtime_func=lambda trial: trial.index + 1,
+            max_concurrency=2,
+        )
+        simulated_backend_runner = none_throws(runner.simulated_backend_runner)
+        simulator = simulated_backend_runner.simulator
+        self.assertEqual(simulator.max_concurrency, 2)
+        self.assertTrue(simulator.use_internal_clock)
+        self.assertEqual(simulator.time, 0)
+        trials = get_jenatton_trials(n_trials=3)
+
+        # Run trials in parallel
+        runner.run(trial=trials[0])
+        runner.run(trial=trials[1])
+        self.assertEqual(simulator.time, 0)
+
+        # Check status (updating clock)
+        statuses = runner.poll_trial_status(trials=[trials[0], trials[1]])
+        self.assertEqual(simulator.time, 1)
+        self.assertEqual(statuses[TrialStatus.COMPLETED], {0})
+        self.assertEqual(statuses[TrialStatus.RUNNING], {1})
+
+        # Run another trial
+        runner.run(trial=trials[2])
+        self.assertEqual(simulator.time, 1)
+        statuses = runner.poll_trial_status(trials=list(trials.values()))
+        self.assertEqual(simulator.time, 2)
+        self.assertEqual(statuses[TrialStatus.COMPLETED], {0, 1})
+        self.assertEqual(statuses[TrialStatus.RUNNING], {2})
 
     def test_runner(self) -> None:
         botorch_cases = [

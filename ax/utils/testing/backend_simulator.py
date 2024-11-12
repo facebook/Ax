@@ -371,7 +371,7 @@ class BackendSimulator:
             completed=[t.trial_index for t in self._completed],
         )
 
-    def lookup_trial_index_status(self, trial_index: int) -> TrialStatus | None:
+    def lookup_trial_index_status(self, trial_index: int) -> TrialStatus:
         """Lookup the trial status of a ``trial_index``.
 
         Args:
@@ -389,7 +389,7 @@ class BackendSimulator:
             return TrialStatus.COMPLETED
         elif trial_index in sim_status.failed:
             return TrialStatus.FAILED
-        return None
+        raise ValueError(f"Trial {trial_index} not found in simulator.")
 
     def get_sim_trial_by_index(self, trial_index: int) -> SimTrial | None:
         """Get a ``SimTrial`` by ``trial_index``.
