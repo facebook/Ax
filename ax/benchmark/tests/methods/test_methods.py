@@ -10,7 +10,6 @@ from unittest.mock import patch
 
 import numpy as np
 from ax.benchmark.benchmark import benchmark_replication, get_benchmark_runner
-from ax.benchmark.benchmark_method import get_benchmark_scheduler_options
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.benchmark.problems.registry import get_problem
@@ -21,7 +20,6 @@ from ax.service.utils.best_point import (
     get_best_by_raw_objective_with_trial_index,
     get_best_parameters_from_model_predictions_with_trial_index,
 )
-from ax.service.utils.scheduler_options import SchedulerOptions
 from ax.utils.common.random import with_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -34,27 +32,16 @@ from pyre_extensions import none_throws
 
 
 class TestMethods(TestCase):
-    def setUp(self) -> None:
-        super().setUp()
-        self.batch_size = 2
-        self.scheduler_options_dict: dict[str, SchedulerOptions] = {
-            "sequential": get_benchmark_scheduler_options(),
-            "batch": get_benchmark_scheduler_options(batch_size=self.batch_size),
-        }
-
-    def _test_mbm_acquisition(self, scheduler_options: SchedulerOptions) -> None:
+    def _test_mbm_acquisition(self, batch_size: int) -> None:
         method = get_sobol_botorch_modular_acquisition(
             model_cls=SingleTaskGP,
             acquisition_cls=qKnowledgeGradient,
-            scheduler_options=scheduler_options,
+            batch_size=batch_size,
             distribute_replications=False,
         )
-        is_batched = (
-            scheduler_options.batch_size is not None
-            and scheduler_options.batch_size > 1
-        )
+        is_batched = batch_size > 1
         expected_name = "MBM::SingleTaskGP_qKnowledgeGradient" + (
-            f"_q{self.batch_size}" if is_batched else ""
+            f"_q{batch_size}" if is_batched else ""
         )
         self.assertEqual(method.name, expected_name)
         gs = method.generation_strategy
@@ -69,18 +56,18 @@ class TestMethods(TestCase):
         )
 
     def test_mbm_acquisition(self) -> None:
-        for name, scheduler_options in self.scheduler_options_dict.items():
-            with self.subTest(name=name):
-                self._test_mbm_acquisition(scheduler_options=scheduler_options)
+        for batch_size in [1, 2]:
+            with self.subTest(batch_size=batch_size):
+                self._test_mbm_acquisition(batch_size=batch_size)
 
     @mock_botorch_optimize
     def _test_benchmark_replication_runs(
-        self, scheduler_options: SchedulerOptions, acqf_cls: type[AcquisitionFunction]
+        self, batch_size: int, acqf_cls: type[AcquisitionFunction]
     ) -> None:
         problem = get_problem(problem_key="ackley4")
         method = get_sobol_botorch_modular_acquisition(
             model_cls=SingleTaskGP,
-            scheduler_options=scheduler_options,
+            batch_size=batch_size,
             acquisition_cls=acqf_cls,
             num_sobol_trials=2,
             name="test",
@@ -96,36 +83,30 @@ class TestMethods(TestCase):
         self.assertTrue(np.isfinite(result.score_trace).all())
         self.assertEqual(result.optimization_trace.shape, (n_total_trials,))
 
-        expected_n_arms_per_batch = (
-            1 if (batch_size := scheduler_options.batch_size) is None else batch_size
-        )
         self.assertEqual(
             len(none_throws(result.experiment).arms_by_name),
-            n_total_trials * expected_n_arms_per_batch,
+            n_total_trials * batch_size,
         )
 
     def test_benchmark_replication_runs(self) -> None:
         with self.subTest(name="sequential LogEI"):
             self._test_benchmark_replication_runs(
-                scheduler_options=self.scheduler_options_dict["sequential"],
+                batch_size=1,
                 acqf_cls=LogExpectedImprovement,
             )
         with self.subTest(name="sequential qLogEI"):
             self._test_benchmark_replication_runs(
-                scheduler_options=self.scheduler_options_dict["sequential"],
+                batch_size=1,
                 acqf_cls=qLogExpectedImprovement,
             )
         with self.subTest(name="batch qLogEI"):
             self._test_benchmark_replication_runs(
-                scheduler_options=self.scheduler_options_dict["batch"],
+                batch_size=2,
                 acqf_cls=qLogExpectedImprovement,
             )
 
     def test_sobol(self) -> None:
-        method = get_sobol_benchmark_method(
-            scheduler_options=get_benchmark_scheduler_options(),
-            distribute_replications=False,
-        )
+        method = get_sobol_benchmark_method(distribute_replications=False)
         self.assertEqual(method.name, "Sobol")
         gs = method.generation_strategy
         self.assertEqual(len(gs._steps), 1)

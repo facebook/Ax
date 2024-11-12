@@ -28,7 +28,6 @@ from ax.modelbridge.registry import Models
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
-from ax.service.scheduler import SchedulerOptions
 from ax.utils.common.constants import Keys
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -207,9 +206,6 @@ def get_sobol_gpei_benchmark_method() -> BenchmarkMethod:
                     },
                 ),
             ],
-        ),
-        scheduler_options=SchedulerOptions(
-            total_trials=4, init_seconds_between_polls=0
         ),
     )
 
