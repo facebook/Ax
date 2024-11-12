@@ -9,9 +9,6 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-import numpy as np
-import numpy.typing as npt
-
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
@@ -143,20 +140,6 @@ class BenchmarkProblem(Base):
             for p in self.search_space.parameters.values()
             if (isinstance(p, ChoiceParameter) and p.is_task) or p.is_fidelity
         }
-
-    def evaluate_oracle(self, parameters: Mapping[str, TParamValue]) -> npt.NDArray:
-        """
-        Evaluate oracle metric values at a parameterization. In the base class,
-        oracle values are underlying noiseless function values evaluated at the
-        target task and fidelity (if applicable).
-
-        This method can be customized for more complex setups based on different
-        notions of what the "oracle" value should be. For example, with a
-        preference-learned objective, the values might be true metrics evaluated
-        at the true utility function (which would be unobserved in reality).
-        """
-        params = {**parameters, **self.target_fidelity_and_task}
-        return np.atleast_1d(self.test_function.evaluate_true(params=params).numpy())
 
     @property
     def is_moo(self) -> bool:
