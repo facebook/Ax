@@ -6,18 +6,14 @@
 # pyre-strict
 
 
-from ax.benchmark.benchmark_method import (
-    BenchmarkMethod,
-    get_benchmark_scheduler_options,
-)
+from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
-from ax.service.scheduler import SchedulerOptions
 
 
 def get_sobol_benchmark_method(
     distribute_replications: bool,
-    scheduler_options: SchedulerOptions | None = None,
+    batch_size: int = 1,
 ) -> BenchmarkMethod:
     generation_strategy = GenerationStrategy(
         name="Sobol",
@@ -25,8 +21,7 @@ def get_sobol_benchmark_method(
     )
 
     return BenchmarkMethod(
-        name=generation_strategy.name,
         generation_strategy=generation_strategy,
-        scheduler_options=scheduler_options or get_benchmark_scheduler_options(),
+        batch_size=batch_size,
         distribute_replications=distribute_replications,
     )

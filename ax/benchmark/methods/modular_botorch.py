@@ -7,15 +7,11 @@
 
 from typing import Any
 
-from ax.benchmark.benchmark_method import (
-    BenchmarkMethod,
-    get_benchmark_scheduler_options,
-)
+from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.modelbridge.generation_node import GenerationStep
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
-from ax.service.scheduler import SchedulerOptions
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import LogExpectedImprovement
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
@@ -44,11 +40,11 @@ def get_sobol_botorch_modular_acquisition(
     model_cls: type[Model],
     acquisition_cls: type[AcquisitionFunction],
     distribute_replications: bool,
-    scheduler_options: SchedulerOptions | None = None,
     name: str | None = None,
     num_sobol_trials: int = 5,
     model_gen_kwargs: dict[str, Any] | None = None,
     use_model_predictions_for_best_point: bool = False,
+    batch_size: int = 1,
 ) -> BenchmarkMethod:
     """Get a `BenchmarkMethod` that uses Sobol followed by MBM.
 
@@ -106,13 +102,7 @@ def get_sobol_botorch_modular_acquisition(
     )
     # Historically all benchmarks were sequential, so sequential benchmarks
     # don't get anything added to their name, for continuity
-    batch_suffix = ""
-    if (
-        scheduler_options is not None
-        and (batch_size := scheduler_options.batch_size) is not None
-    ):
-        if batch_size > 1:
-            batch_suffix = f"_q{batch_size}"
+    batch_suffix = f"_q{batch_size}" if batch_size > 1 else ""
 
     name = name or f"MBM::{model_name}_{acqf_name}{batch_suffix}"
 
@@ -134,9 +124,8 @@ def get_sobol_botorch_modular_acquisition(
     )
 
     return BenchmarkMethod(
-        name=generation_strategy.name,
         generation_strategy=generation_strategy,
-        scheduler_options=scheduler_options or get_benchmark_scheduler_options(),
         distribute_replications=distribute_replications,
         use_model_predictions_for_best_point=use_model_predictions_for_best_point,
+        batch_size=batch_size,
     )
