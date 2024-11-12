@@ -897,7 +897,13 @@ class AxSchedulerTestCase(TestCase):
         )
         scheduler.run_n_trials(max_trials=10)
         self.assertEqual(len(scheduler.experiment.trials), 5)
-        self.assertEqual(scheduler.estimate_global_stopping_savings(), 0.5)
+        self.assertIsNotNone(scheduler.options.global_stopping_strategy)
+        self.assertEqual(
+            scheduler.options.global_stopping_strategy.estimate_global_stopping_savings(
+                scheduler.experiment, scheduler._num_remaining_requested_trials
+            ),
+            0.5,
+        )
 
     def test_ignore_global_stopping(self) -> None:
         gs = self._get_generation_strategy_strategy_for_test(
@@ -1561,7 +1567,13 @@ class AxSchedulerTestCase(TestCase):
             # "type1"
             expected_num_rows = 4
         self.assertEqual(len(fetched_data.map_df), expected_num_rows)
-        self.assertAlmostEqual(scheduler.estimate_early_stopping_savings(), 0.5)
+        self.assertIsNotNone(scheduler.options.early_stopping_strategy)
+        self.assertAlmostEqual(
+            scheduler.options.early_stopping_strategy.estimate_early_stopping_savings(
+                scheduler.experiment
+            ),
+            0.5,
+        )
 
     def test_scheduler_with_metric_with_new_data_after_completion(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
