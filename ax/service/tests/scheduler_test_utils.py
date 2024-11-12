@@ -6,11 +6,11 @@
 
 # pyre-strict
 
+import logging
 import os
 import re
 from collections.abc import Iterable
 from datetime import datetime, timedelta
-from logging import DEBUG, WARNING
 from math import ceil
 from random import randint
 from tempfile import NamedTemporaryFile
@@ -66,6 +66,7 @@ from ax.storage.sqa_store.save import save_experiment
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.structs import DBSettings
 from ax.utils.common.constants import Keys
+from ax.utils.common.logger import AX_ROOT_LOGGER_NAME
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.common.typeutils import checked_cast
@@ -1016,50 +1017,27 @@ class AxSchedulerTestCase(TestCase):
             generation_strategy=self.sobol_MBM_GS,
         )
 
-        testScheduler = Scheduler(
+        Scheduler(
             experiment=self.branin_experiment,
             generation_strategy=gs,
             options=SchedulerOptions(
-                total_trials=3,
-                init_seconds_between_polls=0,  # No wait bw polls so test is fast.
-                logging_level=DEBUG,
+                logging_level=logging.DEBUG,
                 **self.scheduler_options_kwargs,
             ),
             db_settings=self.db_settings_if_always_needed,
         )
 
-        self.assertTrue(testScheduler.logger.isEnabledFor(DEBUG))
+        for logger in logging.Logger.manager.loggerDict.values():
+            if isinstance(logger, logging.Logger) and logger.name.startswith(
+                AX_ROOT_LOGGER_NAME
+            ):
+                self.assertTrue(logger.isEnabledFor(logging.DEBUG))
 
-    def test_logging_level_warn(self) -> None:
+    def test_logging_file_stream(self) -> None:
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
             generation_strategy=self.sobol_MBM_GS,
         )
-        # We don't have any warnings yet, so warning level of logging shouldn't yield
-        # any logs as of now.
-        with NamedTemporaryFile() as temp_file:
-            Scheduler(
-                experiment=self.branin_experiment,
-                generation_strategy=gs,
-                options=SchedulerOptions(
-                    total_trials=3,
-                    init_seconds_between_polls=0,  # No wait bw polls so test is fast.
-                    log_filepath=temp_file.name,
-                    logging_level=WARNING,
-                    **self.scheduler_options_kwargs,
-                ),
-                db_settings=self.db_settings_if_always_needed,
-            ).run_all_trials()
-            # Ensure that the temp file remains empty
-            self.assertEqual(os.stat(temp_file.name).st_size, 0)
-            temp_file.close()
-
-    def test_logging_level_debug(self) -> None:
-        gs = self._get_generation_strategy_strategy_for_test(
-            experiment=self.branin_experiment,
-            generation_strategy=self.sobol_MBM_GS,
-        )
-        testInfoMessage = "testInfoMessage"
         testDebugMessage = "testDebugMessage"
 
         with NamedTemporaryFile() as temp_file:
@@ -1067,21 +1045,43 @@ class AxSchedulerTestCase(TestCase):
                 experiment=self.branin_experiment,
                 generation_strategy=gs,
                 options=SchedulerOptions(
-                    total_trials=3,
-                    init_seconds_between_polls=0,  # No wait bw polls so test is fast.
+                    logging_level=logging.DEBUG,
                     log_filepath=temp_file.name,
-                    logging_level=DEBUG,
                     **self.scheduler_options_kwargs,
                 ),
                 db_settings=self.db_settings_if_always_needed,
             )
+
             testScheduler.logger.debug(testDebugMessage)
-            testScheduler.logger.info(testInfoMessage)
+
             with open(temp_file.name, "r") as f:
                 log_contents = f.read()
                 self.assertIn(testDebugMessage, log_contents)
-                self.assertIn(testInfoMessage, log_contents)
             temp_file.close()
+
+    def test_logging_levels(self) -> None:
+        gs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=self.sobol_MBM_GS,
+        )
+        testDebugMessage = "testDebugMessage"
+        testInfoMessage = "testInfoMessage"
+
+        testScheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=SchedulerOptions(
+                **self.scheduler_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+
+        with self.assertLogs(AX_ROOT_LOGGER_NAME, level=logging.DEBUG) as lg:
+            testScheduler.logger.info(testInfoMessage)
+            testScheduler.logger.debug(testDebugMessage)
+
+        self.assertFalse(any(testDebugMessage in log for log in lg.output))
+        self.assertTrue(any(testInfoMessage in log for log in lg.output))
 
     def test_retries(self) -> None:
         gs = self._get_generation_strategy_strategy_for_test(
