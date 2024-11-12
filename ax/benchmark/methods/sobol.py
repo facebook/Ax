@@ -11,17 +11,21 @@ from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrateg
 from ax.modelbridge.registry import Models
 
 
+def get_sobol_generation_strategy() -> GenerationStrategy:
+    return GenerationStrategy(
+        name="Sobol",
+        steps=[
+            GenerationStep(model=Models.SOBOL, num_trials=-1),
+        ],
+    )
+
+
 def get_sobol_benchmark_method(
     distribute_replications: bool,
     batch_size: int = 1,
 ) -> BenchmarkMethod:
-    generation_strategy = GenerationStrategy(
-        name="Sobol",
-        steps=[GenerationStep(model=Models.SOBOL, num_trials=-1)],
-    )
-
     return BenchmarkMethod(
-        generation_strategy=generation_strategy,
+        generation_strategy=get_sobol_generation_strategy(),
         batch_size=batch_size,
         distribute_replications=distribute_replications,
     )

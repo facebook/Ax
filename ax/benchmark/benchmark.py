@@ -23,6 +23,7 @@ from collections.abc import Iterable
 from itertools import product
 from logging import Logger
 from time import monotonic, time
+from typing import Set
 
 import numpy as np
 import numpy.typing as npt
@@ -66,10 +67,30 @@ def compute_score_trace(
     return score_trace.clip(min=0, max=100)
 
 
-def get_benchmark_runner(problem: BenchmarkProblem) -> BenchmarkRunner:
-    """Construct a BenchmarkRunner for the given problem."""
+def get_benchmark_runner(
+    problem: BenchmarkProblem,
+    max_concurrency: int = 1,
+) -> BenchmarkRunner:
+    """
+    Construct a ``BenchmarkRunner`` for the given problem and concurrency.
+
+    If ``max_concurrency > 1`` or if there is a ``sample_runtime_func`` is
+    present on ``BenchmarkProblem``, construct a ``SimulatedBenchmarkRunner`` to
+    track when trials start and stop.
+
+    Args:
+        problem: The ``BenchmarkProblem``; provides a ``BenchmarkTestFunction``
+            (used to generate data) and ``trial_runtime_func`` (used to
+            determine the length of trials for the simulator).
+        max_concurrency: The maximum number of trials that can be run concurrently.
+            Typically, ``max_pending_trials`` from ``SchedulerOptions``, which are
+            stored on the ``BenchmarkMethod``.
+    """
     return BenchmarkRunner(
-        test_function=problem.test_function, noise_std=problem.noise_std
+        test_function=problem.test_function,
+        noise_std=problem.noise_std,
+        trial_runtime_func=problem.trial_runtime_func,
+        max_concurrency=max_concurrency,
     )
 
 
@@ -77,6 +98,7 @@ def benchmark_replication(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
     seed: int,
+    strip_runner_before_saving: bool = True,
 ) -> BenchmarkResult:
     """
     Run one benchmarking replication (equivalent to one optimization loop).
@@ -87,17 +109,20 @@ def benchmark_replication(
     trace``. The cumulative maximum of the oracle value of each parameterization
     tested is the ``oracle_trace``.
 
-
     Args:
         problem: The BenchmarkProblem to test against (can be synthetic or real)
         method: The BenchmarkMethod to test
         seed: The seed to use for this replication.
+        strip_runner_before_saving: Whether to strip the runner from the
+            experiment before saving it. This enables serialization.
 
     Return:
         ``BenchmarkResult`` object.
     """
 
-    runner = get_benchmark_runner(problem=problem)
+    runner = get_benchmark_runner(
+        problem=problem, max_concurrency=method.scheduler_options.max_pending_trials
+    )
 
     experiment = Experiment(
         name=f"{problem.name}|{method.name}_{int(time())}",
@@ -116,13 +141,21 @@ def benchmark_replication(
     best_params_by_trial: list[list[TParameterization]] = []
 
     is_mf_or_mt = len(problem.target_fidelity_and_task) > 0
+    trials_used_for_best_point: Set[int] = set()
+
     # Run the optimization loop.
     timeout_hours = method.timeout_hours
     remaining_hours = timeout_hours
     with with_rng_seed(seed=seed):
         start = monotonic()
-        for _ in range(problem.num_trials):
-            scheduler.run_n_trials(max_trials=1, timeout_hours=remaining_hours)
+        # These next several lines do the same thing as `run_n_trials`, but
+        # decrement the timeout with each step, so that the timeout refers to
+        # the total time spent in the optimization loop, not time per trial.
+        scheduler.poll_and_process_results()
+        for _ in scheduler.run_trials_and_yield_results(
+            max_trials=problem.num_trials,
+            timeout_hours=remaining_hours,
+        ):
             if timeout_hours is not None:
                 elapsed_hours = (monotonic() - start) / 3600
                 remaining_hours = timeout_hours - elapsed_hours
@@ -136,13 +169,27 @@ def benchmark_replication(
                 # problems, because Ax's best-point functionality doesn't know
                 # to predict at the target task or fidelity.
                 continue
+            currently_completed_trials = {t.index for t in experiment.completed_trials}
+            newly_completed_trials = (
+                currently_completed_trials - trials_used_for_best_point
+            )
+            if len(newly_completed_trials) == 0:
+                continue
+            for t in newly_completed_trials:
+                trials_used_for_best_point.add(t)
 
             best_params = method.get_best_parameters(
                 experiment=experiment,
                 optimization_config=problem.optimization_config,
                 n_points=problem.n_best_points,
             )
-            best_params_by_trial.append(best_params)
+            # If multiple trials complete at the same time, add that number of
+            # points to the inference trace so that the trace has length equal to
+            # the number of trials.
+            for _ in newly_completed_trials:
+                best_params_by_trial.append(best_params)
+
+        scheduler.summarize_final_result()
 
     # Construct inference trace from best parameters
     inference_trace = np.full(problem.num_trials, np.nan)
@@ -196,9 +243,10 @@ def benchmark_replication(
         score_trace = np.full(len(optimization_trace), np.nan)
 
     fit_time, gen_time = get_model_times(experiment=experiment)
-    # Strip runner from experiment before returning, so that the experiment can
-    # be serialized (the runner can't be)
-    experiment.runner = None
+    if strip_runner_before_saving:
+        # Strip runner from experiment before returning, so that the experiment can
+        # be serialized (the runner can't be)
+        experiment.runner = None
 
     return BenchmarkResult(
         name=scheduler.experiment.name,

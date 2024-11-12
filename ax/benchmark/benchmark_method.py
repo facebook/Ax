@@ -45,6 +45,7 @@ class BenchmarkMethod(Base):
             ``BatchTrial``s; otherwise, they are ``Trial``s. Defaults to 1. This
             and the following arguments are passed to ``SchedulerOptions``.
         run_trials_in_batches: Passed to ``SchedulerOptions``.
+        max_pending_trials: Passed to ``SchedulerOptions``.
 
     Attributes:
         scheduler_options: ``SchedulerOptions`` that depend on the
@@ -61,6 +62,7 @@ class BenchmarkMethod(Base):
     distribute_replications: bool = False
     use_model_predictions_for_best_point: bool = False
     run_trials_in_batches: bool = False
+    max_pending_trials: int = 1
 
     def __post_init__(self) -> None:
         if self.name == "DEFAULT":
@@ -72,7 +74,7 @@ class BenchmarkMethod(Base):
             # No new candidates can be generated while any are pending.
             # If batched, an entire batch must finish before the next can be
             # generated.
-            max_pending_trials=1,
+            max_pending_trials=self.max_pending_trials,
             # Do not throttle, as is often necessary when polling real endpoints
             init_seconds_between_polls=0,
             min_seconds_before_poll=0,
