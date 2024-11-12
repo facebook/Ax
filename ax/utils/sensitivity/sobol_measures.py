@@ -230,6 +230,8 @@ class SobolSensitivity:
             # So we get the variance in the component that corresponds to dimension i
             vi = (
                 torch.mean(self.f_B * (self.f_ABis[i] - self.f_A))  # pyre-ignore
+                # pyre-fixme[58]: `/` is not supported for operand types `Tensor`
+                #  and `Optional[Tensor]`.
                 / self.f_total_var
             )
             first_order_idcs.append(vi.unsqueeze(0))
@@ -291,6 +293,8 @@ class SobolSensitivity:
                 #  `Optional[torch._tensor.Tensor]` and `Any`.
                 # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
                 * torch.mean(torch.pow(self.f_A - self.f_ABis[i], 2))
+                # pyre-fixme[58]: `/` is not supported for operand types `Tensor`
+                #  and `Optional[Tensor]`.
                 / self.f_total_var
             )
             total_order_idcs.append(vti.unsqueeze(0))
@@ -366,6 +370,8 @@ class SobolSensitivity:
                     self.f_BAis[i] * self.f_ABis[j] - self.f_A * self.f_B  # pyre-ignore
                 )
                 vij = (
+                    # pyre-fixme[58]: `/` is not supported for operand types
+                    #  `Tensor` and `Optional[Tensor]`.
                     (vij / self.f_total_var)
                     - first_order_idcs[i]  # pyre-ignore
                     - first_order_idcs[j]

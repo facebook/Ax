@@ -572,6 +572,8 @@ def filter_constraints_and_fixed_features(
         X_np = X.cpu().numpy()
     feas = np.ones(X_np.shape[0], dtype=bool)  # (n)
     for i, b in enumerate(bounds):
+        # pyre-fixme[6]: For 1st argument expected `Tensor` but got
+        #  `Union[ndarray[Any, dtype[Any]], Tensor]`.
         feas &= (X_np[:, i] >= b[0]) & (X_np[:, i] <= b[1])
     if linear_constraints is not None:
         A, b = as_array(linear_constraints)  # (m x d) and (m x 1)
