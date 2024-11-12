@@ -385,3 +385,9 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         self.assertFalse(constraint_satisfaction(exp.trials[1]))
         self.assertFalse(constraint_satisfaction(exp.trials[2]))
         self.assertFalse(constraint_satisfaction(exp.trials[3]))
+
+    def test_global_stopping_savings(self) -> None:
+        exp = get_experiment_with_data()
+        gss = ImprovementGlobalStoppingStrategy(min_trials=1)
+
+        self.assertEqual(gss.estimate_global_stopping_savings(exp, 1), 0.5)
