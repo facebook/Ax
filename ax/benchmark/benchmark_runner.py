@@ -5,8 +5,8 @@
 
 # pyre-strict
 
-from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass, field
 from math import sqrt
 from typing import Any
 
@@ -18,9 +18,10 @@ from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.types import TParamValue
 from ax.exceptions.core import UnsupportedError
+from ax.runners.simulated_backend import SimulatedBackendRunner
 from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
-
 from ax.utils.common.typeutils import checked_cast
+from ax.utils.testing.backend_simulator import BackendSimulator, BackendSimulatorOptions
 from torch import Tensor
 
 
@@ -43,16 +44,47 @@ class BenchmarkRunner(Runner):
           conceptually clear how to benchmark such problems, so we decided to
           not over-engineer for that before such a use case arrives.
 
+    If ``trial_runtime_func`` and ``max_concurrency`` are both left as default,
+    trials run serially and complete immediately. Otherwise, a
+    ``SimulatedBackendRunner`` is constructed to track the status of trials.
+
     Args:
         test_function: A ``BenchmarkTestFunction`` from which to generate
             deterministic data before adding noise.
         noise_std: The standard deviation of the noise added to the data. Can be
             a list or dict to be per-metric.
-        search_space: Used to extract target fidelity and task.
+        trial_runtime_func: A callable that takes a trial and returns its
+            runtime, in simulated seconds. If `None`, each trial completes in
+            one simulated second.
+        max_concurrency: The maximum number of trials that can be running at a
+            given time. Typically, this is ``max_pending_trials`` from the
+            ``scheduler_options`` on the ``BenchmarkMethod``.
     """
 
     test_function: BenchmarkTestFunction
     noise_std: float | list[float] | dict[str, float] = 0.0
+    trial_runtime_func: Callable[[BaseTrial], int] | None = None
+    max_concurrency: int = 1
+    simulated_backend_runner: SimulatedBackendRunner | None = field(init=False)
+
+    def __post_init__(self) -> None:
+        if self.max_concurrency > 1:
+            simulator = BackendSimulator(
+                options=BackendSimulatorOptions(
+                    max_concurrency=self.max_concurrency,
+                    # Always use virtual rather than real time for benchmarking
+                    internal_clock=0,
+                    use_update_as_start_time=False,
+                )
+            )
+            self.simulated_backend_runner = SimulatedBackendRunner(
+                simulator=simulator,
+                sample_runtime_func=self.trial_runtime_func
+                if self.trial_runtime_func is not None
+                else lambda _: 1,
+            )
+        else:
+            self.simulated_backend_runner = None
 
     @property
     def outcome_names(self) -> list[str]:
@@ -142,13 +174,16 @@ class BenchmarkRunner(Runner):
             "Ystds": Ystds,
             "outcome_names": self.outcome_names,
         }
+        if self.simulated_backend_runner is not None:
+            self.simulated_backend_runner.run(trial=trial)
         return run_metadata
 
-    # This will need to be udpated once asynchronous benchmarks are supported.
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]
     ) -> dict[TrialStatus, set[int]]:
-        return {TrialStatus.COMPLETED: {t.index for t in trials}}
+        if self.simulated_backend_runner is None:
+            return {TrialStatus.COMPLETED: {t.index for t in trials}}
+        return self.simulated_backend_runner.poll_trial_status(trials=trials)
 
     @classmethod
     # pyre-fixme [2]: Parameter `obj` must have a type other than `Any``
@@ -177,3 +212,12 @@ class BenchmarkRunner(Runner):
         raise UnsupportedError(
             "deserialize_init_args is not a supported method for BenchmarkRunners."
         )
+
+    def stop(self, trial: BaseTrial, reason: str | None = None) -> dict[str, Any]:
+        if self.simulated_backend_runner is None:
+            raise UnsupportedError(
+                "stop() is not supported for a `BenchmarkRunner` without a "
+                "`simulated_backend_runner`, becauase trials complete "
+                "immediately."
+            )
+        return self.simulated_backend_runner.stop(trial=trial, reason=reason)

@@ -147,3 +147,5 @@ class BackendSimulatorTest(TestCase):
             sim.get_sim_trial_by_index(trial_index=2).sim_completed_time,
             2.0,
         )
+        with self.assertRaisesRegex(ValueError, "Trial 100 not found in simulator"):
+            sim.lookup_trial_index_status(trial_index=100)
