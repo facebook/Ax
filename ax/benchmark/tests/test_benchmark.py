@@ -16,10 +16,7 @@ from ax.benchmark.benchmark import (
     benchmark_one_method_problem,
     benchmark_replication,
 )
-from ax.benchmark.benchmark_method import (
-    BenchmarkMethod,
-    get_benchmark_scheduler_options,
-)
+from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import create_problem_from_botorch
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
@@ -28,7 +25,6 @@ from ax.benchmark.problems.registry import get_problem
 from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
-from ax.service.utils.scheduler_options import SchedulerOptions
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment
 from ax.utils.common.testutils import TestCase
@@ -59,13 +55,12 @@ class TestBenchmark(TestCase):
         batch_size = 5
 
         problem = get_problem("ackley4", num_trials=2)
-        batch_options = get_benchmark_scheduler_options(batch_size=batch_size)
         for sequential in [False, True]:
             with self.subTest(sequential=sequential):
                 batch_method_joint = get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
-                    scheduler_options=batch_options,
+                    batch_size=batch_size,
                     distribute_replications=False,
                     model_gen_kwargs={
                         "model_gen_options": {
@@ -202,6 +197,7 @@ class TestBenchmark(TestCase):
             distribute_replications=False,
             use_model_predictions_for_best_point=use_model_predictions,
             num_sobol_trials=3,
+            batch_size=batch_size,
         )
 
         num_trials = 4
@@ -277,7 +273,6 @@ class TestBenchmark(TestCase):
                 get_sobol_botorch_modular_acquisition(
                     model_cls=SingleTaskGP,
                     acquisition_cls=qLogNoisyExpectedImprovement,
-                    scheduler_options=get_benchmark_scheduler_options(),
                     distribute_replications=False,
                 ),
                 get_single_objective_benchmark_problem(
@@ -425,12 +420,7 @@ class TestBenchmark(TestCase):
         method = BenchmarkMethod(
             name=generation_strategy.name,
             generation_strategy=generation_strategy,
-            scheduler_options=SchedulerOptions(
-                max_pending_trials=1,
-                init_seconds_between_polls=0,
-                min_seconds_before_poll=0,
-                timeout_hours=timeout_seconds / 3600,
-            ),
+            timeout_hours=timeout_seconds / 3600,
         )
 
         # Each replication will have a different number of trials
@@ -465,7 +455,6 @@ class TestBenchmark(TestCase):
                     )
                 ]
             ),
-            scheduler_options=SchedulerOptions(),
         )
         problem = get_single_objective_benchmark_problem()
         res = benchmark_replication(problem=problem, method=method, seed=0)

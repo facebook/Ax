@@ -117,7 +117,7 @@ def benchmark_replication(
 
     is_mf_or_mt = len(problem.target_fidelity_and_task) > 0
     # Run the optimization loop.
-    timeout_hours = scheduler.options.timeout_hours
+    timeout_hours = method.timeout_hours
     remaining_hours = timeout_hours
     with with_rng_seed(seed=seed):
         start = monotonic()
