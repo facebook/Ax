@@ -27,13 +27,11 @@ from typing import Set
 
 import numpy as np
 import numpy.typing as npt
-import pandas as pd
 
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.benchmark_runner import BenchmarkRunner
-from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.types import TParameterization, TParamValue
 from ax.core.utils import get_model_times
@@ -125,14 +123,13 @@ def get_oracle_experiment_from_params(
         ...     }
         ... )
     """
-    records = []
 
     experiment = Experiment(
         search_space=problem.search_space,
         optimization_config=problem.optimization_config,
     )
-    if len(dict_of_dict_of_params) == 0:
-        return experiment
+
+    runner = BenchmarkRunner(test_function=problem.test_function, noise_std=0.0)
 
     for trial_index, dict_of_params in dict_of_dict_of_params.items():
         if len(dict_of_params) == 0:
@@ -140,31 +137,19 @@ def get_oracle_experiment_from_params(
                 "Can't create a trial with no arms. Each sublist in "
                 "list_of_list_of_params must have at least one element."
             )
-        for arm_name, params in dict_of_params.items():
-            for metric_name, metric_value in zip(
-                problem.test_function.outcome_names,
-                problem.evaluate_oracle(parameters=params),
-            ):
-                records.append(
-                    {
-                        "arm_name": arm_name,
-                        "metric_name": metric_name,
-                        "mean": metric_value,
-                        "sem": 0.0,
-                        "trial_index": trial_index,
-                    }
-                )
-
         experiment.attach_trial(
-            # pyre-fixme[6]: Incompatible parameter type, due to mutability.
-            parameterizations=list(dict_of_params.values()),
+            parameterizations=[
+                {**parameters, **problem.target_fidelity_and_task}
+                for parameters in dict_of_params.values()
+            ],
             arm_names=list(dict_of_params.keys()),
         )
-    for trial in experiment.trials.values():
+        trial = experiment.trials[trial_index]
+        metadata = runner.run(trial=trial)
+        trial.update_run_metadata(metadata=metadata)
         trial.mark_completed()
 
-    data = Data(df=pd.DataFrame.from_records(records))
-    experiment.attach_data(data=data, overwrite_existing_data=True)
+    experiment.fetch_data()
     return experiment
 
 
