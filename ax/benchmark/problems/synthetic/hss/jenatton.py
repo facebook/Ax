@@ -61,11 +61,7 @@ class Jenatton(BenchmarkTestFunction):
         return torch.tensor(value, dtype=torch.double)
 
 
-def get_jenatton_benchmark_problem(
-    num_trials: int = 50,
-    observe_noise_sd: bool = False,
-    noise_std: float = 0.0,
-) -> BenchmarkProblem:
+def get_jenatton_search_space() -> HierarchicalSearchSpace:
     search_space = HierarchicalSearchSpace(
         parameters=[
             ChoiceParameter(
@@ -103,6 +99,14 @@ def get_jenatton_benchmark_problem(
             ),
         ]
     )
+    return search_space
+
+
+def get_jenatton_benchmark_problem(
+    num_trials: int = 50,
+    observe_noise_sd: bool = False,
+    noise_std: float = 0.0,
+) -> BenchmarkProblem:
     name = "Jenatton" + ("_observed_noise" if observe_noise_sd else "")
 
     optimization_config = OptimizationConfig(
@@ -115,7 +119,7 @@ def get_jenatton_benchmark_problem(
     )
     return BenchmarkProblem(
         name=name,
-        search_space=search_space,
+        search_space=get_jenatton_search_space(),
         optimization_config=optimization_config,
         test_function=Jenatton(outcome_names=[name]),
         noise_std=noise_std,

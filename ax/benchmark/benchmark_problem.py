@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -28,6 +28,7 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.core.trial import BaseTrial
 from ax.core.types import ComparisonOp, TParamValue
 from ax.utils.common.base import Base
 from botorch.test_functions.base import (
@@ -87,6 +88,8 @@ class BenchmarkProblem(Base):
             single-objective problems.
         n_best_points: Number of points for a best-point selector to recommend.
             Currently, only ``n_best_points=1`` is supported.
+        trial_runtime_func: A function that takes a trial and returns the
+            (virtual) time it takes to run that trial, which is 1 by default.
     """
 
     name: str
@@ -99,6 +102,7 @@ class BenchmarkProblem(Base):
     search_space: SearchSpace = field(repr=False)
     report_inference_value_as_trace: bool = False
     n_best_points: int = 1
+    trial_runtime_func: Callable[[BaseTrial], int] | None = None
     target_fidelity_and_task: Mapping[str, TParamValue] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -212,11 +216,7 @@ class BenchmarkProblem(Base):
                     )
 
             experiment.attach_trial(
-                # pyre-fixme: Incompatible parameter type [6]: In call
-                # `Experiment.attach_trial`, for argument `parameterizations`,
-                # expected `List[Dict[str, Union[None, bool, float, int, str]]]`
-                # but got `List[Mapping[str, Union[None, bool, float, int,
-                # str]]]`.
+                # pyre-fixme[6]: Incompatible parameter type, due to mutability.
                 parameterizations=list(dict_of_params.values()),
                 arm_names=list(dict_of_params.keys()),
             )
@@ -364,6 +364,7 @@ def create_problem_from_botorch(
     observe_noise_sd: bool = False,
     search_space: SearchSpace | None = None,
     report_inference_value_as_trace: bool = False,
+    trial_runtime_func: Callable[[BaseTrial], int] | None = None,
 ) -> BenchmarkProblem:
     """
     Create a `BenchmarkProblem` from a BoTorch `BaseTestProblem`.
@@ -444,4 +445,5 @@ def create_problem_from_botorch(
         num_trials=num_trials,
         optimal_value=optimal_value,
         report_inference_value_as_trace=report_inference_value_as_trace,
+        trial_runtime_func=trial_runtime_func,
     )

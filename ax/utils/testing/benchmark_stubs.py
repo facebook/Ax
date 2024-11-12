@@ -6,8 +6,9 @@
 
 # pyre-strict
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Iterator
 
 import numpy as np
 import torch
@@ -17,12 +18,21 @@ from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
+from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_search_space
+from ax.core.arm import Arm
+from ax.core.batch_trial import BatchTrial
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
+from ax.core.parameter import ChoiceParameter, ParameterType
+from ax.core.search_space import SearchSpace
+from ax.core.trial import Trial
+from ax.core.types import TParameterization, TParamValue
+from ax.modelbridge.external_generation_node import ExternalGenerationNode
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.modelbridge.torch import TorchModelBridge
@@ -275,3 +285,103 @@ class TestDataset(Dataset):
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, int]:
         target = assert_is_instance(self.targets[idx].item(), int)
         return self.data[idx], target
+
+
+def get_jenatton_arm(i: int) -> Arm:
+    """
+    Args:
+        i Non-negative int.
+    """
+    jenatton_x_params = {f"x{j}": j % (i + 1) for j in range(1, 8)}
+    jenatton_r_params = {"r8": 0.0, "r9": 0.0}
+    return Arm(parameters={**jenatton_x_params, **jenatton_r_params}, name=f"0_{i}")
+
+
+def get_jenatton_experiment() -> Experiment:
+    experiment = Experiment(
+        search_space=get_jenatton_search_space(),
+        name="test_jenatton",
+        is_test=True,
+    )
+    return experiment
+
+
+def get_jenatton_trials(n_trials: int) -> dict[int, Trial]:
+    experiment = get_jenatton_experiment()
+    for i in range(n_trials):
+        trial = experiment.new_trial()
+        trial.add_arm(get_jenatton_arm(i=i))
+    # pyre-fixme: Incompatible return type [7]: Expected `Dict[int, Trial]` but
+    # got `Dict[int, BaseTrial]`.
+    return experiment.trials
+
+
+def get_jenatton_batch_trial() -> BatchTrial:
+    experiment = get_jenatton_experiment()
+    trial = experiment.new_batch_trial()
+    trial.add_arm(get_jenatton_arm(0))
+    trial.add_arm(get_jenatton_arm(1))
+    return trial
+
+
+class DeterministicGenerationNode(ExternalGenerationNode):
+    """
+    A GenerationNode that explores a discrete search space with one parameter
+    deterministically.
+    """
+
+    def __init__(
+        self,
+        search_space: SearchSpace,
+    ) -> None:
+        if len(search_space.parameters) != 1:
+            raise ValueError(
+                "DeterministicGenerationNode only supports search spaces with one "
+                "parameter."
+            )
+        param = list(search_space.parameters.values())[0]
+        if not isinstance(param, ChoiceParameter):
+            raise ValueError(
+                "DeterministicGenerationNode only supports ChoiceParameters."
+            )
+        super().__init__(node_name="Deterministic")
+
+        self.param_name: str = param.name
+        self.iterator: Iterator[TParamValue] = iter(param.values)
+
+    def update_generator_state(self, experiment: Experiment, data: Data) -> None:
+        return
+
+    def get_next_candidate(
+        self, pending_parameters: list[TParameterization]
+    ) -> TParameterization:
+        return {self.param_name: next(self.iterator)}
+
+
+@dataclass(kw_only=True)
+class IdentityTestFunction(BenchmarkTestFunction):
+    outcome_names: list[str] = field(default_factory=lambda: ["objective"])
+
+    # pyre-fixme[14]: Inconsistent override
+    def evaluate_true(self, params: Mapping[str, float]) -> torch.Tensor:
+        """
+        Args:
+            params: A dictionary with key "x0".
+        """
+        return torch.tensor(params["x0"], dtype=torch.float64)
+
+
+def get_discrete_search_space() -> SearchSpace:
+    return SearchSpace(
+        parameters=[
+            ChoiceParameter(
+                name="x0",
+                parameter_type=ParameterType.INT,
+                # pyre-fixme: Incompatible parameter type [6]: In call
+                # `ChoiceParameter.__init__`, for argument `values`, expected
+                # `List[Union[None, bool, float, int, str]]` but got
+                # `List[int]`.
+                values=list(range(20)),
+            )
+        ]
+    )

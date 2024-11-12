@@ -17,22 +17,31 @@ from ax.benchmark.benchmark import (
     benchmark_replication,
 )
 from ax.benchmark.benchmark_method import BenchmarkMethod
-from ax.benchmark.benchmark_problem import create_problem_from_botorch
+from ax.benchmark.benchmark_metric import BenchmarkMetric
+from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
 from ax.benchmark.benchmark_result import BenchmarkResult
+from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.benchmark.problems.registry import get_problem
+from ax.core.objective import Objective
+from ax.core.optimization_config import OptimizationConfig
+from ax.modelbridge.external_generation_node import ExternalGenerationNode
 from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment
+from ax.utils.common.mock import mock_patch_method_original
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import (
+    DeterministicGenerationNode,
+    get_discrete_search_space,
     get_moo_surrogate,
     get_multi_objective_benchmark_problem,
     get_single_objective_benchmark_problem,
     get_soo_surrogate,
+    IdentityTestFunction,
     TestDataset,
 )
 from ax.utils.testing.core_stubs import get_experiment
@@ -46,7 +55,7 @@ from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.optim.optimize import optimize_acqf
 from botorch.test_functions.synthetic import Branin
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestBenchmark(TestCase):
@@ -182,6 +191,160 @@ class TestBenchmark(TestCase):
 
                 self.assertTrue(np.isfinite(res.score_trace).all())
                 self.assertTrue(np.all(res.score_trace <= 100))
+
+    def test_replication_async(self) -> None:
+        """
+        The test function is the identity function, higher is better, observed
+        to be noiseless. And the generation strategy deterministically produces
+        candidates with values 0, 1, 2, .... So if the trials complete in order,
+        the optimization trace should be 0, 1, 2, .... If the trials complete
+        out of order, the traces should track the argmax of the completion
+        order.
+        """
+        search_space = get_discrete_search_space()
+        method = BenchmarkMethod(
+            generation_strategy=GenerationStrategy(
+                nodes=[DeterministicGenerationNode(search_space=search_space)]
+            ),
+            distribute_replications=False,
+            max_pending_trials=2,
+            batch_size=1,
+        )
+        optimization_config = OptimizationConfig(
+            objective=Objective(
+                metric=BenchmarkMetric(
+                    name="objective",
+                    observe_noise_sd=True,
+                    lower_is_better=False,
+                ),
+                minimize=False,
+            )
+        )
+
+        complete_out_of_order_runtimes = {
+            0: 2,
+            1: 1,
+            2: 3,
+            3: 1,
+        }
+        trial_runtime_funcs = {
+            "All complete at different times": lambda trial: trial.index * 3,
+            "Trials complete immediately": lambda trial: 0,
+            "Trials complete at same time": lambda trial: 1,
+            "Complete out of order": lambda trial: complete_out_of_order_runtimes[
+                trial.index
+            ],
+        }
+
+        # First case:
+        # Time   | trial 0 | trial 1 | trial 2 | trial 3
+        #  t=0   |   .     |   .     |         |
+        #  t=1-2 |         |   .     |   .     |
+        #  t=3-6 |         |         |   .     |    .
+        #  t=7-12|         |         |         |    .
+
+        # Second case:
+        # Time   | trial 0 | trial 1 | trial 2 | trial 3
+        #  t=0   |   .     |   .     |         |
+        #  t=1   |   .     |         |   .     |
+        #  t=2   |         |         |   .     |    .
+        #  t=3   |         |         |   .     |
+        expected_start_times = {
+            "All complete at different times": [0, 0, 1, 3],
+            "Trials complete immediately": [0, 0, 1, 1],
+            # Completing after 0 seconds has the same effect as completing after
+            # 1 second, because a new trial can't start until the next time
+            # increment.
+            "Trials complete at same time": [0, 0, 1, 1],
+            "Complete out of order": [0, 0, 1, 2],
+        }
+        expected_pending_in_each_gen = {
+            "All complete at different times": [[], [0], [1], [2]],
+            "Trials complete immediately": [[], [0], [], [2]],
+            "Trials complete at same time": [[], [0], [], [2]],
+            "Complete out of order": [[], [0], [0], [2]],
+        }
+        # When two trials complete at the same time, the inference trace uses
+        # data from both to get the best point, and repeats it.
+        # The oracle trace is the same.
+        expected_inference_traces = {
+            "All complete at different times": [0, 1, 2, 3],
+            # 0 and 1 complete at the same time, as do 2 and 3
+            "Trials complete immediately": [1, 1, 3, 3],
+            "Trials complete at same time": [1, 1, 3, 3],
+            "Complete out of order": [1, 1, 3, 3],
+        }
+        test_function = IdentityTestFunction()
+
+        for case_name, trial_runtime_func in trial_runtime_funcs.items():
+            with self.subTest(case_name, trial_runtime_func=trial_runtime_func):
+                problem = BenchmarkProblem(
+                    name="test",
+                    search_space=search_space,
+                    optimization_config=optimization_config,
+                    test_function=test_function,
+                    num_trials=4,
+                    optimal_value=19.0,
+                    trial_runtime_func=trial_runtime_func,
+                )
+
+                with mock_patch_method_original(
+                    mock_path=(
+                        "ax.utils.testing.benchmark_stubs.ExternalGenerationNode._gen"
+                    ),
+                    original_method=ExternalGenerationNode._gen,
+                ) as mock_gen:
+                    result = benchmark_replication(
+                        problem=problem,
+                        method=method,
+                        seed=0,
+                        strip_runner_before_saving=False,
+                    )
+                pending_in_each_gen = [
+                    [
+                        elt[0].trial_index
+                        for elt in call_kwargs.get("pending_observations").values()
+                    ]
+                    for _, call_kwargs in mock_gen.call_args_list
+                ]
+                self.assertEqual(
+                    pending_in_each_gen,
+                    expected_pending_in_each_gen[case_name],
+                    case_name,
+                )
+
+                experiment = none_throws(result.experiment)
+                runner = assert_is_instance(experiment.runner, BenchmarkRunner)
+                backend_simulator = none_throws(
+                    runner.simulated_backend_runner
+                ).simulator
+                completed_trials = backend_simulator.state().completed
+                self.assertEqual(len(completed_trials), 4)
+                for trial_index, expected_start_time in enumerate(
+                    expected_start_times[case_name]
+                ):
+                    trial = experiment.trials[trial_index]
+                    self.assertEqual(trial.index, trial.arms[0].parameters["x0"])
+                    expected_runtime = trial_runtime_func(trial)
+                    self.assertEqual(
+                        backend_simulator.get_sim_trial_by_index(
+                            trial_index=trial_index
+                        ).__dict__,
+                        {
+                            "trial_index": trial_index,
+                            "sim_runtime": expected_runtime,
+                            "sim_start_time": expected_start_time,
+                            "sim_queued_time": expected_start_time,
+                            "sim_completed_time": expected_start_time
+                            + expected_runtime,
+                        },
+                        f"Failure for trial {trial_index} with {case_name}",
+                    )
+                self.assertFalse(np.isnan(result.inference_trace).any())
+                self.assertEqual(
+                    result.inference_trace.tolist(),
+                    expected_inference_traces[case_name],
+                )
 
     @mock_botorch_optimize
     def _test_replication_with_inference_value(
