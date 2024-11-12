@@ -10,15 +10,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
-
 import numpy.typing as npt
-import pandas as pd
 
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
-from ax.core.data import Data
-from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -161,81 +157,6 @@ class BenchmarkProblem(Base):
         """
         params = {**parameters, **self.target_fidelity_and_task}
         return np.atleast_1d(self.test_function.evaluate_true(params=params).numpy())
-
-    def get_oracle_experiment_from_params(
-        self,
-        dict_of_dict_of_params: Mapping[int, Mapping[str, Mapping[str, TParamValue]]],
-    ) -> Experiment:
-        """
-        Get a new experiment with the same search space and optimization config
-        as those belonging to this problem, but with parameterizations evaluated
-        at oracle values.
-
-        Args:
-            dict_of_dict_of_params: Keys are trial indices, values are Mappings
-                (e.g. dicts) that map arm names to parameterizations.
-
-        Example:
-            >>> problem.get_oracle_experiment_from_params(
-            ...     {
-            ...         0: {
-            ...            "0_0": {"x0": 0.0, "x1": 0.0},
-            ...            "0_1": {"x0": 0.3, "x1": 0.4},
-            ...         },
-            ...         1: {"1_0": {"x0": 0.0, "x1": 0.0}},
-            ...     }
-            ... )
-        """
-        records = []
-
-        experiment = Experiment(
-            search_space=self.search_space, optimization_config=self.optimization_config
-        )
-        if len(dict_of_dict_of_params) == 0:
-            return experiment
-
-        for trial_index, dict_of_params in dict_of_dict_of_params.items():
-            if len(dict_of_params) == 0:
-                raise ValueError(
-                    "Can't create a trial with no arms. Each sublist in "
-                    "list_of_list_of_params must have at least one element."
-                )
-            for arm_name, params in dict_of_params.items():
-                for metric_name, metric_value in zip(
-                    self.test_function.outcome_names,
-                    self.evaluate_oracle(parameters=params),
-                ):
-                    records.append(
-                        {
-                            "arm_name": arm_name,
-                            "metric_name": metric_name,
-                            "mean": metric_value,
-                            "sem": 0.0,
-                            "trial_index": trial_index,
-                        }
-                    )
-
-            experiment.attach_trial(
-                # pyre-fixme[6]: Incompatible parameter type, due to mutability.
-                parameterizations=list(dict_of_params.values()),
-                arm_names=list(dict_of_params.keys()),
-            )
-        for trial in experiment.trials.values():
-            trial.mark_completed()
-
-        data = Data(df=pd.DataFrame.from_records(records))
-        experiment.attach_data(data=data, overwrite_existing_data=True)
-        return experiment
-
-    def get_oracle_experiment_from_experiment(
-        self, experiment: Experiment
-    ) -> Experiment:
-        return self.get_oracle_experiment_from_params(
-            dict_of_dict_of_params={
-                trial.index: {arm.name: arm.parameters for arm in trial.arms}
-                for trial in experiment.trials.values()
-            }
-        )
 
     @property
     def is_moo(self) -> bool:

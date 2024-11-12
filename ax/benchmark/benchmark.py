@@ -19,7 +19,7 @@ Key terms used:
 
 """
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from itertools import product
 from logging import Logger
 from time import monotonic, time
@@ -27,13 +27,15 @@ from typing import Set
 
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.benchmark_runner import BenchmarkRunner
+from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.types import TParameterization
+from ax.core.types import TParameterization, TParamValue
 from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
 from ax.service.utils.best_point_mixin import BestPointMixin
@@ -91,6 +93,95 @@ def get_benchmark_runner(
         noise_std=problem.noise_std,
         trial_runtime_func=problem.trial_runtime_func,
         max_concurrency=max_concurrency,
+    )
+
+
+def get_oracle_experiment_from_params(
+    problem: BenchmarkProblem,
+    dict_of_dict_of_params: Mapping[int, Mapping[str, Mapping[str, TParamValue]]],
+) -> Experiment:
+    """
+    Get a new experiment with the same search space and optimization config
+    as those belonging to this problem, but with parameterizations evaluated
+    at oracle values (noiseless ground-truth values evaluated at the target task
+    and fidelity).
+
+    Args:
+        problem: ``BenchmarkProblem`` from which to take a test function for
+            generating metrics, as well as a search space and optimization
+            config for generating an experiment.
+        dict_of_dict_of_params: Keys are trial indices, values are Mappings
+            (e.g. dicts) that map arm names to parameterizations.
+
+    Example:
+        >>> get_oracle_experiment_from_params(
+        ...     problem=problem,
+        ...     dict_of_dict_of_params={
+        ...         0: {
+        ...            "0_0": {"x0": 0.0, "x1": 0.0},
+        ...            "0_1": {"x0": 0.3, "x1": 0.4},
+        ...         },
+        ...         1: {"1_0": {"x0": 0.0, "x1": 0.0}},
+        ...     }
+        ... )
+    """
+    records = []
+
+    experiment = Experiment(
+        search_space=problem.search_space,
+        optimization_config=problem.optimization_config,
+    )
+    if len(dict_of_dict_of_params) == 0:
+        return experiment
+
+    for trial_index, dict_of_params in dict_of_dict_of_params.items():
+        if len(dict_of_params) == 0:
+            raise ValueError(
+                "Can't create a trial with no arms. Each sublist in "
+                "list_of_list_of_params must have at least one element."
+            )
+        for arm_name, params in dict_of_params.items():
+            for metric_name, metric_value in zip(
+                problem.test_function.outcome_names,
+                problem.evaluate_oracle(parameters=params),
+            ):
+                records.append(
+                    {
+                        "arm_name": arm_name,
+                        "metric_name": metric_name,
+                        "mean": metric_value,
+                        "sem": 0.0,
+                        "trial_index": trial_index,
+                    }
+                )
+
+        experiment.attach_trial(
+            # pyre-fixme[6]: Incompatible parameter type, due to mutability.
+            parameterizations=list(dict_of_params.values()),
+            arm_names=list(dict_of_params.keys()),
+        )
+    for trial in experiment.trials.values():
+        trial.mark_completed()
+
+    data = Data(df=pd.DataFrame.from_records(records))
+    experiment.attach_data(data=data, overwrite_existing_data=True)
+    return experiment
+
+
+def get_oracle_experiment_from_experiment(
+    problem: BenchmarkProblem, experiment: Experiment
+) -> Experiment:
+    """
+    Get an ``Experiment`` that is the same as the original experiment but has
+    metrics evaluated at oracle values (noiseless ground-truth values
+    evaluated at the target task and fidelity)
+    """
+    return get_oracle_experiment_from_params(
+        problem=problem,
+        dict_of_dict_of_params={
+            trial.index: {arm.name: arm.parameters for arm in trial.arms}
+            for trial in experiment.trials.values()
+        },
     )
 
 
@@ -198,8 +289,9 @@ def benchmark_replication(
             inference_trace[trial_index] = np.nan
             continue
         # Construct an experiment with one BatchTrial
-        best_params_oracle_experiment = problem.get_oracle_experiment_from_params(
-            {0: {str(i): p for i, p in enumerate(best_params)}}
+        best_params_oracle_experiment = get_oracle_experiment_from_params(
+            problem=problem,
+            dict_of_dict_of_params={0: {str(i): p for i, p in enumerate(best_params)}},
         )
         # Get the optimization trace. It will have only one point.
         inference_trace[trial_index] = BestPointMixin._get_trace(
@@ -207,8 +299,8 @@ def benchmark_replication(
             optimization_config=problem.optimization_config,
         )[0]
 
-    actual_params_oracle_experiment = problem.get_oracle_experiment_from_experiment(
-        experiment=experiment
+    actual_params_oracle_experiment = get_oracle_experiment_from_experiment(
+        problem=problem, experiment=experiment
     )
     oracle_trace = np.array(
         BestPointMixin._get_trace(
