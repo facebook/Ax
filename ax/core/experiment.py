@@ -578,8 +578,8 @@ class Experiment(Base):
         lose rows) if Experiment.default_data_type is misconfigured!
 
         Args:
-            metrics: If provided, fetch data for these metrics instead of the ones
-                defined on the experiment.
+            metrics: If provided, fetch data for these metrics; otherwise, fetch
+                data for all metrics defined on the experiment.
             kwargs: keyword args to pass to underlying metrics' fetch data functions.
 
         Returns:

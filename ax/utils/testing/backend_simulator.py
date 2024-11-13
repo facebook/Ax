@@ -15,6 +15,7 @@ from logging import Logger
 
 from ax.core.base_trial import TrialStatus
 from ax.utils.common.logger import get_logger
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -144,23 +145,17 @@ class BackendSimulator:
         if options is None:
             options = BackendSimulatorOptions()
 
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.max_concurrency = options.max_concurrency
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.time_scaling = options.time_scaling
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.failure_rate = options.failure_rate
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.use_update_as_start_time = options.use_update_as_start_time
+        self.max_concurrency: int = options.max_concurrency
+        self.time_scaling: float = options.time_scaling
+        self.failure_rate: float = options.failure_rate
+        self.use_update_as_start_time: bool = options.use_update_as_start_time
         self._queued: list[SimTrial] = queued or []
         self._running: list[SimTrial] = running or []
         self._failed: list[SimTrial] = failed or []
         self._completed: list[SimTrial] = completed or []
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._internal_clock = options.internal_clock
+        self._internal_clock: float | None = options.internal_clock
         self._verbose_logging = verbose_logging
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._init_state = self.state()
+        self._init_state: BackendSimulatorState = self.state()
         self._create_index_to_trial_map()
 
     @property
@@ -191,7 +186,9 @@ class BackendSimulator:
     @property
     def time(self) -> float:
         """The current time."""
-        return self._internal_clock if self.use_internal_clock else time.time()
+        if self.use_internal_clock:
+            return none_throws(self._internal_clock)
+        return time.time()
 
     @property
     def all_trials(self) -> list[SimTrial]:
@@ -201,6 +198,9 @@ class BackendSimulator:
     def update(self) -> None:
         """Update the state of the simulator."""
         if self.use_internal_clock:
+            # pyre-fixme: Undefined attribute [16]: Optional type has no
+            # attribute `__iadd__`. (Can't use `none_throws`, can't assign to
+            # function call)
             self._internal_clock += 1
         self._update(self.time)
         state = self.state()
@@ -219,9 +219,15 @@ class BackendSimulator:
         self.max_concurrency = self._init_state.options.max_concurrency
         self.time_scaling = self._init_state.options.time_scaling
         self._internal_clock = self._init_state.options.internal_clock
+        # pyre-fixme: Incompatible parameter type [6]: In call
+        # `SimTrial.__init__`, for 1st positional argument, expected `float` but
+        # got `Optional[float]`.
         self._queued = [SimTrial(**args) for args in self._init_state.queued]
+        # pyre-fixme[6]: as above
         self._running = [SimTrial(**args) for args in self._init_state.running]
+        # pyre-fixme[6]: as above
         self._failed = [SimTrial(**args) for args in self._init_state.failed]
+        # pyre-fixme[6]: as above
         self._completed = [SimTrial(**args) for args in self._init_state.completed]
         self._create_index_to_trial_map()
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 import traceback
 
 from collections import defaultdict
-from collections.abc import Callable, Generator, Iterable
+from collections.abc import Callable, Generator, Iterable, Mapping
 from copy import deepcopy
 from datetime import datetime
 from logging import LoggerAdapter
@@ -1546,7 +1546,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         return updated_trial_indices
 
     def _get_trial_indices_to_fetch(
-        self, new_status_to_trial_idcs: dict[TrialStatus, set[int]]
+        self, new_status_to_trial_idcs: Mapping[TrialStatus, set[int]]
     ) -> set[int]:
         """Get trial indices to fetch data for the experiment given
         `new_status_to_trial_idcs` and metric properties.  This should include:

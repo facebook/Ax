@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from itertools import islice
 
@@ -35,9 +35,9 @@ class BoTorchTestFunction(BenchmarkTestFunction):
             evaluated using the raw parameter values.
     """
 
-    outcome_names: list[str]
+    outcome_names: Sequence[str]
     botorch_problem: BaseTestProblem
-    modified_bounds: list[tuple[float, float]] | None = None
+    modified_bounds: Sequence[tuple[float, float]] | None = None
 
     def __post_init__(self) -> None:
         if (

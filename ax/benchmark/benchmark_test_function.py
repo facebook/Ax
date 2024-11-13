@@ -6,7 +6,7 @@
 # pyre-strict
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from ax.core.types import TParamValue
@@ -19,9 +19,12 @@ class BenchmarkTestFunction(ABC):
     The basic Ax class for generating deterministic data to benchmark against.
 
     (Noise - if desired - is added by the runner.)
+
+    Args:
+        outcome_names: Names of the outcomes.
     """
 
-    outcome_names: list[str]
+    outcome_names: Sequence[str]
 
     @abstractmethod
     def evaluate_true(self, params: Mapping[str, TParamValue]) -> Tensor:

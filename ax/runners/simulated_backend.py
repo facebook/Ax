@@ -31,7 +31,7 @@ class SimulatedBackendRunner(Runner):
             simulator: The backend simulator.
             sample_runtime_func: A Callable that samples a runtime given a trial.
         """
-        self.simulator = simulator
+        self.simulator: BackendSimulator = simulator
         if sample_runtime_func is None:
             sample_runtime_func = sample_runtime_unif
         self.sample_runtime_func: Callable[[BaseTrial], float] = sample_runtime_func
