@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from math import sqrt
 from typing import Any
@@ -88,7 +88,7 @@ class BenchmarkRunner(Runner):
             self.simulated_backend_runner = None
 
     @property
-    def outcome_names(self) -> list[str]:
+    def outcome_names(self) -> Sequence[str]:
         """The names of the outcomes."""
         return self.test_function.outcome_names
 
