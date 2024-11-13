@@ -872,33 +872,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             return {}
         return self.runner.poll_trial_status(trials=trials)
 
-    @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
-    def stop_trial_runs(
-        self, trials: list[BaseTrial], reasons: list[str | None] | None = None
-    ) -> None:
-        """Stops the jobs that execute given trials.
-
-        Used if, for example, TTL for a trial was specified and expired, or poor
-        early results suggest the trial is not worth running to completion.
-
-        Override default implementation on the ``Runner`` if its desirable to stop
-        trials in bulk.
-
-        Args:
-            trials: Trials to be stopped.
-            reasons: A list of strings describing the reasons for why the
-                trials are to be stopped (in the same order).
-        """
-        if len(trials) == 0:
-            return
-
-        if reasons is None:
-            reasons = [None] * len(trials)
-
-        for trial, reason in zip(trials, reasons):
-            self.runner.stop(trial=trial, reason=reason)
-            trial.mark_early_stopped()
-
     def wait_for_completed_trials_and_report_results(
         self,
         idle_callback: Callable[[Scheduler], None] | None = None,
@@ -1336,7 +1309,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             trial_indices=self.running_trial_indices,
             experiment=self.experiment,
         )
-        self.stop_trial_runs(
+        self.experiment.stop_trial_runs(
             trials=[self.experiment.trials[trial_idx] for trial_idx in stop_trial_info],
             reasons=list(stop_trial_info.values()),
         )

@@ -919,31 +919,6 @@ class AxSchedulerTestCase(TestCase):
         scheduler.run_n_trials(max_trials=10, ignore_global_stopping_strategy=True)
         self.assertEqual(len(scheduler.experiment.trials), 10)
 
-    def test_stop_trial(self) -> None:
-        gs = self._get_generation_strategy_strategy_for_test(
-            experiment=self.branin_experiment,
-            generation_strategy=self.two_sobol_steps_GS,
-        )
-        # With runners & metrics, `Scheduler.run_all_trials` should run.
-        scheduler = Scheduler(
-            experiment=self.branin_experiment,  # Has runner and metrics.
-            generation_strategy=gs,
-            options=SchedulerOptions(
-                init_seconds_between_polls=0,  # Short between polls so test is fast.
-                **self.scheduler_options_kwargs,
-            ),
-            db_settings=self.db_settings_if_always_needed,
-        )
-        with patch.object(
-            scheduler.runner, "stop", return_value=None
-        ) as mock_runner_stop, patch.object(
-            BaseTrial, "mark_early_stopped"
-        ) as mock_mark_stopped:
-            scheduler.run_n_trials(max_trials=1)
-            scheduler.stop_trial_runs(trials=[scheduler.experiment.trials[0]])
-            mock_runner_stop.assert_called_once()
-            mock_mark_stopped.assert_called_once()
-
     @patch(f"{Scheduler.__module__}.MAX_SECONDS_BETWEEN_REPORTS", 2)
     def test_stop_at_MAX_SECONDS_BETWEEN_REPORTS(self) -> None:
         self.branin_experiment.runner = InfinitePollRunner()

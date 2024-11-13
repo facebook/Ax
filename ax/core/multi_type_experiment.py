@@ -314,7 +314,11 @@ class MultiTypeExperiment(Experiment):
 
         Looks up the appropriate runner for this trial type in the trial_type_to_runner.
         """
-        return self.runner_for_trial_type(trial_type=none_throws(trial.trial_type))
+        return (
+            trial._runner
+            if trial._runner
+            else self.runner_for_trial_type(trial_type=none_throws(trial.trial_type))
+        )
 
     def runner_for_trial_type(self, trial_type: str) -> Runner | None:
         """The default runner to use for a given trial type.

@@ -95,6 +95,10 @@ class MisconfiguredExperiment(AxError):
     """Raised when experiment has incomplete or incorrect information."""
 
 
+class RunnerNotFoundError(AxError):
+    """Raised when a runner is not found."""
+
+
 class OptimizationComplete(AxError):
     """Raised when you hit SearchSpaceExhausted and GenerationStrategyComplete."""
 
