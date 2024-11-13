@@ -66,6 +66,14 @@ Benchmark Test Function
     :undoc-members:
     :show-inheritance:
 
+Benchmark Trial Metadata
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.benchmark_trial_metadata
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Benchmark Methods Modular BoTorch
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
