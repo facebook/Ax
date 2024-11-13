@@ -164,7 +164,6 @@ def _get_constraints(
                     name=outcome_name,
                     lower_is_better=False,  # positive slack = feasible
                     observe_noise_sd=observe_noise_sd,
-                    outcome_index=i,
                 ),
                 op=ComparisonOp.GEQ,
                 bound=0.0,
@@ -186,7 +185,6 @@ def get_soo_config_and_outcome_names(
             name=objective_name,
             lower_is_better=lower_is_better,
             observe_noise_sd=observe_noise_sd,
-            outcome_index=0,
         ),
         minimize=lower_is_better,
     )
@@ -216,9 +214,8 @@ def get_moo_opt_config_and_outcome_names(
             name=objective_name,
             lower_is_better=lower_is_better,
             observe_noise_sd=observe_noise_sd,
-            outcome_index=i,
         )
-        for i, objective_name in enumerate(objective_names)
+        for objective_name in objective_names
     ]
     constraints = _get_constraints(
         num_constraints=num_constraints, observe_noise_sd=observe_noise_sd
