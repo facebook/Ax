@@ -79,18 +79,6 @@ class ScatterPlot(PlotlyAnalysis):
         )
 
 
-def _prepare_title(x_metric_name: str, y_metric_name: str) -> str:
-    """
-    Prepare a title for scatter plot.
-
-    Args:
-        x_metric_name: The name of the metric to plot on the x-axis.
-        y_metric_name: The name of the metric to plot on the y-axis.
-    """
-
-    return f"Observed {x_metric_name} vs. {y_metric_name}"
-
-
 def _prepare_data(
     experiment: Experiment, x_metric_name: str, y_metric_name: str
 ) -> pd.DataFrame:
