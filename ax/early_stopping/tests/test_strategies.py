@@ -208,6 +208,26 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             )[0]
         )
 
+    def test_early_stopping_savings(self) -> None:
+        class FakeStrategy(BaseEarlyStoppingStrategy):
+            def should_stop_trials_early(
+                self,
+                trial_indices: set[int],
+                experiment: Experiment,
+                **kwargs: dict[str, Any],
+            ) -> dict[int, str | None]:
+                return {}
+
+        exp = get_branin_experiment_with_timestamp_map_metric()
+        es_strategy = FakeStrategy(min_progression=3, max_progression=5)
+
+        self.assertEqual(
+            es_strategy.estimate_early_stopping_savings(
+                experiment=exp,
+            ),
+            0,
+        )
+
 
 class TestModelBasedEarlyStoppingStrategy(TestCase):
     def test_get_training_data(self) -> None:

@@ -86,3 +86,26 @@ class BaseGlobalStoppingStrategy(ABC, Base):
             return False, message
 
         return self._should_stop_optimization(experiment, **kwargs)
+
+    def estimate_global_stopping_savings(
+        self, experiment: Experiment, num_remaining_requested_trials: int
+    ) -> float:
+        """Estimate global stopping savings by considering the number of requested
+        trials versus the number of trials run before the decision to stop was made.
+
+        This is formulated as 1 - (actual_num_trials / total_requested_trials). i.e.
+        0.11 estimated savings indicates we would expect the experiment to have used
+        11% more resources without global stopping present.
+
+        Returns:
+            The estimated resource savings as a fraction of total resource usage.
+        """
+        num_trials = len(experiment.trials)
+
+        if num_remaining_requested_trials == 0:
+            # Note that when no trials were requested, then savings
+            # are 1 - 0 / 0. We resolve the zero division issue by
+            # setting savings to 0 in that case.
+            return 0.0
+
+        return 1 - num_trials / (num_trials + num_remaining_requested_trials)

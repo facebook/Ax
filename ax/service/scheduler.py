@@ -27,8 +27,6 @@ from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
-from ax.core.map_data import MapData
-from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.multi_type_experiment import (
     filter_trials_by_type,
@@ -43,7 +41,6 @@ from ax.core.runner import Runner
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
 
-from ax.early_stopping.utils import estimate_early_stopping_savings
 from ax.exceptions.core import (
     AxError,
     DataRequiredError,
@@ -1649,65 +1646,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self._fetch_and_process_trials_data_results(
             trial_indices=newly_completed,
         )
-
-    def estimate_early_stopping_savings(self, map_key: str | None = None) -> float:
-        """Estimate early stopping savings using progressions of the MapMetric present
-        on the EarlyStoppingConfig as a proxy for resource usage.
-
-        Args:
-            map_key: The name of the map_key by which to estimate early stopping
-                savings, usually steps. If none is specified use some arbitrary map_key
-                in the experiment's MapData
-
-        Returns:
-            The estimated resource savings as a fraction of total resource usage (i.e.
-            0.11 estimated savings indicates we would expect the experiment to have used
-            11% more resources without early stopping present)
-        """
-        if self.experiment.default_data_constructor is not MapData:
-            return 0
-
-        strategy = self.options.early_stopping_strategy
-        map_key = (
-            map_key
-            if map_key is not None
-            else (
-                assert_is_instance(
-                    self.experiment.metrics[list(strategy.metric_names)[0]],
-                    MapMetric,
-                ).map_key_info.key
-                if strategy is not None
-                and strategy.metric_names is not None
-                and len(list(strategy.metric_names)) > 0
-                else None
-            )
-        )
-
-        return estimate_early_stopping_savings(
-            experiment=self.experiment,
-            map_key=map_key,
-        )
-
-    def estimate_global_stopping_savings(self) -> float:
-        """Estimate global stopping savings by considering the number of requested
-        trials versus the number of trials run before the decision to stop was made.
-
-        This is formulated as 1 - (actual_num_trials / total_requested_trials). i.e.
-        0.11 estimated savings indicates we would expect the experiment to have used
-            11% more resources without global stopping present
-
-        Returns:
-            The estimated resource savings as a fraction of total resource usage.
-        """
-        num_trials = len(self.experiment.trials)
-
-        if self._num_remaining_requested_trials == 0:
-            # Note that when no trials were requested, then savings
-            # are 1 - 0 / 0. We resolve the zero division issue by
-            # setting savings to 0 in that case.
-            return 0.0
-
-        return 1 - num_trials / (num_trials + self._num_remaining_requested_trials)
 
     def _abort_optimization(self, num_preexisting_trials: int) -> dict[str, Any]:
         """Conclude optimization without waiting for anymore running trials and
