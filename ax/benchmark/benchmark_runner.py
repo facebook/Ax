@@ -12,6 +12,7 @@ from typing import Any
 
 import torch
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
+from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
 from ax.core.runner import Runner
@@ -20,8 +21,8 @@ from ax.core.types import TParamValue
 from ax.exceptions.core import UnsupportedError
 from ax.runners.simulated_backend import SimulatedBackendRunner
 from ax.utils.common.serialization import TClassDecoderRegistry, TDecoderRegistry
-from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.backend_simulator import BackendSimulator, BackendSimulatorOptions
+from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
@@ -113,21 +114,15 @@ class BenchmarkRunner(Runner):
         # list of floats
         return dict(zip(self.outcome_names, noise_std, strict=True))
 
-    def run(self, trial: BaseTrial) -> dict[str, Any]:
+    def run(self, trial: BaseTrial) -> dict[str, BenchmarkTrialMetadata]:
         """Run the trial by evaluating its parameterization(s).
 
         Args:
             trial: The trial to evaluate.
 
         Returns:
-            A dictionary with the following keys:
-                - Ys: A dict mapping arm names to lists of corresponding outcomes,
-                    where the order of the outcomes is the same as in `outcome_names`.
-                - Ystds: A dict mapping arm names to lists of corresponding outcome
-                    noise standard deviations (possibly nan if the noise level is
-                    unobserved), where the order of the outcomes is the same as in
-                    `outcome_names`.
-                - "outcome_names": A list of metric names.
+            A dictionary {"benchmark_metadata": metadata}, where ``metadata`` is
+            a ``BenchmarkTrialMetadata``.
         """
         Ys, Ystds = {}, {}
         noise_stds = self.get_noise_stds()
@@ -144,7 +139,7 @@ class BenchmarkRunner(Runner):
                     for arm, weight in trial.arm_weights.items()
                 }
             else:
-                nlzd_arm_weights = {checked_cast(Trial, trial).arm: 1.0}
+                nlzd_arm_weights = {assert_is_instance(trial, Trial).arm: 1.0}
             # generate a tensor of noise levels that we'll reuse below
             noise_stds_tsr = torch.tensor(
                 [noise_stds[metric_name] for metric_name in self.outcome_names],
@@ -169,14 +164,14 @@ class BenchmarkRunner(Runner):
                 Ystds[arm.name] = std.tolist()
                 Ys[arm.name] = (Y_true + std * torch.randn_like(Y_true)).tolist()
 
-        run_metadata = {
-            "Ys": Ys,
-            "Ystds": Ystds,
-            "outcome_names": self.outcome_names,
-        }
+        metadata = BenchmarkTrialMetadata(
+            Ys=Ys,
+            Ystds=Ystds,
+            outcome_names=self.outcome_names,
+        )
         if self.simulated_backend_runner is not None:
             self.simulated_backend_runner.run(trial=trial)
-        return run_metadata
+        return {"benchmark_metadata": metadata}
 
     def poll_trial_status(
         self, trials: Iterable[BaseTrial]

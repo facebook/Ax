@@ -14,6 +14,7 @@ import torch
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
+from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
 from ax.core import Experiment, ObservationFeatures
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
@@ -288,6 +289,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "BenchmarkMethod": BenchmarkMethod,
     "BenchmarkMetric": BenchmarkMetric,
     "BenchmarkResult": BenchmarkResult,
+    "BenchmarkTrialMetadata": BenchmarkTrialMetadata,
     "BoTorchModel": BoTorchModel,
     "BraninMetric": BraninMetric,
     "BraninTimestampMapMetric": BraninTimestampMapMetric,

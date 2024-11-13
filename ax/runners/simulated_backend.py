@@ -54,7 +54,7 @@ class SimulatedBackendRunner(Runner):
             trial_status[status].add(t_index)
         return dict(trial_status)
 
-    def run(self, trial: BaseTrial) -> dict[str, Any]:
+    def run(self, trial: BaseTrial) -> dict[str, float]:
         """Start a trial on the BackendSimulator.
 
         Args:

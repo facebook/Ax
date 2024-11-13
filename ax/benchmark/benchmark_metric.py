@@ -24,7 +24,8 @@ class BenchmarkMetric(Metric):
     def __init__(
         self,
         name: str,
-        lower_is_better: bool,  # TODO: Do we need to define this here?
+        # Needed to be boolean (not None) for validation of MOO opt configs
+        lower_is_better: bool,
         observe_noise_sd: bool = True,
         outcome_index: int | None = None,
     ) -> None:
@@ -45,8 +46,8 @@ class BenchmarkMetric(Metric):
         super().__init__(name=name, lower_is_better=lower_is_better)
         # Declare `lower_is_better` as bool (rather than optional as in the base class)
         self.lower_is_better: bool = lower_is_better
-        self.observe_noise_sd = observe_noise_sd
-        self.outcome_index = outcome_index
+        self.observe_noise_sd: bool = observe_noise_sd
+        self.outcome_index: int | None = outcome_index
 
     def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> MetricFetchResult:
         """
@@ -62,40 +63,28 @@ class BenchmarkMetric(Metric):
                 f"Arguments {set(kwargs)} are not supported in "
                 f"{self.__class__.__name__}.fetch_trial_data."
             )
+        metadata = trial.run_metadata["benchmark_metadata"]
         outcome_index = self.outcome_index
         if outcome_index is None:
             # Look up the index based on the outcome name under which we track the data
-            # as part of `run_metadata`.
-            outcome_names = trial.run_metadata.get("outcome_names")
-            if outcome_names is None:
-                raise RuntimeError(
-                    "Trials' `run_metadata` must contain `outcome_names` if "
-                    "no `outcome_index` is provided."
-                )
+            # as part of `metadata`.
+            outcome_names = metadata.outcome_names
             outcome_index = outcome_names.index(self.name)
 
         try:
-            arm_names = list(trial.arms_by_name.keys())
-            all_Ys = trial.run_metadata["Ys"]
-            Ys = [all_Ys[arm_name][outcome_index] for arm_name in arm_names]
-
-            if self.observe_noise_sd:
-                stdvs = [
-                    trial.run_metadata["Ystds"][arm_name][outcome_index]
-                    for arm_name in arm_names
-                ]
-            else:
-                stdvs = [float("nan")] * len(Ys)
-
-            df = pd.DataFrame(
+            records = [
                 {
-                    "arm_name": arm_names,
+                    "arm_name": arm_name,
                     "metric_name": self.name,
-                    "mean": Ys,
-                    "sem": stdvs,
+                    "mean": metadata.Ys[arm_name][outcome_index],
+                    "sem": metadata.Ystds[arm_name][outcome_index]
+                    if self.observe_noise_sd
+                    else float("nan"),
                     "trial_index": trial.index,
                 }
-            )
+                for arm_name in metadata.Ys.keys()
+            ]
+            df = pd.DataFrame.from_records(records)
             return Ok(value=Data(df=df))
 
         except Exception as e:

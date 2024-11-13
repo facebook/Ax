@@ -236,19 +236,18 @@ class TestBenchmarkRunner(TestCase):
                         return_value=({"branin": [4.2]}, None),
                     )
                 ):
-                    res = runner.run(trial=trial)
-                self.assertEqual({"Ys", "Ystds", "outcome_names"}, res.keys())
-                self.assertEqual({"0_0"}, res["Ys"].keys())
+                    res = runner.run(trial=trial)["benchmark_metadata"]
+                self.assertEqual({"0_0"}, res.Ys.keys())
 
                 if isinstance(noise_std, list):
-                    self.assertEqual(res["Ystds"]["0_0"], noise_std)
+                    self.assertEqual(res.Ystds["0_0"], noise_std)
                     if all((n == 0 for n in noise_std)):
-                        self.assertEqual(res["Ys"]["0_0"], Y.tolist())
+                        self.assertEqual(res.Ys["0_0"], Y.tolist())
                 else:  # float
-                    self.assertEqual(res["Ystds"]["0_0"], [noise_std] * len(Y))
+                    self.assertEqual(res.Ystds["0_0"], [noise_std] * len(Y))
                     if noise_std == 0:
-                        self.assertEqual(res["Ys"]["0_0"], Y.tolist())
-                self.assertEqual(res["outcome_names"], outcome_names)
+                        self.assertEqual(res.Ys["0_0"], Y.tolist())
+                self.assertEqual(res.outcome_names, outcome_names)
 
             with self.subTest(f"test `poll_trial_status()`, {test_description}"):
                 self.assertEqual(
@@ -288,8 +287,7 @@ class TestBenchmarkRunner(TestCase):
             trial.arms = [arm]
             trial.arm = arm
             trial.index = 0
-            res = runner.run(trial=trial)
-            self.assertSetEqual(set(res.keys()), {"Ys", "Ystds", "outcome_names"})
-            self.assertSetEqual(set(res["Ys"].keys()), {"0_0"})
-            self.assertEqual(res["Ystds"]["0_0"], [0.1, 0.05])
-            self.assertEqual(res["outcome_names"], ["objective_0", "constraint"])
+            res = runner.run(trial=trial)["benchmark_metadata"]
+            self.assertEqual({arm.name}, res.Ys.keys())
+            self.assertEqual(res.Ystds[arm.name], [0.1, 0.05])
+            self.assertEqual(res.outcome_names, ["objective_0", "constraint"])
