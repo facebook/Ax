@@ -143,7 +143,7 @@ class InstantiationBase:
         metric_class: type[Metric],
         name: str,
         metric_definitions: dict[str, dict[str, Any]] | None,
-    ) -> dict[str, Any]:
+    ) -> tuple[type[Metric], dict[str, Any]]:
         """Get metric kwargs from metric_definitions if available and deserialize
         if so.  Deserialization is necessary because they were serialized on creation"""
         # deepcopy is used because of subsequent modifications to the dict
@@ -152,7 +152,7 @@ class InstantiationBase:
         # this is necessary before deserialization because name will be required
         metric_kwargs["name"] = metric_kwargs.get("name", name)
         metric_kwargs = metric_class.deserialize_init_args(metric_kwargs)
-        return metric_kwargs
+        return metric_class, metric_kwargs
 
     @classmethod
     def _make_metric(
@@ -168,7 +168,10 @@ class InstantiationBase:
                 "Metric names cannot contain spaces when used with AxClient. Got "
                 f"{name!r}."
             )
-        kwargs = cls._get_deserialized_metric_kwargs(
+
+        metric_definitions = metric_definitions or {}
+
+        metric_class, kwargs = cls._get_deserialized_metric_kwargs(
             name=name,
             metric_definitions=metric_definitions,
             metric_class=metric_class,
