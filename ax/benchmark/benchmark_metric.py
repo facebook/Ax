@@ -27,7 +27,6 @@ class BenchmarkMetric(Metric):
         # Needed to be boolean (not None) for validation of MOO opt configs
         lower_is_better: bool,
         observe_noise_sd: bool = True,
-        outcome_index: int | None = None,
     ) -> None:
         """
         Args:
@@ -37,17 +36,11 @@ class BenchmarkMetric(Metric):
                 noise is included in the `sem` column of the the returned data.
                 If `False`, `sem` is set to `None` (meaning that the model will
                 have to infer the noise level).
-            outcome_index: The index of the output. This is applicable in settings
-                where the underlying test problem is evaluated in a vectorized fashion
-                across multiple outputs, without providing a name for each output.
-                In such cases, `outcome_index` is used in `fetch_trial_data` to extract
-                `Ys` and `Yvars`, and `name` is the name of the metric.
         """
         super().__init__(name=name, lower_is_better=lower_is_better)
         # Declare `lower_is_better` as bool (rather than optional as in the base class)
         self.lower_is_better: bool = lower_is_better
         self.observe_noise_sd: bool = observe_noise_sd
-        self.outcome_index: int | None = outcome_index
 
     def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> MetricFetchResult:
         """
@@ -64,12 +57,9 @@ class BenchmarkMetric(Metric):
                 f"{self.__class__.__name__}.fetch_trial_data."
             )
         metadata = trial.run_metadata["benchmark_metadata"]
-        outcome_index = self.outcome_index
-        if outcome_index is None:
-            # Look up the index based on the outcome name under which we track the data
-            # as part of `metadata`.
-            outcome_names = metadata.outcome_names
-            outcome_index = outcome_names.index(self.name)
+        # Look up the index based on the outcome name under which we track the data
+        # as part of `metadata`.
+        outcome_index = metadata.outcome_names.index(self.name)
 
         try:
             records = [
