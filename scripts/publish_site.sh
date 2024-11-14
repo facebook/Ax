@@ -204,7 +204,7 @@ else
   # Set Docusaurus version with exact version & build
   yarn run version "${VERSION}"
   cd .. || exit
-  # Only run Docusaurus (skip tutorial build & Sphinx)
+  # Only run Docusaurus (skip tutorial build)
   ./scripts/make_docs.sh -b -o
   rm -rf website/build/Ax/docs/next  # don't need this
   rm -rf website/build/Ax/docs/stable  # or this

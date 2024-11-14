@@ -13,7 +13,7 @@ usage() {
   echo "Build Ax documentation. Must be executed from root of Ax repository."
   echo ""
   echo "  -b   Build static version of documentation (otherwise start server)."
-  echo "  -o   Only Docusaurus (skip Sphinx, tutorials). Useful when just make change to Docusaurus settings."
+  echo "  -o   Only Docusaurus (skip tutorials). Useful when just make change to Docusaurus settings."
   echo "  -t   Execute tutorials (instead of just converting)."
   echo "  -r   Convert backtick-quoted class or function names in .md files into links to API documentation."
   echo ""
@@ -86,13 +86,3 @@ else
   yarn start
 fi
 cd .. || exit
-
-if [[ $ONLY_DOCUSAURUS == false ]]; then
-  # generate Sphinx documentation
-  echo "-----------------------------------"
-  echo "Generating API reference via Sphinx"
-  echo "-----------------------------------"
-  cd sphinx || exit
-  make dirhtml
-  cd .. || exit
-fi

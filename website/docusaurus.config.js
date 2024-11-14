@@ -79,7 +79,7 @@ module.exports={
           "position": "left"
         },
         {
-          "href": "/Ax/api/",
+          "href": "https://ax.readthedocs.io/en/latest/index.html",
           "label": "API",
           "position": "left",
           "target": "_blank",
