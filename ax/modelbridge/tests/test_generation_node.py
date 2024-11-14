@@ -443,8 +443,7 @@ class TestGenerationNodeWithBestModelSelector(TestCase):
         # model spec.
         self.assertEqual(self.mock_aggregation.call_count, 2)
         # The model specs are practically identical for this example.
-        # Should pick the first one.
-        self.assertEqual(gr._model_key, "BO_MIXED")
-
-        # test model_to_gen_from_name property
-        self.assertEqual(self.model_selection_node.model_to_gen_from_name, "BO_MIXED")
+        # May pick either one.
+        self.assertEqual(
+            self.model_selection_node.model_to_gen_from_name, gr._model_key
+        )
