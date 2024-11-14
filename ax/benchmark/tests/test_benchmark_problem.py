@@ -9,7 +9,12 @@ from itertools import product
 
 from ax.benchmark.benchmark_metric import BenchmarkMetric
 
-from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
+from ax.benchmark.benchmark_problem import (
+    BenchmarkProblem,
+    create_problem_from_botorch,
+    get_moo_opt_config,
+    get_soo_opt_config,
+)
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
@@ -313,3 +318,54 @@ class TestBenchmarkProblem(TestCase):
             test_problem_kwargs={},
         )
         self.assertFalse(test_problem.optimization_config.objective.minimize)
+
+    def test_get_soo_opt_config(self) -> None:
+        opt_config = get_soo_opt_config(
+            outcome_names=["foo", "bar"],
+            lower_is_better=False,
+            observe_noise_sd=True,
+        )
+        self.assertIsInstance(opt_config.objective, Objective)
+        self.assertEqual(len(opt_config.outcome_constraints), 1)
+        objective_metric = assert_is_instance(
+            opt_config.objective.metric, BenchmarkMetric
+        )
+        self.assertEqual(objective_metric.name, "foo")
+        self.assertEqual(objective_metric.observe_noise_sd, True)
+        self.assertEqual(objective_metric.lower_is_better, False)
+        constraint_metric = assert_is_instance(
+            opt_config.outcome_constraints[0].metric, BenchmarkMetric
+        )
+        self.assertEqual(constraint_metric.name, "bar")
+        self.assertEqual(constraint_metric.observe_noise_sd, True)
+        self.assertEqual(constraint_metric.lower_is_better, False)
+
+    def test_get_moo_opt_config(self) -> None:
+        opt_config = get_moo_opt_config(
+            outcome_names=["foo", "bar", "baz", "pony"],
+            ref_point=[3.0, 4.0],
+            lower_is_better=False,
+            observe_noise_sd=True,
+            num_constraints=2,
+        )
+        self.assertEqual(len(opt_config.objective.metrics), 2)
+        self.assertEqual(len(opt_config.outcome_constraints), 2)
+        self.assertEqual(opt_config.objective_thresholds[0].bound, 3.0)
+        objective_metrics = [
+            assert_is_instance(metric, BenchmarkMetric)
+            for metric in opt_config.objective.metrics
+        ]
+        self.assertEqual(len(objective_metrics), 2)
+        self.assertEqual(objective_metrics[0].name, "foo")
+        self.assertEqual(objective_metrics[0].observe_noise_sd, True)
+        self.assertEqual(objective_metrics[0].lower_is_better, False)
+        self.assertEqual(objective_metrics[1].name, "bar")
+        # Check constraints
+        self.assertEqual(len(opt_config.outcome_constraints), 2)
+        constraint_metrics = [
+            assert_is_instance(constraint.metric, BenchmarkMetric)
+            for constraint in opt_config.outcome_constraints
+        ]
+        self.assertEqual(constraint_metrics[0].name, "baz")
+        self.assertEqual(constraint_metrics[0].observe_noise_sd, True)
+        self.assertEqual(constraint_metrics[0].lower_is_better, False)

@@ -10,10 +10,7 @@ from dataclasses import dataclass, field, InitVar
 from functools import lru_cache
 
 import torch
-from ax.benchmark.benchmark_problem import (
-    BenchmarkProblem,
-    get_soo_config_and_outcome_names,
-)
+from ax.benchmark.benchmark_problem import BenchmarkProblem, get_soo_opt_config
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -210,11 +207,8 @@ def get_pytorch_cnn_torchvision_benchmark_problem(
     )
 
     test_function = PyTorchCNNTorchvisionBenchmarkTestFunction(name=name)
-    optimization_config, _ = get_soo_config_and_outcome_names(
-        num_constraints=0,
-        lower_is_better=False,
-        observe_noise_sd=False,
-        objective_name=test_function.outcome_names[0],
+    optimization_config = get_soo_opt_config(
+        outcome_names=test_function.outcome_names, lower_is_better=False
     )
     return BenchmarkProblem(
         name=f"HPO_PyTorchCNN_Torchvision::{name}",
