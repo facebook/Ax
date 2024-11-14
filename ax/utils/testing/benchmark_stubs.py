@@ -12,7 +12,6 @@ from typing import Any, Iterator
 
 import numpy as np
 import torch
-from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     create_problem_from_botorch,
@@ -32,17 +31,13 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import TParameterization, TParamValue
 from ax.modelbridge.external_generation_node import ExternalGenerationNode
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.torch.botorch_modular.model import BoTorchModel
-from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
-from ax.utils.common.constants import Keys
+from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
 )
-from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.test_functions.synthetic import Branin
@@ -155,49 +150,6 @@ def get_moo_surrogate() -> BenchmarkProblem:
         num_trials=10,
         optimal_value=1.0,
         test_function=test_function,
-    )
-
-
-def get_sobol_gpei_benchmark_method() -> BenchmarkMethod:
-    return BenchmarkMethod(
-        name="MBO_SOBOL_GPEI",
-        generation_strategy=GenerationStrategy(
-            name="Modular::Sobol+GPEI",
-            steps=[
-                GenerationStep(
-                    model=Models.SOBOL,
-                    num_trials=3,
-                    model_kwargs={"fit_tracking_metrics": False},
-                    min_trials_observed=3,
-                ),
-                GenerationStep(
-                    model=Models.BOTORCH_MODULAR,
-                    num_trials=-1,
-                    model_kwargs={
-                        "surrogate": Surrogate(
-                            surrogate_spec=SurrogateSpec(
-                                botorch_model_class=SingleTaskGP
-                            )
-                        ),
-                        # TODO: tests should better reflect defaults and not
-                        # re-implement this logic.
-                        "botorch_acqf_class": qNoisyExpectedImprovement,
-                        "model_kwargs": {"fit_tracking_metrics": False},
-                    },
-                    model_gen_kwargs={
-                        "model_gen_options": {
-                            Keys.OPTIMIZER_KWARGS: {
-                                "num_restarts": 50,
-                                "raw_samples": 1024,
-                            },
-                            Keys.ACQF_KWARGS: {
-                                "prune_baseline": True,
-                            },
-                        }
-                    },
-                ),
-            ],
-        ),
     )
 
 
