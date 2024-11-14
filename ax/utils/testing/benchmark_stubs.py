@@ -13,8 +13,12 @@ from typing import Any, Iterator
 import numpy as np
 import torch
 from ax.benchmark.benchmark_method import BenchmarkMethod
-from ax.benchmark.benchmark_metric import BenchmarkMetric
-from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
+from ax.benchmark.benchmark_problem import (
+    BenchmarkProblem,
+    create_problem_from_botorch,
+    get_moo_opt_config,
+    get_soo_opt_config,
+)
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
@@ -23,11 +27,6 @@ from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.objective import MultiObjective, Objective
-from ax.core.optimization_config import (
-    MultiObjectiveOptimizationConfig,
-    OptimizationConfig,
-)
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -112,13 +111,10 @@ def get_soo_surrogate() -> BenchmarkProblem:
     experiment = get_branin_experiment(with_completed_trial=True)
     test_function = get_soo_surrogate_test_function()
 
-    observe_noise_sd = True
-    objective = Objective(
-        metric=BenchmarkMetric(
-            name="branin", lower_is_better=True, observe_noise_sd=observe_noise_sd
-        ),
+    optimization_config = get_soo_opt_config(
+        outcome_names=test_function.outcome_names,
+        observe_noise_sd=True,
     )
-    optimization_config = OptimizationConfig(objective=objective)
 
     return BenchmarkProblem(
         name="test",
@@ -146,27 +142,12 @@ def get_moo_surrogate() -> BenchmarkProblem:
         outcome_names=outcome_names,
         get_surrogate_and_datasets=lambda: (surrogate, []),
     )
-    observe_noise_sd = True
-    optimization_config = MultiObjectiveOptimizationConfig(
-        objective=MultiObjective(
-            objectives=[
-                Objective(
-                    metric=BenchmarkMetric(
-                        name="branin_a",
-                        lower_is_better=True,
-                        observe_noise_sd=observe_noise_sd,
-                    ),
-                ),
-                Objective(
-                    metric=BenchmarkMetric(
-                        name="branin_b",
-                        lower_is_better=True,
-                        observe_noise_sd=observe_noise_sd,
-                    ),
-                ),
-            ],
-        )
+    optimization_config = get_moo_opt_config(
+        outcome_names=outcome_names,
+        ref_point=[0.0, 0.0],
+        observe_noise_sd=True,
     )
+
     return BenchmarkProblem(
         name="test",
         search_space=experiment.search_space,
