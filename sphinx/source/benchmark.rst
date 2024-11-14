@@ -138,6 +138,13 @@ Benchmark Problems PyTorchCNN TorchVision
     :undoc-members:
     :show-inheritance:
 
+Benchmark Problems Runtime Functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.problems.runtime_funcs
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 Benchmark Test Functions: BoTorch Test
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
