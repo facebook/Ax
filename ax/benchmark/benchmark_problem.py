@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -89,7 +89,7 @@ class BenchmarkProblem(Base):
     optimization_config: OptimizationConfig
     num_trials: int
     test_function: BenchmarkTestFunction
-    noise_std: float | list[float] | dict[str, float] = 0.0
+    noise_std: float | Sequence[float] | Mapping[str, float] = 0.0
     optimal_value: float
 
     search_space: SearchSpace = field(repr=False)
@@ -148,41 +148,57 @@ class BenchmarkProblem(Base):
 
 
 def _get_constraints(
-    num_constraints: int, observe_noise_sd: bool
+    constraint_names: Sequence[str], observe_noise_sd: bool
 ) -> list[OutcomeConstraint]:
     """
-    NOTE: Currently we don't support the case where only some of the
-    outcomes have noise levels observed.
-    """
-    outcome_constraints = []
+    Create a list of ``OutcomeConstraint``s.
 
-    for i in range(num_constraints):
-        outcome_name = f"constraint_slack_{i}"
-        outcome_constraints.append(
-            OutcomeConstraint(
-                metric=BenchmarkMetric(
-                    name=outcome_name,
-                    lower_is_better=False,  # positive slack = feasible
-                    observe_noise_sd=observe_noise_sd,
-                ),
-                op=ComparisonOp.GEQ,
-                bound=0.0,
-                relative=False,
-            )
+    Each constraint has a ``BenchmarkMetric``; the metrics names match
+    ``constraint_names``, and each has ``observe_noise_sd=observe_noise_sd``.
+    This doesn't handle the case where only some of the outcomes have noise
+    levels observed.
+    """
+
+    outcome_constraints = [
+        OutcomeConstraint(
+            metric=BenchmarkMetric(
+                name=name,
+                lower_is_better=False,  # positive slack = feasible
+                observe_noise_sd=observe_noise_sd,
+            ),
+            op=ComparisonOp.GEQ,
+            bound=0.0,
+            relative=False,
         )
+        for name in constraint_names
+    ]
     return outcome_constraints
 
 
-def get_soo_config_and_outcome_names(
+def get_soo_opt_config(
     *,
-    num_constraints: int,
-    lower_is_better: bool,
-    observe_noise_sd: bool,
-    objective_name: str,
-) -> tuple[OptimizationConfig, list[str]]:
+    outcome_names: Sequence[str],
+    lower_is_better: bool = True,
+    observe_noise_sd: bool = False,
+) -> OptimizationConfig:
+    """
+    Create a single-objective ``OptimizationConfig``, potentially with
+    constraints.
+
+    Args:
+        outcome_names: Names of the outcomes. If ``outcome_names`` has more than
+            one element, constraints will be created. The first element of
+            ``outcome_names`` will be the name of the ``BenchmarkMetric`` on
+            the objective, and others (if pressent) will be for constraints.
+        lower_is_better: Whether the objective is a minimization problem. This
+            only affects objectives, not constraints; for constraints, higher is
+            better (feasible).
+        observe_noise_sd: Whether the standard deviation of the observation
+            noise is observed. Applies to all objective and constraints.
+    """
     objective = Objective(
         metric=BenchmarkMetric(
-            name=objective_name,
+            name=outcome_names[0],
             lower_is_better=lower_is_better,
             observe_noise_sd=observe_noise_sd,
         ),
@@ -190,55 +206,75 @@ def get_soo_config_and_outcome_names(
     )
 
     outcome_constraints = _get_constraints(
-        num_constraints=num_constraints, observe_noise_sd=observe_noise_sd
+        constraint_names=outcome_names[1:], observe_noise_sd=observe_noise_sd
     )
-    constraint_names = [oc.metric.name for oc in outcome_constraints]
 
-    opt_config = OptimizationConfig(
+    return OptimizationConfig(
         objective=objective, outcome_constraints=outcome_constraints
     )
-    outcome_names = [objective_name] + constraint_names
-    return opt_config, outcome_names
 
 
-def get_moo_opt_config_and_outcome_names(
+def get_moo_opt_config(
     *,
-    num_constraints: int,
-    lower_is_better: bool,
-    observe_noise_sd: bool,
-    objective_names: list[str],
-    ref_point: list[float],
-) -> tuple[MultiObjectiveOptimizationConfig, list[str]]:
-    metrics = [
+    outcome_names: Sequence[str],
+    ref_point: Sequence[float],
+    num_constraints: int = 0,
+    lower_is_better: bool = True,
+    observe_noise_sd: bool = False,
+) -> MultiObjectiveOptimizationConfig:
+    """
+    Create a ``MultiObjectiveOptimizationConfig``, potentially with constraints.
+
+    Args:
+        outcome_names: Names of the outcomes. If ``num_constraints`` is greater
+            than zero, the last ``num_constraints`` elements of
+            ``outcome_names`` will become the names of ``BenchmarkMetric``s on
+            constraints, and the others will correspond to the objectives.
+        ref_point: Objective thresholds for the objective metrics. Note:
+            Although this method requires providing a threshold for each
+            objective, this is not required in general and could be enabled for
+            this method.
+        num_constraints: Number of constraints.
+        lower_is_better: Whether the objectives are lower-is-better. Applies to
+            all objectives and not to constraints. For constraints, higher is
+            better (feasible). Note: Ax allows different metrics to have
+            different values of ``lower_is_better``; that isn't enabled for this
+            method, but could be.
+        observe_noise_sd: Whether the standard deviation of the observation
+        noise is observed. Applies to all objective and constraints.
+    """
+    n_objectives = len(outcome_names) - num_constraints
+    objective_metrics = [
         BenchmarkMetric(
-            name=objective_name,
+            name=outcome_names[i],
             lower_is_better=lower_is_better,
             observe_noise_sd=observe_noise_sd,
         )
-        for objective_name in objective_names
+        for i in range(n_objectives)
     ]
     constraints = _get_constraints(
-        num_constraints=num_constraints, observe_noise_sd=observe_noise_sd
+        constraint_names=outcome_names[n_objectives:],
+        observe_noise_sd=observe_noise_sd,
     )
     optimization_config = MultiObjectiveOptimizationConfig(
         objective=MultiObjective(
             objectives=[
-                Objective(metric=metric, minimize=lower_is_better) for metric in metrics
+                Objective(metric=metric, minimize=lower_is_better)
+                for metric in objective_metrics
             ]
         ),
         objective_thresholds=[
             ObjectiveThreshold(
                 metric=metric,
-                bound=ref_point[i],
+                bound=ref_p,
                 relative=False,
                 op=ComparisonOp.LEQ if metric.lower_is_better else ComparisonOp.GEQ,
             )
-            for i, metric in enumerate(metrics)
+            for ref_p, metric in zip(ref_point, objective_metrics, strict=True)
         ],
         outcome_constraints=constraints,
     )
-    outcome_names = objective_names + [oc.metric.name for oc in constraints]
-    return optimization_config, outcome_names
+    return optimization_config
 
 
 def get_continuous_search_space(bounds: list[tuple[float, float]]) -> SearchSpace:
@@ -326,19 +362,30 @@ def create_problem_from_botorch(
 
     num_constraints = test_problem.num_constraints if is_constrained else 0
     if isinstance(test_problem, MultiObjectiveTestProblem):
-        optimization_config, outcome_names = get_moo_opt_config_and_outcome_names(
+        objective_names = [f"{name}_{i}" for i in range(n_obj)]
+    else:
+        objective_names = [name]
+
+    constraint_names = [f"constraint_slack_{i}" for i in range(num_constraints)]
+    outcome_names = objective_names + constraint_names
+
+    test_function = BoTorchTestFunction(
+        botorch_problem=test_problem, outcome_names=outcome_names
+    )
+
+    if isinstance(test_problem, MultiObjectiveTestProblem):
+        optimization_config = get_moo_opt_config(
             num_constraints=num_constraints,
             lower_is_better=lower_is_better,
             observe_noise_sd=observe_noise_sd,
-            objective_names=[f"{name}_{i}" for i in range(n_obj)],
+            outcome_names=test_function.outcome_names,
             ref_point=test_problem._ref_point,
         )
     else:
-        optimization_config, outcome_names = get_soo_config_and_outcome_names(
-            num_constraints=num_constraints,
+        optimization_config = get_soo_opt_config(
+            outcome_names=test_function.outcome_names,
             lower_is_better=lower_is_better,
             observe_noise_sd=observe_noise_sd,
-            objective_name=name,
         )
 
     optimal_value = (
@@ -346,13 +393,12 @@ def create_problem_from_botorch(
         if isinstance(test_problem, MultiObjectiveTestProblem)
         else test_problem.optimal_value
     )
+
     return BenchmarkProblem(
         name=name,
         search_space=search_space,
         optimization_config=optimization_config,
-        test_function=BoTorchTestFunction(
-            botorch_problem=test_problem, outcome_names=outcome_names
-        ),
+        test_function=test_function,
         noise_std=noise_std,
         num_trials=num_trials,
         optimal_value=optimal_value,

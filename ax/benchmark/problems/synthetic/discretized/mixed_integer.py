@@ -18,12 +18,8 @@ References
     35, 2022.
 """
 
-from ax.benchmark.benchmark_metric import BenchmarkMetric
-
-from ax.benchmark.benchmark_problem import BenchmarkProblem
+from ax.benchmark.benchmark_problem import BenchmarkProblem, get_soo_opt_config
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
-from ax.core.objective import Objective
-from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from botorch.test_functions.synthetic import Ackley, Hartmann, Rosenbrock
@@ -86,15 +82,10 @@ def _get_problem_from_common_inputs(
             for i in range(dim)
         ]
     )
-    optimization_config = OptimizationConfig(
-        objective=Objective(
-            metric=BenchmarkMetric(
-                name=metric_name,
-                lower_is_better=lower_is_better,
-                observe_noise_sd=observe_noise_sd,
-            ),
-            minimize=lower_is_better,
-        )
+    optimization_config = get_soo_opt_config(
+        outcome_names=[metric_name],
+        lower_is_better=lower_is_better,
+        observe_noise_sd=observe_noise_sd,
     )
 
     if test_problem_bounds is None:

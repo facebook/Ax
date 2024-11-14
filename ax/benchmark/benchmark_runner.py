@@ -63,7 +63,7 @@ class BenchmarkRunner(Runner):
     """
 
     test_function: BenchmarkTestFunction
-    noise_std: float | list[float] | dict[str, float] = 0.0
+    noise_std: float | Sequence[float] | Mapping[str, float] = 0.0
     trial_runtime_func: Callable[[BaseTrial], int] | None = None
     max_concurrency: int = 1
     simulated_backend_runner: SimulatedBackendRunner | None = field(init=False)

@@ -9,11 +9,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 import torch
-from ax.benchmark.benchmark_metric import BenchmarkMetric
-from ax.benchmark.benchmark_problem import BenchmarkProblem
+from ax.benchmark.benchmark_problem import BenchmarkProblem, get_soo_opt_config
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
-from ax.core.objective import Objective
-from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import HierarchicalSearchSpace
 from pyre_extensions import none_throws
@@ -108,15 +105,10 @@ def get_jenatton_benchmark_problem(
     noise_std: float = 0.0,
 ) -> BenchmarkProblem:
     name = "Jenatton" + ("_observed_noise" if observe_noise_sd else "")
-
-    optimization_config = OptimizationConfig(
-        objective=Objective(
-            metric=BenchmarkMetric(
-                name=name, observe_noise_sd=observe_noise_sd, lower_is_better=True
-            ),
-            minimize=True,
-        )
+    optimization_config = get_soo_opt_config(
+        outcome_names=[name], observe_noise_sd=observe_noise_sd
     )
+
     return BenchmarkProblem(
         name=name,
         search_space=get_jenatton_search_space(),
