@@ -76,7 +76,8 @@ class BenchmarkRunner(Runner):
                     # Always use virtual rather than real time for benchmarking
                     internal_clock=0,
                     use_update_as_start_time=False,
-                )
+                ),
+                verbose_logging=False,
             )
             self.simulated_backend_runner = SimulatedBackendRunner(
                 simulator=simulator,

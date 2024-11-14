@@ -261,6 +261,7 @@ def create_problem_from_botorch(
     test_problem_kwargs: dict[str, Any],
     noise_std: float | list[float] = 0.0,
     num_trials: int,
+    name: str | None = None,
     lower_is_better: bool = True,
     observe_noise_sd: bool = False,
     search_space: SearchSpace | None = None,
@@ -268,11 +269,13 @@ def create_problem_from_botorch(
     trial_runtime_func: Callable[[BaseTrial], int] | None = None,
 ) -> BenchmarkProblem:
     """
-    Create a `BenchmarkProblem` from a BoTorch `BaseTestProblem`.
+    Create a ``BenchmarkProblem`` from a BoTorch ``BaseTestProblem``.
 
-    Uses specialized Metrics and Runners for benchmarking. The test problem's
-    result will be computed by the Runner, `BenchmarkRunner`, and
-    retrieved by the Metric(s), which are `BenchmarkMetric`s.
+    The resulting ``BenchmarkProblem``'s ``test_function`` is constructed from
+    the ``BaseTestProblem`` class (``test_problem_class``) and its arguments
+    (``test_problem_kwargs``). All other fields are passed to
+    ``BenchmarkProblem`` if they are specified and populated with reasonable
+    defaults otherwise. ``num_trials``, however, must be specified.
 
     Args:
         test_problem_class: The BoTorch test problem class which will be used
@@ -284,6 +287,9 @@ def create_problem_from_botorch(
         lower_is_better: Whether this is a minimization problem. For MOO, this
             applies to all objectives.
         num_trials: Simply the `num_trials` of the `BenchmarkProblem` created.
+        name: This and the following arguments are all passed to
+            ``BenchmarkProblem`` if specified and populated with reasonable
+            defaults otherwise.
         observe_noise_sd: Whether the standard deviation of the observation noise is
             observed or not (in which case it must be inferred by the model).
             This is separate from whether synthetic noise is added to the
@@ -295,6 +301,8 @@ def create_problem_from_botorch(
             ``optimization_trace`` on a ``BenchmarkResult`` ought to be the
             ``inference_trace``; otherwise, it will be the ``oracle_trace``.
             See ``BenchmarkResult`` for more information.
+        trial_runtime_func: A function that takes a trial and returns how long
+            it takes to run that trial.
     """
     # pyre-fixme [45]: Invalid class instantiation
     test_problem = test_problem_class(**test_problem_kwargs)
@@ -309,9 +317,12 @@ def create_problem_from_botorch(
     dim = test_problem_kwargs.get("dim", None)
 
     n_obj = test_problem.num_objectives
-    name = _get_name(
-        test_problem=test_problem, observe_noise_sd=observe_noise_sd, dim=dim
-    )
+    if name is None:
+        name = _get_name(
+            test_problem=test_problem,
+            observe_noise_sd=observe_noise_sd,
+            dim=dim,
+        )
 
     num_constraints = test_problem.num_constraints if is_constrained else 0
     if isinstance(test_problem, MultiObjectiveTestProblem):
