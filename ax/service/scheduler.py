@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import traceback
 
-from collections import defaultdict
 from collections.abc import Callable, Generator, Iterable, Mapping
 from copy import deepcopy
 from datetime import datetime
@@ -1447,34 +1446,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             for idx, t in self.experiment.trials.items()
             if idx >= self._num_preexisting_trials and t.status.is_terminal
         )
-
-    def _update_status_dict(
-        self,
-        status_dict: dict[TrialStatus, set[int]],
-        updating_status_dict: dict[TrialStatus, set[int]],
-    ) -> dict[TrialStatus, set[int]]:
-        """Helper method to elements of a dict of sets.
-
-        Avoids leaving trial_index in sets corresponding to two different
-        statuses."""
-        # Convert Dict[TrialStatus, Set[int]] to Dict[int, TrialStatus]
-        trial_index_to_status = {
-            trial_index: status
-            for status, trial_indices in status_dict.items()
-            for trial_index in trial_indices
-        }
-        # Convert Dict[TrialStatus, Set[int]] to Dict[int, TrialStatus]
-        trial_index_to_updating_status = {
-            trial_index: status
-            for status, trial_indices in updating_status_dict.items()
-            for trial_index in trial_indices
-        }
-        # Safely update new statuses, then convert back to Dict[TrialStatus, Set[int]]
-        trial_index_to_status.update(trial_index_to_updating_status)
-        updated_status_dict = defaultdict(set)
-        for trial_index, status in trial_index_to_status.items():
-            updated_status_dict[status].add(trial_index)
-        return updated_status_dict
 
     def _apply_new_trial_statuses(
         self, new_status_to_trial_idcs: dict[TrialStatus, set[int]]
