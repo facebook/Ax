@@ -16,7 +16,7 @@ from collections.abc import Hashable, Iterable, Mapping
 from datetime import datetime
 from functools import partial, reduce
 
-from typing import Any
+from typing import Any, cast
 
 import ax.core.observation as observation
 import pandas as pd
@@ -42,10 +42,16 @@ from ax.core.runner import Runner
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TParameterization
-from ax.exceptions.core import AxError, UnsupportedError, UserInputError
+from ax.exceptions.core import (
+    AxError,
+    RunnerNotFoundError,
+    UnsupportedError,
+    UserInputError,
+)
 from ax.utils.common.base import Base
 from ax.utils.common.constants import EXPERIMENT_IS_TEST_WARNING, Keys
 from ax.utils.common.docutils import copy_doc
+from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.result import Err, Ok
 from ax.utils.common.timeutils import current_timestamp_in_millis
@@ -53,6 +59,12 @@ from ax.utils.common.typeutils import checked_cast
 from pyre_extensions import none_throws
 
 logger: logging.Logger = get_logger(__name__)
+
+NO_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
+    cast(type[Exception], RunnerNotFoundError),
+    cast(type[Exception], NotImplementedError),
+    cast(type[Exception], UnsupportedError),
+)
 
 ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES: int = 6
 
@@ -1173,6 +1185,39 @@ class Experiment(Base):
                 f"Trials indices available on this experiment: {list(self.trials)}."
             )
 
+    @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
+    def stop_trial_runs(
+        self, trials: list[BaseTrial], reasons: list[str | None] | None = None
+    ) -> None:
+        """Stops the jobs that execute given trials.
+
+        Used if, for example, TTL for a trial was specified and expired, or poor
+        early results suggest the trial is not worth running to completion.
+
+        Override default implementation on the ``Runner`` if its desirable to stop
+        trials in bulk.
+
+        Args:
+            trials: Trials to be stopped.
+            reasons: A list of strings describing the reasons for why the
+                trials are to be stopped (in the same order).
+        """
+        if len(trials) == 0:
+            return
+
+        if reasons is None:
+            reasons = [None] * len(trials)
+
+        for trial, reason in zip(trials, reasons):
+            runner = self.runner_for_trial(trial=trial)
+            if runner is None:
+                raise RunnerNotFoundError(
+                    "Unable to stop trial runs: Runner not configured "
+                    "for experiment or trial."
+                )
+            runner.stop(trial=trial, reason=reason)
+            trial.mark_early_stopped()
+
     def reset_runners(self, runner: Runner) -> None:
         """Replace all candidate trials runners.
 
@@ -1465,7 +1510,7 @@ class Experiment(Base):
         In the base experiment class, this is always the default experiment runner.
         For experiments with multiple trial types, use the MultiTypeExperiment class.
         """
-        return self.runner
+        return trial._runner if trial._runner else self.runner
 
     def supports_trial_type(self, trial_type: str | None) -> bool:
         """Whether this experiment allows trials of the given type.

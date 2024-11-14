@@ -15,7 +15,7 @@ import pandas as pd
 from ax.core import BatchTrial, Experiment, Trial
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.base_trial import TrialStatus
+from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
@@ -34,7 +34,7 @@ from ax.core.parameter import (
 )
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import AxError, UnsupportedError
+from ax.exceptions.core import AxError, RunnerNotFoundError, UnsupportedError
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
@@ -1283,6 +1283,25 @@ class ExperimentTest(TestCase):
         self.assertEqual(experiment.trial_indices_expecting_data, {2})
         experiment.trials[5].mark_running(no_runner_required=True).mark_early_stopped()
         self.assertEqual(experiment.trial_indices_expecting_data, {2, 5})
+
+    def test_stop_trial(self) -> None:
+        self.experiment.new_trial()
+        with patch.object(self.experiment, "runner"), patch.object(
+            self.experiment.runner, "stop", return_value=None
+        ) as mock_runner_stop, patch.object(
+            BaseTrial, "mark_early_stopped"
+        ) as mock_mark_stopped:
+            self.experiment.stop_trial_runs(trials=[self.experiment.trials[0]])
+            mock_runner_stop.assert_called_once()
+            mock_mark_stopped.assert_called_once()
+
+    def test_stop_trial_without_runner(self) -> None:
+        self.experiment.new_trial()
+        with self.assertRaisesRegex(
+            RunnerNotFoundError,
+            "Unable to stop trial runs: Runner not configured for experiment or trial.",
+        ):
+            self.experiment.stop_trial_runs(trials=[self.experiment.trials[0]])
 
 
 class ExperimentWithMapDataTest(TestCase):
