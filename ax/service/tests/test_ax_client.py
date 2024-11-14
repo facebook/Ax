@@ -48,7 +48,7 @@ from ax.exceptions.core import (
     UserInputError,
 )
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
-from ax.metrics.branin import branin
+from ax.metrics.branin import branin, BraninMetric
 from ax.modelbridge.dispatch_utils import DEFAULT_BAYESIAN_PARALLELISM
 from ax.modelbridge.generation_strategy import (
     GenerationNode,
@@ -1073,11 +1073,7 @@ class TestAxClient(TestCase):
 
     def test_create_experiment_with_metric_definitions(self) -> None:
         """Test basic experiment creation."""
-        ax_client = AxClient(
-            GenerationStrategy(
-                steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
-            )
-        )
+        ax_client = AxClient()
         with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
             ax_client.experiment
 
@@ -1132,6 +1128,45 @@ class TestAxClient(TestCase):
                 ax_client.metric_definitions[k]["properties"],
                 metric_definitions[k]["properties"],
             )
+
+    def test_metric_definitions_can_set_a_class(self) -> None:
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x",
+                    "type": "range",
+                    "bounds": [0.001, 0.1],
+                },
+                {
+                    "name": "y",
+                    "type": "range",
+                    "bounds": [0.001, 0.1],
+                },
+            ],
+            is_test=True,
+        )
+        ax_client.add_tracking_metrics(
+            metric_names=["branin"],
+            metric_definitions={
+                "branin": {
+                    "param_names": ["x", "y"],
+                    "noise_sd": 0.01,
+                    "lower_is_better": False,
+                    "metric_class": BraninMetric,
+                },
+            },
+        )
+        self.assertEqual(
+            ax_client.experiment.metrics["branin"],
+            BraninMetric(
+                name="branin",
+                param_names=["x", "y"],
+                noise_sd=0.01,
+                lower_is_better=False,
+            ),
+        )
 
     def test_set_optimization_config_with_metric_definitions(self) -> None:
         ax_client = AxClient()
