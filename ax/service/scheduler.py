@@ -230,7 +230,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         self.markdown_messages = {
             "Generation strategy": GS_TYPE_MSG.format(gs_name=generation_strategy.name)
         }
-        self._timeout_hours = options.timeout_hours
 
     @classmethod
     def get_default_db_settings(cls) -> DBSettings:
@@ -736,7 +735,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 raise UserInputError(
                     f"Expected `timeout_hours` >= 0, got {timeout_hours}."
                 )
-            self._timeout_hours = timeout_hours
 
         self._latest_optimization_start_timestamp = current_timestamp_in_millis()
         self.__ignore_global_stopping_strategy = ignore_global_stopping_strategy
@@ -755,7 +753,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             self._num_remaining_requested_trials > 0
             and not self.should_consider_optimization_complete()[0]
         ):
-            if self.should_abort_optimization():
+            if self.should_abort_optimization(timeout_hours=timeout_hours):
                 yield self._abort_optimization(num_preexisting_trials=n_existing)
                 return
 
@@ -766,7 +764,8 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 self.candidate_trials
             )
             while self._num_remaining_requested_trials > 0 and self.run(
-                max_new_trials=n_remaining_to_generate
+                max_new_trials=n_remaining_to_generate,
+                timeout_hours=timeout_hours,
             ):
                 # Not checking `should_abort_optimization` on every trial for perf.
                 # reasons.
@@ -799,7 +798,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             )
 
         while self.running_trials:
-            if self.should_abort_optimization():
+            if self.should_abort_optimization(timeout_hours=timeout_hours):
                 yield self._abort_optimization(num_preexisting_trials=n_existing)
                 return
             report_results = self._check_exit_status_and_report_results(
@@ -975,7 +974,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             self.logger.info(f"Completing the optimization: {completion_message}.")
         return should_complete, completion_message
 
-    def should_abort_optimization(self) -> bool:
+    def should_abort_optimization(self, timeout_hours: float | None = None) -> bool:
         """Checks whether this scheduler has reached some intertuption / abort
         criterion, such as an overall optimization timeout, tolerated failure rate, etc.
         """
@@ -985,15 +984,15 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
         # if optimization is timed out, return True, else return False
         timed_out = (
-            self._timeout_hours is not None
+            timeout_hours is not None
             and self._latest_optimization_start_timestamp is not None
             and current_timestamp_in_millis()
             - none_throws(self._latest_optimization_start_timestamp)
-            >= none_throws(self._timeout_hours) * 60 * 60 * 1000
+            >= none_throws(timeout_hours) * 60 * 60 * 1000
         )
         if timed_out:
             self.logger.error(
-                "Optimization timed out (timeout hours: " f"{self._timeout_hours})!"
+                "Optimization timed out (timeout hours: " f"{timeout_hours})!"
             )
         return timed_out
 
@@ -1179,7 +1178,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             idle_callback, force_refit=True
         )
 
-    def run(self, max_new_trials: int) -> bool:
+    def run(self, max_new_trials: int, timeout_hours: float | None = None) -> bool:
         """Schedules trial evaluation(s) if stopping criterion is not triggered,
         maximum parallelism is not currently reached, and capacity allows.
         Logs any failures / issues.
@@ -1189,6 +1188,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 and run (useful when generating and running trials in batches). Note
                 that this function might also re-deploy existing ``CANDIDATE`` trials
                 that failed to deploy before, which will not count against this number.
+            timeout_hours: Maximum number of hours, for which
+                to run the optimization. This function will abort after running
+                for `timeout_hours` even if stopping criterion has not been reached.
+                If set to `None`, no optimization timeout will be applied.
 
         Returns:
             Boolean representing success status.
@@ -1204,7 +1207,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             )
             return False
 
-        if self.should_abort_optimization():
+        if self.should_abort_optimization(timeout_hours=timeout_hours):
             self.logger.info(
                 "`should_abort_optimization` is `True`, not running more trials."
             )

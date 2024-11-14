@@ -59,7 +59,7 @@ class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):
         "min_failed_trials_for_failure_rate_check=5, log_filepath=None, "
         "logging_level=20, ttl_seconds_for_trials=None, init_seconds_between_"
         "polls=10, min_seconds_before_poll=1.0, seconds_between_polls_backoff_"
-        "factor=1.5, timeout_hours=None, run_trials_in_batches=False, "
+        "factor=1.5, run_trials_in_batches=False, "
         "debug_log_run_metadata=False, early_stopping_strategy=None, "
         "global_stopping_strategy=None, suppress_storage_errors_after_"
         "retries=False, wait_for_running_trials=True, fetch_kwargs={}, "

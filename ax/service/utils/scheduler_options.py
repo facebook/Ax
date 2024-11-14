@@ -135,7 +135,6 @@ class SchedulerOptions:
     init_seconds_between_polls: int | None = 1
     min_seconds_before_poll: float = 1.0
     seconds_between_polls_backoff_factor: float = 1.5
-    timeout_hours: float | None = None
     run_trials_in_batches: bool = False
     debug_log_run_metadata: bool = False
     early_stopping_strategy: BaseEarlyStoppingStrategy | None = None
