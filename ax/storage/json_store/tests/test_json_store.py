@@ -13,6 +13,7 @@ from functools import partial
 
 import numpy as np
 import torch
+from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.runner import Runner
@@ -47,7 +48,6 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import (
     get_aggregated_benchmark_result,
     get_benchmark_result,
-    get_sobol_gpei_benchmark_method,
 )
 from ax.utils.testing.core_stubs import (
     get_abandoned_arm,
@@ -139,7 +139,10 @@ TEST_CASES = [
     ("Arm", get_arm),
     ("AuxiliaryExperiment", get_auxiliary_experiment),
     ("BatchTrial", get_batch_trial),
-    ("BenchmarkMethod", get_sobol_gpei_benchmark_method),
+    (
+        "BenchmarkMethod",
+        lambda: get_sobol_benchmark_method(distribute_replications=True),
+    ),
     ("BenchmarkResult", get_benchmark_result),
     ("BoTorchModel", get_botorch_model),
     ("BoTorchModel", get_botorch_model_with_default_acquisition_class),
