@@ -42,6 +42,7 @@ from ax.core.types import (
     TParameterization,
 )
 from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.model import ModelBridgeMethodNotImplementedError
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.cast import Cast
 from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
@@ -261,7 +262,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
             increment = time.monotonic() - t_fit_start + time_so_far
             self.fit_time += increment
             self.fit_time_since_gen += increment
-        except NotImplementedError:
+        except ModelBridgeMethodNotImplementedError:
             pass
 
     def _process_and_transform_data(
@@ -585,7 +586,9 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         observations: list[Observation],
     ) -> None:
         """Apply terminal transform and fit model."""
-        raise NotImplementedError
+        raise ModelBridgeMethodNotImplementedError(
+            f"{self.__class__.__name__} does not implement `_fit`."
+        )
 
     def _batch_predict(
         self, observation_features: list[ObservationFeatures]
@@ -713,7 +716,9 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         """Apply terminal transform, predict, and reverse terminal transform on
         output.
         """
-        raise NotImplementedError
+        raise ModelBridgeMethodNotImplementedError(
+            f"{self.__class__.__name__} does not implement `_predict`."
+        )
 
     def update(self, new_data: Data, experiment: Experiment) -> None:
         """Update the model bridge and the underlying model with new data. This
@@ -953,7 +958,9 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         """Apply terminal transform, gen, and reverse terminal transform on
         output.
         """
-        raise NotImplementedError
+        raise ModelBridgeMethodNotImplementedError(
+            f"{self.__class__.__name__} does not implement `_gen`."
+        )
 
     def cross_validate(
         self,
@@ -1014,7 +1021,9 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         """Apply the terminal transform, make predictions on the test points,
         and reverse terminal transform on the results.
         """
-        raise NotImplementedError
+        raise ModelBridgeMethodNotImplementedError(
+            f"{self.__class__.__name__} does not implement `_cross_validate`."
+        )
 
     def _transform_inputs_for_cv(
         self,
@@ -1089,8 +1098,8 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
             importances.
 
         """
-        raise NotImplementedError(
-            "Feature importance not available for this model type"
+        raise ModelBridgeMethodNotImplementedError(
+            f"{self.__class__.__name__} does not implement `feature_importances`."
         )
 
     # pyre-fixme[3]: Return annotation cannot be `Any`.
@@ -1114,7 +1123,9 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
     # pyre-fixme[3]: Return annotation cannot be `Any`.
     def _transform_observations(self, observations: list[Observation]) -> Any:
         """Apply terminal transform to given observations and return result."""
-        raise NotImplementedError
+        raise ModelBridgeMethodNotImplementedError(
+            f"{self.__class__.__name__} does not implement `_transform_observations`."
+        )
 
     # pyre-fixme[3]: Return annotation cannot be `Any`.
     def transform_observation_features(
@@ -1141,7 +1152,10 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         self, observation_features: list[ObservationFeatures]
     ) -> Any:
         """Apply terminal transform to given observation features and return result."""
-        raise NotImplementedError
+        raise ModelBridgeMethodNotImplementedError(
+            f"{self.__class__.__name__} does not implement "
+            "`_transform_observation_features`."
+        )
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(model={self.model})"
