@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Iterator
 
@@ -293,7 +293,8 @@ class DeterministicGenerationNode(ExternalGenerationNode):
 
 @dataclass(kw_only=True)
 class IdentityTestFunction(BenchmarkTestFunction):
-    outcome_names: list[str] = field(default_factory=lambda: ["objective"])
+    outcome_names: Sequence[str] = field(default_factory=lambda: ["objective"])
+    n_time_intervals: int = 1
 
     # pyre-fixme[14]: Inconsistent override
     def evaluate_true(self, params: Mapping[str, float]) -> torch.Tensor:
@@ -301,7 +302,10 @@ class IdentityTestFunction(BenchmarkTestFunction):
         Args:
             params: A dictionary with key "x0".
         """
-        return torch.tensor(params["x0"], dtype=torch.float64)
+        value = params["x0"]
+        return torch.full(
+            (len(self.outcome_names), self.n_time_intervals), value, dtype=torch.float64
+        )
 
 
 def get_discrete_search_space() -> SearchSpace:

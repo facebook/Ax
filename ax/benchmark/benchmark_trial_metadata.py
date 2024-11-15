@@ -4,8 +4,13 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-from collections.abc import Mapping, Sequence
+
+from collections.abc import Mapping
 from dataclasses import dataclass
+
+import pandas as pd
+
+from ax.utils.testing.backend_simulator import BackendSimulator
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -14,15 +19,16 @@ class BenchmarkTrialMetadata:
     Data pertaining to one trial evaluation.
 
     Args:
-        Ys: A dict mapping arm names to lists of corresponding outcomes,
-            where the order of the outcomes is the same as in `outcome_names`.
-        Ystds: A dict mapping arm names to lists of corresponding outcome
-            noise standard deviations (possibly nan if the noise level is
-            unobserved), where the order of the outcomes is the same as in
-            `outcome_names`.
-        outcome_names: A list of metric names.
+        df: A dict mapping each metric name to a Pandas DataFrame with columns
+            ["metric_name", "arm_name", "mean", "sem", and "t"]. The "sem" is
+            always present in this df even if noise levels are unobserved;
+            ``BenchmarkMetric`` and ``BenchmarkMapMetric`` hide that data if it
+            should not be observed, and ``BenchmarkMapMetric``s drop data from
+            time periods that that are not observed based on the (simulated)
+            trial progression.
+        backend_simulator: Optionally, the backend simulator that is tracking
+            the trial's status.
     """
 
-    Ys: Mapping[str, Sequence[float]]
-    Ystds: Mapping[str, Sequence[float]]
-    outcome_names: Sequence[str]
+    dfs: Mapping[str, pd.DataFrame]
+    backend_simulator: BackendSimulator | None = None

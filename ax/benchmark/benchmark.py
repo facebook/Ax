@@ -68,8 +68,7 @@ def compute_score_trace(
 
 
 def get_benchmark_runner(
-    problem: BenchmarkProblem,
-    max_concurrency: int = 1,
+    problem: BenchmarkProblem, max_concurrency: int = 1
 ) -> BenchmarkRunner:
     """
     Construct a ``BenchmarkRunner`` for the given problem and concurrency.
