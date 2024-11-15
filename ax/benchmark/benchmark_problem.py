@@ -9,9 +9,10 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from ax.benchmark.benchmark_metric import BenchmarkMetric
+from ax.benchmark.benchmark_metric import BenchmarkMapMetric, BenchmarkMetric
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
+
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -148,20 +149,27 @@ class BenchmarkProblem(Base):
 
 
 def _get_constraints(
-    constraint_names: Sequence[str], observe_noise_sd: bool
+    constraint_names: Sequence[str],
+    observe_noise_sd: bool,
+    use_map_metric: bool = False,
 ) -> list[OutcomeConstraint]:
     """
     Create a list of ``OutcomeConstraint``s.
 
-    Each constraint has a ``BenchmarkMetric``; the metrics names match
-    ``constraint_names``, and each has ``observe_noise_sd=observe_noise_sd``.
-    This doesn't handle the case where only some of the outcomes have noise
-    levels observed.
-    """
+    Args:
+        constraint_names: Names of the constraints. One constraint will be
+            created for each.
+        observe_noise_sd: Whether the standard deviation of the observation
+            noise is observed, for each constraint. This doesn't handle the case
+            where only some of the outcomes have noise levels observed.
+        use_map_metric: Whether to use a ``BenchmarkMapMetric``.
 
+
+    """
+    metric_cls = BenchmarkMapMetric if use_map_metric else BenchmarkMetric
     outcome_constraints = [
         OutcomeConstraint(
-            metric=BenchmarkMetric(
+            metric=metric_cls(
                 name=name,
                 lower_is_better=False,  # positive slack = feasible
                 observe_noise_sd=observe_noise_sd,
@@ -180,6 +188,7 @@ def get_soo_opt_config(
     outcome_names: Sequence[str],
     lower_is_better: bool = True,
     observe_noise_sd: bool = False,
+    use_map_metric: bool = False,
 ) -> OptimizationConfig:
     """
     Create a single-objective ``OptimizationConfig``, potentially with
@@ -195,9 +204,11 @@ def get_soo_opt_config(
             better (feasible).
         observe_noise_sd: Whether the standard deviation of the observation
             noise is observed. Applies to all objective and constraints.
+        use_map_metric: Whether to use a ``BenchmarkMapMetric``.
     """
+    metric_cls = BenchmarkMapMetric if use_map_metric else BenchmarkMetric
     objective = Objective(
-        metric=BenchmarkMetric(
+        metric=metric_cls(
             name=outcome_names[0],
             lower_is_better=lower_is_better,
             observe_noise_sd=observe_noise_sd,
@@ -206,7 +217,9 @@ def get_soo_opt_config(
     )
 
     outcome_constraints = _get_constraints(
-        constraint_names=outcome_names[1:], observe_noise_sd=observe_noise_sd
+        constraint_names=outcome_names[1:],
+        observe_noise_sd=observe_noise_sd,
+        use_map_metric=use_map_metric,
     )
 
     return OptimizationConfig(
@@ -221,6 +234,7 @@ def get_moo_opt_config(
     num_constraints: int = 0,
     lower_is_better: bool = True,
     observe_noise_sd: bool = False,
+    use_map_metric: bool = False,
 ) -> MultiObjectiveOptimizationConfig:
     """
     Create a ``MultiObjectiveOptimizationConfig``, potentially with constraints.
@@ -244,8 +258,9 @@ def get_moo_opt_config(
         noise is observed. Applies to all objective and constraints.
     """
     n_objectives = len(outcome_names) - num_constraints
+    metric_cls = BenchmarkMapMetric if use_map_metric else BenchmarkMetric
     objective_metrics = [
-        BenchmarkMetric(
+        metric_cls(
             name=outcome_names[i],
             lower_is_better=lower_is_better,
             observe_noise_sd=observe_noise_sd,

@@ -32,6 +32,8 @@ class BenchmarkTestFunction(ABC):
         Evaluate noiselessly.
 
         Returns:
-            1d tensor of shape (len(outcome_names),).
+            A 2d tensor of shape (len(outcome_names), n_intervals).
+            ``n_intervals`` is only relevant when using time-series data
+            (``MapData``). Otherwise, it is 1.
         """
         ...

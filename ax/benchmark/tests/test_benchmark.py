@@ -21,15 +21,20 @@ from ax.benchmark.benchmark import (
     get_oracle_experiment_from_params,
 )
 from ax.benchmark.benchmark_method import BenchmarkMethod
-from ax.benchmark.benchmark_metric import BenchmarkMetric
-from ax.benchmark.benchmark_problem import BenchmarkProblem, create_problem_from_botorch
+from ax.benchmark.benchmark_problem import (
+    BenchmarkProblem,
+    create_problem_from_botorch,
+    get_soo_opt_config,
+)
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
-from ax.benchmark.methods.sobol import get_sobol_benchmark_method
+from ax.benchmark.methods.sobol import (
+    get_sobol_benchmark_method,
+    get_sobol_generation_strategy,
+)
 from ax.benchmark.problems.registry import get_problem
-from ax.core.objective import Objective
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.map_data import MapData
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.external_generation_node import ExternalGenerationNode
@@ -105,7 +110,10 @@ class TestBenchmark(TestCase):
         problem = get_single_objective_benchmark_problem()
         res = benchmark_replication(
             problem=problem,
-            method=get_sobol_benchmark_method(distribute_replications=False),
+            method=BenchmarkMethod(
+                generation_strategy=get_sobol_generation_strategy(),
+                distribute_replications=False,
+            ),
             seed=0,
         )
         # Experiment is not in storage yet
@@ -201,14 +209,20 @@ class TestBenchmark(TestCase):
                 self.assertTrue(np.isfinite(res.score_trace).all())
                 self.assertTrue(np.all(res.score_trace <= 100))
 
-    def test_replication_async(self) -> None:
+    def _test_replication_async(self, map_data: bool) -> None:
         """
         The test function is the identity function, higher is better, observed
-        to be noiseless. And the generation strategy deterministically produces
+        to be noiseless, and the same at every point on the trajectory. And the
+        generation strategy deterministically produces
         candidates with values 0, 1, 2, .... So if the trials complete in order,
         the optimization trace should be 0, 1, 2, .... If the trials complete
         out of order, the traces should track the argmax of the completion
         order.
+
+        Args:
+            map_data: If True, the test function produces time-series data of
+                length 30, but not nearly so many points are observed because
+                the trials stop sooner than that.
         """
         search_space = get_discrete_search_space()
         method = BenchmarkMethod(
@@ -219,15 +233,11 @@ class TestBenchmark(TestCase):
             max_pending_trials=2,
             batch_size=1,
         )
-        optimization_config = OptimizationConfig(
-            objective=Objective(
-                metric=BenchmarkMetric(
-                    name="objective",
-                    observe_noise_sd=True,
-                    lower_is_better=False,
-                ),
-                minimize=False,
-            )
+        optimization_config = get_soo_opt_config(
+            outcome_names=["objective"],
+            use_map_metric=map_data,
+            observe_noise_sd=True,
+            lower_is_better=False,
         )
 
         complete_out_of_order_runtimes = {
@@ -261,9 +271,11 @@ class TestBenchmark(TestCase):
         expected_start_times = {
             "All complete at different times": [0, 0, 1, 3],
             "Trials complete immediately": [0, 0, 1, 1],
-            # Completing after 0 seconds has the same effect as completing after
-            # 1 second, because a new trial can't start until the next time
-            # increment.
+            # Without MapData, completing after 0 seconds (second case) has the
+            # same effect as completing after 1 second (third case), because a
+            # new trial can't start until the next time increment.
+            # With MapData, trials complete at the same times as without
+            # MapData, but an extra epoch accrues in the third case.
             "Trials complete at same time": [0, 0, 1, 1],
             "Complete out of order": [0, 0, 1, 2],
         }
@@ -283,7 +295,7 @@ class TestBenchmark(TestCase):
             "Trials complete at same time": [1, 1, 3, 3],
             "Complete out of order": [1, 1, 3, 3],
         }
-        test_function = IdentityTestFunction()
+        test_function = IdentityTestFunction(n_time_intervals=30 if map_data else 1)
 
         for case_name, trial_runtime_func in trial_runtime_funcs.items():
             with self.subTest(case_name, trial_runtime_func=trial_runtime_func):
@@ -354,6 +366,22 @@ class TestBenchmark(TestCase):
                     result.inference_trace.tolist(),
                     expected_inference_traces[case_name],
                 )
+                if map_data:
+                    data = assert_is_instance(experiment.lookup_data(), MapData)
+                    self.assertEqual(len(data.df), 4)
+                    expected_map_df_length = sum(
+                        (
+                            trial_runtime_func(trial) + 1
+                            for trial in experiment.trials.values()
+                        )
+                    )
+                    self.assertEqual(
+                        len(data.map_df), expected_map_df_length, case_name
+                    )
+
+    def test_replication_async(self) -> None:
+        self._test_replication_async(map_data=False)
+        self._test_replication_async(map_data=True)
 
     @mock_botorch_optimize
     def _test_replication_with_inference_value(
