@@ -30,9 +30,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+    - name: Convert Tutorials
+      run: |
+        pip install -e ".[tutorial]"
+        python3 scripts/convert_ipynb_to_mdx.py
     - name: Create new version in Docusaurus
       run: |
-        python3 scripts/convert_ipynb_to_mdx.py
         cd website
         yarn
         yarn docusaurus docs:version ${{ github.event.release.tag_name }}
