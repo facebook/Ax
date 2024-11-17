@@ -10,40 +10,37 @@ on:
     types: [created]
 
 jobs:
-  tests-and-coverage-latest:
-    name: Tests with latest BoTorch
-    uses: ./.github/workflows/reusable_test.yml
-    with:
-      pinned_botorch: false
-    secrets: inherit
+  # TODO: Temporarily disabled while making changes on fork. Re-enable before merging back into facebook/Ax
+  # tests-and-coverage-latest:
+  #   name: Tests with latest BoTorch
+  #   uses: ./.github/workflows/reusable_test.yml
+  #   with:
+  #     pinned_botorch: false
+  #   secrets: inherit
 
-  tests-and-coverage-pinned:
-    name: Tests with pinned BoTorch
-    uses: ./.github/workflows/reusable_test.yml
-    with:
-      pinned_botorch: true
-    secrets: inherit
+  # tests-and-coverage-pinned:
+  #   name: Tests with pinned BoTorch
+  #   uses: ./.github/workflows/reusable_test.yml
+  #   with:
+  #     pinned_botorch: true
+  #   secrets: inherit
 
   publish-stable-website:
-
     needs: tests-and-coverage-pinned # only run if test step succeeds
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.10"
-    - name: Install dependencies
+    - name: Create new version in Docusaurus
       run: |
-        # use stable Botorch
-        pip install -e ".[tutorial]"
-    - name: Publish latest website
-      env:
-        DOCUSAURUS_PUBLISH_TOKEN: ${{ secrets.DOCUSAURUS_PUBLISH_TOKEN }}
-      run: |
-        bash scripts/publish_site.sh -d -v ${{ github.event.release.tag_name }}
+        cd website
+        yarn docusaurus docs:version ${{ github.event.release.tag_name }}
+        git add --all
+        git commit -m "Publish version ${{ github.event.release.tag_name }} of site"
+        # TODO: Temporarily changed while making changes on fork. Revert before merging back into facebook/Ax
+        git push --force https://github.com/CristianLara/Ax.git main
+    - name: Publish website
+      uses: ./.github/workflows/website.yml
 
   # TODO: Temporarily disabled while making changes on fork. Re-enable before merging back into facebook/Ax
   # deploy:
