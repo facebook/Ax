@@ -43,6 +43,7 @@ jobs:
         git push --force https://github.com/CristianLara/Ax.git HEAD:main
 
   publish-website:
+    needs: create-docusaurus-version
     name: Publish website
     uses: ./.github/workflows/website.yml
     secrets: inherit
