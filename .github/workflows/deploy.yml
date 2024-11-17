@@ -34,6 +34,7 @@ jobs:
     - name: Create new version in Docusaurus
       run: |
         cd website
+        yarn
         yarn docusaurus docs:version ${{ github.event.release.tag_name }}
         git add --all
         git commit -m "Publish version ${{ github.event.release.tag_name }} of site"
