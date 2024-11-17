@@ -41,7 +41,7 @@ jobs:
         git add --all
         git commit -m "Publish version ${{ github.event.release.tag_name }} of site"
         # TODO: Temporarily changed while making changes on fork. Revert before merging back into facebook/Ax
-        git push --force https://github.com/CristianLara/Ax.git main
+        git push --force https://github.com/CristianLara/Ax.git
     - name: Publish website
       uses: ./.github/workflows/website.yml
 
