@@ -32,6 +32,7 @@ jobs:
     - uses: actions/checkout@v4
     - name: Create new version in Docusaurus
       run: |
+        python3 scripts/convert_ipynb_to_mdx.py
         cd website
         yarn
         yarn docusaurus docs:version ${{ github.event.release.tag_name }}
