@@ -36,6 +36,8 @@ jobs:
         cd website
         yarn
         yarn docusaurus docs:version ${{ github.event.release.tag_name }}
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git add --all
         git commit -m "Publish version ${{ github.event.release.tag_name }} of site"
         # TODO: Temporarily changed while making changes on fork. Revert before merging back into facebook/Ax
