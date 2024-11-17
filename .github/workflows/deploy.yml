@@ -25,10 +25,9 @@ jobs:
   #     pinned_botorch: true
   #   secrets: inherit
 
-  publish-stable-website:
+  create-docusaurus-version:
     # needs: tests-and-coverage-pinned # only run if test step succeeds
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
     - name: Create new version in Docusaurus
@@ -42,8 +41,11 @@ jobs:
         git commit -m "Publish version ${{ github.event.release.tag_name }} of site"
         # TODO: Temporarily changed while making changes on fork. Revert before merging back into facebook/Ax
         git push --force https://github.com/CristianLara/Ax.git HEAD:main
-    - name: Publish website
-      uses: ./.github/workflows/website.yml
+
+  publish-website:
+    name: Publish website
+    uses: ./.github/workflows/website.yml
+    secrets: inherit
 
   # TODO: Temporarily disabled while making changes on fork. Re-enable before merging back into facebook/Ax
   # deploy:
