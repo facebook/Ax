@@ -26,7 +26,7 @@ jobs:
   #   secrets: inherit
 
   publish-stable-website:
-    needs: tests-and-coverage-pinned # only run if test step succeeds
+    # needs: tests-and-coverage-pinned # only run if test step succeeds
     runs-on: ubuntu-latest
 
     steps:
