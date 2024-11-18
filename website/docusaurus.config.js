@@ -63,6 +63,7 @@ module.exports={
   "themeConfig": {
     "navbar": {
       "title": "Ax",
+      "hideOnScroll": true,
       "logo": {
         "src": "img/ax.svg",
       },
