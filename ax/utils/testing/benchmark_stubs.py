@@ -8,10 +8,11 @@
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 import numpy as np
 import torch
+from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     create_problem_from_botorch,
@@ -28,9 +29,10 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import SearchSpace
-from ax.core.trial import Trial
+from ax.core.trial import BaseTrial, Trial
 from ax.core.types import TParameterization, TParamValue
 from ax.modelbridge.external_generation_node import ExternalGenerationNode
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.torch import TorchModelBridge
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.surrogate import Surrogate
@@ -321,4 +323,38 @@ def get_discrete_search_space() -> SearchSpace:
                 values=list(range(20)),
             )
         ]
+    )
+
+
+def get_async_benchmark_method() -> BenchmarkMethod:
+    gs = GenerationStrategy(
+        nodes=[DeterministicGenerationNode(search_space=get_discrete_search_space())]
+    )
+    return BenchmarkMethod(
+        generation_strategy=gs,
+        distribute_replications=False,
+        max_pending_trials=2,
+        batch_size=1,
+    )
+
+
+def get_async_benchmark_problem(
+    map_data: bool, trial_runtime_func: Callable[[BaseTrial], int]
+) -> BenchmarkProblem:
+    search_space = get_discrete_search_space()
+    test_function = IdentityTestFunction(n_time_intervals=30 if map_data else 1)
+    optimization_config = get_soo_opt_config(
+        outcome_names=["objective"],
+        use_map_metric=map_data,
+        observe_noise_sd=True,
+        lower_is_better=False,
+    )
+    return BenchmarkProblem(
+        name="test",
+        search_space=search_space,
+        optimization_config=optimization_config,
+        test_function=test_function,
+        num_trials=4,
+        optimal_value=19.0,
+        trial_runtime_func=trial_runtime_func,
     )

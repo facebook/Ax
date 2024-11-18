@@ -11,6 +11,7 @@ from unittest.mock import Mock, patch
 from ax.core.base_trial import TrialStatus
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.backend_simulator import BackendSimulator, BackendSimulatorOptions
+from ax.utils.testing.utils_testing_stubs import get_backend_simulator_with_trials
 
 
 class BackendSimulatorTest(TestCase):
@@ -22,9 +23,10 @@ class BackendSimulatorTest(TestCase):
 
         # test init
         sim = BackendSimulator(options=options)
-        self.assertEqual(sim.max_concurrency, 2)
-        self.assertEqual(sim.time_scaling, 1.0)
-        self.assertEqual(sim.failure_rate, 0.0)
+        options = sim.options
+        self.assertEqual(options.max_concurrency, 2)
+        self.assertEqual(options.time_scaling, 1.0)
+        self.assertEqual(options.failure_rate, 0.0)
         self.assertEqual(sim.num_queued, 0)
         self.assertEqual(sim.num_running, 0)
         self.assertEqual(sim.num_failed, 0)
@@ -90,13 +92,7 @@ class BackendSimulatorTest(TestCase):
         self.assertEqual(sim3.num_completed, 0)
 
     def test_backend_simulator_internal_clock(self) -> None:
-        options = BackendSimulatorOptions(
-            internal_clock=0.0, use_update_as_start_time=True, max_concurrency=2
-        )
-        sim = BackendSimulator(options=options)
-        sim.run_trial(0, 2)
-        sim.run_trial(1, 1)
-        sim.run_trial(2, 10)
+        sim = get_backend_simulator_with_trials()
         self.assertEqual(len(sim.all_trials), 3)
         self.assertEqual(sim.time, 0.0)
         self.assertEqual(sim.num_queued, 1)

@@ -21,18 +21,11 @@ from ax.benchmark.benchmark import (
     get_oracle_experiment_from_params,
 )
 from ax.benchmark.benchmark_method import BenchmarkMethod
-from ax.benchmark.benchmark_problem import (
-    BenchmarkProblem,
-    create_problem_from_botorch,
-    get_soo_opt_config,
-)
+from ax.benchmark.benchmark_problem import create_problem_from_botorch
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
-from ax.benchmark.methods.sobol import (
-    get_sobol_benchmark_method,
-    get_sobol_generation_strategy,
-)
+from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.benchmark.problems.registry import get_problem
 from ax.core.map_data import MapData
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -46,13 +39,12 @@ from ax.storage.json_store.save import save_experiment
 from ax.utils.common.mock import mock_patch_method_original
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import (
-    DeterministicGenerationNode,
-    get_discrete_search_space,
+    get_async_benchmark_method,
+    get_async_benchmark_problem,
     get_moo_surrogate,
     get_multi_objective_benchmark_problem,
     get_single_objective_benchmark_problem,
     get_soo_surrogate,
-    IdentityTestFunction,
     TestDataset,
 )
 
@@ -107,15 +99,11 @@ class TestBenchmark(TestCase):
                 self.assertEqual(mock_optimize_acqf.call_args.kwargs["q"], batch_size)
 
     def test_storage(self) -> None:
-        problem = get_single_objective_benchmark_problem()
-        res = benchmark_replication(
-            problem=problem,
-            method=BenchmarkMethod(
-                generation_strategy=get_sobol_generation_strategy(),
-                distribute_replications=False,
-            ),
-            seed=0,
+        problem = get_async_benchmark_problem(
+            map_data=False, trial_runtime_func=lambda _: 3
         )
+        method = get_async_benchmark_method()
+        res = benchmark_replication(problem=problem, method=method, seed=0)
         # Experiment is not in storage yet
         self.assertTrue(res.experiment is not None)
         self.assertEqual(res.experiment_storage_id, None)
@@ -224,21 +212,7 @@ class TestBenchmark(TestCase):
                 length 30, but not nearly so many points are observed because
                 the trials stop sooner than that.
         """
-        search_space = get_discrete_search_space()
-        method = BenchmarkMethod(
-            generation_strategy=GenerationStrategy(
-                nodes=[DeterministicGenerationNode(search_space=search_space)]
-            ),
-            distribute_replications=False,
-            max_pending_trials=2,
-            batch_size=1,
-        )
-        optimization_config = get_soo_opt_config(
-            outcome_names=["objective"],
-            use_map_metric=map_data,
-            observe_noise_sd=True,
-            lower_is_better=False,
-        )
+        method = get_async_benchmark_method()
 
         complete_out_of_order_runtimes = {
             0: 2,
@@ -295,17 +269,11 @@ class TestBenchmark(TestCase):
             "Trials complete at same time": [1, 1, 3, 3],
             "Complete out of order": [1, 1, 3, 3],
         }
-        test_function = IdentityTestFunction(n_time_intervals=30 if map_data else 1)
 
         for case_name, trial_runtime_func in trial_runtime_funcs.items():
             with self.subTest(case_name, trial_runtime_func=trial_runtime_func):
-                problem = BenchmarkProblem(
-                    name="test",
-                    search_space=search_space,
-                    optimization_config=optimization_config,
-                    test_function=test_function,
-                    num_trials=4,
-                    optimal_value=19.0,
+                problem = get_async_benchmark_problem(
+                    map_data=map_data,
                     trial_runtime_func=trial_runtime_func,
                 )
 
