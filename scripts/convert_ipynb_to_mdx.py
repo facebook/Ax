@@ -172,8 +172,8 @@ def create_buttons(
     Returns:
         str: MDX formatted buttons.
     """
-    github_url = f"https://github.com/cristianlara/Ax/blob/main/tutorials/{nb_metadata["id"]}.ipynb"
-    colab_url = f"https://colab.research.google.com/github/cristianlara/Ax/blob/main/tutorials/{nb_metadata["id"]}/{nb_metadata["id"]}.ipynb"
+    github_url = f"https://github.com/cristianlara/Ax/blob/main/tutorials/{nb_metadata['id']}.ipynb"
+    colab_url = f"https://colab.research.google.com/github/cristianlara/Ax/blob/main/tutorials/{nb_metadata['id']}/{nb_metadata['id']}.ipynb"
     return f'<LinkButtons\n  githubUrl="{github_url}"\n  colabUrl="{colab_url}"\n/>\n\n'
 
 
