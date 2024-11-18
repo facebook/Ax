@@ -210,7 +210,7 @@ class BenchmarkMetricTest(TestCase):
         simulator = BackendSimulator()
         simulator.run_trial(trial_index=0, runtime=0)
         simulator.update()
-        simulator._internal_clock = -1
+        simulator.options.internal_clock = -1
         metadata = BenchmarkTrialMetadata(
             dfs={"test_metric": pd.DataFrame({"t": [3]})}, backend_simulator=simulator
         )
