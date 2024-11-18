@@ -43,15 +43,14 @@ jobs:
     - name: Create new version in Docusaurus
       id: create-version
       run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         cd website
         yarn
         yarn docusaurus docs:version ${{ github.event.release.tag_name }}
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git add --all
-        git commit -m "Publish version ${{ github.event.release.tag_name }} of site"
-        # TODO: Temporarily changed while making changes on fork. Revert before merging back into facebook/Ax
-        git push --force https://github.com/CristianLara/Ax.git HEAD:main
+        git commit -m "Create version ${{ github.event.release.tag_name }} of site in Docusaurus"
+        git push --force origin HEAD:main
         echo "NEW_COMMIT_SHA=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
   publish-website:
