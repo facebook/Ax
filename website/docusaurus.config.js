@@ -68,13 +68,14 @@ module.exports={
       },
       "items": [
         {
-          "to": "docs/why-ax",
+          "type": "docSidebar",
+          "sidebarId": "docs",
           "label": "Docs",
-          "activeBaseRegex": "docs\/(?!tutorials\/)", // ignore tutorials subdirectory
           "position": "left"
         },
         {
-          "to": "docs/tutorials/",
+          "type": "docSidebar",
+          "sidebarId": "tutorials",
           "label": "Tutorials",
           "position": "left"
         },
