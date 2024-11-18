@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional
 
+from ax.preview.api.types import TParameterValue
+
 
 # Note: I'm not sold these should be dataclasses, just using this as a placeholder
 
@@ -61,7 +63,7 @@ class ChoiceParameterConfig:
     values: List[float] | List[int] | List[str] | List[bool]
     parameter_type: ParameterType
     is_ordered: bool | None = None
-    dependent_parameters: dict[float | int | str | bool, str] | None = None
+    dependent_parameters: dict[TParameterValue, str] | None = None
 
 
 @dataclass
