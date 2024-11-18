@@ -37,29 +37,9 @@ jobs:
       pinned_botorch: false
 
   publish-latest-website:
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.10"
-    - name: Install dependencies
-      env:
-        ALLOW_BOTORCH_LATEST: true
-        ALLOW_LATEST_GPYTORCH_LINOP: true
-      run: |
-        # use latest BoTorch
-        pip install git+https://github.com/cornellius-gp/gpytorch.git
-        pip install git+https://github.com/pytorch/botorch.git
-        pip install -e ".[tutorial]"
-    - name: Publish latest website
-      env:
-        DOCUSAURUS_PUBLISH_TOKEN: ${{ secrets.DOCUSAURUS_PUBLISH_TOKEN }}
-      run: |
-        bash scripts/publish_site.sh -d
+    name: Publish latest website
+    uses: ./.github/workflows/publish_website.yml
+    secrets: inherit
 
   # TODO: Temporarily disabled while making changes on fork. Re-enable before merging back into facebook/Ax
   # deploy-test-pypi:

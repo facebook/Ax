@@ -56,7 +56,7 @@ jobs:
   publish-website:
     needs: create-docusaurus-version
     name: Publish website
-    uses: ./.github/workflows/website.yml
+    uses: ./.github/workflows/publish_website.yml
     with:
       ref: ${{ needs.create-docusaurus-version.outputs.new-commit-sha }}
     secrets: inherit
