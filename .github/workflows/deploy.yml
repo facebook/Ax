@@ -28,6 +28,8 @@ jobs:
   create-docusaurus-version:
     # needs: tests-and-coverage-pinned # only run if test step succeeds
     runs-on: ubuntu-latest
+    outputs:
+      new-commit-sha: ${{ steps.create-version.outputs.NEW_COMMIT_SHA }}
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python
@@ -39,6 +41,7 @@ jobs:
         pip install -e ".[tutorial]"
         python3 scripts/convert_ipynb_to_mdx.py
     - name: Create new version in Docusaurus
+      id: create-version
       run: |
         cd website
         yarn
@@ -49,11 +52,14 @@ jobs:
         git commit -m "Publish version ${{ github.event.release.tag_name }} of site"
         # TODO: Temporarily changed while making changes on fork. Revert before merging back into facebook/Ax
         git push --force https://github.com/CristianLara/Ax.git HEAD:main
+        echo "NEW_COMMIT_SHA=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
   publish-website:
     needs: create-docusaurus-version
     name: Publish website
     uses: ./.github/workflows/website.yml
+    with:
+      ref: ${{ needs.create-docusaurus-version.outputs.new-commit-sha }}
     secrets: inherit
 
   # TODO: Temporarily disabled while making changes on fork. Re-enable before merging back into facebook/Ax

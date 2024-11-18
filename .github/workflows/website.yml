@@ -2,6 +2,10 @@ name: Publish Website
 
 on:
   workflow_call:
+    inputs:
+      ref:
+        required: false
+        type: string
   workflow_dispatch:
   push:
     branches: [ main ]
@@ -13,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+          ref: ${{ inputs.ref || github.ref }}
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
