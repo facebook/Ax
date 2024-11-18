@@ -155,7 +155,6 @@ class BackendSimulator:
         self._completed: list[SimTrial] = completed or []
         self._internal_clock: float | None = options.internal_clock
         self._verbose_logging = verbose_logging
-        self._init_state: BackendSimulatorState = self.state()
         self._create_index_to_trial_map()
 
     @property
@@ -213,23 +212,6 @@ class BackendSimulator:
             f"** Completed:\n{format(state.completed)}\n"
             f"-----------\n"
         )
-
-    def reset(self) -> None:
-        """Reset the simulator."""
-        self.max_concurrency = self._init_state.options.max_concurrency
-        self.time_scaling = self._init_state.options.time_scaling
-        self._internal_clock = self._init_state.options.internal_clock
-        # pyre-fixme: Incompatible parameter type [6]: In call
-        # `SimTrial.__init__`, for 1st positional argument, expected `float` but
-        # got `Optional[float]`.
-        self._queued = [SimTrial(**args) for args in self._init_state.queued]
-        # pyre-fixme[6]: as above
-        self._running = [SimTrial(**args) for args in self._init_state.running]
-        # pyre-fixme[6]: as above
-        self._failed = [SimTrial(**args) for args in self._init_state.failed]
-        # pyre-fixme[6]: as above
-        self._completed = [SimTrial(**args) for args in self._init_state.completed]
-        self._create_index_to_trial_map()
 
     def state(self) -> BackendSimulatorState:
         """Return a ``BackendSimulatorState`` containing the state of the simulator."""
