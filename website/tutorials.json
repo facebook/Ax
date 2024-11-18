@@ -61,7 +61,6 @@
       "title": "Sparsity Exploration Bayesian Optimization (SEBO)"
     },
     {
-      "dir": "early_stopping",
       "id": "early_stopping",
       "title": "Trial-Level Early Stopping"
     },
@@ -76,7 +75,6 @@
       "title": "Bandit Optimization"
     },
     {
-      "dir": "human_in_the_loop",
       "id": "human_in_the_loop",
       "title": "Human-in-the-Loop Optimization"
     }

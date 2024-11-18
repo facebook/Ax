@@ -172,8 +172,8 @@ def create_buttons(
     Returns:
         str: MDX formatted buttons.
     """
-    github_url = "https://github.com/cristianlara/Ax/blob/main/tutorials/" + nb_metadata["id"] + ".ipynb"
-    colab_url = "https://colab.research.google.com/github/cristianlara/Ax/blob/main/tutorials/" + nb_metadata["id"] + ".ipynb"
+    github_url = f"https://github.com/cristianlara/Ax/blob/main/tutorials/{nb_metadata["id"]}.ipynb"
+    colab_url = f"https://colab.research.google.com/github/cristianlara/Ax/blob/main/tutorials/{nb_metadata["id"]}/{nb_metadata["id"]}.ipynb"
     return f'<LinkButtons\n  githubUrl="{github_url}"\n  colabUrl="{colab_url}"\n/>\n\n'
 
 
@@ -999,10 +999,7 @@ if __name__ == "__main__":
             if item.is_dir():
                 shutil.rmtree(item.path)
     for metadata in tutorials_metadata:
-        if "dir" in metadata:
-            path = (LIB_DIR / "tutorials" / metadata["dir"] / (metadata["id"] + ".ipynb")).resolve()
-        else:
-            path = (LIB_DIR / "tutorials" / (metadata["id"] + ".ipynb")).resolve()
+        path = (LIB_DIR / "tutorials" / metadata["id"] / (metadata["id"] + ".ipynb")).resolve()
         print(f"{path.stem}")
         mdx = transform_notebook(path, metadata)
     print("")
