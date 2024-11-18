@@ -56,9 +56,6 @@ class BackendSimulatorTest(TestCase):
         self.assertEqual(sim.num_failed, 0)
         self.assertEqual(sim.num_completed, 2)
 
-        # extract state for later use
-        state = sim.state()
-
         # let time pass and update
         time_mock.return_value += 10 * dt
         sim.update()
@@ -66,21 +63,6 @@ class BackendSimulatorTest(TestCase):
         self.assertEqual(sim.num_running, 0)
         self.assertEqual(sim.num_failed, 0)
         self.assertEqual(sim.num_completed, 3)
-
-        # test load state
-        sim2 = BackendSimulator.from_state(state)
-        self.assertEqual(sim2.max_concurrency, 2)
-        self.assertEqual(sim2.time_scaling, 1.0)
-        self.assertEqual(sim2.failure_rate, 0.0)
-        self.assertEqual(sim2.num_queued, 0)
-        self.assertEqual(sim2.num_running, 1)
-        self.assertEqual(sim2.num_failed, 0)
-        self.assertEqual(sim2.num_completed, 2)
-        sim2.update()
-        self.assertEqual(sim2.num_queued, 0)
-        self.assertEqual(sim2.num_running, 0)
-        self.assertEqual(sim2.num_failed, 0)
-        self.assertEqual(sim2.num_completed, 3)
 
         # test failure rate
         options = BackendSimulatorOptions(max_concurrency=2, failure_rate=1.0)

@@ -238,31 +238,6 @@ class BackendSimulator(Base):
             completed=[c.__dict__.copy() for c in self._completed],
         )
 
-    @classmethod
-    # pyre-fixme[3]: Return type must be annotated.
-    def from_state(cls, state: BackendSimulatorState):
-        """Construct a simulator from a state.
-
-        Args:
-            state: A ``BackendSimulatorState`` to set the simulator to.
-
-        Returns:
-            A ``BackendSimulator`` with the desired state.
-        """
-        trial_types = {
-            "queued": state.queued,
-            "running": state.running,
-            "failed": state.failed,
-            "completed": state.completed,
-        }
-        trial_kwargs = {
-            key: [SimTrial(**kwargs) for kwargs in trial_types[key]]  # pyre-ignore [6]
-            for key in ("queued", "running", "failed", "completed")
-        }
-        return cls(
-            options=state.options, verbose_logging=state.verbose_logging, **trial_kwargs
-        )
-
     def run_trial(self, trial_index: int, runtime: float) -> None:
         """Run a simulated trial.
 
