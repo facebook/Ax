@@ -89,6 +89,22 @@ module.exports={
         {
           type: 'docsVersionDropdown',
           position: 'right',
+          dropdownItemsAfter: [
+              {
+                type: 'html',
+                value: '<hr class="margin-vert--sm">',
+              },
+              {
+                type: 'html',
+                className: 'margin-horiz--sm text--bold',
+                value: '<small>Archived versions<small>',
+              },
+              {
+                // TODO: Change this to archived link when available
+                href: 'https://ax.dev',
+                label: '0.x.x',
+              },
+            ],
         },
         {
           "href": "https://github.com/cristianlara/Ax",
