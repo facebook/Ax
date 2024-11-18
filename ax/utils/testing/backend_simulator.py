@@ -142,18 +142,13 @@ class BackendSimulator:
         if not verbose_logging:
             logger.setLevel(logging.WARNING)
 
-        if options is None:
-            options = BackendSimulatorOptions()
-
-        self.max_concurrency: int = options.max_concurrency
-        self.time_scaling: float = options.time_scaling
-        self.failure_rate: float = options.failure_rate
-        self.use_update_as_start_time: bool = options.use_update_as_start_time
+        self.options: BackendSimulatorOptions = (
+            BackendSimulatorOptions() if options is None else options
+        )
         self._queued: list[SimTrial] = queued or []
         self._running: list[SimTrial] = running or []
         self._failed: list[SimTrial] = failed or []
         self._completed: list[SimTrial] = completed or []
-        self._internal_clock: float | None = options.internal_clock
         self._verbose_logging = verbose_logging
         self._create_index_to_trial_map()
 
@@ -178,6 +173,26 @@ class BackendSimulator:
         return len(self._completed)
 
     @property
+    def max_concurrency(self) -> int:
+        """The maximum number of trials that can be run in parallel."""
+        return self.options.max_concurrency
+
+    @property
+    def time_scaling(self) -> float:
+        """The factor to scale down the runtime of the tasks by."""
+        return self.options.time_scaling
+
+    @property
+    def failure_rate(self) -> float:
+        """The rate at which the trials randomly fail."""
+        return self.options.failure_rate
+
+    @property
+    def _internal_clock(self) -> float | None:
+        """The internal clock of the simulator."""
+        return self.options.internal_clock
+
+    @property
     def use_internal_clock(self) -> bool:
         """Whether or not we are using the internal clock."""
         return self._internal_clock is not None
@@ -197,10 +212,7 @@ class BackendSimulator:
     def update(self) -> None:
         """Update the state of the simulator."""
         if self.use_internal_clock:
-            # pyre-fixme: Undefined attribute [16]: Optional type has no
-            # attribute `__iadd__`. (Can't use `none_throws`, can't assign to
-            # function call)
-            self._internal_clock += 1
+            self.options.internal_clock = none_throws(self.options.internal_clock) + 1
         self._update(self.time)
         state = self.state()
         logger.info(
@@ -216,15 +228,8 @@ class BackendSimulator:
     def state(self) -> BackendSimulatorState:
         """Return a ``BackendSimulatorState`` containing the state of the simulator."""
 
-        options = BackendSimulatorOptions(
-            max_concurrency=self.max_concurrency,
-            time_scaling=self.time_scaling,
-            failure_rate=self.failure_rate,
-            internal_clock=self._internal_clock,
-            use_update_as_start_time=self.use_update_as_start_time,
-        )
         return BackendSimulatorState(
-            options=options,
+            options=self.options,
             verbose_logging=self._verbose_logging,
             queued=[q.__dict__.copy() for q in self._queued],
             running=[r.__dict__.copy() for r in self._running],
@@ -272,7 +277,6 @@ class BackendSimulator:
         sim_runtime = runtime / self.time_scaling
 
         # flip a coin to see if the trial fails (for now fail instantly)
-        # TODO: Allow failure behavior based on a survival rate
         if self.failure_rate > 0:
             if random.random() < self.failure_rate:
                 self._failed.append(
@@ -444,7 +448,7 @@ class BackendSimulator:
                     # pyre-fixme[58]: `+` is not supported for operand types
                     #  `Optional[float]` and `float`.
                     c.sim_start_time + c.sim_runtime
-                    if not self.use_update_as_start_time
+                    if not self.options.use_update_as_start_time
                     else self.time
                 )
                 new_running_trial.sim_start_time = sim_start_time
