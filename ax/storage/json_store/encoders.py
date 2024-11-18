@@ -58,6 +58,11 @@ from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
 from ax.storage.transform_registry import TRANSFORM_REGISTRY
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils_torch import torch_type_to_str
+from ax.utils.testing.backend_simulator import (
+    BackendSimulator,
+    BackendSimulatorOptions,
+    SimTrial,
+)
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
 from botorch.sampling.base import MCSampler
 from botorch.utils.types import _DefaultType
@@ -713,3 +718,17 @@ def pathlib_to_dict(path: Path) -> dict[str, Any]:
 
 def default_to_dict(default: _DefaultType) -> dict[str, Any]:
     return {"__type": default.__class__.__name__}
+
+
+def backend_simulator_to_dict(
+    backend_simulator: BackendSimulator,
+) -> dict[str, str | BackendSimulatorOptions | list[SimTrial] | bool]:
+    return {
+        "__type": backend_simulator.__class__.__name__,
+        "options": backend_simulator.options,
+        "queued": backend_simulator._queued,
+        "running": backend_simulator._running,
+        "failed": backend_simulator._failed,
+        "completed": backend_simulator._completed,
+        "verbose_logging": backend_simulator._verbose_logging,
+    }

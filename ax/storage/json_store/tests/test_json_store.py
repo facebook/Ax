@@ -128,6 +128,7 @@ from ax.utils.testing.modeling_stubs import (
     sobol_gpei_generation_node_gs,
 )
 from ax.utils.testing.utils import generic_equals
+from ax.utils.testing.utils_testing_stubs import get_backend_simulator_with_trials
 from botorch.sampling.normal import SobolQMCNormalSampler
 
 
@@ -138,6 +139,7 @@ TEST_CASES = [
     ("AndEarlyStoppingStrategy", get_and_early_stopping_strategy),
     ("Arm", get_arm),
     ("AuxiliaryExperiment", get_auxiliary_experiment),
+    ("BackendSimulator", get_backend_simulator_with_trials),
     ("BatchTrial", get_batch_trial),
     (
         "BenchmarkMethod",

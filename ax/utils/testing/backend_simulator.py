@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from logging import Logger
 
 from ax.core.base_trial import TrialStatus
+from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
 
@@ -112,7 +113,7 @@ class BackendSimulatorState:
     completed: list[dict[str, float | None]]
 
 
-class BackendSimulator:
+class BackendSimulator(Base):
     """Simulator for a backend deployment with concurrent dispatch and a queue."""
 
     def __init__(

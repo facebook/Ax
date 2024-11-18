@@ -114,6 +114,7 @@ from ax.storage.json_store.decoders import (
 from ax.storage.json_store.encoders import (
     arm_to_dict,
     auxiliary_experiment_to_dict,
+    backend_simulator_to_dict,
     batch_to_dict,
     best_model_selector_to_dict,
     botorch_component_to_dict,
@@ -163,6 +164,11 @@ from ax.storage.json_store.encoders import (
 from ax.storage.utils import DomainType, ParameterConstraintType
 from ax.utils.common.constants import Keys
 from ax.utils.common.serialization import TDecoderRegistry
+from ax.utils.testing.backend_simulator import (
+    BackendSimulator,
+    BackendSimulatorOptions,
+    SimTrial,
+)
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.model import Model
 from botorch.models.transforms.input import ChainedInputTransform, Normalize, Round
@@ -182,6 +188,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     AuxiliaryExperiment: auxiliary_experiment_to_dict,
     AndEarlyStoppingStrategy: logical_early_stopping_strategy_to_dict,
     AutoTransitionAfterGen: transition_criterion_to_dict,
+    BackendSimulator: backend_simulator_to_dict,
     BatchTrial: batch_to_dict,
     BenchmarkMetric: metric_to_dict,
     BoTorchModel: botorch_model_to_dict,
@@ -285,6 +292,8 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "AuxiliaryExperimentPurpose": AuxiliaryExperimentPurpose,
     "Arm": Arm,
     "AggregatedBenchmarkResult": AggregatedBenchmarkResult,
+    "BackendSimulator": BackendSimulator,
+    "BackendSimulatorOptions": BackendSimulatorOptions,
     "BatchTrial": BatchTrial,
     "BenchmarkMethod": BenchmarkMethod,
     "BenchmarkMetric": BenchmarkMetric,
@@ -367,6 +376,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "ScalarizedObjective": ScalarizedObjective,
     "SchedulerOptions": SchedulerOptions,
     "SearchSpace": SearchSpace,
+    "SimTrial": SimTrial,
     "SingleDiagnosticBestModelSelector": SingleDiagnosticBestModelSelector,
     "SklearnDataset": SklearnDataset,
     "SklearnMetric": SklearnMetric,
