@@ -81,8 +81,9 @@ def main():
 
     # Report results
     if mismatches:
+        msg_str = "".join("\n\t" + msg for msg in mismatches)
         print(
-            f"Version mismatches found:{''.join(f'\n\t{msg}' for msg in mismatches)}"
+            f"Version mismatches found:{msg_str}"
             "\nPlease update the versions in `.pre-commit-config.yaml` to be "
             "consistent with those in `requirements-fmt.txt` (source of truth)."
             "\nNote: all versions must be pinned exactly ('==X.Y.Z') in both files."
