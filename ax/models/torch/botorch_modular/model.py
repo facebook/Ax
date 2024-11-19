@@ -186,9 +186,11 @@ class BoTorchModel(TorchModel, Base):
         # If a surrogate has not been constructed, construct it.
         if self._surrogate is None:
             if self.surrogate_spec is not None:
-                self._surrogate = Surrogate(surrogate_spec=self.surrogate_spec)
+                self._surrogate = Surrogate(
+                    surrogate_spec=self.surrogate_spec, refit_on_cv=self.refit_on_cv
+                )
             else:
-                self._surrogate = Surrogate()
+                self._surrogate = Surrogate(refit_on_cv=self.refit_on_cv)
 
         # Fit the surrogate.
         for config in self.surrogate.surrogate_spec.model_configs:
