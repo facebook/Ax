@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+import warnings
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from math import sqrt
@@ -155,9 +156,15 @@ class BenchmarkRunner(Runner):
                     max_concurrency=self.max_concurrency,
                     # Always use virtual rather than real time for benchmarking
                     internal_clock=0,
-                    use_update_as_start_time=False,
+                    use_update_as_start_time=True,
                 ),
             )
+            if self.trial_runtime_func is None:
+                warnings.warn(
+                    "`trial_runtime_func` is not set and `max_concurrency` > 1."
+                    " Each trial will take one simulated second to run.",
+                    stacklevel=2,
+                )
             self.simulated_backend_runner = SimulatedBackendRunner(
                 simulator=simulator,
                 sample_runtime_func=self.trial_runtime_func

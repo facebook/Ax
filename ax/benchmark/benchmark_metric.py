@@ -148,7 +148,12 @@ class BenchmarkMapMetric(MapMetric):
             sim_trial = none_throws(
                 backend_simulator.get_sim_trial_by_index(trial.index)
             )
+            # The BackendSimulator distinguishes between queued and running
+            # trials "for testing particular initialization cases", but these
+            # are all "running" to Scheduler.
+            # start_time = none_throws(sim_trial.sim_queued_time)
             start_time = none_throws(sim_trial.sim_start_time)
+
             if sim_trial.sim_completed_time is None:  # Still running
                 max_t = backend_simulator.time - start_time
             else:

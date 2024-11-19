@@ -31,6 +31,7 @@ from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.core.trial import BaseTrial, Trial
 from ax.core.types import TParameterization, TParamValue
+from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.modelbridge.external_generation_node import ExternalGenerationNode
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.torch import TorchModelBridge
@@ -326,7 +327,9 @@ def get_discrete_search_space() -> SearchSpace:
     )
 
 
-def get_async_benchmark_method() -> BenchmarkMethod:
+def get_async_benchmark_method(
+    early_stopping_strategy: BaseEarlyStoppingStrategy | None = None,
+) -> BenchmarkMethod:
     gs = GenerationStrategy(
         nodes=[DeterministicGenerationNode(search_space=get_discrete_search_space())]
     )
@@ -335,19 +338,23 @@ def get_async_benchmark_method() -> BenchmarkMethod:
         distribute_replications=False,
         max_pending_trials=2,
         batch_size=1,
+        early_stopping_strategy=early_stopping_strategy,
     )
 
 
 def get_async_benchmark_problem(
-    map_data: bool, trial_runtime_func: Callable[[BaseTrial], int]
+    map_data: bool,
+    trial_runtime_func: Callable[[BaseTrial], int],
+    n_time_intervals: int = 1,
+    lower_is_better: bool = False,
 ) -> BenchmarkProblem:
     search_space = get_discrete_search_space()
-    test_function = IdentityTestFunction(n_time_intervals=30 if map_data else 1)
+    test_function = IdentityTestFunction(n_time_intervals=n_time_intervals)
     optimization_config = get_soo_opt_config(
         outcome_names=["objective"],
         use_map_metric=map_data,
         observe_noise_sd=True,
-        lower_is_better=False,
+        lower_is_better=lower_is_better,
     )
     return BenchmarkProblem(
         name="test",
