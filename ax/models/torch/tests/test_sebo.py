@@ -111,7 +111,11 @@ class TestSebo(TestCase):
             (torch.tensor([0, 1], **tkwargs), torch.tensor([1.0, -1.0], **tkwargs), 0)
         ]
         self.rounding_func = lambda x: x
-        self.optimizer_options = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
+        self.optimizer_options = {
+            Keys.NUM_RESTARTS: 40,
+            Keys.RAW_SAMPLES: 1024,
+            "num_homotopy_steps": 3,
+        }
         self.tkwargs = tkwargs
         self.torch_opt_config = TorchOptConfig(
             objective_weights=self.objective_weights,
@@ -268,6 +272,10 @@ class TestSebo(TestCase):
         self.assertEqual(kwargs["post_processing_func"], self.rounding_func)
         self.assertEqual(kwargs["num_restarts"], self.optimizer_options["num_restarts"])
         self.assertEqual(kwargs["raw_samples"], self.optimizer_options["raw_samples"])
+        self.assertEqual(
+            kwargs["homotopy"]._homotopy_parameters[0].schedule.num_steps,
+            self.optimizer_options["num_homotopy_steps"],
+        )
 
         # set self.acqf.cache_pending as False
         acquisition2 = self.get_acquisition_function(

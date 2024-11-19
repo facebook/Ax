@@ -273,11 +273,16 @@ class SEBOAcquisition(Acquisition):
         optimizer_options: dict[str, Any] | None = None,
     ) -> tuple[Tensor, Tensor, Tensor]:
         """Optimize SEBO ACQF with L0 norm using homotopy."""
+        optimizer_options = optimizer_options or {}
         # extend to fixed a no homotopy_schedule schedule
         _tensorize = partial(torch.tensor, dtype=self.dtype, device=self.device)
         ssd = search_space_digest
         bounds = _tensorize(ssd.bounds).t()
-        homotopy_schedule = LogLinearHomotopySchedule(start=0.2, end=1e-3, num_steps=30)
+        homotopy_schedule = LogLinearHomotopySchedule(
+            start=0.2,
+            end=1e-3,
+            num_steps=optimizer_options.get("num_homotopy_steps", 30),
+        )
 
         # Prepare arguments for optimizer
         optimizer_options_with_defaults = optimizer_argparse(
