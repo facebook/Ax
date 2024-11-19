@@ -392,3 +392,11 @@ class TestBenchmarkRunner(TestCase):
             self.assertIsNone(sim_trial.sim_completed_time)
             self.assertEqual(sim_trial.sim_start_time, 0)
             self.assertEqual(backend_simulator.time, 0)
+
+    def test_warns_if_concurrent_and_trial_runtime_func_is_none(self) -> None:
+        test_function = IdentityTestFunction(outcome_names=["foo"])
+        with self.assertWarnsRegex(Warning, "`trial_runtime_func` is not set"):
+            BenchmarkRunner(
+                test_function=test_function,
+                max_concurrency=2,
+            )

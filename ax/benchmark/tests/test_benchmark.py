@@ -30,6 +30,7 @@ from ax.benchmark.problems.registry import get_problem
 from ax.core.map_data import MapData
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrategy
 from ax.modelbridge.external_generation_node import ExternalGenerationNode
 from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
@@ -275,6 +276,7 @@ class TestBenchmark(TestCase):
                 problem = get_async_benchmark_problem(
                     map_data=map_data,
                     trial_runtime_func=trial_runtime_func,
+                    n_time_intervals=30 if map_data else 1,
                 )
 
                 with mock_patch_method_original(
@@ -350,6 +352,90 @@ class TestBenchmark(TestCase):
     def test_replication_async(self) -> None:
         self._test_replication_async(map_data=False)
         self._test_replication_async(map_data=True)
+
+    def test_early_stopping(self) -> None:
+        """
+        Test early stopping with a deterministic generation strategy and ESS
+        that stops if the objective exceeds 0.5 when their progression ("t") hits 2,
+        which happens when 3 epochs have passed (t=[0, 1, 2]).
+
+        Each arm produces values equaling the trial index everywhere on the
+        progression, so Trials 1, 2, and 3 will stop early, and trial 0 will not.
+
+        t=0-2: Trials 0 and 1 run
+        t=2: Trial 1 stops early. Trial 2 gets added to "_queued", and then to
+            "_running", with a queued time of 2 and a sim_start_time of 3.
+        t=3-4: Trials 0 and 2 run.
+        t=4: Trial 0 completes.
+        t=5: Trials 2 and 3 run, then trial 2 gets stopped early.
+        t=6-7: Trial 3 runs by itself then gets stopped early.
+        """
+        min_progression = 2
+        progression_length_if_not_stopped = 5
+        early_stopping_strategy = ThresholdEarlyStoppingStrategy(
+            metric_threshold=0.5,
+            min_progression=min_progression,
+            min_curves=0,
+        )
+
+        method = get_async_benchmark_method(
+            early_stopping_strategy=early_stopping_strategy
+        )
+
+        problem = get_async_benchmark_problem(
+            map_data=True,
+            trial_runtime_func=lambda _: progression_length_if_not_stopped,
+            n_time_intervals=progression_length_if_not_stopped,
+            lower_is_better=True,
+        )
+        result = benchmark_replication(
+            problem=problem, method=method, seed=0, strip_runner_before_saving=False
+        )
+        data = assert_is_instance(none_throws(result.experiment).lookup_data(), MapData)
+        grouped = data.map_df.groupby("trial_index")
+        self.assertEqual(
+            dict(grouped["t"].count()),
+            {
+                0: progression_length_if_not_stopped,
+                # stopping after t=2, so 3 epochs (0, 1, 2) have passed
+                **{i: min_progression + 1 for i in range(1, 4)},
+            },
+        )
+        self.assertEqual(
+            dict(grouped["t"].max()),
+            {
+                0: progression_length_if_not_stopped - 1,
+                **{i: min_progression for i in range(1, 4)},
+            },
+        )
+        map_df = data.map_df
+        simulator = none_throws(
+            assert_is_instance(
+                none_throws(result.experiment).runner, BenchmarkRunner
+            ).simulated_backend_runner
+        ).simulator
+        trials = {
+            trial_index: none_throws(simulator.get_sim_trial_by_index(trial_index))
+            for trial_index in range(4)
+        }
+        start_times = {
+            trial_index: sim_trial.sim_start_time
+            for trial_index, sim_trial in trials.items()
+        }
+        map_df["start_time"] = map_df["trial_index"].map(start_times).astype(int)
+        map_df["absolute_time"] = map_df["t"] + map_df["start_time"]
+        expected_start_end_times = {
+            0: (0, 4),
+            1: (0, 2),
+            2: (3, 5),
+            3: (5, 7),
+        }
+        for trial_index, (start, end) in expected_start_end_times.items():
+            sub_df = map_df[map_df["trial_index"] == trial_index]
+            self.assertEqual(
+                sub_df["absolute_time"].min(), start, msg=f"{trial_index=}"
+            )
+            self.assertEqual(sub_df["absolute_time"].max(), end, msg=f"{trial_index=}")
 
     @mock_botorch_optimize
     def _test_replication_with_inference_value(

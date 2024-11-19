@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+import warnings
 from dataclasses import dataclass
 
 from ax.core.experiment import Experiment
@@ -13,6 +14,7 @@ from ax.core.optimization_config import (
     OptimizationConfig,
 )
 from ax.core.types import TParameterization
+from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.service.utils.best_point_mixin import BestPointMixin
@@ -46,6 +48,7 @@ class BenchmarkMethod(Base):
             and the following arguments are passed to ``SchedulerOptions``.
         run_trials_in_batches: Passed to ``SchedulerOptions``.
         max_pending_trials: Passed to ``SchedulerOptions``.
+        early_stopping_strategy: Passed to ``SchedulerOptions``.
 
     Attributes:
         scheduler_options: ``SchedulerOptions`` that depend on the
@@ -63,10 +66,23 @@ class BenchmarkMethod(Base):
     use_model_predictions_for_best_point: bool = False
     run_trials_in_batches: bool = False
     max_pending_trials: int = 1
+    early_stopping_strategy: BaseEarlyStoppingStrategy | None = None
 
     def __post_init__(self) -> None:
         if self.name == "DEFAULT":
             self.name = self.generation_strategy.name
+        early_stopping_strategy = self.early_stopping_strategy
+        if early_stopping_strategy is not None:
+            seconds_between_polls = early_stopping_strategy.seconds_between_polls
+            if seconds_between_polls > 0:
+                warnings.warn(
+                    "`early_stopping_strategy.seconds_between_polls` is "
+                    f"{seconds_between_polls}, but benchmarking uses 0 seconds "
+                    "between polls. Setting "
+                    "`early_stopping_strategy.seconds_between_polls` to 0.",
+                    stacklevel=1,
+                )
+                early_stopping_strategy.seconds_between_polls = 0
 
     @property
     def scheduler_options(self) -> SchedulerOptions:
@@ -83,6 +99,7 @@ class BenchmarkMethod(Base):
             else TrialType.BATCH_TRIAL,
             batch_size=self.batch_size,
             run_trials_in_batches=self.run_trials_in_batches,
+            early_stopping_strategy=self.early_stopping_strategy,
         )
 
     def get_best_parameters(

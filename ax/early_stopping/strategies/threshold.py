@@ -44,7 +44,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             metric_threshold: The metric threshold that a trial needs to reach by
                 min_progression in order not to be stopped.
             min_progression: Only stop trials if the latest progression value
-                (e.g. timestamp, epochs, training data used) is greater than this
+                (e.g. timestamp, epochs, training data used) is worse than this
                 threshold. Prevents stopping prematurely before enough data is gathered
                 to make a decision.
             max_progression: Do not stop trials that have passed `max_progression`.
@@ -53,7 +53,7 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 `min_curves` have completed with curve data attached. That is, if
                 `min_curves` trials are completed but their curve data was not
                 successfully retrieved, further trials may not be early-stopped.
-            trial_indices_to_ignore: Trial indices that should not be early stopped.
+            trial_indices_to_ignore: Trial indices that should not be early-stopped.
             normalize_progressions: Normalizes the progression column of the MapData df
                 by dividing by the max. If the values were originally in [0, `prog_max`]
                 (as we would expect), the transformed values will be in [0, 1]. Useful

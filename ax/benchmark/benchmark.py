@@ -27,11 +27,11 @@ from typing import Set
 
 import numpy as np
 import numpy.typing as npt
-
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.benchmark_runner import BenchmarkRunner
+from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.types import TParameterization, TParamValue
 from ax.core.utils import get_model_times
@@ -244,7 +244,12 @@ def benchmark_replication(
                 # problems, because Ax's best-point functionality doesn't know
                 # to predict at the target task or fidelity.
                 continue
-            currently_completed_trials = {t.index for t in experiment.completed_trials}
+
+            currently_completed_trials = {
+                t.index
+                for t in experiment.trials.values()
+                if t.status in (TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED)
+            }
             newly_completed_trials = (
                 currently_completed_trials - trials_used_for_best_point
             )
