@@ -23,17 +23,10 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.modelbridge.base import ModelBridge, unwrap_observation_data
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.model_fit_stats import (
-    _correlation_coefficient,
-    _fisher_exact_test_p,
-    _log_likelihood,
-    _mape,
-    _mean_prediction_ci,
-    _mse,
-    _rank_correlation,
-    _total_raw_effect,
-    _wmape,
     coefficient_of_determination,
     compute_model_fit_metrics,
+    DIAGNOSTIC_FNS,
+    FISHER_EXACT_TEST_P,
     mean_of_the_standardized_error,
     ModelFitMetricProtocol,
     std_of_the_standardized_error,
@@ -43,16 +36,6 @@ from botorch.exceptions.warnings import InputDataWarning
 logger: Logger = get_logger(__name__)
 
 CVDiagnostics = dict[str, dict[str, float]]
-
-MEAN_PREDICTION_CI = "Mean prediction CI"
-MAPE = "MAPE"
-wMAPE = "wMAPE"
-TOTAL_RAW_EFFECT = "Total raw effect"
-CORRELATION_COEFFICIENT = "Correlation coefficient"
-RANK_CORRELATION = "Rank correlation"
-FISHER_EXACT_TEST_P = "Fisher exact test p"
-LOG_LIKELIHOOD = "Log likelihood"
-MSE = "MSE"
 
 
 class CVResult(NamedTuple):
@@ -312,19 +295,11 @@ def compute_diagnostics(result: list[CVResult]) -> CVDiagnostics:
     y_pred = _arrayify_dict_values(y_pred)
     se_pred = _arrayify_dict_values(se_pred)
 
-    diagnostic_fns = {
-        MEAN_PREDICTION_CI: _mean_prediction_ci,
-        MAPE: _mape,
-        wMAPE: _wmape,
-        TOTAL_RAW_EFFECT: _total_raw_effect,
-        CORRELATION_COEFFICIENT: _correlation_coefficient,
-        RANK_CORRELATION: _rank_correlation,
-        FISHER_EXACT_TEST_P: _fisher_exact_test_p,
-        LOG_LIKELIHOOD: _log_likelihood,
-        MSE: _mse,
-    }
     diagnostics = compute_model_fit_metrics(
-        y_obs=y_obs, y_pred=y_pred, se_pred=se_pred, fit_metrics_dict=diagnostic_fns
+        y_obs=y_obs,
+        y_pred=y_pred,
+        se_pred=se_pred,
+        fit_metrics_dict=DIAGNOSTIC_FNS,
     )
     return diagnostics
 
