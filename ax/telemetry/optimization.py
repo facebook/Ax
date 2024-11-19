@@ -85,6 +85,10 @@ class OptimizationCreatedRecord:
     num_custom_trials: int
     support_tier: str
 
+    # Allows for backfilling of missed events
+    # instead of relying on event_time
+    experiment_created_time: int
+
     @classmethod
     def from_scheduler(
         cls,
@@ -148,6 +152,7 @@ class OptimizationCreatedRecord:
             num_map_metrics=experiment_created_record.num_map_metrics,
             metric_cls_to_quantity=experiment_created_record.metric_cls_to_quantity,
             runner_cls=experiment_created_record.runner_cls,
+            experiment_created_time=experiment_created_record.experiment_created_time,
             generation_strategy_name=(
                 generation_strategy_created_record.generation_strategy_name
             ),
@@ -251,6 +256,7 @@ class OptimizationCreatedRecord:
             num_map_metrics=experiment_created_record.num_map_metrics,
             metric_cls_to_quantity=experiment_created_record.metric_cls_to_quantity,
             runner_cls=experiment_created_record.runner_cls,
+            experiment_created_time=experiment_created_record.experiment_created_time,
             generation_strategy_name=(
                 generation_strategy_created_record.generation_strategy_name
             ),
@@ -368,6 +374,7 @@ class OptimizationCreatedRecord:
             num_map_metrics=experiment_created_record.num_map_metrics,
             metric_cls_to_quantity=experiment_created_record.metric_cls_to_quantity,
             runner_cls=experiment_created_record.runner_cls,
+            experiment_created_time=experiment_created_record.experiment_created_time,
             generation_strategy_name=(
                 None
                 if generation_strategy_created_record is None

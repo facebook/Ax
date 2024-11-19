@@ -74,6 +74,8 @@ class ExperimentCreatedRecord:
     # Runner info
     runner_cls: str
 
+    experiment_created_time: int
+
     @classmethod
     def from_experiment(cls, experiment: Experiment) -> ExperimentCreatedRecord:
         (
@@ -142,6 +144,7 @@ class ExperimentCreatedRecord:
                 }
             },
             runner_cls=experiment.runner.__class__.__name__,
+            experiment_created_time=int(experiment.time_created.timestamp()),
         )
 
     @staticmethod
