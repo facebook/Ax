@@ -45,6 +45,7 @@ class TestExperiment(TestCase):
             num_map_metrics=0,
             metric_cls_to_quantity={"Metric": 2, "CustomTestMetric": 1},
             runner_cls="CustomTestRunner",
+            experiment_created_time=int(experiment.time_created.timestamp()),
         )
         self.assertEqual(record, expected)
 
