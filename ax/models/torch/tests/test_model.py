@@ -343,6 +343,7 @@ class BoTorchModelTest(TestCase):
                 covar_module_options={},
                 likelihood_class=None,
                 likelihood_options={},
+                name="default",
             ),
             default_botorch_model_class=SingleTaskMultiFidelityGP,
             state_dict=None,
@@ -527,11 +528,15 @@ class BoTorchModelTest(TestCase):
             "_instantiate_acquisition",
             wraps=model._instantiate_acquisition,
         ) as mock_init_acqf:
-            model.gen(
+            gen_results = model.gen(
                 n=1,
                 search_space_digest=search_space_digest,
                 torch_opt_config=self.torch_opt_config,
             )
+        self.assertEqual(
+            gen_results.gen_metadata["metric_to_model_config_name"],
+            {"y": "from deprecated args"},
+        )
         # Assert acquisition initialized with expected arguments
         mock_init_acqf.assert_called_once_with(
             search_space_digest=search_space_digest,
