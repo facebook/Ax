@@ -286,37 +286,18 @@ class TestSebo(TestCase):
         acquisition2.optimize(
             n=2,
             search_space_digest=self.search_space_digest,
-            # does not support in homotopy now
-            # inequality_constraints=self.inequality_constraints,
+            inequality_constraints=self.inequality_constraints,
             fixed_features=self.fixed_features,
             rounding_func=self.rounding_func,
             optimizer_options=self.optimizer_options,
         )
-        args, kwargs = mock_optimize_acqf_homotopy.call_args
+        _args, kwargs = mock_optimize_acqf_homotopy.call_args
         self.assertEqual(kwargs["acq_function"], acquisition2.acqf)
         self.assertEqual(kwargs["q"], 2)
+        self.assertEqual(kwargs["inequality_constraints"], self.inequality_constraints)
         self.assertEqual(kwargs["post_processing_func"], self.rounding_func)
         self.assertEqual(kwargs["num_restarts"], self.optimizer_options["num_restarts"])
         self.assertEqual(kwargs["raw_samples"], self.optimizer_options["raw_samples"])
-
-        # assert error raise with inequality_constraints input
-        acquisition = self.get_acquisition_function(
-            fixed_features=self.fixed_features,
-            options={"penalty": "L0_norm", "target_point": self.target_point},
-        )
-        with self.assertRaisesRegex(
-            NotImplementedError,
-            "Homotopy does not support optimization with inequality "
-            "constraints. Use L1 penalty norm instead.",
-        ):
-            acquisition.optimize(
-                n=2,
-                search_space_digest=self.search_space_digest,
-                inequality_constraints=self.inequality_constraints,
-                fixed_features=self.fixed_features,
-                rounding_func=self.rounding_func,
-                optimizer_options=self.optimizer_options,
-            )
 
     def test_optimization_result(self) -> None:
         acquisition = self.get_acquisition_function(
