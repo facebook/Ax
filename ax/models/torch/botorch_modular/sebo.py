@@ -30,11 +30,11 @@ from botorch.acquisition.penalized import L0Approximation
 from botorch.models.deterministic import GenericDeterministicModel
 from botorch.models.model import ModelList
 from botorch.optim import (
+    gen_batch_initial_conditions,
     Homotopy,
     HomotopyParameter,
     LogLinearHomotopySchedule,
     optimize_acqf_homotopy,
-    gen_batch_initial_conditions,
 )
 from botorch.utils.datasets import SupervisedDataset
 from pyre_extensions import none_throws
@@ -327,7 +327,9 @@ class SEBOAcquisition(Acquisition):
             inequality_constraints=inequality_constraints,
             post_processing_func=rounding_func,
             fixed_features=fixed_features,
-            batch_initial_conditions=optimizer_options_with_defaults["batch_initial_conditions"],
+            batch_initial_conditions=optimizer_options_with_defaults[
+                "batch_initial_conditions"
+            ],
         )
         return (
             candidates,
@@ -396,10 +398,6 @@ def get_batch_initial_conditions(
     X_cand_local[mask] += (
         0.2 * ((bounds[1] - bounds[0]) * torch.randn_like(X_cand_local))[mask]
     )
-    X_cand_local = torch.clamp(
-        X_cand_local.unsqueeze(1), min=bounds[0], max=bounds[1]
-    )
-    X_cand_local = X_cand_local[
-        acq_function(X_cand_local).topk(num_local).indices
-    ]
+    X_cand_local = torch.clamp(X_cand_local.unsqueeze(1), min=bounds[0], max=bounds[1])
+    X_cand_local = X_cand_local[acq_function(X_cand_local).topk(num_local).indices]
     return torch.cat((X_cand_rand, X_cand_local), dim=0)
