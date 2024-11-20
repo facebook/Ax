@@ -12,7 +12,6 @@ import json
 from abc import abstractmethod
 from collections.abc import Iterable
 from copy import deepcopy
-from functools import reduce
 from hashlib import md5
 from io import StringIO
 from typing import Any, TypeVar
@@ -506,19 +505,13 @@ class Data(BaseData):
         metric_names: Iterable[str] | None = None,
     ) -> pd.DataFrame:
         trial_indices_mask = (
-            reduce(
-                lambda left, right: left | right,
-                [df["trial_index"] == trial_index for trial_index in trial_indices],
-            )
+            df["trial_index"].isin(trial_indices)
             if trial_indices is not None
             else pd.Series([True] * len(df))
         )
 
         metric_names_mask = (
-            reduce(
-                lambda left, right: left | right,
-                [df["metric_name"] == metric_name for metric_name in metric_names],
-            )
+            df["metric_name"].isin(metric_names)
             if metric_names is not None
             else pd.Series([True] * len(df))
         )
