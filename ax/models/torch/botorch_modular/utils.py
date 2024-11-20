@@ -101,6 +101,7 @@ class ModelConfig:
             ``likelihood_options`` and gets passed to the model constructor.
             This argument is deprecated in favor of model_configs.
         likelihood_options: Likelihood options.
+        name: Name of the model config. This is used to identify the model config.
     """
 
     botorch_model_class: type[Model] | None = None
@@ -117,6 +118,7 @@ class ModelConfig:
     covar_module_options: dict[str, Any] = field(default_factory=dict)
     likelihood_class: type[Likelihood] | None = None
     likelihood_options: dict[str, Any] = field(default_factory=dict)
+    name: str | None = None
 
 
 def use_model_list(
