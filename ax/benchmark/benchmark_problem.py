@@ -332,7 +332,9 @@ def create_problem_from_botorch(
         test_problem_class: The BoTorch test problem class which will be used
             to define the `search_space`, `optimization_config`, and `runner`.
         test_problem_kwargs: Keyword arguments used to instantiate the
-            `test_problem_class`.
+            `test_problem_class`. This should *not* include `noise_std` or
+            `negate`, since these are handled through Ax benchmarking (as the
+            `noise_std` and `lower_is_better` arguments to `BenchmarkProblem`).
         noise_std: Standard deviation of synthetic noise added to outcomes. If a
             float, the same noise level is used for all objectives.
         lower_is_better: Whether this is a minimization problem. For MOO, this
@@ -354,6 +356,18 @@ def create_problem_from_botorch(
             See ``BenchmarkResult`` for more information.
         trial_runtime_func: A function that takes a trial and returns how long
             it takes to run that trial.
+
+    Example:
+        >>> from ax.benchmark.benchmark_problem import create_problem_from_botorch
+        >>> from botorch.test_functions.synthetic import Branin
+        >>> problem = create_problem_from_botorch(
+        ...    test_problem_class=Branin,
+        ...    test_problem_kwargs={},
+        ...    noise_std=0.1,
+        ...    num_trials=10,
+        ...    observe_noise_sd=True,
+        ...    trial_runtime_func=lambda trial: trial.index,
+        ... )
     """
     # pyre-fixme [45]: Invalid class instantiation
     test_problem = test_problem_class(**test_problem_kwargs)
