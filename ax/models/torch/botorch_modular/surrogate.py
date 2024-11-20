@@ -372,7 +372,7 @@ def get_model_config_from_deprecated_args(
     # Dict[str, Dict[str, typing.Any]], Sequence[Type[InputTransform]],
     # Sequence[Type[OutcomeTransform]], Type[Union[MarginalLogLikelihood,
     #  Model]], Type[Likelihood], Type[Kernel]]`.
-    return ModelConfig(**model_config_kwargs)
+    return ModelConfig(**model_config_kwargs, name="from deprecated args")
 
 
 @dataclass(frozen=True)
