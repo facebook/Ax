@@ -48,22 +48,16 @@ class BenchmarkMethod(Base):
             and the following arguments are passed to ``SchedulerOptions``.
         run_trials_in_batches: Passed to ``SchedulerOptions``.
         max_pending_trials: Passed to ``SchedulerOptions``.
-        early_stopping_strategy: Passed to ``SchedulerOptions``.
-
-    Attributes:
-        scheduler_options: ``SchedulerOptions`` that depend on the
-            ``batch_size`` of the method. No ``timeout_hours`` can be passed to
-            these ``SchedulerOptions``, because ``timeout_hours`` here means the
-            total amount of time to run a benchmark replication and not the time
-            per call to ``Scheduler.run_n_trials``.
     """
 
     name: str = "DEFAULT"
     generation_strategy: GenerationStrategy
-    batch_size: int = 1
+
     timeout_hours: float = 4.0
     distribute_replications: bool = False
     use_model_predictions_for_best_point: bool = False
+
+    batch_size: int = 1
     run_trials_in_batches: bool = False
     max_pending_trials: int = 1
     early_stopping_strategy: BaseEarlyStoppingStrategy | None = None
