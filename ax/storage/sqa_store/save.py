@@ -31,6 +31,7 @@ from ax.storage.sqa_store.decoder import Decoder
 from ax.storage.sqa_store.encoder import Encoder
 from ax.storage.sqa_store.sqa_classes import (
     SQAData,
+    SQAExperiment,
     SQAGeneratorRun,
     SQAMetric,
     SQARunner,
@@ -492,6 +493,25 @@ def update_properties_on_experiment(
         session.query(exp_sqa_class).filter_by(id=exp_id).update(
             {
                 "properties": experiment_with_updated_properties._properties,
+            }
+        )
+
+
+def update_properties_on_sqa_experiment(
+    experiment_with_updated_properties: SQAExperiment,
+    config: SQAConfig | None = None,
+) -> None:
+    config = SQAConfig() if config is None else config
+    exp_sqa_class = config.class_to_sqa_class[Experiment]
+
+    exp_id = experiment_with_updated_properties.id
+    if exp_id is None:
+        raise ValueError("Experiment must be saved before being updated.")
+
+    with session_scope() as session:
+        session.query(exp_sqa_class).filter_by(id=exp_id).update(
+            {
+                "properties": experiment_with_updated_properties.properties,
             }
         )
 

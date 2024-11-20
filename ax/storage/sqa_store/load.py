@@ -180,18 +180,12 @@ def _get_experiment_sqa(
     skip_runners_and_metrics: bool = False,
 ) -> SQAExperiment:
     """Obtains SQLAlchemy experiment object from DB."""
-    with session_scope() as session:
-        query = (
-            session.query(exp_sqa_class)
-            .filter_by(name=experiment_name)
-            # Delay loading trials to a separate call to `_get_trials_sqa` below
-            .options(noload("trials"))
-        )
-
-        if skip_runners_and_metrics:
-            query = query.options(noload("runners")).options(noload("trials.runner"))
-
-        sqa_experiment = query.one_or_none()
+    # Delay loading trials to a separate call to `_get_trials_sqa` below
+    sqa_experiment = _get_experiment_sqa_no_trials(
+        experiment_name=experiment_name,
+        exp_sqa_class=exp_sqa_class,
+        skip_runners_and_metrics=skip_runners_and_metrics,
+    )
 
     if sqa_experiment is None:
         raise ExperimentNotFoundError(f"Experiment '{experiment_name}' not found.")
@@ -206,6 +200,25 @@ def _get_experiment_sqa(
 
     sqa_experiment.trials = sqa_trials
 
+    return sqa_experiment
+
+
+def _get_experiment_sqa_no_trials(
+    experiment_name: str,
+    exp_sqa_class: type[SQAExperiment],
+    skip_runners_and_metrics: bool = False,
+) -> SQAExperiment:
+    with session_scope() as session:
+        query = (
+            session.query(exp_sqa_class)
+            .filter_by(name=experiment_name)
+            .options(noload("trials"))
+        )
+
+        if skip_runners_and_metrics:
+            query = query.options(noload("runners")).options(noload("trials.runner"))
+
+        sqa_experiment = query.one_or_none()
     return sqa_experiment
 
 
