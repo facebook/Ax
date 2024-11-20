@@ -257,7 +257,6 @@ class ModelRegistryTest(TestCase):
                     "transform_configs": None,
                     "status_quo_name": None,
                     "status_quo_features": None,
-                    "expand_model_space": True,
                     "fit_out_of_design": False,
                     "fit_abandoned": False,
                     "fit_tracking_metrics": True,
