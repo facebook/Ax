@@ -646,6 +646,7 @@ class BoTorchModelTest(TestCase):
                     "mean": torch.randn(3, **self.tkwargs),
                     "noise": torch.rand(3, **self.tkwargs),
                 }
+                # pyre-fixme[29]: `Union[Tensor, Module]` is not a function.
                 model.surrogate.model.load_mcmc_samples(mcmc_samples)
                 importances = model.feature_importances()
                 self.assertTrue(
@@ -654,6 +655,8 @@ class BoTorchModelTest(TestCase):
                 self.assertEqual(importances.shape, (1, 1, 3))
                 saas_model = deepcopy(model.surrogate.model)
             else:
+                # pyre-fixme[16]: `Tensor` has no attribute `lengthscale`.
+                # pyre-fixme[16]: `Module` has no attribute `lengthscale`.
                 model.surrogate.model.covar_module.lengthscale = torch.tensor(
                     [1, 2, 3], **self.tkwargs
                 )

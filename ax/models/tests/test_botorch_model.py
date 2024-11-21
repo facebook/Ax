@@ -767,6 +767,7 @@ class BotorchModelTest(TestCase):
         train_X = torch.rand(5, 3, **tkwargs)
         train_Y = train_X.sum(dim=-1, keepdim=True)
         simple_gp = SingleTaskGP(train_X=train_X, train_Y=train_Y)
+        # pyre-fixme[16]: `Module` has no attribute `lengthscale`.
         simple_gp.covar_module.lengthscale = torch.tensor([1, 3, 5], **tkwargs)
         importances = get_feature_importances_from_botorch_model(simple_gp)
         self.assertTrue(np.allclose(importances, np.array([15 / 23, 5 / 23, 3 / 23])))

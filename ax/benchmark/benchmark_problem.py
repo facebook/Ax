@@ -391,10 +391,14 @@ def create_problem_from_botorch(
 
     num_constraints = test_problem.num_constraints if is_constrained else 0
     if isinstance(test_problem, MultiObjectiveTestProblem):
+        # pyre-fixme[6]: For 1st argument expected `SupportsIndex` but got
+        #  `Union[Tensor, Module]`.
         objective_names = [f"{name}_{i}" for i in range(n_obj)]
     else:
         objective_names = [name]
 
+    # pyre-fixme[6]: For 1st argument expected `SupportsIndex` but got `Union[int,
+    #  Tensor, Module]`.
     constraint_names = [f"constraint_slack_{i}" for i in range(num_constraints)]
     outcome_names = objective_names + constraint_names
 
@@ -404,6 +408,8 @@ def create_problem_from_botorch(
 
     if isinstance(test_problem, MultiObjectiveTestProblem):
         optimization_config = get_moo_opt_config(
+            # pyre-fixme[6]: For 1st argument expected `int` but got `Union[int,
+            #  Tensor, Module]`.
             num_constraints=num_constraints,
             lower_is_better=lower_is_better,
             observe_noise_sd=observe_noise_sd,
@@ -430,6 +436,8 @@ def create_problem_from_botorch(
         test_function=test_function,
         noise_std=noise_std,
         num_trials=num_trials,
+        # pyre-fixme[6]: For 7th argument expected `float` but got `Union[float,
+        #  Tensor, Module]`.
         optimal_value=optimal_value,
         report_inference_value_as_trace=report_inference_value_as_trace,
         trial_runtime_func=trial_runtime_func,

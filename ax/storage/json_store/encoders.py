@@ -619,6 +619,7 @@ def botorch_input_transform_to_init_args(
         return {k: botorch_component_to_dict(v) for k, v in input_transform.items()}
     else:
         try:
+            # pyre-fixme[29]: `Union[Tensor, Module]` is not a function.
             return input_transform.get_init_args()  # pyre-fixme [16]
         except AttributeError:
             raise JSONEncodeError(
