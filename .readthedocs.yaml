@@ -5,7 +5,7 @@ build:
   tools:
     python: "3.10"
   jobs:
-    pre_create_environment:
+    pre_install:
       # Install latest botorch if not on a released version
       - |
         tag=$(eval "git name-rev --name-only --tags HEAD")
