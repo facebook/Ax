@@ -7,13 +7,14 @@ build:
   jobs:
     pre_create_environment:
       # Install latest botorch if not on a released version
-      - tag=$(eval "git name-rev --name-only --tags HEAD")
-      - if [ "$tag" == "undefined" ]; then
-      -   export ALLOW_BOTORCH_LATEST=true
-      -   export ALLOW_LATEST_GPYTORCH_LINOP=true
-      -   pip install git+https://github.com/cornellius-gp/gpytorch.git
-      -   pip install git+https://github.com/pytorch/botorch.git
-      - fi
+      - |
+        tag=$(eval "git name-rev --name-only --tags HEAD")
+        if [ $tag == "undefined" ]; then
+          export ALLOW_BOTORCH_LATEST=true
+          export ALLOW_LATEST_GPYTORCH_LINOP=true
+          pip install git+https://github.com/cornellius-gp/gpytorch.git
+          pip install git+https://github.com/pytorch/botorch.git
+        fi
 
 python:
   install:
