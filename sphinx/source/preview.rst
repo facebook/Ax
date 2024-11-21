@@ -37,6 +37,15 @@ Utils
     :show-inheritance:
 
 
+Client
+~~~~~~
+
+.. automodule:: ax.preview.api.client
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 Configs
 ~~~~~~~
 
