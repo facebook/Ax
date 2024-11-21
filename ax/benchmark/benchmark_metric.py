@@ -8,6 +8,7 @@
 from typing import Any
 
 from ax.core.base_trial import BaseTrial
+from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 
 from ax.core.map_data import MapData, MapKeyInfo
@@ -15,6 +16,38 @@ from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.utils.common.result import Err, Ok
 from pyre_extensions import none_throws
+
+
+def _get_no_metadata_msg(trial_index: int) -> str:
+    return f"No metadata available for trial {trial_index}."
+
+
+def _get_no_metadata_err(trial: BaseTrial) -> Err[Data, MetricFetchE]:
+    return Err(
+        MetricFetchE(
+            message=_get_no_metadata_msg(trial_index=trial.index),
+            exception=None,
+        )
+    )
+
+
+def _validate_trial_and_kwargs(
+    trial: BaseTrial, class_name: str, **kwargs: Any
+) -> None:
+    """
+    Validate that:
+    - Kwargs are empty
+    - No arms within a BatchTrial have been abandoned
+    """
+    if len(kwargs) > 0:
+        raise NotImplementedError(
+            f"Arguments {set(kwargs)} are not supported in "
+            f"{class_name}.fetch_trial_data."
+        )
+    if isinstance(trial, BatchTrial) and len(trial.abandoned_arms) > 0:
+        raise NotImplementedError(
+            "BenchmarkMetric does not support abandoned arms in batch trials."
+        )
 
 
 class BenchmarkMetric(Metric):
@@ -53,11 +86,12 @@ class BenchmarkMetric(Metric):
         Returns:
             A MetricFetchResult containing the data for the requested metric.
         """
-        if len(kwargs) > 0:
-            raise NotImplementedError(
-                f"Arguments {set(kwargs)} are not supported in "
-                f"{self.__class__.__name__}.fetch_trial_data."
-            )
+        _validate_trial_and_kwargs(
+            trial=trial, class_name=self.__class__.__name__, **kwargs
+        )
+        if len(trial.run_metadata) == 0:
+            return _get_no_metadata_err(trial=trial)
+
         df = trial.run_metadata["benchmark_metadata"].dfs[self.name]
         if (df["t"] > 0).any():
             raise ValueError(
@@ -67,16 +101,7 @@ class BenchmarkMetric(Metric):
         df = df.drop(columns=["t"])
         if not self.observe_noise_sd:
             df["sem"] = None
-        try:
-            return Ok(value=Data(df=df))
-
-        except Exception as e:
-            return Err(
-                MetricFetchE(
-                    message=f"Failed to obtain data for trial {trial.index}",
-                    exception=e,
-                )
-            )
+        return Ok(value=Data(df=df))
 
 
 class BenchmarkMapMetric(MapMetric):
@@ -125,18 +150,11 @@ class BenchmarkMapMetric(MapMetric):
         Returns:
             A MetricFetchResult containing the data for the requested metric.
         """
-        if len(kwargs) > 0:
-            raise NotImplementedError(
-                f"Arguments {set(kwargs)} are not supported in "
-                f"{self.__class__.__name__}.fetch_trial_data."
-            )
+        _validate_trial_and_kwargs(
+            trial=trial, class_name=self.__class__.__name__, **kwargs
+        )
         if len(trial.run_metadata) == 0:
-            return Err(
-                MetricFetchE(
-                    message=f"No metadata available for trial {trial.index}",
-                    exception=None,
-                )
-            )
+            return _get_no_metadata_err(trial=trial)
 
         metadata = trial.run_metadata["benchmark_metadata"]
 
@@ -174,14 +192,4 @@ class BenchmarkMapMetric(MapMetric):
         if not self.observe_noise_sd:
             df["sem"] = None
 
-        # Could fail if no data
-        try:
-            return Ok(value=MapData(df=df, map_key_infos=[self.map_key_info]))
-
-        except Exception as e:
-            return Err(
-                MetricFetchE(
-                    message=f"Failed to obtain data for trial {trial.index}",
-                    exception=e,
-                )
-            )
+        return Ok(value=MapData(df=df, map_key_infos=[self.map_key_info]))
