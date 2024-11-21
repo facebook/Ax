@@ -58,12 +58,12 @@ jobs:
       run: |
         # use stable Botorch
         pip install -e ".[dev,mysql,notebook]"
-        pip install wheel
+        pip install --upgrade build setuptools setuptools_scm wheel
     - name: Fetch all history for all tags and branches
       run: git fetch --prune --unshallow
     - name: Build wheel
       run: |
-        python setup.py sdist bdist_wheel
+        python -m build --sdist --wheel
     - name: Deploy to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
