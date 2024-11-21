@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+from ax.analysis.plotly.surface.contour import ContourPlot
 from ax.analysis.plotly.surface.slice import SlicePlot
 
-__all__ = ["SlicePlot"]
+__all__ = ["ContourPlot", "SlicePlot"]

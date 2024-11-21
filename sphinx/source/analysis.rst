@@ -119,6 +119,14 @@ Summary
     :undoc-members:
     :show-inheritance:
 
+Contour
+~~~~~~~
+
+.. automodule:: ax.analysis.plotly.surface.contour
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Slice
 ~~~~~
 
