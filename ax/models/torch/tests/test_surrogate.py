@@ -923,7 +923,9 @@ class SurrogateTest(TestCase):
                     self.assertIsNotNone(call_kwargs["state_dict"])
         self.assertEqual(mock_rc.call_count, 4)
         model = none_throws(surrogate._model)
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIsInstance(model.models[0].covar_module, MaternKernel)
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIsInstance(model.models[1].covar_module, RBFKernel)
 
     def test_exception_for_multiple_model_configs_and_multioutcome_dataset(
