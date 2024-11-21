@@ -15,10 +15,8 @@ generation strategies from generator runs they produced. To reinstantiate a mode
 from generator run, use `get_model_from_generator_run` utility from this module.
 """
 
-
 from __future__ import annotations
 
-import warnings
 from enum import Enum
 from inspect import isfunction, signature
 from logging import Logger
@@ -40,13 +38,13 @@ from ax.modelbridge.transforms.choice_encode import (
 )
 from ax.modelbridge.transforms.convert_metric_names import ConvertMetricNames
 from ax.modelbridge.transforms.derelativize import Derelativize
+from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
 from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.modelbridge.transforms.ivw import IVW
 from ax.modelbridge.transforms.log import Log
 from ax.modelbridge.transforms.logit import Logit
 from ax.modelbridge.transforms.one_hot import OneHot
-from ax.modelbridge.transforms.relativize import Relativize
 from ax.modelbridge.transforms.remove_fixed import RemoveFixed
 from ax.modelbridge.transforms.search_space_to_choice import SearchSpaceToChoice
 from ax.modelbridge.transforms.standardize_y import StandardizeY
@@ -61,11 +59,8 @@ from ax.models.discrete.thompson import ThompsonSampler
 from ax.models.random.sobol import SobolGenerator
 from ax.models.random.uniform import UniformGenerator
 from ax.models.torch.botorch import BotorchModel
-from ax.models.torch.botorch_modular.model import (
-    BoTorchModel as ModularBoTorchModel,
-    SurrogateSpec,
-)
-from ax.models.torch.botorch_moo import MultiObjectiveBotorchModel
+from ax.models.torch.botorch_modular.model import BoTorchModel as ModularBoTorchModel
+from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
 from ax.models.torch.cbo_sac import SACBO
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
@@ -74,13 +69,15 @@ from ax.utils.common.kwargs import (
 )
 from ax.utils.common.logger import get_logger
 from ax.utils.common.serialization import callable_from_reference, callable_to_reference
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
 Cont_X_trans: list[type[Transform]] = [
+    FillMissingParameters,
     RemoveFixed,
     OrderedChoiceToIntegerRange,
     OneHot,
@@ -93,6 +90,7 @@ Cont_X_trans: list[type[Transform]] = [
 Discrete_X_trans: list[type[Transform]] = [IntRangeToChoice]
 
 Mixed_transforms: list[type[Transform]] = [
+    FillMissingParameters,
     RemoveFixed,
     ChoiceToNumericChoice,
     IntToFloat,
@@ -100,8 +98,6 @@ Mixed_transforms: list[type[Transform]] = [
     Logit,
     UnitX,
 ]
-
-EB_ashr_trans: list[type[Transform]] = [Relativize, IVW, SearchSpaceToChoice]
 
 Y_trans: list[type[Transform]] = [IVW, Derelativize, StandardizeY]
 
@@ -162,7 +158,7 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         transforms=Cont_X_trans + Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
-    "GPEI": ModelSetup(
+    "Legacy_GPEI": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=BotorchModel,
         transforms=Cont_X_trans + Y_trans,
@@ -193,18 +189,6 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         model_class=UniformGenerator,
         transforms=Cont_X_trans,
     ),
-    "MOO": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=MultiObjectiveBotorchModel,
-        transforms=Cont_X_trans + Y_trans,
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
-    ),
-    "ST_MTGP_LEGACY": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=BotorchModel,
-        transforms=ST_MTGP_trans,
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
-    ),
     "ST_MTGP": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=ModularBoTorchModel,
@@ -222,11 +206,9 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         model_class=ModularBoTorchModel,
         transforms=Cont_X_trans + Y_trans,
         default_model_kwargs={
-            "surrogate_specs": {
-                "SAASBO_Surrogate": SurrogateSpec(
-                    botorch_model_class=SaasFullyBayesianSingleTaskGP
-                )
-            },
+            "surrogate_spec": SurrogateSpec(
+                botorch_model_class=SaasFullyBayesianSingleTaskGP
+            )
         },
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
@@ -235,18 +217,10 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
         model_class=ModularBoTorchModel,
         transforms=ST_MTGP_trans,
         default_model_kwargs={
-            "surrogate_specs": {
-                "SAAS_MTGP_Surrogate": SurrogateSpec(
-                    botorch_model_class=SaasFullyBayesianMultiTaskGP
-                )
-            },
+            "surrogate_spec": SurrogateSpec(
+                botorch_model_class=SaasFullyBayesianMultiTaskGP
+            )
         },
-        standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
-    ),
-    "ST_MTGP_NEHVI": ModelSetup(
-        bridge_class=TorchModelBridge,
-        model_class=MultiObjectiveBotorchModel,
-        transforms=ST_MTGP_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
     "Contextual_SACBO": ModelSetup(
@@ -284,7 +258,7 @@ class ModelRegistryBase(Enum):
         assert self.value in MODEL_KEY_TO_MODEL_SETUP, f"Unknown model {self.value}"
         # All model bridges require either a search space or an experiment.
         assert search_space or experiment, "Search space or experiment required."
-        search_space = search_space or not_none(experiment).search_space
+        search_space = search_space or none_throws(experiment).search_space
         model_setup_info = MODEL_KEY_TO_MODEL_SETUP[self.value]
         model_class = model_setup_info.model_class
         bridge_class = model_setup_info.bridge_class
@@ -343,7 +317,7 @@ class ModelRegistryBase(Enum):
 
         # Create model bridge with the consolidated kwargs.
         model_bridge = bridge_class(
-            search_space=search_space or not_none(experiment).search_space,
+            search_space=search_space or none_throws(experiment).search_space,
             experiment=experiment,
             data=data,
             model=model,
@@ -370,7 +344,7 @@ class ModelRegistryBase(Enum):
         Returns:
             A tuple of default keyword arguments for the model and the model bridge.
         """
-        model_setup_info = not_none(MODEL_KEY_TO_MODEL_SETUP.get(self.value))
+        model_setup_info = none_throws(MODEL_KEY_TO_MODEL_SETUP.get(self.value))
         return (
             self._get_model_kwargs(info=model_setup_info),
             self._get_bridge_kwargs(info=model_setup_info),
@@ -431,62 +405,24 @@ class Models(ModelRegistryBase):
     For instance, `Models.SOBOL(search_space=search_space, scramble=False)`
     will instantiate a `RandomModelBridge(search_space=search_space)`
     with a `SobolGenerator(scramble=False)` underlying model.
+
+    NOTE: If you deprecate a model, please add its replacement to
+    `ax.storage.json_store.decoder._DEPRECATED_MODEL_TO_REPLACEMENT` to ensure
+    backwards compatibility of the storage layer.
     """
 
     SOBOL = "Sobol"
-    GPEI = "GPEI"
     FACTORIAL = "Factorial"
     SAASBO = "SAASBO"
     SAAS_MTGP = "SAAS_MTGP"
     THOMPSON = "Thompson"
-    LEGACY_BOTORCH = "GPEI"
+    LEGACY_BOTORCH = "Legacy_GPEI"
     BOTORCH_MODULAR = "BoTorch"
     EMPIRICAL_BAYES_THOMPSON = "EB"
     UNIFORM = "Uniform"
-    MOO = "MOO"
-    ST_MTGP_LEGACY = "ST_MTGP_LEGACY"
     ST_MTGP = "ST_MTGP"
     BO_MIXED = "BO_MIXED"
-    ST_MTGP_NEHVI = "ST_MTGP_NEHVI"
     CONTEXT_SACBO = "Contextual_SACBO"
-
-    @classmethod
-    @property
-    def FULLYBAYESIAN(cls) -> Models:
-        return _deprecated_model_with_warning(
-            old_model_str="FULLYBAYESIAN", new_model=cls.SAASBO
-        )
-
-    @classmethod
-    @property
-    def FULLYBAYESIANMOO(cls) -> Models:
-        return _deprecated_model_with_warning(
-            old_model_str="FULLYBAYESIANMOO", new_model=cls.SAASBO
-        )
-
-    @classmethod
-    @property
-    def FULLYBAYESIAN_MTGP(cls) -> Models:
-        return _deprecated_model_with_warning(
-            old_model_str="FULLYBAYESIAN_MTGP", new_model=cls.SAAS_MTGP
-        )
-
-    @classmethod
-    @property
-    def FULLYBAYESIANMOO_MTGP(cls) -> Models:
-        return _deprecated_model_with_warning(
-            old_model_str="FULLYBAYESIANMOO_MTGP", new_model=cls.SAAS_MTGP
-        )
-
-
-def _deprecated_model_with_warning(old_model_str: str, new_model: Models) -> Models:
-    warnings.warn(
-        f"{old_model_str} is deprecated and replaced by {new_model}. "
-        f"Please use {new_model}. This will become an error in a future release.",
-        DeprecationWarning,
-        stacklevel=3,
-    )
-    return new_model
 
 
 def get_model_from_generator_run(

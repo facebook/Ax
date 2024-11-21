@@ -14,6 +14,7 @@ from unittest.mock import Mock
 import numpy as np
 from ax.core.arm import Arm
 from ax.core.data import Data
+from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import Objective, ScalarizedObjective
 from ax.core.observation import ObservationData, ObservationFeatures
@@ -28,15 +29,18 @@ from ax.modelbridge.base import (
     ModelBridge,
     unwrap_observation_data,
 )
+from ax.modelbridge.factory import get_sobol
 from ax.modelbridge.registry import Models, Y_trans
+from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
 from ax.models.base import Model
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
+    get_branin_data_batch,
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
+    get_branin_optimization_config,
     get_experiment,
     get_experiment_with_repeated_arms,
     get_non_monolithic_branin_moo_data,
@@ -57,6 +61,7 @@ from ax.utils.testing.modeling_stubs import (
     transform_2,
 )
 from botorch.exceptions.warnings import InputDataWarning
+from pyre_extensions import none_throws
 
 
 class BaseModelBridgeTest(TestCase):
@@ -103,6 +108,13 @@ class BaseModelBridgeTest(TestCase):
         # Test deprecation error on update.
         with self.assertRaisesRegex(DeprecationWarning, "ModelBridge.update"):
             modelbridge.update(Mock(), Mock())
+
+        # Test prediction with arms.
+        with self.assertRaisesRegex(
+            UserInputError, "Input to predict must be a list of `ObservationFeatures`."
+        ):
+            # pyre-ignore[6]: Intentionally wrong argument type.
+            modelbridge.predict([Arm(parameters={"x": 1.0})])
 
         # Test prediction on out of design features.
         modelbridge._predict = mock.MagicMock(
@@ -510,6 +522,7 @@ class BaseModelBridgeTest(TestCase):
             status_quo_name="1_1",
         )
         self.assertEqual(modelbridge.status_quo, get_observation1())
+        self.assertEqual(modelbridge.status_quo_name, "1_1")
 
         # Alternatively, we can specify by features
         modelbridge = ModelBridge(
@@ -522,6 +535,7 @@ class BaseModelBridgeTest(TestCase):
             status_quo_features=get_observation1().features,
         )
         self.assertEqual(modelbridge.status_quo, get_observation1())
+        self.assertEqual(modelbridge.status_quo_name, "1_1")
 
         # Alternatively, we can specify on experiment
         # Put a dummy arm with SQ name 1_1 on the dummy experiment.
@@ -532,6 +546,7 @@ class BaseModelBridgeTest(TestCase):
         # pyre-fixme[6]: For 5th param expected `Optional[Data]` but got `int`.
         modelbridge = ModelBridge(get_search_space_for_value(), 0, [], exp, 0)
         self.assertEqual(modelbridge.status_quo, get_observation1())
+        self.assertEqual(modelbridge.status_quo_name, "1_1")
 
         # Errors if features and name both specified
         with self.assertRaises(ValueError):
@@ -557,6 +572,7 @@ class BaseModelBridgeTest(TestCase):
             status_quo_name="1_0",
         )
         self.assertIsNone(modelbridge.status_quo)
+        self.assertIsNone(modelbridge.status_quo_name)
         modelbridge = ModelBridge(
             get_search_space_for_value(),
             0,
@@ -805,7 +821,7 @@ class BaseModelBridgeTest(TestCase):
         # status_quo is set
         self.assertIsNotNone(modelbridge.status_quo)
         # Status quo name is logged
-        self.assertEqual(modelbridge._status_quo_name, not_none(exp.status_quo).name)
+        self.assertEqual(modelbridge._status_quo_name, none_throws(exp.status_quo).name)
 
         # experiment with multiple status quos in different trials
         exp = get_branin_experiment(
@@ -826,12 +842,12 @@ class BaseModelBridgeTest(TestCase):
         # status_quo is not set
         self.assertIsNone(modelbridge.status_quo)
         # Status quo name can still be logged
-        self.assertEqual(modelbridge._status_quo_name, not_none(exp.status_quo).name)
+        self.assertEqual(modelbridge._status_quo_name, none_throws(exp.status_quo).name)
 
         # a unique status_quo can be identified (by trial index)
         # if status_quo_features is specified
         status_quo_features = ObservationFeatures(
-            parameters=not_none(exp.status_quo).parameters,
+            parameters=none_throws(exp.status_quo).parameters,
             trial_index=0,
         )
         modelbridge = ModelBridge(
@@ -892,3 +908,142 @@ class testClampObservationFeatures(TestCase):
         for obs_ft, expected_obs_ft in cases:
             actual_obs_ft = clamp_observation_features([obs_ft], search_space)
             self.assertEqual(actual_obs_ft[0], expected_obs_ft)
+
+    @mock.patch("ax.modelbridge.base.ModelBridge._fit", autospec=True)
+    def test_FillMissingParameters(self, mock_fit: Mock) -> None:
+        # Create experiment with arms from two search spaces
+        ss1 = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x1", parameter_type=ParameterType.FLOAT, lower=-5, upper=10
+                )
+            ],
+        )
+        ss2 = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x1", parameter_type=ParameterType.FLOAT, lower=-5, upper=10
+                ),
+                RangeParameter(
+                    name="x2", parameter_type=ParameterType.FLOAT, lower=0, upper=15
+                ),
+            ],
+        )
+        sq_arm = Arm(name="status_quo", parameters={"x1": None})
+        experiment = Experiment(
+            name="test",
+            search_space=ss1,
+            optimization_config=get_branin_optimization_config(),
+            status_quo=sq_arm,
+            is_test=True,
+        )
+        generator1 = get_sobol(search_space=ss1)
+        gr1 = generator1.gen(n=5)
+        generator2 = get_sobol(search_space=ss2)
+        gr2 = generator2.gen(n=5)
+        sq_vals = {"x1": 5.0, "x2": 5.0}
+        for gr in [gr1, gr2]:
+            trial = experiment.new_batch_trial(optimize_for_power=True)
+            trial.add_generator_run(gr)
+            trial.mark_running(no_runner_required=True)
+            trial.mark_completed()
+            experiment.attach_data(
+                get_branin_data_batch(batch=trial, fill_vals=sq_vals)
+            )
+        # Fit model without filling missing parameters
+        m = ModelBridge(
+            search_space=ss1,
+            model=None,
+            experiment=experiment,
+            data=experiment.lookup_data(),
+        )
+        self.assertEqual(
+            [t.__name__ for t in m._raw_transforms],  # pyre-ignore[16]
+            ["Cast"],
+        )
+        # Check that SQ and all trial 1 are OOD
+        arm_names = [obs.arm_name for obs in m.get_training_data()]
+        ood_arms = [a for i, a in enumerate(arm_names) if not m.training_in_design[i]]
+        self.assertEqual(
+            set(ood_arms), {"status_quo", "1_0", "1_1", "1_2", "1_3", "1_4"}
+        )
+        # Fit with filling missing parameters
+        m = ModelBridge(
+            search_space=ss2,
+            model=None,
+            experiment=experiment,
+            data=experiment.lookup_data(),
+            transforms=[FillMissingParameters],
+            transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
+        )
+        self.assertEqual(
+            [t.__name__ for t in m._raw_transforms], ["Cast", "FillMissingParameters"]
+        )
+        # All arms are in design now
+        self.assertEqual(sum(m.training_in_design), 12)
+        # Check the arms with missing values were correctly filled
+        fit_args = mock_fit.mock_calls[1][2]
+        for obs in fit_args["observations"]:
+            if obs.arm_name == "status_quo":
+                self.assertEqual(obs.features.parameters, sq_vals)
+            elif obs.arm_name[0] == "0":
+                # These arms were all missing x2
+                self.assertEqual(obs.features.parameters["x2"], sq_vals["x2"])
+
+    def test_SetModelSpace(self) -> None:
+        # Set up experiment
+        experiment = get_branin_experiment()
+        # SQ values are OOD
+        sq_vals = {"x1": 5.0, "x2": 20.0}
+        # SQ is specified OOD
+        experiment.status_quo = Arm(
+            name="status_quo", parameters={"x1": None, "x2": None}
+        )
+        gr = get_sobol(search_space=experiment.search_space).gen(n=5)
+        trial = experiment.new_batch_trial()
+        trial.add_generator_run(gr)
+        trial.add_arm(Arm(name="custom", parameters={"x1": -20, "x2": 18.0}))
+        trial.add_arm(experiment.status_quo)
+        trial.mark_running(no_runner_required=True)
+        experiment.attach_data(get_branin_data_batch(batch=trial, fill_vals=sq_vals))
+        trial.mark_completed()
+        data = experiment.lookup_data()
+
+        # Check that SQ and custom are OOD
+        m = ModelBridge(
+            search_space=experiment.search_space,
+            model=None,
+            experiment=experiment,
+            data=data,
+            expand_model_space=False,
+        )
+        arm_names = [obs.arm_name for obs in m.get_training_data()]
+        ood_arms = [a for i, a in enumerate(arm_names) if not m.training_in_design[i]]
+        self.assertEqual(set(ood_arms), {"status_quo", "custom"})
+        self.assertEqual(m.model_space.parameters["x1"].lower, -5.0)  # pyre-ignore[16]
+        self.assertEqual(m.model_space.parameters["x2"].upper, 15.0)  # pyre-ignore[16]
+
+        # With expand model space, custom is not OOD, and model space is expanded
+        m = ModelBridge(
+            search_space=experiment.search_space,
+            model=None,
+            experiment=experiment,
+            data=data,
+        )
+        arm_names = [obs.arm_name for obs in m.get_training_data()]
+        ood_arms = [a for i, a in enumerate(arm_names) if not m.training_in_design[i]]
+        self.assertEqual(set(ood_arms), {"status_quo"})
+        self.assertEqual(m.model_space.parameters["x1"].lower, -20.0)
+        self.assertEqual(m.model_space.parameters["x2"].upper, 18.0)
+
+        # With fill values, SQ is also in design, and x2 is further expanded
+        m = ModelBridge(
+            search_space=experiment.search_space,
+            model=None,
+            experiment=experiment,
+            data=data,
+            transforms=[FillMissingParameters],
+            transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
+        )
+        self.assertEqual(sum(m.training_in_design), 7)
+        self.assertEqual(m.model_space.parameters["x2"].upper, 20)

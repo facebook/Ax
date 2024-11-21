@@ -21,8 +21,14 @@ from botorch.test_functions import synthetic as botorch_synthetic
 class TestSyntheticFunctions(TestCase):
     def test_branin(self) -> None:
         self.assertEqual(branin.name, "Branin")
+        # pyre-fixme[6]: For 2nd argument expected `SupportsRSub[Variable[_T],
+        #  SupportsAbs[SupportsRound[object]]]` but got `float`.
         self.assertAlmostEqual(branin(1, 2), 21.62763539206238)
+        # pyre-fixme[6]: For 2nd argument expected `SupportsRSub[Variable[_T],
+        #  SupportsAbs[SupportsRound[object]]]` but got `float`.
         self.assertAlmostEqual(branin(x1=1, x2=2), 21.62763539206238)
+        # pyre-fixme[6]: For 2nd argument expected `SupportsRSub[Variable[_T],
+        #  SupportsAbs[SupportsRound[object]]]` but got `float`.
         self.assertAlmostEqual(branin(np.array([1, 2])), 21.62763539206238)
         # pyre-fixme[16]: Item `float` of `Union[float, ndarray]` has no attribute
         #  `__getitem__`.
@@ -30,6 +36,8 @@ class TestSyntheticFunctions(TestCase):
         self.assertAlmostEqual(branin.minimums[0][0], -np.pi)
         self.assertAlmostEqual(branin.fmin, 0.397887, places=6)
         self.assertAlmostEqual(branin.fmax, 308.129, places=3)
+        # pyre-fixme[6]: For 2nd argument expected `_T` but got
+        #  `Union[ndarray[typing.Any, typing.Any], float]`.
         self.assertAlmostEqual(branin.fmax, branin(-5, 0), places=3)
         self.assertEqual(branin.domain[0], (-5, 10))
         self.assertEqual(branin.required_dimensionality, 2)
@@ -40,8 +48,14 @@ class TestSyntheticFunctions(TestCase):
 
     def test_hartmann6(self) -> None:
         self.assertEqual(hartmann6.name, "Hartmann6")
+        # pyre-fixme[6]: For 2nd argument expected `SupportsRSub[Variable[_T],
+        #  SupportsAbs[SupportsRound[object]]]` but got `float`.
         self.assertAlmostEqual(hartmann6(1, 2, 3, 4, 5, 6), 0.0)
+        # pyre-fixme[6]: For 2nd argument expected `SupportsRSub[Variable[_T],
+        #  SupportsAbs[SupportsRound[object]]]` but got `float`.
         self.assertAlmostEqual(hartmann6(x1=1, x2=2, x3=3, x4=4, x5=5, x6=6), 0.0)
+        # pyre-fixme[6]: For 2nd argument expected `SupportsRSub[Variable[_T],
+        #  SupportsAbs[SupportsRound[object]]]` but got `float`.
         self.assertAlmostEqual(hartmann6(np.array([1, 2, 3, 4, 5, 6])), 0.0)
         self.assertAlmostEqual(
             # pyre-fixme[16]: Item `float` of `Union[float, ndarray]` has no
@@ -59,10 +73,17 @@ class TestSyntheticFunctions(TestCase):
 
     def test_aug_hartmann6(self) -> None:
         self.assertEqual(aug_hartmann6.name, "Aug_Hartmann6")
+        # pyre-fixme[6]: For 2nd argument expected `SupportsRSub[Variable[_T],
+        #  SupportsAbs[SupportsRound[object]]]` but got `float`.
         self.assertAlmostEqual(aug_hartmann6(1, 2, 3, 4, 5, 6, 1), 0.0)
         self.assertAlmostEqual(
-            aug_hartmann6(x1=1, x2=2, x3=3, x4=4, x5=5, x6=6, x7=1), 0.0
+            aug_hartmann6(x1=1, x2=2, x3=3, x4=4, x5=5, x6=6, x7=1),
+            # pyre-fixme[6]: For 2nd argument expected `SupportsRSub[Variable[_T],
+            #  SupportsAbs[SupportsRound[object]]]` but got `float`.
+            0.0,
         )
+        # pyre-fixme[6]: For 2nd argument expected `SupportsRSub[Variable[_T],
+        #  SupportsAbs[SupportsRound[object]]]` but got `float`.
         self.assertAlmostEqual(aug_hartmann6(np.array([1, 2, 3, 4, 5, 6, 1])), 0.0)
         self.assertAlmostEqual(
             # pyre-fixme[16]: Item `float` of `Union[float, ndarray]` has no
@@ -82,8 +103,14 @@ class TestSyntheticFunctions(TestCase):
 
     def test_aug_branin(self) -> None:
         self.assertEqual(aug_branin.name, "Aug_Branin")
+        # pyre-fixme[6]: For 2nd argument expected `SupportsRSub[Variable[_T],
+        #  SupportsAbs[SupportsRound[object]]]` but got `float`.
         self.assertAlmostEqual(aug_branin(1, 2, 1), 21.62763539206238)
+        # pyre-fixme[6]: For 2nd argument expected `SupportsRSub[Variable[_T],
+        #  SupportsAbs[SupportsRound[object]]]` but got `float`.
         self.assertAlmostEqual(aug_branin(x1=1, x2=2, x3=1), 21.62763539206238)
+        # pyre-fixme[6]: For 2nd argument expected `SupportsRSub[Variable[_T],
+        #  SupportsAbs[SupportsRound[object]]]` but got `float`.
         self.assertAlmostEqual(aug_branin(np.array([1, 2, 1])), 21.62763539206238)
         self.assertAlmostEqual(
             # pyre-fixme[16]: Item `float` of `Union[float, ndarray]` has no
@@ -105,8 +132,14 @@ class TestSyntheticFunctions(TestCase):
     def test_botorch_ackley(self) -> None:
         ackley = FromBotorch(botorch_synthetic_function=botorch_synthetic.Ackley())
         self.assertEqual(ackley.name, "FromBotorch_Ackley")
+        # pyre-fixme[6]: For 2nd argument expected `SupportsRSub[Variable[_T],
+        #  SupportsAbs[SupportsRound[object]]]` but got `float`.
         self.assertAlmostEqual(ackley(1.0, 2.0), 5.422131717799505)
+        # pyre-fixme[6]: For 2nd argument expected `SupportsRSub[Variable[_T],
+        #  SupportsAbs[SupportsRound[object]]]` but got `float`.
         self.assertAlmostEqual(ackley(x1=1.0, x2=2.0), 5.422131717799505)
+        # pyre-fixme[6]: For 2nd argument expected `SupportsRSub[Variable[_T],
+        #  SupportsAbs[SupportsRound[object]]]` but got `float`.
         self.assertAlmostEqual(ackley(np.array([1, 2])), 5.422131717799505)
         # pyre-fixme[16]: Item `float` of `Union[float, ndarray]` has no attribute
         #  `__getitem__`.

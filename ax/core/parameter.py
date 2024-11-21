@@ -11,6 +11,7 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod, abstractproperty
 from copy import deepcopy
 from enum import Enum
+from logging import Logger
 from math import inf
 from typing import cast, Union
 from warnings import warn
@@ -18,8 +19,10 @@ from warnings import warn
 from ax.core.types import TNumeric, TParamValue, TParamValueList
 from ax.exceptions.core import AxParameterWarning, UserInputError
 from ax.utils.common.base import SortableBase
-from ax.utils.common.typeutils import not_none
-from pyre_extensions import assert_is_instance
+from ax.utils.common.logger import get_logger
+from pyre_extensions import assert_is_instance, none_throws
+
+logger: Logger = get_logger(__name__)
 
 # Tolerance for floating point comparisons. This is relatively permissive,
 # and allows for serializing at rather low numerical precision.
@@ -41,9 +44,13 @@ REPR_FLAGS_IF_TRUE_ONLY = [
 
 
 class ParameterType(Enum):
+    # pyre-fixme[35]: Target cannot be annotated.
     BOOL: int = 0
+    # pyre-fixme[35]: Target cannot be annotated.
     INT: int = 1
+    # pyre-fixme[35]: Target cannot be annotated.
     FLOAT: int = 2
+    # pyre-fixme[35]: Target cannot be annotated.
     STRING: int = 3
 
     @property
@@ -143,8 +150,8 @@ class Parameter(SortableBase, metaclass=ABCMeta):
             "Only choice hierarchical parameters are currently supported."
         )
 
+    # pyre-fixme[7]: Expected `Parameter` but got implicit return value of `None`.
     def clone(self) -> Parameter:
-        # pyre-fixme[7]: Expected `Parameter` but got implicit return value of `None`.
         pass
 
     @property
@@ -190,7 +197,6 @@ class Parameter(SortableBase, metaclass=ABCMeta):
     def summary_dict(
         self,
     ) -> dict[str, TParamValueList | TParamValue | str | list[str]]:
-
         # Assemble dict.
         summary_dict = {
             "name": self.name,
@@ -215,10 +221,17 @@ class Parameter(SortableBase, metaclass=ABCMeta):
         if flags:
             summary_dict["flags"] = ", ".join(flags)
         if getattr(self, "is_fidelity", False) or getattr(self, "is_task", False):
+            # pyre-fixme[6]: For 2nd argument expected `str` but got `Union[None,
+            #  bool, float, int, str]`.
             summary_dict["target_value"] = self.target_value
         if getattr(self, "is_hierarchical", False):
+            # pyre-fixme[6]: For 2nd argument expected `str` but got
+            #  `Dict[Union[None, bool, float, int, str], List[str]]`.
             summary_dict["dependents"] = self.dependents
 
+        # pyre-fixme[7]: Expected `Dict[str, Union[None, List[Union[None, bool,
+        #  float, int, str]], List[str], bool, float, int, str]]` but got `Dict[str,
+        #  str]`.
         return summary_dict
 
 
@@ -264,8 +277,8 @@ class RangeParameter(Parameter):
             raise UserInputError("RangeParameter type must be int or float.")
         self._parameter_type = parameter_type
         self._digits = digits
-        self._lower: TNumeric = not_none(self.cast(lower))
-        self._upper: TNumeric = not_none(self.cast(upper))
+        self._lower: TNumeric = none_throws(self.cast(lower))
+        self._upper: TNumeric = none_throws(self.cast(upper))
         self._log_scale = log_scale
         self._logit_scale = logit_scale
         self._is_fidelity = is_fidelity
@@ -297,7 +310,9 @@ class RangeParameter(Parameter):
             ParameterType.INT,
             ParameterType.FLOAT,
         ):
-            raise UserInputError("RangeParameter type must be int or float.")
+            raise UserInputError(
+                f"RangeParameter {self.name}type must be int or float."
+            )
 
         upper = float(upper)
         if lower >= upper:
@@ -308,19 +323,19 @@ class RangeParameter(Parameter):
         width: float = upper - lower
         if width < 100 * EPS:
             raise UserInputError(
-                f"Parameter range ({width}) is very small and likely "
+                f"Parameter {self.name}'s range ({width}) is very small and likely "
                 "to cause numerical errors. Consider reparameterizing your "
                 "problem by scaling the parameter."
             )
         if log_scale and logit_scale:
-            raise UserInputError("Can't use both log and logit.")
+            raise UserInputError(f"{self.name} can't use both log and logit.")
         if log_scale and lower <= 0:
-            raise UserInputError("Cannot take log when min <= 0.")
+            raise UserInputError(f"{self.name} cannot take log when min <= 0.")
         if logit_scale and (lower <= 0 or upper >= 1):
-            raise UserInputError("Logit requires lower > 0 and upper < 1")
+            raise UserInputError(f"{self.name} logit requires lower > 0 and upper < 1")
         if not (self.is_valid_type(lower)) or not (self.is_valid_type(upper)):
             raise UserInputError(
-                f"[{lower}, {upper}] is an invalid range for this parameter."
+                f"[{lower}, {upper}] is an invalid range for {self.name}."
             )
 
     @property
@@ -340,7 +355,7 @@ class RangeParameter(Parameter):
             log_scale=self.log_scale,
             logit_scale=self.logit_scale,
         )
-        self._upper = not_none(self.cast(value))
+        self._upper = none_throws(self.cast(value))
 
     @property
     def lower(self) -> TNumeric:
@@ -359,7 +374,7 @@ class RangeParameter(Parameter):
             log_scale=self.log_scale,
             logit_scale=self.logit_scale,
         )
-        self._lower = not_none(self.cast(value))
+        self._lower = none_throws(self.cast(value))
 
     @property
     def digits(self) -> int | None:
@@ -395,8 +410,8 @@ class RangeParameter(Parameter):
         if upper is None:
             upper = self._upper
 
-        cast_lower = not_none(self.cast(lower))
-        cast_upper = not_none(self.cast(upper))
+        cast_lower = none_throws(self.cast(lower))
+        cast_upper = none_throws(self.cast(upper))
         self._validate_range_param(
             lower=cast_lower,
             upper=cast_upper,
@@ -411,8 +426,8 @@ class RangeParameter(Parameter):
         self._digits = digits
 
         # Re-scale min and max to new digits definition
-        cast_lower = not_none(self.cast(self._lower))
-        cast_upper = not_none(self.cast(self._upper))
+        cast_lower = none_throws(self.cast(self._lower))
+        cast_upper = none_throws(self.cast(self._upper))
         if cast_lower >= cast_upper:
             raise UserInputError(
                 f"Lower bound {cast_lower} is >= upper bound {cast_upper}."
@@ -463,7 +478,7 @@ class RangeParameter(Parameter):
 
         # This might have issues with ints > 2^24
         if self.parameter_type is ParameterType.INT:
-            return isinstance(value, int) or float(not_none(value)).is_integer()
+            return isinstance(value, int) or float(none_throws(value)).is_integer()
         return True
 
     def clone(self) -> RangeParameter:
@@ -483,7 +498,7 @@ class RangeParameter(Parameter):
         if value is None:
             return None
         if self.parameter_type is ParameterType.FLOAT and self._digits is not None:
-            return round(float(value), not_none(self._digits))
+            return round(float(value), none_throws(self._digits))
         return assert_is_instance(self.python_type(value), TNumeric)
 
     def __repr__(self) -> str:
@@ -562,7 +577,8 @@ class ChoiceParameter(Parameter):
             )
         # Remove duplicate values.
         # Using dict to deduplicate here since set doesn't preserve order but dict does.
-        if len(values) != len(dict_values := dict.fromkeys(values)):
+        dict_values = dict.fromkeys(values)
+        if len(values) != len(dict_values):
             warn(
                 f"Duplicate values found for ChoiceParameter {name}. "
                 "Initializing the parameter with duplicate values removed. ",
@@ -573,7 +589,7 @@ class ChoiceParameter(Parameter):
 
         if is_ordered is False and len(values) == 2:
             is_ordered = True
-            warn(
+            logger.debug(
                 f"Changing `is_ordered` to `True` for `ChoiceParameter` '{name}' since "
                 "there are only two possible values.",
                 AxParameterWarning,
@@ -591,7 +607,7 @@ class ChoiceParameter(Parameter):
             else self._get_default_sort_values_and_warn()
         )
         if self.sort_values:
-            values = cast(list[TParamValue], sorted([not_none(v) for v in values]))
+            values = cast(list[TParamValue], sorted([none_throws(v) for v in values]))
         self._values: list[TParamValue] = self._cast_values(values)
 
         if dependents:
@@ -698,7 +714,7 @@ class ChoiceParameter(Parameter):
             raise NotImplementedError(
                 "Only hierarchical parameters support the `dependents` property."
             )
-        return not_none(self._dependents)
+        return none_throws(self._dependents)
 
     def _cast_values(self, values: list[TParamValue]) -> list[TParamValue]:
         return [self.cast(value) for value in values]
@@ -813,7 +829,7 @@ class FixedParameter(Parameter):
             raise NotImplementedError(
                 "Only hierarchical parameters support the `dependents` property."
             )
-        return not_none(self._dependents)
+        return none_throws(self._dependents)
 
     def clone(self) -> FixedParameter:
         return FixedParameter(

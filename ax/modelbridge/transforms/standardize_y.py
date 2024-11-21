@@ -147,7 +147,7 @@ class StandardizeY(Transform):
 
 
 def compute_standardization_parameters(
-    Ys: defaultdict[str | tuple[str, TParamValue], list[float]]
+    Ys: defaultdict[str | tuple[str, TParamValue], list[float]],
 ) -> tuple[dict[str | tuple[str, str], float], dict[str | tuple[str, str], float]]:
     """Compute mean and std. dev of Ys."""
     Ymean = {k: np.mean(y) for k, y in Ys.items()}

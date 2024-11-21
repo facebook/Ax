@@ -35,19 +35,19 @@ from ax.models.types import TConfig
 FIT_MODEL_ERROR = "Model must be fit before {action}."
 
 
-# pyre-fixme[13]: Attribute `model` is never initialized.
-# pyre-fixme[13]: Attribute `outcomes` is never initialized.
-# pyre-fixme[13]: Attribute `parameters` is never initialized.
-# pyre-fixme[13]: Attribute `search_space` is never initialized.
 class DiscreteModelBridge(ModelBridge):
     """A model bridge for using models based on discrete parameters.
 
     Requires that all parameters have been transformed to ChoiceParameters.
     """
 
+    # pyre-fixme[13]: Attribute `model` is never initialized.
     model: DiscreteModel
+    # pyre-fixme[13]: Attribute `outcomes` is never initialized.
     outcomes: list[str]
+    # pyre-fixme[13]: Attribute `parameters` is never initialized.
     parameters: list[str]
+    # pyre-fixme[13]: Attribute `search_space` is never initialized.
     search_space: SearchSpace | None
 
     def _fit(

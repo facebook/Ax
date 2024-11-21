@@ -16,7 +16,7 @@ from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.early_stopping.utils import align_partial_results
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -193,7 +193,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         # dropna() here will exclude trials that have not made it to the
         # last progression of the trial under consideration, and therefore
         # can't be included in the comparison
-        df_trial = not_none(df[trial_index].dropna())
+        df_trial = none_throws(df[trial_index].dropna())
         trial_last_prog = df_trial.index.max()
         data_at_last_progression = df.loc[trial_last_prog].dropna()
         logger.info(

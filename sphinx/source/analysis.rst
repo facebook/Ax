@@ -15,6 +15,14 @@ Analysis
     :undoc-members:
     :show-inheritance:
 
+Cross Validation Analysis
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.plotly.cross_validation
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Markdown Analysis
 ~~~~~~~~~~~~~~~~~
 
@@ -31,8 +39,24 @@ Plotly Analysis
     :undoc-members:
     :show-inheritance:
 
-Healthcheck Analysis
+Can Generate Candidates Healthcheck Analysis
 ~~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.healthcheck.can_generate_candidates
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Should Generate Candidates Healthcheck Analysis
+~~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.healthcheck.should_generate_candidates
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Healthcheck Analysis
+~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.analysis.healthcheck.healthcheck_analysis
     :members:
@@ -48,7 +72,7 @@ InSample Effects Analysis
     :show-inheritance:
 
 Parallel Coordinates Analysis
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.analysis.plotly.parallel_coordinates
     :members:
@@ -56,7 +80,7 @@ Parallel Coordinates Analysis
     :show-inheritance:
 
 Predicted Effects Analysis
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.analysis.plotly.arm_effects.predicted_effects
     :members:
@@ -71,10 +95,26 @@ Plotly Arm Effects Utils
     :undoc-members:
     :show-inheritance:
 
-Plotly Anaylsis Utils
+Plotly Analysis Utils
 ~~~~~~~~~~~~~~~
 
 .. automodule:: ax.analysis.plotly.utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Scatter Plot Analysis
+~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.plotly.scatter
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Summary
+~~~~~~~
+
+.. automodule:: ax.analysis.summary
     :members:
     :undoc-members:
     :show-inheritance:

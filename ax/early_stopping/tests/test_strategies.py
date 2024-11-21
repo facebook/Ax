@@ -28,7 +28,7 @@ from ax.early_stopping.strategies.logical import (
 from ax.early_stopping.utils import align_partial_results
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_arms,
     get_branin_experiment,
@@ -206,6 +206,26 @@ class TestBaseEarlyStoppingStrategy(TestCase):
                 df=map_data.map_df,
                 map_key=map_data.map_keys[0],
             )[0]
+        )
+
+    def test_early_stopping_savings(self) -> None:
+        class FakeStrategy(BaseEarlyStoppingStrategy):
+            def should_stop_trials_early(
+                self,
+                trial_indices: set[int],
+                experiment: Experiment,
+                **kwargs: dict[str, Any],
+            ) -> dict[int, str | None]:
+                return {}
+
+        exp = get_branin_experiment_with_timestamp_map_metric()
+        es_strategy = FakeStrategy(min_progression=3, max_progression=5)
+
+        self.assertEqual(
+            es_strategy.estimate_early_stopping_savings(
+                experiment=exp,
+            ),
+            0,
         )
 
 
@@ -698,7 +718,7 @@ def _evaluate_early_stopping_with_df(
 ) -> dict[int, str | None]:
     """Helper function for testing PercentileEarlyStoppingStrategy
     on an arbitrary (MapData) df."""
-    data = not_none(
+    data = none_throws(
         early_stopping_strategy._check_validity_and_get_data(experiment, [metric_name])
     )
     metric_to_aligned_means, _ = align_partial_results(

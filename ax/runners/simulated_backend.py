@@ -31,7 +31,7 @@ class SimulatedBackendRunner(Runner):
             simulator: The backend simulator.
             sample_runtime_func: A Callable that samples a runtime given a trial.
         """
-        self.simulator = simulator
+        self.simulator: BackendSimulator = simulator
         if sample_runtime_func is None:
             sample_runtime_func = sample_runtime_unif
         self.sample_runtime_func: Callable[[BaseTrial], float] = sample_runtime_func
@@ -54,7 +54,7 @@ class SimulatedBackendRunner(Runner):
             trial_status[status].add(t_index)
         return dict(trial_status)
 
-    def run(self, trial: BaseTrial) -> dict[str, Any]:
+    def run(self, trial: BaseTrial) -> dict[str, float]:
         """Start a trial on the BackendSimulator.
 
         Args:

@@ -22,8 +22,7 @@ from ax.core.types import TCandidateMetadata, TEvaluationOutcome
 from ax.exceptions.core import UnsupportedError
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import not_none
-from pyre_extensions import override
+from pyre_extensions import none_throws, override
 
 logger: Logger = get_logger(__name__)
 
@@ -100,7 +99,7 @@ class Trial(BaseTrial):
         if self.generator_run is None:
             return None
 
-        generator_run = not_none(self.generator_run)
+        generator_run = none_throws(self.generator_run)
         if len(generator_run.arms) == 0:
             return None
         elif len(generator_run.arms) > 1:
@@ -193,7 +192,7 @@ class Trial(BaseTrial):
     def abandoned_arms(self) -> list[Arm]:
         """Abandoned arms attached to this trial."""
         return (
-            [not_none(self.arm)]
+            [none_throws(self.arm)]
             if self.generator_run is not None
             and self.arm is not None
             and self.is_abandoned
@@ -251,7 +250,7 @@ class Trial(BaseTrial):
         if gr is None or gr.candidate_metadata_by_arm_signature is None:
             return {}
 
-        cand_metadata = not_none(gr.candidate_metadata_by_arm_signature)
+        cand_metadata = none_throws(gr.candidate_metadata_by_arm_signature)
         return {a.name: cand_metadata.get(a.signature) for a in gr.arms}
 
     def _get_candidate_metadata(self, arm_name: str) -> TCandidateMetadata:
@@ -267,7 +266,7 @@ class Trial(BaseTrial):
             return None
 
         arm = gr.arms[0]
-        return not_none(gr.candidate_metadata_by_arm_signature).get(arm.signature)
+        return none_throws(gr.candidate_metadata_by_arm_signature).get(arm.signature)
 
     def validate_data_for_trial(self, data: Data) -> None:
         """Utility method to validate data before further processing."""
@@ -310,7 +309,7 @@ class Trial(BaseTrial):
         Returns:
             A string message summarizing the update.
         """
-        arm_name = not_none(self.arm).name
+        arm_name = none_throws(self.arm).name
         sample_sizes = {arm_name: sample_size} if sample_size else {}
         raw_data_by_arm = {arm_name: raw_data}
 

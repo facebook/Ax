@@ -136,7 +136,6 @@ class MnistModel(LightningModule):
 
 
 def run_training_job():
-
     mnist_model = MnistModel()
 
     # Initialize a trainer

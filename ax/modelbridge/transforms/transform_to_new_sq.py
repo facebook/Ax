@@ -14,14 +14,16 @@ from math import sqrt
 from typing import TYPE_CHECKING
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.modelbridge.transforms.relativize import BaseRelativize, get_metric_index
 from ax.models.types import TConfig
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.stats.statstools import relativize, unrelativize
+from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -54,9 +56,8 @@ class TransformToNewSQ(BaseRelativize):
             modelbridge=modelbridge,
             config=config,
         )
-        self.status_quo: Observation = not_none(
-            self.modelbridge.status_quo,
-            f"Status quo must be set on modelbridge for {self.__class__.__name__}.",
+        self._status_quo_name: str = none_throws(
+            none_throws(modelbridge).status_quo_name
         )
         if config is not None:
             target_trial_index = config.get("target_trial_index")
@@ -86,7 +87,7 @@ class TransformToNewSQ(BaseRelativize):
     def _get_relative_data_from_obs(
         self,
         obs: Observation,
-        rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
+        rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
     ) -> ObservationData:
         idx = (
             int(obs.features.trial_index)
@@ -104,7 +105,7 @@ class TransformToNewSQ(BaseRelativize):
     def _rel_op_on_observations(
         self,
         observations: list[Observation],
-        rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
+        rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
     ) -> list[Observation]:
         rel_observations = super()._rel_op_on_observations(
             observations=observations,
@@ -115,7 +116,7 @@ class TransformToNewSQ(BaseRelativize):
             for obs in rel_observations
             # drop SQ observations
             if (
-                obs.arm_name != self.status_quo.arm_name
+                obs.arm_name != self._status_quo_name
                 or obs.features.trial_index == self.default_trial_idx
             )
         ]
@@ -124,7 +125,7 @@ class TransformToNewSQ(BaseRelativize):
         self,
         data: ObservationData,
         status_quo_data: ObservationData,
-        rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
+        rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
     ) -> ObservationData:
         r"""
         Transform or untransform `data` based on `status_quo_data` based on `rel_op`.
@@ -171,7 +172,7 @@ class TransformToNewSQ(BaseRelativize):
         mean_c: float,
         sem_c: float,
         metric: str,
-        rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
+        rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
     ) -> tuple[float, float]:
         """Compute (un)transformed mean and sem for a single metric."""
         target_status_quo_data = self.status_quo_data_by_trial[self.default_trial_idx]
@@ -192,4 +193,6 @@ class TransformToNewSQ(BaseRelativize):
         if rel_op == relativize:
             means_rel = means_rel * abs_target_mean_c + target_mean_c
             sems_rel = sems_rel * abs_target_mean_c
+        # pyre-fixme[7]: Expected `Tuple[float, float]` but got
+        #  `Tuple[ndarray[typing.Any, typing.Any], ndarray[typing.Any, typing.Any]]`.
         return means_rel, sems_rel

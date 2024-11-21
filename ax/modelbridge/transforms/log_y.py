@@ -15,6 +15,7 @@ from logging import Logger
 from typing import TYPE_CHECKING
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
@@ -102,7 +103,9 @@ class LogY(Transform):
     def _tf_obs_data(
         self,
         observation_data: list[ObservationData],
-        transform: Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]],
+        transform: Callable[
+            [npt.NDArray, npt.NDArray], tuple[npt.NDArray, npt.NDArray]
+        ],
     ) -> list[ObservationData]:
         for obsd in observation_data:
             cov = obsd.covariance
@@ -157,11 +160,11 @@ class LogY(Transform):
 
 
 def match_ci_width(
-    mean: np.ndarray,
-    variance: np.ndarray,
-    transform: Callable[[np.ndarray], np.ndarray],
+    mean: npt.NDArray,
+    variance: npt.NDArray,
+    transform: Callable[[npt.NDArray], npt.NDArray],
     level: float = 0.95,
-) -> np.ndarray:
+) -> npt.NDArray:
     fac = norm.ppf(1 - (1 - level) / 2)
     d = fac * np.sqrt(variance)
     width_asym = transform(mean + d) - transform(mean - d)
@@ -172,8 +175,9 @@ def match_ci_width(
 
 
 def lognorm_to_norm(
-    mu_ln: np.ndarray, Cov_ln: np.ndarray
-) -> tuple[np.ndarray, np.ndarray]:
+    mu_ln: npt.NDArray,
+    Cov_ln: npt.NDArray,
+) -> tuple[npt.NDArray, npt.NDArray]:
     """Compute mean and covariance of a MVN from those of the associated log-MVN
 
     If `Y` is log-normal with mean mu_ln and covariance Cov_ln, then
@@ -188,8 +192,9 @@ def lognorm_to_norm(
 
 
 def norm_to_lognorm(
-    mu_n: np.ndarray, Cov_n: np.ndarray
-) -> tuple[np.ndarray, np.ndarray]:
+    mu_n: npt.NDArray,
+    Cov_n: npt.NDArray,
+) -> tuple[npt.NDArray, npt.NDArray]:
     """Compute mean and covariance of a log-MVN from its MVN sufficient statistics
 
     If `X ~ N(mu_n, Cov_n)` and `Y = exp(X)`, then `Y` is log-normal with

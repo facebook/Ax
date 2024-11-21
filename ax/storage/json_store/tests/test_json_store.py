@@ -10,12 +10,10 @@ import dataclasses
 import os
 import tempfile
 from functools import partial
-from unittest.mock import patch
 
 import numpy as np
 import torch
-from ax.benchmark.problems.hpo.torchvision import PyTorchCNNTorchvisionParamBasedProblem
-from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_benchmark_problem
+from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.runner import Runner
@@ -25,6 +23,7 @@ from ax.modelbridge.generation_node import GenerationStep
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.storage.json_store.decoder import (
+    _DEPRECATED_MODEL_TO_REPLACEMENT,
     generation_strategy_from_json,
     object_from_json,
 )
@@ -49,10 +48,6 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import (
     get_aggregated_benchmark_result,
     get_benchmark_result,
-    get_multi_objective_benchmark_problem,
-    get_single_objective_benchmark_problem,
-    get_sobol_gpei_benchmark_method,
-    TestDataset,
 )
 from ax.utils.testing.core_stubs import (
     get_abandoned_arm,
@@ -64,6 +59,7 @@ from ax.utils.testing.core_stubs import (
     get_batch_trial,
     get_botorch_model,
     get_botorch_model_with_default_acquisition_class,
+    get_botorch_model_with_surrogate_spec,
     get_botorch_model_with_surrogate_specs,
     get_branin_data,
     get_branin_experiment,
@@ -127,10 +123,12 @@ from ax.utils.testing.modeling_stubs import (
     get_input_transform_type,
     get_observation_features,
     get_outcome_transfrom_type,
+    get_to_new_sq_transform_type,
     get_transform_type,
     sobol_gpei_generation_node_gs,
 )
 from ax.utils.testing.utils import generic_equals
+from ax.utils.testing.utils_testing_stubs import get_backend_simulator_with_trials
 from botorch.sampling.normal import SobolQMCNormalSampler
 
 
@@ -141,12 +139,16 @@ TEST_CASES = [
     ("AndEarlyStoppingStrategy", get_and_early_stopping_strategy),
     ("Arm", get_arm),
     ("AuxiliaryExperiment", get_auxiliary_experiment),
+    ("BackendSimulator", get_backend_simulator_with_trials),
     ("BatchTrial", get_batch_trial),
-    ("BenchmarkMethod", get_sobol_gpei_benchmark_method),
-    ("BenchmarkProblem", get_single_objective_benchmark_problem),
+    (
+        "BenchmarkMethod",
+        lambda: get_sobol_benchmark_method(distribute_replications=True),
+    ),
     ("BenchmarkResult", get_benchmark_result),
     ("BoTorchModel", get_botorch_model),
     ("BoTorchModel", get_botorch_model_with_default_acquisition_class),
+    ("BoTorchModel", get_botorch_model_with_surrogate_spec),
     ("BoTorchModel", get_botorch_model_with_surrogate_specs),
     ("BraninMetric", get_branin_metric),
     ("ChainedInputTransform", get_chained_input_transform),
@@ -190,6 +192,10 @@ TEST_CASES = [
     ),
     (
         "GenerationStrategy",
+        partial(sobol_gpei_generation_node_gs, with_trial_type=True),
+    ),
+    (
+        "GenerationStrategy",
         partial(sobol_gpei_generation_node_gs, with_input_constructors_all_n=True),
     ),
     (
@@ -204,7 +210,23 @@ TEST_CASES = [
     ),
     (
         "GenerationStrategy",
+        partial(
+            sobol_gpei_generation_node_gs, with_input_constructors_target_trial=True
+        ),
+    ),
+    (
+        "GenerationStrategy",
+        partial(
+            sobol_gpei_generation_node_gs, with_input_constructors_sq_features=True
+        ),
+    ),
+    (
+        "GenerationStrategy",
         partial(sobol_gpei_generation_node_gs, with_unlimited_gen_mbm=True),
+    ),
+    (
+        "GenerationStrategy",
+        partial(sobol_gpei_generation_node_gs, with_is_SOO_transition=True),
     ),
     ("GeneratorRun", get_generator_run),
     ("Hartmann6Metric", get_hartmann_metric),
@@ -216,7 +238,6 @@ TEST_CASES = [
     ("MapKeyInfo", get_map_key_info),
     ("Metric", get_metric),
     ("MultiObjective", get_multi_objective),
-    ("MultiObjectiveBenchmarkProblem", get_multi_objective_benchmark_problem),
     ("MultiObjectiveOptimizationConfig", get_multi_objective_optimization_config),
     ("MultiTypeExperiment", get_multi_type_experiment),
     ("ObservationFeatures", get_observation_features),
@@ -227,7 +248,6 @@ TEST_CASES = [
     ("OrderConstraint", get_order_constraint),
     ("OutcomeConstraint", get_outcome_constraint),
     ("Path", get_pathlib_path),
-    ("Jenatton", get_jenatton_benchmark_problem),
     ("PercentileEarlyStoppingStrategy", get_percentile_early_stopping_strategy),
     (
         "PercentileEarlyStoppingStrategy",
@@ -242,7 +262,6 @@ TEST_CASES = [
     ("SchedulerOptions", get_default_scheduler_options),
     ("SchedulerOptions", get_scheduler_options_batch_trial),
     ("SearchSpace", get_search_space),
-    ("SingleObjectiveBenchmarkProblem", get_single_objective_benchmark_problem),
     ("SumConstraint", get_sum_constraint1),
     ("SumConstraint", get_sum_constraint2),
     ("Surrogate", get_surrogate),
@@ -254,6 +273,7 @@ TEST_CASES = [
     ("Type[Transform]", get_transform_type),
     ("Type[InputTransform]", get_input_transform_type),
     ("Type[OutcomeTransform]", get_outcome_transfrom_type),
+    ("Type[TransformToNewSQ]", get_to_new_sq_transform_type),
     ("TransitionCriterionList", get_trial_based_criterion),
     ("ThresholdEarlyStoppingStrategy", get_threshold_early_stopping_strategy),
     ("Trial", get_trial),
@@ -423,24 +443,6 @@ class JSONStoreTest(TestCase):
         self.assertEqual(recovered.not_a_field, 1)
         self.assertEqual(obj, recovered)
 
-    def test_EncodeDecode_torchvision_problem(self) -> None:
-        registry_path = "ax.benchmark.problems.hpo.torchvision._REGISTRY"
-        mock_registry = {"MNIST": TestDataset}
-        with patch.dict(registry_path, mock_registry):
-            test_problem = PyTorchCNNTorchvisionParamBasedProblem(name="MNIST")
-
-        self.assertIsNotNone(test_problem.train_loader)
-        self.assertIsNotNone(test_problem.test_loader)
-
-        as_json = object_to_json(obj=test_problem)
-        self.assertNotIn("train_loader", as_json)
-
-        with patch.dict(registry_path, mock_registry):
-            recovered = object_from_json(as_json)
-
-        self.assertIsNotNone(recovered.train_loader)
-        self.assertEqual(test_problem, recovered)
-
     def test_EncodeDecodeTorchTensor(self) -> None:
         x = torch.tensor(
             [[1.0, 2.0], [3.0, 4.0]], dtype=torch.float64, device=torch.device("cpu")
@@ -604,11 +606,11 @@ class JSONStoreTest(TestCase):
                 decoder_registry=CORE_DECODER_REGISTRY,
                 class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
             )
-            org_as_dict = dataclasses.asdict(org_object)
-            converted_as_dict = dataclasses.asdict(converted_object)
+            org_as_dict = dataclasses.asdict(org_object)["model_configs"][0]
+            converted_as_dict = dataclasses.asdict(converted_object)["model_configs"][0]
             # Covar module kwargs will fail comparison. Manually compare.
-            org_covar_kwargs = org_as_dict.pop("covar_module_kwargs")
-            converted_covar_kwargs = converted_as_dict.pop("covar_module_kwargs")
+            org_covar_kwargs = org_as_dict.pop("covar_module_options")
+            converted_covar_kwargs = converted_as_dict.pop("covar_module_options")
             self.assertEqual(org_covar_kwargs.keys(), converted_covar_kwargs.keys())
             for k in org_covar_kwargs:
                 org_ = org_covar_kwargs[k]
@@ -811,3 +813,63 @@ class JSONStoreTest(TestCase):
         self.assertIsInstance(sampler_loaded, SobolQMCNormalSampler)
         self.assertEqual(sampler.sample_shape, sampler_loaded.sample_shape)
         self.assertEqual(sampler.seed, sampler_loaded.seed)
+
+    def test_mbm_backwards_compatibility(self) -> None:
+        # This is json of get_botorch_model_with_surrogate_specs() before D64875988.
+        object_json = {
+            "__type": "BoTorchModel",
+            "acquisition_class": {
+                "__type": "Type[Acquisition]",
+                "index": "Acquisition",
+                "class": (
+                    "<class 'ax.models.torch.botorch_modular.acquisition.Acquisition'>"
+                ),
+            },
+            "acquisition_options": {},
+            "surrogate": None,
+            "surrogate_specs": {
+                "name": {
+                    "__type": "SurrogateSpec",
+                    "botorch_model_class": None,
+                    "botorch_model_kwargs": {"some_option": "some_value"},
+                    "mll_class": {
+                        "__type": "Type[MarginalLogLikelihood]",
+                        "index": "ExactMarginalLogLikelihood",
+                        "class": (
+                            "<class 'gpytorch.mlls.marginal_log_likelihood."
+                            "MarginalLogLikelihood'>"
+                        ),
+                    },
+                    "mll_kwargs": {},
+                    "covar_module_class": None,
+                    "covar_module_kwargs": None,
+                    "likelihood_class": None,
+                    "likelihood_kwargs": None,
+                    "input_transform_classes": None,
+                    "input_transform_options": None,
+                    "outcome_transform_classes": None,
+                    "outcome_transform_options": None,
+                    "allow_batched_models": True,
+                    "outcomes": [],
+                }
+            },
+            "botorch_acqf_class": None,
+            "refit_on_cv": False,
+            "warm_start_refit": True,
+        }
+        expected_object = get_botorch_model_with_surrogate_spec()
+        self.assertEqual(object_from_json(object_json), expected_object)
+
+    def test_model_registry_backwards_compatibility(self) -> None:
+        # Check that deprecated model registry entries can be loaded.
+        # Check for models with listed replacements.
+        for name, replacement in _DEPRECATED_MODEL_TO_REPLACEMENT.items():
+            with self.assertLogs(logger="ax", level="ERROR"):
+                from_json = object_from_json({"__type": "Models", "name": name})
+            self.assertEqual(from_json, Models[replacement])
+        # Check for non-deprecated models.
+        from_json = object_from_json({"__type": "Models", "name": "BO_MIXED"})
+        self.assertEqual(from_json, Models.BO_MIXED)
+        # Check for models with no replacement.
+        with self.assertRaisesRegex(KeyError, "nonexistent"):
+            object_from_json({"__type": "Models", "name": "nonexistent_model"})

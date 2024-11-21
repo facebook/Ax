@@ -10,6 +10,7 @@ import warnings
 from collections.abc import Iterable
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import plotly.graph_objs as go
 from ax.core.experiment import Experiment
@@ -25,8 +26,9 @@ from ax.plot.color import COLORS, DISCRETE_COLOR_SCALE, rgba
 from ax.plot.helper import _format_CI, _format_dict, extend_range
 from ax.plot.pareto_utils import ParetoFrontierResults
 from ax.service.utils.best_point_mixin import BestPointMixin
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from plotly import express as px
+from pyre_extensions import none_throws
 from scipy.stats import norm
 
 
@@ -47,7 +49,7 @@ def _make_label(
     return f"{name}: {estimate}{perc} {ci}<br>"
 
 
-def _filter_outliers(Y: np.ndarray, m: float = 2.0) -> np.ndarray:
+def _filter_outliers(Y: npt.NDArray, m: float = 2.0) -> npt.NDArray:
     std_filter = abs(Y - np.median(Y, axis=0)) < m * np.std(Y, axis=0)
     return Y[np.all(abs(std_filter), axis=1)]
 
@@ -80,8 +82,8 @@ def scatter_plot_with_hypervolume_trace_plotly(experiment: Experiment) -> go.Fig
 
 
 def scatter_plot_with_pareto_frontier_plotly(
-    Y: np.ndarray,
-    Y_pareto: np.ndarray | None,
+    Y: npt.NDArray,
+    Y_pareto: npt.NDArray | None,
     metric_x: str | None,
     metric_y: str | None,
     reference_point: tuple[float, float] | None,
@@ -238,8 +240,8 @@ def scatter_plot_with_pareto_frontier_plotly(
 
 
 def scatter_plot_with_pareto_frontier(
-    Y: np.ndarray,
-    Y_pareto: np.ndarray,
+    Y: npt.NDArray,
+    Y_pareto: npt.NDArray,
     metric_x: str,
     metric_y: str,
     reference_point: tuple[float, float],
@@ -851,7 +853,7 @@ def _validate_experiment_and_get_optimization_config(
                 f"{metric_names}."
             )
         return None
-    return not_none(experiment.optimization_config)
+    return none_throws(experiment.optimization_config)
 
 
 def _validate_and_maybe_get_default_metric_names(
@@ -860,15 +862,15 @@ def _validate_and_maybe_get_default_metric_names(
 ) -> tuple[str, str]:
     # Default metric_names is all metrics, producing an error if more than 2
     if metric_names is None:
-        if not_none(optimization_config).is_moo_problem:
+        if none_throws(optimization_config).is_moo_problem:
             multi_objective = checked_cast(
-                MultiObjective, not_none(optimization_config).objective
+                MultiObjective, none_throws(optimization_config).objective
             )
             metric_names = tuple(obj.metric.name for obj in multi_objective.objectives)
         else:
             raise UserInputError(
                 "Inference of `metric_names` failed. Expected `MultiObjective` but "
-                f"got {not_none(optimization_config).objective}. Please specify "
+                f"got {none_throws(optimization_config).objective}. Please specify "
                 "`metric_names` of length 2 or provide an experiment whose "
                 "`optimization_config` has 2 objective metrics."
             )
@@ -975,7 +977,7 @@ def _validate_and_maybe_get_default_minimize(
                 "includes 2 objectives. Returning None."
             )
             return None
-        minimize = tuple(not_none(i_min) for i_min in minimize)
+        minimize = tuple(none_throws(i_min) for i_min in minimize)
     # If only one bool provided, use for both dimensions
     elif isinstance(minimize, bool):
         minimize = (minimize, minimize)

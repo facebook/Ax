@@ -10,14 +10,8 @@ from dataclasses import dataclass, field, InitVar
 from functools import lru_cache
 
 import torch
-from ax.benchmark.benchmark_problem import (
-    BenchmarkProblem,
-    get_soo_config_and_outcome_names,
-)
-from ax.benchmark.runners.botorch_test import (
-    ParamBasedTestProblem,
-    ParamBasedTestProblemRunner,
-)
+from ax.benchmark.benchmark_problem import BenchmarkProblem, get_soo_opt_config
+from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
@@ -38,6 +32,9 @@ except ModuleNotFoundError:
     transforms = None
     datasets = None
     _REGISTRY = {}
+
+
+CLASSIFICATION_OPTIMAL_VALUE = 1.0
 
 
 class CNN(nn.Module):
@@ -66,7 +63,7 @@ def train_and_evaluate(
     device: torch.device,
     train_loader: DataLoader,
     test_loader: DataLoader,
-) -> torch.Tensor:
+) -> float:
     """Return the fraction of correctly classified test examples."""
     net = CNN()
     net.to(device=device)
@@ -106,22 +103,19 @@ def train_and_evaluate(
             outputs = net(inputs)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
-            correct += (predicted == labels).sum()
+            correct += (predicted == labels).sum().item()
 
     return correct / total
 
 
 @dataclass(kw_only=True)
-class PyTorchCNNTorchvisionParamBasedProblem(ParamBasedTestProblem):
+class PyTorchCNNTorchvisionBenchmarkTestFunction(BenchmarkTestFunction):
     name: str  # The name of the dataset to load -- MNIST or FashionMNIST
-    num_objectives: int = 1
-    optimal_value: float = 1.0
     device: torch.device = field(
         default_factory=lambda: torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
         )
     )
-    negate: bool = False
     # Using `InitVar` prevents the DataLoaders from being serialized; instead
     # they are reconstructed upon deserialization.
     # Pyre doesn't understand InitVars.
@@ -130,6 +124,7 @@ class PyTorchCNNTorchvisionParamBasedProblem(ParamBasedTestProblem):
     train_loader: InitVar[DataLoader | None] = None
     # pyre-ignore
     test_loader: InitVar[DataLoader | None] = None
+    outcome_names: list[str] = field(default_factory=lambda: ["accuracy"])
 
     def __post_init__(self, train_loader: None, test_loader: None) -> None:
         if self.name not in _REGISTRY:
@@ -153,7 +148,7 @@ class PyTorchCNNTorchvisionParamBasedProblem(ParamBasedTestProblem):
             transform=transforms.ToTensor(),
         )
         # pyre-fixme: Undefined attribute [16]:
-        # `PyTorchCNNTorchvisionParamBasedProblem` has no attribute
+        # `PyTorchCNNTorchvisionBenchmarkTestFunction` has no attribute
         # `train_loader`.
         self.train_loader = DataLoader(train_set, num_workers=1)
         # pyre-fixme
@@ -162,20 +157,23 @@ class PyTorchCNNTorchvisionParamBasedProblem(ParamBasedTestProblem):
     # pyre-fixme[14]: Inconsistent override (super class takes a more general
     # type, TParameterization)
     def evaluate_true(self, params: Mapping[str, int | float]) -> Tensor:
-        return train_and_evaluate(
+        frac_correct = train_and_evaluate(
             **params,
             device=self.device,
+            # pyre-fixme[16]: `PyTorchCNNTorchvisionBenchmarkTestFunction` has no
+            #  attribute `train_loader`.
             train_loader=self.train_loader,
+            # pyre-fixme[16]: `PyTorchCNNTorchvisionBenchmarkTestFunction` has no
+            #  attribute `test_loader`.
             test_loader=self.test_loader,
         )
+        return torch.tensor(frac_correct, dtype=torch.double)
 
 
 def get_pytorch_cnn_torchvision_benchmark_problem(
     name: str,
     num_trials: int,
 ) -> BenchmarkProblem:
-    base_problem = PyTorchCNNTorchvisionParamBasedProblem(name=name)
-
     search_space = SearchSpace(
         parameters=[
             RangeParameter(
@@ -207,23 +205,16 @@ def get_pytorch_cnn_torchvision_benchmark_problem(
             ),
         ]
     )
-    optimization_config, outcome_names = get_soo_config_and_outcome_names(
-        num_constraints=0,
-        lower_is_better=False,
-        observe_noise_sd=False,
-        objective_name="accuracy",
-    )
-    runner = ParamBasedTestProblemRunner(
-        test_problem_class=PyTorchCNNTorchvisionParamBasedProblem,
-        test_problem_kwargs={"name": name},
-        outcome_names=outcome_names,
+
+    test_function = PyTorchCNNTorchvisionBenchmarkTestFunction(name=name)
+    optimization_config = get_soo_opt_config(
+        outcome_names=test_function.outcome_names, lower_is_better=False
     )
     return BenchmarkProblem(
         name=f"HPO_PyTorchCNN_Torchvision::{name}",
         search_space=search_space,
         optimization_config=optimization_config,
         num_trials=num_trials,
-        observe_noise_stds=False,
-        optimal_value=base_problem.optimal_value,
-        runner=runner,
+        optimal_value=CLASSIFICATION_OPTIMAL_VALUE,
+        test_function=test_function,
     )

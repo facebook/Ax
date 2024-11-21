@@ -10,6 +10,7 @@ from copy import deepcopy
 from typing import Any, Optional, Union
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.observation import ObservationFeatures
 from ax.modelbridge.base import ModelBridge
 from ax.plot.base import AxPlotConfig, AxPlotTypes, PlotData
@@ -23,11 +24,12 @@ from ax.plot.helper import (
     slice_config_to_trace,
     TNullableGeneratorRunsDict,
 )
-from ax.utils.common.typeutils import not_none
 from plotly import graph_objs as go
+from pyre_extensions import none_throws
 
 
 # type aliases
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 SlicePredictions = tuple[
     PlotData,
     list[dict[str, Union[str, float]]],
@@ -341,19 +343,19 @@ def interact_slice_plotly(
 
         plot_data_dict = {}
         raw_data_dict = {}
-        sd_plt_dict: dict[str, dict[str, np.ndarray]] = {}
+        sd_plt_dict: dict[str, dict[str, npt.NDArray]] = {}
 
         cond_name_to_parameters_dict = {}
         is_log_dict: dict[str, bool] = {}
 
         if should_replace_slice_values:
-            slice_values = not_none(fixed_features).parameters
+            slice_values = none_throws(fixed_features).parameters
         else:
             fixed_features = ObservationFeatures(parameters={})
         fixed_values = get_fixed_values(model, slice_values, trial_index)
         prediction_features = []
         for x in grid:
-            predf = deepcopy(not_none(fixed_features))
+            predf = deepcopy(none_throws(fixed_features))
             predf.parameters = fixed_values.copy()
             predf.parameters[param_name] = x
             prediction_features.append(predf)
@@ -376,6 +378,9 @@ def interact_slice_plotly(
             raw_data_dict[metric_name] = rd
             cond_name_to_parameters_dict[metric_name] = cntp
 
+            # pyre-fixme[6]: For 2nd argument expected `Dict[str,
+            #  ndarray[typing.Any, typing.Any]]` but got `ndarray[typing.Any,
+            #  dtype[typing.Any]]`.
             sd_plt_dict[metric_name] = np.sqrt(cov[metric_name][metric_name])
             is_log_dict[metric_name] = ls
 
@@ -471,6 +476,7 @@ def interact_slice_plotly(
     mbuttons = []
     # pyre-fixme[61]: `metrics` is undefined, or not always defined.
     for i, metric in enumerate(metrics):
+        # pyre-fixme[61]: `arm_data` is undefined, or not always defined.
         trace_cnt = 3 + len(arm_data[metric]["out_of_sample"].keys())
         # pyre-fixme[61]: `metrics` is undefined, or not always defined.
         visible = [False] * (len(metrics) * trace_cnt)
@@ -533,6 +539,7 @@ def interact_slice_plotly(
             "autorange": True,
             "tickfont": {"size": 11},
             "tickmode": "auto",
+            # pyre-fixme[61]: `metrics` is undefined, or not always defined.
             "title": metrics[0],
         },
     }

@@ -28,10 +28,7 @@ jobs:
     - name: Install dependencies
       # Pin ufmt deps so they match intermal pyfmt.
       run: |
-        pip install black==24.2.0
-        pip install usort==1.0.8
-        pip install libcst==1.1.0
-        pip install ufmt
+        pip install -r requirements-fmt.txt
         pip install flake8
     - name: ufmt
       run: |

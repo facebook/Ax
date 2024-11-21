@@ -27,12 +27,14 @@ from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
+from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
+from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.types import (
     TEvaluationOutcome,
@@ -40,6 +42,7 @@ from ax.core.types import (
     TParameterization,
     TParamValue,
 )
+
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.early_stopping.utils import estimate_early_stopping_savings
@@ -50,6 +53,7 @@ from ax.exceptions.core import (
     OptimizationShouldStop,
     UnsupportedError,
     UnsupportedPlotError,
+    UserInputError,
 )
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
@@ -86,8 +90,9 @@ from ax.utils.common.docutils import copy_doc
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
 from ax.utils.common.random import with_rng_seed
-from ax.utils.common.typeutils import checked_cast, not_none
-from pyre_extensions import assert_is_instance
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import assert_is_instance, none_throws
+
 
 logger: Logger = get_logger(__name__)
 
@@ -152,7 +157,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
         torch_device: An optional `torch.device` object, used to choose the device
             used for generating new points for trials. Works only for torch-based
-            models, such as GPEI. Ignored if a `generation_strategy` is passed in
+            models, such as MBM. Ignored if a `generation_strategy` is passed in
             manually. To specify the device for a custom `generation_strategy`,
             pass in `torch_device` as part of `model_kwargs`. See
             https://ax.dev/tutorials/generation_strategy.html for a tutorial on
@@ -250,6 +255,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         immutable_search_space_and_opt_config: bool = True,
         is_test: bool = False,
         metric_definitions: dict[str, dict[str, Any]] | None = None,
+        default_trial_type: str | None = None,
+        default_runner: Runner | None = None,
     ) -> None:
         """Create a new experiment and save it if DBSettings available.
 
@@ -315,6 +322,15 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 to that metric. Note these are modified in-place. Each
                 Metric must have its own dictionary (metrics cannot share a
                 single dictionary object).
+            default_trial_type: The default trial type if multiple
+                trial types are intended to be used in the experiment.  If specified,
+                a MultiTypeExperiment will be created. Otherwise, a single-type
+                Experiment will be created.
+            default_runner: The default runner in this experiment.
+                This applies to MultiTypeExperiment (when default_trial_type
+                is specified) and needs to be specified together with
+                default_trial_type. This will be ignored for single-type Experiment
+                (when default_trial_type is not specified).
         """
         self._validate_early_stopping_strategy(support_intermediate_data)
 
@@ -343,6 +359,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             support_intermediate_data=support_intermediate_data,
             immutable_search_space_and_opt_config=immutable_search_space_and_opt_config,
             is_test=is_test,
+            default_trial_type=default_trial_type,
+            default_runner=default_runner,
             **objective_kwargs,
         )
         self._set_runner(experiment=experiment)
@@ -415,6 +433,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         self,
         metric_names: list[str],
         metric_definitions: dict[str, dict[str, Any]] | None = None,
+        metrics_to_trial_types: dict[str, str] | None = None,
+        canonical_names: dict[str, str] | None = None,
     ) -> None:
         """Add a list of new metrics to the experiment.
 
@@ -427,20 +447,34 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 to that metric. Note these are modified in-place. Each
                 Metric must have its is own dictionary (metrics cannot share a
                 single dictionary object).
+            metrics_to_trial_types: Only applicable to MultiTypeExperiment.
+                The mapping from metric names to corresponding
+                trial types for each metric. If provided, the metrics will be
+                added with their respective trial types. If not provided, then the
+                default trial type will be used.
+            canonical_names: A mapping from metric name (of a particular trial type)
+                to the metric name of the default trial type. Only applicable to
+                MultiTypeExperiment.
         """
         metric_definitions = (
             self.metric_definitions
             if metric_definitions is None
             else metric_definitions
         )
-        self.experiment.add_tracking_metrics(
-            metrics=[
-                self._make_metric(
-                    name=metric_name, metric_definitions=metric_definitions
-                )
-                for metric_name in metric_names
-            ]
-        )
+        metric_objects = [
+            self._make_metric(name=metric_name, metric_definitions=metric_definitions)
+            for metric_name in metric_names
+        ]
+
+        if isinstance(self.experiment, MultiTypeExperiment):
+            experiment = assert_is_instance(self.experiment, MultiTypeExperiment)
+            experiment.add_tracking_metrics(
+                metrics=metric_objects,
+                metrics_to_trial_types=metrics_to_trial_types,
+                canonical_names=canonical_names,
+            )
+        else:
+            self.experiment.add_tracking_metrics(metrics=metric_objects)
 
     @copy_doc(Experiment.remove_tracking_metric)
     def remove_tracking_metric(self, metric_name: str) -> None:
@@ -554,8 +588,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             raise e
         logger.info(
             f"Generated new trial {trial.index} with parameters "
-            f"{round_floats_for_logging(item=not_none(trial.arm).parameters)} "
-            f"using model {not_none(trial.generator_run)._model_key}."
+            f"{round_floats_for_logging(item=none_throws(trial.arm).parameters)} "
+            f"using model {none_throws(trial.generator_run)._model_key}."
         )
         trial.mark_running(no_runner_required=True)
         self._save_or_update_trial_in_db_if_possible(
@@ -567,7 +601,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             generation_strategy=self.generation_strategy,
             new_generator_runs=[self.generation_strategy._generator_runs[-1]],
         )
-        return not_none(trial.arm).parameters, trial.index
+        return none_throws(trial.arm).parameters, trial.index
 
     def get_current_trial_generation_limit(self) -> tuple[int, bool]:
         """How many trials this ``AxClient`` instance can currently produce via
@@ -877,7 +911,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
 
     def get_trial_parameters(self, trial_index: int) -> TParameterization:
         """Retrieve the parameterization of the trial by the given index."""
-        return not_none(self.get_trial(trial_index).arm).parameters
+        return none_throws(self.get_trial(trial_index).arm).parameters
 
     def get_trials_data_frame(self) -> pd.DataFrame:
         """Get a Pandas DataFrame representation of this experiment. The columns
@@ -960,7 +994,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             ]
         )
         hover_labels = [
-            _format_dict(not_none(checked_cast(Trial, trial).arm).parameters)
+            _format_dict(none_throws(checked_cast(Trial, trial).arm).parameters)
             for trial in self.experiment.trials.values()
             if trial.status.is_completed
         ]
@@ -1044,7 +1078,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                     "Remaining parameters are affixed to the middle of their range."
                 )
                 return plot_contour(
-                    model=not_none(self.generation_strategy.model),
+                    model=none_throws(self.generation_strategy.model),
                     param_x=param_x,
                     param_y=param_y,
                     metric_name=metric_name,
@@ -1085,8 +1119,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
                 logger.info(
                     f"Model {self.generation_strategy.model} does not implement "
                     "`feature_importances`, so it cannot be used to generate "
-                    "this plot. Only certain models, specifically GPEI, implement "
-                    "feature importances."
+                    "this plot. Only certain models, implement feature importances."
                 )
 
         raise ValueError(
@@ -1113,11 +1146,16 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         experiment, generation_strategy = self._load_experiment_and_generation_strategy(
             experiment_name=experiment_name
         )
-        self._experiment = not_none(
+        self._experiment = none_throws(
             experiment, f"Experiment by name '{experiment_name}' not found."
         )
         logger.info(f"Loaded {experiment}.")
         if generation_strategy is None:
+            if choose_generation_strategy_kwargs is None:
+                raise UserInputError(
+                    f"No generation strategy was found for {experiment}. Please "
+                    "pass `choose_generation_strategy_kwargs` to load it with one."
+                )
             self._set_generation_strategy(
                 choose_generation_strategy_kwargs=choose_generation_strategy_kwargs
             )
@@ -1205,9 +1243,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         metric_names_to_predict = (
             set(metric_names)
             if metric_names is not None
-            else set(not_none(self.experiment.metrics).keys())
+            else set(none_throws(self.experiment.metrics).keys())
         )
-        model = not_none(
+        model = none_throws(
             self.generation_strategy.model, "No model has been instantiated yet."
         )
 
@@ -1276,7 +1314,9 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         """Whether the given parameterization matches that of the arm in the trial
         specified in the trial index.
         """
-        return not_none(self.get_trial(trial_index).arm).parameters == parameterization
+        return (
+            none_throws(self.get_trial(trial_index).arm).parameters == parameterization
+        )
 
     def should_stop_trials_early(
         self, trial_indices: set[int]
@@ -1380,9 +1420,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
         # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
         #  `typing.Type` to avoid runtime subscripting errors.
-        class_encoder_registry: None | (
-            dict[type, Callable[[Any], dict[str, Any]]]
-        ) = None,
+        class_encoder_registry: None
+        | (dict[type, Callable[[Any], dict[str, Any]]]) = None,
     ) -> dict[str, Any]:
         """Serialize this `AxClient` to JSON to be able to interrupt and restart
         optimization and save it to file by the provided path.
@@ -1417,9 +1456,8 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         serialized: dict[str, Any],
         decoder_registry: TDecoderRegistry | None = None,
         # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-        class_decoder_registry: None | (
-            dict[str, Callable[[dict[str, Any]], Any]]
-        ) = None,
+        class_decoder_registry: None
+        | (dict[str, Callable[[dict[str, Any]], Any]]) = None,
         # pyre-fixme[2]: Parameter must be annotated.
         **kwargs,
     ) -> AxClientSubclass:
@@ -1460,7 +1498,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     @property
     def experiment(self) -> Experiment:
         """Returns the experiment set on this Ax client."""
-        return not_none(
+        return none_throws(
             self._experiment,
             (
                 "Experiment not set on Ax client. Must first "
@@ -1475,14 +1513,14 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
     @property
     def generation_strategy(self) -> GenerationStrategy:
         """Returns the generation strategy, set on this experiment."""
-        return not_none(
+        return none_throws(
             self._generation_strategy,
             "No generation strategy has been set on this optimization yet.",
         )
 
     @property
     def objective(self) -> Objective:
-        return not_none(self.experiment.optimization_config).objective
+        return none_throws(self.experiment.optimization_config).objective
 
     @property
     def objective_name(self) -> str:
@@ -1664,7 +1702,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             )
         if self.db_settings_set:
             experiment_id, _ = self._get_experiment_and_generation_strategy_db_id(
-                experiment_name=not_none(name)
+                experiment_name=none_throws(name)
             )
             if experiment_id:
                 raise ValueError(
@@ -1778,7 +1816,7 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
             else None
         )
         with with_rng_seed(seed=self._random_seed):
-            return not_none(self.generation_strategy).gen(
+            return none_throws(self.generation_strategy).gen(
                 experiment=self.experiment,
                 n=n,
                 pending_observations=self._get_pending_observation_features(
@@ -1794,7 +1832,10 @@ class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
         contains an arm with that parameterization.
         """
         for trial_idx in sorted(self.experiment.trials.keys(), reverse=True):
-            if not_none(self.get_trial(trial_idx).arm).parameters == parameterization:
+            if (
+                none_throws(self.get_trial(trial_idx).arm).parameters
+                == parameterization
+            ):
                 return trial_idx
         raise ValueError(
             f"No trial on experiment matches parameterization {parameterization}."

@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+import warnings
 from dataclasses import dataclass
 
 from ax.core.experiment import Experiment
@@ -13,6 +14,7 @@ from ax.core.optimization_config import (
     OptimizationConfig,
 )
 from ax.core.types import TParameterization
+from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.service.utils.best_point_mixin import BestPointMixin
@@ -21,38 +23,78 @@ from ax.utils.common.base import Base
 from pyre_extensions import none_throws
 
 
-@dataclass(frozen=True)
+@dataclass(kw_only=True)
 class BenchmarkMethod(Base):
     """Benchmark method, represented in terms of Ax generation strategy (which tells us
     which models to use when) and scheduler options (which tell us extra execution
     information like maximum parallelism, early stopping configuration, etc.).
 
-    Note: If `BenchmarkMethod.scheduler_options.total_trials` is less than
-    `BenchmarkProblem.num_trials` then only the number of trials specified in the
-    former will be run.
-
     Args:
         name: String description.
         generation_strategy: The `GenerationStrategy` to use.
-        scheduler_options: `SchedulerOptions` that specify options such as
-            `max_pending_trials`, `timeout_hours`, and `batch_size`. Can be
-            generated with sensible defaults for benchmarking with
-            `get_benchmark_scheduler_options`.
+        timeout_hours: Number of hours after which to stop a benchmark
+            replication.
         distribute_replications: Indicates whether the replications should be
             run in a distributed manner. Ax itself does not use this attribute.
-        use_model_predictions_for_best_point: Whether to use model predictions
-            with `get_pareto_optimal_parameters` (if multi-objective) or
-            `BestPointMixin._get_best_trial` (if single-objective). However,
-            note that if multi-objective, best-point selection is not currently
-            supported and `get_pareto_optimal_parameters` will raise a
-            `NotImplementedError`.
+        use_model_predictions_for_best_point: Whether to use model
+            predictions with ``get_pareto_optimal_parameters`` (if
+            multi-objective) or `BestPointMixin._get_best_trial` (if
+            single-objective). However, note that if multi-objective,
+            best-point selection is not currently supported and
+            ``get_pareto_optimal_parameters`` will raise a
+            ``NotImplementedError``.
+        batch_size: Number of arms per trial. If greater than 1, trials are
+            ``BatchTrial``s; otherwise, they are ``Trial``s. Defaults to 1. This
+            and the following arguments are passed to ``SchedulerOptions``.
+        run_trials_in_batches: Passed to ``SchedulerOptions``.
+        max_pending_trials: Passed to ``SchedulerOptions``.
     """
 
-    name: str
+    name: str = "DEFAULT"
     generation_strategy: GenerationStrategy
-    scheduler_options: SchedulerOptions
+
+    timeout_hours: float = 4.0
     distribute_replications: bool = False
     use_model_predictions_for_best_point: bool = False
+
+    batch_size: int = 1
+    run_trials_in_batches: bool = False
+    max_pending_trials: int = 1
+    early_stopping_strategy: BaseEarlyStoppingStrategy | None = None
+
+    def __post_init__(self) -> None:
+        if self.name == "DEFAULT":
+            self.name = self.generation_strategy.name
+        early_stopping_strategy = self.early_stopping_strategy
+        if early_stopping_strategy is not None:
+            seconds_between_polls = early_stopping_strategy.seconds_between_polls
+            if seconds_between_polls > 0:
+                warnings.warn(
+                    "`early_stopping_strategy.seconds_between_polls` is "
+                    f"{seconds_between_polls}, but benchmarking uses 0 seconds "
+                    "between polls. Setting "
+                    "`early_stopping_strategy.seconds_between_polls` to 0.",
+                    stacklevel=1,
+                )
+                early_stopping_strategy.seconds_between_polls = 0
+
+    @property
+    def scheduler_options(self) -> SchedulerOptions:
+        return SchedulerOptions(
+            # No new candidates can be generated while any are pending.
+            # If batched, an entire batch must finish before the next can be
+            # generated.
+            max_pending_trials=self.max_pending_trials,
+            # Do not throttle, as is often necessary when polling real endpoints
+            init_seconds_between_polls=0,
+            min_seconds_before_poll=0,
+            trial_type=TrialType.TRIAL
+            if self.batch_size == 1
+            else TrialType.BATCH_TRIAL,
+            batch_size=self.batch_size,
+            run_trials_in_batches=self.run_trials_in_batches,
+            early_stopping_strategy=self.early_stopping_strategy,
+        )
 
     def get_best_parameters(
         self,
@@ -107,33 +149,3 @@ class BenchmarkMethod(Base):
 
         i, params, prediction = none_throws(result)
         return [params]
-
-
-def get_benchmark_scheduler_options(
-    timeout_hours: int = 4,
-    batch_size: int = 1,
-) -> SchedulerOptions:
-    """The typical SchedulerOptions used in benchmarking.
-
-    Currently, regardless of batch size, all pending trials must complete before
-    new ones are generated. That is, when batch_size > 1, the design is "batch
-    sequential", and when batch_size = 1, the design is "fully sequential."
-
-    Args:
-        timeout_hours: The maximum amount of time (in hours) to run each
-            benchmark replication. Defaults to 4 hours.
-        batch_size: Number of trials to generate at once.
-    """
-
-    return SchedulerOptions(
-        # No new candidates can be generated while any are pending.
-        # If batched, an entire batch must finish before the next can be
-        # generated.
-        max_pending_trials=1,
-        # Do not throttle, as is often necessary when polling real endpoints
-        init_seconds_between_polls=0,
-        min_seconds_before_poll=0,
-        timeout_hours=timeout_hours,
-        trial_type=TrialType.TRIAL if batch_size == 1 else TrialType.BATCH_TRIAL,
-        batch_size=batch_size,
-    )

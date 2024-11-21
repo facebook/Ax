@@ -8,7 +8,6 @@
 
 
 from ax.modelbridge.transforms.base import Transform
-from ax.modelbridge.transforms.cap_parameter import CapParameter
 from ax.modelbridge.transforms.choice_encode import (
     ChoiceEncode,
     ChoiceToNumericChoice,
@@ -17,6 +16,7 @@ from ax.modelbridge.transforms.choice_encode import (
 )
 from ax.modelbridge.transforms.convert_metric_names import ConvertMetricNames
 from ax.modelbridge.transforms.derelativize import Derelativize
+from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
 from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
 from ax.modelbridge.transforms.int_to_float import IntToFloat
 from ax.modelbridge.transforms.ivw import IVW
@@ -40,6 +40,7 @@ from ax.modelbridge.transforms.standardize_y import StandardizeY
 from ax.modelbridge.transforms.stratified_standardize_y import StratifiedStandardizeY
 from ax.modelbridge.transforms.task_encode import TaskChoiceToIntTaskChoice, TaskEncode
 from ax.modelbridge.transforms.time_as_feature import TimeAsFeature
+from ax.modelbridge.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.modelbridge.transforms.trial_as_task import TrialAsTask
 from ax.modelbridge.transforms.unit_x import UnitX
 from ax.modelbridge.transforms.winsorize import Winsorize
@@ -80,7 +81,7 @@ TRANSFORM_REGISTRY: dict[type[Transform], int] = {
     TrialAsTask: 14,
     UnitX: 15,
     Winsorize: 16,
-    CapParameter: 17,
+    # CapParameter: 17,  DEPRECATED
     PowerTransformY: 18,
     ChoiceEncode: 19,  # TO BE DEPRECATED
     ChoiceToNumericChoice: 19,
@@ -92,6 +93,8 @@ TRANSFORM_REGISTRY: dict[type[Transform], int] = {
     RelativizeWithConstantControl: 25,
     MergeRepeatedMeasurements: 26,
     TimeAsFeature: 27,
+    TransformToNewSQ: 28,
+    FillMissingParameters: 29,
 }
 
 """

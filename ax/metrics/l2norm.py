@@ -7,9 +7,10 @@
 # pyre-strict
 
 import numpy as np
+import numpy.typing as npt
 from ax.metrics.noisy_function import NoisyFunctionMetric
 
 
 class L2NormMetric(NoisyFunctionMetric):
-    def f(self, x: np.ndarray) -> float:
+    def f(self, x: npt.NDArray) -> float:
         return np.sqrt((x**2).sum())

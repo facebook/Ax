@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-# pyre-strict
+# pyre-ignore-all-errors
 
 from unittest.mock import patch
 
@@ -33,7 +33,6 @@ from ax.modelbridge.modelbridge_utils import (
 from ax.modelbridge.registry import Models
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
     get_experiment,
     get_hierarchical_search_space_experiment,
@@ -60,7 +59,7 @@ class TestModelbridgeUtils(TestCase):
         self.hss_sobol = Models.SOBOL(search_space=self.hss_exp.search_space)
         self.hss_gr = self.hss_sobol.gen(n=1)
         self.hss_trial = self.hss_exp.new_trial(self.hss_gr)
-        self.hss_arm = not_none(self.hss_trial.arm)
+        self.hss_arm = none_throws(self.hss_trial.arm)
         self.hss_cand_metadata = self.hss_trial._get_candidate_metadata(
             arm_name=self.hss_arm.name
         )

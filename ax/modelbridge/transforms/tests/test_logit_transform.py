@@ -91,9 +91,9 @@ class LogitTransformTest(TestCase):
     def test_InvalidSettings(self) -> None:
         with self.assertRaises(UserInputError) as cm:
             self._create_logit_parameter(lower=0.1, upper=0.9, log_scale=True)
-        self.assertEqual("Can't use both log and logit.", str(cm.exception))
+        self.assertEqual("x can't use both log and logit.", str(cm.exception))
 
-        str_exc = "Logit requires lower > 0 and upper < 1"
+        str_exc = "x logit requires lower > 0 and upper < 1"
         with self.assertRaises(UserInputError) as cm:
             self._create_logit_parameter(lower=0.0, upper=0.5)
         self.assertEqual(str_exc, str(cm.exception))

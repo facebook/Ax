@@ -30,7 +30,7 @@ outlined on that page and do not file a public issue.
 The Ax codebase has a high standard for code quality, which we enforce via Travis.
 
 ### Coding Style
-We use the [`Black` code formatter](https://github.com/ambv/black) for all Python files. You can install the latest release via `pip install black` and run it over the library via `black ax`.
+We use the [`Ruff` code formatter](https://docs.astral.sh/ruff/formatter/) for all Python files. You can install the latest release via `pip install ruff` and run it over the library via `ruff format ax`.
 
 ### Unit Tests
 The majority of our code is covered by unit tests and we are working to get to 100% code coverage. Please ensure that new code is covered by unit tests. To run all unit tests, we recommend installing pytest using `pip install pytest` and running `pytest -ra` from the root of the Ax repo. To get coverage, `pip install pytest-cov` and run `pytest -ra --cov=ax`.

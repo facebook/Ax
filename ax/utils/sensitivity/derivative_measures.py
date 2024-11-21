@@ -11,7 +11,7 @@ from functools import partial
 from typing import Any
 
 import torch
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.sensitivity.derivative_gp import posterior_derivative
 from botorch.models.model import Model
 from botorch.posteriors.gpytorch import GPyTorchPosterior
@@ -20,6 +20,7 @@ from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.utils.transforms import unnormalize
 from gpytorch.distributions import MultivariateNormal
+from pyre_extensions import none_throws
 
 
 def sample_discrete_parameters(
@@ -51,7 +52,6 @@ def sample_discrete_parameters(
 
 
 class GpDGSMGpMean:
-
     mean_gradients: torch.Tensor | None = None
     bootstrap_indices: torch.Tensor | None = None
     mean_gradients_btsp: list[torch.Tensor] | None = None
@@ -127,7 +127,7 @@ class GpDGSMGpMean:
 
         if self.derivative_gp:
             posterior = posterior_derivative(
-                model, self.input_mc_samples, not_none(self.kernel_type)
+                model, self.input_mc_samples, none_throws(self.kernel_type)
             )
         else:
             self.input_mc_samples.requires_grad = True
@@ -164,7 +164,7 @@ class GpDGSMGpMean:
     ) -> torch.Tensor:
         gradients_measure = torch.tensor(
             [
-                torch.mean(transform_fun(not_none(self.mean_gradients)[:, i]))
+                torch.mean(transform_fun(none_throws(self.mean_gradients)[:, i]))
                 for i in range(self.dim)
             ]
         )
@@ -178,7 +178,7 @@ class GpDGSMGpMean:
                         [
                             torch.mean(
                                 transform_fun(
-                                    not_none(self.mean_gradients_btsp)[b][:, i]
+                                    none_throws(self.mean_gradients_btsp)[b][:, i]
                                 )
                             )
                             for i in range(self.dim)
@@ -237,7 +237,6 @@ class GpDGSMGpMean:
 
 
 class GpDGSMGpSampling(GpDGSMGpMean):
-
     samples_gradients: torch.Tensor | None = None
     samples_gradients_btsp: list[torch.Tensor] | None = None
 
@@ -328,13 +327,13 @@ class GpDGSMGpSampling(GpDGSMGpMean):
             )
             self.samples_gradients_btsp = []
             for j in range(self.num_gp_samples):
-                not_none(self.samples_gradients_btsp).append(
+                none_throws(self.samples_gradients_btsp).append(
                     torch.cat(
                         [
                             torch.index_select(
-                                not_none(self.samples_gradients)[j], 0, indices
+                                none_throws(self.samples_gradients)[j], 0, indices
                             ).unsqueeze(0)
-                            for indices in not_none(self.bootstrap_indices)
+                            for indices in none_throws(self.bootstrap_indices)
                         ],
                         dim=0,
                     )
@@ -349,7 +348,7 @@ class GpDGSMGpSampling(GpDGSMGpMean):
                 torch.tensor(
                     [
                         torch.mean(
-                            transform_fun(not_none(self.samples_gradients)[j][:, i])
+                            transform_fun(none_throws(self.samples_gradients)[j][:, i])
                         )
                         for i in range(self.dim)
                     ]
@@ -381,7 +380,7 @@ class GpDGSMGpSampling(GpDGSMGpMean):
                         [
                             torch.mean(
                                 transform_fun(
-                                    not_none(self.samples_gradients_btsp)[j][b][:, i]
+                                    none_throws(self.samples_gradients_btsp)[j][b][:, i]
                                 )
                             )
                             for i in range(self.dim)

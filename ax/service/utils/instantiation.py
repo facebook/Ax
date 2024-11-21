@@ -18,6 +18,7 @@ from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.experiment import DataType, Experiment
 from ax.core.metric import Metric
+from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
@@ -35,7 +36,12 @@ from ax.core.parameter import (
     RangeParameter,
     TParameterType,
 )
-from ax.core.parameter_constraint import OrderConstraint, ParameterConstraint
+from ax.core.parameter_constraint import (
+    OrderConstraint,
+    ParameterConstraint,
+    validate_constraint_parameters,
+)
+from ax.core.runner import Runner
 from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.core.types import ComparisonOp, TParameterization, TParamValue
 from ax.exceptions.core import UnsupportedError
@@ -45,8 +51,8 @@ from ax.utils.common.typeutils import (
     checked_cast,
     checked_cast_optional,
     checked_cast_to_tuple,
-    not_none,
 )
+from pyre_extensions import none_throws
 
 DEFAULT_OBJECTIVE_NAME = "objective"
 
@@ -137,7 +143,7 @@ class InstantiationBase:
         metric_class: type[Metric],
         name: str,
         metric_definitions: dict[str, dict[str, Any]] | None,
-    ) -> dict[str, Any]:
+    ) -> tuple[type[Metric], dict[str, Any]]:
         """Get metric kwargs from metric_definitions if available and deserialize
         if so.  Deserialization is necessary because they were serialized on creation"""
         # deepcopy is used because of subsequent modifications to the dict
@@ -146,7 +152,7 @@ class InstantiationBase:
         # this is necessary before deserialization because name will be required
         metric_kwargs["name"] = metric_kwargs.get("name", name)
         metric_kwargs = metric_class.deserialize_init_args(metric_kwargs)
-        return metric_kwargs
+        return metric_class, metric_kwargs
 
     @classmethod
     def _make_metric(
@@ -162,7 +168,10 @@ class InstantiationBase:
                 "Metric names cannot contain spaces when used with AxClient. Got "
                 f"{name!r}."
             )
-        kwargs = cls._get_deserialized_metric_kwargs(
+
+        metric_definitions = metric_definitions or {}
+
+        metric_class, kwargs = cls._get_deserialized_metric_kwargs(
             name=name,
             metric_definitions=metric_definitions,
             metric_class=metric_class,
@@ -189,7 +198,7 @@ class InstantiationBase:
         field_name: str,
     ) -> ParameterType:
         if typ is None:
-            typ = type(not_none(vals[0]))
+            typ = type(none_throws(vals[0]))
             parameter_type = cls._get_parameter_type(typ)  # pyre-ignore[6]
             assert all(isinstance(x, typ) for x in vals), (
                 f"Values in `{field_name}` not of the same type and no "
@@ -403,6 +412,9 @@ class InstantiationBase:
             assert (
                 right in parameter_names
             ), f"Parameter {right} not in {parameter_names}."
+            validate_constraint_parameters(
+                parameters=[parameters[left], parameters[right]]
+            )
             return (
                 OrderConstraint(
                     lower_parameter=parameters[left], upper_parameter=parameters[right]
@@ -451,9 +463,12 @@ class InstantiationBase:
                         multiplier = -1.0
                     else:
                         multiplier = 1.0
+
                 assert (
                     parameter in parameter_names
                 ), f"Parameter {parameter} not in {parameter_names}."
+                validate_constraint_parameters(parameters=[parameters[parameter]])
+
                 parameter_weight[parameter] = operator_sign * multiplier
             # for operators
             else:
@@ -559,7 +574,6 @@ class InstantiationBase:
         status_quo_defined: bool,
         metric_definitions: dict[str, dict[str, Any]] | None = None,
     ) -> list[OutcomeConstraint]:
-
         typed_outcome_constraints = [
             cls.outcome_constraint_from_str(c, metric_definitions=metric_definitions)
             for c in outcome_constraints
@@ -581,7 +595,6 @@ class InstantiationBase:
         status_quo_defined: bool,
         metric_definitions: dict[str, dict[str, Any]] | None = None,
     ) -> list[ObjectiveThreshold]:
-
         typed_objective_thresholds = (
             [
                 cls.objective_threshold_constraint_from_str(
@@ -649,7 +662,6 @@ class InstantiationBase:
         status_quo_defined: bool,
         metric_definitions: dict[str, dict[str, Any]] | None = None,
     ) -> OptimizationConfig:
-
         return cls.optimization_config_from_objectives(
             cls.make_objectives(objectives, metric_definitions=metric_definitions),
             cls.make_objective_thresholds(
@@ -790,9 +802,10 @@ class InstantiationBase:
         objective_thresholds: list[str] | None = None,
         support_intermediate_data: bool = False,
         immutable_search_space_and_opt_config: bool = True,
-        auxiliary_experiments_by_purpose: None | (
-            dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]
-        ) = None,
+        auxiliary_experiments_by_purpose: None
+        | (dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]) = None,
+        default_trial_type: str | None = None,
+        default_runner: Runner | None = None,
         is_test: bool = False,
     ) -> Experiment:
         """Instantiation wrapper that allows for Ax `Experiment` creation
@@ -848,10 +861,23 @@ class InstantiationBase:
                 improve storage performance.
             auxiliary_experiments_by_purpose: Dictionary of auxiliary experiments for
                 different use cases (e.g., transfer learning).
+            default_trial_type: The default trial type if multiple
+                trial types are intended to be used in the experiment.  If specified,
+                a MultiTypeExperiment will be created. Otherwise, a single-type
+                Experiment will be created.
+            default_runner: The default runner in this experiment.
+                This only applies to MultiTypeExperiment (when default_trial_type
+                is specified).
             is_test: Whether this experiment will be a test experiment (useful for
                 marking test experiments in storage etc). Defaults to False.
 
         """
+        if (default_trial_type is None) != (default_runner is None):
+            raise ValueError(
+                "Must specify both default_trial_type and default_runner if "
+                "using a MultiTypeExperiment."
+            )
+
         status_quo_arm = None if status_quo is None else Arm(parameters=status_quo)
 
         objectives = objectives or cls._get_default_objectives()
@@ -890,6 +916,21 @@ class InstantiationBase:
 
         if owners is not None:
             properties["owners"] = owners
+        if default_trial_type is not None:
+            return MultiTypeExperiment(
+                name=none_throws(name),
+                search_space=cls.make_search_space(parameters, parameter_constraints),
+                default_trial_type=none_throws(default_trial_type),
+                default_runner=none_throws(default_runner),
+                optimization_config=optimization_config,
+                tracking_metrics=tracking_metrics,
+                status_quo=status_quo_arm,
+                description=description,
+                is_test=is_test,
+                experiment_type=experiment_type,
+                properties=properties,
+                default_data_type=default_data_type,
+            )
 
         return Experiment(
             name=name,

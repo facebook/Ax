@@ -44,6 +44,8 @@ class ClosestLookupDict(dict):
         if not isinstance(key, Number):
             raise ValueError("ClosestLookupDict only allows numerical keys.")
         super().__setitem__(key, val)
+        # pyre-fixme[6]: For 2nd argument expected `Union[bytes, complex, float,
+        #  int, generic, str]` but got `Number`.
         ipos = np.searchsorted(self._keys, key)
         self._keys.insert(ipos, key)
 
@@ -54,6 +56,8 @@ class ClosestLookupDict(dict):
         except KeyError:
             if not self.keys():
                 raise RuntimeError("ClosestLookupDict is empty.")
+            # pyre-fixme[6]: For 2nd argument expected `Union[bytes, complex, float,
+            #  int, generic, str]` but got `Number`.
             ipos = np.searchsorted(self._keys, key)
             if ipos == 0:
                 return super().__getitem__(self._keys[0])
@@ -109,14 +113,17 @@ def match_ci_width_truncated(
     See log_y transform for the original. Here, bounds are forced to lie
     within a [lower_bound, upper_bound] interval after transformation."""
     fac = norm.ppf(1 - (1 - level) / 2)
-    d = fac * np.sqrt(variance)
     if clip_mean:
         mean = np.clip(mean, lower_bound + margin, upper_bound - margin)
-    right = min(mean + d, upper_bound - margin)
-    left = max(mean - d, lower_bound + margin)
-    width_asym = transform(right) - transform(left)
     new_mean = transform(mean)
-    new_variance = float("nan") if isnan(variance) else (width_asym / 2 / fac) ** 2
+    if isnan(variance):
+        new_variance = variance
+    else:
+        d = fac * np.sqrt(variance)
+        right = min(mean + d, upper_bound - margin)
+        left = max(mean - d, lower_bound + margin)
+        width_asym = transform(right) - transform(left)
+        new_variance = (width_asym / 2 / fac) ** 2
     return new_mean, new_variance
 
 

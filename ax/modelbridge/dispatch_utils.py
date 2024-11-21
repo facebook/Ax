@@ -25,7 +25,7 @@ from ax.models.types import TConfig
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.utils.common.deprecation import _validate_force_random_search
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 
 logger: logging.Logger = get_logger(__name__)
@@ -73,9 +73,8 @@ def _make_botorch_step(
     max_parallelism: int | None = None,
     model: ModelRegistryBase = Models.BOTORCH_MODULAR,
     model_kwargs: dict[str, Any] | None = None,
-    winsorization_config: None | (
-        WinsorizationConfig | dict[str, WinsorizationConfig]
-    ) = None,
+    winsorization_config: None
+    | (WinsorizationConfig | dict[str, WinsorizationConfig]) = None,
     no_winsorization: bool = False,
     should_deduplicate: bool = False,
     verbose: bool | None = None,
@@ -97,9 +96,9 @@ def _make_botorch_step(
         "use_raw_status_quo": derelativize_with_raw_status_quo
     }
     model_kwargs["transform_configs"] = model_kwargs.get("transform_configs", {})
-    model_kwargs["transform_configs"][
-        "Derelativize"
-    ] = derelativization_transform_config
+    model_kwargs["transform_configs"]["Derelativize"] = (
+        derelativization_transform_config
+    )
     model_kwargs["fit_out_of_design"] = fit_out_of_design
 
     if not no_winsorization:
@@ -108,9 +107,9 @@ def _make_botorch_step(
         transforms = model_kwargs.get("transforms", default_transforms)
         model_kwargs["transforms"] = [cast(type[Transform], Winsorize)] + transforms
         if winsorization_transform_config is not None:
-            model_kwargs["transform_configs"][
-                "Winsorize"
-            ] = winsorization_transform_config
+            model_kwargs["transform_configs"]["Winsorize"] = (
+                winsorization_transform_config
+            )
 
     if MODEL_KEY_TO_MODEL_SETUP[model.value].model_class != ModularBoTorchModel:
         if verbose is not None:
@@ -188,10 +187,12 @@ def _suggest_gp_model(
                 all_range_parameters_are_discrete = False
             else:
                 num_param_discrete_values = parameter.cardinality()
+                # pyre-fixme[58]: `*` is not supported for operand types `int` and
+                #  `Union[float, int]`.
                 num_possible_points *= num_param_discrete_values
 
         if should_enumerate_param:
-            num_enumerated_combinations *= not_none(num_param_discrete_values)
+            num_enumerated_combinations *= none_throws(num_param_discrete_values)
         else:
             all_parameters_are_enumerated = False
 
@@ -280,7 +281,7 @@ def calculate_num_initialization_trials(
 
     ret = 2 * num_tunable_parameters
     if num_trials is not None:
-        ret = min(ret, not_none(num_trials) // 5)
+        ret = min(ret, none_throws(num_trials) // 5)
     return max(ret, 5)
 
 
@@ -292,9 +293,8 @@ def choose_generation_strategy(
     random_seed: int | None = None,
     torch_device: torch.device | None = None,
     no_winsorization: bool = False,
-    winsorization_config: None | (
-        WinsorizationConfig | dict[str, WinsorizationConfig]
-    ) = None,
+    winsorization_config: None
+    | (WinsorizationConfig | dict[str, WinsorizationConfig]) = None,
     derelativize_with_raw_status_quo: bool = False,
     no_bayesian_optimization: bool | None = None,
     force_random_search: bool = False,

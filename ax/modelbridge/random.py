@@ -7,6 +7,10 @@
 # pyre-strict
 
 
+from typing import Any
+
+from ax.core.data import Data
+
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
@@ -19,6 +23,7 @@ from ax.modelbridge.modelbridge_utils import (
     parse_observation_features,
     transform_callback,
 )
+from ax.modelbridge.transforms.base import Transform
 from ax.models.random.base import RandomModel
 from ax.models.types import TConfig
 
@@ -26,8 +31,6 @@ from ax.models.types import TConfig
 FIT_MODEL_ERROR = "Model must be fit before {action}."
 
 
-# pyre-fixme[13]: Attribute `model` is never initialized.
-# pyre-fixme[13]: Attribute `parameters` is never initialized.
 class RandomModelBridge(ModelBridge):
     """A model bridge for using purely random 'models'.
     Data and optimization configs are not required.
@@ -38,10 +41,83 @@ class RandomModelBridge(ModelBridge):
         model: A RandomModel used to generate candidates
             (note: this an awkward use of the word 'model').
         parameters: Params found in search space on modelbridge init.
+
+    Args:
+        experiment: Is used to get arm parameters. Is not mutated.
+        search_space: Search space for fitting the model. Constraints need
+            not be the same ones used in gen. RangeParameter bounds are
+            considered soft and will be expanded to match the range of the
+            data sent in for fitting, if expand_model_space is True.
+        data: Ax Data.
+        model: Interface will be specified in subclass. If model requires
+            initialization, that should be done prior to its use here.
+        transforms: List of uninitialized transform classes. Forward
+            transforms will be applied in this order, and untransforms in
+            the reverse order.
+        transform_configs: A dictionary from transform name to the
+            transform config dictionary.
+        status_quo_name: Name of the status quo arm. Can only be used if
+            Data has a single set of ObservationFeatures corresponding to
+            that arm.
+        status_quo_features: ObservationFeatures to use as status quo.
+            Either this or status_quo_name should be specified, not both.
+        optimization_config: Optimization config defining how to optimize
+            the model.
+        fit_out_of_design: If specified, all training data are used.
+            Otherwise, only in design points are used.
+        fit_abandoned: Whether data for abandoned arms or trials should be
+            included in model training data. If ``False``, only
+            non-abandoned points are returned.
+        fit_tracking_metrics: Whether to fit a model for tracking metrics.
+            Setting this to False will improve runtime at the expense of
+            models not being available for predicting tracking metrics.
+            NOTE: This can only be set to False when the optimization config
+            is provided.
+        fit_on_init: Whether to fit the model on initialization. This can
+            be used to skip model fitting when a fitted model is not needed.
+            To fit the model afterwards, use `_process_and_transform_data`
+            to get the transformed inputs and call `_fit_if_implemented` with
+            the transformed inputs.
     """
 
+    # pyre-fixme[13]: Attribute `model` is never initialized.
     model: RandomModel
+    # pyre-fixme[13]: Attribute `parameters` is never initialized.
     parameters: list[str]
+
+    def __init__(
+        self,
+        search_space: SearchSpace,
+        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
+        model: Any,
+        transforms: list[type[Transform]] | None = None,
+        experiment: Experiment | None = None,
+        data: Data | None = None,
+        transform_configs: dict[str, TConfig] | None = None,
+        status_quo_name: str | None = None,
+        status_quo_features: ObservationFeatures | None = None,
+        optimization_config: OptimizationConfig | None = None,
+        fit_out_of_design: bool = False,
+        fit_abandoned: bool = False,
+        fit_tracking_metrics: bool = True,
+        fit_on_init: bool = True,
+    ) -> None:
+        super().__init__(
+            search_space=search_space,
+            model=model,
+            transforms=transforms,
+            experiment=experiment,
+            data=data,
+            transform_configs=transform_configs,
+            status_quo_name=status_quo_name,
+            status_quo_features=status_quo_features,
+            optimization_config=optimization_config,
+            expand_model_space=False,
+            fit_out_of_design=fit_out_of_design,
+            fit_abandoned=fit_abandoned,
+            fit_tracking_metrics=fit_tracking_metrics,
+            fit_on_init=fit_on_init,
+        )
 
     def _fit(
         self,

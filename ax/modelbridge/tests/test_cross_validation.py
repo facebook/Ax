@@ -33,7 +33,7 @@ from ax.modelbridge.cross_validation import (
 from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_observation1trans, get_observation2trans
 
 
@@ -145,8 +145,6 @@ class CrossValidationTest(TestCase):
             self.assertEqual(len(set(train[i]).intersection(test[i])), 0)
             self.assertEqual(len(train[i]) + len(test[i]), 4)
         # Test all points used as test points
-        # pyre-fixme[6]: For 1st param expected `Collection[ndarray]` but got
-        #  `List[List[typing.Any]]`.
         all_test = np.hstack(test)
         self.assertTrue(
             np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0, 4.0]))
@@ -167,8 +165,6 @@ class CrossValidationTest(TestCase):
             self.assertEqual(len(set(train[i]).intersection(test[i])), 0)
             self.assertEqual(len(train[i]) + len(test[i]), 4)
         # Test all points used as test points
-        # pyre-fixme[6]: For 1st param expected `Collection[ndarray]` but got
-        #  `List[List[typing.Any]]`.
         all_test = np.hstack(test)
         self.assertTrue(
             np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0, 4.0]))
@@ -192,8 +188,6 @@ class CrossValidationTest(TestCase):
             self.assertEqual(len(set(train[i]).intersection(test[i])), 0)
             self.assertEqual(len(train[i]) + len(test[i]), 4)
         # Test all points used as test points
-        # pyre-fixme[6]: For 1st param expected `Collection[ndarray]` but got
-        #  `List[List[typing.Any]]`.
         all_test = np.hstack(test)
         self.assertTrue(
             np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0, 4.0]))
@@ -215,8 +209,6 @@ class CrossValidationTest(TestCase):
         z = ma.cross_validate.mock_calls[5:]
         self.assertEqual(len(z), 2)
         all_test = np.hstack(
-            # pyre-fixme[6]: For 1st param expected `Collection[ndarray]` but got
-            #  `List[List[typing.Any]]`.
             [[obsf.parameters["x"] for obsf in r[2]["cv_test_points"]] for r in z]
         )
         self.assertTrue(np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0])))
@@ -293,7 +285,7 @@ class CrossValidationTest(TestCase):
         with self.assertRaisesRegex(ValueError, "no training data"):
             cross_validate(model=sobol)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_cross_validate_catches_warnings(self) -> None:
         exp = get_branin_experiment(with_batch=True, with_completed_batch=True)
         model = Models.BOTORCH_MODULAR(

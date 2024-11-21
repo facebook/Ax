@@ -10,7 +10,7 @@ from collections.abc import Callable
 from logging import Logger
 from queue import Queue
 from threading import Event, Lock, Thread
-from typing import Any, Tuple
+from typing import Any
 
 from ax.core.types import TEvaluationOutcome, TParameterization
 
@@ -103,6 +103,12 @@ def interactive_optimize(
     for _i in range(num_trials):
         candidate_item = candidate_queue.get()
 
+        if candidate_item is None:
+            # if candidate_item is None,
+            # it means the candidate generator has failed and stopped
+            optimization_completed = False
+            break
+
         response = elicitation_function(
             candidate_item, **(elicitation_function_kwargs or {})
         )
@@ -111,7 +117,8 @@ def interactive_optimize(
         if response is not None:
             data_queue.put(response)
         else:
-            # if resopnse is None, abort the optimization
+            # if resopnse is None, it means the user has stopped
+            # abort the optimization
             optimization_completed = False
             break
 
@@ -155,7 +162,7 @@ def interactive_optimize_with_client(
 
 
 def ax_client_candidate_generator(
-    queue: "Queue[Tuple[TParameterization, int]]",
+    queue: Queue[tuple[TParameterization, int]],
     stop_event: Event,
     num_trials: int,
     ax_client: AxClient,
@@ -188,7 +195,7 @@ def ax_client_candidate_generator(
 
 
 def ax_client_data_attacher(
-    queue: "Queue[Tuple[int, TEvaluationOutcome]]",
+    queue: Queue[tuple[int, TEvaluationOutcome]],
     stop_event: Event,
     ax_client: AxClient,
     lock: Lock,

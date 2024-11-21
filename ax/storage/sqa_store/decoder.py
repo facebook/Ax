@@ -11,10 +11,10 @@ from collections import defaultdict, OrderedDict
 from enum import Enum
 from io import StringIO
 from logging import Logger
-from typing import Any, cast, Union
+from typing import cast, Union
 
 import pandas as pd
-from ax.analysis.analysis import AnalysisCard, AnalysisCardLevel
+from ax.analysis.analysis import AnalysisCard
 
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
@@ -46,7 +46,7 @@ from ax.core.risk_measures import RiskMeasure
 from ax.core.runner import Runner
 from ax.core.search_space import HierarchicalSearchSpace, RobustSearchSpace, SearchSpace
 from ax.core.trial import Trial
-from ax.exceptions.storage import SQADecodeError
+from ax.exceptions.storage import JSONDecodeError, SQADecodeError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.storage.json_store.decoder import object_from_json
 from ax.storage.sqa_store.db import session_scope
@@ -68,9 +68,8 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.utils import DomainType, MetricIntent, ParameterConstraintType
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
 from pandas import read_json
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
 from sqlalchemy.orm.exc import DetachedInstanceError
 
 logger: Logger = get_logger(__name__)
@@ -112,7 +111,7 @@ class Decoder:
             from ax.storage.sqa_store.load import load_experiment
 
             auxiliary_experiments_by_purpose = {}
-            aux_exp_name_dict = not_none(
+            aux_exp_name_dict = none_throws(
                 experiment_sqa.auxiliary_experiments_by_purpose
             )
             for aux_exp_purpose_str, aux_exp_names in aux_exp_name_dict.items():
@@ -138,7 +137,6 @@ class Decoder:
     def _init_experiment_from_sqa(
         self,
         experiment_sqa: SQAExperiment,
-        ax_object_field_overrides: dict[str, Any] | None = None,
         load_auxiliary_experiments: bool = True,
     ) -> Experiment:
         """First step of conversion within experiment_from_sqa."""
@@ -162,14 +160,7 @@ class Decoder:
         if len(experiment_sqa.runners) == 0:
             runner = None
         elif len(experiment_sqa.runners) == 1:
-            runner_kwargs = (
-                ax_object_field_overrides.get("runner")
-                if ax_object_field_overrides is not None
-                else None
-            )
-            runner = self.runner_from_sqa(
-                runner_sqa=experiment_sqa.runners[0], runner_kwargs=runner_kwargs
-            )
+            runner = self.runner_from_sqa(runner_sqa=experiment_sqa.runners[0])
         else:
             raise ValueError(
                 "Multiple runners on experiment "
@@ -227,10 +218,10 @@ class Decoder:
             else None
         )
         trial_type_to_runner = {
-            not_none(sqa_runner.trial_type): self.runner_from_sqa(sqa_runner)
+            none_throws(sqa_runner.trial_type): self.runner_from_sqa(sqa_runner)
             for sqa_runner in experiment_sqa.runners
         }
-        default_trial_type = not_none(experiment_sqa.default_trial_type)
+        default_trial_type = none_throws(experiment_sqa.default_trial_type)
         properties = dict(experiment_sqa.properties or {})
         default_data_type = experiment_sqa.default_data_type
         experiment = MultiTypeExperiment(
@@ -250,7 +241,7 @@ class Decoder:
             sqa_metric = sqa_metric_dict[tracking_metric.name]
             experiment.add_tracking_metric(
                 tracking_metric,
-                trial_type=not_none(sqa_metric.trial_type),
+                trial_type=none_throws(sqa_metric.trial_type),
                 canonical_name=sqa_metric.canonical_name,
             )
         return experiment
@@ -259,7 +250,6 @@ class Decoder:
         self,
         experiment_sqa: SQAExperiment,
         reduced_state: bool = False,
-        ax_object_field_overrides: dict[str, Any] | None = None,
         load_auxiliary_experiments: bool = True,
     ) -> Experiment:
         """Convert SQLAlchemy Experiment to Ax Experiment.
@@ -269,10 +259,6 @@ class Decoder:
             reduced_state: Whether to load experiment with a slightly reduced state
                 (without abandoned arms on experiment and without model state,
                 search space, and optimization config on generator runs).
-            ax_object_field_overrides: Mapping of object types to mapping of fields
-                to override values loaded objects will all be instantiated with fields
-                set to override value
-                current valid object types are: "runner"
             load_auxiliary_experiment: whether to load auxiliary experiments.
         """
         subclass = (experiment_sqa.properties or {}).get(Keys.SUBCLASS)
@@ -281,7 +267,6 @@ class Decoder:
         else:
             experiment = self._init_experiment_from_sqa(
                 experiment_sqa,
-                ax_object_field_overrides=ax_object_field_overrides,
                 load_auxiliary_experiments=load_auxiliary_experiments,
             )
         trials = [
@@ -289,7 +274,6 @@ class Decoder:
                 trial_sqa=trial,
                 experiment=experiment,
                 reduced_state=reduced_state,
-                ax_object_field_overrides=ax_object_field_overrides,
             )
             for trial in experiment_sqa.trials
         ]
@@ -316,7 +300,7 @@ class Decoder:
             for arm in trial.arms:
                 experiment._register_arm(arm)
         if experiment.status_quo is not None:
-            sq = not_none(experiment.status_quo)
+            sq = none_throws(experiment.status_quo)
             experiment._register_arm(sq)
         experiment._time_created = experiment_sqa.time_created
         experiment._experiment_type = self.get_enum_name(
@@ -342,8 +326,8 @@ class Decoder:
             parameter = RangeParameter(
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
-                lower=float(not_none(parameter_sqa.lower)),
-                upper=float(not_none(parameter_sqa.upper)),
+                lower=float(none_throws(parameter_sqa.lower)),
+                upper=float(none_throws(parameter_sqa.upper)),
                 log_scale=parameter_sqa.log_scale or False,
                 digits=parameter_sqa.digits,
                 is_fidelity=parameter_sqa.is_fidelity or False,
@@ -357,7 +341,7 @@ class Decoder:
                     f" parameter {parameter_sqa.name}."
                 )
             if bool(parameter_sqa.is_task) and target_value is None:
-                target_value = not_none(parameter_sqa.choice_values)[0]
+                target_value = none_throws(parameter_sqa.choice_values)[0]
                 logger.debug(
                     f"Target value is null for parameter {parameter_sqa.name}. "
                     f"Defaulting to first choice {target_value}."
@@ -365,7 +349,7 @@ class Decoder:
             parameter = ChoiceParameter(
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
-                values=not_none(parameter_sqa.choice_values),
+                values=none_throws(parameter_sqa.choice_values),
                 is_fidelity=parameter_sqa.is_fidelity or False,
                 target_value=target_value,
                 is_ordered=parameter_sqa.is_ordered,
@@ -486,8 +470,8 @@ class Decoder:
             parameter = RangeParameter(
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
-                lower=float(not_none(parameter_sqa.lower)),
-                upper=float(not_none(parameter_sqa.upper)),
+                lower=float(none_throws(parameter_sqa.lower)),
+                upper=float(none_throws(parameter_sqa.upper)),
                 log_scale=parameter_sqa.log_scale or False,
                 digits=parameter_sqa.digits,
                 is_fidelity=parameter_sqa.is_fidelity or False,
@@ -703,14 +687,14 @@ class Decoder:
         ):
             best_arm = Arm(
                 name=generator_run_sqa.best_arm_name,
-                parameters=not_none(generator_run_sqa.best_arm_parameters),
+                parameters=none_throws(generator_run_sqa.best_arm_parameters),
             )
             best_arm_predictions = (
                 best_arm,
-                tuple(not_none(generator_run_sqa.best_arm_predictions)),
+                tuple(none_throws(generator_run_sqa.best_arm_predictions)),
             )
         model_predictions = (
-            tuple(not_none(generator_run_sqa.model_predictions))
+            tuple(none_throws(generator_run_sqa.model_predictions))
             if generator_run_sqa.model_predictions is not None
             else None
         )
@@ -830,33 +814,46 @@ class Decoder:
             if experiment is not None
             else False
         )
-        if reduced_state and gs_sqa.generator_runs:
-            # Only fully load the last of the generator runs, load the rest with
-            # reduced state.
-            gs._generator_runs = [
-                self.generator_run_from_sqa(
-                    generator_run_sqa=gr,
-                    reduced_state=True,
-                    immutable_search_space_and_opt_config=immutable_ss_and_oc,
-                )
-                for gr in gs_sqa.generator_runs[:-1]
-            ]
-            gs._generator_runs.append(
-                self.generator_run_from_sqa(
-                    generator_run_sqa=gs_sqa.generator_runs[-1],
-                    reduced_state=False,
-                    immutable_search_space_and_opt_config=immutable_ss_and_oc,
-                )
+
+        gs._generator_runs = [
+            self.generator_run_from_sqa(
+                generator_run_sqa=gr,
+                reduced_state=reduced_state,
+                immutable_search_space_and_opt_config=immutable_ss_and_oc,
             )
-        else:
-            gs._generator_runs = [
-                self.generator_run_from_sqa(
-                    generator_run_sqa=gr,
-                    reduced_state=False,
-                    immutable_search_space_and_opt_config=immutable_ss_and_oc,
+            for gr in gs_sqa.generator_runs[:-1]
+        ]
+        # This check is necessary to prevent an index error
+        # on `gs_sqa.generator_runs[-1]`
+        if gs_sqa.generator_runs:
+            # Only fully load the last of the generator runs, load the rest with
+            # reduced state.  This is necessary for stateful models.  The only
+            # stateful models available in open source ax is currently SOBOL.
+            try:
+                gs._generator_runs.append(
+                    self.generator_run_from_sqa(
+                        generator_run_sqa=gs_sqa.generator_runs[-1],
+                        reduced_state=False,
+                        immutable_search_space_and_opt_config=immutable_ss_and_oc,
+                    )
                 )
-                for gr in gs_sqa.generator_runs
-            ]
+            except JSONDecodeError:
+                if not reduced_state:
+                    raise
+
+                logger.exception(
+                    "Failed to decode the last generator run because of the following "
+                    "error.  Loading with reduced state:"
+                )
+                # If the last generator run is not fully loadable, load it with
+                # reduced state.
+                gs._generator_runs.append(
+                    self.generator_run_from_sqa(
+                        generator_run_sqa=gs_sqa.generator_runs[-1],
+                        reduced_state=True,
+                        immutable_search_space_and_opt_config=immutable_ss_and_oc,
+                    )
+                )
         gs._experiment = experiment
 
         if len(gs._generator_runs) > 0:
@@ -870,9 +867,7 @@ class Decoder:
 
         return gs
 
-    def runner_from_sqa(
-        self, runner_sqa: SQARunner, runner_kwargs: dict[str, Any] | None = None
-    ) -> Runner:
+    def runner_from_sqa(self, runner_sqa: SQARunner) -> Runner:
         """Convert SQLAlchemy Runner to Ax Runner."""
         if runner_sqa.runner_type not in self.config.reverse_runner_registry:
             raise SQADecodeError(
@@ -886,7 +881,6 @@ class Decoder:
             decoder_registry=self.config.json_decoder_registry,
             class_decoder_registry=self.config.json_class_decoder_registry,
         )
-        args.update(runner_kwargs or {})
         # pyre-ignore[45]: Cannot instantiate abstract class `Runner`.
         runner = runner_class(**args)
         runner.db_id = runner_sqa.id
@@ -897,7 +891,6 @@ class Decoder:
         trial_sqa: SQATrial,
         experiment: Experiment,
         reduced_state: bool = False,
-        ax_object_field_overrides: dict[str, Any] | None = None,
     ) -> BaseTrial:
         """Convert SQLAlchemy Trial to Ax Trial.
 
@@ -1004,11 +997,6 @@ class Decoder:
         trial._runner = (
             self.runner_from_sqa(
                 trial_sqa.runner,
-                runner_kwargs=(
-                    ax_object_field_overrides.get("runner")
-                    if ax_object_field_overrides is not None
-                    else None
-                ),
             )
             if trial_sqa.runner
             else None
@@ -1048,11 +1036,11 @@ class Decoder:
         analysis_card_sqa: SQAAnalysisCard,
     ) -> AnalysisCard:
         """Convert SQLAlchemy Analysis to Ax Analysis Object."""
-        return AnalysisCard(
+        card = AnalysisCard(
             name=analysis_card_sqa.name,
             title=analysis_card_sqa.title,
             subtitle=analysis_card_sqa.subtitle,
-            level=AnalysisCardLevel(analysis_card_sqa.level),
+            level=analysis_card_sqa.level,
             df=read_json(analysis_card_sqa.dataframe_json),
             blob=analysis_card_sqa.blob,
             attributes=(
@@ -1061,6 +1049,8 @@ class Decoder:
                 else json.loads(analysis_card_sqa.attributes)
             ),
         )
+        card.db_id = analysis_card_sqa.id
+        return card
 
     def _metric_from_sqa_util(self, metric_sqa: SQAMetric) -> Metric:
         """Convert SQLAlchemy Metric to Ax Metric"""
@@ -1178,7 +1168,7 @@ class Decoder:
         scalarized_objective = ScalarizedObjective(
             metrics=list(metrics),
             weights=list(weights),
-            minimize=not_none(parent_metric_sqa.minimize),
+            minimize=none_throws(parent_metric_sqa.minimize),
         )
         scalarized_objective.db_id = parent_metric_sqa.id
         return scalarized_objective
@@ -1197,9 +1187,9 @@ class Decoder:
             )
         return OutcomeConstraint(
             metric=metric,
-            bound=float(not_none(metric_sqa.bound)),
-            op=not_none(metric_sqa.op),
-            relative=not_none(metric_sqa.relative),
+            bound=float(none_throws(metric_sqa.bound)),
+            op=none_throws(metric_sqa.op),
+            relative=none_throws(metric_sqa.relative),
         )
 
     def _scalarized_outcome_constraint_from_sqa(
@@ -1243,9 +1233,9 @@ class Decoder:
         scalarized_outcome_constraint = ScalarizedOutcomeConstraint(
             metrics=list(metrics),
             weights=list(weights),
-            bound=float(not_none(metric_sqa.bound)),
-            op=not_none(metric_sqa.op),
-            relative=not_none(metric_sqa.relative),
+            bound=float(none_throws(metric_sqa.bound)),
+            op=none_throws(metric_sqa.op),
+            relative=none_throws(metric_sqa.relative),
         )
         scalarized_outcome_constraint.db_id = metric_sqa.id
         return scalarized_outcome_constraint
@@ -1260,8 +1250,8 @@ class Decoder:
             )
         ot = ObjectiveThreshold(
             metric=metric,
-            bound=float(not_none(metric_sqa.bound)),
-            relative=not_none(metric_sqa.relative),
+            bound=float(none_throws(metric_sqa.bound)),
+            relative=none_throws(metric_sqa.relative),
             op=metric_sqa.op,
         )
         # ObjectiveThreshold constructor clones the passed-in metric, which means

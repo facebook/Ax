@@ -50,9 +50,9 @@ from torch import Tensor
 
 
 MIN_OBSERVED_NOISE_LEVEL = 1e-6
-NO_FEASIBLE_POINTS_MESSAGE = (
-    "There are no feasible observed points.  This likely means that one "
-    "or more outcome constraints or objective thresholds is set too strictly.  "
+NO_OBSERVED_POINTS_MESSAGE = (
+    "There are no observed points meeting all parameter "
+    "constraints or have all necessary metrics attached."
 )
 
 
@@ -347,9 +347,8 @@ def _get_acquisition_func(
     X_observed: Tensor | None = None,
     X_pending: Tensor | None = None,
     mc_objective: type[GenericMCObjective] = GenericMCObjective,
-    constrained_mc_objective: None | (
-        type[ConstrainedMCObjective]
-    ) = ConstrainedMCObjective,
+    constrained_mc_objective: None
+    | (type[ConstrainedMCObjective]) = ConstrainedMCObjective,
     # pyre-fixme[24]: Generic type `dict` expects 2 type parameters, use
     #  `typing.Dict` to avoid runtime subscripting errors.
     mc_objective_kwargs: dict | None = None,
@@ -403,7 +402,7 @@ def _get_acquisition_func(
         raise NotImplementedError(f"{acquisition_function_name=} not implemented yet.")
 
     if X_observed is None:
-        raise ValueError(NO_FEASIBLE_POINTS_MESSAGE)
+        raise ValueError(NO_OBSERVED_POINTS_MESSAGE)
     # construct Objective module
     if chebyshev_scalarization:
         with torch.no_grad():
@@ -575,6 +574,8 @@ def recommend_best_observed_point(
     )
     if x_best is None:
         return None
+    # pyre-fixme[16]: Item `ndarray` of `Union[ndarray[typing.Any, typing.Any],
+    #  Tensor]` has no attribute `to`.
     return x_best.to(dtype=model.dtype, device=torch.device("cpu"))
 
 

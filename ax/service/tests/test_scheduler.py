@@ -37,10 +37,18 @@ from ax.utils.testing.core_stubs import (
 
 
 class TestAxScheduler(AxSchedulerTestCase):
+    """IMPORTANT! This class inherits AxSchedulerTestCase and will also
+    run its associated tests.
+    """
+
     pass
 
 
 class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):
+    """IMPORTANT! This class inherits AxSchedulerTestCase and will also
+    run its associated tests.
+    """
+
     EXPECTED_SCHEDULER_REPR: str = (
         "Scheduler(experiment=MultiTypeExperiment(branin_test_experiment), "
         "generation_strategy=GenerationStrategy(name='Sobol+BoTorch', "
@@ -51,13 +59,13 @@ class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):
         "min_failed_trials_for_failure_rate_check=5, log_filepath=None, "
         "logging_level=20, ttl_seconds_for_trials=None, init_seconds_between_"
         "polls=10, min_seconds_before_poll=1.0, seconds_between_polls_backoff_"
-        "factor=1.5, timeout_hours=None, run_trials_in_batches=False, "
+        "factor=1.5, run_trials_in_batches=False, "
         "debug_log_run_metadata=False, early_stopping_strategy=None, "
         "global_stopping_strategy=None, suppress_storage_errors_after_"
         "retries=False, wait_for_running_trials=True, fetch_kwargs={}, "
         "validate_metrics=True, status_quo_weight=0.0, "
         "enforce_immutable_search_space_and_opt_config=True, "
-        "mt_experiment_trial_type='type1'))"
+        "mt_experiment_trial_type='type1', force_candidate_generation=False))"
     )
 
     def setUp(self) -> None:
@@ -95,7 +103,7 @@ class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):
             default_runner=None,
             name="branin_experiment_no_impl_runner_or_metrics",
         )
-        self.sobol_GPEI_GS = choose_generation_strategy(
+        self.sobol_MBM_GS = choose_generation_strategy(
             search_space=get_branin_search_space()
         )
         self.two_sobol_steps_GS = GenerationStrategy(  # Contrived GS to ensure

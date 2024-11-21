@@ -9,9 +9,9 @@ import pandas as pd
 from ax.analysis.analysis import AnalysisCardLevel
 from ax.analysis.plotly.parallel_coordinates import (
     _get_parameter_dimension,
-    _select_metric,
     ParallelCoordinatesPlot,
 )
+from ax.analysis.plotly.utils import select_metric
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -30,7 +30,7 @@ class TestParallelCoordinatesPlot(TestCase):
             analysis.compute()
 
         card = analysis.compute(experiment=experiment)
-        self.assertEqual(card.name, "ParallelCoordinatesPlot(metric_name=branin)")
+        self.assertEqual(card.name, "ParallelCoordinatesPlot")
         self.assertEqual(card.title, "Parallel Coordinates for branin")
         self.assertEqual(
             card.subtitle,
@@ -44,7 +44,7 @@ class TestParallelCoordinatesPlot(TestCase):
         analysis_no_metric = ParallelCoordinatesPlot()
         _ = analysis_no_metric.compute(experiment=experiment)
 
-    def test_select_metric(self) -> None:
+    def testselect_metric(self) -> None:
         experiment = get_branin_experiment()
         experiment_no_optimization_config = get_branin_experiment(
             has_optimization_config=False
@@ -54,16 +54,16 @@ class TestParallelCoordinatesPlot(TestCase):
             get_experiment_with_scalarized_objective_and_outcome_constraint()
         )
 
-        self.assertEqual(_select_metric(experiment=experiment), "branin")
+        self.assertEqual(select_metric(experiment=experiment), "branin")
 
         with self.assertRaisesRegex(ValueError, "OptimizationConfig"):
-            _select_metric(experiment=experiment_no_optimization_config)
+            select_metric(experiment=experiment_no_optimization_config)
 
         with self.assertRaisesRegex(UnsupportedError, "MultiObjective"):
-            _select_metric(experiment=experiment_multi_objective)
+            select_metric(experiment=experiment_multi_objective)
 
         with self.assertRaisesRegex(UnsupportedError, "ScalarizedObjective"):
-            _select_metric(experiment=experiment_scalarized_objective)
+            select_metric(experiment=experiment_scalarized_objective)
 
     def test_get_parameter_dimension(self) -> None:
         range_series = pd.Series([0, 1, 2, 3], name="range")

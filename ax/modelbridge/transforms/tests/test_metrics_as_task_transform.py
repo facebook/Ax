@@ -129,7 +129,9 @@ class MetricsAsTaskTransformTest(TestCase):
         new_param = new_ss.parameters["METRIC_TASK"]
         self.assertIsInstance(new_param, ChoiceParameter)
         self.assertEqual(
-            new_param.values, ["TARGET", "metric1", "metric2"]  # pyre-ignore
+            # pyre-fixme[16]: `Parameter` has no attribute `values`.
+            new_param.values,
+            ["TARGET", "metric1", "metric2"],
         )
         self.assertTrue(new_param.is_task)  # pyre-ignore
         self.assertEqual(new_param.target_value, "TARGET")

@@ -11,7 +11,7 @@ import time
 from collections.abc import Iterable
 
 from logging import INFO, Logger
-from typing import Any, Optional
+from typing import Optional
 
 from ax.analysis.analysis import AnalysisCard
 
@@ -27,7 +27,7 @@ from ax.exceptions.core import (
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 RETRY_EXCEPTION_TYPES: tuple[type[Exception], ...] = ()
 
@@ -40,7 +40,7 @@ try:  # We don't require SQLAlchemy by default.
     from sqlalchemy import __version__ as sqa_version
 
     # pyre-fixme[16]: Module `sqlalchemy` has no attribute `__version__`.
-    sqa_major_version = int(not_none(re.match(r"^\d*", sqa_version))[0])
+    sqa_major_version = int(none_throws(re.match(r"^\d*", sqa_version))[0])
     if sqa_major_version > 1:
         msg = (
             "Ax currently requires a sqlalchemy version below 2.0. This will be "
@@ -95,12 +95,6 @@ class WithDBSettingsBase:
 
     _db_settings: Optional[DBSettings] = None
 
-    # Mapping of object types to mapping of fields to override values
-    # loaded objects will all be instantiated with fields set to
-    # override value
-    # current valid object types are: "runner"
-    AX_OBJECT_FIELD_OVERRIDES: dict[str, Any] = {}
-
     def __init__(
         self,
         db_settings: Optional[DBSettings] = None,
@@ -139,7 +133,7 @@ class WithDBSettingsBase:
         """DB settings set on this instance; guaranteed to be non-None."""
         if self._db_settings is None:
             raise ValueError("No DB settings are set on this instance.")
-        return not_none(self._db_settings)
+        return none_throws(self._db_settings)
 
     def _get_experiment_and_generation_strategy_db_id(
         self, experiment_name: str
@@ -179,7 +173,7 @@ class WithDBSettingsBase:
                 raise ValueError(
                     "Experiment must specify a name to use storage functionality."
                 )
-            exp_name = not_none(experiment.name)
+            exp_name = none_throws(experiment.name)
             exp_id, gs_id = self._get_experiment_and_generation_strategy_db_id(
                 experiment_name=exp_name
             )
@@ -256,7 +250,6 @@ class WithDBSettingsBase:
             decoder=self.db_settings.decoder,
             reduced_state=reduced_state,
             load_trials_in_batches_of_size=LOADING_MINI_BATCH_SIZE,
-            ax_object_field_overrides=self.AX_OBJECT_FIELD_OVERRIDES,
             skip_runners_and_metrics=skip_runners_and_metrics,
         )
         if not isinstance(experiment, Experiment):
@@ -467,7 +460,8 @@ class WithDBSettingsBase:
             _save_analysis_cards_to_db_if_possible(
                 experiment=experiment,
                 analysis_cards=analysis_cards,
-                config=self.db_settings.encoder.config,
+                sqa_config=self.db_settings.encoder.config,
+                suppress_all_errors=self._suppress_all_errors,
             )
             return True
 

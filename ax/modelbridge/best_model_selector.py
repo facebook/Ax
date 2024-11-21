@@ -15,11 +15,13 @@ from functools import partial
 from typing import Any, Union
 
 import numpy as np
+import numpy.typing as npt
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.model_spec import ModelSpec
 from ax.utils.common.base import Base
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ARRAYLIKE = Union[np.ndarray, list[float], list[np.ndarray]]
 
 
@@ -43,11 +45,14 @@ class ReductionCriterion(Enum):
     """
 
     # NOTE: Callables need to be wrapped in `partial` to be registered as members.
-    MEAN: Callable[[ARRAYLIKE], np.ndarray] = partial(np.mean)
-    MIN: Callable[[ARRAYLIKE], np.ndarray] = partial(np.min)
-    MAX: Callable[[ARRAYLIKE], np.ndarray] = partial(np.max)
+    # pyre-fixme[35]: Target cannot be annotated.
+    MEAN: Callable[[ARRAYLIKE], npt.NDArray] = partial(np.mean)
+    # pyre-fixme[35]: Target cannot be annotated.
+    MIN: Callable[[ARRAYLIKE], npt.NDArray] = partial(np.min)
+    # pyre-fixme[35]: Target cannot be annotated.
+    MAX: Callable[[ARRAYLIKE], npt.NDArray] = partial(np.max)
 
-    def __call__(self, array_like: ARRAYLIKE) -> np.ndarray:
+    def __call__(self, array_like: ARRAYLIKE) -> npt.NDArray:
         return self.value(array_like)
 
 
@@ -117,7 +122,7 @@ class SingleDiagnosticBestModelSelector(BestModelSelector):
             model_spec.cross_validate(model_cv_kwargs=self.model_cv_kwargs)
         aggregated_diagnostic_values = [
             self.metric_aggregation(
-                list(not_none(model_spec.diagnostics)[self.diagnostic].values())
+                list(none_throws(model_spec.diagnostics)[self.diagnostic].values())
             )
             for model_spec in model_specs
         ]

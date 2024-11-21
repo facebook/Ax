@@ -5,7 +5,15 @@
 
 # pyre-strict
 
+from ax.analysis.plotly.cross_validation import CrossValidationPlot
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysis, PlotlyAnalysisCard
+from ax.analysis.plotly.scatter import ScatterPlot
 
-__all__ = ["PlotlyAnalysis", "PlotlyAnalysisCard", "ParallelCoordinatesPlot"]
+__all__ = [
+    "CrossValidationPlot",
+    "PlotlyAnalysis",
+    "PlotlyAnalysisCard",
+    "ParallelCoordinatesPlot",
+    "ScatterPlot",
+]

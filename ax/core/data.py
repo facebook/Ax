@@ -12,7 +12,6 @@ import json
 from abc import abstractmethod
 from collections.abc import Iterable
 from copy import deepcopy
-from functools import reduce
 from hashlib import md5
 from io import StringIO
 from typing import Any, TypeVar
@@ -28,9 +27,11 @@ from ax.utils.common.serialization import (
     TClassDecoderRegistry,
     TDecoderRegistry,
 )
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 TBaseData = TypeVar("TBaseData", bound="BaseData")
+DF_REPR_MAX_LENGTH = 1000
 
 
 class BaseData(Base, SerializationMixin):
@@ -210,10 +211,9 @@ class BaseData(Base, SerializationMixin):
 
     @property
     def true_df(self) -> pd.DataFrame:
-        """Return the `DataFrame` being used as the source of truth (avoid using
+        """Return the ``DataFrame`` being used as the source of truth (avoid using
         except for caching).
         """
-
         return self._df
 
     @property
@@ -235,7 +235,7 @@ class BaseData(Base, SerializationMixin):
             str: The hash of the DataFrame.
 
         """
-        return md5(not_none(self.df.to_json()).encode("utf-8")).hexdigest()
+        return md5(none_throws(self.df.to_json()).encode("utf-8")).hexdigest()
 
     def get_filtered_results(
         self: TBaseData, **filters: dict[str, Any]
@@ -410,6 +410,13 @@ class BaseData(Base, SerializationMixin):
         cls = type(self)
         return cls(df=df, **cls.serialize_init_args(self))
 
+    def __repr__(self) -> str:
+        """String representation of the subclass, inheriting from this base."""
+        df_markdown = self.df.to_markdown()
+        if len(df_markdown) > DF_REPR_MAX_LENGTH:
+            df_markdown = df_markdown[:DF_REPR_MAX_LENGTH] + "..."
+        return f"{self.__class__.__name__}(df=\n{df_markdown})"
+
 
 class Data(BaseData):
     """Class storing numerical data for an experiment.
@@ -498,19 +505,13 @@ class Data(BaseData):
         metric_names: Iterable[str] | None = None,
     ) -> pd.DataFrame:
         trial_indices_mask = (
-            reduce(
-                lambda left, right: left | right,
-                [df["trial_index"] == trial_index for trial_index in trial_indices],
-            )
+            df["trial_index"].isin(trial_indices)
             if trial_indices is not None
             else pd.Series([True] * len(df))
         )
 
         metric_names_mask = (
-            reduce(
-                lambda left, right: left | right,
-                [df["metric_name"] == metric_name for metric_name in metric_names],
-            )
+            df["metric_name"].isin(metric_names)
             if metric_names is not None
             else pd.Series([True] * len(df))
         )

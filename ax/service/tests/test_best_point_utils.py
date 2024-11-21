@@ -33,14 +33,14 @@ from ax.service.utils.best_point import (
     logger as best_point_logger,
 )
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_metric,
     get_experiment_with_observations,
     get_sobol,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
+from pyre_extensions import none_throws
 
 best_point_module: str = _derel_opt_config_wrapper.__module__
 DUMMY_OPTIMIZATION_CONFIG = "test_optimization_config"
@@ -50,7 +50,7 @@ class TestBestPointUtils(TestCase):
     """Testing the best point utilities functionality that is not tested in
     main `AxClient` testing suite (`TestServiceAPI`)."""
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_best_from_model_prediction(self) -> None:
         exp = get_branin_experiment()
 
@@ -148,17 +148,17 @@ class TestBestPointUtils(TestCase):
             constrained=True,
             minimize=False,
         )
-        _, best_prediction = not_none(get_best_parameters(exp, Models))
-        best_metrics = not_none(best_prediction)[0]
+        _, best_prediction = none_throws(get_best_parameters(exp, Models))
+        best_metrics = none_throws(best_prediction)[0]
         self.assertDictEqual(best_metrics, {"m1": 3.0, "m2": 4.0})
 
         # Tensor bounds are accepted.
-        constraint = not_none(exp.optimization_config).all_constraints[0]
+        constraint = none_throws(exp.optimization_config).all_constraints[0]
         # pyre-fixme[8]: Attribute `bound` declared in class `OutcomeConstraint`
         # has type `float` but is used as type `Tensor`.
         constraint.bound = torch.tensor(constraint.bound)
-        _, best_prediction = not_none(get_best_parameters(exp, Models))
-        best_metrics = not_none(best_prediction)[0]
+        _, best_prediction = none_throws(get_best_parameters(exp, Models))
+        best_metrics = none_throws(best_prediction)[0]
         self.assertDictEqual(best_metrics, {"m1": 3.0, "m2": 4.0})
 
     def test_best_raw_objective_point_unsatisfiable(self) -> None:
@@ -187,7 +187,7 @@ class TestBestPointUtils(TestCase):
         )
 
         # Create altered optimization config with unsatisfiable relative constraint.
-        opt_conf = not_none(exp.optimization_config).clone()
+        opt_conf = none_throws(exp.optimization_config).clone()
         opt_conf.outcome_constraints[0].relative = True
         opt_conf.outcome_constraints[0].bound = 9999
 
@@ -245,7 +245,7 @@ class TestBestPointUtils(TestCase):
             observations=[[-1, 1, 1], [1, 2, 1], [3, 3, -1], [2, 4, 1], [2, 0, 1]],
             constrained=True,
         )
-        input_optimization_config = not_none(exp.optimization_config)
+        input_optimization_config = none_throws(exp.optimization_config)
         optimization_config = _derel_opt_config_wrapper(
             optimization_config=input_optimization_config
         )
@@ -277,8 +277,8 @@ class TestBestPointUtils(TestCase):
         # ModelBridges will have specific addresses and so must be self-same to
         # pass equality checks.
         test_modelbridge_1 = get_tensor_converter_model(
-            experiment=not_none(exp),
-            data=not_none(exp).lookup_data(),
+            experiment=none_throws(exp),
+            data=none_throws(exp).lookup_data(),
         )
         test_observations_1 = test_modelbridge_1.get_training_data()
         returned_value = _derel_opt_config_wrapper(
@@ -311,8 +311,8 @@ class TestBestPointUtils(TestCase):
         # Observations and ModelBridge are not constructed from other inputs when
         # provided.
         test_modelbridge_2 = get_tensor_converter_model(
-            experiment=not_none(exp),
-            data=not_none(exp).lookup_data(),
+            experiment=none_throws(exp),
+            data=none_throws(exp).lookup_data(),
         )
         test_observations_2 = test_modelbridge_2.get_training_data()
         with self.assertLogs(logger=best_point_logger, level="WARN") as lg, patch(
@@ -481,7 +481,7 @@ class TestBestPointUtils(TestCase):
         )
         feasible_series = _is_row_feasible(
             df=exp.lookup_data().df,
-            optimization_config=not_none(exp.optimization_config),
+            optimization_config=none_throws(exp.optimization_config),
         )
         expected_per_arm = [False, True, False, True, True]
         expected_series = _repeat_elements(
@@ -501,7 +501,7 @@ class TestBestPointUtils(TestCase):
             # with lookout for warnings(" OutcomeConstraint(m3 >= 0.0%) ignored."):
             feasible_series = _is_row_feasible(
                 df=exp.lookup_data().df,
-                optimization_config=not_none(exp.optimization_config),
+                optimization_config=none_throws(exp.optimization_config),
             )
             self.assertTrue(
                 any(relative_constraint_warning in warning for warning in lg.output),
@@ -515,10 +515,10 @@ class TestBestPointUtils(TestCase):
             feasible_series, expected_series, check_names=False
         )
         exp._status_quo = exp.trials[0].arms[0]
-        for constraint in not_none(exp.optimization_config).all_constraints:
+        for constraint in none_throws(exp.optimization_config).all_constraints:
             constraint.relative = True
         optimization_config = _derel_opt_config_wrapper(
-            optimization_config=not_none(exp.optimization_config),
+            optimization_config=none_throws(exp.optimization_config),
             experiment=exp,
         )
         with self.assertLogs(logger=best_point_logger, level="WARN") as lg:

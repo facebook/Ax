@@ -14,7 +14,7 @@ from copy import deepcopy
 from logging import Logger
 from typing import Any, Optional
 
-import numpy as np
+import numpy.typing as npt
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata
@@ -265,6 +265,7 @@ class BotorchModel(TorchModel):
             "instead. If you run into a use case that is not supported by MBM, "
             "please raise this with an issue at https://github.com/facebook/Ax",
             DeprecationWarning,
+            stacklevel=2,
         )
         self.model_constructor = model_constructor
         self.model_predictor = model_predictor
@@ -495,7 +496,7 @@ class BotorchModel(TorchModel):
             model=model, X=X_test, use_posterior_predictive=use_posterior_predictive
         )
 
-    def feature_importances(self) -> np.ndarray:
+    def feature_importances(self) -> npt.NDArray:
         return get_feature_importances_from_botorch_model(model=self._model)
 
     @property
@@ -524,7 +525,7 @@ class BotorchModel(TorchModel):
 
 
 def get_rounding_func(
-    rounding_func: Callable[[Tensor], Tensor] | None
+    rounding_func: Callable[[Tensor], Tensor] | None,
 ) -> Callable[[Tensor], Tensor] | None:
     if rounding_func is None:
         botorch_rounding_func = rounding_func
@@ -542,7 +543,7 @@ def get_rounding_func(
 
 def get_feature_importances_from_botorch_model(
     model: Model | ModuleList | None,
-) -> np.ndarray:
+) -> npt.NDArray:
     """Get feature importances from a list of BoTorch models.
 
     Args:

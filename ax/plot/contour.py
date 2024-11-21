@@ -11,6 +11,7 @@ from copy import deepcopy
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import plotly.graph_objs as go
 from ax.core.observation import ObservationFeatures
 from ax.modelbridge.base import ModelBridge
@@ -31,6 +32,7 @@ from ax.plot.helper import (
 
 
 # type aliases
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ContourPredictions = tuple[
     PlotData, np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict[str, bool]
 ]
@@ -400,7 +402,7 @@ def interact_contour_plotly(
     param_names = [parameter.name for parameter in range_parameters]
 
     is_log_dict: dict[str, bool] = {}
-    grid_dict: dict[str, np.ndarray] = {}
+    grid_dict: dict[str, npt.NDArray] = {}
     for parameter in range_parameters:
         is_log_dict[parameter.name] = parameter.log_scale
         grid_dict[parameter.name] = get_grid_for_parameter(parameter, density)
@@ -411,12 +413,12 @@ def interact_contour_plotly(
 
     # pyre-fixme[9]: f_dict has type `Dict[str, Dict[str, np.ndarray]]`; used as
     #  `Dict[str, Dict[str, typing.List[Variable[_T]]]]`.
-    f_dict: dict[str, dict[str, np.ndarray]] = {
+    f_dict: dict[str, dict[str, npt.NDArray]] = {
         param1: {param2: [] for param2 in param_names} for param1 in param_names
     }
     # pyre-fixme[9]: sd_dict has type `Dict[str, Dict[str, np.ndarray]]`; used as
     #  `Dict[str, Dict[str, typing.List[Variable[_T]]]]`.
-    sd_dict: dict[str, dict[str, np.ndarray]] = {
+    sd_dict: dict[str, dict[str, npt.NDArray]] = {
         param1: {param2: [] for param2 in param_names} for param1 in param_names
     }
 
@@ -706,10 +708,17 @@ def interact_contour_plotly(
         f_in_sample_arm_trace = {"xaxis": "x", "yaxis": "y"}
 
         sd_in_sample_arm_trace = {"showlegend": False, "xaxis": "x2", "yaxis": "y2"}
+        # NOTE: Using red to differentiate these points from the blue and green scales
+        # of the contours to avoid confusion.
+        arm_colors = {
+            "color": "rgb(253, 231, 37)",
+            "opacity": 1,
+            "line": {"width": 1, "color": "black"},
+        }
         base_in_sample_arm_config = {
             "hoverinfo": "text",
             "legendgroup": "In-sample",
-            "marker": {"color": "black", "symbol": 1, "opacity": 0.5},
+            "marker": {"symbol": 1, **arm_colors},
             "mode": "markers",
             "name": "In-sample",
             "text": insample_arm_text,
@@ -717,6 +726,10 @@ def interact_contour_plotly(
             "visible": cur_visible,
             "x": insample_param_values[xvar],
             "y": insample_param_values[yvar],
+            "hoverlabel": {
+                "bgcolor": "rgba(50,50,50,1.0)",
+                "font": {"color": "white"},
+            },
         }
 
         for key in base_in_sample_arm_config.keys():
@@ -731,7 +744,7 @@ def interact_contour_plotly(
                 {
                     "hoverinfo": "text",
                     "legendgroup": generator_run_name,
-                    "marker": {"color": "black", "symbol": i, "opacity": 0.5},
+                    "marker": {"symbol": i, **arm_colors},
                     "mode": "markers",
                     "name": generator_run_name,
                     "text": out_of_sample_arm_text[generator_run_name],
@@ -741,13 +754,17 @@ def interact_contour_plotly(
                     "yaxis": "y",
                     "y": out_of_sample_param_values[yvar][generator_run_name],
                     "visible": cur_visible,
+                    "hoverlabel": {
+                        "bgcolor": "rgba(50,50,50,1.0)",
+                        "font": {"color": "white"},
+                    },
                 }
             )
             traces.append(
                 {
                     "hoverinfo": "text",
                     "legendgroup": generator_run_name,
-                    "marker": {"color": "black", "symbol": i, "opacity": 0.5},
+                    "marker": {"symbol": i, **arm_colors},
                     "mode": "markers",
                     "name": "In-sample",
                     "showlegend": False,
@@ -758,6 +775,10 @@ def interact_contour_plotly(
                     "y": out_of_sample_param_values[yvar][generator_run_name],
                     "yaxis": "y2",
                     "visible": cur_visible,
+                    "hoverlabel": {
+                        "bgcolor": "rgba(50,50,50,1.0)",
+                        "font": {"color": "white"},
+                    },
                 }
             )
             i += 1

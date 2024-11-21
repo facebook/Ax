@@ -6,6 +6,8 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 import itertools
 import logging
 from collections import defaultdict
@@ -16,6 +18,7 @@ from typing import Any, cast, TYPE_CHECKING
 
 import gpytorch
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import plotly.graph_objects as go
 from ax.core.base_trial import TrialStatus
@@ -60,9 +63,10 @@ from ax.plot.trace import (
 from ax.service.utils.best_point import _derel_opt_config_wrapper, _is_row_feasible
 from ax.service.utils.early_stopping import get_early_stopping_metrics
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.sensitivity.sobol_measures import ax_parameter_sens
 from pandas.core.frame import DataFrame
+from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
     from ax.service.scheduler import Scheduler
@@ -129,7 +133,7 @@ def _get_objective_trace_plot(
         plot_objective_value_vs_trial_index(
             exp_df=exp_df,
             metric_colname=metric_name,
-            minimize=not_none(
+            minimize=none_throws(
                 optimization_config.objective.minimize
                 if optimization_config.objective.metric.name == metric_name
                 else experiment.metrics[metric_name].lower_is_better
@@ -146,9 +150,8 @@ def _get_objective_trace_plot(
 def _get_objective_v_param_plots(
     experiment: Experiment,
     model: ModelBridge,
-    importance: None | (
-        dict[str, dict[str, np.ndarray]] | dict[str, dict[str, float]]
-    ) = None,
+    importance: None
+    | (dict[str, dict[str, npt.NDArray]] | dict[str, dict[str, float]]) = None,
     # Chosen to take ~1min on local benchmarks.
     max_num_slice_plots: int = 200,
     # Chosen to take ~2min on local benchmarks.
@@ -219,6 +222,8 @@ def _get_objective_v_param_plots(
                     # sort the params by their sensitivity
                     params_to_use = sorted(
                         range_params_sens_for_metric,
+                        # pyre-fixme[6]: For 2nd argument expected `None` but got
+                        #  `(x: Any) -> Union[ndarray[typing.Any, typing.Any], float]`.
                         key=lambda x: range_params_sens_for_metric[x],
                         reverse=True,
                     )[:num_params_per_metric]
@@ -228,7 +233,7 @@ def _get_objective_v_param_plots(
                 with gpytorch.settings.max_eager_kernel_size(float("inf")):
                     output_plots.append(
                         interact_contour_plotly(
-                            model=not_none(model),
+                            model=none_throws(model),
                             metric_name=metric_name,
                             parameters_to_use=params_to_use,
                         )
@@ -358,7 +363,7 @@ def get_standard_plots(
             "standard plots."
         )
 
-    objective = not_none(experiment.optimization_config).objective
+    objective = none_throws(experiment.optimization_config).objective
     if isinstance(objective, ScalarizedObjective):
         logger.warning(
             "get_standard_plots does not currently support ScalarizedObjective "
@@ -521,8 +526,10 @@ def get_standard_plots(
 
 
 def _transform_progression_to_walltime(
-    progressions: np.ndarray, exp_df: pd.DataFrame, trial_idx: int
-) -> np.ndarray | None:
+    progressions: npt.NDArray,
+    exp_df: pd.DataFrame,
+    trial_idx: int,
+) -> npt.NDArray | None:
     try:
         trial_df = exp_df[exp_df["trial_index"] == trial_idx]
         time_run_started = trial_df["time_run_started"].iloc[0]
@@ -671,15 +678,11 @@ def _merge_trials_dict_with_df(
         if not all(
             v is not None for v in trials_dict.values()
         ):  # not present for all trials
-            logger.warning(
+            logger.info(
                 f"Column {column_name} missing for some trials. "
                 "Filling with None when missing."
             )
         df[column_name] = [trials_dict[trial_index] for trial_index in df.trial_index]
-    else:
-        logger.warning(
-            f"Column {column_name} missing for all trials. " "Not appending column."
-        )
 
 
 def _get_generation_method_str(trial: BaseTrial) -> str:
@@ -688,7 +691,7 @@ def _get_generation_method_str(trial: BaseTrial) -> str:
         return trial_generation_property
 
     generation_methods = {
-        not_none(generator_run._model_key)
+        none_throws(generator_run._model_key)
         for generator_run in trial.generator_runs
         if generator_run._model_key is not None
     }
@@ -761,16 +764,36 @@ def _merge_results_if_no_duplicates(
     return pd.merge(metrics_df, arms_df, on=key_components, how="outer")
 
 
+def _get_relative_results(
+    results_df: pd.DataFrame, status_quo_arm_name: str
+) -> pd.DataFrame:
+    """Returns a dataframe with relative results, i.e. % change in metric values
+    relative to the status quo arm.
+    """
+    baseline_df = results_df[results_df["arm_name"] == status_quo_arm_name]
+    relative_results_df = pd.merge(
+        results_df,
+        baseline_df[["metric_name", "mean"]],
+        on="metric_name",
+        suffixes=("", "_baseline"),
+    )
+    relative_results_df["mean"] = (
+        1.0 * relative_results_df["mean"] / relative_results_df["mean_baseline"] - 1.0
+    ) * 100.0
+    relative_results_df["metric_name"] = relative_results_df["metric_name"] + "_%CH"
+    return relative_results_df
+
+
 def exp_to_df(
     exp: Experiment,
     metrics: list[Metric] | None = None,
     run_metadata_fields: list[str] | None = None,
     trial_properties_fields: list[str] | None = None,
     trial_attribute_fields: list[str] | None = None,
-    additional_fields_callables: None | (
-        dict[str, Callable[[Experiment], dict[int, str | float]]]
-    ) = None,
+    additional_fields_callables: None
+    | (dict[str, Callable[[Experiment], dict[int, str | float]]]) = None,
     always_include_field_columns: bool = False,
+    show_relative_metrics: bool = False,
     **kwargs: Any,
 ) -> pd.DataFrame:
     """Transforms an experiment to a DataFrame with rows keyed by trial_index
@@ -801,6 +824,9 @@ def exp_to_df(
         always_include_field_columns: If `True`, even if all trials have missing
             values, include field columns anyway. Such columns are by default
             omitted (False).
+        show_relative_metrics: If `True`, show % metric changes relative to the provided
+            status quo arm. If no status quo arm is provided, raise a warning and show
+            raw metric values. If `False`, show raw metric values (default).
     Returns:
         DataFrame: A dataframe of inputs, metadata and metrics by trial and arm (and
         ``map_keys``, if present). If no trials are available, returns an empty
@@ -848,12 +874,29 @@ def exp_to_df(
         metric_names = [m.name for m in metrics]
         results = results[results["metric_name"].isin(metric_names)]
 
+    # Calculate relative metrics if `show_relative_metrics` is True.
+    if show_relative_metrics:
+        if exp.status_quo is None:
+            logger.warning(
+                "No status quo arm found. Showing raw metric values instead of "
+                "relative metric values."
+            )
+        else:
+            status_quo_arm_name = exp.status_quo.name
+            try:
+                results = _get_relative_results(results, status_quo_arm_name)
+            except Exception:
+                logger.warning(
+                    "Failed to calculate relative metrics. Showing raw metric values "
+                    "instead of relative metric values."
+                )
+
     # Add `FEASIBLE_COL_NAME` column according to constraints if any.
     if (
         exp.optimization_config is not None
-        and len(not_none(exp.optimization_config).all_constraints) > 0
+        and len(none_throws(exp.optimization_config).all_constraints) > 0
     ):
-        optimization_config = not_none(exp.optimization_config)
+        optimization_config = none_throws(exp.optimization_config)
         try:
             if any(oc.relative for oc in optimization_config.all_constraints):
                 optimization_config = _derel_opt_config_wrapper(
@@ -987,7 +1030,7 @@ def exp_to_df(
         metrics=metrics or list(exp.metrics.values()),
     )
 
-    exp_df = not_none(not_none(exp_df).sort_values(["trial_index"]))
+    exp_df = none_throws(none_throws(exp_df).sort_values(["trial_index"]))
     initial_column_order = (
         ["trial_index", "arm_name", "trial_status", "reason", "generation_method"]
         + (run_metadata_fields or [])
@@ -1050,13 +1093,13 @@ def _get_metric_name_pairs(
     optimization_config = _validate_experiment_and_get_optimization_config(
         experiment=experiment
     )
-    if not_none(optimization_config).is_moo_problem:
+    if none_throws(optimization_config).is_moo_problem:
         multi_objective = checked_cast(
-            MultiObjective, not_none(optimization_config).objective
+            MultiObjective, none_throws(optimization_config).objective
         )
         metric_names = [obj.metric.name for obj in multi_objective.objectives]
         if len(metric_names) > use_first_n_metrics:
-            logger.warning(
+            logger.info(
                 f"Got `metric_names = {metric_names}` of length {len(metric_names)}. "
                 f"Creating pairwise Pareto plots for the first `use_n_metrics = "
                 f"{use_first_n_metrics}` of these and disregarding the remainder."
@@ -1066,8 +1109,8 @@ def _get_metric_name_pairs(
         return metric_name_pairs
     raise UserInputError(
         "Inference of `metric_names` failed. Expected `MultiObjective` but "
-        f"got {not_none(optimization_config).objective}. Please provide an experiment "
-        "with a MultiObjective `optimization_config`."
+        f"got {none_throws(optimization_config).objective}. Please provide an "
+        "experiment with a MultiObjective `optimization_config`."
     )
 
 
@@ -1077,7 +1120,6 @@ def _pareto_frontier_scatter_2d_plotly(
     reference_point: tuple[float, float] | None = None,
     minimize: bool | tuple[bool, bool] | None = None,
 ) -> go.Figure:
-
     # Determine defaults for unspecified inputs using `optimization_config`
     metric_names, reference_point, minimize = _pareto_frontier_plot_input_processing(
         experiment=experiment,
@@ -1097,7 +1139,6 @@ def pareto_frontier_scatter_2d_plotly(
     reference_point: tuple[float, float] | None = None,
     minimize: bool | tuple[bool, bool] | None = None,
 ) -> go.Figure:
-
     df = exp_to_df(experiment)
     Y = df[list(metric_names)].to_numpy()
     Y_pareto = (
@@ -1145,7 +1186,7 @@ def _objective_vs_true_objective_scatter(
 # TODO: may want to have a way to do this with a plot_fn
 # that returns a list of plots, such as get_standard_plots
 def get_figure_and_callback(
-    plot_fn: Callable[["Scheduler"], go.Figure]
+    plot_fn: Callable[["Scheduler"], go.Figure],
 ) -> tuple[go.Figure, Callable[["Scheduler"], None]]:
     """
     Produce a figure and a callback for updating the figure in place.
@@ -1186,6 +1227,10 @@ def get_figure_and_callback(
             overwrite=True,
         )
 
+    # pyre-fixme[7]: Expected `Tuple[Figure, typing.Callable[[Scheduler], None]]`
+    #  but got `Tuple[FigureWidget,
+    #  typing.Callable(get_figure_and_callback._update_fig_in_place)[[Named(scheduler,
+    #  Scheduler)], None]]`.
     return fig, _update_fig_in_place
 
 
@@ -1311,10 +1356,10 @@ def select_baseline_arm(
         if (
             experiment.status_quo
             and not arms_df[
-                arms_df["arm_name"] == not_none(experiment.status_quo).name
+                arms_df["arm_name"] == none_throws(experiment.status_quo).name
             ].empty
         ):
-            baseline_arm_name = not_none(experiment.status_quo).name
+            baseline_arm_name = none_throws(experiment.status_quo).name
             return baseline_arm_name, False
 
         if (
@@ -1430,7 +1475,7 @@ def maybe_extract_baseline_comparison_values(
 
 
 def compare_to_baseline_impl(
-    comparison_list: list[tuple[str, bool, str, float, str, float]]
+    comparison_list: list[tuple[str, bool, str, float, str, float]],
 ) -> str | None:
     """Implementation of compare_to_baseline, taking in a
     list of arm comparisons.
@@ -1449,7 +1494,7 @@ def compare_to_baseline_impl(
             result_message = (
                 result_message
                 + (" \n* " if len(comparison_list) > 1 else "")
-                + not_none(comparison_message)
+                + none_throws(comparison_message)
             )
 
     return result_message if result_message else None
@@ -1472,7 +1517,7 @@ def compare_to_baseline(
     )
     if not comparison_list:
         return None
-    comparison_list = not_none(comparison_list)
+    comparison_list = none_throws(comparison_list)
     return compare_to_baseline_impl(comparison_list)
 
 
@@ -1521,7 +1566,9 @@ def warn_if_unpredictable_metrics(
         if experiment.optimization_config is None:
             metric_names = list(experiment.metrics.keys())
         else:
-            metric_names = list(not_none(experiment.optimization_config).metrics.keys())
+            metric_names = list(
+                none_throws(experiment.optimization_config).metrics.keys()
+            )
     else:
         # Raise a ValueError if any metric names are invalid.
         bad_metric_names = set(metric_names) - set(experiment.metrics.keys())

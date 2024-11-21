@@ -86,7 +86,7 @@ class ParetoUtilsTest(TestCase):
                 minimize=True,
             ),
         ]
-        bounds = [0, -100, 1000]
+        bounds = [0, 100, 1000]
         rels = [True, True, False]
         objective_thresholds = [
             ObjectiveThreshold(
@@ -130,9 +130,8 @@ class ParetoUtilsTest(TestCase):
             self.assertEqual(len(pfr.means["m1"]), len(pareto_arms))
             self.assertTrue(np.isnan(pfr.sems["m1"]).all())
             self.assertEqual(len(pfr.arm_names), len(pareto_arms))  # pyre-ignore
-            self.assertEqual(
-                pfr.objective_thresholds, {"m1": 0, "m2": -100, "m3": 1000}
-            )
+            self.assertEqual(pfr.objective_thresholds, {"m1": 0, "m2": 100, "m3": 1000})
+            # pyre-fixme[6]: For 1st argument expected `Union[_SupportsArray[dtype[ty...
             arm_idx = np.argsort(pfr.arm_names)
             for i, idx in enumerate(arm_idx):
                 name = pareto_arms[i]
@@ -145,7 +144,7 @@ class ParetoUtilsTest(TestCase):
         self.assertEqual(pfr.absolute_metrics, [])
         self.assertEqual(
             pfr.objective_thresholds,
-            {"m1": 0, "m2": -100, "m3": (1000 / sq_val - 1) * 100},
+            {"m1": 0, "m2": 100, "m3": (1000 / sq_val - 1) * 100},
         )
         pfrs = get_observed_pareto_frontiers(
             experiment=experiment, data=data, rel=False

@@ -11,6 +11,7 @@ import random
 from copy import copy
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.parameter_constraint import OrderConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
@@ -22,7 +23,7 @@ def randomized_round(x: float) -> int:
     return int(z + float(random.random() <= (x - z)))
 
 
-def randomized_onehot_round(x: np.ndarray) -> np.ndarray:
+def randomized_onehot_round(x: npt.NDArray) -> npt.NDArray:
     """Randomized rounding of x to a one-hot vector.
     x should be 0 <= x <= 1. If x includes negative values,
     they will be rounded to zero.
@@ -41,7 +42,7 @@ def randomized_onehot_round(x: np.ndarray) -> np.ndarray:
     return z
 
 
-def strict_onehot_round(x: np.ndarray) -> np.ndarray:
+def strict_onehot_round(x: npt.NDArray) -> npt.NDArray:
     """Round x to a one-hot vector by selecting the max element.
     Ties broken randomly."""
     if len(x) == 1:

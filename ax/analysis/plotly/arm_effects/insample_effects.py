@@ -3,6 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 from itertools import chain
 from logging import Logger
 
@@ -25,7 +27,6 @@ from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.utils.common.logger import get_logger
-from plotly import io as pio
 from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
@@ -33,7 +34,7 @@ logger: Logger = get_logger(__name__)
 
 class InSampleEffectsPlot(PlotlyAnalysis):
     """
-    Plotly Insample Effecs plot for a single metric on a single trial, with one point
+    Plotly Insample Effects plot for a single metric on a single trial, with one point
     per unique arm across all trials. The plot may either use modeled effects, or
     raw / observed data.
 
@@ -66,7 +67,7 @@ class InSampleEffectsPlot(PlotlyAnalysis):
             metric_name: The name of the metric to plot.
             trial_index: The of the trial to plot arms for.
             use_modeled_effects: Whether to use modeled effects or show
-                raw effects.
+                observed effects.
         """
 
         self.metric_name = metric_name
@@ -112,34 +113,48 @@ class InSampleEffectsPlot(PlotlyAnalysis):
             df=df, metric_name=self.metric_name, outcome_constraints=outcome_constraints
         )
 
-        if (
-            experiment.optimization_config is None
-            or self.metric_name not in experiment.optimization_config.metrics
-        ):
-            level = AnalysisCardLevel.LOW
-        elif self.metric_name in experiment.optimization_config.objective.metric_names:
-            level = AnalysisCardLevel.HIGH
-        else:
-            level = AnalysisCardLevel.MID
+        nudge = 0
+        level = AnalysisCardLevel.MID
+        if experiment.optimization_config is not None:
+            if (
+                self.metric_name
+                in experiment.optimization_config.objective.metric_names
+            ):
+                nudge = 2
+            elif self.metric_name in experiment.optimization_config.metrics:
+                nudge = 1
 
-        plot_type = "Modeled" if self.use_modeled_effects else "Raw"
+        level = AnalysisCardLevel.MID
+        if self.use_modeled_effects:
+            nudge += 1
+
+        max_trial_index = max(experiment.trial_indices_expecting_data, default=0)
+        nudge -= min(max_trial_index - self.trial_index, 9)
+
         subtitle = (
             "View a trial and its arms' "
-            f"{'predicted' if self.use_modeled_effects else 'observed'} "
+            f"{self._plot_type_string.lower()} "
             "metric values"
         )
-        return PlotlyAnalysisCard(
-            name=f"{plot_type}EffectsPlot",
+        card = self._create_plotly_analysis_card(
             title=(
-                f"{plot_type} Effects for {self.metric_name} "
+                f"{self._plot_type_string} Effects for {self.metric_name} "
                 f"on trial {self.trial_index}"
             ),
             subtitle=subtitle,
-            level=level,
+            level=level + nudge,
             df=df,
-            blob=pio.to_json(fig),
-            attributes={"trial_index": self.trial_index},
+            fig=fig,
         )
+        return card
+
+    @property
+    def name(self) -> str:
+        return f"{self._plot_type_string}EffectsPlot"
+
+    @property
+    def _plot_type_string(self) -> str:
+        return "Modeled" if self.use_modeled_effects else "Observed"
 
 
 def _get_max_observed_trial_index(model: ModelBridge) -> int | None:
@@ -204,7 +219,7 @@ def _get_model(
 
         return model
     else:
-        # This model just predicts raw data
+        # This model just predicts observed data
         return Models.THOMPSON(
             data=trial_data,
             search_space=experiment.search_space,

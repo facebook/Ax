@@ -70,7 +70,6 @@ class InputTransformArgparseTest(TestCase):
         self.assertEqual(input_transform_argparse[DummyInputTransform], _argparse)
 
     def test_fallback(self) -> None:
-
         with patch.dict(input_transform_argparse.funcs, {}):
 
             @input_transform_argparse.register(InputTransform)
@@ -80,7 +79,6 @@ class InputTransformArgparseTest(TestCase):
             self.assertEqual(input_transform_argparse[InputTransform], _argparse)
 
     def test_argparse_input_transform(self) -> None:
-
         input_transform_kwargs = input_transform_argparse(
             InputTransform,
             dataset=self.dataset,
@@ -185,7 +183,6 @@ class InputTransformArgparseTest(TestCase):
         self.assertEqual(input_transform_kwargs, {"indices": [0, 1]})
 
     def test_argparse_input_perturbation(self) -> None:
-
         self.search_space_digest.robust_digest = RobustSearchSpaceDigest(
             sample_param_perturbations=lambda: np.zeros((2, 2)),
         )

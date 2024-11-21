@@ -8,8 +8,13 @@
 
 import numpy as np
 import torch
+from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
+from ax.modelbridge.model_spec import ModelSpec
+from ax.modelbridge.registry import Models
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.utils import generic_equals
+from ax.utils.testing.core_stubs import get_experiment_with_observations
+from ax.utils.testing.mock import mock_botorch_optimize
+from ax.utils.testing.utils import generic_equals, run_trials_with_gs
 
 
 class TestUtils(TestCase):
@@ -45,3 +50,31 @@ class TestUtils(TestCase):
         self.assertFalse(generic_equals(np.ones(2), np.zeros(2)))
         self.assertTrue(generic_equals({1, 2}, {1, 2}))
         self.assertFalse(generic_equals({1, 2}, {1, 2, 3}))
+
+    @mock_botorch_optimize
+    def test_run_trials_with_gs(self) -> None:
+        experiment = get_experiment_with_observations(
+            observations=[[1.0, 5.0], [2.0, 4.0]]
+        )
+        # There are 2 trials with observations for 2 metrics.
+        self.assertEqual(len(experiment.trials), 2)
+        self.assertEqual(len(experiment.lookup_data().df), 4)
+        gs = GenerationStrategy(
+            nodes=[
+                GenerationNode(
+                    node_name="MBM",
+                    model_specs=[
+                        ModelSpec(
+                            model_enum=Models.BOTORCH_MODULAR,
+                        )
+                    ],
+                )
+            ]
+        )
+        run_trials_with_gs(experiment=experiment, gs=gs, num_trials=2)
+        self.assertEqual(len(experiment.trials), 4)
+        self.assertEqual(len(experiment.lookup_data().df), 8)
+        for idx in [2, 3]:
+            self.assertEqual(
+                experiment.trials[idx].generator_runs[0]._generation_node_name, "MBM"
+            )

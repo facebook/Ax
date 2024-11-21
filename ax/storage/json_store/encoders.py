@@ -56,9 +56,13 @@ from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.storage.botorch_modular_registry import CLASS_TO_REGISTRY
 from ax.storage.transform_registry import TRANSFORM_REGISTRY
-from ax.utils.common.constants import Keys
 from ax.utils.common.serialization import serialize_init_args
 from ax.utils.common.typeutils_torch import torch_type_to_str
+from ax.utils.testing.backend_simulator import (
+    BackendSimulator,
+    BackendSimulatorOptions,
+    SimTrial,
+)
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
 from botorch.sampling.base import MCSampler
 from botorch.utils.types import _DefaultType
@@ -443,6 +447,7 @@ def generation_node_to_dict(generation_node: GenerationNode) -> dict[str, Any]:
         "transition_criteria": generation_node.transition_criteria,
         "model_spec_to_gen_from": generation_node._model_spec_to_gen_from,
         "previous_node_name": generation_node._previous_node_name,
+        "trial_type": generation_node._trial_type,
         # need to manually encode input constructors because the key is an enum.
         # Our encoding and decoding logic in object_to_json and object_from_json
         # doesn't recursively encode/decode the keys of dictionaries.
@@ -529,14 +534,8 @@ def botorch_model_to_dict(model: BoTorchModel) -> dict[str, Any]:
         "__type": model.__class__.__name__,
         "acquisition_class": model.acquisition_class,
         "acquisition_options": model.acquisition_options or {},
-        "surrogate": (
-            model._surrogates[Keys.ONLY_SURROGATE]
-            if Keys.ONLY_SURROGATE in model._surrogates
-            else None
-        ),
-        "surrogate_specs": (
-            model.surrogate_specs if len(model.surrogate_specs) > 0 else None
-        ),
+        "surrogate": (model._surrogate if model.surrogate_spec is None else None),
+        "surrogate_spec": model.surrogate_spec,
         "botorch_acqf_class": model._botorch_acqf_class,
         "refit_on_cv": model.refit_on_cv,
         "warm_start_refit": model.warm_start_refit,
@@ -620,6 +619,7 @@ def botorch_input_transform_to_init_args(
         return {k: botorch_component_to_dict(v) for k, v in input_transform.items()}
     else:
         try:
+            # pyre-fixme[29]: `Union[Tensor, Module]` is not a function.
             return input_transform.get_init_args()  # pyre-fixme [16]
         except AttributeError:
             raise JSONEncodeError(
@@ -719,3 +719,17 @@ def pathlib_to_dict(path: Path) -> dict[str, Any]:
 
 def default_to_dict(default: _DefaultType) -> dict[str, Any]:
     return {"__type": default.__class__.__name__}
+
+
+def backend_simulator_to_dict(
+    backend_simulator: BackendSimulator,
+) -> dict[str, str | BackendSimulatorOptions | list[SimTrial] | bool]:
+    return {
+        "__type": backend_simulator.__class__.__name__,
+        "options": backend_simulator.options,
+        "queued": backend_simulator._queued,
+        "running": backend_simulator._running,
+        "failed": backend_simulator._failed,
+        "completed": backend_simulator._completed,
+        "verbose_logging": backend_simulator._verbose_logging,
+    }

@@ -10,17 +10,17 @@ from abc import ABC, abstractmethod
 from typing import TypeVar
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from ax.utils.common.docutils import copy_doc
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.test_functions import synthetic as botorch_synthetic
-from pyre_extensions import override
+from pyre_extensions import none_throws, override
 
 T = TypeVar("T")
 
 
 class SyntheticFunction(ABC):
-
     _required_dimensionality: int
     _domain: list[tuple[float, float]]
     _minimums: list[tuple[float, ...]] | None = None
@@ -31,7 +31,7 @@ class SyntheticFunction(ABC):
     def informative_failure_on_none(self, attr: T | None) -> T:
         if attr is None:
             raise NotImplementedError(f"{self.name} does not specify property.")
-        return not_none(attr)
+        return none_throws(attr)
 
     @property
     def name(self) -> str:
@@ -39,9 +39,9 @@ class SyntheticFunction(ABC):
 
     def __call__(
         self,
-        *args: int | float | np.ndarray,
-        **kwargs: int | float | np.ndarray,
-    ) -> float | np.ndarray:
+        *args: int | float | npt.NDArray,
+        **kwargs: int | float | npt.NDArray,
+    ) -> float | npt.NDArray:
         """Simplified way to call the synthetic function and pass the argument
         numbers directly, e.g. `branin(2.0, 3.0)`.
         """
@@ -69,7 +69,7 @@ class SyntheticFunction(ABC):
                 x = float(x)
         return checked_cast(float, self.f(np.array(args)))
 
-    def f(self, X: np.ndarray) -> float | np.ndarray:
+    def f(self, X: npt.NDArray) -> float | npt.NDArray:
         """Synthetic function implementation.
 
         Args:
@@ -145,7 +145,7 @@ class SyntheticFunction(ABC):
         return self.informative_failure_on_none(self._fmax)
 
     @abstractmethod
-    def _f(self, X: np.ndarray) -> float:
+    def _f(self, X: npt.NDArray) -> float:
         """Implementation of the synthetic function. Must be implemented in subclass.
 
         Args:
@@ -173,7 +173,7 @@ class FromBotorch(SyntheticFunction):
         return f"{self.__class__.__name__}_{self._botorch_function.__class__.__name__}"
 
     @override
-    def _f(self, X: np.ndarray) -> float:
+    def _f(self, X: npt.NDArray) -> float:
         # TODO: support batch evaluation
         return float(self._botorch_function(X=torch.from_numpy(X)).item())
 
@@ -193,8 +193,8 @@ class Hartmann6(SyntheticFunction):
     _minimums = [(0.20169, 0.150011, 0.476874, 0.275332, 0.311652, 0.6573)]
     _fmin: float = -3.32237
     _fmax = 0.0
-    _alpha: np.ndarray = np.array([1.0, 1.2, 3.0, 3.2])
-    _A: np.ndarray = np.array(
+    _alpha: npt.NDArray = np.array([1.0, 1.2, 3.0, 3.2])
+    _A: npt.NDArray = np.array(
         [
             [10, 3, 17, 3.5, 1.7, 8],
             [0.05, 10, 17, 0.1, 8, 14],
@@ -202,7 +202,7 @@ class Hartmann6(SyntheticFunction):
             [17, 8, 0.05, 10, 0.1, 14],
         ]
     )
-    _P: np.ndarray = 10 ** (-4) * np.array(
+    _P: npt.NDArray = 10 ** (-4) * np.array(
         [
             [1312, 1696, 5569, 124, 8283, 5886],
             [2329, 4135, 8307, 3736, 1004, 9991],
@@ -213,7 +213,7 @@ class Hartmann6(SyntheticFunction):
 
     @override
     @copy_doc(SyntheticFunction._f)
-    def _f(self, X: np.ndarray) -> float:
+    def _f(self, X: npt.NDArray) -> float:
         y = 0.0
         for j, alpha_j in enumerate(self._alpha):
             t = 0
@@ -236,7 +236,7 @@ class Aug_Hartmann6(Hartmann6):
 
     @override
     @copy_doc(SyntheticFunction._f)
-    def _f(self, X: np.ndarray) -> float:
+    def _f(self, X: npt.NDArray) -> float:
         y = 0.0
         alpha_0 = self._alpha[0] - 0.1 * (1 - X[-1])
         for j, alpha_j in enumerate(self._alpha):
@@ -265,7 +265,7 @@ class Branin(SyntheticFunction):
 
     @override
     @copy_doc(SyntheticFunction._f)
-    def _f(self, X: np.ndarray) -> float:
+    def _f(self, X: npt.NDArray) -> float:
         x_1 = X[0]
         x_2 = X[1]
         return float(
@@ -290,7 +290,7 @@ class Aug_Branin(SyntheticFunction):
 
     @override
     @copy_doc(SyntheticFunction._f)
-    def _f(self, X: np.ndarray) -> float:
+    def _f(self, X: npt.NDArray) -> float:
         x_1 = X[0]
         x_2 = X[1]
         return float(

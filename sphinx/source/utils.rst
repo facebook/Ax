@@ -60,9 +60,17 @@ Equality
     :show-inheritance:
 
 Executils
-~~~~~~~~~~~~~~~
+~~~~~~~~~
 
 .. automodule:: ax.utils.common.executils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+FuncEnum
+~~~~~~~~
+
+.. automodule:: ax.utils.common.func_enum
     :members:
     :undoc-members:
     :show-inheritance:
@@ -289,13 +297,20 @@ Modeling Stubs
     :show-inheritance:
 
 Preference Stubs
-~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.utils.testing.preference_stubs
     :members:
     :undoc-members:
     :show-inheritance:
 
+Utils Testing Stubs
+~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.utils.testing.utils_testing_stubs
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 Mocking
 ~~~~~~~

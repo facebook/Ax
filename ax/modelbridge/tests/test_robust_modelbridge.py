@@ -22,7 +22,7 @@ from ax.modelbridge.registry import Models
 from ax.models.torch.botorch_modular.surrogate import Surrogate
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_robust_branin_experiment
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
@@ -31,7 +31,7 @@ from botorch.models.gp_regression import SingleTaskGP
 
 
 class TestRobust(TestCase):
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_robust(
         self,
         risk_measure: RiskMeasure | None = None,
@@ -129,7 +129,7 @@ class TestRobust(TestCase):
     def test_unsupported_model(self) -> None:
         exp = get_robust_branin_experiment()
         with self.assertRaisesRegex(UnsupportedError, "support robust"):
-            Models.GPEI(
+            Models.LEGACY_BOTORCH(
                 experiment=exp,
                 data=exp.fetch_data(),
             ).gen(n=1)

@@ -12,6 +12,7 @@ from logging import Logger
 from typing import NamedTuple
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
@@ -35,6 +36,7 @@ from ax.modelbridge.modelbridge_utils import (
 )
 from ax.modelbridge.registry import Models
 from ax.modelbridge.torch import TorchModelBridge
+from ax.modelbridge.transforms.derelativize import derelativize_bound
 from ax.modelbridge.transforms.search_space_to_float import SearchSpaceToFloat
 from ax.models.torch_base import TorchModel
 from ax.utils.common.logger import get_logger
@@ -53,10 +55,10 @@ logger: Logger = get_logger(__name__)
 
 
 def _extract_observed_pareto_2d(
-    Y: np.ndarray,
+    Y: npt.NDArray,
     reference_point: tuple[float, float] | None,
     minimize: bool | tuple[bool, bool] = True,
-) -> np.ndarray:
+) -> npt.NDArray:
     if Y.shape[1] != 2:
         raise NotImplementedError("Currently only the 2-dim case is handled.")
     # If `minimize` is a bool, apply to both dimensions
@@ -267,10 +269,11 @@ def get_observed_pareto_frontiers(
                     sq_sem=np.nan,
                 )[0][0]
         elif name in objective_thresholds and rel_objth[name]:
-            # Metric is not rel but obj th is, so need to derelativize obj th
-            objective_thresholds[name] = (
-                1 + objective_thresholds[name] / 100.0
-            ) * sq_means[name]
+            # Metric is not relative but objective threshold is, so we need to
+            # derelativize the objective threshold.
+            objective_thresholds[name] = derelativize_bound(
+                bound=objective_thresholds[name], sq_val=sq_means[name]
+            )
 
     absolute_metrics = [name for name, val in metric_is_rel.items() if not val]
     # Construct ParetoFrontResults for each pair
@@ -508,6 +511,8 @@ def _extract_pareto_frontier_results(
 
         for metric in metrics:
             if metric not in absolute_metrics and metric in sq_mean:
+                # pyre-fixme[6]: For 2nd argument expected `List[float]` but got
+                #  `ndarray[typing.Any, typing.Any]`.
                 means_out[metric], sems_out[metric] = relativize(
                     means_t=means_out[metric],
                     sems_t=sems_out[metric],
@@ -519,6 +524,8 @@ def _extract_pareto_frontier_results(
     return ParetoFrontierResults(
         param_dicts=param_dicts,
         means=means_out,
+        # pyre-fixme[6]: For 3rd argument expected `Dict[str, List[float]]` but got
+        #  `Dict[str, ndarray[typing.Any, dtype[typing.Any]]]`.
         sems=sems_out,
         primary_metric=primary_metric,
         secondary_metric=secondary_metric,
@@ -545,7 +552,7 @@ def _validate_outcome_constraints(
 
 
 def _build_scalarized_optimization_config(
-    weights: np.ndarray,
+    weights: npt.NDArray,
     primary_objective: Metric,
     secondary_objective: Metric,
     outcome_constraints: list[OutcomeConstraint] | None = None,

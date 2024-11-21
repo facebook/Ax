@@ -8,17 +8,19 @@
 
 import warnings
 from collections import OrderedDict
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
+from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any
 
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxError, AxWarning, UnsupportedError
+from ax.models.torch_base import TorchOptConfig
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.logei import qLogNoisyExpectedImprovement
 from botorch.acquisition.multi_objective.logei import (
@@ -33,30 +35,132 @@ from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel, GPyTorchMod
 from botorch.models.model import Model, ModelList
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP
+from botorch.models.transforms.input import InputTransform
+from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.transforms import is_fully_bayesian
+from gpytorch.kernels.kernel import Kernel
+from gpytorch.likelihoods import Likelihood
+from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
+from pyre_extensions import none_throws
 from torch import Tensor
 
 MIN_OBSERVED_NOISE_LEVEL = 1e-7
 logger: Logger = get_logger(__name__)
 
 
+@dataclass
+class ModelConfig:
+    """Configuration for the BoTorch Model used in Surrogate.
+
+    Args:
+        botorch_model_class: ``Model`` class to be used as the underlying
+            BoTorch model. If None is provided a model class will be selected (either
+            one for all outcomes or a ModelList with separate models for each outcome)
+            will be selected automatically based off the datasets at `construct` time.
+        model_options: Dictionary of options / kwargs for the BoTorch
+            ``Model`` constructed during ``Surrogate.fit``.
+            Note that the corresponding attribute will later be updated to include any
+            additional kwargs passed into ``BoTorchModel.fit``.
+        mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
+            This argument is deprecated in favor of model_configs.
+        mll_options: Dictionary of options / kwargs for the MLL.
+        outcome_transform_classes: List of BoTorch outcome transforms classes. Passed
+            down to the BoTorch ``Model``. Multiple outcome transforms can be chained
+            together using ``ChainedOutcomeTransform``.
+        outcome_transform_options: Outcome transform classes kwargs. The keys are
+            class string names and the values are dictionaries of outcome transform
+            kwargs. For example,
+            `
+            outcome_transform_classes = [Standardize]
+            outcome_transform_options = {
+                "Standardize": {"m": 1},
+            `
+            For more options see `botorch/models/transforms/outcome.py`.
+        input_transform_classes: List of BoTorch input transforms classes.
+            Passed down to the BoTorch ``Model``. Multiple input transforms
+            will be chained together using ``ChainedInputTransform``.
+        input_transform_options: Input transform classes kwargs. The keys are
+            class string names and the values are dictionaries of input transform
+            kwargs. For example,
+            `
+            input_transform_classes = [Normalize, Round]
+            input_transform_options = {
+                "Normalize": {"d": 3},
+                "Round": {"integer_indices": [0], "categorical_features": {1: 2}},
+            }
+            `
+            For more input options see `botorch/models/transforms/input.py`.
+        covar_module_class: Covariance module class. This gets initialized after
+            parsing the ``covar_module_options`` in ``covar_module_argparse``,
+            and gets passed to the model constructor as ``covar_module``.
+        covar_module_options: Covariance module kwargs.
+            in favor of model_configs.
+        likelihood: ``Likelihood`` class. This gets initialized with
+            ``likelihood_options`` and gets passed to the model constructor.
+            This argument is deprecated in favor of model_configs.
+        likelihood_options: Likelihood options.
+        name: Name of the model config. This is used to identify the model config.
+    """
+
+    botorch_model_class: type[Model] | None = None
+    model_options: dict[str, Any] = field(default_factory=dict)
+    mll_class: type[MarginalLogLikelihood] = ExactMarginalLogLikelihood
+    mll_options: dict[str, Any] = field(default_factory=dict)
+    input_transform_classes: list[type[InputTransform]] | None = None
+    input_transform_options: dict[str, dict[str, Any]] | None = field(
+        default_factory=dict
+    )
+    outcome_transform_classes: list[type[OutcomeTransform]] | None = None
+    outcome_transform_options: dict[str, dict[str, Any]] = field(default_factory=dict)
+    covar_module_class: type[Kernel] | None = None
+    covar_module_options: dict[str, Any] = field(default_factory=dict)
+    likelihood_class: type[Likelihood] | None = None
+    likelihood_options: dict[str, Any] = field(default_factory=dict)
+    name: str | None = None
+
+
 def use_model_list(
     datasets: Sequence[SupervisedDataset],
     botorch_model_class: type[Model],
+    model_configs: list[ModelConfig] | None = None,
+    metric_to_model_configs: dict[str, list[ModelConfig]] | None = None,
     allow_batched_models: bool = True,
 ) -> bool:
-
-    if issubclass(botorch_model_class, MultiTaskGP):
-        # We currently always wrap multi-task models into `ModelListGP`.
+    model_configs = model_configs or []
+    metric_to_model_configs = metric_to_model_configs or {}
+    if len(datasets) == 1 and datasets[0].Y.shape[-1] == 1:
+        # There is only one outcome, so we can use a single model.
+        return False
+    elif (
+        len(model_configs) > 1
+        or len(metric_to_model_configs) > 0
+        or any(len(model_config) for model_config in metric_to_model_configs.values())
+    ):
+        # There are multiple outcomes and outcomes might be modeled with different
+        # models
         return True
-    elif issubclass(botorch_model_class, SaasFullyBayesianSingleTaskGP):
+    # Otherwise, the same model class is used for all outcomes.
+    # Determine what the model class is.
+    if len(model_configs) > 0:
+        botorch_model_class = (
+            model_configs[0].botorch_model_class or botorch_model_class
+        )
+    if issubclass(botorch_model_class, SaasFullyBayesianSingleTaskGP):
         # SAAS models do not support multiple outcomes.
         # Use model list if there are multiple outcomes.
         return len(datasets) > 1 or datasets[0].Y.shape[-1] > 1
+    elif issubclass(botorch_model_class, MultiTaskGP):
+        # We wrap multi-task models into `ModelListGP` when there are
+        # multiple outcomes.
+        return len(datasets) > 1 or datasets[0].Y.shape[-1] > 1
     elif len(datasets) == 1:
-        # Just one outcome, can use single model.
+        # This method is called before multiple datasets are merged into
+        # one if using a batched model. If there is one dataset here,
+        # there should be a reason that a single model should be used:
+        # e.g. a contextual model, where we want to jointly model the metric
+        # each context (and context-level metrics are different outcomes).
         return False
     elif issubclass(botorch_model_class, BatchedMultiOutputGPyTorchModel) and all(
         torch.equal(datasets[0].X, ds.X) for ds in datasets[1:]
@@ -130,21 +234,14 @@ def choose_model_class(
 
 
 def choose_botorch_acqf_class(
-    pending_observations: list[Tensor] | None = None,
-    outcome_constraints: tuple[Tensor, Tensor] | None = None,
-    linear_constraints: tuple[Tensor, Tensor] | None = None,
-    fixed_features: dict[int, float] | None = None,
-    objective_thresholds: Tensor | None = None,
-    objective_weights: Tensor | None = None,
+    torch_opt_config: TorchOptConfig,
 ) -> type[AcquisitionFunction]:
-    """Chooses a BoTorch `AcquisitionFunction` class."""
-    if objective_thresholds is not None or (
-        # using objective_weights is a less-than-ideal fix given its ambiguity,
-        # the real fix would be to revisit the infomration passed down via
-        # the modelbridge (and be explicit about whether we scalarize or perform MOO)
-        objective_weights is not None
-        and objective_weights.nonzero().numel() > 1
-    ):
+    """Chooses a BoTorch ``AcquisitionFunction`` class.
+
+    Current logic relies on ``TorchOptConfig.is_moo`` field to determine
+    whether to use qLogNEHVI (for MOO) or qLogNEI for (SOO).
+    """
+    if torch_opt_config.is_moo:
         acqf_class = qLogNoisyExpectedHypervolumeImprovement
     else:
         acqf_class = qLogNoisyExpectedImprovement
@@ -238,7 +335,7 @@ def convert_to_block_design(
     # data complies to block design, can concat with impunity
     Y = torch.cat([ds.Y for ds in datasets], dim=-1)
     if is_fixed:
-        Yvar = torch.cat([not_none(ds.Yvar) for ds in datasets], dim=-1)
+        Yvar = torch.cat([none_throws(ds.Yvar) for ds in datasets], dim=-1)
     else:
         Yvar = None
     datasets = [
@@ -314,38 +411,6 @@ def _tensor_difference(A: Tensor, B: Tensor) -> Tensor:
     B_indices = inverse_ind[n:].tolist()
     Bi_set = set(B_indices) - set(A_indices)
     return D[list(Bi_set)]
-
-
-def get_post_processing_func(
-    rounding_func: Callable[[Tensor], Tensor] | None,
-    optimizer_options: dict[str, Any],
-) -> Callable[[Tensor], Tensor] | None:
-    """Get the post processing function by combining the rounding function
-    with the post processing function provided as part of the optimizer
-    options. If both are given, the post processing function is applied before
-    applying the rounding function. If only one of them is given, then
-    it is used as the post processing function.
-    """
-    if "post_processing_func" in optimizer_options:
-        provided_func: Callable[[Tensor], Tensor] = optimizer_options.pop(
-            "post_processing_func"
-        )
-        if rounding_func is None:
-            # No rounding function is given. We can use the post processing
-            # function directly.
-            return provided_func
-        else:
-            # Both post processing and rounding functions are given. We need
-            # to chain them and apply the post processing function first.
-            base_rounding_func: Callable[[Tensor], Tensor] = rounding_func
-
-            def combined_func(x: Tensor) -> Tensor:
-                return base_rounding_func(provided_func(x))
-
-            return combined_func
-
-    else:
-        return rounding_func
 
 
 def check_outcome_dataset_match(

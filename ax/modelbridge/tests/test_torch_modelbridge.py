@@ -39,7 +39,7 @@ from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch_base import TorchGenResults, TorchModel
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_data,
     get_branin_experiment,
@@ -48,13 +48,14 @@ from ax.utils.testing.core_stubs import (
     get_optimization_config_no_constraints,
     get_search_space_for_range_value,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_observation1, transform_1, transform_2
 from botorch.utils.datasets import (
     ContextualDataset,
     MultiTaskDataset,
     SupervisedDataset,
 )
+from pyre_extensions import none_throws
 
 
 def _get_mock_modelbridge(
@@ -132,13 +133,14 @@ class TorchModelBridgeTest(TestCase):
             for y1, y2, yvar1, yvar2 in zip(
                 datasets["y1"].Y.tolist(),
                 datasets["y2"].Y.tolist(),
-                not_none(datasets["y1"].Yvar).tolist(),
-                not_none(datasets["y2"].Yvar).tolist(),
+                none_throws(datasets["y1"].Yvar).tolist(),
+                none_throws(datasets["y2"].Yvar).tolist(),
             )
         ]
         observations = recombine_observations(observation_features, observation_data)
         ssd = SearchSpaceDigest(
-            feature_names=feature_names, bounds=[(0, 1)] * 3  # pyre-ignore
+            feature_names=feature_names,
+            bounds=[(0, 1)] * 3,  # pyre-ignore
         )
 
         with mock.patch(
@@ -200,7 +202,9 @@ class TorchModelBridgeTest(TestCase):
             weights=torch.tensor([1.0], **tkwargs),
             gen_metadata={"foo": 99},
         )
-
+        opt_config = OptimizationConfig(
+            objective=Objective(metric=Metric("y1"), minimize=False),
+        )
         with ExitStack() as es:
             es.enter_context(
                 mock.patch(
@@ -230,9 +234,7 @@ class TorchModelBridgeTest(TestCase):
             gen_run = ma.gen(
                 n=3,
                 search_space=search_space,
-                optimization_config=OptimizationConfig(
-                    objective=Objective(metric=Metric("y1"), minimize=False),
-                ),
+                optimization_config=opt_config,
                 pending_observations={
                     "y2": [
                         ObservationFeatures(
@@ -264,6 +266,7 @@ class TorchModelBridgeTest(TestCase):
         self.assertEqual(gen_opt_config.model_gen_options, {"option": "yes"})
         self.assertIs(gen_opt_config.rounding_func, torch.round)
         self.assertFalse(gen_opt_config.is_moo)
+        self.assertEqual(gen_opt_config.opt_config_metrics, opt_config.metrics)
         self.assertEqual(gen_args["search_space_digest"].target_values, {})
         self.assertEqual(len(gen_run.arms), 1)
         self.assertEqual(gen_run.arms[0].parameters, {"x1": 1.0, "x2": 2.0, "x3": 3.0})
@@ -345,6 +348,7 @@ class TorchModelBridgeTest(TestCase):
         model_eval_acqf.return_value = torch.tensor([5.0], dtype=torch.float64)
 
         ma._model_space = get_branin_search_space()
+        ma._search_space = get_branin_search_space()
         ma._optimization_config = None
         ma.outcomes = ["test_metric"]
         ma._fit_out_of_design = False
@@ -498,10 +502,10 @@ class TorchModelBridgeTest(TestCase):
             autospec=True,
         ):
             run = modelbridge.gen(n=1, optimization_config=oc)
-            arm, predictions = not_none(run.best_arm_predictions)
-            model_arm, model_predictions = not_none(modelbridge.model_best_point())
-            predictions = not_none(predictions)
-            model_predictions = not_none(model_predictions)
+            arm, predictions = none_throws(run.best_arm_predictions)
+            model_arm, model_predictions = none_throws(modelbridge.model_best_point())
+            predictions = none_throws(predictions)
+            model_predictions = none_throws(model_predictions)
         self.assertEqual(arm.parameters, {})
         self.assertEqual(predictions[0], {"m": 1.0})
         self.assertEqual(predictions[1], {"m": {"m": 2.0}})
@@ -742,7 +746,7 @@ class TorchModelBridgeTest(TestCase):
                 feature_names=feature_names,
                 bounds=[(0.0, 5.0)] * 3,
                 ordinal_features=[2],
-                discrete_choices={2: list(range(0, 11))},  # pyre-ignore
+                discrete_choices={2: list(range(0, 11))},
                 task_features=[2] if use_task else [],
                 target_values={2: 0} if use_task else {},  # pyre-ignore
             )
@@ -754,7 +758,7 @@ class TorchModelBridgeTest(TestCase):
                 search_space_digest=search_space_digest,
             )
             self.assertEqual(len(converted_datasets), 1)
-            dataset = not_none(converted_datasets[0])
+            dataset = none_throws(converted_datasets[0])
             self.assertIs(dataset.__class__, expected_class)
             if use_task:
                 sort_idx = torch.argsort(raw_X[:, -1])
@@ -825,7 +829,7 @@ class TorchModelBridgeTest(TestCase):
                 feature_names=feature_names,
                 bounds=[(0.0, 5.0)] * 3,
                 ordinal_features=[2],
-                discrete_choices={2: list(range(0, 11))},  # pyre-ignore
+                discrete_choices={2: list(range(0, 11))},
                 task_features=[],
                 target_values={},
             ),
@@ -852,7 +856,7 @@ class TorchModelBridgeTest(TestCase):
                     ["c0", "c1", "c2"],
                 )
                 self.assertDictEqual(
-                    not_none(
+                    none_throws(
                         checked_cast(ContextualDataset, dataset).metric_decomposition
                     ),
                     metric_decomposition,
@@ -896,7 +900,7 @@ class TorchModelBridgeTest(TestCase):
         )
         self.assertEqual(mb.outcomes, expected_outcomes)
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_gen_metadata_untransform(self) -> None:
         experiment = get_experiment_with_observations(
             observations=[[0.0, 1.0], [2.0, 3.0]]

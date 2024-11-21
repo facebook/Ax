@@ -15,7 +15,7 @@ import pandas as pd
 from ax.core import BatchTrial, Experiment, Trial
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
-from ax.core.base_trial import TrialStatus
+from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.data import Data
 from ax.core.map_data import MapData
 from ax.core.map_metric import MapMetric
@@ -34,7 +34,7 @@ from ax.core.parameter import (
 )
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import AxError, UnsupportedError
+from ax.exceptions.core import AxError, RunnerNotFoundError, UnsupportedError
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
@@ -66,7 +66,7 @@ from ax.utils.testing.core_stubs import (
     get_status_quo,
     get_test_map_data_experiment,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 
 DUMMY_RUN_METADATA_KEY = "test_run_metadata_key"
 DUMMY_RUN_METADATA_VALUE = "test_run_metadata_value"
@@ -210,7 +210,7 @@ class ExperimentTest(TestCase):
 
         # Try (and fail) to create an experiment with constraints on choice
         # paramaters
-        with self.assertRaises(UnsupportedError):
+        with self.assertRaises(ValueError):
             ax_client.create_experiment(
                 name="experiment",
                 parameters=[
@@ -231,7 +231,7 @@ class ExperimentTest(TestCase):
 
         # Try (and fail) to create an experiment with constraints on fixed
         # parameters
-        with self.assertRaises(UnsupportedError):
+        with self.assertRaises(ValueError):
             ax_client.create_experiment(
                 name="experiment",
                 parameters=[
@@ -769,7 +769,6 @@ class ExperimentTest(TestCase):
             3,
         )
         self.assertEqual(type(self.experiment.trials[trial_index]), BatchTrial)
-        print({arm.name for arm in self.experiment.trials[trial_index].arms})
         self.assertEqual(
             {"arm1", "arm2", "arm3"},
             set(self.experiment.trials[trial_index].arms_by_name) - {"status_quo"},
@@ -1267,6 +1266,43 @@ class ExperimentTest(TestCase):
                     experiment.arms_by_signature_for_deduplication, expected_with_other
                 )
 
+    def test_trial_indices(self) -> None:
+        experiment = self.experiment
+        for _ in range(6):
+            experiment.new_trial()
+        self.assertEqual(experiment.trial_indices_expecting_data, set())
+        experiment.trials[0].mark_staged()
+        experiment.trials[1].mark_running(no_runner_required=True)
+        experiment.trials[2].mark_running(no_runner_required=True).mark_completed()
+        self.assertEqual(experiment.trial_indices_expecting_data, {1, 2})
+        experiment.trials[1].mark_abandoned()
+        self.assertEqual(experiment.trial_indices_expecting_data, {2})
+        experiment.trials[4].mark_running(no_runner_required=True)
+        self.assertEqual(experiment.trial_indices_expecting_data, {2, 4})
+        experiment.trials[4].mark_failed()
+        self.assertEqual(experiment.trial_indices_expecting_data, {2})
+        experiment.trials[5].mark_running(no_runner_required=True).mark_early_stopped()
+        self.assertEqual(experiment.trial_indices_expecting_data, {2, 5})
+
+    def test_stop_trial(self) -> None:
+        self.experiment.new_trial()
+        with patch.object(self.experiment, "runner"), patch.object(
+            self.experiment.runner, "stop", return_value=None
+        ) as mock_runner_stop, patch.object(
+            BaseTrial, "mark_early_stopped"
+        ) as mock_mark_stopped:
+            self.experiment.stop_trial_runs(trials=[self.experiment.trials[0]])
+            mock_runner_stop.assert_called_once()
+            mock_mark_stopped.assert_called_once()
+
+    def test_stop_trial_without_runner(self) -> None:
+        self.experiment.new_trial()
+        with self.assertRaisesRegex(
+            RunnerNotFoundError,
+            "Unable to stop trial runs: Runner not configured for experiment or trial.",
+        ):
+            self.experiment.stop_trial_runs(trials=[self.experiment.trials[0]])
+
 
 class ExperimentWithMapDataTest(TestCase):
     def setUp(self) -> None:
@@ -1460,7 +1496,7 @@ class ExperimentWithMapDataTest(TestCase):
             new_df.drop(["arm_name", "trial_index"], axis=1),
         )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_batch_with_multiple_generator_runs(self) -> None:
         exp = get_branin_experiment()
         # set seed to avoid transient errors caused by duplicate arms,

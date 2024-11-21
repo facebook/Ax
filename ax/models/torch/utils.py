@@ -12,9 +12,9 @@ from logging import Logger
 from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from ax.exceptions.core import UnsupportedError
-from ax.exceptions.model import ModelError
 from ax.models.model_utils import filter_constraints_and_fixed_features, get_observed
 from ax.models.random.sobol import SobolGenerator
 from ax.models.types import TConfig
@@ -22,7 +22,6 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import PosteriorMean
-from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
 from botorch.acquisition.monte_carlo import (
     qSimpleRegret,
     SampleReducingMCAcquisitionFunction,
@@ -50,7 +49,6 @@ from botorch.acquisition.objective import (
 )
 from botorch.acquisition.risk_measures import RiskMeasureMCObjective
 from botorch.acquisition.utils import get_infeasible_cost
-from botorch.models import ModelListGP, SingleTaskGP
 from botorch.models.model import Model
 from botorch.posteriors.fully_bayesian import GaussianMixturePosterior
 from botorch.posteriors.gpytorch import GPyTorchPosterior
@@ -65,9 +63,6 @@ from torch import Tensor
 logger: Logger = get_logger(__name__)
 
 
-NOISELESS_MODELS = {SingleTaskGP}
-
-
 # Distributions
 SIMPLEX = "simplex"
 HYPERSPHERE = "hypersphere"
@@ -80,15 +75,6 @@ class SubsetModelData:
     outcome_constraints: tuple[Tensor, Tensor] | None
     objective_thresholds: Tensor | None
     indices: Tensor
-
-
-def is_noiseless(model: Model) -> bool:
-    """Check if a given (single-task) botorch model is noiseless"""
-    if isinstance(model, ModelListGP):
-        raise ModelError(
-            "Checking for noisless models only applies to sub-models of ModelListGP"
-        )
-    return model.__class__ in NOISELESS_MODELS
 
 
 def _filter_X_observed(
@@ -345,7 +331,7 @@ def subset_model(
 
 
 def _to_inequality_constraints(
-    linear_constraints: tuple[Tensor, Tensor] | None = None
+    linear_constraints: tuple[Tensor, Tensor] | None = None,
 ) -> list[tuple[Tensor, Tensor, float]] | None:
     if linear_constraints is not None:
         A, b = linear_constraints
@@ -362,11 +348,12 @@ def _to_inequality_constraints(
 
 
 def tensor_callable_to_array_callable(
-    tensor_func: Callable[[Tensor], Tensor], device: torch.device
-) -> Callable[[np.ndarray], np.ndarray]:
+    tensor_func: Callable[[Tensor], Tensor],
+    device: torch.device,
+) -> Callable[[npt.NDArray], npt.NDArray]:
     """transfer a tensor callable to an array callable"""
 
-    def array_func(x: np.ndarray) -> np.ndarray:
+    def array_func(x: npt.NDArray) -> npt.NDArray:
         return tensor_func(torch.from_numpy(x).to(device)).detach().cpu().numpy()
 
     return array_func
@@ -504,101 +491,6 @@ def get_botorch_objective_and_transform(
     # Case of linear weights - use ScalarizedPosteriorTransform
     transform = ScalarizedPosteriorTransform(weights=objective_weights)
     return None, transform
-
-
-def get_out_of_sample_best_point_acqf(
-    model: Model,
-    Xs: list[Tensor],
-    X_observed: Tensor,
-    objective_weights: Tensor,
-    mc_samples: int = 512,
-    fixed_features: dict[int, float] | None = None,
-    fidelity_features: list[int] | None = None,
-    target_fidelities: dict[int, float] | None = None,
-    outcome_constraints: tuple[Tensor, Tensor] | None = None,
-    seed_inner: int | None = None,
-    qmc: bool = True,
-    risk_measure: RiskMeasureMCObjective | None = None,
-    **kwargs: Any,
-) -> tuple[AcquisitionFunction, list[int] | None]:
-    """Picks an appropriate acquisition function to find the best
-    out-of-sample (predicted by the given surrogate model) point
-    and instantiates it.
-
-    NOTE: Typically the appropriate function is the posterior mean,
-    but can differ to account for fidelities etc.
-    """
-    model = model
-
-    # subset model only to the outcomes we need for the optimization
-    if kwargs.get(Keys.SUBSET_MODEL, True):
-        subset_model_results = subset_model(
-            model=model,
-            objective_weights=objective_weights,
-            outcome_constraints=outcome_constraints,
-        )
-        model = subset_model_results.model
-        objective_weights = subset_model_results.objective_weights
-        outcome_constraints = subset_model_results.outcome_constraints
-
-    fixed_features = fixed_features or {}
-    target_fidelities = target_fidelities or {}
-
-    if fidelity_features:
-        # we need to optimize at the target fidelities
-        if any(f in fidelity_features for f in fixed_features):
-            raise RuntimeError("Fixed features cannot also be fidelity features.")
-        elif set(fidelity_features) != set(target_fidelities):
-            raise RuntimeError(
-                "Must provide a target fidelity for every fidelity feature."
-            )
-        # make sure to not modify fixed_features in-place
-        fixed_features = {**fixed_features, **target_fidelities}
-    elif target_fidelities:
-        raise RuntimeError(
-            "Must specify fidelity_features in fit() when using target fidelities."
-        )
-
-    acqf_class, acqf_options = pick_best_out_of_sample_point_acqf_class(
-        outcome_constraints=outcome_constraints,
-        mc_samples=mc_samples,
-        qmc=qmc,
-        seed_inner=seed_inner,
-        risk_measure=risk_measure,
-    )
-    objective, posterior_transform = get_botorch_objective_and_transform(
-        botorch_acqf_class=acqf_class,
-        model=model,
-        objective_weights=objective_weights,
-        outcome_constraints=outcome_constraints,
-        X_observed=X_observed,
-        risk_measure=risk_measure,
-    )
-
-    if objective is not None:
-        if not isinstance(objective, MCAcquisitionObjective):
-            raise UnsupportedError(
-                f"Unknown objective type: {objective.__class__}"  # pragma: nocover
-            )
-        acqf_options = {"objective": objective, **acqf_options}
-    if posterior_transform is not None:
-        acqf_options = {"posterior_transform": posterior_transform, **acqf_options}
-
-    acqf = acqf_class(model=model, **acqf_options)  # pyre-ignore [45]
-
-    if fixed_features:
-        acqf = FixedFeatureAcquisitionFunction(
-            acq_function=acqf,
-            d=X_observed.size(-1),
-            columns=list(fixed_features.keys()),
-            values=list(fixed_features.values()),
-        )
-        non_fixed_idcs = [i for i in range(Xs[0].size(-1)) if i not in fixed_features]
-
-    else:
-        non_fixed_idcs = None
-
-    return acqf, non_fixed_idcs
 
 
 def pick_best_out_of_sample_point_acqf_class(

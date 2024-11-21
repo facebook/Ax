@@ -15,6 +15,7 @@ from random import random
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 from ax.core.base_trial import BaseTrial
 from ax.core.map_data import MapData, MapKeyInfo
@@ -22,8 +23,9 @@ from ax.core.map_metric import MapMetricFetchResult
 from ax.core.metric import MetricFetchE
 from ax.metrics.noisy_function_map import NoisyFunctionMapMetric
 from ax.utils.common.result import Err, Ok
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.measurement.synthetic_functions import branin
+from pyre_extensions import none_throws
 
 FIDELITY = [0.1, 0.4, 0.7, 1.0]
 
@@ -117,11 +119,11 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
 
     # pyre-fixme[14]: `f` overrides method defined in `NoisyFunctionMapMetric`
     #  inconsistently.
-    def f(self, x: np.ndarray, timestamp: int) -> Mapping[str, Any]:
+    def f(self, x: npt.NDArray, timestamp: int) -> Mapping[str, Any]:
         x1, x2 = x
 
         if self.rate is not None:
-            weight = 1.0 + np.exp(-not_none(self.rate) * timestamp)
+            weight = 1.0 + np.exp(-none_throws(self.rate) * timestamp)
         else:
             weight = 1.0
 
@@ -131,7 +133,6 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
 
 
 class BraninFidelityMapMetric(NoisyFunctionMapMetric):
-
     map_key_info: MapKeyInfo[float] = MapKeyInfo(key="fidelity", default_value=0.0)
 
     def __init__(
@@ -161,7 +162,7 @@ class BraninFidelityMapMetric(NoisyFunctionMapMetric):
             **kwargs,
         )
 
-    def f(self, x: np.ndarray) -> Mapping[str, Any]:
+    def f(self, x: npt.NDArray) -> Mapping[str, Any]:
         if self.index < len(FIDELITY):
             self.index += 1
 

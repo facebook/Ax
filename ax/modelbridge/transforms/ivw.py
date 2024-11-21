@@ -9,6 +9,7 @@
 from logging import Logger
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.observation import ObservationData
 from ax.modelbridge.transforms.base import Transform
 from ax.utils.common.logger import get_logger
@@ -48,12 +49,14 @@ def ivw_metric_merge(
     # weights is a map from metric name to a vector of the weights for each
     # measurement of that metric. indicies gives the corresponding index in
     # obsd.means for each measurement.
-    weights: dict[str, np.ndarray] = {}
+    weights: dict[str, npt.NDArray] = {}
     indicies: dict[str, list[int]] = {}
     for metric_name in set(obsd.metric_names):
         indcs = [i for i, mn in enumerate(obsd.metric_names) if mn == metric_name]
         indicies[metric_name] = indcs
         # Extract variances for observations of this metric
+        # NOTE: This only extracts the diagonal of the covariance matrix, and would not
+        # lead to a maximum variance reduction in the presence of correlated noise.
         sigma2s = obsd.covariance[indcs, indcs]
         # Check for noiseless observations
         idx_noiseless = np.where(sigma2s == 0.0)[0]
@@ -61,7 +64,6 @@ def ivw_metric_merge(
             # Weight is inverse of variance, normalized
             # Expected `np.ndarray` for 3rd anonymous parameter to call
             # `dict.__setitem__` but got `float`.
-            # pyre-fixme[6]:
             weights[metric_name] = 1.0 / sigma2s
             weights[metric_name] /= np.sum(weights[metric_name])
         else:
@@ -96,7 +98,9 @@ def ivw_metric_merge(
 
 
 def _check_conflicting_means(
-    means_noiseless: np.ndarray, metric_name: str, conflicting_noiseless: str
+    means_noiseless: npt.NDArray,
+    metric_name: str,
+    conflicting_noiseless: str,
 ) -> None:
     if np.var(means_noiseless) > 0:
         message = f"Conflicting noiseless measurements for {metric_name}."

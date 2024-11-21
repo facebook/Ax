@@ -40,7 +40,8 @@ from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.storage.sqa_store.utils import copy_db_ids
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -146,7 +147,7 @@ def _save_generation_strategy(
         decode_args={"experiment": experiment},
     )
 
-    return not_none(generation_strategy.db_id)
+    return none_throws(generation_strategy.db_id)
 
 
 def save_or_update_trial(
@@ -225,7 +226,7 @@ def _save_or_update_trials(
 
     experiment_id: int = experiment._db_id
 
-    def add_experiment_id(sqa: SQATrial | SQAData) -> None:
+    def add_experiment_id(sqa: SQATrial) -> None:
         sqa.experiment_id = experiment_id
 
     if reduce_state_generator_runs:
@@ -262,6 +263,29 @@ def _save_or_update_trials(
             batch_size=batch_size,
         )
 
+    save_or_update_data_for_trials(
+        experiment=experiment,
+        trials=trials,
+        encoder=encoder,
+        decoder=decoder,
+        batch_size=batch_size,
+    )
+
+
+def save_or_update_data_for_trials(
+    experiment: Experiment,
+    trials: list[BaseTrial],
+    encoder: Encoder,
+    decoder: Decoder,
+    batch_size: int | None = None,
+    update_trial_statuses: bool = False,
+) -> None:
+    if experiment.db_id is None:
+        raise ValueError("Must save experiment before saving/updating its data.")
+
+    def add_experiment_id(sqa: SQAData) -> None:
+        sqa.experiment_id = experiment.db_id
+
     datas, data_encode_args, datas_to_keep, trial_idcs = [], [], [], []
     data_sqa_class: type[SQAData] = cast(
         type[SQAData], encoder.config.class_to_sqa_class[Data]
@@ -281,11 +305,11 @@ def _save_or_update_trials(
         # For trials, for which we saved new data, we can first remove previously
         # saved data if it's no longer on the experiment.
         with session_scope() as session:
-            session.query(data_sqa_class).filter_by(experiment_id=experiment_id).filter(
-                data_sqa_class.trial_index.isnot(None)
-            ).filter(data_sqa_class.trial_index.in_(trial_idcs)).filter(
-                data_sqa_class.id not in datas_to_keep
-            ).delete()
+            session.query(data_sqa_class).filter_by(
+                experiment_id=experiment.db_id
+            ).filter(data_sqa_class.trial_index.isnot(None)).filter(
+                data_sqa_class.trial_index.in_(trial_idcs)
+            ).filter(data_sqa_class.id not in datas_to_keep).delete()
 
     _bulk_merge_into_session(
         objs=datas,
@@ -299,6 +323,10 @@ def _save_or_update_trials(
         modify_sqa=add_experiment_id,
         batch_size=batch_size,
     )
+
+    if update_trial_statuses:
+        for trial in trials:
+            update_trial_status(trial_with_updated_status=trial, config=encoder.config)
 
 
 def update_generation_strategy(
@@ -483,6 +511,25 @@ def update_properties_on_trial(
         session.query(trial_sqa_class).filter_by(id=trial_id).update(
             {
                 "properties": trial_with_updated_properties._properties,
+            }
+        )
+
+
+def update_trial_status(
+    trial_with_updated_status: BaseTrial,
+    config: SQAConfig | None = None,
+) -> None:
+    config = SQAConfig() if config is None else config
+    trial_sqa_class = config.class_to_sqa_class[Trial]
+
+    trial_id = trial_with_updated_status.db_id
+    if trial_id is None:
+        raise ValueError("Trial must be saved before being updated.")
+
+    with session_scope() as session:
+        session.query(trial_sqa_class).filter_by(id=trial_id).update(
+            {
+                "status": trial_with_updated_status.status,
             }
         )
 

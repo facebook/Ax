@@ -18,7 +18,7 @@ from ax.core.parameter import (
 )
 from ax.exceptions.core import AxParameterWarning, AxWarning, UserInputError
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 
 class RangeParameterTest(TestCase):
@@ -358,7 +358,7 @@ class ChoiceParameterTest(TestCase):
             dependents={"foo": ["y", "z"], "bar": ["w"]},
         )
         param_clone = param.clone()
-        not_none(param_clone._dependents)["foo"] = ["y"]
+        none_throws(param_clone._dependents)["foo"] = ["y"]
         self.assertEqual(param.dependents, {"foo": ["y", "z"], "bar": ["w"]})
         self.assertEqual(param_clone.dependents, {"foo": ["y"], "bar": ["w"]})
 
@@ -525,19 +525,14 @@ class ChoiceParameterTest(TestCase):
             )
             self.assertEqual(p._is_ordered, True)
 
-            # Change `is_ordered` to True and warn
-            with self.assertWarnsRegex(
-                AxParameterWarning,
-                "Changing `is_ordered` to `True` for `ChoiceParameter` 'x' since "
-                "there are only two possible values",
-            ):
-                p = ChoiceParameter(
-                    name="x",
-                    parameter_type=parameter_type,
-                    values=values,  # pyre-ignore
-                    is_ordered=False,
-                )
-                self.assertEqual(p._is_ordered, True)
+            # Change `is_ordered` to True
+            p = ChoiceParameter(
+                name="x",
+                parameter_type=parameter_type,
+                values=values,  # pyre-ignore
+                is_ordered=False,
+            )
+            self.assertEqual(p._is_ordered, True)
 
             # Set to True if `is_ordered` is not specified
             with self.assertWarnsRegex(

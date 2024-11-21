@@ -11,6 +11,7 @@ from logging import Logger
 from typing import Optional, TYPE_CHECKING
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.observation import Observation, ObservationData
 from ax.core.optimization_config import (
@@ -344,7 +345,7 @@ def _get_objective_threshold_from_moo_config(
     ]
 
 
-def _get_tukey_cutoffs(Y: np.ndarray, lower: bool) -> float:
+def _get_tukey_cutoffs(Y: npt.NDArray, lower: bool) -> float:
     """Compute winsorization cutoffs similarly to Tukey boxplots.
 
     See https://mathworld.wolfram.com/Box-and-WhiskerPlot.html for more details.
@@ -386,7 +387,9 @@ def _get_auto_winsorization_cutoffs_outcome_constraint(
     """
     Y = np.array(metric_values)
     # TODO: replace interpolation->method once it becomes standard.
+    # pyre-fixme[28]: Unexpected keyword argument `interpolation`.
     q1 = np.percentile(Y, q=25, interpolation="lower")
+    # pyre-fixme[28]: Unexpected keyword argument `interpolation`.
     q3 = np.percentile(Y, q=75, interpolation="higher")
     lower_cutoff, upper_cutoff = DEFAULT_CUTOFFS
     for oc in outcome_constraints:
@@ -427,6 +430,7 @@ def _quantiles_to_cutoffs(
     elif lower == 0.0:  # Use the default cutoff if there is no winsorization
         cutoff_l = DEFAULT_CUTOFFS[0]
     else:
+        # pyre-fixme[28]: Unexpected keyword argument `interpolation`.
         cutoff_l = np.percentile(Y, lower * 100, interpolation="lower")
 
     if upper == AUTO_WINS_QUANTILE:
@@ -434,6 +438,7 @@ def _quantiles_to_cutoffs(
     elif upper == 0.0:  # Use the default cutoff if there is no winsorization
         cutoff_u = DEFAULT_CUTOFFS[1]
     else:
+        # pyre-fixme[28]: Unexpected keyword argument `interpolation`.
         cutoff_u = np.percentile(Y, (1 - upper) * 100, interpolation="higher")
 
     cutoff_l = min(cutoff_l, bnd_l) if bnd_l is not None else cutoff_l

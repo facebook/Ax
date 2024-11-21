@@ -19,18 +19,21 @@ Key terms used:
 
 """
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from itertools import product
 from logging import Logger
 from time import monotonic, time
+from typing import Set
 
 import numpy as np
-
+import numpy.typing as npt
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
+from ax.benchmark.benchmark_runner import BenchmarkRunner
+from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
-from ax.core.types import TParameterization
+from ax.core.types import TParameterization, TParamValue
 from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
 from ax.service.utils.best_point_mixin import BestPointMixin
@@ -41,10 +44,10 @@ logger: Logger = get_logger(__name__)
 
 
 def compute_score_trace(
-    optimization_trace: np.ndarray,
+    optimization_trace: npt.NDArray,
     num_baseline_trials: int,
     problem: BenchmarkProblem,
-) -> np.ndarray:
+) -> npt.NDArray:
     """Computes a score trace from the optimization trace."""
 
     # Use the first GenerationStep's best found point as baseline. Sometimes (ex. in
@@ -64,28 +67,105 @@ def compute_score_trace(
     return score_trace.clip(min=0, max=100)
 
 
-def _create_benchmark_experiment(
-    problem: BenchmarkProblem, method_name: str
-) -> Experiment:
-    """Creates an empty experiment for the given problem and method.
+def get_benchmark_runner(
+    problem: BenchmarkProblem, max_concurrency: int = 1
+) -> BenchmarkRunner:
+    """
+    Construct a ``BenchmarkRunner`` for the given problem and concurrency.
 
-    If the problem is "noiseless" (i.e. evaluations prior to adding artificial
-    noise to the outcomes are determinstic), also adds the respective ground
-    truth metrics as tracking metrics for each metric defined on the problem
-    (including tracking metrics and the metrics in the OptimizationConfig).
+    If ``max_concurrency > 1`` or if there is a ``sample_runtime_func`` is
+    present on ``BenchmarkProblem``, construct a ``SimulatedBenchmarkRunner`` to
+    track when trials start and stop.
 
     Args:
-        problem: The BenchmarkProblem to test against (can be synthetic or real).
-        method_name: Name of the method being tested.
-
-    Returns:
-        The Experiment object to be used for benchmarking.
+        problem: The ``BenchmarkProblem``; provides a ``BenchmarkTestFunction``
+            (used to generate data) and ``trial_runtime_func`` (used to
+            determine the length of trials for the simulator).
+        max_concurrency: The maximum number of trials that can be run concurrently.
+            Typically, ``max_pending_trials`` from ``SchedulerOptions``, which are
+            stored on the ``BenchmarkMethod``.
     """
-    return Experiment(
-        name=f"{problem.name}|{method_name}_{int(time())}",
+    return BenchmarkRunner(
+        test_function=problem.test_function,
+        noise_std=problem.noise_std,
+        trial_runtime_func=problem.trial_runtime_func,
+        max_concurrency=max_concurrency,
+    )
+
+
+def get_oracle_experiment_from_params(
+    problem: BenchmarkProblem,
+    dict_of_dict_of_params: Mapping[int, Mapping[str, Mapping[str, TParamValue]]],
+) -> Experiment:
+    """
+    Get a new experiment with the same search space and optimization config
+    as those belonging to this problem, but with parameterizations evaluated
+    at oracle values (noiseless ground-truth values evaluated at the target task
+    and fidelity).
+
+    Args:
+        problem: ``BenchmarkProblem`` from which to take a test function for
+            generating metrics, as well as a search space and optimization
+            config for generating an experiment.
+        dict_of_dict_of_params: Keys are trial indices, values are Mappings
+            (e.g. dicts) that map arm names to parameterizations.
+
+    Example:
+        >>> get_oracle_experiment_from_params(
+        ...     problem=problem,
+        ...     dict_of_dict_of_params={
+        ...         0: {
+        ...            "0_0": {"x0": 0.0, "x1": 0.0},
+        ...            "0_1": {"x0": 0.3, "x1": 0.4},
+        ...         },
+        ...         1: {"1_0": {"x0": 0.0, "x1": 0.0}},
+        ...     }
+        ... )
+    """
+
+    experiment = Experiment(
         search_space=problem.search_space,
         optimization_config=problem.optimization_config,
-        runner=problem.runner,
+    )
+
+    runner = BenchmarkRunner(test_function=problem.test_function, noise_std=0.0)
+
+    for trial_index, dict_of_params in dict_of_dict_of_params.items():
+        if len(dict_of_params) == 0:
+            raise ValueError(
+                "Can't create a trial with no arms. Each sublist in "
+                "list_of_list_of_params must have at least one element."
+            )
+        experiment.attach_trial(
+            parameterizations=[
+                {**parameters, **problem.target_fidelity_and_task}
+                for parameters in dict_of_params.values()
+            ],
+            arm_names=list(dict_of_params.keys()),
+        )
+        trial = experiment.trials[trial_index]
+        metadata = runner.run(trial=trial)
+        trial.update_run_metadata(metadata=metadata)
+        trial.mark_completed()
+
+    experiment.fetch_data()
+    return experiment
+
+
+def get_oracle_experiment_from_experiment(
+    problem: BenchmarkProblem, experiment: Experiment
+) -> Experiment:
+    """
+    Get an ``Experiment`` that is the same as the original experiment but has
+    metrics evaluated at oracle values (noiseless ground-truth values
+    evaluated at the target task and fidelity)
+    """
+    return get_oracle_experiment_from_params(
+        problem=problem,
+        dict_of_dict_of_params={
+            trial.index: {arm.name: arm.parameters for arm in trial.arms}
+            for trial in experiment.trials.values()
+        },
     )
 
 
@@ -93,6 +173,7 @@ def benchmark_replication(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
     seed: int,
+    strip_runner_before_saving: bool = True,
 ) -> BenchmarkResult:
     """
     Run one benchmarking replication (equivalent to one optimization loop).
@@ -103,21 +184,26 @@ def benchmark_replication(
     trace``. The cumulative maximum of the oracle value of each parameterization
     tested is the ``oracle_trace``.
 
-
     Args:
         problem: The BenchmarkProblem to test against (can be synthetic or real)
         method: The BenchmarkMethod to test
         seed: The seed to use for this replication.
+        strip_runner_before_saving: Whether to strip the runner from the
+            experiment before saving it. This enables serialization.
 
     Return:
         ``BenchmarkResult`` object.
     """
 
+    runner = get_benchmark_runner(
+        problem=problem, max_concurrency=method.scheduler_options.max_pending_trials
+    )
+
     experiment = Experiment(
         name=f"{problem.name}|{method.name}_{int(time())}",
         search_space=problem.search_space,
         optimization_config=problem.optimization_config,
-        runner=problem.runner,
+        runner=runner,
     )
 
     scheduler = Scheduler(
@@ -129,18 +215,22 @@ def benchmark_replication(
     # list of parameters for each trial
     best_params_by_trial: list[list[TParameterization]] = []
 
-    is_mf_or_mt = len(problem.runner.target_fidelity_and_task) > 0
+    is_mf_or_mt = len(problem.target_fidelity_and_task) > 0
+    trials_used_for_best_point: Set[int] = set()
+
     # Run the optimization loop.
-    timeout_hours = scheduler.options.timeout_hours
+    timeout_hours = method.timeout_hours
     remaining_hours = timeout_hours
     with with_rng_seed(seed=seed):
         start = monotonic()
-        for _ in range(problem.num_trials):
-            next(
-                scheduler.run_trials_and_yield_results(
-                    max_trials=1, timeout_hours=remaining_hours
-                )
-            )
+        # These next several lines do the same thing as `run_n_trials`, but
+        # decrement the timeout with each step, so that the timeout refers to
+        # the total time spent in the optimization loop, not time per trial.
+        scheduler.poll_and_process_results()
+        for _ in scheduler.run_trials_and_yield_results(
+            max_trials=problem.num_trials,
+            timeout_hours=remaining_hours,
+        ):
             if timeout_hours is not None:
                 elapsed_hours = (monotonic() - start) / 3600
                 remaining_hours = timeout_hours - elapsed_hours
@@ -155,12 +245,31 @@ def benchmark_replication(
                 # to predict at the target task or fidelity.
                 continue
 
+            currently_completed_trials = {
+                t.index
+                for t in experiment.trials.values()
+                if t.status in (TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED)
+            }
+            newly_completed_trials = (
+                currently_completed_trials - trials_used_for_best_point
+            )
+            if len(newly_completed_trials) == 0:
+                continue
+            for t in newly_completed_trials:
+                trials_used_for_best_point.add(t)
+
             best_params = method.get_best_parameters(
                 experiment=experiment,
                 optimization_config=problem.optimization_config,
                 n_points=problem.n_best_points,
             )
-            best_params_by_trial.append(best_params)
+            # If multiple trials complete at the same time, add that number of
+            # points to the inference trace so that the trace has length equal to
+            # the number of trials.
+            for _ in newly_completed_trials:
+                best_params_by_trial.append(best_params)
+
+        scheduler.summarize_final_result()
 
     # Construct inference trace from best parameters
     inference_trace = np.full(problem.num_trials, np.nan)
@@ -169,8 +278,9 @@ def benchmark_replication(
             inference_trace[trial_index] = np.nan
             continue
         # Construct an experiment with one BatchTrial
-        best_params_oracle_experiment = problem.get_oracle_experiment_from_params(
-            {0: {str(i): p for i, p in enumerate(best_params)}}
+        best_params_oracle_experiment = get_oracle_experiment_from_params(
+            problem=problem,
+            dict_of_dict_of_params={0: {str(i): p for i, p in enumerate(best_params)}},
         )
         # Get the optimization trace. It will have only one point.
         inference_trace[trial_index] = BestPointMixin._get_trace(
@@ -178,8 +288,8 @@ def benchmark_replication(
             optimization_config=problem.optimization_config,
         )[0]
 
-    actual_params_oracle_experiment = problem.get_oracle_experiment_from_experiment(
-        experiment=experiment
+    actual_params_oracle_experiment = get_oracle_experiment_from_experiment(
+        problem=problem, experiment=experiment
     )
     oracle_trace = np.array(
         BestPointMixin._get_trace(
@@ -214,6 +324,10 @@ def benchmark_replication(
         score_trace = np.full(len(optimization_trace), np.nan)
 
     fit_time, gen_time = get_model_times(experiment=experiment)
+    if strip_runner_before_saving:
+        # Strip runner from experiment before returning, so that the experiment can
+        # be serialized (the runner can't be)
+        experiment.runner = None
 
     return BenchmarkResult(
         name=scheduler.experiment.name,

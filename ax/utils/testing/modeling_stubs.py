@@ -16,6 +16,7 @@ from ax.core.observation import Observation, ObservationData, ObservationFeature
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, RangeParameter
 from ax.core.search_space import SearchSpace
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.best_model_selector import (
     ReductionCriterion,
@@ -35,14 +36,17 @@ from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.int_to_float import IntToFloat
+from ax.modelbridge.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.modelbridge.transition_criterion import (
     AutoTransitionAfterGen,
+    IsSingleObjective,
     MaxGenerationParallelism,
     MaxTrials,
     MinimumPreferenceOccurances,
     MinTrials,
 )
 from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.testing.core_stubs import (
     get_experiment,
@@ -194,9 +198,9 @@ def get_generation_strategy(
         if with_callable_model_kwarg:
             # pyre-ignore[16]: testing hack to test serialization of callable kwargs
             # in generation steps.
-            gs._nodes[0]._model_spec_to_gen_from.model_kwargs[
-                "model_constructor"
-            ] = get_sobol
+            gs._nodes[0]._model_spec_to_gen_from.model_kwargs["model_constructor"] = (
+                get_sobol
+            )
     else:
         gs = choose_generation_strategy(
             search_space=get_search_space(), should_deduplicate=True
@@ -223,7 +227,11 @@ def sobol_gpei_generation_node_gs(
     with_input_constructors_all_n: bool = False,
     with_input_constructors_remaining_n: bool = False,
     with_input_constructors_repeat_n: bool = False,
+    with_input_constructors_target_trial: bool = False,
+    with_input_constructors_sq_features: bool = False,
     with_unlimited_gen_mbm: bool = False,
+    with_trial_type: bool = False,
+    with_is_SOO_transition: bool = False,
 ) -> GenerationStrategy:
     """Returns a basic SOBOL+MBM GS using GenerationNodes for testing.
 
@@ -231,6 +239,27 @@ def sobol_gpei_generation_node_gs(
         with_model_selection: If True, will add a second ModelSpec in the MBM node.
             This can be used for testing model selection.
     """
+    if sum([with_auto_transition, with_unlimited_gen_mbm, with_is_SOO_transition]) > 1:
+        raise UserInputError(
+            "Only one of with_auto_transition, with_unlimited_gen_mbm, "
+            "with_is_SOO_transition can be set to True."
+        )
+    if (
+        sum(
+            [
+                with_input_constructors_all_n,
+                with_input_constructors_remaining_n,
+                with_input_constructors_repeat_n,
+                with_input_constructors_target_trial,
+                with_input_constructors_sq_features,
+            ]
+        )
+        > 1
+    ):
+        raise UserInputError(
+            "Only one of the input_constructors kwargs can be set to True."
+        )
+
     sobol_criterion = [
         MaxTrials(
             threshold=5,
@@ -267,7 +296,8 @@ def sobol_gpei_generation_node_gs(
             not_in_statuses=None,
         ),
     ]
-    alt_mbm_criterion = [AutoTransitionAfterGen(transition_to="MBM_node")]
+    auto_mbm_criterion = [AutoTransitionAfterGen(transition_to="MBM_node")]
+    is_SOO_mbm_criterion = [IsSingleObjective(transition_to="MBM_node")]
     step_model_kwargs = {"silently_filter_kwargs": True}
     sobol_model_spec = ModelSpec(
         model_enum=Models.SOBOL,
@@ -300,7 +330,7 @@ def sobol_gpei_generation_node_gs(
     if with_auto_transition:
         mbm_node = GenerationNode(
             node_name="MBM_node",
-            transition_criteria=alt_mbm_criterion,
+            transition_criteria=auto_mbm_criterion,
             model_specs=mbm_model_specs,
             best_model_selector=best_model_selector,
         )
@@ -311,6 +341,14 @@ def sobol_gpei_generation_node_gs(
             model_specs=mbm_model_specs,
             best_model_selector=best_model_selector,
         )
+    elif with_is_SOO_transition:
+        mbm_node = GenerationNode(
+            node_name="MBM_node",
+            transition_criteria=is_SOO_mbm_criterion,
+            model_specs=mbm_model_specs,
+            best_model_selector=best_model_selector,
+        )
+
     else:
         mbm_node = GenerationNode(
             node_name="MBM_node",
@@ -324,6 +362,9 @@ def sobol_gpei_generation_node_gs(
     if with_previous_node:
         mbm_node._previous_node_name = sobol_node.node_name
 
+    if with_trial_type:
+        sobol_node._trial_type = Keys.LONG_RUN
+        mbm_node._trial_type = Keys.SHORT_RUN
     # test input constructors, this also leaves the mbm node with no input
     # constructors which validates encoding/decoding of instances with no
     # input constructors
@@ -338,6 +379,16 @@ def sobol_gpei_generation_node_gs(
     elif with_input_constructors_repeat_n:
         sobol_node._input_constructors = {
             InputConstructorPurpose.N: NodeInputConstructors.REPEAT_N,
+        }
+    elif with_input_constructors_target_trial:
+        purpose = InputConstructorPurpose.FIXED_FEATURES
+        sobol_node._input_constructors = {
+            purpose: NodeInputConstructors.TARGET_TRIAL_FIXED_FEATURES,
+        }
+    elif with_input_constructors_sq_features:
+        purpose = InputConstructorPurpose.STATUS_QUO_FEATURES
+        sobol_node._input_constructors = {
+            purpose: NodeInputConstructors.STATUS_QUO_FEATURES,
         }
 
     sobol_mbm_GS_nodes = GenerationStrategy(
@@ -358,6 +409,10 @@ def get_input_transform_type() -> type[InputTransform]:
 
 def get_outcome_transfrom_type() -> type[OutcomeTransform]:
     return Standardize
+
+
+def get_to_new_sq_transform_type() -> type[TransformToNewSQ]:
+    return TransformToNewSQ
 
 
 def get_experiment_for_value() -> Experiment:
@@ -684,6 +739,9 @@ class transform_2(Transform):
     ) -> list[ObservationFeatures]:
         for obsf in observation_features:
             for pname in obsf.parameters:
+                # pyre-fixme[6]: For 1st argument expected `Union[bytes, complex,
+                #  float, int, generic, str]` but got `Union[None, bool, float, int,
+                #  str]`.
                 obsf.parameters[pname] = np.sqrt(obsf.parameters[pname])
         return observation_features
 

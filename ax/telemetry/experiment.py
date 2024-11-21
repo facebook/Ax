@@ -263,6 +263,12 @@ class ExperimentCompletedRecord:
     total_fit_time: int
     total_gen_time: int
 
+    # OptimizationConfig info which might be updated for human in the
+    # loop experiments
+    num_objectives: int
+    num_tracking_metrics: int
+    num_outcome_constraints: int  # Includes ObjectiveThresholds in MOO
+
     @classmethod
     def from_experiment(cls, experiment: Experiment) -> ExperimentCompletedRecord:
         trial_count_by_status = {
@@ -308,4 +314,15 @@ class ExperimentCompletedRecord:
             num_early_stopped_trials=trial_count_by_status[TrialStatus.EARLY_STOPPED],
             total_fit_time=int(fit_time),
             total_gen_time=int(gen_time),
+            num_objectives=(
+                len(experiment.optimization_config.objective.metrics)
+                if experiment.optimization_config is not None
+                else 0
+            ),
+            num_tracking_metrics=len(experiment.tracking_metrics),
+            num_outcome_constraints=(
+                len(experiment.optimization_config.outcome_constraints)
+                if experiment.optimization_config is not None
+                else 0
+            ),
         )

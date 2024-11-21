@@ -28,8 +28,7 @@ from ax.models.torch.botorch_defaults import (
 from ax.models.torch.utils import sample_simplex
 from ax.models.torch_base import TorchOptConfig
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import not_none
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models import ModelListGP, SingleTaskGP
@@ -42,6 +41,7 @@ from gpytorch.likelihoods.gaussian_likelihood import FixedNoiseGaussianLikelihoo
 from gpytorch.mlls import ExactMarginalLogLikelihood, LeaveOneOutPseudoLikelihood
 from gpytorch.priors import GammaPrior
 from gpytorch.priors.lkj_prior import LKJCovariancePrior
+from pyre_extensions import none_throws
 
 
 FIT_MODEL_MO_PATH = f"{get_and_fit_model.__module__}.fit_gpytorch_mll"
@@ -195,7 +195,7 @@ class BotorchModelTest(TestCase):
                 0.6,
             )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_BotorchModel(
         self, dtype: torch.dtype = torch.float, cuda: bool = False
     ) -> None:
@@ -475,7 +475,7 @@ class BotorchModelTest(TestCase):
                 )
 
             # test get_rounding_func
-            dummy_rounding = not_none(get_rounding_func(rounding_func=dummy_func))
+            dummy_rounding = none_throws(get_rounding_func(rounding_func=dummy_func))
             X_temp = torch.rand(1, 2, 3, 4)
             self.assertTrue(torch.equal(X_temp, dummy_rounding(X_temp)))
 
@@ -767,6 +767,7 @@ class BotorchModelTest(TestCase):
         train_X = torch.rand(5, 3, **tkwargs)
         train_Y = train_X.sum(dim=-1, keepdim=True)
         simple_gp = SingleTaskGP(train_X=train_X, train_Y=train_Y)
+        # pyre-fixme[16]: `Module` has no attribute `lengthscale`.
         simple_gp.covar_module.lengthscale = torch.tensor([1, 3, 5], **tkwargs)
         importances = get_feature_importances_from_botorch_model(simple_gp)
         self.assertTrue(np.allclose(importances, np.array([15 / 23, 5 / 23, 3 / 23])))

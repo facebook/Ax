@@ -15,6 +15,7 @@ from math import sqrt
 from typing import TYPE_CHECKING
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -25,8 +26,8 @@ from ax.core.search_space import SearchSpace
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
-from ax.utils.common.typeutils import not_none
 from ax.utils.stats.statstools import relativize, unrelativize
+from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -64,11 +65,11 @@ class BaseRelativize(Transform, ABC):
             config=config,
         )
         # self.modelbridge should NOT be modified
-        self.modelbridge: ModelBridge = not_none(
+        self.modelbridge: ModelBridge = none_throws(
             modelbridge, f"{cls_name} transform requires a modelbridge"
         )
 
-        self.status_quo_data_by_trial: dict[int, ObservationData] = not_none(
+        self.status_quo_data_by_trial: dict[int, ObservationData] = none_throws(
             self.modelbridge.status_quo_data_by_trial,
             f"{cls_name} requires status quo data.",
         )
@@ -170,7 +171,7 @@ class BaseRelativize(Transform, ABC):
     def _get_relative_data_from_obs(
         self,
         obs: Observation,
-        rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
+        rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
     ) -> ObservationData:
         idx = (
             int(obs.features.trial_index)
@@ -191,7 +192,7 @@ class BaseRelativize(Transform, ABC):
     def _rel_op_on_observations(
         self,
         observations: list[Observation],
-        rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
+        rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
     ) -> list[Observation]:
         return [
             Observation(
@@ -206,7 +207,7 @@ class BaseRelativize(Transform, ABC):
         self,
         data: ObservationData,
         status_quo_data: ObservationData,
-        rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
+        rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
     ) -> ObservationData:
         r"""
         Relativize or unrelativize `data` based on `status_quo_data` based on `rel_op`
@@ -253,8 +254,8 @@ class BaseRelativize(Transform, ABC):
         mean_c: float,
         sem_c: float,
         metric: str,
-        rel_op: Callable[..., tuple[np.ndarray, np.ndarray]],
-    ) -> tuple[float | np.ndarray, float | np.ndarray]:
+        rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
+    ) -> tuple[float | npt.NDArray, float | npt.NDArray]:
         """Compute (un)relativized mean and sem for a single metric."""
         # if the is the status quo
         if means_t == mean_c and sems_t == sem_c:

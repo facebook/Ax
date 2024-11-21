@@ -63,10 +63,10 @@ jobs:
   #       pip install git+https://github.com/cornellius-gp/gpytorch.git
   #       pip install git+https://github.com/pytorch/botorch.git
   #       pip install -e ".[dev,mysql,notebook]"
-  #       pip install wheel
+  #       pip install --upgrade build setuptools setuptools_scm wheel
   #   - name: Build wheel
   #     run: |
-  #       python setup.py sdist bdist_wheel
+  #       python -m build --sdist --wheel
   #   - name: Deploy to Test PyPI
   #     uses: pypa/gh-action-pypi-publish@release/v1
   #     with:

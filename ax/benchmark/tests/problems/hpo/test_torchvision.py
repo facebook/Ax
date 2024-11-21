@@ -6,16 +6,17 @@
 # pyre-strict
 
 from random import choice
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+
+from ax.benchmark.benchmark_metric import BenchmarkMetric
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 
 from ax.benchmark.problems.hpo.torchvision import CNN
 from ax.benchmark.problems.registry import get_problem
-from ax.core.arm import Arm
-from ax.core.trial import Trial
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import TestDataset
+from pyre_extensions import assert_is_instance
 
 
 class TestPyTorchCNNTorchvision(TestCase):
@@ -36,13 +37,12 @@ class TestPyTorchCNNTorchvision(TestCase):
             "ax.benchmark.problems.hpo.torchvision._REGISTRY",
             {"MNIST": TestDataset, "FashionMNIST": TestDataset},
         ):
-
             self.assertEqual(
-                get_problem(problem_name="hpo_pytorch_cnn_MNIST").name,
+                get_problem(problem_key="hpo_pytorch_cnn_MNIST").name,
                 "HPO_PyTorchCNN_Torchvision::MNIST",
             )
             problem = get_problem(
-                problem_name="hpo_pytorch_cnn_FashionMNIST", num_trials=num_trials
+                problem_key="hpo_pytorch_cnn_FashionMNIST", num_trials=num_trials
             )
 
         self.assertEqual(problem.name, "HPO_PyTorchCNN_Torchvision::FashionMNIST")
@@ -54,7 +54,10 @@ class TestPyTorchCNNTorchvision(TestCase):
         )
         self.assertFalse(problem.optimization_config.objective.minimize)
         self.assertEqual(problem.num_trials, num_trials)
-        self.assertFalse(problem.observe_noise_stds)
+        metric = assert_is_instance(
+            problem.optimization_config.objective.metric, BenchmarkMetric
+        )
+        self.assertFalse(metric.observe_noise_sd)
 
     def test_deterministic(self) -> None:
         problem_name = choice(["MNIST", "FashionMNIST"])
@@ -62,36 +65,30 @@ class TestPyTorchCNNTorchvision(TestCase):
             "ax.benchmark.problems.hpo.torchvision._REGISTRY",
             {problem_name: TestDataset},
         ):
-            problem = get_problem(problem_name=f"hpo_pytorch_cnn_{problem_name}")
+            problem = get_problem(problem_key=f"hpo_pytorch_cnn_{problem_name}")
+
+        test_function = problem.test_function
+
+        self.assertEqual(test_function.outcome_names, ["accuracy"])
         # pyre-fixme[6]: complaining that the annotation for Arm.parameters is
         # too broad because it's not immutable
-        arm = Arm(parameters=self.parameters, name="0")
-        trial = Trial(experiment=MagicMock()).add_arm(arm=arm)
 
-        result = problem.runner.run(trial=trial)
         expected = 0.21875
-        self.assertEqual(
-            result,
-            {
-                "Ys": {"0": [expected]},
-                "Ystds": {"0": [0.0]},
-                "outcome_names": ["accuracy"],
-            },
-        )
+        result = test_function.evaluate_true(params=self.parameters)
+        self.assertEqual(result.item(), expected)
+        self.assertEqual(problem.noise_std, 0.0)
 
         with self.subTest("test caching"):
             with patch(
                 "ax.benchmark.problems.hpo.torchvision.CNN",
                 wraps=CNN,
             ) as mock_CNN:
-                problem.runner.run(trial=trial)
+                test_function.evaluate_true(params=self.parameters)
             mock_CNN.assert_not_called()
 
-            other_trial = Trial(experiment=MagicMock()).add_arm(
-                arm=Arm(parameters={**self.parameters, "lr": 0.9}, name="1")
-            )
+            other_params = {**self.parameters, "lr": 0.9}
             with patch(
                 "ax.benchmark.problems.hpo.torchvision.CNN", wraps=CNN
             ) as mock_CNN:
-                problem.runner.run(trial=other_trial)
+                test_function.evaluate_true(params=other_params)
             mock_CNN.assert_called_once()

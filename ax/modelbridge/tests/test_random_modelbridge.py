@@ -10,6 +10,9 @@ from collections import OrderedDict
 from unittest import mock
 
 import numpy as np
+from ax.core.arm import Arm
+from ax.core.experiment import Experiment
+from ax.core.metric import Metric
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.parameter_constraint import (
@@ -24,7 +27,7 @@ from ax.modelbridge.registry import Cont_X_trans
 from ax.models.random.base import RandomModel
 from ax.models.random.sobol import SobolGenerator
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_small_discrete_search_space
+from ax.utils.testing.core_stubs import get_data, get_small_discrete_search_space
 
 
 class RandomModelBridgeTest(TestCase):
@@ -88,7 +91,7 @@ class RandomModelBridgeTest(TestCase):
     def test_Gen(self, mock_init, mock_gen):
         # Test with constraints
         # pyre-fixme[20]: Argument `model` expected.
-        modelbridge = RandomModelBridge()
+        modelbridge = RandomModelBridge(model=RandomModel())
         modelbridge.parameters = ["x", "y", "z"]
         modelbridge.transforms = OrderedDict()
         modelbridge.model = RandomModel()
@@ -151,3 +154,26 @@ class RandomModelBridgeTest(TestCase):
             self.assertEqual(len(sobol.gen(1).arms), 1)
         with self.assertRaises(SearchSpaceExhausted):
             sobol.gen(1)
+
+    def test_search_space_not_expanded(self) -> None:
+        data = get_data(num_non_sq_arms=0)
+        sq_arm = Arm(name="status_quo", parameters={"x": 10.0, "y": 1.0, "z": 1.0})
+        experiment = Experiment(
+            search_space=self.search_space,
+            status_quo=sq_arm,
+        )
+        trial = experiment.new_trial()
+        trial.add_arm(sq_arm)
+        trial.mark_running(no_runner_required=True)
+        trial.mark_completed()
+        experiment.add_tracking_metric(metric=Metric("ax_test_metric"))
+        sobol = RandomModelBridge(
+            search_space=self.search_space,
+            model=SobolGenerator(),
+            experiment=experiment,
+            data=data,
+            transforms=Cont_X_trans,
+        )
+        # test that search space is not expanded
+        sobol.gen(1)
+        self.assertEqual(sobol._model_space, sobol._search_space)

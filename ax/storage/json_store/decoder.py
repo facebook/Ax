@@ -38,10 +38,14 @@ from ax.modelbridge.generation_strategy import (
     GenerationStrategy,
 )
 from ax.modelbridge.model_spec import ModelSpec
-from ax.modelbridge.registry import _decode_callables_from_references
-from ax.modelbridge.transition_criterion import TransitionCriterion, TrialBasedCriterion
-from ax.models.torch.botorch_modular.model import SurrogateSpec
-from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.modelbridge.registry import _decode_callables_from_references, ModelRegistryBase
+from ax.modelbridge.transition_criterion import (
+    AuxiliaryExperimentCheck,
+    TransitionCriterion,
+    TrialBasedCriterion,
+)
+from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
+from ax.models.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoders import (
     batch_trial_from_json,
     botorch_component_from_json,
@@ -58,11 +62,25 @@ from ax.utils.common.serialization import (
     TClassDecoderRegistry,
     TDecoderRegistry,
 )
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.common.typeutils_torch import torch_type_from_str
+from pyre_extensions import none_throws
 
 
 logger: Logger = get_logger(__name__)
+
+# Deprecated model registry entries and their replacements.
+# Used below in `_update_deprecated_model_registry`.
+_DEPRECATED_MODEL_TO_REPLACEMENT: dict[str, str] = {
+    "GPEI": "BOTORCH_MODULAR",
+    "MOO": "BOTORCH_MODULAR",
+    "FULLYBAYESIAN": "SAASBO",
+    "FULLYBAYESIANMOO": "SAASBO",
+    "FULLYBAYESIAN_MTGP": "SAAS_MTGP",
+    "FULLYBAYESIANMOO_MTGP": "SAAS_MTGP",
+    "ST_MTGP_LEGACY": "ST_MTGP",
+    "ST_MTGP_NEHVI": "ST_MTGP",
+}
 
 
 # pyre-fixme[3]: Return annotation cannot be `Any`.
@@ -165,10 +183,12 @@ def object_from_json(
         # pyre-fixme[9, 24]: Generic type `type` expects 1 type parameter, use
         # `typing.Type[<base type>]` to avoid runtime subscripting errors.
         _class: type = decoder_registry[_type]
-
         if isclass(_class) and issubclass(_class, Enum):
+            name = object_json["name"]
+            if issubclass(_class, ModelRegistryBase):
+                name = _update_deprecated_model_registry(name=name)
             # to access enum members by name, use item access
-            return _class[object_json["name"]]
+            return _class[name]
         elif isclass(_class) and issubclass(_class, torch.nn.Module):
             return botorch_component_from_json(botorch_class=_class, json=object_json)
         elif _class == GeneratorRun:
@@ -225,7 +245,7 @@ def object_from_json(
                 decoder_registry=decoder_registry,
                 class_decoder_registry=class_decoder_registry,
             )
-        elif _class in (SurrogateSpec, Surrogate):
+        elif _class in (SurrogateSpec, Surrogate, ModelConfig):
             if "input_transform" in object_json:
                 (
                     input_transform_classes_json,
@@ -252,10 +272,14 @@ def object_from_json(
                 object_json["outcome_transform_options"] = (
                     outcome_transform_options_json
                 )
-        elif isclass(_class) and issubclass(_class, TrialBasedCriterion):
-            # TrialBasedCriterion contain a list of `TrialStatus` for args.
-            # This list needs to be unpacked by hand to properly retain the types.
-            return trial_transition_criteria_from_json(
+        elif isclass(_class) and (
+            issubclass(_class, TrialBasedCriterion)
+            or issubclass(_class, AuxiliaryExperimentCheck)
+        ):
+            # TrialBasedCriterion contains a list of `TrialStatus` for args.
+            # AuxiliaryExperimentCheck contains AuxiliaryExperimentPurpose objects
+            # They need to be unpacked by hand to properly retain the types.
+            return unpack_transition_criteria_from_json(
                 class_=_class,
                 transition_criteria_json=object_json,
                 decoder_registry=decoder_registry,
@@ -350,7 +374,7 @@ def generator_run_from_json(
     return generator_run
 
 
-def trial_transition_criteria_from_json(
+def unpack_transition_criteria_from_json(
     # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
     #  avoid runtime subscripting errors.
     class_: type,
@@ -622,12 +646,12 @@ def _load_experiment_info(
         if trial.ttl_seconds is not None:
             exp._trials_have_ttl = True
     if exp.status_quo is not None:
-        sq = not_none(exp.status_quo)
+        sq = none_throws(exp.status_quo)
         exp._register_arm(sq)
 
 
 def _convert_generation_step_keys_for_backwards_compatibility(
-    object_json: dict[str, Any]
+    object_json: dict[str, Any],
 ) -> dict[str, Any]:
     """If necessary, converts keys in a JSON dict representing a `GenerationStep`
     for backwards compatibility.
@@ -692,7 +716,43 @@ def generation_node_from_json(
             if "previous_node_name" in generation_node_json.keys()
             else None
         ),
+        trial_type=(
+            object_from_json(
+                generation_node_json.pop("trial_type"),
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
+            )
+            if "trial_type" in generation_node_json.keys()
+            else None
+        ),
     )
+
+
+def _extract_surrogate_spec_from_surrogate_specs(
+    model_kwargs: dict[str, Any],
+) -> dict[str, Any]:
+    """If `model_kwargs` includes a `surrogate_specs` key that is a dict
+    with a single element, this method replaces it with `surrogate_spec`
+    key with the value of that element.
+
+    This helper will keep deserialization of MBM models backwards compatible
+    even after we remove the ``surrogate_specs`` argument from ``BoTorchModel``.
+
+    Args:
+        model_kwargs: A dictionary of model kwargs to update.
+
+    Returns:
+        If ``surrogate_specs`` is not found or it is found but has multiple elements,
+        returns ``model_kwargs`` unchanged.
+        Otherwise, returns a new dictionary with the ``surrogate_specs`` element
+        replaced with ``surrogate_spec``.
+    """
+    if (specs := model_kwargs.get("surrogate_specs", None)) is None or len(specs) > 1:
+        return model_kwargs
+    new_kwargs = model_kwargs.copy()
+    new_kwargs.pop("surrogate_specs")
+    new_kwargs["surrogate_spec"] = next(iter(specs.values()))
+    return new_kwargs
 
 
 def generation_step_from_json(
@@ -706,6 +766,8 @@ def generation_step_from_json(
     )
     kwargs = generation_step_json.pop("model_kwargs", None)
     kwargs.pop("fit_on_update", None)  # Remove deprecated fit_on_update.
+    if kwargs is not None:
+        kwargs = _extract_surrogate_spec_from_surrogate_specs(kwargs)
     gen_kwargs = generation_step_json.pop("model_gen_kwargs", None)
     completion_criteria = (
         object_from_json(
@@ -765,6 +827,8 @@ def model_spec_from_json(
     """Load ModelSpec from JSON."""
     kwargs = model_spec_json.pop("model_kwargs", None)
     kwargs.pop("fit_on_update", None)  # Remove deprecated fit_on_update.
+    if kwargs is not None:
+        kwargs = _extract_surrogate_spec_from_surrogate_specs(kwargs)
     gen_kwargs = model_spec_json.pop("model_gen_kwargs", None)
     return ModelSpec(
         model_enum=object_from_json(
@@ -1011,3 +1075,30 @@ def objective_from_json(
         minimize=minimize,
         **input_args,  # For future compatibility.
     )
+
+
+def _update_deprecated_model_registry(name: str) -> str:
+    """Update the enum name for deprecated model registry entries to point to
+    a replacement model. This will log an exception to alert the user to the change.
+
+    The replacement models are listed in `_DEPRECATED_MODEL_TO_REPLACEMENT` above.
+    If a deprecated model does not list a replacement, nothing will be done and it
+    will error out while looking it up in the corresponding enum.
+
+    Args:
+        name: The name of the ``Models`` enum.
+
+    Returns:
+        Either the given name or the name of a replacement ``Models`` enum.
+    """
+    if name in _DEPRECATED_MODEL_TO_REPLACEMENT:
+        new_name = _DEPRECATED_MODEL_TO_REPLACEMENT[name]
+        logger.exception(
+            f"{name} model is deprecated and replaced by Models.{new_name}. "
+            f"Please use {new_name} in the future. Note that this warning only "
+            "enables deserialization of experiments with deprecated models. "
+            "Model fitting with the loaded experiment may still fail. "
+        )
+        return new_name
+    else:
+        return name

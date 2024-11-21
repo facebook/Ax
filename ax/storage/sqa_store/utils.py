@@ -38,6 +38,9 @@ COPY_DB_IDS_ATTRS_TO_SKIP = {
     "_steps",
     "analysis_scheduler",
     "_nodes",
+    # For auxiliary experiments, we don't expect any updates, so we
+    # don't need to recur into them during `copy_db_ids`.
+    "auxiliary_experiments_by_purpose",
 }
 SKIP_ATTRS_ERROR_SUFFIX = "Consider adding to COPY_DB_IDS_ATTRS_TO_SKIP if appropriate."
 

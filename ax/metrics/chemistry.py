@@ -45,11 +45,13 @@ from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.types import TParameterization, TParamValue
 from ax.utils.common.result import Err, Ok
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 
 class ChemistryProblemType(Enum):
+    # pyre-fixme[35]: Target cannot be annotated.
     SUZUKI: str = "suzuki"
+    # pyre-fixme[35]: Target cannot be annotated.
     DIRECT_ARYLATION: str = "direct_arylation"
 
 
@@ -110,7 +112,7 @@ class ChemistryMetric(Metric):
             name=self._name,
             noiseless=self.noiseless,
             problem_type=self.problem_type,
-            lower_is_better=not_none(self.lower_is_better),
+            lower_is_better=none_throws(self.lower_is_better),
         )
 
     def fetch_trial_data(self, trial: BaseTrial, **kwargs: Any) -> MetricFetchResult:

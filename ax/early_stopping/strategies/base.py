@@ -12,20 +12,22 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from logging import Logger
 
-import numpy as np
+import numpy.typing as npt
 import pandas as pd
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.map_data import MapData
+from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective
+
+from ax.early_stopping.utils import estimate_early_stopping_savings
 from ax.modelbridge.map_torch import MapTorchModelBridge
 from ax.modelbridge.modelbridge_utils import (
     _unpack_observations,
     observation_data_to_array,
     observation_features_to_array,
 )
-
 from ax.modelbridge.registry import Cont_X_trans, Y_trans
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.map_unit_x import MapUnitX
@@ -33,7 +35,8 @@ from ax.modelbridge.transforms.map_unit_x import MapUnitX
 from ax.models.torch_base import TorchModel
 from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import assert_is_instance, none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -54,9 +57,9 @@ class EarlyStoppingTrainingData:
             which data come from the same arm.
     """
 
-    X: np.ndarray
-    Y: np.ndarray
-    Yvar: np.ndarray
+    X: npt.NDArray
+    Y: npt.NDArray
+    Yvar: npt.NDArray
     arm_names: list[str | None]
 
 
@@ -130,6 +133,38 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             (optional) messages with the associated reason.
         """
         pass  # pragma: nocover
+
+    def estimate_early_stopping_savings(
+        self, experiment: Experiment, map_key: str | None = None
+    ) -> float:
+        """Estimate early stopping savings using progressions of the MapMetric present
+        on the EarlyStoppingConfig as a proxy for resource usage.
+
+        Args:
+            experiment: The experiment containing the trials and metrics used
+                to estimate early stopping savings.
+            map_key: The name of the map_key by which to estimate early stopping
+                savings, usually steps. If none is specified use some arbitrary map_key
+                in the experiment's MapData.
+
+        Returns:
+            The estimated resource savings as a fraction of total resource usage (i.e.
+            0.11 estimated savings indicates we would expect the experiment to have used
+            11% more resources without early stopping present)
+        """
+        if experiment.default_data_constructor is not MapData:
+            return 0
+
+        if map_key is None:
+            if self.metric_names:
+                first_metric_name = next(iter(self.metric_names))
+                first_metric = experiment.metrics[first_metric_name]
+                map_key = assert_is_instance(first_metric, MapMetric).map_key_info.key
+
+        return estimate_early_stopping_savings(
+            experiment=experiment,
+            map_key=map_key,
+        )
 
     def _check_validity_and_get_data(
         self, experiment: Experiment, metric_names: list[str]
@@ -290,7 +325,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             self._log_and_return_completed_trials(
                 logger=logger,
                 num_completed=num_completed,
-                min_curves=not_none(self.min_curves),
+                min_curves=none_throws(self.min_curves),
             )
             return False
 
@@ -388,7 +423,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         self, experiment: Experiment
     ) -> tuple[str, bool]:
         if self.metric_names is None:
-            optimization_config = not_none(experiment.optimization_config)
+            optimization_config = none_throws(experiment.optimization_config)
             objective = optimization_config.objective
 
             # if multi-objective optimization, infer as first objective

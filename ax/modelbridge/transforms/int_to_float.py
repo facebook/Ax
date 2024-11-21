@@ -20,7 +20,8 @@ from ax.modelbridge.transforms.rounding import (
 from ax.modelbridge.transforms.utils import construct_new_search_space
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -53,7 +54,7 @@ class IntToFloat(Transform):
         modelbridge: Optional["modelbridge_module.base.ModelBridge"] = None,
         config: TConfig | None = None,
     ) -> None:
-        self.search_space: SearchSpace = not_none(
+        self.search_space: SearchSpace = none_throws(
             search_space, "IntToFloat requires search space"
         )
         config = config or {}

@@ -61,10 +61,8 @@ jobs:
 
   # TODO: Temporarily disabled while making changes on fork. Re-enable before merging back into facebook/Ax
   # deploy:
-
   #   needs: tests-and-coverage-pinned # only run if test step succeeds
   #   runs-on: ubuntu-latest
-
   #   steps:
   #   - uses: actions/checkout@v4
   #   - name: Set up Python
@@ -75,12 +73,12 @@ jobs:
   #     run: |
   #       # use stable Botorch
   #       pip install -e ".[dev,mysql,notebook]"
-  #       pip install wheel
+  #       pip install --upgrade build setuptools setuptools_scm wheel
   #   - name: Fetch all history for all tags and branches
   #     run: git fetch --prune --unshallow
   #   - name: Build wheel
   #     run: |
-  #       python setup.py sdist bdist_wheel
+  #       python -m build --sdist --wheel
   #   - name: Deploy to PyPI
   #     uses: pypa/gh-action-pypi-publish@release/v1
   #     with:

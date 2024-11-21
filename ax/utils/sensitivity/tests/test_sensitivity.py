@@ -30,11 +30,12 @@ from ax.utils.sensitivity.sobol_measures import (
     ax_parameter_sens,
     compute_sobol_indices_from_model_list,
     ProbitLinkMean,
+    SobolSensitivity,
     SobolSensitivityGPMean,
     SobolSensitivityGPSampling,
 )
 from ax.utils.testing.core_stubs import get_branin_experiment
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel, GPyTorchModel
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.utils.transforms import unnormalize
@@ -42,7 +43,7 @@ from gpytorch.distributions import MultivariateNormal
 from torch import Tensor
 
 
-@fast_botorch_optimize
+@mock_botorch_optimize
 def get_modelbridge(modular: bool = False, saasbo: bool = False) -> ModelBridge:
     exp = get_branin_experiment(with_batch=True)
     exp.trials[0].run()
@@ -64,9 +65,7 @@ class SensitivityAnalysisTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.model = get_modelbridge().model.model
-        self.saas_model = (
-            get_modelbridge(saasbo=True).model.surrogates["SAASBO_Surrogate"].model
-        )
+        self.saas_model = get_modelbridge(saasbo=True).model.surrogate.model
 
     def test_DgsmGpMean(self) -> None:
         bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()
@@ -209,7 +208,7 @@ class SensitivityAnalysisTest(TestCase):
         # testing compute_sobol_indices_from_model_list
         num_models = 3
         num_mc_samples = 10
-        for order in ["first", "total"]:
+        for order in ["first", "total", "second"]:
             with self.subTest(order=order):
                 indices = compute_sobol_indices_from_model_list(
                     [self.model for _ in range(num_models)],
@@ -218,7 +217,10 @@ class SensitivityAnalysisTest(TestCase):
                     num_mc_samples=num_mc_samples,
                     input_qmc=True,
                 )
-                self.assertEqual(indices.shape, (num_models, 2))
+                if order == "second":
+                    self.assertEqual(indices.shape, (num_models, 1))
+                else:
+                    self.assertEqual(indices.shape, (num_models, 2))
                 if order == "total":
                     self.assertTrue((indices >= 0).all())
 
@@ -227,6 +229,7 @@ class SensitivityAnalysisTest(TestCase):
                     bounds=bounds,
                     num_mc_samples=num_mc_samples,
                     input_qmc=True,
+                    second_order=order == "second",
                 )
                 base_indices = getattr(sobol_gp_mean, f"{order}_order_indices")()
                 # can compare values because we sample with deterministic seeds
@@ -298,8 +301,59 @@ class SensitivityAnalysisTest(TestCase):
                     for i, row in enumerate(ind_dict):
                         for j, col in enumerate(ind_dict[row]):
                             self.assertAlmostEqual(
-                                ind_dict[row][col], ind_tnsr[i, j].item()
+                                ind_dict[row][col],
+                                # pyre-fixme[6]: For 2nd argument expected
+                                #  `SupportsRSub[Variable[_T],
+                                #  SupportsAbs[SupportsRound[object]]]` but got
+                                #  `Union[bool, float, int]`.
+                                ind_tnsr[i, j].item(),
                             )
+            with self.subTest(order="second"):
+                second_ind_dict = ax_parameter_sens(
+                    model_bridge,
+                    input_qmc=True,
+                    num_mc_samples=num_mc_samples,
+                    order="second",
+                    signed=False,
+                )
+
+                so_ind_tnsr = compute_sobol_indices_from_model_list(
+                    _get_model_per_metric(torch_model, model_bridge.outcomes),
+                    torch.tensor(torch_model.search_space_digest.bounds).T,
+                    input_qmc=True,
+                    num_mc_samples=num_mc_samples,
+                    order="second",
+                )
+                fo_ind_tnsr = compute_sobol_indices_from_model_list(
+                    _get_model_per_metric(torch_model, model_bridge.outcomes),
+                    torch.tensor(torch_model.search_space_digest.bounds).T,
+                    input_qmc=True,
+                    num_mc_samples=num_mc_samples,
+                    order="first",
+                )
+                # check that the first and second order indices are the same
+                self.assertAlmostEqual(
+                    second_ind_dict["branin"]["x1"],
+                    # pyre-fixme[6]: For 2nd argument expected
+                    #  `SupportsRSub[Variable[_T], SupportsAbs[SupportsRound[object]]]`
+                    #  but got `Union[bool, float, int]`.
+                    fo_ind_tnsr[0, 0].item(),
+                )
+                self.assertAlmostEqual(
+                    second_ind_dict["branin"]["x2"],
+                    # pyre-fixme[6]: For 2nd argument expected
+                    #  `SupportsRSub[Variable[_T], SupportsAbs[SupportsRound[object]]]`
+                    #  but got `Union[bool, float, int]`.
+                    fo_ind_tnsr[0, -1].item(),
+                )
+                self.assertAlmostEqual(
+                    second_ind_dict["branin"]["x1 & x2"],
+                    # pyre-fixme[6]: For 2nd argument expected
+                    #  `SupportsRSub[Variable[_T], SupportsAbs[SupportsRound[object]]]`
+                    #  but got `Union[bool, float, int]`.
+                    so_ind_tnsr[0, 0].item(),
+                )
+
         # Test with signed
         model_bridge = get_modelbridge(modular=True)
 
@@ -427,6 +481,68 @@ class SensitivityAnalysisTest(TestCase):
         # testing that the other features are not integer valued
         self.assertFalse(torch.allclose(Arnd, A))
         self.assertFalse(torch.allclose(Brnd, B))
+
+    def test_Sobol_raises(self) -> None:
+        bridge = get_modelbridge(modular=True)
+        with self.assertRaisesRegex(
+            NotImplementedError,
+            "Order third and fourth is not supported. Plese choose one of"
+            " 'first', 'total' or 'second'.",
+        ):
+            ax_parameter_sens(
+                model_bridge=bridge,
+                metrics=None,
+                order="third and fourth",
+                signed=False,
+            )
+        with self.assertRaisesRegex(
+            NotImplementedError,
+            "Second order is not supported for signed indices.",
+        ):
+            ax_parameter_sens(
+                model_bridge=bridge,
+                metrics=None,
+                order="second",
+                signed=True,
+            )
+
+    def test_Sobol_computed_correctly_first_order(self) -> None:
+        bounds = torch.tensor([[0.0, 0.0], [1.0, 1.0]])
+        sensitivity_x1 = SobolSensitivity(
+            bounds, input_function=lambda x: x[:, 0], num_mc_samples=10
+        )
+        sensitivity_x2 = SobolSensitivity(bounds, input_function=lambda x: x[:, 1])
+
+        sensitivity_x1.evalute_function()
+        sensitivity_x2.evalute_function()
+        fo_indices1 = sensitivity_x1.first_order_indices()
+        fo_indices2 = sensitivity_x2.first_order_indices()
+        self.assertEqual(fo_indices1[0] / fo_indices1.sum(), 1.0)
+        self.assertEqual(fo_indices1[1] / fo_indices1.sum(), 0.0)
+        self.assertEqual(fo_indices2[1] / fo_indices2.sum(), 1.0)
+        self.assertEqual(fo_indices2[0] / fo_indices2.sum(), 0.0)
+
+    def test_Sobol_computed_correctly_second_order(self) -> None:
+        bounds = torch.tensor([[0.0, 0.0], [1.0, 1.0]])
+        sensitivity_x1x2 = SobolSensitivity(
+            bounds,
+            input_function=lambda x: Tensor([1234.5]),  # not used
+            second_order=True,
+            num_mc_samples=10,
+        )
+        f_A = torch.rand(10)
+        f_B = -f_A
+        sensitivity_x1x2.f_total_var = torch.cat((f_A, f_B)).var()
+        sensitivity_x1x2.f_A = f_A
+        sensitivity_x1x2.f_B = -f_A
+        sensitivity_x1x2.f_ABis = [f_A, f_A]
+        sensitivity_x1x2.f_BAis = [f_A, -f_B]
+
+        fo_indices = sensitivity_x1x2.first_order_indices()
+        so_indices = sensitivity_x1x2.second_order_indices()
+
+        self.assertTrue(torch.all(fo_indices == 0.0))
+        self.assertTrue(torch.all(so_indices > 0.0))
 
     def test_DerivativeGp(self) -> None:
         test_x = torch.rand(2, 2)

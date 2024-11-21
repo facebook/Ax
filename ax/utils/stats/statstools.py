@@ -6,20 +6,26 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 from logging import Logger
 from typing import Union
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 from ax.core.data import Data
 from ax.utils.common.logger import get_logger
 
 logger: Logger = get_logger(__name__)
+# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 num_mixed = Union[np.ndarray, list[float]]
 
 
 def inverse_variance_weight(
-    means: np.ndarray, variances: np.ndarray, conflicting_noiseless: str = "warn"
+    means: npt.NDArray,
+    variances: npt.NDArray,
+    conflicting_noiseless: str = "warn",
 ) -> tuple[float, float]:
     """Perform inverse variance weighting.
 
@@ -57,7 +63,9 @@ def inverse_variance_weight(
 
 
 def total_variance(
-    means: np.ndarray, variances: np.ndarray, sample_sizes: np.ndarray
+    means: npt.NDArray,
+    variances: npt.NDArray,
+    sample_sizes: npt.NDArray,
 ) -> float:
     """Compute total variance."""
     variances = variances * sample_sizes
@@ -69,8 +77,9 @@ def total_variance(
 
 
 def positive_part_james_stein(
-    means: num_mixed, sems: num_mixed
-) -> tuple[np.ndarray, np.ndarray]:
+    means: num_mixed,
+    sems: num_mixed,
+) -> tuple[npt.NDArray, npt.NDArray]:
     """Estimation method for Positive-part James-Stein estimator.
 
     This method takes a vector of K means (`y_i`) and standard errors
@@ -132,25 +141,32 @@ def positive_part_james_stein(
         phi_i = 1
     else:
         phi_i = np.minimum(1, sigma2_i / s2)
+    # pyre-fixme[6]: For 1st argument expected `int` but got `floating[typing.Any]`.
+    # pyre-fixme[6]: For 1st argument expected `bool` but got `ndarray[typing.Any,
+    #  dtype[typing.Any]]`.
     mu_hat_i = y_i + phi_i * (ybar - y_i)
     sigma_hat_i = np.sqrt(
+        # pyre-fixme[58]: `-` is not supported for operand types `int` and
+        #  `Union[np.ndarray[typing.Any, np.dtype[typing.Any]], int]`.
         (1 - phi_i) * sigma2_i
         + phi_i * sigma2_i / K
+        # pyre-fixme[58]: `*` is not supported for operand types `int` and
+        #  `Union[np.ndarray[typing.Any, np.dtype[typing.Any]], int]`.
         + 2 * phi_i**2 * (y_i - ybar) ** 2 / (K - 3)
     )
     return mu_hat_i, sigma_hat_i
 
 
 def relativize(
-    means_t: np.ndarray | list[float] | float,
-    sems_t: np.ndarray | list[float] | float,
+    means_t: npt.NDArray | list[float] | float,
+    sems_t: npt.NDArray | list[float] | float,
     mean_c: float,
     sem_c: float,
     bias_correction: bool = True,
-    cov_means: np.ndarray | list[float] | float = 0.0,
+    cov_means: npt.NDArray | list[float] | float = 0.0,
     as_percent: bool = False,
     control_as_constant: bool = False,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[npt.NDArray, npt.NDArray]:
     """Ratio estimator based on the delta method.
 
     This uses the delta method (i.e. a Taylor series approximation) to estimate
@@ -243,15 +259,15 @@ def relativize(
 
 
 def unrelativize(
-    means_t: np.ndarray | list[float] | float,
-    sems_t: np.ndarray | list[float] | float,
+    means_t: npt.NDArray | list[float] | float,
+    sems_t: npt.NDArray | list[float] | float,
     mean_c: float,
     sem_c: float,
     bias_correction: bool = True,
-    cov_means: np.ndarray | list[float] | float = 0.0,
+    cov_means: npt.NDArray | list[float] | float = 0.0,
     as_percent: bool = False,
     control_as_constant: bool = False,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[npt.NDArray, npt.NDArray]:
     """
     Reverse operation of ax.utils.stats.statstools.relativize.
 
@@ -305,15 +321,19 @@ def unrelativize(
         m_t[means_t == 0.0] = mean_c
         s_t[means_t == 0.0] = sem_c
 
+    # pyre-fixme[7]: Expected `Tuple[ndarray[typing.Any, typing.Any],
+    #  ndarray[typing.Any, typing.Any]]` but got `Tuple[Union[ndarray[typing.Any,
+    #  dtype[typing.Any]], float], Union[ndarray[typing.Any, dtype[typing.Any]],
+    #  float]]`.
     return m_t, s_t
 
 
 def agresti_coull_sem(
-    n_numer: pd.Series | np.ndarray | int,
-    n_denom: pd.Series | np.ndarray | int,
+    n_numer: pd.Series | npt.NDArray | int,
+    n_denom: pd.Series | npt.NDArray | int,
     prior_successes: int = 2,
     prior_failures: int = 2,
-) -> np.ndarray | float:
+) -> npt.NDArray | float:
     """Compute the Agresti-Coull style standard error for a binomial proportion.
 
     Reference:

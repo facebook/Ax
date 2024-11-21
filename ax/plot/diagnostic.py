@@ -28,8 +28,8 @@ from ax.plot.base import (
 )
 from ax.plot.helper import compose_annotation
 from ax.plot.scatter import _error_scatter_data, _error_scatter_trace
-from ax.utils.common.typeutils import not_none
 from plotly import subplots
+from pyre_extensions import none_throws
 
 
 # type alias
@@ -677,7 +677,7 @@ def interact_batch_comparison(
     if isinstance(experiment, MultiTypeExperiment):
         observations = convert_mt_observations(observations, experiment)
     if not status_quo_name and experiment.status_quo:
-        status_quo_name = not_none(experiment.status_quo).name
+        status_quo_name = none_throws(experiment.status_quo).name
     plot_data = _get_batch_comparison_plot_data(
         observations, batch_x, batch_y, rel=rel, status_quo_name=status_quo_name
     )

@@ -12,6 +12,7 @@ from unittest.mock import MagicMock
 import numpy as np
 from ax.core.search_space import SearchSpaceDigest
 from ax.models.model_utils import (
+    all_ordinal_features_are_integer_valued,
     best_observed_point,
     check_duplicate,
     enumerate_discrete_combinations,
@@ -61,6 +62,7 @@ class ModelUtilsTest(TestCase):
         )
         X_obs = model.predict.mock_calls[0][1][0]
         self.assertEqual(X_obs.shape, (3, 2))
+        # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[typing...
         self.assertTrue(np.array_equal(X_obs[1, :], xbest))  # 1 should be best
 
         # Test with specified utility baseline
@@ -75,6 +77,7 @@ class ModelUtilsTest(TestCase):
         )
         X_obs = model.predict.mock_calls[1][1][0]
         self.assertEqual(X_obs.shape, (3, 2))
+        # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[typing...
         self.assertTrue(np.array_equal(X_obs[2, :], xbest))  # 2 should be best
 
         # Test with feasibility threshold
@@ -89,6 +92,7 @@ class ModelUtilsTest(TestCase):
         )
         X_obs = model.predict.mock_calls[2][1][0]
         self.assertEqual(X_obs.shape, (3, 2))
+        # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[typing...
         self.assertTrue(np.array_equal(X_obs[0, :], xbest))  # 0 should be best
 
         # Parameter infeasible
@@ -169,13 +173,9 @@ class ModelUtilsTest(TestCase):
 
     def test_EnumerateDiscreteCombinations(self) -> None:
         dc1 = {1: [0, 1, 2]}
-        # pyre-fixme[6]: For 1st param expected `Dict[int, List[Union[float, int]]]`
-        #  but got `Dict[int, List[int]]`.
         dc1_enum = enumerate_discrete_combinations(dc1)
         self.assertEqual(dc1_enum, [{1: 0}, {1: 1}, {1: 2}])
         dc2 = {1: [0, 1, 2], 2: [3, 4]}
-        # pyre-fixme[6]: For 1st param expected `Dict[int, List[Union[float, int]]]`
-        #  but got `Dict[int, List[int]]`.
         dc2_enum = enumerate_discrete_combinations(dc2)
         self.assertEqual(
             dc2_enum,
@@ -188,3 +188,31 @@ class ModelUtilsTest(TestCase):
                 {1: 2, 2: 4},
             ],
         )
+
+    def test_all_ordinal_features_are_integer_valued(self) -> None:
+        # No ordinal features.
+        ssd = SearchSpaceDigest(
+            feature_names=["a", "b"],
+            bounds=[(0, 1), (0, 2)],
+            categorical_features=[0],
+            discrete_choices={0: [0, 1]},
+        )
+        self.assertTrue(all_ordinal_features_are_integer_valued(ssd=ssd))
+        # Non-integer ordinal features.
+        ssd = SearchSpaceDigest(
+            feature_names=["a", "b"],
+            bounds=[(0, 1), (0, 2)],
+            categorical_features=[0],
+            ordinal_features=[1],
+            discrete_choices={0: [0, 1], 1: [0.5, 1.5]},
+        )
+        self.assertFalse(all_ordinal_features_are_integer_valued(ssd=ssd))
+        # Integer ordinal features.
+        ssd = SearchSpaceDigest(
+            feature_names=["a", "b"],
+            bounds=[(0, 1), (0, 2)],
+            categorical_features=[0],
+            ordinal_features=[1],
+            discrete_choices={0: [0.5, 1.0], 1: [0.0, 1.0]},
+        )
+        self.assertTrue(all_ordinal_features_are_integer_valued(ssd=ssd))

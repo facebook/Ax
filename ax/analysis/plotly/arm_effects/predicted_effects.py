@@ -3,7 +3,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 from itertools import chain
+from typing import Any
 
 import pandas as pd
 from ax.analysis.analysis import AnalysisCardLevel
@@ -24,7 +27,6 @@ from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.utils.common.typeutils import checked_cast
-from plotly import io as pio
 from pyre_extensions import none_throws
 
 
@@ -51,6 +53,9 @@ class PredictedEffectsPlot(PlotlyAnalysis):
         - constraints_violated: A string representation of the probability
             each constraint is violated for the arm, to be viewed in the tooltip.
     """
+
+    CARD_NAME = "PredictedEffectsPlot"
+    trial_index: int | None = None
 
     def __init__(self, metric_name: str) -> None:
         """
@@ -84,6 +89,8 @@ class PredictedEffectsPlot(PlotlyAnalysis):
                 if t.status != TrialStatus.ABANDONED
             ]
             candidate_trial = experiment.trials[max(trial_indices)]
+            # This is so the card will have a trial_index attribute
+            self.trial_index = candidate_trial.index
         except ValueError:
             raise UserInputError(
                 f"PredictedEffectsPlot cannot be used for {experiment} "
@@ -122,24 +129,23 @@ class PredictedEffectsPlot(PlotlyAnalysis):
             df=df, metric_name=self.metric_name, outcome_constraints=outcome_constraints
         )
 
-        if (
-            experiment.optimization_config is None
-            or self.metric_name not in experiment.optimization_config.metrics
-        ):
-            level = AnalysisCardLevel.LOW
-        elif self.metric_name in experiment.optimization_config.objective.metric_names:
-            level = AnalysisCardLevel.HIGH
-        else:
-            level = AnalysisCardLevel.MID
+        level = AnalysisCardLevel.HIGH
+        nudge = -2
+        if experiment.optimization_config is not None:
+            if (
+                self.metric_name
+                in experiment.optimization_config.objective.metric_names
+            ):
+                nudge = 0
+            elif self.metric_name in experiment.optimization_config.metrics:
+                nudge = -1
 
-        return PlotlyAnalysisCard(
-            name="PredictedEffectsPlot",
+        return self._create_plotly_analysis_card(
             title=f"Predicted Effects for {self.metric_name}",
             subtitle="View a candidate trial and its arms' predicted metric values",
-            level=level,
+            level=level + nudge,
             df=df,
-            blob=pio.to_json(fig),
-            attributes={"trial_index": candidate_trial.index},
+            fig=fig,
         )
 
 
@@ -166,29 +172,29 @@ def _prepare_data(
         metric_name: Name of metric to plot
         candidate_trial: Trial to plot candidates for by generator run
     """
+    predictions_for_observed_arms: list[dict[str, Any]] = get_predictions_by_arm(
+        model=model,
+        metric_name=metric_name,
+        outcome_constraints=outcome_constraints,
+    )
+    candidate_generator_run_predictions: list[list[dict[str, Any]]] = (
+        []
+        if candidate_trial is None
+        else [
+            get_predictions_by_arm(
+                model=model,
+                metric_name=metric_name,
+                outcome_constraints=outcome_constraints,
+                gr=gr,
+            )
+            for gr in candidate_trial.generator_runs
+        ]
+    )
     df = pd.DataFrame.from_records(
         list(
             chain(
-                *[
-                    get_predictions_by_arm(
-                        model=model,
-                        metric_name=metric_name,
-                        outcome_constraints=outcome_constraints,
-                    ),
-                    *(
-                        []
-                        if candidate_trial is None
-                        else [
-                            get_predictions_by_arm(
-                                model=model,
-                                metric_name=metric_name,
-                                outcome_constraints=outcome_constraints,
-                                gr=gr,
-                            )
-                            for gr in candidate_trial.generator_runs
-                        ]
-                    ),
-                ]
+                predictions_for_observed_arms,
+                *candidate_generator_run_predictions,
             )
         )
     )

@@ -16,7 +16,7 @@ from ax.core import Trial
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.runner import Runner
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -145,7 +145,7 @@ try:
                 )
 
             parameters = dict(self._component_const_params)
-            parameters.update(not_none(trial.arm).parameters)
+            parameters.update(none_throws(trial.arm).parameters)
             component_args = inspect.getfullargspec(self._component).args
             if "trial_idx" in component_args:
                 parameters["trial_idx"] = trial.index

@@ -22,7 +22,6 @@ from torch import Tensor
 
 
 class PairwiseModelBridge(TorchModelBridge):
-
     def _convert_observations(
         self,
         observation_data: list[ObservationData],
@@ -38,6 +37,7 @@ class PairwiseModelBridge(TorchModelBridge):
         """
         if len(observation_features) != len(observation_data):
             raise ValueError("Observation features and data must have the same length!")
+        # pyre-fixme[6]: For 1st argument expected `Union[_SupportsArray[dtype[typing...
         ordered_idx = np.argsort([od.trial_index for od in observation_features])
         observation_features = [observation_features[i] for i in ordered_idx]
         observation_data = [observation_data[i] for i in ordered_idx]

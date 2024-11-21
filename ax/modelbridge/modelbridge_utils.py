@@ -16,6 +16,7 @@ from logging import Logger
 from typing import Any, TYPE_CHECKING
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from ax.core.data import Data
 from ax.core.experiment import Experiment
@@ -59,7 +60,6 @@ from ax.utils.common.typeutils import (
     checked_cast,
     checked_cast_optional,
     checked_cast_to_tuple,
-    not_none,
 )
 from botorch.acquisition.multi_objective.multi_output_risk_measures import (
     IndependentCVaR,
@@ -79,6 +79,8 @@ from botorch.utils.datasets import ContextualDataset, SupervisedDataset
 from botorch.utils.multi_objective.box_decompositions.dominated import (
     DominatedPartitioning,
 )
+
+from pyre_extensions import none_throws
 from torch import Tensor
 
 logger: Logger = get_logger(__name__)
@@ -143,7 +145,7 @@ def check_has_multi_objective_and_data(
     optimization_config: OptimizationConfig | None = None,
 ) -> None:
     """Raise an error if not using a `MultiObjective` or if the data is empty."""
-    optimization_config = not_none(
+    optimization_config = none_throws(
         optimization_config or experiment.optimization_config
     )
     if not isinstance(optimization_config.objective, MultiObjective):
@@ -229,8 +231,12 @@ def extract_search_space_digest(
             discrete_choices[i] = p.values  # pyre-ignore [6]
             bounds.append((min(p.values), max(p.values)))  # pyre-ignore [6]
         elif isinstance(p, RangeParameter):
-            if p.log_scale:
-                raise ValueError(f"{p} is log scale")
+            if p.log_scale or p.logit_scale:
+                raise UserInputError(
+                    "Log and Logit scale parameters must be transformed using the "
+                    "corresponding transform within the `ModelBridge`. After applying "
+                    f"the transforms, we have {p.log_scale=} and {p.logit_scale=}."
+                )
             if p.parameter_type == ParameterType.INT:
                 ordinal_features.append(i)
                 d_choices = list(range(int(p.lower), int(p.upper) + 1))
@@ -304,7 +310,7 @@ def extract_robust_digest(
         # NOTE: Extracting it from `param_names` in case the ordering is different.
         environmental_variables = param_names[num_non_env_vars:]
 
-        def sample_environmental() -> np.ndarray:
+        def sample_environmental() -> npt.NDArray:
             """Get samples from the environmental distributions.
 
             Samples have the same dimension as the number of environmental variables.
@@ -327,11 +333,11 @@ def extract_robust_digest(
         environmental_variables = []
 
     if len(pert_params) > 0:
-        constructor: Callable[[tuple[int, int]], np.ndarray] = (
+        constructor: Callable[[tuple[int, int]], npt.NDArray] = (
             np.ones if search_space.multiplicative else np.zeros
         )
 
-        def sample_param_perturbations() -> np.ndarray:
+        def sample_param_perturbations() -> npt.NDArray:
             """Get samples of the input perturbations.
 
             Samples have the same dimension as the length of `param_names`
@@ -365,7 +371,7 @@ def extract_objective_thresholds(
     objective_thresholds: TRefPoint,
     objective: Objective,
     outcomes: list[str],
-) -> np.ndarray | None:
+) -> npt.NDArray | None:
     """Extracts objective thresholds' values, in the order of `outcomes`.
 
     Will return None if no objective thresholds, otherwise the extracted tensor
@@ -411,7 +417,7 @@ def extract_objective_thresholds(
     return obj_t
 
 
-def extract_objective_weights(objective: Objective, outcomes: list[str]) -> np.ndarray:
+def extract_objective_weights(objective: Objective, outcomes: list[str]) -> npt.NDArray:
     """Extract a weights for objectives.
 
     Weights are for a maximization problem.
@@ -470,12 +476,12 @@ def extract_outcome_constraints(
 
 
 def validate_and_apply_final_transform(
-    objective_weights: np.ndarray,
-    outcome_constraints: tuple[np.ndarray, np.ndarray] | None,
-    linear_constraints: tuple[np.ndarray, np.ndarray] | None,
-    pending_observations: list[np.ndarray] | None,
-    objective_thresholds: np.ndarray | None = None,
-    final_transform: Callable[[np.ndarray], Tensor] = torch.tensor,
+    objective_weights: npt.NDArray,
+    outcome_constraints: tuple[npt.NDArray, npt.NDArray] | None,
+    linear_constraints: tuple[npt.NDArray, npt.NDArray] | None,
+    pending_observations: list[npt.NDArray] | None,
+    objective_thresholds: npt.NDArray | None = None,
+    final_transform: Callable[[npt.NDArray], Tensor] = torch.tensor,
 ) -> tuple[
     Tensor,
     tuple[Tensor, Tensor] | None,
@@ -547,7 +553,7 @@ def pending_observations_as_array_list(
     pending_observations: dict[str, list[ObservationFeatures]],
     outcome_names: list[str],
     param_names: list[str],
-) -> list[np.ndarray] | None:
+) -> list[npt.NDArray] | None:
     """Re-format pending observations.
 
     Args:
@@ -579,7 +585,7 @@ def pending_observations_as_array_list(
 
 
 def parse_observation_features(
-    X: np.ndarray,
+    X: npt.NDArray,
     param_names: list[str],
     candidate_metadata: list[TCandidateMetadata] | None = None,
 ) -> list[ObservationFeatures]:
@@ -610,8 +616,9 @@ def parse_observation_features(
 
 
 def transform_callback(
-    param_names: list[str], transforms: MutableMapping[str, Transform]
-) -> Callable[[np.ndarray], np.ndarray]:
+    param_names: list[str],
+    transforms: MutableMapping[str, Transform],
+) -> Callable[[npt.NDArray], npt.NDArray]:
     """A closure for performing the `round trip` transformations.
 
     The function round points by de-transforming points back into
@@ -628,7 +635,7 @@ def transform_callback(
         a function with for performing the roundtrip transform.
     """
 
-    def _roundtrip_transform(x: np.ndarray) -> np.ndarray:
+    def _roundtrip_transform(x: npt.NDArray) -> npt.NDArray:
         """Inner function for performing aforementioned functionality.
 
         Args:
@@ -727,7 +734,7 @@ def get_pareto_frontier_and_configs(
             observation_features=observation_features
         )
     Y, Yvar = observation_data_to_array(
-        outcomes=modelbridge.outcomes, observation_data=not_none(observation_data)
+        outcomes=modelbridge.outcomes, observation_data=none_throws(observation_data)
     )
     Y, Yvar = (array_to_tensor(Y), array_to_tensor(Yvar))
     if arm_names is None:
@@ -791,7 +798,7 @@ def get_pareto_frontier_and_configs(
     f, cov = f.detach().cpu().clone(), cov.detach().cpu().clone()
     indx = indx.tolist()
     frontier_observation_data = array_to_observation_data(
-        f=f.numpy(), cov=cov.numpy(), outcomes=not_none(modelbridge.outcomes)
+        f=f.numpy(), cov=cov.numpy(), outcomes=none_throws(modelbridge.outcomes)
     )
     # Construct observations
     frontier_observations = []
@@ -1028,7 +1035,7 @@ def hypervolume(
     )
     # Apply appropriate weights and thresholds
     obj, obj_t = get_weighted_mc_objective_and_objective_thresholds(
-        objective_weights=obj_w, objective_thresholds=not_none(obj_t)
+        objective_weights=obj_w, objective_thresholds=none_throws(obj_t)
     )
     f_t = obj(f)
     obj_mask = obj_w.nonzero().view(-1)
@@ -1152,7 +1159,9 @@ def observed_hypervolume(
 
 
 def array_to_observation_data(
-    f: np.ndarray, cov: np.ndarray, outcomes: list[str]
+    f: npt.NDArray,
+    cov: npt.NDArray,
+    outcomes: list[str],
 ) -> list[ObservationData]:
     """Convert arrays of model predictions to a list of ObservationData.
 
@@ -1178,7 +1187,7 @@ def array_to_observation_data(
 def observation_data_to_array(
     outcomes: list[str],
     observation_data: list[ObservationData],
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[npt.NDArray, npt.NDArray]:
     """Convert a list of Observation data to arrays.
 
     Any missing mean or covariance values will be returned as NaNs.
@@ -1212,15 +1221,17 @@ def observation_data_to_array(
 
 
 def observation_features_to_array(
-    parameters: list[str], obsf: list[ObservationFeatures]
-) -> np.ndarray:
+    parameters: list[str],
+    obsf: list[ObservationFeatures],
+) -> npt.NDArray:
     """Convert a list of Observation features to arrays."""
     return np.array([[of.parameters[p] for p in parameters] for of in obsf])
 
 
 def feasible_hypervolume(
-    optimization_config: MultiObjectiveOptimizationConfig, values: dict[str, np.ndarray]
-) -> np.ndarray:
+    optimization_config: MultiObjectiveOptimizationConfig,
+    values: dict[str, npt.NDArray],
+) -> npt.NDArray:
     """Compute the feasible hypervolume each iteration.
 
     Args:
@@ -1271,7 +1282,7 @@ def feasible_hypervolume(
 
 
 def _array_to_tensor(
-    array: np.ndarray | list[float],
+    array: npt.NDArray | list[float],
     modelbridge: modelbridge_module.base.ModelBridge | None = None,
 ) -> Tensor:
     if modelbridge and hasattr(modelbridge, "_array_to_tensor"):

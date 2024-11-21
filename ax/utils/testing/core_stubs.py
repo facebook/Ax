@@ -85,6 +85,10 @@ from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.metrics.factorial import FactorialMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.modelbridge.factory import Cont_X_trans, get_factorial, get_sobol, Models
+from ax.modelbridge.generation_node_input_constructors import (
+    InputConstructorPurpose,
+    NodeInputConstructors,
+)
 from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.transition_criterion import (
@@ -95,16 +99,16 @@ from ax.modelbridge.transition_criterion import (
 )
 from ax.models.torch.botorch_modular.acquisition import Acquisition
 from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
-from ax.models.torch.botorch_modular.model import BoTorchModel, SurrogateSpec
+from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch.botorch_modular.sebo import SEBOAcquisition
-from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.models.winsorization_config import WinsorizationConfig
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import set_rng_seed
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.measurement.synthetic_functions import branin
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.monte_carlo import qExpectedImprovement
@@ -118,6 +122,7 @@ from gpytorch.kernels.rbf_kernel import RBFKernel
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -242,6 +247,7 @@ def get_branin_experiment(
     with_fidelity_parameter: bool = False,
     with_choice_parameter: bool = False,
     with_str_choice_param: bool = False,
+    with_parameter_constraint: bool = False,
     search_space: SearchSpace | None = None,
     minimize: bool = False,
     named: bool = True,
@@ -253,6 +259,7 @@ def get_branin_experiment(
         with_fidelity_parameter=with_fidelity_parameter,
         with_choice_parameter=with_choice_parameter,
         with_str_choice_param=with_str_choice_param,
+        with_parameter_constraint=with_parameter_constraint,
     )
     exp = Experiment(
         name="branin_test_experiment" if named else None,
@@ -267,7 +274,7 @@ def get_branin_experiment(
         status_quo=Arm(parameters={"x1": 0.0, "x2": 0.0}) if with_status_quo else None,
     )
 
-    if with_batch:
+    if with_batch or with_completed_batch:
         for _ in range(num_batch_trial):
             sobol_generator = get_sobol(search_space=exp.search_space)
             sobol_run = sobol_generator.gen(n=15)
@@ -609,6 +616,8 @@ def get_branin_experiment_with_multi_objective(
     num_objectives: int = 2,
     with_trial: bool = False,
     with_completed_trial: bool = False,
+    with_relative_constraint: bool = False,
+    with_absolute_constraint: bool = False,
 ) -> Experiment:
     exp = Experiment(
         name="branin_test_experiment",
@@ -619,6 +628,8 @@ def get_branin_experiment_with_multi_objective(
             get_branin_multi_objective_optimization_config(
                 has_objective_thresholds=has_objective_thresholds,
                 num_objectives=num_objectives,
+                with_relative_constraint=with_relative_constraint,
+                with_absolute_constraint=with_absolute_constraint,
             )
             if has_optimization_config
             else None
@@ -673,9 +684,9 @@ def get_branin_with_multi_task(with_multi_objective: bool = False) -> Experiment
     sobol_generator = get_sobol(search_space=exp.search_space, seed=TEST_SOBOL_SEED)
     sobol_run = sobol_generator.gen(n=5)
     exp.new_batch_trial(optimize_for_power=True).add_generator_run(sobol_run)
-    not_none(exp.trials.get(0)).run()
+    none_throws(exp.trials.get(0)).run()
     exp.new_batch_trial(optimize_for_power=True).add_generator_run(sobol_run)
-    not_none(exp.trials.get(1)).run()
+    none_throws(exp.trials.get(1)).run()
 
     return exp
 
@@ -835,7 +846,9 @@ def get_experiment_with_observations(
     return exp
 
 
-def get_high_dimensional_branin_experiment(with_batch: bool = False) -> Experiment:
+def get_high_dimensional_branin_experiment(
+    with_batch: bool = False, with_status_quo: bool = False
+) -> Experiment:
     search_space = SearchSpace(
         # pyre-fixme[6]: In call `SearchSpace.__init__`, for 1st parameter `parameters`
         # expected `List[Parameter]` but got `List[RangeParameter]`.
@@ -859,6 +872,7 @@ def get_high_dimensional_branin_experiment(with_batch: bool = False) -> Experime
         ],
     )
 
+    sq_parameters = {f"x{i}": 1.0 if i < 25 else 2.0 for i in range(50)}
     optimization_config = OptimizationConfig(
         objective=Objective(
             metric=BraninMetric(
@@ -874,6 +888,8 @@ def get_high_dimensional_branin_experiment(with_batch: bool = False) -> Experime
         search_space=search_space,
         optimization_config=optimization_config,
         runner=SyntheticRunner(),
+        # pyre-fixme[6]: expects a union type for val instead of defined {str: float}
+        status_quo=Arm(sq_parameters) if with_status_quo else None,
     )
     if with_batch:
         sobol_generator = get_sobol(search_space=exp.search_space)
@@ -915,6 +931,7 @@ def get_branin_search_space(
     with_fidelity_parameter: bool = False,
     with_choice_parameter: bool = False,
     with_str_choice_param: bool = False,
+    with_parameter_constraint: bool = False,
 ) -> SearchSpace:
     parameters = [
         RangeParameter(
@@ -951,8 +968,16 @@ def get_branin_search_space(
                 target_value=1.0,
             )
         )
+    if with_parameter_constraint:
+        constraints = [
+            ParameterConstraint(constraint_dict={"x1": 1, "x2": 1}, bound=15.0)
+        ]
+    else:
+        constraints = None
 
-    return SearchSpace(parameters=cast(list[Parameter], parameters))
+    return SearchSpace(
+        parameters=cast(list[Parameter], parameters), parameter_constraints=constraints
+    )
 
 
 def get_factorial_search_space() -> SearchSpace:
@@ -1123,7 +1148,6 @@ def get_robust_search_space(
     use_discrete: bool = False,
     num_samples: int = 4,  # dummy
 ) -> RobustSearchSpace:
-
     parameters = [
         RangeParameter("x", ParameterType.FLOAT, lb, ub),
         RangeParameter("y", ParameterType.FLOAT, lb, ub),
@@ -1654,7 +1678,6 @@ def get_multi_objective_optimization_config(
     relative: bool = True,
     outcome_constraint: bool = True,
 ) -> MultiObjectiveOptimizationConfig:
-
     objective = get_custom_multi_objective() if custom_metric else get_multi_objective()
     outcome_constraints = (
         [get_outcome_constraint(relative=relative)] if outcome_constraint else []
@@ -1690,6 +1713,8 @@ def _validate_num_objectives(num_objectives: int) -> None:
 def get_branin_multi_objective_optimization_config(
     has_objective_thresholds: bool = False,
     num_objectives: int = 2,
+    with_relative_constraint: bool = False,
+    with_absolute_constraint: bool = False,
 ) -> MultiObjectiveOptimizationConfig:
     _validate_num_objectives(num_objectives=num_objectives)
     # minimum Branin value is 0.397887
@@ -1719,9 +1744,24 @@ def get_branin_multi_objective_optimization_config(
             )
     else:
         objective_thresholds = None
+    outcome_constraints = []
+    if with_relative_constraint:
+        outcome_constraints.append(
+            get_outcome_constraint(
+                metric=get_branin_metric(name="branin_d"), relative=True
+            )
+        )
+
+    if with_absolute_constraint:
+        outcome_constraints.append(
+            get_outcome_constraint(
+                metric=get_branin_metric(name="branin_e"), relative=False
+            )
+        )
     return MultiObjectiveOptimizationConfig(
         objective=get_branin_multi_objective(num_objectives=num_objectives),
         objective_thresholds=objective_thresholds,
+        outcome_constraints=outcome_constraints,
     )
 
 
@@ -1972,10 +2012,10 @@ def get_branin_data(
             {
                 "trial_index": trial.index,
                 "metric_name": "branin",
-                "arm_name": not_none(checked_cast(Trial, trial).arm).name,
+                "arm_name": none_throws(checked_cast(Trial, trial).arm).name,
                 "mean": branin(
-                    float(not_none(not_none(trial.arm).parameters["x1"])),
-                    float(not_none(not_none(trial.arm).parameters["x2"])),
+                    float(none_throws(none_throws(trial.arm).parameters["x1"])),
+                    float(none_throws(none_throws(trial.arm).parameters["x2"])),
                 ),
                 "sem": 0.0,
             }
@@ -1995,16 +2035,23 @@ def get_branin_data(
     return Data(df=pd.DataFrame.from_records(df_dicts))
 
 
-def get_branin_data_batch(batch: BatchTrial) -> Data:
+def get_branin_data_batch(
+    batch: BatchTrial, fill_vals: dict[str, float] | None = None
+) -> Data:
     means = []
+    fill_vals = fill_vals or {}
     for arm in batch.arms:
-        if arm.parameters["x1"] is None or arm.parameters["x2"] is None:
+        params = arm.parameters
+        for k, v in fill_vals.items():
+            if params.get(k, None) is None:
+                params[k] = v
+        if params["x1"] is None or params["x2"] is None:
             means.append(5.0)
         else:
             means.append(
                 branin(
-                    float(not_none(arm.parameters["x1"])),
-                    float(not_none(arm.parameters["x2"])),
+                    float(none_throws(params["x1"])),
+                    float(none_throws(params["x2"])),
                 )
             )
     return Data(
@@ -2199,6 +2246,12 @@ def get_botorch_model_with_surrogate_specs() -> BoTorchModel:
     )
 
 
+def get_botorch_model_with_surrogate_spec() -> BoTorchModel:
+    return BoTorchModel(
+        surrogate_spec=SurrogateSpec(botorch_model_kwargs={"some_option": "some_value"})
+    )
+
+
 def get_surrogate() -> Surrogate:
     return Surrogate(
         botorch_model_class=get_model_type(),
@@ -2354,25 +2407,26 @@ def get_dataset(
     )
 
 
-def get_online_sobol_gpei_generation_strategy(
+def get_online_sobol_mbm_generation_strategy(
     sobol_steps: int = 1,
 ) -> GenerationStrategy:
-    """Constructs a GenerationStrategy with Sobol and GPEI nodes for simulating
+    """Constructs a GenerationStrategy with Sobol and MBM nodes for simulating
     online optimization.
     """
     # Set up the node-based generation strategy for testing.
+    # TODO: @mgarrard make this more realistic of an actual online gs
     step_model_kwargs = {"silently_filter_kwargs": True}
     sobol_criterion = [
         MaxTrials(
             threshold=1,
-            transition_to="GPEI_node",
+            transition_to="MBM_node",
             block_gen_if_met=True,
             only_in_statuses=None,
             not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
         ),
         MinTrials(
             threshold=1,
-            transition_to="GPEI_node",
+            transition_to="MBM_node",
             block_gen_if_met=True,
             only_in_statuses=[
                 TrialStatus.RUNNING,
@@ -2386,8 +2440,8 @@ def get_online_sobol_gpei_generation_strategy(
         model_kwargs=step_model_kwargs,
         model_gen_kwargs={},
     )
-    gpei_model_spec = ModelSpec(
-        model_enum=Models.GPEI,
+    mbm_model_spec = ModelSpec(
+        model_enum=Models.BOTORCH_MODULAR,
         model_kwargs=step_model_kwargs,
         model_gen_kwargs={},
     )
@@ -2395,15 +2449,17 @@ def get_online_sobol_gpei_generation_strategy(
         node_name="sobol_node",
         transition_criteria=sobol_criterion,
         model_specs=[sobol_model_spec],
+        input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
     )
-    gpei_node = GenerationNode(
-        node_name="GPEI_node",
+    mbm_node = GenerationNode(
+        node_name="MBM_node",
         transition_criteria=[],
-        model_specs=[gpei_model_spec],
+        model_specs=[mbm_model_spec],
+        input_constructors={InputConstructorPurpose.N: NodeInputConstructors.ALL_N},
     )
     return GenerationStrategy(
-        name="Sobol+GPEI_Nodes",
-        nodes=[sobol_node, gpei_node],
+        name="Sobol+MBM_Nodes",
+        nodes=[sobol_node, mbm_node],
     )
 
 
@@ -2443,9 +2499,11 @@ class SpecialGenerationStrategy(GenerationStrategyInterface):
     def gen_for_multiple_trials_with_multiple_models(
         self,
         experiment: Experiment,
-        num_generator_runs: int,
         data: Data | None = None,
+        pending_observations: dict[str, list[ObservationFeatures]] | None = None,
         n: int | None = None,
+        num_trials: int = 1,
+        arms_per_node: dict[str, int] | None = None,
     ) -> list[list[GeneratorRun]]:
         return []
 

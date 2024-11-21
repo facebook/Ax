@@ -14,7 +14,7 @@ from functools import lru_cache
 from math import sqrt
 from typing import Any
 
-import numpy as np
+import numpy.typing as npt
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
@@ -29,19 +29,24 @@ from sklearn.neural_network import MLPClassifier, MLPRegressor
 
 
 class SklearnModelType(Enum):
+    # pyre-fixme[35]: Target cannot be annotated.
     RF: str = "rf"
+    # pyre-fixme[35]: Target cannot be annotated.
     NN: str = "nn"
 
 
 class SklearnDataset(Enum):
+    # pyre-fixme[35]: Target cannot be annotated.
     DIGITS: str = "digits"
+    # pyre-fixme[35]: Target cannot be annotated.
     BOSTON: str = "boston"
+    # pyre-fixme[35]: Target cannot be annotated.
     CANCER: str = "cancer"
 
 
 @lru_cache(maxsize=8)
 # pyre-fixme[2]: Parameter must be annotated.
-def _get_data(dataset) -> dict[str, np.ndarray]:
+def _get_data(dataset) -> dict[str, npt.NDArray]:
     """Return sklearn dataset, loading and caching if necessary."""
     if dataset is SklearnDataset.DIGITS:
         return datasets.load_digits()

@@ -6,10 +6,11 @@
 # pyre-strict
 
 
+import pandas as pd
 from ax.analysis.analysis import Analysis, AnalysisCard
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
-from IPython.display import display
+from IPython.display import display, Markdown
 from plotly import graph_objects as go, io as pio
 
 
@@ -24,6 +25,7 @@ class PlotlyAnalysisCard(AnalysisCard):
         IPython display hook. This is called when the AnalysisCard is printed in an
         IPython environment (ex. Jupyter). Here we want to display the Plotly figure.
         """
+        display(Markdown(f"## {self.title}\n\n### {self.subtitle}"))
         display(self.get_figure())
 
 
@@ -37,3 +39,25 @@ class PlotlyAnalysis(Analysis):
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategyInterface | None = None,
     ) -> PlotlyAnalysisCard: ...
+
+    def _create_plotly_analysis_card(
+        self,
+        title: str,
+        subtitle: str,
+        level: int,
+        df: pd.DataFrame,
+        fig: go.Figure,
+    ) -> PlotlyAnalysisCard:
+        """
+        Make a PlotlyAnalysisCard from this Analysis using provided fields and
+        details about the Analysis class.
+        """
+        return PlotlyAnalysisCard(
+            name=self.name,
+            attributes=self.attributes,
+            title=title,
+            subtitle=subtitle,
+            level=level,
+            df=df,
+            blob=pio.to_json(fig),
+        )

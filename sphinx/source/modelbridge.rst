@@ -182,22 +182,6 @@ Transforms
     :undoc-members:
     :show-inheritance:
 
-`ax.modelbridge.transforms.cap_parameter`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.modelbridge.transforms.cap_parameter
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-`ax.modelbridge.transforms.centered_unit_x`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.modelbridge.transforms.centered_unit_x
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 `ax.modelbridge.transforms.choice\_encode`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -222,6 +206,14 @@ Transforms
     :undoc-members:
     :show-inheritance:
 
+`ax.modelbridge.transforms.fill_missing_parameters`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.fill_missing_parameters
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 `ax.modelbridge.transforms.int\_range\_to\_choice`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -242,14 +234,6 @@ Transforms
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.ivw
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-`ax.modelbridge.transforms.inverse_gaussian_cdf_y`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.modelbridge.transforms.inverse_gaussian_cdf_y
     :members:
     :undoc-members:
     :show-inheritance:
@@ -306,14 +290,6 @@ Transforms
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ax.modelbridge.transforms.one_hot
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-`ax.modelbridge.transforms.percentile_y`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: ax.modelbridge.transforms.percentile_y
     :members:
     :undoc-members:
     :show-inheritance:

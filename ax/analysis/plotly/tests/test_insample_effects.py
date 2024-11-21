@@ -3,6 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 from unittest.mock import patch
 
 import torch
@@ -23,13 +25,12 @@ from ax.utils.testing.core_stubs import (
     get_branin_metric,
     get_branin_outcome_constraint,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from pyre_extensions import none_throws
 
 
 class TestInsampleEffectsPlot(TestCase):
-
     def setUp(self) -> None:
         super().setUp()
         self.generation_strategy = GenerationStrategy(
@@ -40,12 +41,12 @@ class TestInsampleEffectsPlot(TestCase):
                     transition_criteria=[
                         MaxTrials(
                             threshold=1,
-                            transition_to="GPEI",
+                            transition_to="MBM",
                         )
                     ],
                 ),
                 GenerationNode(
-                    node_name="GPEI",
+                    node_name="MBM",
                     model_specs=[
                         ModelSpec(
                             model_enum=Models.BOTORCH_MODULAR,
@@ -82,7 +83,7 @@ class TestInsampleEffectsPlot(TestCase):
         with self.assertRaisesRegex(UserInputError, "requires an Experiment"):
             analysis.compute()
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_compute_uses_gs_model_if_possible(self) -> None:
         # GIVEN an experiment and GS with a Botorch model
         experiment = get_branin_experiment(with_status_quo=True)
@@ -93,9 +94,7 @@ class TestInsampleEffectsPlot(TestCase):
             )
         ).set_status_quo_with_weight(
             status_quo=experiment.status_quo, weight=1.0
-        ).mark_completed(
-            unsafe=True
-        )
+        ).mark_completed(unsafe=True)
         experiment.fetch_data()
         generation_strategy.gen_with_multiple_nodes(experiment=experiment, n=10)
         # Ensure the current model is Botorch
@@ -175,10 +174,10 @@ class TestInsampleEffectsPlot(TestCase):
         self.assertEqual(card.name, "ModeledEffectsPlot")
         self.assertEqual(card.title, "Modeled Effects for branin on trial 0")
         self.assertEqual(
-            card.subtitle, "View a trial and its arms' predicted metric values"
+            card.subtitle, "View a trial and its arms' modeled metric values"
         )
-        # high because it's on objective
-        self.assertEqual(card.level, AnalysisCardLevel.HIGH)
+        # +2 because it's on objective, +1 because it's modeled
+        self.assertEqual(card.level, AnalysisCardLevel.MID + 3)
 
     def test_compute_modeled_can_use_ebts_for_no_gs(self) -> None:
         # GIVEN an experiment with a trial with data
@@ -221,10 +220,10 @@ class TestInsampleEffectsPlot(TestCase):
         self.assertEqual(card.name, "ModeledEffectsPlot")
         self.assertEqual(card.title, "Modeled Effects for branin on trial 0")
         self.assertEqual(
-            card.subtitle, "View a trial and its arms' predicted metric values"
+            card.subtitle, "View a trial and its arms' modeled metric values"
         )
-        # high because it's on objective
-        self.assertEqual(card.level, AnalysisCardLevel.HIGH)
+        # +2 because it's on objective, +1 because it's modeled
+        self.assertEqual(card.level, AnalysisCardLevel.MID + 3)
 
     def test_compute_unmodeled_uses_thompson(self) -> None:
         # GIVEN an experiment with a trial with data
@@ -275,13 +274,13 @@ class TestInsampleEffectsPlot(TestCase):
             )
 
         # AND THEN the card is labeled correctly
-        self.assertEqual(card.name, "RawEffectsPlot")
-        self.assertEqual(card.title, "Raw Effects for branin on trial 0")
+        self.assertEqual(card.name, "ObservedEffectsPlot")
+        self.assertEqual(card.title, "Observed Effects for branin on trial 0")
         self.assertEqual(
             card.subtitle, "View a trial and its arms' observed metric values"
         )
-        # high because it's on objective
-        self.assertEqual(card.level, AnalysisCardLevel.HIGH)
+        # +2 because it's on objective
+        self.assertEqual(card.level, AnalysisCardLevel.MID + 2)
 
     def test_compute_requires_data_for_the_metric_on_the_trial_without_a_model(
         self,
@@ -309,7 +308,7 @@ class TestInsampleEffectsPlot(TestCase):
             analysis.compute(experiment=experiment, generation_strategy=None)
             # THEN it raises an error
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_compute_requires_data_for_the_metric_on_the_trial_with_a_model(
         self,
     ) -> None:
@@ -323,9 +322,7 @@ class TestInsampleEffectsPlot(TestCase):
             )
         ).set_status_quo_with_weight(
             status_quo=experiment.status_quo, weight=1.0
-        ).mark_completed(
-            unsafe=True
-        )
+        ).mark_completed(unsafe=True)
         experiment.fetch_data()
         # AND GIVEN the experiment has a trial with no data
         empty_trial = experiment.new_batch_trial(
@@ -356,7 +353,7 @@ class TestInsampleEffectsPlot(TestCase):
             )
             # THEN it raises an error
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_constraints(self) -> None:
         # GIVEN an experiment with metrics and batch trials
         experiment = get_branin_experiment(with_status_quo=True)
@@ -410,7 +407,9 @@ class TestInsampleEffectsPlot(TestCase):
                 str(non_sq_df["constraints_violated"][0]),
             )
             # AND THEN it marks that constraints are not violated for the SQ
-            self.assertEqual(sq_row["size_column"].iloc[0], 100)
+            self.assertEqual(
+                sq_row["overall_probability_constraints_violated"].iloc[0], 0
+            )
             self.assertEqual(
                 sq_row["constraints_violated"].iloc[0], "No constraints violated"
             )
@@ -453,9 +452,9 @@ class TestInsampleEffectsPlot(TestCase):
         experiment.fetch_data()
 
         metric_to_level = {
-            "branin": AnalysisCardLevel.HIGH,
-            "constraint_branin": AnalysisCardLevel.MID,
-            "tracking_branin": AnalysisCardLevel.LOW,
+            "branin": AnalysisCardLevel.MID + 2,
+            "constraint_branin": AnalysisCardLevel.MID + 1,
+            "tracking_branin": AnalysisCardLevel.MID,
         }
 
         for metric, level in metric_to_level.items():

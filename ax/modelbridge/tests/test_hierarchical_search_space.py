@@ -28,8 +28,9 @@ from ax.modelbridge.registry import Models
 from ax.runners.synthetic import SyntheticRunner
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast, not_none
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.common.typeutils import checked_cast
+from ax.utils.testing.mock import mock_botorch_optimize
+from pyre_extensions import none_throws
 
 
 class TestHierarchicalSearchSpace(TestCase):
@@ -116,7 +117,7 @@ class TestHierarchicalSearchSpace(TestCase):
             ]
         )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def _test_gen_base(
         self,
         hss: HierarchicalSearchSpace,
@@ -166,17 +167,17 @@ class TestHierarchicalSearchSpace(TestCase):
 
         for t in experiment.trials.values():
             trial = checked_cast(Trial, t)
-            arm = not_none(trial.arm)
+            arm = none_throws(trial.arm)
             self.assertIn(len(arm.parameters), expected_num_candidate_params)
             # Check that the trials have the full parameterization recorded.
-            full_parameterization = not_none(
+            full_parameterization = none_throws(
                 trial._get_candidate_metadata(arm_name=arm.name)
             )[Keys.FULL_PARAMETERIZATION]
             self.assertEqual(full_parameterization.keys(), hss.parameters.keys())
 
         return experiment
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def _base_test_predict_and_cv(
         self,
         experiment: Experiment,
@@ -195,9 +196,9 @@ class TestHierarchicalSearchSpace(TestCase):
         )
         for t in experiment.trials.values():
             trial = checked_cast(Trial, t)
-            arm = not_none(trial.arm)
+            arm = none_throws(trial.arm)
             final_parameterization = arm.parameters
-            full_parameterization = not_none(
+            full_parameterization = none_throws(
                 trial._get_candidate_metadata(arm_name=arm.name)
             )[Keys.FULL_PARAMETERIZATION]
             # Predict with full parameterization -- this should always work.

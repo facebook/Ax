@@ -123,12 +123,12 @@ class OptimizationConfig(Base):
     def metrics(self) -> dict[str, Metric]:
         constraint_metrics = {
             oc.metric.name: oc.metric
-            for oc in self._outcome_constraints
+            for oc in self.all_constraints
             if not isinstance(oc, ScalarizedOutcomeConstraint)
         }
         scalarized_constraint_metrics = {
             metric.name: metric
-            for oc in self._outcome_constraints
+            for oc in self.all_constraints
             if isinstance(oc, ScalarizedOutcomeConstraint)
             for metric in oc.metrics
         }
@@ -298,9 +298,8 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         self,
         objective: MultiObjective | ScalarizedObjective | None = None,
         outcome_constraints: None | (list[OutcomeConstraint]) = _NO_OUTCOME_CONSTRAINTS,
-        objective_thresholds: None | (
-            list[ObjectiveThreshold]
-        ) = _NO_OBJECTIVE_THRESHOLDS,
+        objective_thresholds: None
+        | (list[ObjectiveThreshold]) = _NO_OBJECTIVE_THRESHOLDS,
         risk_measure: RiskMeasure | None = _NO_RISK_MEASURE,
     ) -> "MultiObjectiveOptimizationConfig":
         """Make a copy of this optimization config."""
@@ -346,26 +345,6 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
     def all_constraints(self) -> list[OutcomeConstraint]:
         """Get all constraints and thresholds."""
         return self.outcome_constraints + self.objective_thresholds
-
-    @property
-    def metrics(self) -> dict[str, Metric]:
-        constraint_metrics = {
-            oc.metric.name: oc.metric
-            for oc in self.all_constraints
-            if not isinstance(oc, ScalarizedOutcomeConstraint)
-        }
-        scalarized_constraint_metrics = {
-            metric.name: metric
-            for oc in self.all_constraints
-            if isinstance(oc, ScalarizedOutcomeConstraint)
-            for metric in oc.metrics
-        }
-        objective_metrics = {metric.name: metric for metric in self.objective.metrics}
-        return {
-            **constraint_metrics,
-            **scalarized_constraint_metrics,
-            **objective_metrics,
-        }
 
     @property
     def objective_thresholds(self) -> list[ObjectiveThreshold]:

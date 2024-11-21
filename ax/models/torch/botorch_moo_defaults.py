@@ -33,14 +33,14 @@ from typing import cast, Optional, Union
 
 import torch
 from ax.exceptions.core import AxError
-from ax.models.torch.botorch_defaults import NO_FEASIBLE_POINTS_MESSAGE
+from ax.models.torch.botorch_defaults import NO_OBSERVED_POINTS_MESSAGE
 from ax.models.torch.utils import (
     _get_X_pending_and_observed,
     get_outcome_constraint_transforms,
     subset_model,
 )
 from ax.models.torch_base import TorchModel
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from botorch.acquisition import get_acquisition_function
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.multi_objective.logei import (
@@ -60,6 +60,7 @@ from botorch.posteriors.posterior import Posterior
 from botorch.posteriors.posterior_list import PosteriorList
 from botorch.utils.multi_objective.hypervolume import infer_reference_point
 from botorch.utils.multi_objective.pareto import is_non_dominated
+from pyre_extensions import none_throws
 from torch import Tensor
 
 DEFAULT_EHVI_MC_SAMPLES = 128
@@ -80,6 +81,12 @@ TFrontierEvaluator = Callable[
     ],
     tuple[Tensor, Tensor, Tensor],
 ]
+
+NO_FEASIBLE_POINTS_MESSAGE = (
+    " Cannot infer objective thresholds due to no observed feasible points. "
+    " This likely means that one or more outcome constraints is set too strictly.  "
+    " Consider adding thresholds to your objectives to bypass this error."
+)
 
 
 def get_weighted_mc_objective_and_objective_thresholds(
@@ -262,7 +269,7 @@ def _get_NEHVI(
     seed: int | None = None,
 ) -> qNoisyExpectedHypervolumeImprovement | qLogNoisyExpectedHypervolumeImprovement:
     if X_observed is None:
-        raise ValueError(NO_FEASIBLE_POINTS_MESSAGE)
+        raise ValueError(NO_OBSERVED_POINTS_MESSAGE)
     # construct Objective module
     (
         objective,
@@ -439,7 +446,7 @@ def _get_EHVI(
     seed: int | None = None,
 ) -> qExpectedHypervolumeImprovement | qLogExpectedHypervolumeImprovement:
     if X_observed is None:
-        raise ValueError(NO_FEASIBLE_POINTS_MESSAGE)
+        raise ValueError(NO_OBSERVED_POINTS_MESSAGE)
     # construct Objective module
     (
         objective,
@@ -581,7 +588,7 @@ def pareto_frontier_evaluator(
     # TODO: better input validation, making more explicit whether we are using
     # model predictions or not
     if X is not None:
-        Y, Yvar = not_none(model).predict(X)
+        Y, Yvar = none_throws(model).predict(X)
         # model.predict returns cpu tensors
         Y = Y.to(X.device)
         Yvar = Yvar.to(X.device)
@@ -743,7 +750,7 @@ def infer_objective_thresholds(
             )
     with torch.no_grad():
         pred = _check_posterior_type(
-            not_none(model).posterior(not_none(X_observed))
+            none_throws(model).posterior(none_throws(X_observed))
         ).mean
 
     if outcome_constraints is not None:

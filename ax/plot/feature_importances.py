@@ -10,6 +10,7 @@ from logging import Logger
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import plotly.graph_objs as go
 from ax.core.parameter import ChoiceParameter
@@ -102,7 +103,7 @@ def plot_feature_importance_by_metric(model: ModelBridge) -> AxPlotConfig:
 
 def plot_feature_importance_by_feature_plotly(
     model: ModelBridge | None = None,
-    sensitivity_values: dict[str, dict[str, float | np.ndarray]] | None = None,
+    sensitivity_values: dict[str, dict[str, float | npt.NDArray]] | None = None,
     relative: bool = False,
     caption: str = "",
     importance_measure: str = "",
@@ -148,7 +149,6 @@ def plot_feature_importance_by_feature_plotly(
             for metric_name, v in sensitivity_values.items()
         }
     traces = []
-    dropdown = []
     categorical_features = []
     if model is not None:
         categorical_features = [
@@ -193,6 +193,9 @@ def plot_feature_importance_by_feature_plotly(
                         sign_col: (
                             0
                             if factor in categorical_features
+                            # pyre-fixme[16]: Item `bool` of
+                            #  `Union[ndarray[typing.Any, np.dtype[typing.Any]], bool]`
+                            #  has no attribute `astype`.
                             else 2 * (importance >= 0).astype(int) - 1
                         ),
                     }
@@ -234,39 +237,16 @@ def plot_feature_importance_by_feature_plotly(
         is_visible = [False] * (len(sensitivity_values) * len(df))
         for j in range(i * len(df), (i + 1) * len(df)):
             is_visible[j] = True
-        dropdown.append(
-            {"args": ["visible", is_visible], "label": metric_name, "method": "restyle"}
-        )
     if not traces:
         raise NotImplementedError("No traces found for metric")
 
-    updatemenus = [
-        {
-            "x": 0,
-            "y": 1,
-            "yanchor": "top",
-            "xanchor": "left",
-            "buttons": dropdown,
-            "pad": {
-                "t": -40
-            },  # hack to put dropdown below title regardless of number of features
-        }
-    ]
     features = list(list(sensitivity_values.values())[0].keys())
-    title = "Normalized parameter sensitivity" if relative else "Parameter sensitivity"
-    if importance_measure:
-        title = title + " using " + importance_measure
     longest_label = max(len(f) for f in features)
     longest_metric = max(len(m) for m in sensitivity_values.keys())
     layout = go.Layout(
-        height=200 + len(features) * 20,
+        height=len(features) * 20,
         width=10 * longest_label + max(10 * longest_metric, 400),
         hovermode="closest",
-        margin=go.layout.Margin(
-            l=8 * min(max(len(idx) for idx in features), 75)
-        ),  # noqa E741
-        title=title,
-        updatemenus=updatemenus,
         annotations=compose_annotation(caption=caption),
     )
 
@@ -278,7 +258,7 @@ def plot_feature_importance_by_feature_plotly(
 
 def plot_feature_importance_by_feature(
     model: ModelBridge | None = None,
-    sensitivity_values: dict[str, dict[str, float | np.ndarray]] | None = None,
+    sensitivity_values: dict[str, dict[str, float | npt.NDArray]] | None = None,
     relative: bool = False,
     caption: str = "",
     importance_measure: str = "",

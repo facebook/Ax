@@ -9,6 +9,7 @@ from copy import deepcopy
 from unittest.mock import Mock
 
 import numpy as np
+import numpy.typing as npt
 from ax.core import BatchTrial
 from ax.core.observation import (
     Observation,
@@ -30,7 +31,7 @@ from ax.modelbridge.transforms.relativize import (
 )
 from ax.models.base import Model
 from ax.utils.common.testutils import TestCase
-from ax.utils.common.typeutils import checked_cast, not_none
+from ax.utils.common.typeutils import checked_cast
 from ax.utils.stats.statstools import relativize_data
 from ax.utils.testing.core_stubs import (
     get_branin_data_batch,
@@ -41,6 +42,7 @@ from ax.utils.testing.core_stubs import (
     get_search_space,
 )
 from hypothesis import assume, given, settings, strategies as st
+from pyre_extensions import none_throws
 
 
 class RelativizeDataTest(TestCase):
@@ -48,7 +50,7 @@ class RelativizeDataTest(TestCase):
         Relativize,
         RelativizeWithConstantControl,
     ]
-    cases: list[tuple[type[Transform], list[tuple[np.ndarray, np.ndarray]]]] = [
+    cases: list[tuple[type[Transform], list[tuple[npt.NDArray, npt.NDArray]]]] = [
         (
             Relativize,
             [
@@ -78,7 +80,7 @@ class RelativizeDataTest(TestCase):
     def test_relativize_transform_requires_a_modelbridge(self) -> None:
         for relativize_cls in self.relativize_classes:
             with self.assertRaisesRegex(
-                ValueError,
+                AssertionError,
                 f"{relativize_cls.__name__} transform requires a modelbridge",
             ):
                 relativize_cls(
@@ -94,7 +96,7 @@ class RelativizeDataTest(TestCase):
             sobol = Models.SOBOL(search_space=get_search_space())
             self.assertIsNone(sobol.status_quo)
             with self.assertRaisesRegex(
-                ValueError, f"{relativize_cls.__name__} requires status quo data."
+                AssertionError, f"{relativize_cls.__name__} requires status quo data."
             ):
                 relativize_cls(
                     search_space=None,
@@ -120,7 +122,7 @@ class RelativizeDataTest(TestCase):
                 with_status_quo=True,
             )
             # making status_quo out of design
-            not_none(exp._status_quo)._parameters["x1"] = 10000.0
+            none_throws(exp._status_quo)._parameters["x1"] = 10000.0
             for t in exp.trials.values():
                 t.mark_running(no_runner_required=True)
                 exp.attach_data(
@@ -136,14 +138,15 @@ class RelativizeDataTest(TestCase):
                 data=data,
             )
             mean_in_data = data.df.query(
-                f"arm_name == '{not_none(exp.status_quo).name}'"
+                f"arm_name == '{none_throws(exp.status_quo).name}'"
             )["mean"].item()
             # modelbridge.status_quo_data_by_trial is accurate
             self.assertEqual(
-                mean_in_data, not_none(modelbridge.status_quo_data_by_trial)[0].means[0]
+                mean_in_data,
+                none_throws(modelbridge.status_quo_data_by_trial)[0].means[0],
             )
             # reset SQ
-            not_none(exp._status_quo)._parameters["x1"] = 0.0
+            none_throws(exp._status_quo)._parameters["x1"] = 0.0
             modelbridge = ModelBridge(
                 search_space=exp.search_space,
                 model=Model(),
@@ -173,15 +176,16 @@ class RelativizeDataTest(TestCase):
             self.assertNotEqual(data, new_data)
             self.assertFalse(data.df.equals(new_data.df))
             mean_in_data = new_data.df.query(
-                f"arm_name == '{not_none(new_exp.status_quo).name}'"
+                f"arm_name == '{none_throws(new_exp.status_quo).name}'"
             )["mean"].item()
             # modelbridge.status_quo_data_by_trial remains accurate
             self.assertEqual(
-                mean_in_data, not_none(modelbridge.status_quo_data_by_trial)[0].means[0]
+                mean_in_data,
+                none_throws(modelbridge.status_quo_data_by_trial)[0].means[0],
             )
 
             # Can still find status_quo_data_by_trial when status_quo name is None
-            mb_sq = not_none(modelbridge._status_quo)
+            mb_sq = none_throws(modelbridge._status_quo)
             mb_sq.arm_name = None
             self.assertIsNotNone(modelbridge.status_quo_data_by_trial)
             self.assertEqual(len(modelbridge.status_quo_data_by_trial), 1)
@@ -203,7 +207,7 @@ class RelativizeDataTest(TestCase):
         def _check_transform_observations(
             tf: Transform,
             observations: list[Observation],
-            expected_mean_and_covar: list[tuple[np.ndarray, np.ndarray]],
+            expected_mean_and_covar: list[tuple[npt.NDArray, npt.NDArray]],
         ) -> None:
             results = tf.transform_observations(observations)
             for i, tsfm_obs in enumerate(results):
@@ -235,7 +239,7 @@ class RelativizeDataTest(TestCase):
                 )
                 j += 1
 
-        metric_names = ["foobar", "foobaz"]
+        metric_names: list[str] = ["foobar", "foobaz"]
         arm_names = ["status_quo", "0_0", "status_quo", "1_0"]
         obs_data = [
             ObservationData(
@@ -271,6 +275,7 @@ class RelativizeDataTest(TestCase):
             status_quo=Mock(
                 data=obs_data[2], features=obs_features[2], arm_name=arm_names[2]
             ),
+            status_quo_name=arm_names[2],
             status_quo_data_by_trial={0: obs_data[0], 1: obs_data[2]},
         )
 
@@ -413,7 +418,7 @@ class RelativizeDataTest(TestCase):
             status_quo=Observation(
                 data=sq_obs_data[0],
                 features=ObservationFeatures(
-                    parameters=not_none(experiment.status_quo).parameters
+                    parameters=none_throws(experiment.status_quo).parameters
                 ),
                 arm_name="status_quo",
             ),

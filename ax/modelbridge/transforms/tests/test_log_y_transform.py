@@ -256,12 +256,10 @@ class LogNormTest(TestCase):
     def test_norm_to_lognorm(self) -> None:
         mu_n = -0.5 * np.ones(3)
         Cov_n = np.eye(3)
-        # pyre-fixme[6]: For 1st param expected `ndarray` but got `float`.
         mu_ln, Cov_ln = norm_to_lognorm(mu_n, Cov_n)
         self.assertTrue(np.allclose(mu_ln, np.ones(3)))
         self.assertTrue(np.allclose(Cov_ln, (np.exp(1) - 1) * np.eye(3)))
         Cov_n2 = np.array([[1.0, 0.0, 0.5], [0.0, 1.0, 0.0], [0.5, 0.0, 1.0]])
-        # pyre-fixme[6]: For 1st param expected `ndarray` but got `float`.
         mu_ln2, Cov_ln2 = norm_to_lognorm(mu_n, Cov_n2)
         Z = np.zeros_like(Cov_ln2)
         Z[0, 2] = np.sqrt(np.exp(1)) - 1

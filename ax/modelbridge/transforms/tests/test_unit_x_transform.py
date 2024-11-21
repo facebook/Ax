@@ -21,7 +21,6 @@ from ax.utils.testing.core_stubs import get_robust_search_space
 
 
 class UnitXTransformTest(TestCase):
-
     transform_class = UnitX
     # pyre-fixme[4]: Attribute must be annotated.
     expected_c_dicts = [{"x": -1.0, "y": 1.0}, {"x": -1.0, "a": 1.0}]

@@ -14,7 +14,9 @@ from dataclasses import dataclass
 from logging import Logger
 
 from ax.core.base_trial import TrialStatus
+from ax.utils.common.base import Base
 from ax.utils.common.logger import get_logger
+from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
@@ -111,7 +113,7 @@ class BackendSimulatorState:
     completed: list[dict[str, float | None]]
 
 
-class BackendSimulator:
+class BackendSimulator(Base):
     """Simulator for a backend deployment with concurrent dispatch and a queue."""
 
     def __init__(
@@ -141,26 +143,14 @@ class BackendSimulator:
         if not verbose_logging:
             logger.setLevel(logging.WARNING)
 
-        if options is None:
-            options = BackendSimulatorOptions()
-
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.max_concurrency = options.max_concurrency
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.time_scaling = options.time_scaling
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.failure_rate = options.failure_rate
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.use_update_as_start_time = options.use_update_as_start_time
+        self.options: BackendSimulatorOptions = (
+            BackendSimulatorOptions() if options is None else options
+        )
         self._queued: list[SimTrial] = queued or []
         self._running: list[SimTrial] = running or []
         self._failed: list[SimTrial] = failed or []
         self._completed: list[SimTrial] = completed or []
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._internal_clock = options.internal_clock
         self._verbose_logging = verbose_logging
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._init_state = self.state()
         self._create_index_to_trial_map()
 
     @property
@@ -184,6 +174,26 @@ class BackendSimulator:
         return len(self._completed)
 
     @property
+    def max_concurrency(self) -> int:
+        """The maximum number of trials that can be run in parallel."""
+        return self.options.max_concurrency
+
+    @property
+    def time_scaling(self) -> float:
+        """The factor to scale down the runtime of the tasks by."""
+        return self.options.time_scaling
+
+    @property
+    def failure_rate(self) -> float:
+        """The rate at which the trials randomly fail."""
+        return self.options.failure_rate
+
+    @property
+    def _internal_clock(self) -> float | None:
+        """The internal clock of the simulator."""
+        return self.options.internal_clock
+
+    @property
     def use_internal_clock(self) -> bool:
         """Whether or not we are using the internal clock."""
         return self._internal_clock is not None
@@ -191,7 +201,9 @@ class BackendSimulator:
     @property
     def time(self) -> float:
         """The current time."""
-        return self._internal_clock if self.use_internal_clock else time.time()
+        if self.use_internal_clock:
+            return none_throws(self._internal_clock)
+        return time.time()
 
     @property
     def all_trials(self) -> list[SimTrial]:
@@ -201,7 +213,7 @@ class BackendSimulator:
     def update(self) -> None:
         """Update the state of the simulator."""
         if self.use_internal_clock:
-            self._internal_clock += 1
+            self.options.internal_clock = none_throws(self.options.internal_clock) + 1
         self._update(self.time)
         state = self.state()
         logger.info(
@@ -214,59 +226,16 @@ class BackendSimulator:
             f"-----------\n"
         )
 
-    def reset(self) -> None:
-        """Reset the simulator."""
-        self.max_concurrency = self._init_state.options.max_concurrency
-        self.time_scaling = self._init_state.options.time_scaling
-        self._internal_clock = self._init_state.options.internal_clock
-        self._queued = [SimTrial(**args) for args in self._init_state.queued]
-        self._running = [SimTrial(**args) for args in self._init_state.running]
-        self._failed = [SimTrial(**args) for args in self._init_state.failed]
-        self._completed = [SimTrial(**args) for args in self._init_state.completed]
-        self._create_index_to_trial_map()
-
     def state(self) -> BackendSimulatorState:
         """Return a ``BackendSimulatorState`` containing the state of the simulator."""
 
-        options = BackendSimulatorOptions(
-            max_concurrency=self.max_concurrency,
-            time_scaling=self.time_scaling,
-            failure_rate=self.failure_rate,
-            internal_clock=self._internal_clock,
-            use_update_as_start_time=self.use_update_as_start_time,
-        )
         return BackendSimulatorState(
-            options=options,
+            options=self.options,
             verbose_logging=self._verbose_logging,
             queued=[q.__dict__.copy() for q in self._queued],
             running=[r.__dict__.copy() for r in self._running],
             failed=[r.__dict__.copy() for r in self._failed],
             completed=[c.__dict__.copy() for c in self._completed],
-        )
-
-    @classmethod
-    # pyre-fixme[3]: Return type must be annotated.
-    def from_state(cls, state: BackendSimulatorState):
-        """Construct a simulator from a state.
-
-        Args:
-            state: A ``BackendSimulatorState`` to set the simulator to.
-
-        Returns:
-            A ``BackendSimulator`` with the desired state.
-        """
-        trial_types = {
-            "queued": state.queued,
-            "running": state.running,
-            "failed": state.failed,
-            "completed": state.completed,
-        }
-        trial_kwargs = {
-            key: [SimTrial(**kwargs) for kwargs in trial_types[key]]  # pyre-ignore [6]
-            for key in ("queued", "running", "failed", "completed")
-        }
-        return cls(
-            options=state.options, verbose_logging=state.verbose_logging, **trial_kwargs
         )
 
     def run_trial(self, trial_index: int, runtime: float) -> None:
@@ -284,7 +253,6 @@ class BackendSimulator:
         sim_runtime = runtime / self.time_scaling
 
         # flip a coin to see if the trial fails (for now fail instantly)
-        # TODO: Allow failure behavior based on a survival rate
         if self.failure_rate > 0:
             if random.random() < self.failure_rate:
                 self._failed.append(
@@ -371,7 +339,7 @@ class BackendSimulator:
             completed=[t.trial_index for t in self._completed],
         )
 
-    def lookup_trial_index_status(self, trial_index: int) -> TrialStatus | None:
+    def lookup_trial_index_status(self, trial_index: int) -> TrialStatus:
         """Lookup the trial status of a ``trial_index``.
 
         Args:
@@ -389,7 +357,7 @@ class BackendSimulator:
             return TrialStatus.COMPLETED
         elif trial_index in sim_status.failed:
             return TrialStatus.FAILED
-        return None
+        raise ValueError(f"Trial {trial_index} not found in simulator.")
 
     def get_sim_trial_by_index(self, trial_index: int) -> SimTrial | None:
         """Get a ``SimTrial`` by ``trial_index``.
@@ -456,7 +424,7 @@ class BackendSimulator:
                     # pyre-fixme[58]: `+` is not supported for operand types
                     #  `Optional[float]` and `float`.
                     c.sim_start_time + c.sim_runtime
-                    if not self.use_update_as_start_time
+                    if not self.options.use_update_as_start_time
                     else self.time
                 )
                 new_running_trial.sim_start_time = sim_start_time

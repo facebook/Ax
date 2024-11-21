@@ -25,12 +25,11 @@ Sobol sequences are typically used to select initialization points, and this mod
 
 #### Gaussian Process with EI
 
-Gaussian Processes (GPs) are used for [Bayesian Optimization](bayesopt.md) in Ax, the [`get_GPEI`](../api/modelbridge.html#ax.modelbridge.factory.get_gpei) function constructs a model that fits a GP to the data, and uses the EI acquisition function to generate new points on calls to [`gen`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.gen). This code fits a GP and generates a batch of 5 points which maximizes EI:
+Gaussian Processes (GPs) are used for [Bayesian Optimization](bayesopt.md) in Ax, the [`Models.BOTORCH_MODULAR`](../api/modelbridge.html#ax.modelbridge.registry.Models) registry entry constructs a modular BoTorch model that fits a GP to the data, and uses qLogNEI (or qLogNEHVI for MOO) acquisition function to generate new points on calls to [`gen`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge.gen). This code fits a GP and generates a batch of 5 points which maximizes EI:
+```Python
+from ax.modelbridge.registry import Models
 
-```python
-from ax.modelbridge.factory import get_GPEI
-
-m = get_GPEI(experiment, data)
+m = Models.BOTORCH_MODULAR(experiment=experiment, data=data)
 gr = m.gen(n=5, optimization_config=optimization_config)
 ```
 
@@ -177,16 +176,15 @@ The primary role of the [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.b
 
 ## Transforms
 
-The transformations in the [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) are done by chaining together a set of individual Transform objects. For continuous space models obtained via factory functions ([`get_sobol`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.modelbridge.factory.get_sobol) and [`get_GPEI`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.modelbridge.factory.get_GPEI)), the following transforms will be applied by default, in this sequence:
-
--   [`RemoveFixed`](../api/modelbridge.html#ax.modelbridge.transforms.remove_fixed.RemoveFixed): Remove [`FixedParameters`](../api/core.html#ax.core.parameter.FixedParameter) from the search space.
--   [`OrderedChoiceEncode`](../api/modelbridge.html#ax.modelbridge.transforms.choice_encode.OrderedChoiceEncode): [`ChoiceParameters`](../api/core.html#ax.core.parameter.ChoiceParameter) with `is_ordered` set to `True` are encoded as a sequence of integers.
--   [`OneHot`](../api/modelbridge.html#ax.modelbridge.transforms.one_hot.OneHot): [`ChoiceParameters`](../api/core.html#ax.core.parameter.ChoiceParameter) with `is_ordered` set to `False` are one-hot encoded.
--   [`IntToFloat`](../api/modelbridge.html#ax.modelbridge.transforms.int_to_float.IntToFloat): Integer-valued [`RangeParameters`](../api/core.html#ax.core.parameter.RangeParameter) are converted to have float values.
--   [`Log`](../api/modelbridge.html#ax.modelbridge.transforms.log.Log): [`RangeParameters`](../api/core.html#ax.core.parameter.RangeParameter) with `log_scale` set to `True` are log transformed.
--   [`UnitX`](../api/modelbridge.html#ax.modelbridge.transforms.unit_x.UnitX): All float [`RangeParameters`](../api/core.html#ax.core.parameter.RangeParameter) are mapped to `[0, 1]`.
--   [`Derelativize`](../api/modelbridge.html#ax.modelbridge.transforms.derelativize.Derelativize): Constraints relative to status quo are converted to constraints on raw values.
--   [`StandardizeY`](../api/modelbridge.html#ax.modelbridge.transforms.standardize_y.StandardizeY): The Y values for each metric are standardized (subtract mean, divide by standard deviation).
+The transformations in the [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) are done by chaining together a set of individual Transform objects. For continuous space models obtained via factory functions ([`get_sobol`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.modelbridge.factory.get_sobol) and [`Models.BOTORCH_MODULAR`](/api/data.html#.data.users.adamobeng.fbsource.fbcode.ax.ax.modelbridge.registry.Models)), the following transforms will be applied by default, in this sequence:
+* [`RemoveFixed`](../api/modelbridge.html#ax.modelbridge.transforms.remove_fixed.RemoveFixed): Remove [`FixedParameters`](../api/core.html#ax.core.parameter.FixedParameter) from the search space.
+* [`OrderedChoiceEncode`](../api/modelbridge.html#ax.modelbridge.transforms.choice_encode.OrderedChoiceEncode): [`ChoiceParameters`](../api/core.html#ax.core.parameter.ChoiceParameter) with `is_ordered` set to `True` are encoded as a sequence of integers.
+* [`OneHot`](../api/modelbridge.html#ax.modelbridge.transforms.one_hot.OneHot): [`ChoiceParameters`](../api/core.html#ax.core.parameter.ChoiceParameter) with `is_ordered` set to `False` are one-hot encoded.
+* [`IntToFloat`](../api/modelbridge.html#ax.modelbridge.transforms.int_to_float.IntToFloat): Integer-valued [`RangeParameters`](../api/core.html#ax.core.parameter.RangeParameter) are converted to have float values.
+* [`Log`](../api/modelbridge.html#ax.modelbridge.transforms.log.Log): [`RangeParameters`](../api/core.html#ax.core.parameter.RangeParameter) with `log_scale` set to `True` are log transformed.
+* [`UnitX`](../api/modelbridge.html#ax.modelbridge.transforms.unit_x.UnitX): All float [`RangeParameters`](../api/core.html#ax.core.parameter.RangeParameter) are mapped to `[0, 1]`.
+* [`Derelativize`](../api/modelbridge.html#ax.modelbridge.transforms.derelativize.Derelativize): Constraints relative to status quo are converted to constraints on raw values.
+* [`StandardizeY`](../api/modelbridge.html#ax.modelbridge.transforms.standardize_y.StandardizeY): The Y values for each metric are standardized (subtract mean, divide by standard deviation).
 
 Each transform defines both a forward and backwards transform. Arm parameters are passed through the forward transform before being sent along to the Model. The Model works entirely in the transformed space, and when new candidates are generated, they are passed through all of the backwards transforms so the [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) returns points in the original space.
 
@@ -223,9 +221,7 @@ The [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) obj
 
 If none of the existing Model interfaces work are suitable for the new model type, then a new interface will have to be created. This involves two steps: creating the new model interface and creating the new model bridge. The new model bridge must be a subclass of [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) that implements `ModelBridge._fit`,  `ModelBridge._predict`, `ModelBridge._gen`, and  `ModelBridge._cross_validate`. The implementation of each of these methods will transform the Ax objects in the inputs into objects required for the interface with the new model type. The model bridge will then call out to the new model interface to do the actual modeling work. All of the ModelBridge/Model pairs in the table above provide examples of how this interface can be defined. The main key is that the inputs on the [`ModelBridge`](../api/modelbridge.html#ax.modelbridge.base.ModelBridge) side are fixed, but those inputs can then be transformed in whatever way is desired for the downstream Model interface to be that which is most convenient for implementing the model.
 
-```html
 <script type="text/javascript" src="assets/slice.js"></script>
 <script type="text/javascript" src="assets/contour.js"></script>
 <script type="text/javascript" src="assets/cv.js"></script>
 <script type="text/javascript" src="assets/fitted.js"></script>
-```

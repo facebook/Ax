@@ -3,6 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-unsafe
+
 from unittest.mock import patch
 
 import torch
@@ -28,7 +30,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_metric,
     get_branin_outcome_constraint,
 )
-from ax.utils.testing.mock import fast_botorch_optimize
+from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from pyre_extensions import none_throws
 
@@ -44,12 +46,12 @@ class TestPredictedEffectsPlot(TestCase):
                     transition_criteria=[
                         MaxTrials(
                             threshold=1,
-                            transition_to="GPEI",
+                            transition_to="MBM",
                         )
                     ],
                 ),
                 GenerationNode(
-                    node_name="GPEI",
+                    node_name="MBM",
                     model_specs=[
                         ModelSpec(
                             model_enum=Models.BOTORCH_MODULAR,
@@ -116,7 +118,7 @@ class TestPredictedEffectsPlot(TestCase):
                 experiment=experiment, generation_strategy=generation_strategy
             )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_compute(self) -> None:
         # GIVEN an experiment with metrics and batch trials
         experiment = get_branin_experiment(with_status_quo=True)
@@ -131,9 +133,7 @@ class TestPredictedEffectsPlot(TestCase):
             )
         ).set_status_quo_with_weight(
             status_quo=experiment.status_quo, weight=1.0
-        ).mark_completed(
-            unsafe=True
-        )
+        ).mark_completed(unsafe=True)
         experiment.fetch_data()
         experiment.new_batch_trial(
             generator_runs=generation_strategy.gen_with_multiple_nodes(
@@ -165,9 +165,9 @@ class TestPredictedEffectsPlot(TestCase):
                         AnalysisCardLevel.HIGH
                         if metric == "branin"
                         else (
-                            AnalysisCardLevel.MID
+                            AnalysisCardLevel.HIGH - 1
                             if metric == "constraint_branin"
-                            else AnalysisCardLevel.LOW
+                            else AnalysisCardLevel.HIGH - 2
                         )
                     ),
                 )
@@ -182,7 +182,7 @@ class TestPredictedEffectsPlot(TestCase):
                         "sem",
                         "error_margin",
                         "constraints_violated",
-                        "size_column",
+                        "overall_probability_constraints_violated",
                     },
                 )
                 self.assertIsNotNone(card.blob)
@@ -191,7 +191,7 @@ class TestPredictedEffectsPlot(TestCase):
                     for arm in trial.arms:
                         self.assertIn(arm.name, card.df["arm_name"].unique())
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_compute_multitask(self) -> None:
         # GIVEN an experiment with candidates generated with a multitask model
         experiment = get_branin_experiment(with_status_quo=True)
@@ -200,17 +200,13 @@ class TestPredictedEffectsPlot(TestCase):
             generator_run=generation_strategy.gen(experiment=experiment, n=10)
         ).set_status_quo_with_weight(
             status_quo=experiment.status_quo, weight=1
-        ).mark_completed(
-            unsafe=True
-        )
+        ).mark_completed(unsafe=True)
         experiment.fetch_data()
         experiment.new_batch_trial(
             generator_run=generation_strategy.gen(experiment=experiment, n=10)
         ).set_status_quo_with_weight(
             status_quo=experiment.status_quo, weight=1
-        ).mark_completed(
-            unsafe=True
-        )
+        ).mark_completed(unsafe=True)
         experiment.fetch_data()
         # leave as a candidate
         experiment.new_batch_trial(
@@ -266,7 +262,7 @@ class TestPredictedEffectsPlot(TestCase):
             1,
         )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_it_does_not_plot_abandoned_trials(self) -> None:
         # GIVEN an experiment with candidate and abandoned trials
         experiment = get_branin_experiment()
@@ -303,7 +299,7 @@ class TestPredictedEffectsPlot(TestCase):
                 arm.name,
             )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_it_works_for_non_batch_experiments(self) -> None:
         # GIVEN an experiment with the default generation strategy
         experiment = get_branin_experiment(with_batch=False)
@@ -339,7 +335,7 @@ class TestPredictedEffectsPlot(TestCase):
                 card.df["arm_name"].unique(),
             )
 
-    @fast_botorch_optimize
+    @mock_botorch_optimize
     def test_constraints(self) -> None:
         # GIVEN an experiment with metrics and batch trials
         experiment = get_branin_experiment(with_status_quo=True)
@@ -386,7 +382,9 @@ class TestPredictedEffectsPlot(TestCase):
                 str(non_sq_df["constraints_violated"][0]),
             )
             # AND THEN it marks that constraints are not violated for the SQ
-            self.assertEqual(sq_row["size_column"].iloc[0], 100)
+            self.assertEqual(
+                sq_row["overall_probability_constraints_violated"].iloc[0], 0
+            )
             self.assertEqual(
                 sq_row["constraints_violated"].iloc[0], "No constraints violated"
             )

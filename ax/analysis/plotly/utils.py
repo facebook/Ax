@@ -3,12 +3,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-strict
+
 import numpy as np
 import torch
+from ax.core.experiment import Experiment
+from ax.core.objective import MultiObjective, ScalarizedObjective
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.base import ModelBridge
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
+from numpy.typing import NDArray
 
 # Because normal distributions have long tails, every arm has a non-zero
 # probability of violating the constraint. But below a certain threshold, we
@@ -55,7 +60,7 @@ def get_constraint_violated_probabilities(
             for prediction in predictions
         ]
     )
-    feasibility_probabilities: dict[str, np.ndarray] = {}
+    feasibility_probabilities: dict[str, NDArray] = {}
     for constraint in outcome_constraints:
         if constraint.op == ComparisonOp.GEQ:
             con_lower_inds = torch.tensor([metrics.index(constraint.metric.name)])
@@ -89,13 +94,13 @@ def get_constraint_violated_probabilities(
     )
 
     return {
-        metric_name: 1 - feasibility_probabilities[metric_name]
+        metric_name: (1 - feasibility_probabilities[metric_name]).tolist()
         for metric_name in feasibility_probabilities
     }
 
 
 def format_constraint_violated_probabilities(
-    constraints_violated: dict[str, float]
+    constraints_violated: dict[str, float],
 ) -> str:
     """Format the constraints violated for the tooltip."""
     max_metric_length = 70
@@ -134,3 +139,23 @@ def is_predictive(model: ModelBridge) -> bool:
     except Exception:
         return True
     return True
+
+
+def select_metric(experiment: Experiment) -> str:
+    """Select the most relevant metric to plot from an Experiment."""
+    if experiment.optimization_config is None:
+        raise ValueError(
+            "Cannot infer metric to plot from Experiment without OptimizationConfig"
+        )
+    objective = experiment.optimization_config.objective
+    if isinstance(objective, MultiObjective):
+        raise UnsupportedError(
+            "Cannot infer metric to plot from MultiObjective, please "
+            "specify a metric"
+        )
+    if isinstance(objective, ScalarizedObjective):
+        raise UnsupportedError(
+            "Cannot infer metric to plot from ScalarizedObjective, please "
+            "specify a metric"
+        )
+    return experiment.optimization_config.objective.metric.name

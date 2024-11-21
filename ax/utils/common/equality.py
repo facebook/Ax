@@ -69,8 +69,7 @@ def is_ax_equal(one_val: Any, other_val: Any) -> bool:
     as a recursive unit.
 
     Some special cases:
-    - For datetime objects, the equality is checked up to the second.
-      Microseconds are ignored.
+    - For datetime objects, the equality is checked up to a tolerance of one second.
     - For floats, ``np.isclose`` is used to check for almost-equality.
     - For lists (and dict values), ``same_elements`` is used. This ignores
       the ordering of the elements, and checks that the two lists are subsets
@@ -102,12 +101,12 @@ def is_ax_equal(one_val: Any, other_val: Any) -> bool:
 
 
 def datetime_equals(dt1: datetime | None, dt2: datetime | None) -> bool:
-    """Compare equality of two datetimes, ignoring microseconds."""
+    """Compare equality of two datetimes, up to a difference of one second."""
     if not dt1 and not dt2:
         return True
     if not (dt1 and dt2):
         return False
-    return dt1.replace(microsecond=0) == dt2.replace(microsecond=0)
+    return (dt1 - dt2).total_seconds() < 1.0
 
 
 def dataframe_equals(df1: pd.DataFrame, df2: pd.DataFrame) -> bool:

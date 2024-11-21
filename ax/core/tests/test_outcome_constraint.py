@@ -82,7 +82,6 @@ class OutcomeConstraintTest(TestCase):
         self.assertTrue(constraint1 < constraint2)
 
     def test_validate_constraint(self) -> None:
-
         metric = Metric(name="metric0", lower_is_better=False)
         oc = OutcomeConstraint(metric, bound=-3, relative=True, op=ComparisonOp.GEQ)
         self.assertTrue(oc._validate_constraint()[0])

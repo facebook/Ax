@@ -54,7 +54,6 @@ class CovarModuleArgparseTest(TestCase):
         self.assertEqual(covar_module_argparse[DummyKernel], _argparse)
 
     def test_fallback(self) -> None:
-
         with patch.dict(covar_module_argparse.funcs, {}):
 
             @covar_module_argparse.register(Kernel)
@@ -105,7 +104,6 @@ class CovarModuleArgparseTest(TestCase):
         ]
 
         for i, botorch_model_class in enumerate([SingleTaskGP, MultiTaskGP]):
-
             covar_module_kwargs = covar_module_argparse(
                 ScaleMaternKernel,
                 botorch_model_class=botorch_model_class,

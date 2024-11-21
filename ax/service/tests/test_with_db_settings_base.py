@@ -100,7 +100,6 @@ class TestWithDBSettingsBase(TestCase):
         return experiment, generation_strategy
 
     def test_get_experiment_and_generation_strategy_db_id(self) -> None:
-
         (
             exp_id,
             gen_id,

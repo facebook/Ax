@@ -7,6 +7,7 @@
 
 
 import numpy as np
+import numpy.typing as npt
 from ax.core.batch_trial import BatchTrial
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.transforms.base import Transform
@@ -28,7 +29,7 @@ class TransformToNewSQTest(RelativizeDataTest):
     # [Type[TransformToNewSQ]]` is not a subtype of the
     # overridden attribute `List[Type[Transform]]`
     relativize_classes = [TransformToNewSQ]
-    cases: list[tuple[type[Transform], list[tuple[np.ndarray, np.ndarray]]]] = [
+    cases: list[tuple[type[Transform], list[tuple[npt.NDArray, npt.NDArray]]]] = [
         (
             TransformToNewSQ,
             [
@@ -57,12 +58,10 @@ class TransformToNewSQSpecificTest(TestCase):
             with_batch=True,
             with_status_quo=True,
         )
-        for t in self.exp.trials.values():
-            t.mark_running(no_runner_required=True)
-            self.exp.attach_data(
-                get_branin_data_batch(batch=checked_cast(BatchTrial, t))
-            )
-            t.mark_completed()
+        t = self.exp.trials[0]
+        t.mark_running(no_runner_required=True)
+        self.exp.attach_data(get_branin_data_batch(batch=checked_cast(BatchTrial, t)))
+        t.mark_completed()
         self.data = self.exp.fetch_data()
 
         self.modelbridge = ModelBridge(
@@ -73,11 +72,12 @@ class TransformToNewSQSpecificTest(TestCase):
             status_quo_name="status_quo",
         )
 
-    def test_modelbridge_without_status_quo(self) -> None:
+    def test_modelbridge_without_status_quo_name(self) -> None:
         self.modelbridge._status_quo = None
+        self.modelbridge._status_quo_name = None
 
         with self.assertRaisesRegex(
-            ValueError, "Status quo must be set on modelbridge for TransformToNewSQ."
+            AssertionError, "TransformToNewSQ requires status quo data."
         ):
             TransformToNewSQ(
                 search_space=None,
@@ -122,3 +122,15 @@ class TransformToNewSQSpecificTest(TestCase):
             config={"target_trial_index": 1},
         )
         self.assertEqual(tf.default_trial_idx, 1)
+
+    def test_single_trial_is_not_transformed(self) -> None:
+        tf = TransformToNewSQ(
+            search_space=None,
+            observations=[],
+            modelbridge=self.modelbridge,
+        )
+        obs = self.modelbridge._prepare_observations(
+            experiment=self.exp, data=self.data
+        )
+        obs2 = tf.transform_observations(obs)
+        self.assertEqual(obs, obs2)

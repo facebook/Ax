@@ -11,6 +11,7 @@ from logging import Logger
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from ax.exceptions.core import SearchSpaceExhausted
 from ax.models.base import Model
@@ -65,7 +66,7 @@ class RandomModel(Model):
         deduplicate: bool = True,
         seed: int | None = None,
         init_position: int = 0,
-        generated_points: np.ndarray | None = None,
+        generated_points: npt.NDArray | None = None,
         fallback_to_sample_polytope: bool = False,
     ) -> None:
         super().__init__()
@@ -85,11 +86,11 @@ class RandomModel(Model):
         self,
         n: int,
         bounds: list[tuple[float, float]],
-        linear_constraints: tuple[np.ndarray, np.ndarray] | None = None,
+        linear_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
         fixed_features: dict[int, float] | None = None,
         model_gen_options: TConfig | None = None,
-        rounding_func: Callable[[np.ndarray], np.ndarray] | None = None,
-    ) -> tuple[np.ndarray, np.ndarray]:
+        rounding_func: Callable[[npt.NDArray], npt.NDArray] | None = None,
+    ) -> tuple[npt.NDArray, npt.NDArray]:
         """Generate new candidates.
 
         Args:
@@ -200,9 +201,9 @@ class RandomModel(Model):
         self,
         n: int,
         d: int,
-        tunable_feature_indices: np.ndarray,
+        tunable_feature_indices: npt.NDArray,
         fixed_features: dict[int, float] | None = None,
-    ) -> np.ndarray:
+    ) -> npt.NDArray:
         """Generate n points, from an unconstrained parameter space, using _gen_samples.
 
         Args:
@@ -225,7 +226,7 @@ class RandomModel(Model):
         )
         return points
 
-    def _gen_samples(self, n: int, tunable_d: int) -> np.ndarray:
+    def _gen_samples(self, n: int, tunable_d: int) -> npt.NDArray:
         """Generate n samples on [0, 1]^d.
 
         Args:
@@ -238,7 +239,8 @@ class RandomModel(Model):
         raise NotImplementedError("Base RandomModel can't generate samples.")
 
     def _convert_inequality_constraints(
-        self, linear_constraints: tuple[np.ndarray, np.ndarray] | None
+        self,
+        linear_constraints: tuple[npt.NDArray, npt.NDArray] | None,
     ) -> tuple[Tensor, Tensor] | None:
         """Helper method to convert inequality constraints used by the rejection
         sampler to the format required for the polytope sampler.

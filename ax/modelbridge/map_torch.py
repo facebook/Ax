@@ -8,6 +8,7 @@
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 import torch
 from ax.core.base_trial import TrialStatus
@@ -35,7 +36,7 @@ from ax.modelbridge.transforms.base import Transform
 from ax.models.torch_base import TorchModel
 from ax.models.types import TConfig
 from ax.utils.common.constants import Keys
-from ax.utils.common.typeutils import not_none
+from pyre_extensions import none_throws
 
 
 # A mapping from map_key to its target (or final) value; by default,
@@ -172,7 +173,7 @@ class MapTorchModelBridge(TorchModelBridge):
         X = observation_features_to_array(
             self.parameters_with_map_keys, observation_features
         )
-        f, cov = not_none(self.model).predict(X=self._array_to_tensor(X))
+        f, cov = none_throws(self.model).predict(X=self._array_to_tensor(X))
         f = f.detach().cpu().clone().numpy()
         cov = cov.detach().cpu().clone().numpy()
         # Convert resulting arrays to observations
@@ -224,7 +225,9 @@ class MapTorchModelBridge(TorchModelBridge):
         )
 
     def _array_to_observation_features(
-        self, X: np.ndarray, candidate_metadata: list[TCandidateMetadata] | None
+        self,
+        X: npt.NDArray,
+        candidate_metadata: list[TCandidateMetadata] | None,
     ) -> list[ObservationFeatures]:
         """The difference b/t this method and
         TorchModelBridge._array_to_observation_features(...) is
