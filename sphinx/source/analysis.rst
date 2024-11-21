@@ -119,6 +119,15 @@ Summary
     :undoc-members:
     :show-inheritance:
 
+Interaction
+~~~~~~~~~~~
+
+.. automodule:: ax.analysis.plotly.interaction
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 Contour
 ~~~~~~~
 
