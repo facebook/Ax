@@ -126,6 +126,7 @@ class SEBOAcquisition(Acquisition):
         )
 
         # update objective threshold for deterministic model (penalty term)
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.acqf.ref_point[-1] = self.sparsity_threshold * -1
         self._objective_thresholds[-1] = self.sparsity_threshold  # pyre-ignore
 
@@ -302,6 +303,8 @@ class SEBOAcquisition(Acquisition):
         batch_initial_conditions = get_batch_initial_conditions(
             acq_function=self.acqf,
             raw_samples=optimizer_options_with_defaults["raw_samples"],
+            # pyre-fixme[6]: For 3rd argument expected `Tensor` but got
+            #  `Union[Tensor, Module]`.
             X_pareto=self.acqf.X_baseline,
             target_point=self.target_point,
             bounds=bounds,

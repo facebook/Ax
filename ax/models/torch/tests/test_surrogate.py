@@ -344,6 +344,7 @@ class SurrogateTest(TestCase):
         botorch_model = surrogate.model
         self.assertIsInstance(botorch_model.input_transform, Normalize)
         self.assertIsInstance(botorch_model.outcome_transform, Standardize)
+        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute `_m`.
         self.assertEqual(botorch_model.outcome_transform._m, self.Ys[0].shape[-1])
 
         # Error handling if the model does not support transforms.
@@ -588,6 +589,8 @@ class SurrogateTest(TestCase):
         noise_constraint.eval()  # For the equality check.
         self.assertEqual(
             # Checking equality of __dict__'s since Interval does not define __eq__.
+            # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
+            #  `noise_covar`.
             model.likelihood.noise_covar.raw_noise_constraint.__dict__,
             noise_constraint.__dict__,
         )
@@ -596,6 +599,8 @@ class SurrogateTest(TestCase):
             LeaveOneOutPseudoLikelihood,
         )
         self.assertEqual(type(model.covar_module), RBFKernel)
+        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
+        #  `ard_num_dims`.
         self.assertEqual(model.covar_module.ard_num_dims, 3)
 
     def test_construct_custom_model_with_config(self) -> None:
@@ -628,15 +633,24 @@ class SurrogateTest(TestCase):
         # first two metrics
         self.assertIsInstance(surrogate.model, ModelListGP)
         submodels = surrogate.model.models
+        # pyre-fixme[6]: For 1st argument expected
+        #  `pyre_extensions.PyreReadOnly[Sized]` but got `Union[Tensor, Module]`.
         self.assertEqual(len(submodels), 4)
+        # pyre-fixme[29]: `Union[(self: Tensor) -> Any, Tensor, Module]` is not a
+        #  function.
         for m in submodels:
             self.assertIsInstance(m, SingleTaskGP)
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIsInstance(surrogate.model.models[1].covar_module, ScaleKernel)
         self.assertIsInstance(
-            surrogate.model.models[1].covar_module.base_kernel, MaternKernel
+            # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[An...
+            surrogate.model.models[1].covar_module.base_kernel,
+            MaternKernel,
         )
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIsInstance(surrogate.model.models[0].covar_module, RBFKernel)
         # test model use model_configs for the third metric
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIsInstance(surrogate.model.models[2].covar_module, LinearKernel)
 
     @mock_botorch_optimize
@@ -1126,18 +1140,22 @@ class SurrogateTest(TestCase):
         self.assertEqual(surrogate.model._ignore_X_dims_scaling_check, [0])
         covar_module = checked_cast(Kernel, surrogate.model.covar_module)
         self.assertEqual(
+            # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[An...
             covar_module.kernels[0].base_kernel.kernels[1].active_dims.tolist(),
             [0],
         )
         self.assertEqual(
+            # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[An...
             covar_module.kernels[0].base_kernel.kernels[0].active_dims.tolist(),
             [1, 2],
         )
         self.assertEqual(
+            # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[An...
             covar_module.kernels[1].base_kernel.kernels[1].active_dims.tolist(),
             [0],
         )
         self.assertEqual(
+            # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[An...
             covar_module.kernels[1].base_kernel.kernels[0].active_dims.tolist(),
             [1, 2],
         )
@@ -1490,6 +1508,7 @@ class SurrogateWithModelListTest(TestCase):
                 task_features=[],
             ),
         )
+        # pyre-fixme[9]: models has type `ModuleList`; used as `Union[Tensor, Module]`.
         models: torch.nn.modules.container.ModuleList = surrogate.model.models
         for i in range(2):
             self.assertIsInstance(models[i].outcome_transform, Standardize)
@@ -1606,6 +1625,8 @@ class SurrogateWithModelListTest(TestCase):
                 robust_digest=robust_digest,
             ),
         )
+        # pyre-fixme[29]: `Union[(self: Tensor) -> Any, Tensor, Module]` is not a
+        #  function.
         for m in surrogate.model.models:
             intf = checked_cast(InputPerturbation, m.input_transform)
             self.assertIsInstance(intf, InputPerturbation)
