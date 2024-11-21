@@ -118,3 +118,19 @@ Summary
     :members:
     :undoc-members:
     :show-inheritance:
+
+Slice
+~~~~~
+
+.. automodule:: ax.analysis.plotly.surface.slice
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Utils
+~~~~~
+
+.. automodule:: ax.analysis.plotly.surface.utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
