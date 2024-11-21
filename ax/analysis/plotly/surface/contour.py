@@ -86,7 +86,6 @@ class ContourPlot(PlotlyAnalysis):
 
         fig = _prepare_plot(
             df=df,
-            experiment=experiment,
             x_parameter_name=self.x_parameter_name,
             y_parameter_name=self.y_parameter_name,
             metric_name=metric_name,
@@ -164,7 +163,6 @@ def _prepare_data(
 
 def _prepare_plot(
     df: pd.DataFrame,
-    experiment: Experiment,
     x_parameter_name: str,
     y_parameter_name: str,
     metric_name: str,
