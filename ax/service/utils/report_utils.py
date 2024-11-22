@@ -874,23 +874,6 @@ def exp_to_df(
         metric_names = [m.name for m in metrics]
         results = results[results["metric_name"].isin(metric_names)]
 
-    # Calculate relative metrics if `show_relative_metrics` is True.
-    if show_relative_metrics:
-        if exp.status_quo is None:
-            logger.warning(
-                "No status quo arm found. Showing raw metric values instead of "
-                "relative metric values."
-            )
-        else:
-            status_quo_arm_name = exp.status_quo.name
-            try:
-                results = _get_relative_results(results, status_quo_arm_name)
-            except Exception:
-                logger.warning(
-                    "Failed to calculate relative metrics. Showing raw metric values "
-                    "instead of relative metric values."
-                )
-
     # Add `FEASIBLE_COL_NAME` column according to constraints if any.
     if (
         exp.optimization_config is not None
@@ -909,6 +892,23 @@ def exp_to_df(
             )
         except (KeyError, ValueError, DataRequiredError) as e:
             logger.warning(f"Feasibility calculation failed with error: {e}")
+
+    # Calculate relative metrics if `show_relative_metrics` is True.
+    if show_relative_metrics:
+        if exp.status_quo is None:
+            logger.warning(
+                "No status quo arm found. Showing raw metric values instead of "
+                "relative metric values."
+            )
+        else:
+            status_quo_arm_name = exp.status_quo.name
+            try:
+                results = _get_relative_results(results, status_quo_arm_name)
+            except Exception:
+                logger.warning(
+                    "Failed to calculate relative metrics. Showing raw metric values "
+                    "instead of relative metric values."
+                )
 
     # If arms_df is empty, return empty results (legacy behavior)
     if len(arms_df.index) == 0:
