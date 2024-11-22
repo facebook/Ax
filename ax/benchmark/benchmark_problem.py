@@ -332,7 +332,9 @@ def create_problem_from_botorch(
         test_problem_class: The BoTorch test problem class which will be used
             to define the `search_space`, `optimization_config`, and `runner`.
         test_problem_kwargs: Keyword arguments used to instantiate the
-            `test_problem_class`.
+            `test_problem_class`. This should *not* include `noise_std` or
+            `negate`, since these are handled through Ax benchmarking (as the
+            `noise_std` and `lower_is_better` arguments to `BenchmarkProblem`).
         noise_std: Standard deviation of synthetic noise added to outcomes. If a
             float, the same noise level is used for all objectives.
         lower_is_better: Whether this is a minimization problem. For MOO, this
@@ -354,6 +356,18 @@ def create_problem_from_botorch(
             See ``BenchmarkResult`` for more information.
         trial_runtime_func: A function that takes a trial and returns how long
             it takes to run that trial.
+
+    Example:
+        >>> from ax.benchmark.benchmark_problem import create_problem_from_botorch
+        >>> from botorch.test_functions.synthetic import Branin
+        >>> problem = create_problem_from_botorch(
+        ...    test_problem_class=Branin,
+        ...    test_problem_kwargs={},
+        ...    noise_std=0.1,
+        ...    num_trials=10,
+        ...    observe_noise_sd=True,
+        ...    trial_runtime_func=lambda trial: trial.index,
+        ... )
     """
     # pyre-fixme [45]: Invalid class instantiation
     test_problem = test_problem_class(**test_problem_kwargs)
@@ -377,10 +391,14 @@ def create_problem_from_botorch(
 
     num_constraints = test_problem.num_constraints if is_constrained else 0
     if isinstance(test_problem, MultiObjectiveTestProblem):
+        # pyre-fixme[6]: For 1st argument expected `SupportsIndex` but got
+        #  `Union[Tensor, Module]`.
         objective_names = [f"{name}_{i}" for i in range(n_obj)]
     else:
         objective_names = [name]
 
+    # pyre-fixme[6]: For 1st argument expected `SupportsIndex` but got `Union[int,
+    #  Tensor, Module]`.
     constraint_names = [f"constraint_slack_{i}" for i in range(num_constraints)]
     outcome_names = objective_names + constraint_names
 
@@ -390,6 +408,8 @@ def create_problem_from_botorch(
 
     if isinstance(test_problem, MultiObjectiveTestProblem):
         optimization_config = get_moo_opt_config(
+            # pyre-fixme[6]: For 1st argument expected `int` but got `Union[int,
+            #  Tensor, Module]`.
             num_constraints=num_constraints,
             lower_is_better=lower_is_better,
             observe_noise_sd=observe_noise_sd,
@@ -416,6 +436,8 @@ def create_problem_from_botorch(
         test_function=test_function,
         noise_std=noise_std,
         num_trials=num_trials,
+        # pyre-fixme[6]: For 7th argument expected `float` but got `Union[float,
+        #  Tensor, Module]`.
         optimal_value=optimal_value,
         report_inference_value_as_trace=report_inference_value_as_trace,
         trial_runtime_func=trial_runtime_func,

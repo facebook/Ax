@@ -233,10 +233,15 @@ class SubsetModelTestMultiTask(TestCase):
         obj_weights[1] = 0
         subset_model_results = subset_model(model, obj_weights)
         models = subset_model_results.model.models
+        # pyre-fixme[6]: For 1st argument expected
+        #  `pyre_extensions.PyreReadOnly[Sized]` but got `Union[Tensor, Module]`.
         self.assertEqual(len(models), 2)
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIs(models[0], m1)
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIsInstance(models[1], SingleTaskGP)
         # check that second model is the second output of m2
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertTrue(torch.equal(models[1].train_targets, m2.train_targets[1]))
 
     def test_nested_model_list_gp(self) -> None:
@@ -260,6 +265,10 @@ class SubsetModelTestMultiTask(TestCase):
         obj_weights[2] = 1
         subset_model_results = subset_model(model, obj_weights)
         models = subset_model_results.model.models
+        # pyre-fixme[6]: For 1st argument expected
+        #  `pyre_extensions.PyreReadOnly[Sized]` but got `Union[Tensor, Module]`.
         self.assertEqual(len(models), 2)
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIs(models[0], m1)
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIs(models[1], m2b)

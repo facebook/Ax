@@ -84,11 +84,6 @@ class Encoder:
     """
 
     def __init__(self, config: SQAConfig) -> None:
-        logger.error(
-            "ATTENTION: The Ax team is considering deprecating SQLAlchemy storage. "
-            "If you are currently using SQLAlchemy storage, please reach out to us "
-            "via GitHub Issues here: https://github.com/facebook/Ax/issues/2975"
-        )
         self.config = config
 
     @classmethod
@@ -152,6 +147,13 @@ class Encoder:
         create and store copies of the Trials, Metrics, Parameters,
         ParameterConstraints, and Runner owned by this Experiment.
         """
+
+        logger.error(
+            "ATTENTION: The Ax team is considering deprecating SQLAlchemy storage. "
+            "If you are currently using SQLAlchemy storage, please reach out to us "
+            "via GitHub Issues here: https://github.com/facebook/Ax/issues/2975"
+        )
+
         optimization_metrics = self.optimization_config_to_sqa(
             experiment.optimization_config
         )
@@ -195,7 +197,7 @@ class Encoder:
         if isinstance(experiment, MultiTypeExperiment):
             properties[Keys.SUBCLASS] = "MultiTypeExperiment"
             for trial_type, runner in experiment._trial_type_to_runner.items():
-                runner_sqa = self.runner_to_sqa(runner, trial_type)
+                runner_sqa = self.runner_to_sqa(none_throws(runner), trial_type)
                 runners.append(runner_sqa)
 
             for metric in tracking_metrics:

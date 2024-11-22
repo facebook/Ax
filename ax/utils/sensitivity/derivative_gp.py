@@ -20,6 +20,7 @@ def get_KXX_inv(gp: Model) -> Tensor:
     Returns:
         The inverse of K(X,X).
     """
+    # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute `covar_cache`.
     L_inv_upper = gp.prediction_strategy.covar_cache.detach()
     return L_inv_upper @ L_inv_upper.transpose(0, 1)
 
@@ -33,17 +34,25 @@ def get_KxX_dx(gp: Model, x: Tensor, kernel_type: str = "rbf") -> Tensor:
     Returns:
         Tensor (n x D) The derivative of the kernel K(x,X) w.r.t. x.
     """
+    # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, Any, ...
     X = gp.train_inputs[0]
     D = X.shape[1]
     N = X.shape[0]
     n = x.shape[0]
     if hasattr(gp.covar_module, "outputscale"):
+        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
+        #  `base_kernel`.
         lengthscale = gp.covar_module.base_kernel.lengthscale.detach()
+        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
+        #  `outputscale`.
         sigma_f = gp.covar_module.outputscale.detach()
     else:
+        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
+        #  `lengthscale`.
         lengthscale = gp.covar_module.lengthscale.detach()
         sigma_f = 1.0
     if kernel_type == "rbf":
+        # pyre-fixme[29]: `Union[Tensor, Module]` is not a function.
         K_xX = gp.covar_module(x, X).evaluate()
         part1 = -torch.eye(D, device=x.device, dtype=x.dtype) / lengthscale**2
         part2 = x.view(n, 1, D) - X.view(1, N, D)
@@ -52,6 +61,7 @@ def get_KxX_dx(gp: Model, x: Tensor, kernel_type: str = "rbf") -> Tensor:
     mean = x.reshape(-1, x.size(-1)).mean(0)[(None,) * (x.dim() - 1)]
     x1_ = (x - mean).div(lengthscale)
     x2_ = (X - mean).div(lengthscale)
+    # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute `covar_dist`.
     distance = gp.covar_module.covar_dist(x1_, x2_)
     exp_component = torch.exp(-math.sqrt(5.0) * distance)  # pyre-ignore
     constant_component = (-5.0 / 3.0) * distance - (5.0 * math.sqrt(5.0) / 3.0) * (
@@ -72,12 +82,19 @@ def get_Kxx_dx2(gp: Model, kernel_type: str = "rbf") -> Tensor:
     Returns:
         Tensor (n x D x D) The second derivative of the kernel w.r.t. the training data.
     """
+    # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, Any, ...
     X = gp.train_inputs[0]
     D = X.shape[1]
     if hasattr(gp.covar_module, "outputscale"):
+        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
+        #  `base_kernel`.
         lengthscale = gp.covar_module.base_kernel.lengthscale.detach()
+        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
+        #  `outputscale`.
         sigma_f = gp.covar_module.outputscale.detach()
     else:
+        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
+        #  `lengthscale`.
         lengthscale = gp.covar_module.lengthscale.detach()
         sigma_f = 1.0
     res = (torch.eye(D, device=lengthscale.device) / lengthscale**2) * sigma_f
@@ -110,6 +127,10 @@ def posterior_derivative(
     mean_d = (
         K_xX_dx
         @ get_KXX_inv(gp)
+        # pyre-fixme[29]: `Union[(self: TensorBase, other: Union[bool, complex,
+        #  float, int, Tensor]) -> Tensor, Tensor, Module]` is not a function.
+        # pyre-fixme[29]: `Union[Tensor, Module]` is not a function.
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         @ (gp.train_targets - gp.mean_module(gp.train_inputs[0]))
     )
     variance_d = Kxx_dx2 - K_xX_dx @ get_KXX_inv(gp) @ K_xX_dx.transpose(1, 2)

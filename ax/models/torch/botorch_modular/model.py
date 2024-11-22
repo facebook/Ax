@@ -27,6 +27,7 @@ from ax.models.torch.botorch_modular.utils import (
     check_outcome_dataset_match,
     choose_botorch_acqf_class,
     construct_acquisition_and_optimizer_options,
+    ModelConfig,
 )
 from ax.models.torch.utils import _to_inequality_constraints
 from ax.models.torch_base import TorchGenResults, TorchModel, TorchOptConfig
@@ -185,10 +186,14 @@ class BoTorchModel(TorchModel, Base):
 
         # If a surrogate has not been constructed, construct it.
         if self._surrogate is None:
-            if self.surrogate_spec is not None:
-                self._surrogate = Surrogate(surrogate_spec=self.surrogate_spec)
-            else:
-                self._surrogate = Surrogate()
+            surrogate_spec = (
+                SurrogateSpec(model_configs=[ModelConfig(name="default")])
+                if self.surrogate_spec is None
+                else self.surrogate_spec
+            )
+            self._surrogate = Surrogate(
+                surrogate_spec=surrogate_spec, refit_on_cv=self.refit_on_cv
+            )
 
         # Fit the surrogate.
         for config in self.surrogate.surrogate_spec.model_configs:
@@ -262,6 +267,15 @@ class BoTorchModel(TorchModel, Base):
             torch_opt_config=torch_opt_config,
             expected_acquisition_value=expected_acquisition_value,
         )
+        # log what model was used
+        metric_to_model_config_name = {
+            metric_name: model_config.name or str(model_config)
+            for metric_name_tuple, model_config in (
+                self.surrogate.metric_to_best_model_config.items()
+            )
+            for metric_name in metric_name_tuple
+        }
+        gen_metadata["metric_to_model_config_name"] = metric_to_model_config_name
         return TorchGenResults(
             points=candidates.detach().cpu(),
             weights=weights,

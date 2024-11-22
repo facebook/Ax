@@ -160,6 +160,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     # Number of trials that have been marked either FAILED or ABANDONED due to
     # MetricFetchE being encountered during _fetch_and_process_trials_data_results
     _num_trials_bad_due_to_err: int = 0
+    # Keeps track of whether the allowed failure rate has been exceeded during
+    # the optimization. If true, allows any pending trials to finish and raises
+    # an error through self._complete_optimization.
+    _failure_rate_has_been_exceeded: bool = False
     # Timestamp of last optimization start time (milliseconds since Unix epoch);
     # recorded in each `run_n_trials`.
     _latest_optimization_start_timestamp: int | None = None
@@ -978,9 +982,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         """Checks whether this scheduler has reached some intertuption / abort
         criterion, such as an overall optimization timeout, tolerated failure rate, etc.
         """
-        # if failure rate is exceeded, raise an exception.
-        # this check should precede others to ensure it is not skipped.
-        self.error_if_failure_rate_exceeded()
+        # If failure rate has been exceeded, log a warning and make sure we are not
+        # scheduling additional trials. Raises an exception after pending trials have
+        # completed, but does not abort the optimization immediately.
+        self._check_if_failure_rate_exceeded()
 
         # if optimization is timed out, return True, else return False
         timed_out = (
@@ -1005,6 +1010,12 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             A boolean representing whether the optimization should be stopped,
             and a string describing the reason for stopping.
         """
+        if len(self.pending_trials) == 0 and self._get_max_pending_trials() == 0:
+            return (
+                True,
+                "All pending trials have completed and max_pending_trials is zero.",
+            )
+
         if (
             not self.__ignore_global_stopping_strategy
             and self.options.global_stopping_strategy is not None
@@ -1122,8 +1133,9 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             minimize=optimization_config.objective.minimize,
         )
 
-    def error_if_failure_rate_exceeded(self, force_check: bool = False) -> None:
-        """Checks if the failure rate (set in scheduler options) has been exceeded.
+    def _check_if_failure_rate_exceeded(self, force_check: bool = False) -> bool:
+        """Checks if the failure rate (set in scheduler options) has been exceeded at
+        any point during the optimization.
 
         NOTE: Both FAILED and ABANDONED trial statuses count towards the failure rate.
 
@@ -1133,11 +1145,23 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 (default), the check will be skipped if the optimization has fewer than
                 five failed trials. If True, the check will be performed unless there
                 are 0 failures.
+
+        Effect on state:
+            If the failure rate has been exceeded, a warning is logged and the private
+            attribute `_failure_rate_has_been_exceeded` is set to True, which causes the
+            `_get_max_pending_trials` to return zero, so that no further trials are
+            scheduled and an error is raised at the end of the optimization.
+
+        Returns:
+            Boolean representing whether the failure rate has been exceeded.
         """
+        if self._failure_rate_has_been_exceeded:
+            return True
+
         num_bad_in_scheduler = self._num_bad_in_scheduler()
         # skip check if 0 failures
         if num_bad_in_scheduler == 0:
-            return
+            return False
 
         # skip check if fewer than min_failed_trials_for_failure_rate_check failures
         # unless force_check is True
@@ -1145,7 +1169,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             num_bad_in_scheduler < self.options.min_failed_trials_for_failure_rate_check
             and not force_check
         ):
-            return
+            return False
 
         num_ran_in_scheduler = self._num_ran_in_scheduler()
         failure_rate_exceeded = (
@@ -1160,10 +1184,43 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                     "check if anything could cause your metrics to be flaky or "
                     "broken."
                 )
+            # NOTE: this private attribute causes `_get_max_pending_trials` to
+            # return zero, which causes no further trials to be scheduled.
+            self._failure_rate_has_been_exceeded = True
+            return True
+
+        if failure_rate_exceeded:
+            if self._num_trials_bad_due_to_err > num_bad_in_scheduler / 2:
+                self.logger.warning(
+                    "MetricFetchE INFO: Sweep aborted due to an exceeded error rate, "
+                    "which was primarily caused by failure to fetch metrics. Please "
+                    "check if anything could cause your metrics to be flaky or "
+                    "broken."
+                )
 
             raise self._get_failure_rate_exceeded_error(
                 num_bad_in_scheduler=num_bad_in_scheduler,
                 num_ran_in_scheduler=num_ran_in_scheduler,
+            )
+        return False
+
+    def error_if_failure_rate_exceeded(self, force_check: bool = False) -> None:
+        """Raises an exception if the failure rate (set in scheduler options) has been
+        exceeded at any point during the optimization.
+
+        NOTE: Both FAILED and ABANDONED trial statuses count towards the failure rate.
+
+        Args:
+            force_check: Indicates whether to force a failure-rate check
+                regardless of the number of trials that have been executed. If False
+                (default), the check will be skipped if the optimization has fewer than
+                five failed trials. If True, the check will be performed unless there
+                are 0 failures.
+        """
+        if self._check_if_failure_rate_exceeded(force_check=force_check):
+            raise self._get_failure_rate_exceeded_error(
+                num_bad_in_scheduler=self._num_bad_in_scheduler(),
+                num_ran_in_scheduler=self._num_ran_in_scheduler(),
             )
 
     def _check_exit_status_and_report_results(
@@ -1230,7 +1287,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
                 raise SchedulerInternalError(
                     "No trials are running but model requires more data. This is an "
                     "invalid state of the scheduler, as no more trials can be produced "
-                    "but also no more data is expected as there are no running trials."
+                    "but also no more data is expected as there are no running trials. "
                     "This should be investigated."
                 )
             self._log_next_no_trials_reason = False
@@ -1444,11 +1501,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
     def _num_ran_in_scheduler(self) -> int:
         """Returns the number of trials that have been run by the scheduler."""
-        return sum(
-            1
-            for idx, t in self.experiment.trials.items()
-            if idx >= self._num_preexisting_trials and t.status.is_terminal
-        )
+        return len(self.experiment.trials) - self._num_preexisting_trials
 
     def _apply_new_trial_statuses(
         self, new_status_to_trial_idcs: dict[TrialStatus, set[int]]
@@ -1656,6 +1709,12 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             )
 
     def _get_max_pending_trials(self) -> int:
+        """Returns the maximum number of pending trials specified in the options, or
+        zero, if the failure rate limit has been exceeded at any point during the
+        optimization.
+        """
+        if self._failure_rate_has_been_exceeded:
+            return 0
         return self.options.max_pending_trials
 
     def _prepare_trials(

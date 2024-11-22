@@ -118,3 +118,36 @@ Summary
     :members:
     :undoc-members:
     :show-inheritance:
+
+Interaction
+~~~~~~~~~~~
+
+.. automodule:: ax.analysis.plotly.interaction
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+Contour
+~~~~~~~
+
+.. automodule:: ax.analysis.plotly.surface.contour
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Slice
+~~~~~
+
+.. automodule:: ax.analysis.plotly.surface.slice
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Utils
+~~~~~
+
+.. automodule:: ax.analysis.plotly.surface.utils
+    :members:
+    :undoc-members:
+    :show-inheritance:

@@ -6,6 +6,7 @@
 # pyre-strict
 
 from collections.abc import Mapping
+from enum import Enum
 from logging import Logger
 from typing import Protocol
 
@@ -21,6 +22,23 @@ logger: Logger = get_logger(__name__)
 
 
 DEFAULT_KDE_BANDWIDTH = 0.1  # default bandwidth for kernel density estimators
+MEAN_PREDICTION_CI = "Mean prediction CI"
+MAPE = "MAPE"
+wMAPE = "wMAPE"
+TOTAL_RAW_EFFECT = "Total raw effect"
+CORRELATION_COEFFICIENT = "Correlation coefficient"
+RANK_CORRELATION = "Rank correlation"
+FISHER_EXACT_TEST_P = "Fisher exact test p"
+LOG_LIKELIHOOD = "Log likelihood"
+MSE = "MSE"
+
+
+class ModelFitMetricDirection(Enum):
+    """Model fit metric directions."""
+
+    MINIMIZE = "minimize"
+    MAXIMIZE = "maximize"
+
 
 """
 ################################ Model Fit Metrics ###############################
@@ -298,3 +316,28 @@ def _fisher_exact_test_p(
     # Compute the test statistic
     _, p = fisher_exact(table, alternative="greater")
     return float(p)
+
+
+DIAGNOSTIC_FNS: dict[str, ModelFitMetricProtocol] = {
+    MEAN_PREDICTION_CI: _mean_prediction_ci,
+    MAPE: _mape,
+    wMAPE: _wmape,
+    TOTAL_RAW_EFFECT: _total_raw_effect,
+    CORRELATION_COEFFICIENT: _correlation_coefficient,
+    RANK_CORRELATION: _rank_correlation,
+    FISHER_EXACT_TEST_P: _fisher_exact_test_p,
+    LOG_LIKELIHOOD: _log_likelihood,
+    MSE: _mse,
+}
+
+DIAGNOSTIC_FN_DIRECTIONS: dict[str, ModelFitMetricDirection] = {
+    MEAN_PREDICTION_CI: ModelFitMetricDirection.MINIMIZE,
+    MAPE: ModelFitMetricDirection.MINIMIZE,
+    wMAPE: ModelFitMetricDirection.MINIMIZE,
+    TOTAL_RAW_EFFECT: ModelFitMetricDirection.MAXIMIZE,
+    CORRELATION_COEFFICIENT: ModelFitMetricDirection.MAXIMIZE,
+    RANK_CORRELATION: ModelFitMetricDirection.MAXIMIZE,
+    FISHER_EXACT_TEST_P: ModelFitMetricDirection.MINIMIZE,
+    LOG_LIKELIHOOD: ModelFitMetricDirection.MAXIMIZE,
+    MSE: ModelFitMetricDirection.MINIMIZE,
+}

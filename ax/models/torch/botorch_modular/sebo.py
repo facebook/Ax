@@ -126,6 +126,7 @@ class SEBOAcquisition(Acquisition):
         )
 
         # update objective threshold for deterministic model (penalty term)
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.acqf.ref_point[-1] = self.sparsity_threshold * -1
         self._objective_thresholds[-1] = self.sparsity_threshold  # pyre-ignore
 
@@ -273,11 +274,16 @@ class SEBOAcquisition(Acquisition):
         optimizer_options: dict[str, Any] | None = None,
     ) -> tuple[Tensor, Tensor, Tensor]:
         """Optimize SEBO ACQF with L0 norm using homotopy."""
+        optimizer_options = optimizer_options or {}
         # extend to fixed a no homotopy_schedule schedule
         _tensorize = partial(torch.tensor, dtype=self.dtype, device=self.device)
         ssd = search_space_digest
         bounds = _tensorize(ssd.bounds).t()
-        homotopy_schedule = LogLinearHomotopySchedule(start=0.2, end=1e-3, num_steps=30)
+        homotopy_schedule = LogLinearHomotopySchedule(
+            start=0.2,
+            end=1e-3,
+            num_steps=optimizer_options.get("num_homotopy_steps", 30),
+        )
 
         # Prepare arguments for optimizer
         optimizer_options_with_defaults = optimizer_argparse(
@@ -297,6 +303,8 @@ class SEBOAcquisition(Acquisition):
         batch_initial_conditions = get_batch_initial_conditions(
             acq_function=self.acqf,
             raw_samples=optimizer_options_with_defaults["raw_samples"],
+            # pyre-fixme[6]: For 3rd argument expected `Tensor` but got
+            #  `Union[Tensor, Module]`.
             X_pareto=self.acqf.X_baseline,
             target_point=self.target_point,
             bounds=bounds,

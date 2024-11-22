@@ -11,13 +11,14 @@ from collections import OrderedDict
 from copy import deepcopy
 from itertools import product
 from unittest import mock
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
-from ax.exceptions.core import AxWarning, UnsupportedError
+from ax.exceptions.core import AxWarning
 from ax.models.torch.botorch_modular.acquisition import Acquisition
+from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.models.torch.botorch_modular.model import (
     BoTorchModel,
     choose_botorch_acqf_class,
@@ -254,9 +255,11 @@ class BoTorchModelTest(TestCase):
                 outcome_names=ds2.outcome_names,
             ),
         ]
-        with self.assertRaisesRegex(
-            UnsupportedError, "Cannot convert mixed data with and without variance"
-        ):
+        msg = (
+            "Mix of known and unknown variances indicates valuation function"
+            " errors. Variances should all be specified, or none should be."
+        )
+        with self.assertRaisesRegex(ValueError, msg):
             self.model.fit(
                 datasets=datasets,
                 search_space_digest=self.search_space_digest,
@@ -340,6 +343,7 @@ class BoTorchModelTest(TestCase):
                 covar_module_options={},
                 likelihood_class=None,
                 likelihood_options={},
+                name="default",
             ),
             default_botorch_model_class=SingleTaskMultiFidelityGP,
             state_dict=None,
@@ -431,6 +435,42 @@ class BoTorchModelTest(TestCase):
                     kwargs["state_dict"].keys(), expected_state_dict.keys()
                 )
 
+    def test_cross_validate_multiple_configs(self) -> None:
+        """Test cross-validation with multiple configs."""
+        for refit_on_cv in (True, False):
+            with self.subTest(refit_on_cv=refit_on_cv):
+                self.model = BoTorchModel(
+                    surrogate_spec=SurrogateSpec(
+                        model_configs=[
+                            ModelConfig(),
+                            ModelConfig(
+                                botorch_model_class=SingleTaskGP,
+                                covar_module_class=ScaleMaternKernel,
+                            ),
+                        ]
+                    ),
+                    acquisition_class=self.acquisition_class,
+                    botorch_acqf_class=self.botorch_acqf_class,
+                    acquisition_options=self.acquisition_options,
+                    refit_on_cv=refit_on_cv,
+                )
+                self.model.fit(
+                    datasets=self.block_design_training_data,
+                    search_space_digest=self.search_space_digest,
+                    candidate_metadata=self.candidate_metadata,
+                )
+                with patch(f"{Surrogate.__module__}.fit_botorch_model") as mock_fit:
+                    self.model.cross_validate(
+                        datasets=self.block_design_training_data,
+                        X_test=self.X_test,
+                        search_space_digest=self.search_space_digest,
+                    )
+                    # check that we don't fit the model during cross_validation
+                    if refit_on_cv:
+                        mock_fit.assert_called()
+                    else:
+                        mock_fit.assert_not_called()
+
     @mock_botorch_optimize
     @mock.patch(
         f"{MODEL_PATH}.construct_acquisition_and_optimizer_options",
@@ -488,11 +528,15 @@ class BoTorchModelTest(TestCase):
             "_instantiate_acquisition",
             wraps=model._instantiate_acquisition,
         ) as mock_init_acqf:
-            model.gen(
+            gen_results = model.gen(
                 n=1,
                 search_space_digest=search_space_digest,
                 torch_opt_config=self.torch_opt_config,
             )
+        self.assertEqual(
+            gen_results.gen_metadata["metric_to_model_config_name"],
+            {"y": "from deprecated args"},
+        )
         # Assert acquisition initialized with expected arguments
         mock_init_acqf.assert_called_once_with(
             search_space_digest=search_space_digest,
@@ -602,6 +646,7 @@ class BoTorchModelTest(TestCase):
                     "mean": torch.randn(3, **self.tkwargs),
                     "noise": torch.rand(3, **self.tkwargs),
                 }
+                # pyre-fixme[29]: `Union[Tensor, Module]` is not a function.
                 model.surrogate.model.load_mcmc_samples(mcmc_samples)
                 importances = model.feature_importances()
                 self.assertTrue(
@@ -610,6 +655,8 @@ class BoTorchModelTest(TestCase):
                 self.assertEqual(importances.shape, (1, 1, 3))
                 saas_model = deepcopy(model.surrogate.model)
             else:
+                # pyre-fixme[16]: `Tensor` has no attribute `lengthscale`.
+                # pyre-fixme[16]: `Module` has no attribute `lengthscale`.
                 model.surrogate.model.covar_module.lengthscale = torch.tensor(
                     [1, 2, 3], **self.tkwargs
                 )
@@ -727,9 +774,7 @@ class BoTorchModelTest(TestCase):
             search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
-        mock_init.assert_called_with(
-            surrogate_spec=surrogate_spec,
-        )
+        mock_init.assert_called_with(surrogate_spec=surrogate_spec, refit_on_cv=False)
 
     @mock.patch(f"{MODEL_PATH}.Surrogate", wraps=Surrogate)
     @mock.patch(f"{SURROGATE_PATH}.Surrogate._construct_model", return_value=None)
@@ -744,9 +789,7 @@ class BoTorchModelTest(TestCase):
             search_space_digest=self.mf_search_space_digest,
             candidate_metadata=self.candidate_metadata,
         )
-        mock_init.assert_called_with(
-            surrogate_spec=surrogate_spec,
-        )
+        mock_init.assert_called_with(surrogate_spec=surrogate_spec, refit_on_cv=False)
 
     @mock.patch(
         f"{ACQUISITION_PATH}.Acquisition.optimize",
