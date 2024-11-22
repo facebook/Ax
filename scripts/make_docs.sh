@@ -52,7 +52,7 @@ if [[ $ONLY_DOCUSAURUS == false ]]; then
   echo "-----------------------------------"
   echo "Generating tutorials"
   echo "-----------------------------------"
-  python3 scripts/convert_ipynb_to_mdx.py
+  python3 scripts/convert_ipynb_to_mdx.py --clean
 
 fi  # end of not only Docusaurus block
 
