@@ -7,10 +7,11 @@ import os
 import json
 import re
 import shutil
+import subprocess
 import uuid
 import io
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union, Optional
 
 import mdformat  # @manual=fbsource//third-party/pypi/mdformat:mdformat
 import nbformat
@@ -156,24 +157,35 @@ def create_imports() -> str:
     return f"{imports}\n"
 
 
+def get_current_git_tag() -> Optional[str]:
+    """
+    Retrieve the current Git tag if the current commit is tagged.
+
+    Returns:
+        Optional[str]: The current Git tag as a string if available, otherwise None.
+    """
+    try:
+        tag = subprocess.check_output(['git', 'describe', '--tags', '--exact-match'], stderr=subprocess.STDOUT).strip().decode('utf-8')
+        return tag
+    except subprocess.CalledProcessError:
+        return None
+
+
 def create_buttons(
     nb_metadata: Dict[str, Dict[str, str]],
-    tutorial_folder_name: str,
 ) -> str:
     """
     Create buttons that link to Colab and GitHub for the tutorial.
 
     Args:
         nb_metadata (Dict[str, Dict[str, str]]): Metadata for the tutorial.
-        tutorial_folder_name (str): The name of the tutorial folder where the MDX
-            converted files exist. This is typically just the name of the Jupyter
-            notebook file.
 
     Returns:
         str: MDX formatted buttons.
     """
-    github_url = f"https://github.com/cristianlara/Ax/blob/main/tutorials/{nb_metadata['id']}/{nb_metadata['id']}.ipynb"
-    colab_url = f"https://colab.research.google.com/github/cristianlara/Ax/blob/main/tutorials/{nb_metadata['id']}/{nb_metadata['id']}.ipynb"
+    version = get_current_git_tag() or "main"
+    github_url = f"https://github.com/cristianlara/Ax/blob/{version}/tutorials/{nb_metadata['id']}/{nb_metadata['id']}.ipynb"
+    colab_url = f"https://colab.research.google.com/github/cristianlara/Ax/blob/{version}/tutorials/{nb_metadata['id']}/{nb_metadata['id']}.ipynb"
     return f'<LinkButtons\n  githubUrl="{github_url}"\n  colabUrl="{colab_url}"\n/>\n\n'
 
 
@@ -966,7 +978,7 @@ def transform_notebook(path: Path, nb_metadata: object) -> str:
     mdx = ""
     mdx += create_frontmatter(path, nb_metadata)
     mdx += create_imports()
-    mdx += create_buttons(nb_metadata, path.stem)
+    mdx += create_buttons(nb_metadata)
     for cell in nb["cells"]:
         cell_type = cell["cell_type"]
 
