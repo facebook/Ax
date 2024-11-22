@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
 
 import sys
 from pathlib import Path
@@ -59,12 +63,9 @@ def main():
     req_versions = parse_requirements(requirements_file)
     config_versions = parse_precommit_config(config_file)
 
-    # Packages to check
-    packages = ["ufmt", "black", "usort", "ruff-api"]
-
     # Check versions
     mismatches = []
-    for pkg in packages:
+    for pkg, req_ver in req_versions.items():
         req_ver = req_versions.get(pkg, None)
         config_ver = config_versions.get(pkg, None)
 
