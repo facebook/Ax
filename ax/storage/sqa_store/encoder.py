@@ -84,11 +84,6 @@ class Encoder:
     """
 
     def __init__(self, config: SQAConfig) -> None:
-        logger.error(
-            "ATTENTION: The Ax team is considering deprecating SQLAlchemy storage. "
-            "If you are currently using SQLAlchemy storage, please reach out to us "
-            "via GitHub Issues here: https://github.com/facebook/Ax/issues/2975"
-        )
         self.config = config
 
     @classmethod
@@ -152,6 +147,13 @@ class Encoder:
         create and store copies of the Trials, Metrics, Parameters,
         ParameterConstraints, and Runner owned by this Experiment.
         """
+
+        logger.error(
+            "ATTENTION: The Ax team is considering deprecating SQLAlchemy storage. "
+            "If you are currently using SQLAlchemy storage, please reach out to us "
+            "via GitHub Issues here: https://github.com/facebook/Ax/issues/2975"
+        )
+
         optimization_metrics = self.optimization_config_to_sqa(
             experiment.optimization_config
         )
