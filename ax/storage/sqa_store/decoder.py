@@ -197,7 +197,8 @@ class Decoder:
         )
 
     def _init_mt_experiment_from_sqa(
-        self, experiment_sqa: SQAExperiment
+        self,
+        experiment_sqa: SQAExperiment,
     ) -> MultiTypeExperiment:
         """First step of conversion within experiment_from_sqa."""
         opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
@@ -217,11 +218,25 @@ class Decoder:
             if experiment_sqa.status_quo_parameters is not None
             else None
         )
+
+        default_trial_type = none_throws(experiment_sqa.default_trial_type)
         trial_type_to_runner = {
             none_throws(sqa_runner.trial_type): self.runner_from_sqa(sqa_runner)
             for sqa_runner in experiment_sqa.runners
         }
-        default_trial_type = none_throws(experiment_sqa.default_trial_type)
+        if len(trial_type_to_runner) == 0:
+            trial_type_to_runner = {default_trial_type: None}
+            trial_types_with_metrics = {
+                metric.trial_type
+                for metric in experiment_sqa.metrics
+                if metric.trial_type
+            }
+            # trial_type_to_runner is instantiated to map all trial types to None,
+            # so the trial types are associated with the expeirment. This is
+            # important for adding metrics.
+            trial_type_to_runner.update(
+                {t_type: None for t_type in trial_types_with_metrics}
+            )
         properties = dict(experiment_sqa.properties or {})
         default_data_type = experiment_sqa.default_data_type
         experiment = MultiTypeExperiment(
@@ -229,12 +244,15 @@ class Decoder:
             description=experiment_sqa.description,
             search_space=search_space,
             default_trial_type=default_trial_type,
-            default_runner=trial_type_to_runner[default_trial_type],
+            default_runner=trial_type_to_runner.get(default_trial_type),
             optimization_config=opt_config,
             status_quo=status_quo,
             properties=properties,
             default_data_type=default_data_type,
         )
+        # pyre-ignore Imcompatible attribute type [8]: attribute _trial_type_to_runner
+        # has type Dict[str, Optional[Runner]] but is used as type
+        # Uniont[Dict[str, Optional[Runner]], Dict[str, None]]
         experiment._trial_type_to_runner = trial_type_to_runner
         sqa_metric_dict = {metric.name: metric for metric in experiment_sqa.metrics}
         for tracking_metric in tracking_metrics:

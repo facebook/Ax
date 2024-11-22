@@ -47,7 +47,7 @@ class MultiTypeExperiment(Experiment):
         name: str,
         search_space: SearchSpace,
         default_trial_type: str,
-        default_runner: Runner,
+        default_runner: Runner | None,
         optimization_config: OptimizationConfig | None = None,
         tracking_metrics: list[Metric] | None = None,
         status_quo: Arm | None = None,
@@ -79,7 +79,7 @@ class MultiTypeExperiment(Experiment):
         self._default_trial_type = default_trial_type
 
         # Map from trial type to default runner of that type
-        self._trial_type_to_runner: dict[str, Runner] = {
+        self._trial_type_to_runner: dict[str, Runner | None] = {
             default_trial_type: default_runner
         }
 
