@@ -35,8 +35,36 @@ We use the [`Ruff` code formatter](https://docs.astral.sh/ruff/formatter/) for a
 ### Unit Tests
 The majority of our code is covered by unit tests and we are working to get to 100% code coverage. Please ensure that new code is covered by unit tests. To run all unit tests, we recommend installing pytest using `pip install pytest` and running `pytest -ra` from the root of the Ax repo. To get coverage, `pip install pytest-cov` and run `pytest -ra --cov=ax`.
 
-### Linting
-Run the linter via `flake8` (`pip install flake8`) from the root of the Ax repository. Note that we have a [custom flake8 configuration](https://github.com/facebook/Ax/blob/main/.flake8).
+#### Code Style
+
+Ax uses [ufmt](https://github.com/omnilib/ufmt) to enforce consistent code
+formatting (based on [black](https://github.com/ambv/black)) and import sorting
+(based on [µsort](https://github.com/facebook/usort)) across the code base.
+Install via `pip install ufmt`, and auto-format and auto-sort by running
+
+```bash
+ufmt format .
+```
+
+from the repository root.
+
+#### Flake8 linting
+
+Ax uses `flake8` for linting. To run the linter locally, install `flake8`
+via `pip install flake8`, and then run
+
+```bash
+flake8 .
+```
+
+from the repository root.
+
+#### Pre-commit hooks
+
+Contributors can use [pre-commit](https://pre-commit.com/) to run `ufmt` and
+`flake8` as part of the commit process. To install the hooks, install `pre-commit`
+via `pip install pre-commit` and run `pre-commit install` from the repository
+root.
 
 ### Static Type Checking
 We use [Pyre](https://pyre-check.org/) for static type checking and require code to be fully type annotated. At the moment, static type checking is not supported within Travis.
