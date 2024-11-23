@@ -11,8 +11,8 @@ import IconExternalLink from '@theme/Icon/ExternalLink'
 
 const LinkButtons = ({githubUrl, colabUrl}) => {
   return (
-    <div>
-      <Link to={githubUrl} className="button button--outline button--primary margin--xs">
+    <div className="margin-top--sm margin-bottom--lg">
+      <Link to={githubUrl} className="button button--outline button--primary margin-right--xs">
         Open in GitHub
         <IconExternalLink />
       </Link>
@@ -20,7 +20,6 @@ const LinkButtons = ({githubUrl, colabUrl}) => {
         Run in Google Colab
         <IconExternalLink />
       </Link>
-      <br/><br/>
     </div>
   );
 };
