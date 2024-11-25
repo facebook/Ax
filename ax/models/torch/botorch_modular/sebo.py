@@ -384,7 +384,7 @@ def get_batch_initial_conditions(
         q=1,
         raw_samples=raw_samples,
         num_restarts=num_rand,
-        options={"topk": True},
+        options={"topn": True},
         fixed_features=fixed_features,
         inequality_constraints=inequality_constraints,
     ).to(**tkwargs)
