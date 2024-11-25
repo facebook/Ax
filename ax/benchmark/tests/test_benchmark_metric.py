@@ -201,28 +201,31 @@ class BenchmarkMetricTest(TestCase):
         df1 = metric1.fetch_trial_data(trial=trial).value.df
         self.assertEqual(len(df1), 2)
         expected = {
-            "arm_name": {0: "0_0", 1: "0_1"},
-            "metric_name": {0: "test_metric1", 1: "test_metric1"},
-            "mean": {0: 1.0, 1: 2.5},
-            "sem": {0: 0.1, 1: 0.0},
-            "trial_index": {0: 0, 1: 0},
+            "arm_name": ["0_0", "0_1"],
+            "metric_name": ["test_metric1", "test_metric1"],
+            "mean": [1.0, 2.5],
+            "sem": [0.1, 0.0],
+            "trial_index": [0, 0],
         }
         if map_data:
-            expected["step"] = {0: 0, 1: 0}
+            expected["step"] = [0, 0]
 
-        self.assertDictEqual(df1.to_dict(), expected)
+        for col in df1.columns:
+            self.assertEqual(df1[col].to_list(), expected[col], col)
+
         df2 = metric2.fetch_trial_data(trial=trial).value.df
         self.assertEqual(len(df2), 2)
         expected = {
-            "arm_name": {0: "0_0", 1: "0_1"},
-            "metric_name": {0: "test_metric2", 1: "test_metric2"},
-            "mean": {0: 0.5, 1: 1.5},
-            "sem": {0: 0.1, 1: 0.0},
-            "trial_index": {0: 0, 1: 0},
+            "arm_name": ["0_0", "0_1"],
+            "metric_name": ["test_metric2", "test_metric2"],
+            "mean": [0.5, 1.5],
+            "sem": [0.1, 0.0],
+            "trial_index": [0, 0],
         }
         if map_data:
-            expected["step"] = {0: 0, 1: 0}
-        self.assertDictEqual(df2.to_dict(), expected)
+            expected["step"] = [0, 0]
+        for col in df2.columns:
+            self.assertEqual(df2[col].to_list(), expected[col], col)
 
     def test_fetch_trial_data_batch_trial(self) -> None:
         self._test_fetch_trial_data_batch_trial(map_data=False)
