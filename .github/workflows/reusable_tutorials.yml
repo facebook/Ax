@@ -55,4 +55,4 @@ jobs:
         python scripts/run_tutorials.py -w $(pwd)
     - name: Build tutorials
       run : |
-        python scripts/convert_ipynb_to_mdx.py
+        python scripts/convert_ipynb_to_mdx.py --clean

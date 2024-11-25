@@ -40,7 +40,7 @@ jobs:
         python scripts/run_tutorials.py -w $(pwd)
     - name: Convert Tutorials
       run: |
-        python3 scripts/convert_ipynb_to_mdx.py
+        python3 scripts/convert_ipynb_to_mdx.py --clean
     - name: Create new version in Docusaurus
       id: create-version
       run: |

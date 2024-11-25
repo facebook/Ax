@@ -6,7 +6,7 @@ The Ax website is built using [Docusaurus](https://docusaurus.io/), a modern sta
 We convert tutorial notebooks to MDX for embedding as docs. This needs to be done before serving the website and can be done by running this script from the project root:
 
 ```bash
-python3 scripts/convert_ipynb_to_mdx.py
+python3 scripts/convert_ipynb_to_mdx.py --clean
 ```
 
 If the script fails ensure you have the necessary dependencies (ideally to your virtual env):
