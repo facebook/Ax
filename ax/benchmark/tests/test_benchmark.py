@@ -250,7 +250,7 @@ class TestBenchmark(TestCase):
             # same effect as completing after 1 second (third case), because a
             # new trial can't start until the next time increment.
             # With MapData, trials complete at the same times as without
-            # MapData, but an extra epoch accrues in the third case.
+            # MapData, but an extra step accrues in the third case.
             "Trials complete at same time": [0, 0, 1, 1],
             "Complete out of order": [0, 0, 1, 2],
         }
@@ -276,7 +276,7 @@ class TestBenchmark(TestCase):
                 problem = get_async_benchmark_problem(
                     map_data=map_data,
                     trial_runtime_func=trial_runtime_func,
-                    n_time_intervals=30 if map_data else 1,
+                    n_steps=30 if map_data else 1,
                 )
 
                 with mock_patch_method_original(
@@ -357,7 +357,7 @@ class TestBenchmark(TestCase):
         """
         Test early stopping with a deterministic generation strategy and ESS
         that stops if the objective exceeds 0.5 when their progression ("t") hits 2,
-        which happens when 3 epochs have passed (t=[0, 1, 2]).
+        which happens when 3 steps have passed (t=[0, 1, 2]).
 
         Each arm produces values equaling the trial index everywhere on the
         progression, so Trials 1, 2, and 3 will stop early, and trial 0 will not.
@@ -385,7 +385,7 @@ class TestBenchmark(TestCase):
         problem = get_async_benchmark_problem(
             map_data=True,
             trial_runtime_func=lambda _: progression_length_if_not_stopped,
-            n_time_intervals=progression_length_if_not_stopped,
+            n_steps=progression_length_if_not_stopped,
             lower_is_better=True,
         )
         result = benchmark_replication(
@@ -394,15 +394,15 @@ class TestBenchmark(TestCase):
         data = assert_is_instance(none_throws(result.experiment).lookup_data(), MapData)
         grouped = data.map_df.groupby("trial_index")
         self.assertEqual(
-            dict(grouped["t"].count()),
+            dict(grouped["step"].count()),
             {
                 0: progression_length_if_not_stopped,
-                # stopping after t=2, so 3 epochs (0, 1, 2) have passed
+                # stopping after step=2, so 3 steps (0, 1, 2) have passed
                 **{i: min_progression + 1 for i in range(1, 4)},
             },
         )
         self.assertEqual(
-            dict(grouped["t"].max()),
+            dict(grouped["step"].max()),
             {
                 0: progression_length_if_not_stopped - 1,
                 **{i: min_progression for i in range(1, 4)},
@@ -423,7 +423,7 @@ class TestBenchmark(TestCase):
             for trial_index, sim_trial in trials.items()
         }
         map_df["start_time"] = map_df["trial_index"].map(start_times).astype(int)
-        map_df["absolute_time"] = map_df["t"] + map_df["start_time"]
+        map_df["absolute_time"] = map_df["step"] + map_df["start_time"]
         expected_start_end_times = {
             0: (0, 4),
             1: (0, 2),
