@@ -99,9 +99,9 @@ class TestBenchmark(TestCase):
                 )
                 self.assertEqual(mock_optimize_acqf.call_args.kwargs["q"], batch_size)
 
-    def test_storage(self) -> None:
+    def _test_storage(self, map_data: bool) -> None:
         problem = get_async_benchmark_problem(
-            map_data=False, trial_runtime_func=lambda _: 3
+            map_data=map_data, trial_runtime_func=lambda _: 3
         )
         method = get_async_benchmark_method()
         res = benchmark_replication(problem=problem, method=method, seed=0)
@@ -121,6 +121,10 @@ class TestBenchmark(TestCase):
             # load it back
             experiment = load_experiment(f.name)
             self.assertEqual(experiment, experiment)
+
+    def test_storage(self) -> None:
+        self._test_storage(map_data=False)
+        self._test_storage(map_data=True)
 
     def test_benchmark_result_invalid_inputs(self) -> None:
         """

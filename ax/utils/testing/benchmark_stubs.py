@@ -13,6 +13,7 @@ from typing import Any, Callable, Iterator
 import numpy as np
 import torch
 from ax.benchmark.benchmark_method import BenchmarkMethod
+from ax.benchmark.benchmark_metric import BenchmarkMapMetric, BenchmarkMetric
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     create_problem_from_botorch,
@@ -360,3 +361,11 @@ def get_async_benchmark_problem(
         optimal_value=19.0,
         trial_runtime_func=trial_runtime_func,
     )
+
+
+def get_benchmark_metric() -> BenchmarkMetric:
+    return BenchmarkMetric(name="test", lower_is_better=True)
+
+
+def get_benchmark_map_metric() -> BenchmarkMapMetric:
+    return BenchmarkMapMetric(name="test", lower_is_better=True)
