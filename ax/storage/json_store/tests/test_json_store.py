@@ -47,6 +47,8 @@ from ax.storage.registry_bundle import RegistryBundle
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import (
     get_aggregated_benchmark_result,
+    get_benchmark_map_metric,
+    get_benchmark_metric,
     get_benchmark_result,
 )
 from ax.utils.testing.core_stubs import (
@@ -145,6 +147,8 @@ TEST_CASES = [
         "BenchmarkMethod",
         lambda: get_sobol_benchmark_method(distribute_replications=True),
     ),
+    ("BenchmarkMetric", get_benchmark_metric),
+    ("BenchmarkMapMetric", get_benchmark_map_metric),
     ("BenchmarkResult", get_benchmark_result),
     ("BoTorchModel", get_botorch_model),
     ("BoTorchModel", get_botorch_model_with_default_acquisition_class),
