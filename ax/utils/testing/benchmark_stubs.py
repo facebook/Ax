@@ -315,13 +315,7 @@ def get_discrete_search_space() -> SearchSpace:
     return SearchSpace(
         parameters=[
             ChoiceParameter(
-                name="x0",
-                parameter_type=ParameterType.INT,
-                # pyre-fixme: Incompatible parameter type [6]: In call
-                # `ChoiceParameter.__init__`, for argument `values`, expected
-                # `List[Union[None, bool, float, int, str]]` but got
-                # `List[int]`.
-                values=list(range(20)),
+                name="x0", parameter_type=ParameterType.INT, values=list(range(20))
             )
         ]
     )
@@ -356,6 +350,7 @@ def get_async_benchmark_problem(
         observe_noise_sd=True,
         lower_is_better=lower_is_better,
     )
+
     return BenchmarkProblem(
         name="test",
         search_space=search_space,
