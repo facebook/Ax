@@ -125,6 +125,7 @@ class SEBOAcquisition(Acquisition):
         )
 
         # update objective threshold for deterministic model (penalty term)
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.acqf.ref_point[-1] = self.sparsity_threshold * -1
         self._objective_thresholds[-1] = self.sparsity_threshold  # pyre-ignore
 
@@ -317,6 +318,7 @@ class SEBOAcquisition(Acquisition):
                 )
             ],
         )
+
         candidates, expected_acquisition_value = optimize_acqf_homotopy(
             q=n,
             acq_function=self.acqf,

@@ -622,9 +622,9 @@ class AcquisitionTest(TestCase):
     def test_optimize_acqf_mixed_alternating(self) -> None:
         ssd = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
-            bounds=[(0, 1), (0, 25), (0, 5)],
+            bounds=[(0, 1), (0, 15), (0, 5)],
             ordinal_features=[1],
-            discrete_choices={1: list(range(26))},
+            discrete_choices={1: list(range(16))},
         )
         acquisition = self.get_acquisition_function()
         with mock.patch(

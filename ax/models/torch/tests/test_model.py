@@ -343,6 +343,7 @@ class BoTorchModelTest(TestCase):
                 covar_module_options={},
                 likelihood_class=None,
                 likelihood_options={},
+                name="default",
             ),
             default_botorch_model_class=SingleTaskMultiFidelityGP,
             state_dict=None,
@@ -527,11 +528,15 @@ class BoTorchModelTest(TestCase):
             "_instantiate_acquisition",
             wraps=model._instantiate_acquisition,
         ) as mock_init_acqf:
-            model.gen(
+            gen_results = model.gen(
                 n=1,
                 search_space_digest=search_space_digest,
                 torch_opt_config=self.torch_opt_config,
             )
+        self.assertEqual(
+            gen_results.gen_metadata["metric_to_model_config_name"],
+            {"y": "from deprecated args"},
+        )
         # Assert acquisition initialized with expected arguments
         mock_init_acqf.assert_called_once_with(
             search_space_digest=search_space_digest,
@@ -641,6 +646,7 @@ class BoTorchModelTest(TestCase):
                     "mean": torch.randn(3, **self.tkwargs),
                     "noise": torch.rand(3, **self.tkwargs),
                 }
+                # pyre-fixme[29]: `Union[Tensor, Module]` is not a function.
                 model.surrogate.model.load_mcmc_samples(mcmc_samples)
                 importances = model.feature_importances()
                 self.assertTrue(
@@ -649,6 +655,8 @@ class BoTorchModelTest(TestCase):
                 self.assertEqual(importances.shape, (1, 1, 3))
                 saas_model = deepcopy(model.surrogate.model)
             else:
+                # pyre-fixme[16]: `Tensor` has no attribute `lengthscale`.
+                # pyre-fixme[16]: `Module` has no attribute `lengthscale`.
                 model.surrogate.model.covar_module.lengthscale = torch.tensor(
                     [1, 2, 3], **self.tkwargs
                 )

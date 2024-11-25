@@ -9,18 +9,26 @@ from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
-from ax.benchmark.benchmark_metric import BenchmarkMapMetric, BenchmarkMetric
+from ax.benchmark.benchmark_metric import (
+    _get_no_metadata_msg,
+    BenchmarkMapMetric,
+    BenchmarkMetric,
+)
 from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
+from ax.core.metric import MetricFetchE
 from ax.core.trial import Trial
+from ax.utils.common.result import Err
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.backend_simulator import BackendSimulator, BackendSimulatorOptions
 from ax.utils.testing.core_stubs import get_experiment
 from pyre_extensions import none_throws
 
 
-def get_test_trial(map_data: bool = False, batch: bool = False) -> Trial | BatchTrial:
+def get_test_trial(
+    map_data: bool = False, batch: bool = False, has_metadata: bool = True
+) -> Trial | BatchTrial:
     experiment = get_experiment()
 
     arm1 = Arm(parameters={"w": 1.0, "x": 1, "y": "foo", "z": True}, name="0_0")
@@ -32,6 +40,9 @@ def get_test_trial(map_data: bool = False, batch: bool = False) -> Trial | Batch
     else:
         trial = experiment.new_trial()
         trial.add_arm(arm=arm1)
+
+    if not has_metadata:
+        return trial
 
     dfs = {
         "test_metric1": pd.DataFrame(
@@ -97,6 +108,17 @@ class BenchmarkMetricTest(TestCase):
         )
 
     def test_fetch_trial_data(self) -> None:
+        for map_data, metric in [(False, self.metric1), (True, self.map_metric1)]:
+            with self.subTest(f"No-metadata error, map_data={map_data}"):
+                trial = get_test_trial(has_metadata=False, map_data=map_data)
+                result = metric.fetch_trial_data(trial=trial)
+                self.assertIsInstance(result, Err)
+                self.assertIsInstance(result.value, MetricFetchE)
+                self.assertEqual(
+                    result.value.message,
+                    _get_no_metadata_msg(trial_index=trial.index),
+                )
+
         trial = get_test_trial()
         with self.assertRaisesRegex(
             NotImplementedError,

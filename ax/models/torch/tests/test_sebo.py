@@ -156,18 +156,23 @@ class TestSebo(TestCase):
         surrogate = acquisition1.surrogate
         model_list = none_throws(surrogate._model)
         self.assertIsInstance(model_list, ModelList)
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIsInstance(model_list.models[0], SingleTaskGP)
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIsInstance(model_list.models[1], GenericDeterministicModel)
 
         # Check right penalty term is instantiated
         self.assertEqual(acquisition1.penalty_name, "L0_norm")
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIsInstance(model_list.models[1]._f, L0Approximation)
         # `a` needs to be set to something small for the pruning to work as expected
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertEqual(model_list.models[-1]._f.a, 1e-6)
 
         # Check transformed objective threshold
         self.assertTrue(
             torch.equal(
+                # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slic...
                 acquisition1.acqf.ref_point[-1],
                 -self.objective_thresholds_sebo[-1],
             )
@@ -187,7 +192,9 @@ class TestSebo(TestCase):
         self.assertEqual(acquisition2.penalty_name, "L1_norm")
         surrogate = acquisition2.surrogate
         model_list = none_throws(surrogate._model)
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIsInstance(model_list.models[1]._f, functools.partial)
+        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIs(model_list.models[1]._f.func, L1_norm_func)
 
         # assert error raise when constructing non L0/L1 penalty terms
@@ -282,6 +289,7 @@ class TestSebo(TestCase):
             fixed_features=self.fixed_features,
             options={"penalty": "L0_norm", "target_point": self.target_point},
         )
+        # pyre-fixme[16]: `AcquisitionFunction` has no attribute `cache_pending`.
         acquisition2.acqf.cache_pending = torch.tensor(False)
         acquisition2.optimize(
             n=2,

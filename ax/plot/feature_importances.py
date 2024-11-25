@@ -244,10 +244,11 @@ def plot_feature_importance_by_feature_plotly(
     longest_label = max(len(f) for f in features)
     longest_metric = max(len(m) for m in sensitivity_values.keys())
     layout = go.Layout(
-        height=len(features) * 20,
+        height=200 + len(features) * 20,
         width=10 * longest_label + max(10 * longest_metric, 400),
         hovermode="closest",
         annotations=compose_annotation(caption=caption),
+        title=f"Parameter Sensitivity by {importance_measure}",
     )
 
     if relative:
