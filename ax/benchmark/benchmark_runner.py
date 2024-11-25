@@ -33,11 +33,11 @@ def _dict_of_arrays_to_df(
 ) -> pd.DataFrame:
     """
     Return a DataFrame with columns ["metric_name", "arm_name",
-    "Y_true", "t"].
+    "Y_true", "step"].
 
     Args:
         Y_true_by_arm: A mapping from arm name to a 2D arrays each with shape
-            (len(outcome_names), n_time_intervals).
+            (len(outcome_names), n_steps).
         outcome_names: The names of the outcomes; will be mapped to the first
             dimension of each array in ``Y_true_by_arm``.
     """
@@ -48,7 +48,7 @@ def _dict_of_arrays_to_df(
                     "metric_name": outcome_name,
                     "arm_name": arm_name,
                     "Y_true": y_true[i, :],
-                    "t": np.arange(y_true.shape[1]),
+                    "step": np.arange(y_true.shape[1], dtype=int),
                 }
             )
             for i, outcome_name in enumerate(outcome_names)

@@ -297,7 +297,7 @@ class DeterministicGenerationNode(ExternalGenerationNode):
 @dataclass(kw_only=True)
 class IdentityTestFunction(BenchmarkTestFunction):
     outcome_names: Sequence[str] = field(default_factory=lambda: ["objective"])
-    n_time_intervals: int = 1
+    n_steps: int = 1
 
     # pyre-fixme[14]: Inconsistent override
     def evaluate_true(self, params: Mapping[str, float]) -> torch.Tensor:
@@ -307,7 +307,7 @@ class IdentityTestFunction(BenchmarkTestFunction):
         """
         value = params["x0"]
         return torch.full(
-            (len(self.outcome_names), self.n_time_intervals), value, dtype=torch.float64
+            (len(self.outcome_names), self.n_steps), value, dtype=torch.float64
         )
 
 
@@ -345,11 +345,11 @@ def get_async_benchmark_method(
 def get_async_benchmark_problem(
     map_data: bool,
     trial_runtime_func: Callable[[BaseTrial], int],
-    n_time_intervals: int = 1,
+    n_steps: int = 1,
     lower_is_better: bool = False,
 ) -> BenchmarkProblem:
     search_space = get_discrete_search_space()
-    test_function = IdentityTestFunction(n_time_intervals=n_time_intervals)
+    test_function = IdentityTestFunction(n_steps=n_steps)
     optimization_config = get_soo_opt_config(
         outcome_names=["objective"],
         use_map_metric=map_data,

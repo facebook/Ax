@@ -91,3 +91,6 @@ class TestBoTorchTestFunction(TestCase):
             with self.subTest(name=name):
                 self.assertEqual(result.dtype, torch.double)
                 self.assertEqual(result.shape, torch.Size([expected_len[name]]))
+
+    def test_n_steps_is_one(self) -> None:
+        self.assertEqual(self.botorch_test_problems["base Hartmann"].n_steps, 1)
