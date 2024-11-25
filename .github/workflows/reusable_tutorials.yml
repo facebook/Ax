@@ -46,10 +46,13 @@ jobs:
         pip install -e ".[tutorial]"
 
     - if: ${{ inputs.smoke_test }}
-      name: Build tutorials with smoke test
+      name: Run tutorials with smoke test
       run: |
-        python scripts/make_tutorials.py -w $(pwd) -e -s
+        python scripts/run_tutorials.py -w $(pwd) -s
     - if: ${{ !inputs.smoke_test }}
-      name: Build tutorials without smoke test
+      name: Run tutorials without smoke test
       run: |
-        python scripts/make_tutorials.py -w $(pwd) -e
+        python scripts/run_tutorials.py -w $(pwd)
+    - name: Build tutorials
+      run : |
+        python scripts/convert_ipynb_to_mdx.py
