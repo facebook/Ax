@@ -17,6 +17,7 @@ from ax.benchmark.benchmark import (
     benchmark_multiple_problems_methods,
     benchmark_one_method_problem,
     benchmark_replication,
+    get_benchmark_scheduler_options,
     get_oracle_experiment_from_experiment,
     get_oracle_experiment_from_params,
 )
@@ -24,8 +25,14 @@ from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import create_problem_from_botorch
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.benchmark.benchmark_runner import BenchmarkRunner
-from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
-from ax.benchmark.methods.sobol import get_sobol_benchmark_method
+from ax.benchmark.methods.modular_botorch import (
+    get_sobol_botorch_modular_acquisition,
+    get_sobol_mbm_generation_strategy,
+)
+from ax.benchmark.methods.sobol import (
+    get_sobol_benchmark_method,
+    get_sobol_generation_strategy,
+)
 from ax.benchmark.problems.registry import get_problem
 from ax.core.map_data import MapData
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -35,6 +42,7 @@ from ax.modelbridge.external_generation_node import ExternalGenerationNode
 from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
+from ax.service.utils.scheduler_options import TrialType
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment
 from ax.utils.common.mock import mock_patch_method_original
@@ -854,3 +862,55 @@ class TestBenchmark(TestCase):
     def test_multi_fidelity_or_multi_task(self) -> None:
         self._test_multi_fidelity_or_multi_task(fidelity_or_task="fidelity")
         self._test_multi_fidelity_or_multi_task(fidelity_or_task="task")
+
+    def test_get_benchmark_scheduler_options(self) -> None:
+        for include_sq, batch_size in product((False, True), (1, 2)):
+            method = BenchmarkMethod(
+                generation_strategy=get_sobol_mbm_generation_strategy(
+                    model_cls=SingleTaskGP, acquisition_cls=qLogNoisyExpectedImprovement
+                ),
+                distribute_replications=False,
+                max_pending_trials=2,
+                batch_size=batch_size,
+            )
+            scheduler_options = get_benchmark_scheduler_options(
+                method=method, include_sq=include_sq
+            )
+            self.assertEqual(scheduler_options.max_pending_trials, 2)
+            self.assertEqual(scheduler_options.init_seconds_between_polls, 0)
+            self.assertEqual(scheduler_options.min_seconds_before_poll, 0)
+            self.assertEqual(scheduler_options.batch_size, batch_size)
+            self.assertEqual(
+                scheduler_options.run_trials_in_batches, method.run_trials_in_batches
+            )
+            self.assertEqual(
+                scheduler_options.early_stopping_strategy,
+                method.early_stopping_strategy,
+            )
+            self.assertEqual(
+                scheduler_options.trial_type,
+                TrialType.BATCH_TRIAL
+                if include_sq or batch_size > 1
+                else TrialType.TRIAL,
+            )
+            self.assertEqual(
+                scheduler_options.status_quo_weight, 1.0 if include_sq else 0.0
+            )
+
+    def test_replication_with_status_quo(self) -> None:
+        method = BenchmarkMethod(
+            name="Sobol", generation_strategy=get_sobol_generation_strategy()
+        )
+        problem = get_single_objective_benchmark_problem(
+            status_quo_params={"x0": 0.0, "x1": 0.0}
+        )
+        res = benchmark_replication(problem=problem, method=method, seed=0)
+
+        self.assertEqual(problem.num_trials, len(none_throws(res.experiment).trials))
+        for t in none_throws(res.experiment).trials.values():
+            self.assertEqual(len(t.arms), 2, msg=f"Trial index: {t.index}")
+            self.assertEqual(
+                sum(a.name == "status_quo" for a in t.arms),
+                1,
+                msg=f"Trial index: {t.index}",
+            )

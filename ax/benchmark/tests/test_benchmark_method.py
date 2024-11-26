@@ -38,11 +38,6 @@ class TestBenchmarkMethod(TestCase):
         # test that `fit_tracking_metrics` has been correctly set to False
         for step in method.generation_strategy._steps:
             self.assertFalse(none_throws(step.model_kwargs).get("fit_tracking_metrics"))
-
-        options = method.scheduler_options
-        self.assertEqual(options.max_pending_trials, 1)
-        self.assertEqual(options.init_seconds_between_polls, 0)
-        self.assertEqual(options.min_seconds_before_poll, 0)
         self.assertEqual(method.timeout_hours, 4)
 
         method = BenchmarkMethod(
