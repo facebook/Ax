@@ -31,12 +31,14 @@ from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.benchmark_runner import BenchmarkRunner
+from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.types import TParameterization, TParamValue
 from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
 from ax.service.utils.best_point_mixin import BestPointMixin
+from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import with_rng_seed
 
@@ -169,6 +171,40 @@ def get_oracle_experiment_from_experiment(
     )
 
 
+def get_benchmark_scheduler_options(
+    method: BenchmarkMethod,
+    include_sq: bool = False,
+) -> SchedulerOptions:
+    """
+    Get the ``SchedulerOptions`` for the given ``BenchmarkMethod``.
+
+    Args:
+        method: The ``BenchmarkMethod``.
+        include_sq: Whether to include the status quo in each trial.
+
+    Returns:
+        ``SchedulerOptions``
+    """
+    if method.batch_size > 1 or include_sq:
+        trial_type = TrialType.BATCH_TRIAL
+    else:
+        trial_type = TrialType.TRIAL
+    return SchedulerOptions(
+        # No new candidates can be generated while any are pending.
+        # If batched, an entire batch must finish before the next can be
+        # generated.
+        max_pending_trials=method.max_pending_trials,
+        # Do not throttle, as is often necessary when polling real endpoints
+        init_seconds_between_polls=0,
+        min_seconds_before_poll=0,
+        trial_type=trial_type,
+        batch_size=method.batch_size,
+        run_trials_in_batches=method.run_trials_in_batches,
+        early_stopping_strategy=method.early_stopping_strategy,
+        status_quo_weight=1.0 if include_sq else 0.0,
+    )
+
+
 def benchmark_replication(
     problem: BenchmarkProblem,
     method: BenchmarkMethod,
@@ -194,22 +230,30 @@ def benchmark_replication(
     Return:
         ``BenchmarkResult`` object.
     """
-
-    runner = get_benchmark_runner(
-        problem=problem, max_concurrency=method.scheduler_options.max_pending_trials
+    sq_arm = (
+        None
+        if problem.status_quo_params is None
+        else Arm(name="status_quo", parameters=problem.status_quo_params)
     )
-
+    scheduler_options = get_benchmark_scheduler_options(
+        method=method,
+        include_sq=sq_arm is not None,
+    )
+    runner = get_benchmark_runner(
+        problem=problem, max_concurrency=scheduler_options.max_pending_trials
+    )
     experiment = Experiment(
         name=f"{problem.name}|{method.name}_{int(time())}",
         search_space=problem.search_space,
         optimization_config=problem.optimization_config,
         runner=runner,
+        status_quo=sq_arm,
     )
 
     scheduler = Scheduler(
         experiment=experiment,
         generation_strategy=method.generation_strategy.clone_reset(),
-        options=method.scheduler_options,
+        options=scheduler_options,
     )
 
     # list of parameters for each trial
