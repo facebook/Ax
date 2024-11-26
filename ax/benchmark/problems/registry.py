@@ -15,7 +15,7 @@ from ax.benchmark.problems.hd_embedding import embed_higher_dimension
 from ax.benchmark.problems.hpo.torchvision import (
     get_pytorch_cnn_torchvision_benchmark_problem,
 )
-from ax.benchmark.problems.runtime_funcs import async_runtime_func_from_pi
+from ax.benchmark.problems.runtime_funcs import int_from_trial
 from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_benchmark_problem
 from botorch.test_functions import synthetic
 from botorch.test_functions.multi_objective import BraninCurrin
@@ -45,7 +45,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
             "num_trials": 40,
             "noise_std": 1.0,
             "observe_noise_sd": False,
-            "trial_runtime_func": async_runtime_func_from_pi,
+            "trial_runtime_func": int_from_trial,
             "name": "ackley4_async_noisy",
         },
     ),
