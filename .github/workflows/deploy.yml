@@ -23,43 +23,12 @@ jobs:
   #     pinned_botorch: true
   #   secrets: inherit
 
-  create-docusaurus-version:
-    # needs: tests-and-coverage-pinned # only run if test step succeeds
-    runs-on: ubuntu-latest
-    outputs:
-      new-commit-sha: ${{ steps.create-version.outputs.NEW_COMMIT_SHA }}
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.10"
-    - name: Run Tutorials
-      run: |
-        pip install -e ".[tutorial]"
-        python scripts/run_tutorials.py -w $(pwd)
-    - name: Convert Tutorials
-      run: |
-        python3 scripts/convert_ipynb_to_mdx.py --clean
-    - name: Create new version in Docusaurus
-      id: create-version
-      run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        cd website
-        yarn
-        yarn docusaurus docs:version ${{ github.event.release.tag_name }}
-        git add --all
-        git commit -m "Create version ${{ github.event.release.tag_name }} of site in Docusaurus"
-        git push --force origin HEAD:main
-        echo "NEW_COMMIT_SHA=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-
-  publish-website:
-    needs: create-docusaurus-version
-    name: Publish website
+  version-and-publish-website:
+    # needs: tests-and-coverage-pinned
+    name: Version and Publish website
     uses: ./.github/workflows/publish_website.yml
     with:
-      ref: ${{ needs.create-docusaurus-version.outputs.new-commit-sha }}
+      new_version: ${{ github.event.release.tag_name }}
     secrets: inherit
 
   # TODO: Temporarily disabled while making changes on fork. Re-enable before merging back into facebook/Ax
