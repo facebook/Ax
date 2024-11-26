@@ -36,6 +36,7 @@ from ax.exceptions.storage import JSONDecodeError, SQADecodeError, SQAEncodeErro
 from ax.metrics.branin import BraninMetric
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.registry import Models
+from ax.models.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.runners.synthetic import SyntheticRunner
 from ax.storage.metric_registry import CORE_METRIC_REGISTRY, register_metrics
 from ax.storage.registry_bundle import RegistryBundle
@@ -124,6 +125,7 @@ from ax.utils.testing.core_stubs import (
     get_sum_constraint2,
     get_synthetic_runner,
 )
+from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import (
     get_generation_strategy,
     sobol_gpei_generation_node_gs,
@@ -209,6 +211,20 @@ class SQAStoreTest(TestCase):
 
         generator_run_sqa.generator_run_type = 0
         self.decoder.generator_run_from_sqa(generator_run_sqa, False, False)
+
+    @mock_botorch_optimize
+    def test_SaveExperimentWithSurrogateAsModelKwarg(self) -> None:
+        experiment = get_branin_experiment(
+            with_batch=True, num_batch_trial=1, with_completed_batch=True
+        )
+        model = Models.BOTORCH_MODULAR(
+            experiment=experiment,
+            data=experiment.lookup_data(),
+            surrogate=Surrogate(surrogate_spec=SurrogateSpec()),
+        )
+        experiment.new_batch_trial(generator_run=model.gen(1))
+        # ensure we can save the experiment
+        save_experiment(experiment)
 
     def test_ExperimentSaveAndLoad(self) -> None:
         for exp in [

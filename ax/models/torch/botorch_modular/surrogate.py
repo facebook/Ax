@@ -593,9 +593,9 @@ class Surrogate(Base):
         allow_batched_models: Set to true to fit the models in a batch if supported.
             Set to false to fit individual models to each metric in a loop.
         refit_on_cv: Whether to refit the model on the cross-validation folds.
-        metric_to_best_model_config: Dictionary mapping a tuple of metric names
-            to the best model config. This is only used by BotorchModel.cross_validate
-            and for logging what model was used.
+        metric_to_best_model_config: Dictionary mapping a metric name to the best
+            model config. This is only used by BotorchModel.cross_validate and for
+            logging what model was used.
 
     """
 
@@ -616,7 +616,7 @@ class Surrogate(Base):
         likelihood_options: dict[str, Any] | None = None,
         allow_batched_models: bool = True,
         refit_on_cv: bool = False,
-        metric_to_best_model_config: dict[tuple[str], ModelConfig] | None = None,
+        metric_to_best_model_config: dict[str, ModelConfig] | None = None,
     ) -> None:
         warnings_raised = _raise_deprecation_warning(
             is_surrogate=True,
@@ -670,7 +670,7 @@ class Surrogate(Base):
         # though we need n-tuples for LCE-M models. This will be used to skip model
         # construction & fitting if the datasets are identical.
         self._submodels: dict[tuple[str], Model] = {}
-        self.metric_to_best_model_config: dict[tuple[str], ModelConfig] = (
+        self.metric_to_best_model_config: dict[str, ModelConfig] = (
             metric_to_best_model_config or {}
         )
         # Store a reference to search space digest used while fitting the cached models.
@@ -870,7 +870,9 @@ class Surrogate(Base):
             # Case 1: There is either 1 model config, or we don't want to refit
             # and we know what the previous best model was
             outcome_name_tuple = tuple(dataset.outcome_names)
-            model_config = self.metric_to_best_model_config.get(outcome_name_tuple)
+            model_config = self.metric_to_best_model_config.get(
+                dataset.outcome_names[0]
+            )
             if len(model_configs) == 1 or (not refit and model_config is not None):
                 best_model_config = model_config or model_configs[0]
                 model = self._construct_model(
@@ -901,9 +903,10 @@ class Surrogate(Base):
             outcome_names.extend(dataset.outcome_names)
 
             # store best model config, model, and dataset
-            self.metric_to_best_model_config[outcome_name_tuple] = none_throws(
-                best_model_config
-            )
+            for metric_name in dataset.outcome_names:
+                self.metric_to_best_model_config[metric_name] = none_throws(
+                    best_model_config
+                )
             self._submodels[outcome_name_tuple] = model
             self._last_datasets[outcome_name_tuple] = dataset
 
@@ -1053,8 +1056,6 @@ class Surrogate(Base):
                 search_space_digest=search_space_digest,
                 model_config=model_config,
                 default_botorch_model_class=none_throws(default_botorch_model_class),
-                # pyre-fixme [6]: state_dict() has a generic dict[str, Any] return type
-                # but it is actually an OrderedDict[str, Tensor].
                 state_dict=state_dict,
                 refit=self.refit_on_cv,
             )
@@ -1073,7 +1074,6 @@ class Surrogate(Base):
             train_mask[i] = 1
         # evaluate model fit metric
         diag_fn = DIAGNOSTIC_FNS[none_throws(self.surrogate_spec.eval_criterion)]
-        # pyre-ignore [28]: Unexpected keyword argument `y_obs` to anonymous call.
         return diag_fn(
             y_obs=Y.view(-1).numpy(),
             y_pred=pred_Y,

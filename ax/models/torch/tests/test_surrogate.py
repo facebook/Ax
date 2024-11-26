@@ -490,7 +490,7 @@ class SurrogateTest(TestCase):
             key = tuple(outcomes)
             surrogate._submodels[key] = model
             surrogate._last_datasets[key] = self.training_data[0]
-            surrogate.metric_to_best_model_config[key] = (
+            surrogate.metric_to_best_model_config[outcomes[0]] = (
                 surrogate.surrogate_spec.model_configs[0]
             )
 
@@ -908,7 +908,6 @@ class SurrogateTest(TestCase):
                 call_kwargs = mock_model_selection.mock_calls[i].kwargs
                 for k, v in expected_model_selection_kwargs.items():
                     self.assertEqual(call_kwargs[k], v)
-                # pyre-ignore[6]
                 expected_cross_validate_kwargs["dataset"] = training_data[i]
                 # check that each call to cross_validate uses the correct
                 # model config.
