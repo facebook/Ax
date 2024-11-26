@@ -49,6 +49,7 @@ from ax.runners.synthetic import SyntheticRunner
 from ax.service.scheduler import (
     FailureRateExceededError,
     get_fitted_model_bridge,
+    MessageOutput,
     OptimizationResult,
     Scheduler,
     SchedulerInternalError,
@@ -2896,3 +2897,39 @@ class AxSchedulerTestCase(TestCase):
                 options=options,
                 db_settings=self.db_settings,
             )
+
+    def test_markdown_messages(self) -> None:
+        rgs = self._get_generation_strategy_strategy_for_test(
+            experiment=self.branin_experiment,
+            generation_strategy=self.sobol_MBM_GS,
+        )
+        scheduler = Scheduler(
+            experiment=self.branin_experiment,
+            generation_strategy=rgs,
+            options=SchedulerOptions(
+                total_trials=0,
+                tolerated_trial_failure_rate=0.2,
+                init_seconds_between_polls=10,
+                **self.scheduler_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        self.assertDictEqual(
+            scheduler.markdown_messages,
+            {
+                "Generation strategy": MessageOutput(
+                    text=(
+                        "This optimization run uses a 'Sobol+BoTorch' generation "
+                        "strategy."
+                    ),
+                    priority=10,
+                )
+            },
+        )
+        scheduler.markdown_messages["Generation strategy"].append("foo")
+        self.assertEqual(
+            scheduler.markdown_messages["Generation strategy"].text[-3:], "foo"
+        )
+        self.assertEqual(
+            scheduler.markdown_messages["Generation strategy"].priority, 10
+        )
