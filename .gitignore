@@ -131,6 +131,7 @@ sphinx/build/
 tutorials/experiment.json
 tutorials/ax_client_snapshot.json
 tutorials/*.db
+docs/tutorials/**/
 
 # Docusaurus site
 **/yarn.lock
