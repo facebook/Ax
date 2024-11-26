@@ -414,6 +414,15 @@ def _filter_data_on_status(
 
 
 def get_feature_cols(data: Data, is_map_data: bool = False) -> list[str]:
+    """Get the columns used to identify and group observations from a Data object.
+
+    Args:
+        data: the Data object from which to extract the feature columns.
+        is_map_data: If True, the Data object's map_keys will be included.
+
+    Returns:
+        A list of column names to be used to group observations.
+    """
     feature_cols = OBS_COLS.intersection(data.df.columns)
     # note we use this check, rather than isinstance, since
     # only some Modelbridges (e.g. MapTorchModelBridge)
@@ -431,8 +440,10 @@ def get_feature_cols(data: Data, is_map_data: bool = False) -> list[str]:
                 stacklevel=5,
             )
             feature_cols.discard(column)
-
-    return list(feature_cols)
+    # NOTE: This ensures the order of feature_cols is deterministic so that the order
+    # of lists of observations are deterministic, to avoid nondeterministic tests.
+    # Necessary for test_TorchModelBridge.
+    return sorted(feature_cols)
 
 
 def observations_from_data(
