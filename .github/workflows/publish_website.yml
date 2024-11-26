@@ -47,8 +47,6 @@ jobs:
         git commit -m "Create version ${{ inputs.new_version }} of site in Docusaurus"
         git push --force origin HEAD:main
     - name: Build website
-      env:
-        GH_TOKEN: ${{ github.token }}
       run: |
         bash scripts/make_docs.sh -b
     - name: Deploy
