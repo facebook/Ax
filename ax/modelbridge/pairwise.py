@@ -48,6 +48,7 @@ class PairwiseModelBridge(TorchModelBridge):
             Yvars,
             candidate_metadata_dict,
             any_candidate_metadata_is_not_none,
+            trial_indices,
         ) = self._extract_observation_data(
             observation_data, observation_features, parameters
         )
@@ -69,6 +70,9 @@ class PairwiseModelBridge(TorchModelBridge):
                     Y=Y,
                     feature_names=parameters,
                     outcome_names=[outcome],
+                    group_indices=torch.tensor(trial_indices[outcome])
+                    if trial_indices is not None
+                    else None,
                 )
 
             datasets.append(dataset)
