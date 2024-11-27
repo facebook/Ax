@@ -5,30 +5,17 @@
 
 # pyre-strict
 
-import random
 from collections.abc import Mapping
 
-from ax.core.trial import Trial
+from ax.core.arm import Arm
 from ax.core.types import TParamValue
-from pyre_extensions import none_throws
 
 
 def int_from_params(
     params: Mapping[str, TParamValue], n_possibilities: int = 10
 ) -> int:
     """
-    Get a random int between 0 and n_possibilities - 1, using parameters for the
-    random seed.
+    Get an int between 0 and n_possibilities - 1, using a hash of the parameters.
     """
-    seed = str(tuple(sorted(params.items())))
-    return random.Random(seed).randrange(n_possibilities)
-
-
-def int_from_trial(trial: Trial, n_possibilities: int = 10) -> int:
-    """
-    Get a random int between 0 and n_possibilities - 1, using the parameters of
-    the trial's first arm for the random seed.
-    """
-    return int_from_params(
-        params=none_throws(trial.arms)[0].parameters, n_possibilities=n_possibilities
-    )
+    arm_hash = Arm.md5hash(parameters=params)
+    return int(arm_hash[-1], 16) % 10
