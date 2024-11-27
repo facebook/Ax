@@ -52,6 +52,7 @@ def get_test_trial(
                 "mean": [1.0, 2.5] if batch else [1.0],
                 "sem": [0.1, 0.0] if batch else [0.1],
                 "step": 0,
+                "virtual runtime": 0,
                 "trial_index": 0,
             }
         ),
@@ -62,6 +63,7 @@ def get_test_trial(
                 "mean": [0.5, 1.5] if batch else [0.5],
                 "sem": [0.1, 0.0] if batch else [0.1],
                 "step": 0,
+                "virtual runtime": 0,
                 "trial_index": 0,
             }
         ),
@@ -70,16 +72,15 @@ def get_test_trial(
     if map_data:
         backend_simulator = BackendSimulator(
             options=BackendSimulatorOptions(
-                max_concurrency=1,
-                internal_clock=0,
+                max_concurrency=1, internal_clock=0, use_update_as_start_time=True
             ),
             verbose_logging=False,
         )
         n_steps = 3
         dfs = {
-            k: pd.concat([df] * n_steps).assign(
-                step=np.repeat(np.arange(n_steps), 2 if batch else 1)
-            )
+            k: pd.concat([df] * n_steps)
+            .assign(step=np.repeat(np.arange(n_steps), 2 if batch else 1))
+            .assign(**{"virtual runtime": lambda df: df["step"]})
             for k, df in dfs.items()
         }
 
@@ -108,6 +109,17 @@ class BenchmarkMetricTest(TestCase):
         )
 
     def test_fetch_trial_data(self) -> None:
+        with self.subTest("Error for multiple metrics in BenchmarkMetric"):
+            trial = get_test_trial()
+            map_trial = get_test_trial(map_data=True)
+            trial.run_metadata["benchmark_metadata"] = map_trial.run_metadata[
+                "benchmark_metadata"
+            ]
+            with self.assertRaisesRegex(
+                ValueError, "Trial 0 has data from multiple time steps"
+            ):
+                self.metric1.fetch_trial_data(trial=trial)
+
         for map_data, metric in [(False, self.metric1), (True, self.map_metric1)]:
             with self.subTest(f"No-metadata error, map_data={map_data}"):
                 trial = get_test_trial(has_metadata=False, map_data=map_data)
@@ -208,7 +220,8 @@ class BenchmarkMetricTest(TestCase):
             "trial_index": [0, 0],
         }
         if map_data:
-            expected["step"] = [0, 0]
+            for col in ["step", "virtual runtime"]:
+                expected[col] = [0, 0]
 
         for col in df1.columns:
             self.assertEqual(df1[col].to_list(), expected[col], col)
@@ -223,7 +236,8 @@ class BenchmarkMetricTest(TestCase):
             "trial_index": [0, 0],
         }
         if map_data:
-            expected["step"] = [0, 0]
+            for col in ["step", "virtual runtime"]:
+                expected[col] = [0, 0]
         for col in df2.columns:
             self.assertEqual(df2[col].to_list(), expected[col], col)
 

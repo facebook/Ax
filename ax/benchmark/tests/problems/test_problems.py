@@ -5,12 +5,9 @@
 
 # pyre-strict
 
-from unittest.mock import MagicMock
 
 from ax.benchmark.problems.registry import BENCHMARK_PROBLEM_REGISTRY, get_problem
-from ax.benchmark.problems.runtime_funcs import int_from_params, int_from_trial
-from ax.core.arm import Arm
-from ax.core.trial import Trial
+from ax.benchmark.problems.runtime_funcs import int_from_params
 from ax.utils.common.testutils import TestCase
 
 
@@ -66,9 +63,5 @@ class TestProblems(TestCase):
     def test_runtime_funcs(self) -> None:
         parameters = {"x0": 0.5, "x1": -3, "x2": "-4", "x3": False, "x4": None}
         result = int_from_params(params=parameters)
-        expected = 3
+        expected = 1
         self.assertEqual(result, expected)
-        arm = Arm(name="0_0", parameters=parameters)
-        trial = MagicMock(spec=Trial)
-        trial.arms = [arm]
-        self.assertEqual(int_from_trial(trial=trial), expected)
