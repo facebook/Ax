@@ -32,7 +32,6 @@ def _dict_of_arrays_to_df(
     Y_true_by_arm: Mapping[str, npt.NDArray],
     step_duration_by_arm: Mapping[str, float],
     outcome_names: Sequence[str],
-    first_step_is_instant: bool,
 ) -> pd.DataFrame:
     """
     Return a DataFrame with columns
@@ -50,10 +49,7 @@ def _dict_of_arrays_to_df(
             the runtime of each step.
         outcome_names: The names of the outcomes; will be mapped to the first
             dimension of each array in ``Y_true_by_arm``.
-        first_step_is_instant: If True, the first step's virtual runtime is 0.
-            Otherwise, it is the typical step duration of that arm.
     """
-    offset = 0 if first_step_is_instant else 1
     df = pd.concat(
         [
             pd.DataFrame(
@@ -62,7 +58,7 @@ def _dict_of_arrays_to_df(
                     "arm_name": arm_name,
                     "Y_true": y_true[i, :],
                     "step": np.arange(y_true.shape[1], dtype=int),
-                    "virtual runtime": (np.arange(y_true.shape[1], dtype=int) + offset)
+                    "virtual runtime": np.arange(1, y_true.shape[1] + 1, dtype=int)
                     * step_duration_by_arm[arm_name],
                 }
             )
@@ -171,9 +167,6 @@ class BenchmarkRunner(Runner):
         max_concurrency: The maximum number of trials that can be running at a
             given time. Typically, this is ``max_pending_trials`` from the
             ``scheduler_options`` on the ``BenchmarkMethod``.
-        first_step_is_instant: Deprecated and provided for backwards
-            compatibility with past behavior of the ``BenchmarkRunner``'s
-            ``SimulatedBackendRunner``.
     """
 
     test_function: BenchmarkTestFunction
@@ -181,7 +174,6 @@ class BenchmarkRunner(Runner):
     step_runtime_function: TBenchmarkStepRuntimeFunction | None = None
     max_concurrency: int = 1
     simulated_backend_runner: SimulatedBackendRunner | None = field(init=False)
-    first_step_is_instant: bool = False
 
     def __post_init__(self) -> None:
         if self.max_concurrency > 1:
@@ -269,7 +261,6 @@ class BenchmarkRunner(Runner):
             Y_true_by_arm=Y_true_by_arm,
             step_duration_by_arm=step_duration_by_arm,
             outcome_names=self.outcome_names,
-            first_step_is_instant=self.first_step_is_instant,
         )
 
         arm_weights = (
