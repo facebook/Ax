@@ -79,3 +79,4 @@ class TestSurrogateTestFunction(TestCase):
         self.assertEqual(runner_1, runner_1a)
         self.assertNotEqual(runner_1, runner_2)
         self.assertNotEqual(runner_1, 1)
+        self.assertNotEqual(runner_1, None)

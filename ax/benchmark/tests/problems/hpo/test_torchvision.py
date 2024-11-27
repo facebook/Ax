@@ -12,8 +12,12 @@ from ax.benchmark.benchmark_metric import BenchmarkMetric
 
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 
-from ax.benchmark.problems.hpo.torchvision import CNN
+from ax.benchmark.problems.hpo.torchvision import (
+    CNN,
+    PyTorchCNNTorchvisionBenchmarkTestFunction,
+)
 from ax.benchmark.problems.registry import get_problem
+from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import TestDataset
 from pyre_extensions import assert_is_instance
@@ -70,9 +74,6 @@ class TestPyTorchCNNTorchvision(TestCase):
         test_function = problem.test_function
 
         self.assertEqual(test_function.outcome_names, ["accuracy"])
-        # pyre-fixme[6]: complaining that the annotation for Arm.parameters is
-        # too broad because it's not immutable
-
         expected = 0.21875
         result = test_function.evaluate_true(params=self.parameters)
         self.assertEqual(result.item(), expected)
@@ -92,3 +93,9 @@ class TestPyTorchCNNTorchvision(TestCase):
             ) as mock_CNN:
                 test_function.evaluate_true(params=other_params)
             mock_CNN.assert_called_once()
+
+    def test_load_wrong_name(self) -> None:
+        with self.assertRaisesRegex(
+            UserInputError, "Unrecognized torchvision dataset 'pencil'"
+        ):
+            PyTorchCNNTorchvisionBenchmarkTestFunction(name="pencil")
