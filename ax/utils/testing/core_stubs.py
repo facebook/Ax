@@ -1112,7 +1112,7 @@ def get_search_space_with_choice_parameters(
             ChoiceParameter(
                 name=f"ordered_{i}",
                 parameter_type=ParameterType.INT,
-                values=list(range(10)),  # pyre-ignore
+                values=list(range(10)),
                 is_ordered=True,
             )
         )
@@ -1120,7 +1120,7 @@ def get_search_space_with_choice_parameters(
         ChoiceParameter(
             name="unordered",
             parameter_type=ParameterType.INT,
-            values=list(range(num_unordered_choices)),  # pyre-ignore
+            values=list(range(num_unordered_choices)),
             is_ordered=False,
         )
     )
