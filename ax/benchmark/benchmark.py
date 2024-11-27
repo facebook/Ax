@@ -70,7 +70,9 @@ def compute_score_trace(
 
 
 def get_benchmark_runner(
-    problem: BenchmarkProblem, max_concurrency: int = 1
+    problem: BenchmarkProblem,
+    max_concurrency: int = 1,
+    first_step_is_instant: bool = False,
 ) -> BenchmarkRunner:
     """
     Construct a ``BenchmarkRunner`` for the given problem and concurrency.
@@ -81,17 +83,22 @@ def get_benchmark_runner(
 
     Args:
         problem: The ``BenchmarkProblem``; provides a ``BenchmarkTestFunction``
-            (used to generate data) and ``trial_runtime_func`` (used to
-            determine the length of trials for the simulator).
+            (used to generate data) and ``step_runtime_function`` (used to
+            determine timing for the simulator).
         max_concurrency: The maximum number of trials that can be run concurrently.
             Typically, ``max_pending_trials`` from ``SchedulerOptions``, which are
             stored on the ``BenchmarkMethod``.
+        first_step_is_instant: Deprecated and provided for backwards
+            compatibility with past behavior of the ``BenchmarkRunner``'s
+            ``SimulatedBackendRunner``.
     """
+
     return BenchmarkRunner(
         test_function=problem.test_function,
         noise_std=problem.noise_std,
-        trial_runtime_func=problem.trial_runtime_func,
+        step_runtime_function=problem.step_runtime_function,
         max_concurrency=max_concurrency,
+        first_step_is_instant=first_step_is_instant,
     )
 
 
@@ -210,6 +217,7 @@ def benchmark_replication(
     method: BenchmarkMethod,
     seed: int,
     strip_runner_before_saving: bool = True,
+    first_step_is_instant: bool = False,
 ) -> BenchmarkResult:
     """
     Run one benchmarking replication (equivalent to one optimization loop).
@@ -226,6 +234,9 @@ def benchmark_replication(
         seed: The seed to use for this replication.
         strip_runner_before_saving: Whether to strip the runner from the
             experiment before saving it. This enables serialization.
+        first_step_is_instant: Deprecated and provided for backwards
+            compatibility with past behavior of the ``BenchmarkRunner``'s
+            ``SimulatedBackendRunner``.
 
     Return:
         ``BenchmarkResult`` object.
@@ -240,7 +251,9 @@ def benchmark_replication(
         include_sq=sq_arm is not None,
     )
     runner = get_benchmark_runner(
-        problem=problem, max_concurrency=scheduler_options.max_pending_trials
+        problem=problem,
+        max_concurrency=scheduler_options.max_pending_trials,
+        first_step_is_instant=first_step_is_instant,
     )
     experiment = Experiment(
         name=f"{problem.name}|{method.name}_{int(time())}",

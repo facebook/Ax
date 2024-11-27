@@ -5,10 +5,9 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterator
+from typing import Any, Iterator
 
 import numpy as np
 import torch
@@ -21,6 +20,7 @@ from ax.benchmark.benchmark_problem import (
     get_soo_opt_config,
 )
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
+from ax.benchmark.benchmark_step_runtime_function import TBenchmarkStepRuntimeFunction
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.benchmark_test_functions.surrogate import SurrogateTestFunction
 from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_search_space
@@ -30,7 +30,7 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import SearchSpace
-from ax.core.trial import BaseTrial, Trial
+from ax.core.trial import Trial
 from ax.core.types import TParameterization, TParamValue
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.modelbridge.external_generation_node import ExternalGenerationNode
@@ -341,7 +341,7 @@ def get_async_benchmark_method(
 
 def get_async_benchmark_problem(
     map_data: bool,
-    trial_runtime_func: Callable[[BaseTrial], int],
+    step_runtime_fn: TBenchmarkStepRuntimeFunction | None = None,
     n_steps: int = 1,
     lower_is_better: bool = False,
 ) -> BenchmarkProblem:
@@ -361,7 +361,7 @@ def get_async_benchmark_problem(
         test_function=test_function,
         num_trials=4,
         optimal_value=19.0,
-        trial_runtime_func=trial_runtime_func,
+        step_runtime_function=step_runtime_fn,
     )
 
 

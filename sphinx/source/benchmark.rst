@@ -66,6 +66,14 @@ Benchmark Test Function
     :undoc-members:
     :show-inheritance:
 
+Benchmark Step Runtime Function
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.benchmark.benchmark_step_runtime_function
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Benchmark Trial Metadata
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
