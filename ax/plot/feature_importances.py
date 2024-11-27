@@ -149,6 +149,7 @@ def plot_feature_importance_by_feature_plotly(
             for metric_name, v in sensitivity_values.items()
         }
     traces = []
+    dropdown = []
     categorical_features = []
     if model is not None:
         categorical_features = [
@@ -237,18 +238,36 @@ def plot_feature_importance_by_feature_plotly(
         is_visible = [False] * (len(sensitivity_values) * len(df))
         for j in range(i * len(df), (i + 1) * len(df)):
             is_visible[j] = True
+        dropdown.append(
+            {"args": ["visible", is_visible], "label": metric_name, "method": "restyle"}
+        )
     if not traces:
         raise NotImplementedError("No traces found for metric")
 
+    updatemenus = [
+        {
+            "x": 0,
+            "y": 1,
+            "yanchor": "top",
+            "xanchor": "left",
+            "buttons": dropdown,
+            "pad": {
+                "t": -40
+            },  # hack to put dropdown below title regardless of number of features
+        }
+    ]
     features = list(list(sensitivity_values.values())[0].keys())
+
     longest_label = max(len(f) for f in features)
     longest_metric = max(len(m) for m in sensitivity_values.keys())
+
     layout = go.Layout(
         height=200 + len(features) * 20,
         width=10 * longest_label + max(10 * longest_metric, 400),
         hovermode="closest",
         annotations=compose_annotation(caption=caption),
         title=f"Parameter Sensitivity by {importance_measure}",
+        updatemenus=updatemenus,
     )
 
     if relative:
