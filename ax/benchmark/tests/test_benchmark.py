@@ -108,9 +108,7 @@ class TestBenchmark(TestCase):
                 self.assertEqual(mock_optimize_acqf.call_args.kwargs["q"], batch_size)
 
     def _test_storage(self, map_data: bool) -> None:
-        problem = get_async_benchmark_problem(
-            map_data=map_data, trial_runtime_func=lambda _: 3
-        )
+        problem = get_async_benchmark_problem(map_data=map_data)
         method = get_async_benchmark_method()
         res = benchmark_replication(problem=problem, method=method, seed=0)
         # Experiment is not in storage yet
@@ -221,9 +219,8 @@ class TestBenchmark(TestCase):
         order.
 
         Args:
-            map_data: If True, the test function produces time-series data of
-                length 30, but not nearly so many points are observed because
-                the trials stop sooner than that.
+            map_data: If True, the test function produces time-series data with
+                just one step, so behavior is the same as when map_data=False.
         """
         method = get_async_benchmark_method()
 
@@ -233,12 +230,12 @@ class TestBenchmark(TestCase):
             2: 3,
             3: 1,
         }
-        trial_runtime_funcs = {
-            "All complete at different times": lambda trial: trial.index * 3,
-            "Trials complete immediately": lambda trial: 0,
-            "Trials complete at same time": lambda trial: 1,
-            "Complete out of order": lambda trial: complete_out_of_order_runtimes[
-                trial.index
+        step_runtime_fns = {
+            "All complete at different times": lambda params: params["x0"] * 3,
+            "Trials complete immediately": lambda params: 0,
+            "Trials complete at same time": lambda params: 1,
+            "Complete out of order": lambda params: complete_out_of_order_runtimes[
+                params["x0"]
             ],
         }
 
@@ -283,12 +280,11 @@ class TestBenchmark(TestCase):
             "Complete out of order": [1, 1, 3, 3],
         }
 
-        for case_name, trial_runtime_func in trial_runtime_funcs.items():
-            with self.subTest(case_name, trial_runtime_func=trial_runtime_func):
+        for case_name, step_runtime_fn in step_runtime_fns.items():
+            with self.subTest(case_name, step_runtime_fn=step_runtime_fn):
                 problem = get_async_benchmark_problem(
                     map_data=map_data,
-                    trial_runtime_func=trial_runtime_func,
-                    n_steps=30 if map_data else 1,
+                    step_runtime_fn=step_runtime_fn,
                 )
 
                 with mock_patch_method_original(
@@ -302,6 +298,7 @@ class TestBenchmark(TestCase):
                         method=method,
                         seed=0,
                         strip_runner_before_saving=False,
+                        first_step_is_instant=True,
                     )
                 pending_in_each_gen = [
                     [
@@ -327,8 +324,9 @@ class TestBenchmark(TestCase):
                     expected_start_times[case_name]
                 ):
                     trial = experiment.trials[trial_index]
-                    self.assertEqual(trial.index, trial.arms[0].parameters["x0"])
-                    expected_runtime = trial_runtime_func(trial)
+                    params = trial.arms[0].parameters
+                    self.assertEqual(trial.index, params["x0"])
+                    expected_runtime = step_runtime_fn(params=params)
                     self.assertEqual(
                         backend_simulator.get_sim_trial_by_index(
                             trial_index=trial_index
@@ -350,16 +348,8 @@ class TestBenchmark(TestCase):
                 )
                 if map_data:
                     data = assert_is_instance(experiment.lookup_data(), MapData)
-                    self.assertEqual(len(data.df), 4)
-                    expected_map_df_length = sum(
-                        (
-                            trial_runtime_func(trial) + 1
-                            for trial in experiment.trials.values()
-                        )
-                    )
-                    self.assertEqual(
-                        len(data.map_df), expected_map_df_length, case_name
-                    )
+                    self.assertEqual(len(data.df), 4, msg=case_name)
+                    self.assertEqual(len(data.map_df), 4, msg=case_name)
 
     def test_replication_async(self) -> None:
         self._test_replication_async(map_data=False)
@@ -396,12 +386,15 @@ class TestBenchmark(TestCase):
 
         problem = get_async_benchmark_problem(
             map_data=True,
-            trial_runtime_func=lambda _: progression_length_if_not_stopped,
             n_steps=progression_length_if_not_stopped,
             lower_is_better=True,
         )
         result = benchmark_replication(
-            problem=problem, method=method, seed=0, strip_runner_before_saving=False
+            problem=problem,
+            method=method,
+            seed=0,
+            strip_runner_before_saving=False,
+            first_step_is_instant=True,
         )
         data = assert_is_instance(none_throws(result.experiment).lookup_data(), MapData)
         grouped = data.map_df.groupby("trial_index")
