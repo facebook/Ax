@@ -76,5 +76,13 @@ class TestInteractionPlot(TestCase):
         self.assertEqual(card.blob_annotation, "plotly")
 
         fig = card.get_figure()
-        # Ensure all subplots are present
-        self.assertEqual(len(fig.data), 6)
+
+        # Ensure there is at least one of each type of plot in the figure (we cannot
+        # check for the exact number of subplots because we added by trace and there
+        # may be many traces per subplot).
+        trace_names = [trace.__class__.__name__ for trace in fig.data]
+        self.assertIn("Bar", trace_names)
+        self.assertTrue(
+            any("Scatter" in name for name in trace_names)
+            or any("Contour" in name for name in trace_names)
+        )

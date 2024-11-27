@@ -24,6 +24,7 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
 from botorch.test_functions.base import ConstrainedBaseTestProblem
@@ -318,6 +319,18 @@ class TestBenchmarkProblem(TestCase):
             test_problem_kwargs={},
         )
         self.assertFalse(test_problem.optimization_config.objective.minimize)
+
+    def test_sq_out_of_search_space(self) -> None:
+        with self.assertRaisesRegex(
+            UserInputError, "Status quo parameters are not in the search space."
+        ):
+            create_problem_from_botorch(
+                test_problem_class=Branin,
+                lower_is_better=False,
+                num_trials=1,
+                test_problem_kwargs={},
+                status_quo_params={"x0": 20.0, "x1": 20.0},
+            )
 
     def test_get_soo_opt_config(self) -> None:
         opt_config = get_soo_opt_config(

@@ -270,10 +270,9 @@ class BoTorchModel(TorchModel, Base):
         # log what model was used
         metric_to_model_config_name = {
             metric_name: model_config.name or str(model_config)
-            for metric_name_tuple, model_config in (
+            for metric_name, model_config in (
                 self.surrogate.metric_to_best_model_config.items()
             )
-            for metric_name in metric_name_tuple
         }
         gen_metadata["metric_to_model_config_name"] = metric_to_model_config_name
         return TorchGenResults(

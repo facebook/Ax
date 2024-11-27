@@ -23,7 +23,8 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.trial import BaseTrial
-from ax.core.types import ComparisonOp, TParamValue
+from ax.core.types import ComparisonOp, TParameterization, TParamValue
+from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
 from botorch.test_functions.base import (
     BaseTestProblem,
@@ -98,6 +99,7 @@ class BenchmarkProblem(Base):
     n_best_points: int = 1
     trial_runtime_func: Callable[[BaseTrial], int] | None = None
     target_fidelity_and_task: Mapping[str, TParamValue] = field(default_factory=dict)
+    status_quo_params: TParameterization | None = None
 
     def __post_init__(self) -> None:
         # Validate inputs
@@ -135,12 +137,23 @@ class BenchmarkProblem(Base):
                 "`optimization_config` but not included in "
                 f"`runner.test_function.outcome_names`: {missing}."
             )
+        if any(c.relative for c in constraints) and self.status_quo_params is None:
+            raise ValueError(
+                "Relative constraints require specifying status_quo_params."
+            )
 
         self.target_fidelity_and_task = {
             p.name: p.target_value
             for p in self.search_space.parameters.values()
             if (isinstance(p, ChoiceParameter) and p.is_task) or p.is_fidelity
         }
+        if (
+            self.status_quo_params is not None
+            and not self.search_space.check_membership(
+                parameterization=self.status_quo_params
+            )
+        ):
+            raise UserInputError("Status quo parameters are not in the search space.")
 
     @property
     def is_moo(self) -> bool:
@@ -318,6 +331,7 @@ def create_problem_from_botorch(
     search_space: SearchSpace | None = None,
     report_inference_value_as_trace: bool = False,
     trial_runtime_func: Callable[[BaseTrial], int] | None = None,
+    status_quo_params: TParameterization | None = None,
 ) -> BenchmarkProblem:
     """
     Create a ``BenchmarkProblem`` from a BoTorch ``BaseTestProblem``.
@@ -356,6 +370,7 @@ def create_problem_from_botorch(
             See ``BenchmarkResult`` for more information.
         trial_runtime_func: A function that takes a trial and returns how long
             it takes to run that trial.
+        status_quo_params: The status quo parameters for the problem.
 
     Example:
         >>> from ax.benchmark.benchmark_problem import create_problem_from_botorch
@@ -441,4 +456,5 @@ def create_problem_from_botorch(
         optimal_value=optimal_value,
         report_inference_value_as_trace=report_inference_value_as_trace,
         trial_runtime_func=trial_runtime_func,
+        status_quo_params=status_quo_params,
     )

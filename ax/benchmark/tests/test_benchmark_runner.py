@@ -222,8 +222,6 @@ class TestBenchmarkRunner(TestCase):
 
             with self.subTest(f"test `run()`, {test_description}"):
                 trial = Mock(spec=Trial)
-                # pyre-fixme[6]: Incomptabile parameter type: params is a
-                # mutable subtype of the type expected by `Arm`.
                 arm = Arm(name="0_0", parameters=params)
                 trial.arms = [arm]
                 trial.arm = arm
@@ -233,8 +231,6 @@ class TestBenchmarkRunner(TestCase):
                     nullcontext()
                     if not isinstance(test_function, SurrogateTestFunction)
                     else patch.object(
-                        # pyre-fixme: BenchmarkTestFunction` has no attribute
-                        # `_surrogate`.
                         runner.test_function._surrogate,
                         "predict",
                         return_value=({"branin": [4.2]}, None),
@@ -304,7 +300,14 @@ class TestBenchmarkRunner(TestCase):
             obj_df = res["objective_0"]
             self.assertEqual(len(obj_df), 1)
             self.assertEqual(
-                {"arm_name", "metric_name", "mean", "sem", "trial_index", "t"},
+                {
+                    "arm_name",
+                    "metric_name",
+                    "mean",
+                    "sem",
+                    "trial_index",
+                    "step",
+                },
                 set(obj_df.columns),
             )
             self.assertEqual(obj_df["arm_name"].item(), "0_0")
@@ -330,9 +333,7 @@ class TestBenchmarkRunner(TestCase):
                     )
 
     def test_with_learning_curve(self) -> None:
-        test_function = IdentityTestFunction(
-            outcome_names=["foo", "bar"], n_time_intervals=10
-        )
+        test_function = IdentityTestFunction(outcome_names=["foo", "bar"], n_steps=10)
 
         params = {"x0": 1.2}
         runner = BenchmarkRunner(test_function=test_function, noise_std=0.0)
@@ -364,7 +365,7 @@ class TestBenchmarkRunner(TestCase):
                 for df in metadata.values():
                     self.assertEqual(len(df), 10)
                     self.assertTrue((df["arm_name"] == "0_0").all())
-                    self.assertTrue(np.array_equal(df["t"], np.arange(10)))
+                    self.assertTrue(np.array_equal(df["step"], np.arange(10)))
                     self.assertTrue((df["sem"] == noise_std).all())
 
                 noiseless = test_function.evaluate_true(params=params)

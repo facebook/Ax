@@ -17,6 +17,7 @@ from ax.benchmark.benchmark import (
     benchmark_multiple_problems_methods,
     benchmark_one_method_problem,
     benchmark_replication,
+    get_benchmark_scheduler_options,
     get_oracle_experiment_from_experiment,
     get_oracle_experiment_from_params,
 )
@@ -24,8 +25,14 @@ from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import create_problem_from_botorch
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.benchmark.benchmark_runner import BenchmarkRunner
-from ax.benchmark.methods.modular_botorch import get_sobol_botorch_modular_acquisition
-from ax.benchmark.methods.sobol import get_sobol_benchmark_method
+from ax.benchmark.methods.modular_botorch import (
+    get_sobol_botorch_modular_acquisition,
+    get_sobol_mbm_generation_strategy,
+)
+from ax.benchmark.methods.sobol import (
+    get_sobol_benchmark_method,
+    get_sobol_generation_strategy,
+)
 from ax.benchmark.problems.registry import get_problem
 from ax.core.map_data import MapData
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -35,6 +42,7 @@ from ax.modelbridge.external_generation_node import ExternalGenerationNode
 from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrategy
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.registry import Models
+from ax.service.utils.scheduler_options import TrialType
 from ax.storage.json_store.load import load_experiment
 from ax.storage.json_store.save import save_experiment
 from ax.utils.common.mock import mock_patch_method_original
@@ -99,9 +107,9 @@ class TestBenchmark(TestCase):
                 )
                 self.assertEqual(mock_optimize_acqf.call_args.kwargs["q"], batch_size)
 
-    def test_storage(self) -> None:
+    def _test_storage(self, map_data: bool) -> None:
         problem = get_async_benchmark_problem(
-            map_data=False, trial_runtime_func=lambda _: 3
+            map_data=map_data, trial_runtime_func=lambda _: 3
         )
         method = get_async_benchmark_method()
         res = benchmark_replication(problem=problem, method=method, seed=0)
@@ -121,6 +129,10 @@ class TestBenchmark(TestCase):
             # load it back
             experiment = load_experiment(f.name)
             self.assertEqual(experiment, experiment)
+
+    def test_storage(self) -> None:
+        self._test_storage(map_data=False)
+        self._test_storage(map_data=True)
 
     def test_benchmark_result_invalid_inputs(self) -> None:
         """
@@ -250,7 +262,7 @@ class TestBenchmark(TestCase):
             # same effect as completing after 1 second (third case), because a
             # new trial can't start until the next time increment.
             # With MapData, trials complete at the same times as without
-            # MapData, but an extra epoch accrues in the third case.
+            # MapData, but an extra step accrues in the third case.
             "Trials complete at same time": [0, 0, 1, 1],
             "Complete out of order": [0, 0, 1, 2],
         }
@@ -276,7 +288,7 @@ class TestBenchmark(TestCase):
                 problem = get_async_benchmark_problem(
                     map_data=map_data,
                     trial_runtime_func=trial_runtime_func,
-                    n_time_intervals=30 if map_data else 1,
+                    n_steps=30 if map_data else 1,
                 )
 
                 with mock_patch_method_original(
@@ -357,7 +369,7 @@ class TestBenchmark(TestCase):
         """
         Test early stopping with a deterministic generation strategy and ESS
         that stops if the objective exceeds 0.5 when their progression ("t") hits 2,
-        which happens when 3 epochs have passed (t=[0, 1, 2]).
+        which happens when 3 steps have passed (t=[0, 1, 2]).
 
         Each arm produces values equaling the trial index everywhere on the
         progression, so Trials 1, 2, and 3 will stop early, and trial 0 will not.
@@ -385,7 +397,7 @@ class TestBenchmark(TestCase):
         problem = get_async_benchmark_problem(
             map_data=True,
             trial_runtime_func=lambda _: progression_length_if_not_stopped,
-            n_time_intervals=progression_length_if_not_stopped,
+            n_steps=progression_length_if_not_stopped,
             lower_is_better=True,
         )
         result = benchmark_replication(
@@ -394,15 +406,15 @@ class TestBenchmark(TestCase):
         data = assert_is_instance(none_throws(result.experiment).lookup_data(), MapData)
         grouped = data.map_df.groupby("trial_index")
         self.assertEqual(
-            dict(grouped["t"].count()),
+            dict(grouped["step"].count()),
             {
                 0: progression_length_if_not_stopped,
-                # stopping after t=2, so 3 epochs (0, 1, 2) have passed
+                # stopping after step=2, so 3 steps (0, 1, 2) have passed
                 **{i: min_progression + 1 for i in range(1, 4)},
             },
         )
         self.assertEqual(
-            dict(grouped["t"].max()),
+            dict(grouped["step"].max()),
             {
                 0: progression_length_if_not_stopped - 1,
                 **{i: min_progression for i in range(1, 4)},
@@ -423,7 +435,7 @@ class TestBenchmark(TestCase):
             for trial_index, sim_trial in trials.items()
         }
         map_df["start_time"] = map_df["trial_index"].map(start_times).astype(int)
-        map_df["absolute_time"] = map_df["t"] + map_df["start_time"]
+        map_df["absolute_time"] = map_df["step"] + map_df["start_time"]
         expected_start_end_times = {
             0: (0, 4),
             1: (0, 2),
@@ -850,3 +862,55 @@ class TestBenchmark(TestCase):
     def test_multi_fidelity_or_multi_task(self) -> None:
         self._test_multi_fidelity_or_multi_task(fidelity_or_task="fidelity")
         self._test_multi_fidelity_or_multi_task(fidelity_or_task="task")
+
+    def test_get_benchmark_scheduler_options(self) -> None:
+        for include_sq, batch_size in product((False, True), (1, 2)):
+            method = BenchmarkMethod(
+                generation_strategy=get_sobol_mbm_generation_strategy(
+                    model_cls=SingleTaskGP, acquisition_cls=qLogNoisyExpectedImprovement
+                ),
+                distribute_replications=False,
+                max_pending_trials=2,
+                batch_size=batch_size,
+            )
+            scheduler_options = get_benchmark_scheduler_options(
+                method=method, include_sq=include_sq
+            )
+            self.assertEqual(scheduler_options.max_pending_trials, 2)
+            self.assertEqual(scheduler_options.init_seconds_between_polls, 0)
+            self.assertEqual(scheduler_options.min_seconds_before_poll, 0)
+            self.assertEqual(scheduler_options.batch_size, batch_size)
+            self.assertEqual(
+                scheduler_options.run_trials_in_batches, method.run_trials_in_batches
+            )
+            self.assertEqual(
+                scheduler_options.early_stopping_strategy,
+                method.early_stopping_strategy,
+            )
+            self.assertEqual(
+                scheduler_options.trial_type,
+                TrialType.BATCH_TRIAL
+                if include_sq or batch_size > 1
+                else TrialType.TRIAL,
+            )
+            self.assertEqual(
+                scheduler_options.status_quo_weight, 1.0 if include_sq else 0.0
+            )
+
+    def test_replication_with_status_quo(self) -> None:
+        method = BenchmarkMethod(
+            name="Sobol", generation_strategy=get_sobol_generation_strategy()
+        )
+        problem = get_single_objective_benchmark_problem(
+            status_quo_params={"x0": 0.0, "x1": 0.0}
+        )
+        res = benchmark_replication(problem=problem, method=method, seed=0)
+
+        self.assertEqual(problem.num_trials, len(none_throws(res.experiment).trials))
+        for t in none_throws(res.experiment).trials.values():
+            self.assertEqual(len(t.arms), 2, msg=f"Trial index: {t.index}")
+            self.assertEqual(
+                sum(a.name == "status_quo" for a in t.arms),
+                1,
+                msg=f"Trial index: {t.index}",
+            )

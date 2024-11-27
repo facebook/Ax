@@ -18,7 +18,6 @@ from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.service.utils.best_point_mixin import BestPointMixin
-from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.utils.common.base import Base
 from pyre_extensions import none_throws
 
@@ -77,24 +76,6 @@ class BenchmarkMethod(Base):
                     stacklevel=1,
                 )
                 early_stopping_strategy.seconds_between_polls = 0
-
-    @property
-    def scheduler_options(self) -> SchedulerOptions:
-        return SchedulerOptions(
-            # No new candidates can be generated while any are pending.
-            # If batched, an entire batch must finish before the next can be
-            # generated.
-            max_pending_trials=self.max_pending_trials,
-            # Do not throttle, as is often necessary when polling real endpoints
-            init_seconds_between_polls=0,
-            min_seconds_before_poll=0,
-            trial_type=TrialType.TRIAL
-            if self.batch_size == 1
-            else TrialType.BATCH_TRIAL,
-            batch_size=self.batch_size,
-            run_trials_in_batches=self.run_trials_in_batches,
-            early_stopping_strategy=self.early_stopping_strategy,
-        )
 
     def get_best_parameters(
         self,

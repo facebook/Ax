@@ -93,12 +93,12 @@ class BenchmarkMetric(Metric):
             return _get_no_metadata_err(trial=trial)
 
         df = trial.run_metadata["benchmark_metadata"].dfs[self.name]
-        if (df["t"] > 0).any():
+        if (df["step"] > 0).any():
             raise ValueError(
                 f"Trial {trial.index} has data from multiple time steps. This is"
                 " not supported by `BenchmarkMetric`; use `BenchmarkMapMetric`."
             )
-        df = df.drop(columns=["t"])
+        df = df.drop(columns=["step"])
         if not self.observe_noise_sd:
             df["sem"] = None
         return Ok(value=Data(df=df))
@@ -108,7 +108,7 @@ class BenchmarkMapMetric(MapMetric):
     # pyre-fixme: Inconsistent override [15]: `map_key_info` overrides attribute
     # defined in `MapMetric` inconsistently. Type `MapKeyInfo[int]` is not a
     # subtype of the overridden attribute `MapKeyInfo[float]`
-    map_key_info: MapKeyInfo[int] = MapKeyInfo(key="t", default_value=0)
+    map_key_info: MapKeyInfo[int] = MapKeyInfo(key="step", default_value=0)
 
     def __init__(
         self,
@@ -186,8 +186,8 @@ class BenchmarkMapMetric(MapMetric):
 
         df = (
             metadata.dfs[self.name]
-            .loc[lambda x: x["t"] <= max_t]
-            .rename(columns={"t": self.map_key_info.key})
+            .loc[lambda x: x["step"] <= max_t]
+            .rename(columns={"step": self.map_key_info.key})
         )
         if not self.observe_noise_sd:
             df["sem"] = None

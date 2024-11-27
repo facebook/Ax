@@ -13,6 +13,7 @@ from typing import Any, Callable, Iterator
 import numpy as np
 import torch
 from ax.benchmark.benchmark_method import BenchmarkMethod
+from ax.benchmark.benchmark_metric import BenchmarkMapMetric, BenchmarkMetric
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     create_problem_from_botorch,
@@ -54,6 +55,7 @@ def get_single_objective_benchmark_problem(
     test_problem_kwargs: dict[str, Any] | None = None,
     report_inference_value_as_trace: bool = False,
     noise_std: float | list[float] = 0.0,
+    status_quo_params: TParameterization | None = None,
 ) -> BenchmarkProblem:
     return create_problem_from_botorch(
         test_problem_class=Branin,
@@ -62,6 +64,7 @@ def get_single_objective_benchmark_problem(
         observe_noise_sd=observe_noise_sd,
         report_inference_value_as_trace=report_inference_value_as_trace,
         noise_std=noise_std,
+        status_quo_params=status_quo_params,
     )
 
 
@@ -297,7 +300,7 @@ class DeterministicGenerationNode(ExternalGenerationNode):
 @dataclass(kw_only=True)
 class IdentityTestFunction(BenchmarkTestFunction):
     outcome_names: Sequence[str] = field(default_factory=lambda: ["objective"])
-    n_time_intervals: int = 1
+    n_steps: int = 1
 
     # pyre-fixme[14]: Inconsistent override
     def evaluate_true(self, params: Mapping[str, float]) -> torch.Tensor:
@@ -307,7 +310,7 @@ class IdentityTestFunction(BenchmarkTestFunction):
         """
         value = params["x0"]
         return torch.full(
-            (len(self.outcome_names), self.n_time_intervals), value, dtype=torch.float64
+            (len(self.outcome_names), self.n_steps), value, dtype=torch.float64
         )
 
 
@@ -315,13 +318,7 @@ def get_discrete_search_space() -> SearchSpace:
     return SearchSpace(
         parameters=[
             ChoiceParameter(
-                name="x0",
-                parameter_type=ParameterType.INT,
-                # pyre-fixme: Incompatible parameter type [6]: In call
-                # `ChoiceParameter.__init__`, for argument `values`, expected
-                # `List[Union[None, bool, float, int, str]]` but got
-                # `List[int]`.
-                values=list(range(20)),
+                name="x0", parameter_type=ParameterType.INT, values=list(range(20))
             )
         ]
     )
@@ -345,17 +342,18 @@ def get_async_benchmark_method(
 def get_async_benchmark_problem(
     map_data: bool,
     trial_runtime_func: Callable[[BaseTrial], int],
-    n_time_intervals: int = 1,
+    n_steps: int = 1,
     lower_is_better: bool = False,
 ) -> BenchmarkProblem:
     search_space = get_discrete_search_space()
-    test_function = IdentityTestFunction(n_time_intervals=n_time_intervals)
+    test_function = IdentityTestFunction(n_steps=n_steps)
     optimization_config = get_soo_opt_config(
         outcome_names=["objective"],
         use_map_metric=map_data,
         observe_noise_sd=True,
         lower_is_better=lower_is_better,
     )
+
     return BenchmarkProblem(
         name="test",
         search_space=search_space,
@@ -365,3 +363,11 @@ def get_async_benchmark_problem(
         optimal_value=19.0,
         trial_runtime_func=trial_runtime_func,
     )
+
+
+def get_benchmark_metric() -> BenchmarkMetric:
+    return BenchmarkMetric(name="test", lower_is_better=True)
+
+
+def get_benchmark_map_metric() -> BenchmarkMapMetric:
+    return BenchmarkMapMetric(name="test", lower_is_better=True)

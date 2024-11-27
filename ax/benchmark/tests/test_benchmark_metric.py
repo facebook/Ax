@@ -51,7 +51,7 @@ def get_test_trial(
                 "metric_name": "test_metric1",
                 "mean": [1.0, 2.5] if batch else [1.0],
                 "sem": [0.1, 0.0] if batch else [0.1],
-                "t": 0,
+                "step": 0,
                 "trial_index": 0,
             }
         ),
@@ -61,7 +61,7 @@ def get_test_trial(
                 "metric_name": "test_metric2",
                 "mean": [0.5, 1.5] if batch else [0.5],
                 "sem": [0.1, 0.0] if batch else [0.1],
-                "t": 0,
+                "step": 0,
                 "trial_index": 0,
             }
         ),
@@ -75,10 +75,10 @@ def get_test_trial(
             ),
             verbose_logging=False,
         )
-        n_time_intervals = 3
+        n_steps = 3
         dfs = {
-            k: pd.concat([df] * n_time_intervals).assign(
-                t=np.repeat(np.arange(n_time_intervals), 2 if batch else 1)
+            k: pd.concat([df] * n_steps).assign(
+                step=np.repeat(np.arange(n_steps), 2 if batch else 1)
             )
             for k, df in dfs.items()
         }
@@ -162,7 +162,7 @@ class BenchmarkMetricTest(TestCase):
             "mean": 1.0,
             "sem": 0.1,
             "trial_index": 0,
-            "t": 0,
+            "step": 0,
         }
 
         self.assertDictEqual(map_df1.iloc[0].to_dict(), expected_results)
@@ -174,7 +174,7 @@ class BenchmarkMetricTest(TestCase):
             "mean": 0.5,
             "sem": 0.1,
             "trial_index": 0,
-            "t": 0,
+            "step": 0,
         }
         self.assertDictEqual(map_df2.iloc[0].to_dict(), expected_results)
 
@@ -190,7 +190,7 @@ class BenchmarkMetricTest(TestCase):
         self.assertEqual(backend_simulator.time, 2)
         map_df1 = self.map_metric1.fetch_trial_data(trial=trial).value.map_df
         self.assertEqual(len(map_df1), 2)
-        self.assertEqual(set(map_df1["t"].tolist()), {0, 1})
+        self.assertEqual(set(map_df1["step"].tolist()), {0, 1})
 
     def _test_fetch_trial_data_batch_trial(self, map_data: bool) -> None:
         if map_data:
@@ -198,31 +198,34 @@ class BenchmarkMetricTest(TestCase):
         else:
             metric1, metric2 = self.metric1, self.metric2
         trial = get_test_trial(map_data=map_data, batch=True)
-        df1 = metric1.fetch_trial_data(trial=trial).value.df  # pyre-ignore [16]
+        df1 = metric1.fetch_trial_data(trial=trial).value.df
         self.assertEqual(len(df1), 2)
         expected = {
-            "arm_name": {0: "0_0", 1: "0_1"},
-            "metric_name": {0: "test_metric1", 1: "test_metric1"},
-            "mean": {0: 1.0, 1: 2.5},
-            "sem": {0: 0.1, 1: 0.0},
-            "trial_index": {0: 0, 1: 0},
+            "arm_name": ["0_0", "0_1"],
+            "metric_name": ["test_metric1", "test_metric1"],
+            "mean": [1.0, 2.5],
+            "sem": [0.1, 0.0],
+            "trial_index": [0, 0],
         }
         if map_data:
-            expected["t"] = {0: 0, 1: 0}
+            expected["step"] = [0, 0]
 
-        self.assertDictEqual(df1.to_dict(), expected)
-        df2 = metric2.fetch_trial_data(trial=trial).value.df  # pyre-ignore [16]
+        for col in df1.columns:
+            self.assertEqual(df1[col].to_list(), expected[col], col)
+
+        df2 = metric2.fetch_trial_data(trial=trial).value.df
         self.assertEqual(len(df2), 2)
         expected = {
-            "arm_name": {0: "0_0", 1: "0_1"},
-            "metric_name": {0: "test_metric2", 1: "test_metric2"},
-            "mean": {0: 0.5, 1: 1.5},
-            "sem": {0: 0.1, 1: 0.0},
-            "trial_index": {0: 0, 1: 0},
+            "arm_name": ["0_0", "0_1"],
+            "metric_name": ["test_metric2", "test_metric2"],
+            "mean": [0.5, 1.5],
+            "sem": [0.1, 0.0],
+            "trial_index": [0, 0],
         }
         if map_data:
-            expected["t"] = {0: 0, 1: 0}
-        self.assertDictEqual(df2.to_dict(), expected)
+            expected["step"] = [0, 0]
+        for col in df2.columns:
+            self.assertEqual(df2[col].to_list(), expected[col], col)
 
     def test_fetch_trial_data_batch_trial(self) -> None:
         self._test_fetch_trial_data_batch_trial(map_data=False)
@@ -245,7 +248,7 @@ class BenchmarkMetricTest(TestCase):
 
     def test_map_data_without_map_metric_raises(self) -> None:
         metadata = BenchmarkTrialMetadata(
-            dfs={"test_metric": pd.DataFrame({"t": [0, 1]})},
+            dfs={"test_metric": pd.DataFrame({"step": [0, 1]})},
         )
         trial = Mock(spec=Trial)
         trial.run_metadata = {"benchmark_metadata": metadata}
