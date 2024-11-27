@@ -8,11 +8,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
 from logging import Logger
-
-from typing import TYPE_CHECKING
+from typing import Callable, TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
@@ -44,6 +41,10 @@ class LogY(Transform):
 
     Transform is applied only for the metrics specified in the transform config.
     Transform is done in-place.
+
+    NOTE: If the observation noise is not provided, we simply log-transform the
+    mean as if the observation noise was zero. This can be inaccurate when the
+    unknown observation noise is large.
     """
 
     def __init__(
@@ -178,16 +179,20 @@ def lognorm_to_norm(
     mu_ln: npt.NDArray,
     Cov_ln: npt.NDArray,
 ) -> tuple[npt.NDArray, npt.NDArray]:
-    """Compute mean and covariance of a MVN from those of the associated log-MVN
+    """Compute mean and covariance of a MVN from those of the associated log-MVN.
 
     If `Y` is log-normal with mean mu_ln and covariance Cov_ln, then
     `X ~ N(mu_n, Cov_n)` with
 
         Cov_n_{ij} = log(1 + Cov_ln_{ij} / (mu_ln_{i} * mu_n_{j}))
         mu_n_{i} = log(mu_ln_{i}) - 0.5 * log(1 + Cov_ln_{ii} / mu_ln_{i}**2)
+
+    NOTE: If the observation noise is not provided, we simply log-transform the
+    mean as if the observation noise was zero. This can be inaccurate when the
+    unknown observation noise is large.
     """
     Cov_n = np.log(1 + Cov_ln / np.outer(mu_ln, mu_ln))
-    mu_n = np.log(mu_ln) - 0.5 * np.diag(Cov_n)
+    mu_n = np.log(mu_ln) - 0.5 * np.nan_to_num(np.diag(Cov_n), nan=0.0)
     return mu_n, Cov_n
 
 
@@ -195,16 +200,21 @@ def norm_to_lognorm(
     mu_n: npt.NDArray,
     Cov_n: npt.NDArray,
 ) -> tuple[npt.NDArray, npt.NDArray]:
-    """Compute mean and covariance of a log-MVN from its MVN sufficient statistics
+    """Compute mean and covariance of a log-MVN from its MVN sufficient statistics.
 
     If `X ~ N(mu_n, Cov_n)` and `Y = exp(X)`, then `Y` is log-normal with
 
         mu_ln_{i} = exp(mu_n_{i}) + 0.5 * Cov_n_{ii}
         Cov_ln_{ij} = exp(mu_n_{i} + mu_n_{j} + 0.5 * (Cov_n_{ii} + Cov_n_{jj})) *
         (exp(Cov_n_{ij}) - 1)
+
+
+    NOTE: If the observation noise is not provided, we simply take the exponent of the
+    mean as if the observation noise was zero. This can be inaccurate when the
+    unknown observation noise is large.
     """
     diag_n = np.diag(Cov_n)
-    b = mu_n + 0.5 * diag_n
+    b = mu_n + 0.5 * np.nan_to_num(diag_n, nan=0.0)
     mu_ln = np.exp(b)
     Cov_ln = (np.exp(Cov_n) - 1) * np.exp(b.reshape(-1, 1) + b.reshape(1, -1))
     return mu_ln, Cov_ln
