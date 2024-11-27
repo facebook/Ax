@@ -12,7 +12,9 @@ import traceback
 
 from collections.abc import Callable, Generator, Iterable, Mapping
 from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime
+from enum import IntEnum
 from logging import LoggerAdapter
 from time import sleep
 from typing import Any, cast, NamedTuple, Optional
@@ -119,6 +121,36 @@ NO_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
 )
 
 
+class OutputPriority(IntEnum):
+    """Priority of a message. Messages with higher priority will be shown first, and
+    messages with the same priority will be sorted alphabetically."""
+
+    NOTSET = 0
+    DEBUG = 10
+    INFO = 20
+    TOPLINE = 30
+    WARNING = 40
+    ERROR = 50
+
+
+@dataclass
+class MessageOutput:
+    """Message to be shown in the output of the scheduler."""
+
+    text: str
+    priority: OutputPriority | int
+
+    def __str__(self) -> str:
+        return self.text
+
+    def __repr__(self) -> str:
+        return f"MessageOutput(text={self.text}, priority={self.priority})"
+
+    def append(self, text: str) -> None:
+        """Append text to the text of an existing message."""
+        self.text += text
+
+
 class Scheduler(WithDBSettingsBase, BestPointMixin):
     """Closed-loop manager class for Ax optimization.
 
@@ -144,7 +176,7 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
     # results}. This is a mapping and not a list to allow for changing of
     # some optimization messages throughout the course of the optimization
     # (e.g. progress report of the optimization).
-    markdown_messages: dict[str, str]
+    markdown_messages: dict[str, MessageOutput]
 
     # Number of trials that existed on the scheduler's experiment before
     # the scheduler instantiation with that experiment.
@@ -232,7 +264,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         # a row.
         self._log_next_no_trials_reason = True
         self.markdown_messages = {
-            "Generation strategy": GS_TYPE_MSG.format(gs_name=generation_strategy.name)
+            "Generation strategy": MessageOutput(
+                text=GS_TYPE_MSG.format(gs_name=generation_strategy.name),
+                priority=OutputPriority.DEBUG,
+            ),
         }
 
     @classmethod
@@ -1796,7 +1831,10 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
         except OptimizationComplete as err:
             completion_str = f"Optimization complete: {err}"
             self.logger.info(completion_str)
-            self.markdown_messages["Optimization complete"] = completion_str
+            self.markdown_messages["Optimization complete"] = MessageOutput(
+                text=completion_str,
+                priority=OutputPriority.DEBUG,
+            )
             self._optimization_complete = True
             return [], err
         except DataRequiredError as err:
@@ -2084,9 +2122,12 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             ),
         )
         if "Optimization complete" in self.markdown_messages:
-            self.markdown_messages["Optimization complete"] += "\n\n" + completion_msg
+            self.markdown_messages["Optimization complete"].append(text=completion_msg)
         else:
-            self.markdown_messages["Optimization complete"] = completion_msg
+            self.markdown_messages["Optimization complete"] = MessageOutput(
+                text=completion_msg,
+                priority=OutputPriority.DEBUG,
+            )
 
     def _fetch_and_process_trials_data_results(
         self,
