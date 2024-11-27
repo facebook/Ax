@@ -119,9 +119,6 @@ class AggregatedBenchmarkResult(Base):
     fit_time: list[float]
     gen_time: list[float]
 
-    def __str__(self) -> str:
-        return f"{self.__class__}(name={self.name})"
-
     @classmethod
     def from_benchmark_results(
         cls,

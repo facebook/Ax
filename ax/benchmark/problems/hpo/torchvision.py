@@ -129,8 +129,8 @@ class PyTorchCNNTorchvisionBenchmarkTestFunction(BenchmarkTestFunction):
     def __post_init__(self, train_loader: None, test_loader: None) -> None:
         if self.name not in _REGISTRY:
             raise UserInputError(
-                f"Unrecognized torchvision dataset {self.name}. Please ensure it "
-                "is listed in ax/benchmark/problems/hop/torchvision.py registry."
+                f"Unrecognized torchvision dataset '{self.name}'. Please ensure"
+                " is listed in ax/benchmark/problems/hpo/torchvision._REGISTRY"
             )
         dataset_fn = _REGISTRY[self.name]
 

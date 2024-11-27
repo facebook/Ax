@@ -269,3 +269,11 @@ class BenchmarkMetricTest(TestCase):
         metric = BenchmarkMetric(name="test_metric", lower_is_better=True)
         with self.assertRaisesRegex(ValueError, "data from multiple time steps"):
             metric.fetch_trial_data(trial=trial)
+
+    def test_abandoned_arms_not_supported(self) -> None:
+        trial = get_test_trial(batch=True)
+        trial.mark_arm_abandoned("0_0")
+        with self.assertRaisesRegex(
+            NotImplementedError, "does not support abandoned arms"
+        ):
+            self.map_metric1.fetch_trial_data(trial=trial)

@@ -429,3 +429,11 @@ class TestBenchmarkRunner(TestCase):
                 ValueError, "Step duration must be non-negative"
             ):
                 runner.run(trial=trial)
+
+    def test_wrong_noise_std_keys(self) -> None:
+        test_function = IdentityTestFunction(outcome_names=["foo", "bar"])
+        runner = BenchmarkRunner(test_function=test_function, noise_std={"alpaca": 4})
+        with self.assertRaisesRegex(
+            ValueError, "Noise std must have keys equal to outcome names"
+        ):
+            runner.get_noise_stds()
