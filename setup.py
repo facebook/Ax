@@ -51,11 +51,13 @@ DEV_REQUIRES = [
     "mdformat-myst",
 ]
 
+
 def read_deps_from_file(filename):
     """Read in requirements file and return items as list of strings"""
     root_dir = os.path.dirname(__file__)
     with open(os.path.join(root_dir, filename), "r") as fh:
         return [line.strip() for line in fh.readlines() if not line.startswith("#")]
+
 
 # Read in pinned versions of the formatting tools
 DEV_REQUIRES += read_deps_from_file("requirements-fmt.txt")
