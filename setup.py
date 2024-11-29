@@ -33,8 +33,6 @@ REQUIRES = [
 # pytest-cov requires pytest >= 3.6
 DEV_REQUIRES = [
     "beautifulsoup4",
-    "black==24.2.0",
-    "flake8",
     "hypothesis",
     "Jinja2",
     "pyfakefs",
@@ -49,6 +47,15 @@ DEV_REQUIRES = [
     # https://github.com/tensorflow/tensorboard/issues/6869#issuecomment-2273718763
     "numpy<2.0",
 ]
+
+def read_deps_from_file(filename):
+    """Read in requirements file and return items as list of strings"""
+    root_dir = os.path.dirname(__file__)
+    with open(os.path.join(root_dir, filename), "r") as fh:
+        return [line.strip() for line in fh.readlines() if not line.startswith("#")]
+
+# Read in pinned versions of the formatting tools
+DEV_REQUIRES += read_deps_from_file("requirements-fmt.txt")
 
 MYSQL_REQUIRES = ["SQLAlchemy==1.4.17"]
 
