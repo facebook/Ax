@@ -45,9 +45,6 @@ DEV_REQUIRES = [
     "torchvision>=0.5.0",
     "nbconvert",
     "jupyter-client==6.1.12",
-    # Replace with `tensorboard >= x.x` once tb cuts a release.
-    # https://github.com/tensorflow/tensorboard/issues/6869#issuecomment-2273718763
-    "numpy<2.0",
 ]
 
 MYSQL_REQUIRES = ["SQLAlchemy==1.4.17"]
