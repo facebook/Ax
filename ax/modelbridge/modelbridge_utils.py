@@ -526,15 +526,14 @@ def get_fixed_features(
     fixed_features: ObservationFeatures | None, param_names: list[str]
 ) -> dict[int, float] | None:
     """Reformat a set of fixed_features."""
-    if fixed_features is None:
+    if fixed_features is None or not fixed_features.parameters:
         return None
-    fixed_features_dict = {}
-    for p_name, val in fixed_features.parameters.items():
-        # These all need to be floats at this point.
-        # pyre-ignore[6]: All float here.
-        val_ = float(val)
-        fixed_features_dict[param_names.index(p_name)] = val_
-    fixed_features_dict = fixed_features_dict if len(fixed_features_dict) > 0 else None
+    params = fixed_features.parameters
+    fixed_features_dict = {
+        i: checked_cast(float, params[p_name])
+        for i, p_name in enumerate(param_names)
+        if p_name in params
+    }
     return fixed_features_dict
 
 
