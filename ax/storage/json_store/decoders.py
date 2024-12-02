@@ -257,8 +257,6 @@ def tensor_or_size_from_json(json: dict[str, Any]) -> torch.Tensor | torch.Size:
         )
 
 
-# pyre-fixme[3]: Return annotation cannot contain `Any`.
-# pyre-fixme[2]: Parameter annotation cannot be `Any`.
 def botorch_component_from_json(botorch_class: type[T], json: dict[str, Any]) -> T:
     """Load any instance of `torch.nn.Module` or descendants registered in
     `CLASS_DECODER_REGISTRY` from state dict."""
