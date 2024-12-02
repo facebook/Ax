@@ -621,7 +621,7 @@ def transform_callback(
 ) -> Callable[[npt.NDArray], npt.NDArray]:
     """A closure for performing the `round trip` transformations.
 
-    The function round points by de-transforming points back into
+    The function rounds points by de-transforming points back into
     the original space (done by applying transforms in reverse), and then
     re-transforming them.
     This function is specifically for points which are formatted as numpy
