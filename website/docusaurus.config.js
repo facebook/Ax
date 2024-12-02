@@ -1,3 +1,4 @@
+import {themes as prismThemes} from 'prism-react-renderer';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 
@@ -61,6 +62,10 @@ module.exports={
     ],
   ],
   "themeConfig": {
+    prism: {
+      theme: prismThemes.github,
+      darkTheme: prismThemes.oneDark,
+    },
     "navbar": {
       "title": "Ax",
       "hideOnScroll": true,

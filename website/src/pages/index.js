@@ -90,7 +90,7 @@ const codeExample = `>>> from ax import optimize
 const QuickStart = () => (
   <div
     className="get-started-section padding--xl"
-    style={{'background-color': 'var(--ifm-color-emphasis-100)'}}
+    style={{'background-color': 'var(--ifm-color-emphasis-200)'}}
     id="quickstart"
   >
     <h2 className="text--center padding--md">Get Started</h2>
