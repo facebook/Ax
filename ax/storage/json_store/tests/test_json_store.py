@@ -867,6 +867,7 @@ class JSONStoreTest(TestCase):
             "warm_start_refit": True,
         }
         expected_object = get_botorch_model_with_surrogate_spec()
+        expected_object.surrogate_spec.model_configs[0].input_transform_classes = None
         self.assertEqual(object_from_json(object_json), expected_object)
 
     def test_surrogate_spec_backwards_compatibility(self) -> None:
@@ -951,6 +952,7 @@ class JSONStoreTest(TestCase):
                     botorch_model_class=SingleTaskGP,
                     covar_module_class=ScaleMaternKernel,
                     outcome_transform_classes=[Standardize],
+                    input_transform_classes=None,
                 )
             ]
         )
