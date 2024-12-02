@@ -75,7 +75,6 @@ class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):
         self.branin_experiment.optimization_config = OptimizationConfig(
             objective=Objective(metric=BraninMetric("m1", ["x1", "x2"]), minimize=True)
         )
-        self.branin_experiment.remove_tracking_metric("m2")
 
         self.runner = SyntheticRunnerWithStatusPolling()
         self.branin_experiment.update_runner(trial_type="type1", runner=self.runner)
@@ -98,8 +97,6 @@ class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):
                 Objective(Metric(name="branin"), minimize=True)
             ),
             default_trial_type="type1",
-            # None isn't allow here, but is useful for testing.
-            # pyre-ignore [6]
             default_runner=None,
             name="branin_experiment_no_impl_runner_or_metrics",
         )
@@ -179,6 +176,15 @@ class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):
         )
         super().test_scheduler_with_odd_index_early_stopping_strategy()
 
+    def test_fetch_and_process_trials_data_results_failed_non_objective(
+        self,
+    ) -> None:
+        # add a tracking metric
+        self.branin_timestamp_map_metric_experiment.add_tracking_metric(
+            BraninMetric("branin", ["x1", "x2"]), trial_type="type1"
+        )
+        super().test_fetch_and_process_trials_data_results_failed_non_objective()
+
     def test_validate_options_not_none_mt_trial_type(
         self, msg: str | None = None
     ) -> None:
@@ -195,6 +201,12 @@ class TestAxSchedulerMultiTypeExperiment(AxSchedulerTestCase):
             "type1", SyntheticRunnerWithSingleRunningTrial()
         )
         super().test_run_n_trials_single_step_existing_experiment()
+        metric_names = list(
+            self.branin_experiment.lookup_data().df.metric_name.unique()
+        )
+        # assert only metric m1 is fetched (the metric for the current
+        # trial_type)
+        self.assertEqual(metric_names, ["m1"])
 
     def test_generate_candidates_does_not_generate_if_missing_data(self) -> None:
         self.branin_experiment.update_runner("type1", InfinitePollRunner())

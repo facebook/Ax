@@ -159,10 +159,8 @@ class MultiTypeExperimentTest(TestCase):
         self.experiment.optimization_config = OptimizationConfig(
             Objective(BraninMetric("m3", ["x1", "x2"]), minimize=True)
         )
-        # TODO: improve consistency of metric mappings
         self.assertDictEqual(
-            self.experiment._metric_to_trial_type,
-            {"m1": "type1", "m2": "type2", "m3": "type1"},
+            self.experiment._metric_to_trial_type, {"m2": "type2", "m3": "type1"}
         )
 
     def test_runner_for_trial_type(self) -> None:
