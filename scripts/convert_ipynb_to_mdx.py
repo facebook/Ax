@@ -312,13 +312,20 @@ def sanitize_mdx(mdx: str) -> str:
     # Remove some lingering HTML tags that break MDX.
     mdx = mdx.replace("<markdowncell>", "")
     mdx = mdx.replace("<TODO>", "")
+    mdx = mdx.replace("<br>", "<br />")
     # Remove any HTML comments from the Markdown. They are fine to keep in the
     # notebooks, but are not really useful in the MDX.
     mdx = re.sub("(<!--.*?-->)", "", mdx, flags=re.DOTALL)
     # "\" Escape braces to make the text MDX compatible.
     mdx = re.sub("([^\\\\])([{}])", "\\g<1>\\\\\\g<2>", mdx)
-    # Escaping braces causes issues in math blocks, unescape them.
-    mdx = re.sub("\\$(.*?)\\$", lambda match: match[0].replace("\\{", "{").replace("\\}", "}"), mdx)
+
+    # -- KaTeX --
+    # Wrap '\begin{}...\end{}' in $$ for KaTeX to work.
+    mdx = re.sub("(\\\\begin\\\\{(\\w*?)\\\\}(.|\n)*?end\\\\{\\2\\\\})", "$$\\g<1>$$", mdx)
+    # # make sure $$ symbols are not escaped and include line breaks.
+    mdx = re.sub("\\\\?\\$\\\\?\\$((?:.|\n)*?)\\\\?\\$\\\\?\\$", "\n$$\n\\g<1>\n$$\n", mdx)
+    # # Escaping braces causes issues in math blocks, unescape them.
+    mdx = re.sub("\\$?\\$(.|\n)*?\\$\\$?", lambda match: match[0].replace("\\{", "{").replace("\\}", "}"), mdx)
 
     return mdx
 
