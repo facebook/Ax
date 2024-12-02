@@ -93,12 +93,12 @@ class BenchmarkMetric(Metric):
             return _get_no_metadata_err(trial=trial)
 
         df = trial.run_metadata["benchmark_metadata"].dfs[self.name]
-        if (df["step"] > 0).any():
+        if df["step"].nunique() > 1:
             raise ValueError(
                 f"Trial {trial.index} has data from multiple time steps. This is"
                 " not supported by `BenchmarkMetric`; use `BenchmarkMapMetric`."
             )
-        df = df.drop(columns=["step"])
+        df = df.drop(columns=["step", "virtual runtime"])
         if not self.observe_noise_sd:
             df["sem"] = None
         return Ok(value=Data(df=df))
@@ -186,7 +186,10 @@ class BenchmarkMapMetric(MapMetric):
 
         df = (
             metadata.dfs[self.name]
-            .loc[lambda x: x["step"] <= max_t]
+            .loc[lambda x: x["virtual runtime"] <= max_t]
+            .drop(columns=["virtual runtime"])
+            .reset_index(drop=True)
+            # Just in case the key was renamed by a subclass
             .rename(columns={"step": self.map_key_info.key})
         )
         if not self.observe_noise_sd:

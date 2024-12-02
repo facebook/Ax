@@ -81,16 +81,17 @@ def get_benchmark_runner(
 
     Args:
         problem: The ``BenchmarkProblem``; provides a ``BenchmarkTestFunction``
-            (used to generate data) and ``trial_runtime_func`` (used to
-            determine the length of trials for the simulator).
+            (used to generate data) and ``step_runtime_function`` (used to
+            determine timing for the simulator).
         max_concurrency: The maximum number of trials that can be run concurrently.
             Typically, ``max_pending_trials`` from ``SchedulerOptions``, which are
             stored on the ``BenchmarkMethod``.
     """
+
     return BenchmarkRunner(
         test_function=problem.test_function,
         noise_std=problem.noise_std,
-        trial_runtime_func=problem.trial_runtime_func,
+        step_runtime_function=problem.step_runtime_function,
         max_concurrency=max_concurrency,
     )
 
@@ -240,7 +241,8 @@ def benchmark_replication(
         include_sq=sq_arm is not None,
     )
     runner = get_benchmark_runner(
-        problem=problem, max_concurrency=scheduler_options.max_pending_trials
+        problem=problem,
+        max_concurrency=scheduler_options.max_pending_trials,
     )
     experiment = Experiment(
         name=f"{problem.name}|{method.name}_{int(time())}",

@@ -23,7 +23,6 @@ from ax.models.torch.botorch import (
 from ax.models.torch.botorch_defaults import (
     get_and_fit_model,
     get_chebyshev_scalarization,
-    recommend_best_out_of_sample_point,
 )
 from ax.models.torch.utils import sample_simplex
 from ax.models.torch_base import TorchOptConfig
@@ -601,28 +600,6 @@ class BotorchModelTest(TestCase):
                     not torch.equal(true_state_dict[k], v)
                     for k, v in chain(model.named_parameters(), model.named_buffers())
                 )
-            )
-
-        # Test that recommend_best_out_of_sample_point errors w/o _get_best_point_acqf
-        model = BotorchModel(best_point_recommender=recommend_best_out_of_sample_point)
-        with mock.patch(FIT_MODEL_MO_PATH) as _mock_fit_model:
-            model.fit(
-                # pyre-fixme[61]: `datasets` is undefined, or not always defined.
-                datasets=datasets,
-                search_space_digest=SearchSpaceDigest(
-                    feature_names=feature_names,
-                    bounds=bounds,
-                    task_features=tfs,
-                ),
-            )
-        with self.assertRaises(RuntimeError):
-            xbest = model.best_point(
-                # pyre-fixme[61]: `search_space_digest` is undefined, or not always
-                #  defined.
-                search_space_digest=search_space_digest,
-                # pyre-fixme[61]: `torch_opt_config` is undefined, or not always
-                #  defined.
-                torch_opt_config=torch_opt_config,
             )
 
     def test_BotorchModel_cuda(self) -> None:

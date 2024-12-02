@@ -108,9 +108,7 @@ class TestBenchmark(TestCase):
                 self.assertEqual(mock_optimize_acqf.call_args.kwargs["q"], batch_size)
 
     def _test_storage(self, map_data: bool) -> None:
-        problem = get_async_benchmark_problem(
-            map_data=map_data, trial_runtime_func=lambda _: 3
-        )
+        problem = get_async_benchmark_problem(map_data=map_data)
         method = get_async_benchmark_method()
         res = benchmark_replication(problem=problem, method=method, seed=0)
         # Experiment is not in storage yet
@@ -221,9 +219,8 @@ class TestBenchmark(TestCase):
         order.
 
         Args:
-            map_data: If True, the test function produces time-series data of
-                length 30, but not nearly so many points are observed because
-                the trials stop sooner than that.
+            map_data: If True, the test function produces time-series data with
+                just one step, so behavior is the same as when map_data=False.
         """
         method = get_async_benchmark_method()
 
@@ -233,12 +230,12 @@ class TestBenchmark(TestCase):
             2: 3,
             3: 1,
         }
-        trial_runtime_funcs = {
-            "All complete at different times": lambda trial: trial.index * 3,
-            "Trials complete immediately": lambda trial: 0,
-            "Trials complete at same time": lambda trial: 1,
-            "Complete out of order": lambda trial: complete_out_of_order_runtimes[
-                trial.index
+        step_runtime_fns = {
+            "All complete at different times": lambda params: params["x0"] * 3,
+            "Trials complete immediately": lambda params: 0,
+            "Trials complete at same time": lambda params: 1,
+            "Complete out of order": lambda params: complete_out_of_order_runtimes[
+                params["x0"]
             ],
         }
 
@@ -283,12 +280,11 @@ class TestBenchmark(TestCase):
             "Complete out of order": [1, 1, 3, 3],
         }
 
-        for case_name, trial_runtime_func in trial_runtime_funcs.items():
-            with self.subTest(case_name, trial_runtime_func=trial_runtime_func):
+        for case_name, step_runtime_fn in step_runtime_fns.items():
+            with self.subTest(case_name, step_runtime_fn=step_runtime_fn):
                 problem = get_async_benchmark_problem(
                     map_data=map_data,
-                    trial_runtime_func=trial_runtime_func,
-                    n_steps=30 if map_data else 1,
+                    step_runtime_fn=step_runtime_fn,
                 )
 
                 with mock_patch_method_original(
@@ -327,8 +323,9 @@ class TestBenchmark(TestCase):
                     expected_start_times[case_name]
                 ):
                     trial = experiment.trials[trial_index]
-                    self.assertEqual(trial.index, trial.arms[0].parameters["x0"])
-                    expected_runtime = trial_runtime_func(trial)
+                    params = trial.arms[0].parameters
+                    self.assertEqual(trial.index, params["x0"])
+                    expected_runtime = step_runtime_fn(params=params)
                     self.assertEqual(
                         backend_simulator.get_sim_trial_by_index(
                             trial_index=trial_index
@@ -350,16 +347,8 @@ class TestBenchmark(TestCase):
                 )
                 if map_data:
                     data = assert_is_instance(experiment.lookup_data(), MapData)
-                    self.assertEqual(len(data.df), 4)
-                    expected_map_df_length = sum(
-                        (
-                            trial_runtime_func(trial) + 1
-                            for trial in experiment.trials.values()
-                        )
-                    )
-                    self.assertEqual(
-                        len(data.map_df), expected_map_df_length, case_name
-                    )
+                    self.assertEqual(len(data.df), 4, msg=case_name)
+                    self.assertEqual(len(data.map_df), 4, msg=case_name)
 
     def test_replication_async(self) -> None:
         self._test_replication_async(map_data=False)
@@ -374,13 +363,15 @@ class TestBenchmark(TestCase):
         Each arm produces values equaling the trial index everywhere on the
         progression, so Trials 1, 2, and 3 will stop early, and trial 0 will not.
 
-        t=0-2: Trials 0 and 1 run
-        t=2: Trial 1 stops early. Trial 2 gets added to "_queued", and then to
-            "_running", with a queued time of 2 and a sim_start_time of 3.
-        t=3-4: Trials 0 and 2 run.
-        t=4: Trial 0 completes.
-        t=5: Trials 2 and 3 run, then trial 2 gets stopped early.
-        t=6-7: Trial 3 runs by itself then gets stopped early.
+        t=0-2: Trials 0 and 1 run.
+        t=3: Trial 1 stops early. Trial 2 gets added to "_queued", and then to
+            "_running", with a queued time of 3 and a sim_start_time of 4.
+        t=4: Trials 0 and 2 run.
+        t=5: Trial 0 completes. Trial 2 runs.
+        t=6: Trials 2 runs. Trial 3 starts with a sim_queued_time of 5 and a
+            sim_start_time of 5.
+        t=7: Trial 2 stops early. Trial 3 runs.
+        t=8-9: Trial 3 runs by itself then gets stopped early.
         """
         min_progression = 2
         progression_length_if_not_stopped = 5
@@ -396,23 +387,33 @@ class TestBenchmark(TestCase):
 
         problem = get_async_benchmark_problem(
             map_data=True,
-            trial_runtime_func=lambda _: progression_length_if_not_stopped,
             n_steps=progression_length_if_not_stopped,
             lower_is_better=True,
         )
         result = benchmark_replication(
-            problem=problem, method=method, seed=0, strip_runner_before_saving=False
+            problem=problem,
+            method=method,
+            seed=0,
+            strip_runner_before_saving=False,
         )
         data = assert_is_instance(none_throws(result.experiment).lookup_data(), MapData)
+        expected_n_steps = {
+            0: progression_length_if_not_stopped,
+            # stopping after step=2, so 3 steps (0, 1, 2) have passed
+            **{i: min_progression + 1 for i in range(1, 4)},
+        }
+
         grouped = data.map_df.groupby("trial_index")
         self.assertEqual(
             dict(grouped["step"].count()),
-            {
-                0: progression_length_if_not_stopped,
-                # stopping after step=2, so 3 steps (0, 1, 2) have passed
-                **{i: min_progression + 1 for i in range(1, 4)},
-            },
+            expected_n_steps,
         )
+        for trial_index, sub_df in grouped:
+            self.assertEqual(
+                sub_df["step"].tolist(),
+                list(range(expected_n_steps[trial_index])),
+                msg=f"Trial {trial_index}",
+            )
         self.assertEqual(
             dict(grouped["step"].max()),
             {
@@ -420,7 +421,6 @@ class TestBenchmark(TestCase):
                 **{i: min_progression for i in range(1, 4)},
             },
         )
-        map_df = data.map_df
         simulator = none_throws(
             assert_is_instance(
                 none_throws(result.experiment).runner, BenchmarkRunner
@@ -434,20 +434,13 @@ class TestBenchmark(TestCase):
             trial_index: sim_trial.sim_start_time
             for trial_index, sim_trial in trials.items()
         }
-        map_df["start_time"] = map_df["trial_index"].map(start_times).astype(int)
-        map_df["absolute_time"] = map_df["step"] + map_df["start_time"]
-        expected_start_end_times = {
-            0: (0, 4),
-            1: (0, 2),
-            2: (3, 5),
-            3: (5, 7),
+        expected_start_times = {
+            0: 0,
+            1: 0,
+            2: 4,
+            3: 5,
         }
-        for trial_index, (start, end) in expected_start_end_times.items():
-            sub_df = map_df[map_df["trial_index"] == trial_index]
-            self.assertEqual(
-                sub_df["absolute_time"].min(), start, msg=f"{trial_index=}"
-            )
-            self.assertEqual(sub_df["absolute_time"].max(), end, msg=f"{trial_index=}")
+        self.assertEqual(start_times, expected_start_times)
 
     @mock_botorch_optimize
     def _test_replication_with_inference_value(

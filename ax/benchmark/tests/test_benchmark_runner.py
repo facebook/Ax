@@ -51,7 +51,7 @@ class TestBenchmarkRunner(TestCase):
         # Initialize
         runner = BenchmarkRunner(
             test_function=Jenatton(outcome_names=["objective"]),
-            trial_runtime_func=lambda trial: trial.index + 1,
+            step_runtime_function=lambda params: params["x1"] + 1,
             max_concurrency=2,
         )
         simulated_backend_runner = none_throws(runner.simulated_backend_runner)
@@ -307,6 +307,7 @@ class TestBenchmarkRunner(TestCase):
                     "sem",
                     "trial_index",
                     "step",
+                    "virtual runtime",
                 },
                 set(obj_df.columns),
             )
@@ -374,10 +375,7 @@ class TestBenchmarkRunner(TestCase):
 
         with self.subTest("with SimulatedBackendRunner"):
             runner = BenchmarkRunner(
-                test_function=test_function,
-                noise_std=0.0,
-                trial_runtime_func=lambda _: 1,
-                max_concurrency=2,
+                test_function=test_function, noise_std=0.0, max_concurrency=2
             )
 
             # pyre-fixme[6]: Incompatible parameter type (because argument is mutable)
@@ -394,10 +392,48 @@ class TestBenchmarkRunner(TestCase):
             self.assertEqual(sim_trial.sim_start_time, 0)
             self.assertEqual(backend_simulator.time, 0)
 
-    def test_warns_if_concurrent_and_trial_runtime_func_is_none(self) -> None:
-        test_function = IdentityTestFunction(outcome_names=["foo"])
-        with self.assertWarnsRegex(Warning, "`trial_runtime_func` is not set"):
-            BenchmarkRunner(
-                test_function=test_function,
-                max_concurrency=2,
-            )
+    def test_heterogeneous_step_runtime(self) -> None:
+        n_steps = 10
+        test_function = IdentityTestFunction(
+            outcome_names=["foo", "bar"], n_steps=n_steps
+        )
+        runner = BenchmarkRunner(
+            test_function=test_function,
+            noise_std=0.0,
+            step_runtime_function=lambda params: params["x0"],
+        )
+        experiment = Experiment(
+            name="test",
+            is_test=True,
+            runner=runner,
+            search_space=Mock(spec=SearchSpace),
+        )
+        trial = BatchTrial(experiment=experiment)
+        arm_0_step_time = 0.5
+        arm_1_step_time = 1.5
+        trial.add_arm(Arm(name="0_0", parameters={"x0": arm_0_step_time}))
+        trial.add_arm(Arm(name="0_1", parameters={"x0": arm_1_step_time}))
+        df = runner.run(trial=trial)["benchmark_metadata"].dfs["foo"]
+        total_runtime = df.groupby("arm_name")["virtual runtime"].max()
+        self.assertEqual(
+            total_runtime.to_dict(),
+            {"0_0": arm_0_step_time * n_steps, "0_1": arm_1_step_time * n_steps},
+        )
+        max_step = df.groupby("arm_name")["step"].max()
+        self.assertEqual(max_step.to_list(), [9, 9])
+
+        with self.subTest("Test runtimes non-negative"):
+            trial = BatchTrial(experiment=experiment)
+            trial.add_arm(Arm(name="0_0", parameters={"x0": -1}))
+            with self.assertRaisesRegex(
+                ValueError, "Step duration must be non-negative"
+            ):
+                runner.run(trial=trial)
+
+    def test_wrong_noise_std_keys(self) -> None:
+        test_function = IdentityTestFunction(outcome_names=["foo", "bar"])
+        runner = BenchmarkRunner(test_function=test_function, noise_std={"alpaca": 4})
+        with self.assertRaisesRegex(
+            ValueError, "Noise std must have keys equal to outcome names"
+        ):
+            runner.get_noise_stds()

@@ -5,11 +5,13 @@
 
 # pyre-strict
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 from ax.benchmark.benchmark_metric import BenchmarkMapMetric, BenchmarkMetric
+
+from ax.benchmark.benchmark_step_runtime_function import TBenchmarkStepRuntimeFunction
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
 
@@ -22,7 +24,6 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.trial import BaseTrial
 from ax.core.types import ComparisonOp, TParameterization, TParamValue
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
@@ -83,8 +84,11 @@ class BenchmarkProblem(Base):
             single-objective problems.
         n_best_points: Number of points for a best-point selector to recommend.
             Currently, only ``n_best_points=1`` is supported.
-        trial_runtime_func: A function that takes a trial and returns the
-            (virtual) time it takes to run that trial, which is 1 by default.
+        step_runtime_function: Optionally, a function that takes in ``params``
+            (typically dictionaries mapping strings to ``TParamValue``s) and
+            returns the runtime of an step. If ``step_runtime_function`` is
+            left as ``None``, each step will take one simulated second.  (When
+            data is not time-series, the whole trial consists of one step.)
     """
 
     name: str
@@ -97,7 +101,7 @@ class BenchmarkProblem(Base):
     search_space: SearchSpace = field(repr=False)
     report_inference_value_as_trace: bool = False
     n_best_points: int = 1
-    trial_runtime_func: Callable[[BaseTrial], int] | None = None
+    step_runtime_function: TBenchmarkStepRuntimeFunction | None = None
     target_fidelity_and_task: Mapping[str, TParamValue] = field(default_factory=dict)
     status_quo_params: TParameterization | None = None
 
@@ -330,7 +334,7 @@ def create_problem_from_botorch(
     observe_noise_sd: bool = False,
     search_space: SearchSpace | None = None,
     report_inference_value_as_trace: bool = False,
-    trial_runtime_func: Callable[[BaseTrial], int] | None = None,
+    step_runtime_function: TBenchmarkStepRuntimeFunction | None = None,
     status_quo_params: TParameterization | None = None,
 ) -> BenchmarkProblem:
     """
@@ -368,9 +372,12 @@ def create_problem_from_botorch(
             ``optimization_trace`` on a ``BenchmarkResult`` ought to be the
             ``inference_trace``; otherwise, it will be the ``oracle_trace``.
             See ``BenchmarkResult`` for more information.
-        trial_runtime_func: A function that takes a trial and returns how long
-            it takes to run that trial.
         status_quo_params: The status quo parameters for the problem.
+        step_runtime_function: Optionally, a function that takes in ``params``
+            (typically dictionaries mapping strings to ``TParamValue``s) and
+            returns the runtime of an step. If ``step_runtime_function`` is
+            left as ``None``, each step will take one simulated second.  (When
+            data is not time-series, the whole trial consists of one step.)
 
     Example:
         >>> from ax.benchmark.benchmark_problem import create_problem_from_botorch
@@ -381,7 +388,7 @@ def create_problem_from_botorch(
         ...    noise_std=0.1,
         ...    num_trials=10,
         ...    observe_noise_sd=True,
-        ...    trial_runtime_func=lambda trial: trial.index,
+        ...    step_runtime_function=lambda params: 1 / params["fidelity"],
         ... )
     """
     # pyre-fixme [45]: Invalid class instantiation
@@ -455,6 +462,6 @@ def create_problem_from_botorch(
         #  Tensor, Module]`.
         optimal_value=optimal_value,
         report_inference_value_as_trace=report_inference_value_as_trace,
-        trial_runtime_func=trial_runtime_func,
+        step_runtime_function=step_runtime_function,
         status_quo_params=status_quo_params,
     )
