@@ -159,7 +159,6 @@ def object_from_json(
             return torch_type_from_str(
                 identifier=object_json["value"], type_name=_type[6:]
             )
-
         elif _type == "ListSurrogate":
             return surrogate_from_list_surrogate_json(
                 list_surrogate_json=object_json,
@@ -297,6 +296,16 @@ def object_from_json(
                     decoder_registry=decoder_registry,
                     class_decoder_registry=class_decoder_registry,
                 )
+            )
+
+        if _class is SurrogateSpec:
+            # This is done here rather than with other _type checks above, since
+            # we want to have the input & outcome transform arguments updated
+            # before we call surrogate_spec_from_json.
+            return surrogate_spec_from_json(
+                surrogate_spec_json=object_json,
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
             )
 
         return ax_class_from_json_dict(
@@ -910,6 +919,46 @@ def generation_strategy_from_json(
         class_decoder_registry=class_decoder_registry,
     )
     return gs
+
+
+def surrogate_spec_from_json(
+    surrogate_spec_json: dict[str, Any],
+    decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
+    class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
+) -> SurrogateSpec:
+    """Construct a surrogate spec from JSON arguments.
+
+    If both deprecated args and `model_configs` are found, the deprecated args are
+    discarded to prevent errors during loading. These would've been made into a
+    ``ModelConfig`` while constructing the ``SurrogateSpec``. This is necessary
+    to ensure backwards compatibility with ``SurrogateSpec``s that had both attributes.
+    """
+    if "model_configs" in surrogate_spec_json:
+        for deprecated_arg in [
+            "botorch_model_class",
+            "botorch_model_kwargs",
+            "mll_class",
+            "mll_kwargs",
+            "input_transform_classes",
+            "input_transform_options",
+            "outcome_transform_classes",
+            "outcome_transform_options",
+            "covar_module_class",
+            "covar_module_kwargs",
+            "likelihood_class",
+            "likelihood_kwargs",
+        ]:
+            surrogate_spec_json.pop(deprecated_arg, None)
+    return SurrogateSpec(
+        **{
+            k: object_from_json(
+                v,
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
+            )
+            for k, v in surrogate_spec_json.items()
+        }
+    )
 
 
 def surrogate_from_list_surrogate_json(
