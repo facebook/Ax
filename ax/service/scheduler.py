@@ -2147,6 +2147,11 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             ):
                 # to avoid error https://fburl.com/code/ilix4okj
                 kwargs["overwrite_existing_data"] = False
+            if self.trial_type is not None:
+                metrics = assert_is_instance(
+                    self.experiment, MultiTypeExperiment
+                ).metrics_for_trial_type(trial_type=none_throws(self.trial_type))
+                kwargs["metrics"] = metrics
             results = self.experiment.fetch_trials_data_results(
                 trial_indices=trial_indices,
                 **kwargs,
