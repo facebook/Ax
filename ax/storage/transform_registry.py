@@ -18,7 +18,7 @@ from ax.modelbridge.transforms.convert_metric_names import ConvertMetricNames
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
 from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
-from ax.modelbridge.transforms.int_to_float import IntToFloat
+from ax.modelbridge.transforms.int_to_float import IntToFloat, LogIntToFloat
 from ax.modelbridge.transforms.ivw import IVW
 from ax.modelbridge.transforms.log import Log
 from ax.modelbridge.transforms.log_y import LogY
@@ -95,6 +95,7 @@ TRANSFORM_REGISTRY: dict[type[Transform], int] = {
     TimeAsFeature: 27,
     TransformToNewSQ: 28,
     FillMissingParameters: 29,
+    LogIntToFloat: 30,
 }
 
 """

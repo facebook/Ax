@@ -67,7 +67,7 @@ class SearchSpace(Base):
 
     def __init__(
         self,
-        parameters: list[Parameter],
+        parameters: Sequence[Parameter],
         parameter_constraints: list[ParameterConstraint] | None = None,
     ) -> None:
         """Initialize SearchSpace
