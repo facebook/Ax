@@ -40,7 +40,7 @@ from ax.modelbridge.transforms.convert_metric_names import ConvertMetricNames
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
 from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
-from ax.modelbridge.transforms.int_to_float import IntToFloat
+from ax.modelbridge.transforms.int_to_float import IntToFloat, LogIntToFloat
 from ax.modelbridge.transforms.ivw import IVW
 from ax.modelbridge.transforms.log import Log
 from ax.modelbridge.transforms.logit import Logit
@@ -76,6 +76,10 @@ from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
 
+# This set of transforms uses continuous relaxation to handle discrete parameters.
+# All candidate generation is done in the continuous space, and the generated
+# candidates are rounded to fit the original search space. This is can be
+# suboptimal when there are discrete parameters with a small number of options.
 Cont_X_trans: list[type[Transform]] = [
     FillMissingParameters,
     RemoveFixed,
@@ -87,8 +91,30 @@ Cont_X_trans: list[type[Transform]] = [
     UnitX,
 ]
 
+# This is a modification of Cont_X_trans that aims to avoid continuous relaxation
+# where possible. It replaces IntToFloat with LogIntToFloat, which is only transforms
+# log-scale integer parameters, which still use continuous relaxation. Other discrete
+# transforms will remain discrete. When used with MBM, a Normalize input transform
+# will be added to replace the UnitX transform. This setup facilitates the use of
+# optimize_acqf_mixed_alternating, which is a more efficient acquisition function
+# optimizer for mixed discrete/continuous problems.
+MBM_X_trans: list[type[Transform]] = [
+    FillMissingParameters,
+    RemoveFixed,
+    OrderedChoiceToIntegerRange,
+    OneHot,
+    LogIntToFloat,
+    Log,
+    Logit,
+]
+
+
 Discrete_X_trans: list[type[Transform]] = [IntRangeToChoice]
 
+# This is a modification of Cont_X_trans that replaces OneHot and
+# OrderedChoiceToIntegerRange with ChoiceToNumericChoice. This results in retaining
+# all choice parameters as discrete, while using continuous relaxation for integer
+# valued RangeParameters.
 Mixed_transforms: list[type[Transform]] = [
     FillMissingParameters,
     RemoveFixed,
@@ -155,7 +181,7 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
     "BoTorch": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=ModularBoTorchModel,
-        transforms=Cont_X_trans + Y_trans,
+        transforms=MBM_X_trans + Y_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
     "Legacy_GPEI": ModelSetup(
@@ -204,7 +230,7 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
     "SAASBO": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=ModularBoTorchModel,
-        transforms=Cont_X_trans + Y_trans,
+        transforms=MBM_X_trans + Y_trans,
         default_model_kwargs={
             "surrogate_spec": SurrogateSpec(
                 botorch_model_class=SaasFullyBayesianSingleTaskGP

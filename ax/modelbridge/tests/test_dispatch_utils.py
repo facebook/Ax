@@ -19,8 +19,7 @@ from ax.modelbridge.dispatch_utils import (
     choose_generation_strategy,
     DEFAULT_BAYESIAN_PARALLELISM,
 )
-from ax.modelbridge.factory import Cont_X_trans, Y_trans
-from ax.modelbridge.registry import Mixed_transforms, Models
+from ax.modelbridge.registry import MBM_X_trans, Mixed_transforms, Models, Y_trans
 from ax.modelbridge.transforms.log_y import LogY
 from ax.modelbridge.transforms.winsorize import Winsorize
 from ax.models.winsorization_config import WinsorizationConfig
@@ -44,7 +43,7 @@ class TestDispatchUtils(TestCase):
 
     @mock_botorch_optimize
     def test_choose_generation_strategy(self) -> None:
-        expected_transforms = [Winsorize] + Cont_X_trans + Y_trans
+        expected_transforms = [Winsorize] + MBM_X_trans + Y_trans
         expected_transform_configs = {
             "Winsorize": {"derelativize_with_raw_status_quo": False},
             "Derelativize": {"use_raw_status_quo": False},
