@@ -5,9 +5,13 @@
 
 # pyre-strict
 
+from typing import Any, Mapping
+
+from ax.core.base_trial import TrialStatus
+
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
-from ax.core.objective import Objective
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.parameter import (
@@ -25,6 +29,9 @@ from ax.preview.api.configs import (
     ParameterType,
     RangeParameterConfig,
 )
+from ax.preview.api.protocols.metric import IMetric
+from ax.preview.api.protocols.runner import IRunner
+from ax.preview.api.types import TParameterization
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -32,7 +39,7 @@ from ax.utils.testing.core_stubs import (
     get_percentile_early_stopping_strategy,
 )
 from ax.utils.testing.modeling_stubs import get_generation_strategy
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws, override
 
 
 class TestClient(TestCase):
@@ -161,6 +168,118 @@ class TestClient(TestCase):
                 outcome_constraints=["qps >= 0"],
             )
 
+    def test_configure_runner(self) -> None:
+        client = Client()
+        runner = DummyRunner()
+
+        with self.assertRaisesRegex(AssertionError, "Experiment not set"):
+            client.configure_runner(runner=runner)
+
+        client.set_experiment(experiment=get_branin_experiment())
+        client.configure_runner(runner=runner)
+
+        self.assertEqual(none_throws(client._experiment).runner, runner)
+
+    def test_configure_metric(self) -> None:
+        client = Client()
+        custom_metric = DummyMetric(name="custom")
+
+        with self.assertRaisesRegex(AssertionError, "Experiment not set"):
+            client.configure_metrics(metrics=[custom_metric])
+
+        client.configure_experiment(
+            experiment_config=ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(0, 1)
+                    )
+                ],
+                name="foo",
+            )
+        )
+
+        # Test replacing a single objective
+        client.configure_optimization(objective="custom")
+        client.configure_metrics(metrics=[custom_metric])
+
+        self.assertEqual(
+            custom_metric,
+            none_throws(
+                none_throws(client._experiment).optimization_config
+            ).objective.metric,
+        )
+
+        # Test replacing a multi-objective
+        client.configure_optimization(objective="custom, foo")
+        client.configure_metrics(metrics=[custom_metric])
+
+        self.assertIn(
+            custom_metric,
+            assert_is_instance(
+                none_throws(
+                    none_throws(client._experiment).optimization_config
+                ).objective,
+                MultiObjective,
+            ).metrics,
+        )
+        # Test replacing a scalarized objective
+        client.configure_optimization(objective="custom + foo")
+        client.configure_metrics(metrics=[custom_metric])
+
+        self.assertIn(
+            custom_metric,
+            assert_is_instance(
+                none_throws(
+                    none_throws(client._experiment).optimization_config
+                ).objective,
+                ScalarizedObjective,
+            ).metrics,
+        )
+
+        # Test replacing an outcome constraint
+        client.configure_optimization(
+            objective="foo", outcome_constraints=["custom >= 0"]
+        )
+        client.configure_metrics(metrics=[custom_metric])
+
+        self.assertEqual(
+            custom_metric,
+            none_throws(none_throws(client._experiment).optimization_config)
+            .outcome_constraints[0]
+            .metric,
+        )
+
+        # Test replacing a tracking metric
+        client.configure_optimization(
+            objective="foo",
+        )
+        none_throws(client._experiment).add_tracking_metric(metric=Metric("custom"))
+        client.configure_metrics(metrics=[custom_metric])
+
+        self.assertEqual(
+            custom_metric,
+            none_throws(client._experiment).tracking_metrics[0],
+        )
+
+        # Test adding a tracking metric
+        client = Client()  # Start a fresh Client
+        client.configure_experiment(
+            experiment_config=ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(0, 1)
+                    )
+                ],
+                name="foo",
+            )
+        )
+        client.configure_metrics(metrics=[custom_metric])
+
+        self.assertEqual(
+            custom_metric,
+            none_throws(client._experiment).tracking_metrics[0],
+        )
+
     def test_set_experiment(self) -> None:
         client = Client()
         experiment = get_branin_experiment()
@@ -202,3 +321,28 @@ class TestClient(TestCase):
             early_stopping_strategy=early_stopping_strategy
         )
         self.assertEqual(client._early_stopping_strategy, early_stopping_strategy)
+
+
+class DummyRunner(IRunner):
+    @override
+    def run_trial(
+        self, trial_index: int, parameterization: TParameterization
+    ) -> dict[str, Any]: ...
+
+    @override
+    def poll_trial(
+        self, trial_index: int, trial_metadata: Mapping[str, Any]
+    ) -> TrialStatus: ...
+
+    @override
+    def stop_trial(
+        self, trial_index: int, trial_metadata: Mapping[str, Any]
+    ) -> dict[str, Any]: ...
+
+
+class DummyMetric(IMetric):
+    def fetch(
+        self,
+        trial_index: int,
+        trial_metadata: Mapping[str, Any],
+    ) -> tuple[int, float | tuple[float, float]]: ...
