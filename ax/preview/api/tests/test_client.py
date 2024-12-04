@@ -26,6 +26,7 @@ from ax.preview.api.client import Client
 from ax.preview.api.configs import (
     ChoiceParameterConfig,
     ExperimentConfig,
+    GenerationStrategyConfig,
     ParameterType,
     RangeParameterConfig,
 )
@@ -321,6 +322,62 @@ class TestClient(TestCase):
             early_stopping_strategy=early_stopping_strategy
         )
         self.assertEqual(client._early_stopping_strategy, early_stopping_strategy)
+
+    def test_get_next_trials(self) -> None:
+        client = Client()
+
+        with self.assertRaisesRegex(AssertionError, "Experiment not set"):
+            client.get_next_trials()
+
+        client.configure_experiment(
+            ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                    RangeParameterConfig(
+                        name="x2", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+
+        with self.assertRaisesRegex(UnsupportedError, "OptimizationConfig not set"):
+            client.get_next_trials()
+
+        client.configure_optimization(objective="foo")
+        client.configure_generation_strategy(
+            generation_strategy_config=GenerationStrategyConfig(
+                # Set this to a large number so test runs fast
+                num_initialization_trials=999,
+                maximum_parallelism=5,
+            )
+        )
+
+        # Test can generate one trial
+        trials = client.get_next_trials()
+        self.assertEqual(len(trials), 1)
+        self.assertEqual({*trials[0].keys()}, {"x1", "x2"})
+        for parameter in ["x1", "x2"]:
+            value = assert_is_instance(trials[0][parameter], float)
+            self.assertGreaterEqual(value, -1.0)
+            self.assertLessEqual(value, 1.0)
+
+        # Test can generate multiple trials
+        trials = client.get_next_trials(maximum_trials=2)
+        self.assertEqual(len(trials), 2)
+
+        # Test respects fixed features
+        trials = client.get_next_trials(maximum_trials=1, fixed_parameters={"x1": 0.5})
+        value = assert_is_instance(trials[3]["x1"], float)
+        self.assertEqual(value, 0.5)
+
+        # Test respects max parallelism
+        # Returns 1 even though we asked for 2 because maximum parallelism has been
+        # reached.
+        trials = client.get_next_trials(maximum_trials=2)
+        self.assertEqual(len(trials), 1)
 
 
 class DummyRunner(IRunner):

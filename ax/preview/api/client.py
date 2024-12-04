@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
+
 from logging import Logger
 from typing import Sequence
 
@@ -12,14 +13,17 @@ from ax.analysis.analysis import Analysis, AnalysisCard  # Used as a return type
 from ax.core.base_trial import TrialStatus  # Used as a return type
 
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
+from ax.core.trial import Trial
+from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
+from ax.modelbridge.generation_strategy import GenerationStrategy
 
 from ax.preview.api.configs import (
     DatabaseConfig,
@@ -35,7 +39,8 @@ from ax.preview.api.utils.instantiation.from_string import (
     optimization_config_from_string,
 )
 from ax.utils.common.logger import get_logger
-from pyre_extensions import none_throws
+from ax.utils.common.random import with_rng_seed
+from pyre_extensions import assert_is_instance, none_throws
 from typing_extensions import Self
 
 logger: Logger = get_logger(__name__)
@@ -43,7 +48,7 @@ logger: Logger = get_logger(__name__)
 
 class Client:
     _experiment: Experiment | None = None
-    _generation_strategy: GenerationStrategyInterface | None = None
+    _generation_strategy: GenerationStrategy | None = None
     _early_stopping_strategy: BaseEarlyStoppingStrategy | None = None
 
     def __init__(
@@ -61,8 +66,8 @@ class Client:
                 of the experiment's results. If not provided, the random seed will not
                 be set, leading to potentially different results on different runs.
         """
-        self.db_config = db_config
-        self.random_seed = random_seed
+        self._db_config = db_config
+        self._random_seed = random_seed
 
     # -------------------- Section 1: Configure --------------------------------------
     def configure_experiment(self, experiment_config: ExperimentConfig) -> None:
@@ -84,7 +89,7 @@ class Client:
 
         self._experiment = experiment_from_config(config=experiment_config)
 
-        if self.db_config is not None:
+        if self._db_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -131,7 +136,7 @@ class Client:
             )
         )
 
-        if self.db_config is not None:
+        if self._db_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -153,7 +158,7 @@ class Client:
                 generation_strategy_config.num_initialization_trials
             ),
             max_parallelism_cap=generation_strategy_config.maximum_parallelism,
-            random_seed=self.random_seed,
+            random_seed=self._random_seed,
         )
 
         # Necessary for storage implications, may be removed in the future
@@ -161,7 +166,7 @@ class Client:
 
         self._generation_strategy = generation_strategy
 
-        if self.db_config is not None:
+        if self._db_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -196,7 +201,7 @@ class Client:
         """
         self._experiment = experiment
 
-        if self.db_config is not None:
+        if self._db_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -212,13 +217,11 @@ class Client:
         """
         self._none_throws_experiment().optimization_config = optimization_config
 
-        if self.db_config is not None:
+        if self._db_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
-    def set_generation_strategy(
-        self, generation_strategy: GenerationStrategyInterface
-    ) -> None:
+    def set_generation_strategy(self, generation_strategy: GenerationStrategy) -> None:
         """
         This method is not part of the API and is provided (without guarantees of
         method signature stability) for the convenience of some developers, power
@@ -237,7 +240,7 @@ class Client:
             self._generation_strategy
         )._experiment = self._none_throws_experiment()
 
-        if self.db_config is not None:
+        if self._db_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -256,7 +259,7 @@ class Client:
         """
         self._early_stopping_strategy = early_stopping_strategy
 
-        if self.db_config is not None:
+        if self._db_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -272,7 +275,7 @@ class Client:
         """
         self._none_throws_experiment().runner = runner
 
-        if self.db_config is not None:
+        if self._db_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -294,7 +297,7 @@ class Client:
             # Check the optimization config first
             self._overwrite_metric(metric=metric)
 
-        if self.db_config is not None:
+        if self._db_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -316,7 +319,60 @@ class Client:
         Returns:
             A mapping of trial index to parameterization.
         """
-        ...
+
+        if self._none_throws_experiment().optimization_config is None:
+            raise UnsupportedError(
+                "OptimizationConfig not set. Please call configure_optimization before "
+                "generating trials."
+            )
+
+        # If no GenerationStrategy is set, configure a default one
+        if self._generation_strategy is None:
+            self.configure_generation_strategy(
+                generation_strategy_config=GenerationStrategyConfig()
+            )
+
+        trials: list[Trial] = []
+        with with_rng_seed(seed=self._random_seed):
+            # This will be changed to use gen directly post gen-unfication cc @mgarrard
+            generator_runs = none_throws(
+                self._generation_strategy
+            ).gen_for_multiple_trials_with_multiple_models(
+                experiment=self._none_throws_experiment(),
+                pending_observations=(
+                    get_pending_observation_features_based_on_trial_status(
+                        experiment=self._none_throws_experiment()
+                    )
+                ),
+                n=1,
+                fixed_features=(
+                    # pyre-fixme[6]: Type narrowing broken because core Ax
+                    # TParameterization is dict not Mapping
+                    ObservationFeatures(parameters=fixed_parameters)
+                    if fixed_parameters is not None
+                    else None
+                ),
+                num_trials=maximum_trials,
+            )
+
+        for generator_run in generator_runs:
+            trial = assert_is_instance(
+                self._none_throws_experiment().new_trial(
+                    generator_run=generator_run[0],
+                ),
+                Trial,
+            )
+            trial.mark_running(no_runner_required=True)
+
+            trials.append(trial)
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save trial and update generation strategy
+            ...
+
+        # pyre-fixme[7]: Core Ax allows users to specify TParameterization values as
+        # None, but we do not allow this in the API.
+        return {trial.index: none_throws(trial.arm).parameters for trial in trials}
 
     def complete_trial(
         self,
