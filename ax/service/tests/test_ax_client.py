@@ -57,9 +57,8 @@ from ax.modelbridge.generation_strategy import (
 )
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.random import RandomModelBridge
-from ax.modelbridge.registry import Models
+from ax.modelbridge.registry import Cont_X_trans, Models
 from ax.runners.synthetic import SyntheticRunner
-
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.service.utils.best_point import (
     get_best_parameters_from_model_predictions_with_trial_index,
@@ -220,7 +219,14 @@ def get_client_with_simple_discrete_moo_problem(
     gs = GenerationStrategy(
         steps=[
             GenerationStep(model=Models.SOBOL, num_trials=3),
-            GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=-1),
+            GenerationStep(
+                model=Models.BOTORCH_MODULAR,
+                num_trials=-1,
+                model_kwargs={
+                    # To avoid search space exhausted errors.
+                    "transforms": Cont_X_trans,
+                },
+            ),
         ]
     )
 
