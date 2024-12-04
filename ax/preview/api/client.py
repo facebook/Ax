@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-
+from logging import Logger
 from typing import Sequence
 
 from ax.analysis.analysis import Analysis, AnalysisCard  # Used as a return type
@@ -14,6 +14,7 @@ from ax.core.base_trial import TrialStatus  # Used as a return type
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.metric import Metric
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
@@ -33,8 +34,11 @@ from ax.preview.api.utils.instantiation.from_config import experiment_from_confi
 from ax.preview.api.utils.instantiation.from_string import (
     optimization_config_from_string,
 )
+from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
 from typing_extensions import Self
+
+logger: Logger = get_logger(__name__)
 
 
 class Client:
@@ -168,15 +172,16 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        self._set_runner(runner=runner)
 
     def configure_metrics(self, metrics: Sequence[IMetric]) -> None:
         """
-        Finds equivallently named Metric that already exists on the Experiment and
-        replaces it with the Metric provided, or adds the Metric provided to the
-        Experiment as tracking metrics.
+        Attach a class with logic for autmating fetching of a given metric by
+        replacing its instance with the provided Metric from metrics sequence input,
+        or adds the Metric provided to the Experiment as a tracking metric if that
+        metric was not already present.
         """
-        ...
+        self._set_metrics(metrics=metrics)
 
     # -------------------- Section 1.2: Set (not API) -------------------------------
     def set_experiment(self, experiment: Experiment) -> None:
@@ -228,6 +233,10 @@ class Client:
             self._generation_strategy
         )._experiment = self._none_throws_experiment()
 
+        none_throws(
+            self._generation_strategy
+        )._experiment = self._none_throws_experiment()
+
         if self.db_config is not None:
             # TODO[mpolson64] Save to database
             ...
@@ -251,7 +260,7 @@ class Client:
             # TODO[mpolson64] Save to database
             ...
 
-    def set_runner(self, runner: Runner) -> None:
+    def _set_runner(self, runner: Runner) -> None:
         """
         This method is not part of the API and is provided (without guarantees of
         method signature stability) for the convenience of some developers and power
@@ -261,19 +270,33 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        self._none_throws_experiment().runner = runner
 
-    def set_metrics(self, metrics: Sequence[Metric]) -> None:
+        if self.db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
+
+    def _set_metrics(self, metrics: Sequence[Metric]) -> None:
         """
         This method is not part of the API and is provided (without guarantees of
         method signature stability) for the convenience of some developers, power
         users, and partners.
 
-        Finds equivallently named Metric that already exists on the Experiment and
-        replaces it with the Metric provided, or adds the Metric provided to the
-        Experiment as tracking metrics.
+        Attach a class with logic for autmating fetching of a given metric by
+        replacing its instance with the provided Metric from metrics sequence input,
+        or adds the Metric provided to the Experiment as a tracking metric if that
+        metric was not already present.
         """
-        ...
+        # If an equivalently named Metric already exists on the Experiment, replace it
+        # with the Metric provided. Otherwise, add the Metric to the Experiment as a
+        # tracking metric.
+        for metric in metrics:
+            # Check the optimization config first
+            self._overwrite_metric(metric=metric)
+
+        if self.db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
 
     # -------------------- Section 2. Conduct Experiment ----------------------------
     def get_next_trials(
@@ -515,4 +538,66 @@ class Client:
                 "Experiment not set. Please call configure_experiment or load an "
                 "experiment before utilizing any other methods on the Client."
             ),
+        )
+
+    def _overwrite_metric(self, metric: Metric) -> None:
+        """
+        Overwrite an existing Metric on the Experiment with the provided Metric if they
+        share the same name. If not Metric with the same name exists, add the Metric as
+        a tracking metric.
+
+        Note that this method does not save the Experiment to the database (this is
+        handled in self._set_metrics).
+        """
+
+        # Check the OptimizationConfig first
+        if (
+            optimization_config := self._none_throws_experiment().optimization_config
+        ) is not None:
+            # Check the objective
+            if isinstance(
+                multi_objective := optimization_config.objective, MultiObjective
+            ):
+                for i in range(len(multi_objective.objectives)):
+                    if metric.name == multi_objective.objectives[i].metric.name:
+                        multi_objective._objectives[i]._metric = metric
+                        return
+
+            if isinstance(
+                scalarized_objective := optimization_config.objective,
+                ScalarizedObjective,
+            ):
+                for i in range(len(scalarized_objective.metrics)):
+                    if metric.name == scalarized_objective.metrics[i].name:
+                        scalarized_objective._metrics[i] = metric
+                        return
+
+            if (
+                isinstance(optimization_config.objective, Objective)
+                and metric.name == optimization_config.objective.metric.name
+            ):
+                optimization_config.objective._metric = metric
+                return
+
+            # Check the outcome constraints
+            for i in range(len(optimization_config.outcome_constraints)):
+                if (
+                    metric.name
+                    == optimization_config.outcome_constraints[i].metric.name
+                ):
+                    optimization_config._outcome_constraints[i]._metric = metric
+                    return
+
+        # Check the tracking metrics
+        tracking_metric_names = self._none_throws_experiment()._tracking_metrics.keys()
+        if metric.name in tracking_metric_names:
+            self._none_throws_experiment()._tracking_metrics[metric.name] = metric
+            return
+
+        # If an equivalently named Metric does not exist, add it as a tracking
+        # metric.
+        self._none_throws_experiment().add_tracking_metric(metric=metric)
+        logger.warning(
+            f"Metric {metric} not found in optimization config, added as tracking "
+            "metric."
         )
