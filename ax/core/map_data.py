@@ -230,7 +230,7 @@ class MapData(Data):
             for key in map_dict.keys()
         }
         map_key_infos = map_key_infos or [
-            MapKeyInfo(key=key, default_value=0.0) for key in map_keys
+            MapKeyInfo(key=key, default_value=np.nan) for key in map_keys
         ]
 
         if {mki.key for mki in map_key_infos} != map_keys:
