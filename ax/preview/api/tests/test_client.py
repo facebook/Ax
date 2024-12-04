@@ -379,6 +379,74 @@ class TestClient(TestCase):
         trials = client.get_next_trials(maximum_trials=2)
         self.assertEqual(len(trials), 1)
 
+    def test_mark_trial_failed(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo")
+
+        trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
+        client.mark_trial_failed(trial_index=trial_index)
+        self.assertEqual(
+            none_throws(client._experiment).trials[trial_index].status,
+            TrialStatus.FAILED,
+        )
+
+    def test_mark_trial_abandoned(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo")
+
+        trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
+        client.mark_trial_abandoned(trial_index=trial_index)
+        self.assertEqual(
+            none_throws(client._experiment).trials[trial_index].status,
+            TrialStatus.ABANDONED,
+        )
+
+    def test_mark_trial_early_stopped(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo")
+
+        trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
+        client.mark_trial_early_stopped(
+            trial_index=trial_index, raw_data={"foo": 0.0}, progression=1
+        )
+        self.assertEqual(
+            none_throws(client._experiment).trials[trial_index].status,
+            TrialStatus.EARLY_STOPPED,
+        )
+
 
 class DummyRunner(IRunner):
     @override
