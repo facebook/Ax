@@ -528,7 +528,22 @@ class Client:
         Returns:
             Whether the trial should be stopped early.
         """
-        ...
+        if self._early_stopping_strategy is None:
+            # In the future we may want to support inferring a default early stopping
+            # strategy
+            raise UnsupportedError(
+                "Early stopping strategy not set. Please set an early stopping "
+                "strategy before calling should_stop_trial_early."
+            )
+
+        es_response = none_throws(
+            self._early_stopping_strategy
+        ).should_stop_trials_early(
+            trial_indices={trial_index}, experiment=self._none_throws_experiment()
+        )
+
+        # TODO[mpolson64]: log the returned reason for stopping the trial
+        return trial_index in es_response
 
     # -------------------- Section 2.3 Marking trial status manually ----------------
     def mark_trial_failed(self, trial_index: int) -> None:
