@@ -27,6 +27,7 @@ from ax.core.parameter import (
 )
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
+from ax.core.trial import Trial
 from ax.exceptions.core import UnsupportedError
 from ax.preview.api.client import Client
 from ax.preview.api.configs import (
@@ -594,6 +595,60 @@ class TestClient(TestCase):
                 )
             ),
         )
+
+    def test_attach_trial(self) -> None:
+        client = Client()
+
+        with self.assertRaisesRegex(AssertionError, "Experiment not set"):
+            client.attach_trial(parameters={"x1": 0.5})
+
+        client.configure_experiment(
+            ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo")
+
+        trial_index = client.attach_trial(parameters={"x1": 0.5}, arm_name="bar")
+        trial = assert_is_instance(
+            none_throws(client._experiment).trials[trial_index], Trial
+        )
+        self.assertEqual(none_throws(trial.arm).parameters, {"x1": 0.5})
+        self.assertEqual(none_throws(trial.arm).name, "bar")
+        self.assertEqual(trial.status, TrialStatus.RUNNING)
+
+    def test_attach_baseline(self) -> None:
+        client = Client()
+
+        with self.assertRaisesRegex(AssertionError, "Experiment not set"):
+            client.attach_baseline(parameters={"x1": 0.5})
+
+        client.configure_experiment(
+            ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo")
+
+        trial_index = client.attach_baseline(parameters={"x1": 0.5})
+        trial = assert_is_instance(
+            none_throws(client._experiment).trials[trial_index], Trial
+        )
+        self.assertEqual(none_throws(trial.arm).parameters, {"x1": 0.5})
+        self.assertEqual(none_throws(trial.arm).name, "baseline")
+        self.assertEqual(trial.status, TrialStatus.RUNNING)
+
+        self.assertEqual(client._none_throws_experiment().status_quo, trial.arm)
 
     def test_mark_trial_failed(self) -> None:
         client = Client()
