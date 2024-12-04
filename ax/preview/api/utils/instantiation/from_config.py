@@ -9,6 +9,8 @@
 import numpy as np
 
 from ax.core.experiment import Experiment
+
+from ax.core.formatting_utils import DataType
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -126,6 +128,7 @@ def experiment_from_config(config: ExperimentConfig) -> Experiment:
         name=config.name,
         description=config.description,
         properties={"owners": [config.owner]},
+        default_data_type=DataType.MAP_DATA,
     )
 
 
