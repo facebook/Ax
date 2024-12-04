@@ -26,6 +26,12 @@ from ax.preview.api.configs import (
     RangeParameterConfig,
 )
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
+    get_branin_optimization_config,
+    get_percentile_early_stopping_strategy,
+)
+from ax.utils.testing.modeling_stubs import get_generation_strategy
 from pyre_extensions import none_throws
 
 
@@ -154,3 +160,45 @@ class TestClient(TestCase):
                 objective="ne",
                 outcome_constraints=["qps >= 0"],
             )
+
+    def test_set_experiment(self) -> None:
+        client = Client()
+        experiment = get_branin_experiment()
+
+        client.set_experiment(experiment=experiment)
+
+        self.assertEqual(client._experiment, experiment)
+
+    def test_set_optimization_config(self) -> None:
+        client = Client()
+        optimization_config = get_branin_optimization_config()
+
+        with self.assertRaisesRegex(AssertionError, "Experiment not set"):
+            client.set_optimization_config(optimization_config=optimization_config)
+
+        client.set_experiment(experiment=get_branin_experiment())
+        client.set_optimization_config(
+            optimization_config=optimization_config,
+        )
+
+        self.assertEqual(
+            none_throws(client._experiment).optimization_config, optimization_config
+        )
+
+    def test_set_generation_strategy(self) -> None:
+        client = Client()
+        client.set_experiment(experiment=get_branin_experiment())
+
+        generation_strategy = get_generation_strategy()
+
+        client.set_generation_strategy(generation_strategy=generation_strategy)
+        self.assertEqual(client._generation_strategy, generation_strategy)
+
+    def test_set_early_stopping_strategy(self) -> None:
+        client = Client()
+        early_stopping_strategy = get_percentile_early_stopping_strategy()
+
+        client.set_early_stopping_strategy(
+            early_stopping_strategy=early_stopping_strategy
+        )
+        self.assertEqual(client._early_stopping_strategy, early_stopping_strategy)

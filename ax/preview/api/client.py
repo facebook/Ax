@@ -16,7 +16,6 @@ from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.metric import Metric
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
-from ax.core.search_space import SearchSpace
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
@@ -41,6 +40,7 @@ from typing_extensions import Self
 class Client:
     _experiment: Experiment | None = None
     _generation_strategy: GenerationStrategyInterface | None = None
+    _early_stopping_strategy: BaseEarlyStoppingStrategy | None = None
 
     def __init__(
         self,
@@ -181,51 +181,82 @@ class Client:
     # -------------------- Section 1.2: Set (not API) -------------------------------
     def set_experiment(self, experiment: Experiment) -> None:
         """
+        This method is not part of the API and is provided (without guarantees of
+        method signature stability) for the convenience of some developers, power
+        users, and partners.
+
         Overwrite the existing Experiment with the provided Experiment.
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        self._experiment = experiment
 
-    def set_search_space(self, search_space: SearchSpace) -> None:
-        """
-        Overwrite the existing SearchSpace with the provided SearchSpace.
-
-        Saves to database on completion if db_config is present.
-        """
-        ...
+        if self.db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
 
     def set_optimization_config(self, optimization_config: OptimizationConfig) -> None:
         """
+        This method is not part of the API and is provided (without guarantees of
+        method signature stability) for the convenience of some developers, power
+        users, and partners.
+
         Overwrite the existing OptimizationConfig with the provided OptimizationConfig.
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        self._none_throws_experiment().optimization_config = optimization_config
+
+        if self.db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
 
     def set_generation_strategy(
         self, generation_strategy: GenerationStrategyInterface
     ) -> None:
         """
+        This method is not part of the API and is provided (without guarantees of
+        method signature stability) for the convenience of some developers, power
+        users, and partners.
+
         Overwrite the existing GenerationStrategy with the provided GenerationStrategy.
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        self._generation_strategy = generation_strategy
+        none_throws(
+            self._generation_strategy
+        )._experiment = self._none_throws_experiment()
+
+        if self.db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
 
     def set_early_stopping_strategy(
         self, early_stopping_strategy: BaseEarlyStoppingStrategy
     ) -> None:
         """
+        This method is not part of the API and is provided (without guarantees of
+        method signature stability) for the convenience of some developers, power
+        users, and partners.
+
         Overwrite the existing EarlyStoppingStrategy with the provided
         EarlyStoppingStrategy.
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        self._early_stopping_strategy = early_stopping_strategy
+
+        if self.db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
 
     def set_runner(self, runner: Runner) -> None:
         """
+        This method is not part of the API and is provided (without guarantees of
+        method signature stability) for the convenience of some developers and power
+        users.
+
         Attaches a Runner to the Experiment.
 
         Saves to database on completion if db_config is present.
@@ -234,6 +265,10 @@ class Client:
 
     def set_metrics(self, metrics: Sequence[Metric]) -> None:
         """
+        This method is not part of the API and is provided (without guarantees of
+        method signature stability) for the convenience of some developers, power
+        users, and partners.
+
         Finds equivallently named Metric that already exists on the Experiment and
         replaces it with the Metric provided, or adds the Metric provided to the
         Experiment as tracking metrics.
