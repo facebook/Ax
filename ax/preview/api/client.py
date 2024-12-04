@@ -8,6 +8,8 @@
 from logging import Logger
 from typing import Sequence
 
+import numpy as np
+
 from ax.analysis.analysis import Analysis, AnalysisCard  # Used as a return type
 
 from ax.core.base_trial import TrialStatus  # Used as a return type
@@ -391,7 +393,39 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        if raw_data is not None:
+            self.attach_data(
+                trial_index=trial_index, raw_data=raw_data, progression=progression
+            )
+
+        experiment = self._none_throws_experiment()
+
+        # If no OptimizationConfig is set, mark the trial as COMPLETED
+        if (optimization_config := experiment.optimization_config) is None:
+            experiment.trials[trial_index].mark_completed()
+        else:
+            trial_data = experiment.lookup_data(trial_indices=[trial_index])
+            missing_metrics = {*optimization_config.metrics.keys()} - {
+                *trial_data.metric_names
+            }
+
+            # If all necessary metrics are present mark the trial as COMPLETED
+            if len(missing_metrics) == 0:
+                experiment.trials[trial_index].mark_completed()
+
+            # If any metrics are missing mark the trial as FAILED
+            else:
+                logger.warning(
+                    f"Trial {trial_index} marked completed but metrics "
+                    f"{missing_metrics} are missing, marking trial FAILED."
+                )
+                self.mark_trial_failed(trial_index=trial_index)
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save trial
+            ...
+
+        return experiment.trials[trial_index].status
 
     def attach_data(
         self,
@@ -407,7 +441,26 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        ...
+
+        # If no progression is provided assume the data is not timeseries-like and
+        # set step=NaN
+        data_with_progression = [
+            ({"step": progression if progression is not None else np.nan}, raw_data)
+        ]
+
+        trial = assert_is_instance(
+            self._none_throws_experiment().trials[trial_index], Trial
+        )
+        trial.update_trial_data(
+            # pyre-fixme[6]: Type narrowing broken because core Ax TParameterization
+            # is dict not Mapping
+            raw_data=data_with_progression,
+            combine_with_last_data=True,
+        )
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save trial
+            ...
 
     # -------------------- Section 2.1 Custom trials --------------------------------
     def attach_trial(
