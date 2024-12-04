@@ -455,31 +455,53 @@ class Client:
     # -------------------- Section 2.3 Marking trial status manually ----------------
     def mark_trial_failed(self, trial_index: int) -> None:
         """
-        Manually mark a trial as FAILED. FAILED trials may be re-suggested by
-        get_next_trials.
+        Manually mark a trial as FAILED. FAILED trials typically may be re-suggested by
+        get_next_trials, though this is controlled by the GenerationStrategy.
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        self._none_throws_experiment().trials[trial_index].mark_failed()
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
 
     def mark_trial_abandoned(self, trial_index: int) -> None:
         """
-        Manually mark a trial as ABANDONED. ABANDONED trials may be re-suggested by
+        Manually mark a trial as ABANDONED. ABANDONED trials are typically not able to
+        be re-suggested by get_next_trials, though this is controlled by the
+        GenerationStrategy.
+
+        Saves to database on completion if db_config is present.
+        """
+        self._none_throws_experiment().trials[trial_index].mark_abandoned()
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
+
+    def mark_trial_early_stopped(
+        self, trial_index: int, raw_data: TOutcome, progression: int | None = None
+    ) -> None:
+        """
+        Manually mark a trial as EARLY_STOPPED while attaching the most recent data.
+        This is used when the user has decided (with or without Ax's recommendation) to
+        stop the trial early. EARLY_STOPPED trials will not be re-suggested by
         get_next_trials.
 
         Saves to database on completion if db_config is present.
         """
-        ...
 
-    def mark_trial_early_stopped(self, trial_index: int) -> None:
-        """
-        Manually mark a trial as EARLY_STOPPED. This is used when the user has decided
-        (with or without Ax's recommendation) to stop the trial early. EARLY_STOPPED
-        trials will not be re-suggested by get_next_trials.
+        # First attach the new data
+        self.attach_data(
+            trial_index=trial_index, raw_data=raw_data, progression=progression
+        )
 
-        Saves to database on completion if db_config is present.
-        """
-        ...
+        self._none_throws_experiment().trials[trial_index].mark_early_stopped()
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
 
     def run_trials(self, maximum_trials: int, options: OrchestrationConfig) -> None:
         """
