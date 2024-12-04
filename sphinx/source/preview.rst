@@ -61,3 +61,19 @@ Types
     :members:
     :undoc-members:
     :show-inheritance:
+
+From Config
+~~~~~~~~~~~
+
+.. automodule:: ax.preview.api.utils.instantiation.from_config
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+From String
+~~~~~~~~~~~
+
+.. automodule:: ax.preview.api.utils.instantiation.from_string
+    :members:
+    :undoc-members:
+    :show-inheritance:
