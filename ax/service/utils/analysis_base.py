@@ -14,22 +14,26 @@ from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
+from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.service.utils.with_db_settings_base import WithDBSettingsBase
 from ax.utils.common.typeutils import checked_cast
+from pyre_extensions import none_throws
 
 
 class AnalysisBase(WithDBSettingsBase):
     """
     Base class for analysis functionality shared between AxClient and Scheduler.
+    It also manages the experiment and generation strategy associated with the
+    instance.
     """
 
     # pyre-fixme[13]: Attribute `experiment` is declared in class
     # `AnalysisBase` to have type `Experiment` but is never initialized
-    experiment: Experiment
+    _experiment: Experiment | None
     # pyre-fixme[13]: Attribute `generation_strategy` is declared in class
     # `AnalysisBase` to have type `GenerationStrategyInterface` but
     # is never initialized
-    generation_strategy: GenerationStrategyInterface
+    _generation_strategy: GenerationStrategyInterface | None
 
     def _choose_analyses(self) -> list[Analysis]:
         """
@@ -95,3 +99,49 @@ class AnalysisBase(WithDBSettingsBase):
         )
 
         return cards
+
+    @property
+    def experiment(self) -> Experiment:
+        """Returns the experiment set on this instance."""
+        return none_throws(
+            self._experiment,
+            (
+                f"Experiment not set on {self.__class__.__name__}. Must first "
+                "call load_experiment or create_experiment to use handler functions."
+            ),
+        )
+
+    @experiment.setter
+    def experiment(self, experiment: Experiment) -> None:
+        """Sets the experiment on this instance."""
+        self._experiment = experiment
+
+    @property
+    def generation_strategy(self) -> GenerationStrategyInterface:
+        """Returns the generation strategy, set on this experiment."""
+        return none_throws(
+            self._generation_strategy,
+            "No generation strategy has been set on this optimization yet.",
+        )
+
+    @generation_strategy.setter
+    def generation_strategy(
+        self, generation_strategy: GenerationStrategyInterface
+    ) -> None:
+        """Sets the generation strategy on this instance."""
+        self._generation_strategy = generation_strategy
+
+    @property
+    def standard_generation_strategy(self) -> GenerationStrategy:
+        """Used for operations in the scheduler that can only be done with
+        and instance of ``GenerationStrategy``.
+        """
+        gs = self.generation_strategy
+        if not isinstance(gs, GenerationStrategy):
+            raise NotImplementedError(
+                "This functionality is only supported with instances of "
+                "`GenerationStrategy` (one that uses `GenerationStrategy` "
+                "class) and not yet with other types of "
+                "`GenerationStrategyInterface`."
+            )
+        return gs

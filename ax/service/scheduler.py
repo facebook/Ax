@@ -162,8 +162,6 @@ class Scheduler(AnalysisBase, BestPointMixin):
             been saved, as otherwise experiment state could get corrupted.**
     """
 
-    experiment: Experiment
-    generation_strategy: GenerationStrategyInterface
     # pyre-fixme[24]: Generic type `LoggerAdapter` expects 1 type parameter.
     logger: LoggerAdapter
     # Mapping of form {short string identifier -> message to show in reported
@@ -490,21 +488,6 @@ class Scheduler(AnalysisBase, BestPointMixin):
                 "`Scheduler` requires that experiment specifies a `Runner`."
             )
         return runner
-
-    @property
-    def standard_generation_strategy(self) -> GenerationStrategy:
-        """Used for operations in the scheduler that can only be done with
-        and instance of ``GenerationStrategy``.
-        """
-        gs = self.generation_strategy
-        if not isinstance(gs, GenerationStrategy):
-            raise NotImplementedError(
-                "This functionality is only supported with instances of "
-                "`GenerationStrategy` (one that uses `GenerationStrategy` "
-                "class) and not yet with other types of "
-                "`GenerationStrategyInterface`."
-            )
-        return gs
 
     def __repr__(self) -> str:
         """Short user-friendly string representation."""

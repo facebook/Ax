@@ -599,8 +599,8 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         # TODO[T79183560]: Ensure correct handling of generator run when using
         # foreign keys.
         self._update_generation_strategy_in_db_if_possible(
-            generation_strategy=self.generation_strategy,
-            new_generator_runs=[self.generation_strategy._generator_runs[-1]],
+            generation_strategy=self.standard_generation_strategy,
+            new_generator_runs=[self.standard_generation_strategy._generator_runs[-1]],
         )
         return none_throws(trial.arm).parameters, trial.index
 
@@ -625,7 +625,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         if self.generation_strategy._experiment is None:
             self.generation_strategy.experiment = self.experiment
 
-        return self.generation_strategy.current_generator_run_limit()
+        return self.standard_generation_strategy.current_generator_run_limit()
 
     def get_next_trials(
         self,
@@ -950,7 +950,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             Mapping of form {num_trials -> max_parallelism_setting}.
         """
         parallelism_settings = []
-        for step in self.generation_strategy._steps:
+        for step in self.standard_generation_strategy._steps:
             parallelism_settings.append(
                 (step.num_trials, step.max_parallelism or step.num_trials)
             )
@@ -1071,7 +1071,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             raise ValueError(
                 f'Metric "{metric_name}" is not associated with this optimization.'
             )
-        if self.generation_strategy.model is not None:
+        if self.standard_generation_strategy.model is not None:
             try:
                 logger.info(
                     f"Retrieving contour plot with parameter '{param_x}' on X-axis "
@@ -1079,7 +1079,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                     "Remaining parameters are affixed to the middle of their range."
                 )
                 return plot_contour(
-                    model=none_throws(self.generation_strategy.model),
+                    model=none_throws(self.standard_generation_strategy.model),
                     param_x=param_x,
                     param_y=param_y,
                     metric_name=metric_name,
@@ -1089,8 +1089,8 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                 # Some models don't implement '_predict', which is needed
                 # for the contour plots.
                 logger.info(
-                    f"Model {self.generation_strategy.model} does not implement "
-                    "`predict`, so it cannot be used to generate a response "
+                    f"Model {self.standard_generation_strategy.model} does not "
+                    "implement `predict`, so it cannot be used to generate a response "
                     "surface plot."
                 )
         raise UnsupportedPlotError(
@@ -1112,14 +1112,14 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         """
         if not self.experiment.trials:
             raise ValueError("Cannot generate plot as there are no trials.")
-        cur_model = self.generation_strategy.model
+        cur_model = self.standard_generation_strategy.model
         if cur_model is not None:
             try:
                 return plot_feature_importance_by_feature(cur_model, relative=relative)
             except NotImplementedError:
                 logger.info(
-                    f"Model {self.generation_strategy.model} does not implement "
-                    "`feature_importances`, so it cannot be used to generate "
+                    f"Model {self.standard_generation_strategy.model} does not "
+                    "implement `feature_importances`, so it cannot be used to generate "
                     "this plot. Only certain models, implement feature importances."
                 )
 
@@ -1247,7 +1247,8 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             else set(none_throws(self.experiment.metrics).keys())
         )
         model = none_throws(
-            self.generation_strategy.model, "No model has been instantiated yet."
+            self.standard_generation_strategy.model,
+            "No model has been instantiated yet.",
         )
 
         # Construct a dictionary that maps from a label to an
@@ -1306,8 +1307,8 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                 "At least one trial must be completed with data to fit a model."
             )
         # Check if we should transition before generating the next candidate.
-        self.generation_strategy._maybe_transition_to_next_node()
-        self.generation_strategy._fit_current_model(data=None)
+        self.standard_generation_strategy._maybe_transition_to_next_node()
+        self.standard_generation_strategy._fit_current_model(data=None)
 
     def verify_trial_parameterization(
         self, trial_index: int, parameterization: TParameterization
@@ -1496,28 +1497,9 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
     # ---------------------- Private helper methods. ---------------------
 
-    @property
-    def experiment(self) -> Experiment:
-        """Returns the experiment set on this Ax client."""
-        return none_throws(
-            self._experiment,
-            (
-                "Experiment not set on Ax client. Must first "
-                "call load_experiment or create_experiment to use handler functions."
-            ),
-        )
-
     def get_trial(self, trial_index: int) -> Trial:
         """Return a trial on experiment cast as Trial"""
         return checked_cast(Trial, self.experiment.trials[trial_index])
-
-    @property
-    def generation_strategy(self) -> GenerationStrategy:
-        """Returns the generation strategy, set on this experiment."""
-        return none_throws(
-            self._generation_strategy,
-            "No generation strategy has been set on this optimization yet.",
-        )
 
     @property
     def objective(self) -> Objective:
@@ -1586,7 +1568,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
     ) -> tuple[int, TParameterization, TModelPredictArm | None] | None:
         return self._get_best_trial(
             experiment=self.experiment,
-            generation_strategy=self.generation_strategy,
+            generation_strategy=self.standard_generation_strategy,
             trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
         )
@@ -1600,7 +1582,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
     ) -> dict[int, tuple[TParameterization, TModelPredictArm]]:
         return self._get_pareto_optimal_parameters(
             experiment=self.experiment,
-            generation_strategy=self.generation_strategy,
+            generation_strategy=self.standard_generation_strategy,
             trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
         )
@@ -1614,7 +1596,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
     ) -> float:
         return BestPointMixin._get_hypervolume(
             experiment=self.experiment,
-            generation_strategy=self.generation_strategy,
+            generation_strategy=self.standard_generation_strategy,
             optimization_config=optimization_config,
             trial_indices=trial_indices,
             use_model_predictions=use_model_predictions,
@@ -1817,7 +1799,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             else None
         )
         with with_rng_seed(seed=self._random_seed):
-            return none_throws(self.generation_strategy).gen(
+            return none_throws(self.standard_generation_strategy).gen(
                 experiment=self.experiment,
                 n=n,
                 pending_observations=self._get_pending_observation_features(
