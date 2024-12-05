@@ -66,6 +66,7 @@ from ax.plot.contour import plot_contour
 from ax.plot.feature_importances import plot_feature_importance_by_feature
 from ax.plot.helper import _format_dict
 from ax.plot.trace import optimization_trace_single_method
+from ax.service.utils.analysis_base import AnalysisBase
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.instantiation import (
     FixedFeatures,
@@ -73,7 +74,7 @@ from ax.service.utils.instantiation import (
     ObjectiveProperties,
 )
 from ax.service.utils.report_utils import exp_to_df
-from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
+from ax.service.utils.with_db_settings_base import DBSettings
 from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     object_from_json,
@@ -108,7 +109,7 @@ round_floats_for_logging = partial(
 )
 
 
-class AxClient(WithDBSettingsBase, BestPointMixin, InstantiationBase):
+class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
     """
     Convenience handler for management of experimentation cycle through a
     service-like API. External system manages scheduling of the cycle and makes
