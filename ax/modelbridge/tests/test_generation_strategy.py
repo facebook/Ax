@@ -43,9 +43,9 @@ from ax.modelbridge.random import RandomModelBridge
 from ax.modelbridge.registry import (
     _extract_model_state_after_gen,
     Cont_X_trans,
+    MBM_MTGP_trans,
     MODEL_KEY_TO_MODEL_SETUP,
     Models,
-    ST_MTGP_trans,
 )
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transition_criterion import (
@@ -1106,7 +1106,7 @@ class TestGenerationStrategy(TestCase):
                     model_kwargs={
                         # this will cause an error if the model
                         # doesn't get fixed features
-                        "transforms": ST_MTGP_trans,
+                        "transforms": MBM_MTGP_trans,
                         **self.step_model_kwargs,
                     },
                     num_trials=1,
