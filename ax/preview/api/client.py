@@ -476,9 +476,22 @@ class Client:
         Returns:
             The index of the attached trial.
         """
-        ...
+        _, trial_index = self._none_throws_experiment().attach_trial(
+            # pyre-fixme[6]: Type narrowing broken because core Ax TParameterization
+            # is dict not Mapping
+            parameterizations=[parameters],
+            arm_names=[arm_name] if arm_name else None,
+        )
 
-    def attach_baseline(self, baseline: TParameterization) -> int:
+        if self._db_config is not None:
+            # TODO[mpolson64] Save trial
+            ...
+
+        return trial_index
+
+    def attach_baseline(
+        self, parameters: TParameterization, arm_name: str | None = None
+    ) -> int:
         """
         Attaches custom single-arm trial to an experiment specifically for use as the
         baseline or status quo in evaluating relative outcome constraints and
@@ -490,7 +503,19 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        trial_index = self.attach_trial(
+            parameters=parameters,
+            arm_name=arm_name or "baseline",
+        )
+
+        self._none_throws_experiment().status_quo = assert_is_instance(
+            self._none_throws_experiment().trials[trial_index], Trial
+        ).arm
+
+        if self._db_config is not None:
+            ...
+
+        return trial_index
 
     # -------------------- Section 2.2 Early Stopping -------------------------------
     def should_stop_trial_early(self, trial_index: int) -> bool:
