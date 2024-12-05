@@ -28,6 +28,7 @@ from ax.core.parameter import (
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
+from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError
 from ax.preview.api.client import Client
 from ax.preview.api.configs import (
@@ -736,6 +737,35 @@ class TestClient(TestCase):
                 )
             ),
         )
+
+    def test_should_stop_trial_early(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo")
+
+        with self.assertRaisesRegex(
+            UnsupportedError, "Early stopping strategy not set"
+        ):
+            client.should_stop_trial_early(trial_index=0)
+
+        client.set_early_stopping_strategy(
+            early_stopping_strategy=PercentileEarlyStoppingStrategy(
+                metric_names=["foo"]
+            )
+        )
+
+        client.get_next_trials(maximum_trials=1)
+        self.assertFalse(client.should_stop_trial_early(trial_index=0))
 
 
 class DummyRunner(IRunner):
