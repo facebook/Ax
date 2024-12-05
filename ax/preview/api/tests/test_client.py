@@ -7,9 +7,15 @@
 
 from typing import Any, Mapping
 
+import numpy as np
+
+import pandas as pd
+
 from ax.core.base_trial import TrialStatus
 
 from ax.core.experiment import Experiment
+from ax.core.formatting_utils import DataType
+from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
@@ -106,6 +112,7 @@ class TestClient(TestCase):
                 name="test_experiment",
                 description="test description",
                 properties={"owners": ["miles"]},
+                default_data_type=DataType.MAP_DATA,
             ),
         )
 
@@ -379,6 +386,215 @@ class TestClient(TestCase):
         trials = client.get_next_trials(maximum_trials=2)
         self.assertEqual(len(trials), 1)
 
+    def test_attach_data(self) -> None:
+        client = Client()
+
+        with self.assertRaisesRegex(AssertionError, "Experiment not set"):
+            client.attach_data(trial_index=0, raw_data={"foo": 1.0})
+
+        client.configure_experiment(
+            ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo")
+
+        # Vanilla case with no progression argument
+        trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
+        client.attach_data(trial_index=trial_index, raw_data={"foo": 1.0})
+
+        self.assertEqual(
+            none_throws(client._experiment).trials[trial_index].status,
+            TrialStatus.RUNNING,
+        )
+        self.assertTrue(
+            assert_is_instance(
+                none_throws(client._experiment).lookup_data(
+                    trial_indices=[trial_index]
+                ),
+                MapData,
+            ).map_df.equals(
+                pd.DataFrame(
+                    {
+                        "arm_name": {0: "0_0"},
+                        "metric_name": {0: "foo"},
+                        "mean": {0: 1.0},
+                        "sem": {0: np.nan},
+                        "trial_index": {0: 0},
+                        "step": {0: np.nan},
+                    }
+                )
+            ),
+        )
+
+        # With progression argument
+        client.attach_data(trial_index=0, raw_data={"foo": 2.0}, progression=10)
+
+        self.assertEqual(
+            none_throws(client._experiment).trials[trial_index].status,
+            TrialStatus.RUNNING,
+        )
+        self.assertTrue(
+            assert_is_instance(
+                none_throws(client._experiment).lookup_data(
+                    trial_indices=[trial_index]
+                ),
+                MapData,
+            ).map_df.equals(
+                pd.DataFrame(
+                    {
+                        "arm_name": {0: "0_0", 1: "0_0"},
+                        "metric_name": {0: "foo", 1: "foo"},
+                        "mean": {0: 1.0, 1: 2.0},
+                        "sem": {0: np.nan, 1: np.nan},
+                        "trial_index": {0: 0, 1: 0},
+                        "step": {0: np.nan, 1: 10.0},
+                    }
+                )
+            ),
+        )
+
+        # With extra metrics
+        client.attach_data(
+            trial_index=trial_index,
+            raw_data={"foo": 1.0, "bar": 2.0},
+        )
+        self.assertEqual(
+            none_throws(client._experiment).trials[trial_index].status,
+            TrialStatus.RUNNING,
+        )
+        self.assertTrue(
+            assert_is_instance(
+                none_throws(client._experiment).lookup_data(
+                    trial_indices=[trial_index]
+                ),
+                MapData,
+            ).map_df.equals(
+                pd.DataFrame(
+                    {
+                        "arm_name": {0: "0_0", 1: "0_0", 2: "0_0"},
+                        "metric_name": {0: "foo", 1: "foo", 2: "bar"},
+                        "mean": {0: 2.0, 1: 1.0, 2: 2.0},
+                        "sem": {0: np.nan, 1: np.nan, 2: np.nan},
+                        "trial_index": {0: 0, 1: 0, 2: 0},
+                        "step": {0: 10.0, 1: np.nan, 2: np.nan},
+                    }
+                )
+            ),
+        )
+
+    def test_complete_trial(self) -> None:
+        client = Client()
+
+        with self.assertRaisesRegex(AssertionError, "Experiment not set"):
+            client.complete_trial(trial_index=0, raw_data={"foo": 1.0})
+
+        client.configure_experiment(
+            ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo", outcome_constraints=["bar >= 0"])
+
+        # Vanilla case with no progression argument
+        trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
+        client.complete_trial(
+            trial_index=trial_index, raw_data={"foo": 1.0, "bar": 2.0}
+        )
+
+        self.assertEqual(
+            none_throws(client._experiment).trials[trial_index].status,
+            TrialStatus.COMPLETED,
+        )
+        self.assertTrue(
+            assert_is_instance(
+                none_throws(client._experiment).lookup_data(
+                    trial_indices=[trial_index]
+                ),
+                MapData,
+            ).map_df.equals(
+                pd.DataFrame(
+                    {
+                        "arm_name": {0: "0_0", 1: "0_0"},
+                        "metric_name": {0: "foo", 1: "bar"},
+                        "mean": {0: 1.0, 1: 2.0},
+                        "sem": {0: np.nan, 1: np.nan},
+                        "trial_index": {0: 0, 1: 0},
+                        "step": {0: np.nan, 1: np.nan},
+                    }
+                )
+            ),
+        )
+
+        # With progression argument
+        trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
+        client.complete_trial(
+            trial_index=trial_index, raw_data={"foo": 1.0, "bar": 2.0}, progression=10
+        )
+
+        self.assertEqual(
+            none_throws(client._experiment).trials[trial_index].status,
+            TrialStatus.COMPLETED,
+        )
+
+        self.assertTrue(
+            assert_is_instance(
+                none_throws(client._experiment).lookup_data(
+                    trial_indices=[trial_index]
+                ),
+                MapData,
+            ).map_df.equals(
+                pd.DataFrame(
+                    {
+                        "arm_name": {0: "1_0", 1: "1_0"},
+                        "metric_name": {0: "foo", 1: "bar"},
+                        "mean": {0: 1.0, 1: 2.0},
+                        "sem": {0: np.nan, 1: np.nan},
+                        "trial_index": {0: 1, 1: 1},
+                        "step": {0: 10.0, 1: 10.0},
+                    }
+                )
+            ),
+        )
+
+        # With missing metrics
+        trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
+        client.complete_trial(trial_index=trial_index, raw_data={"foo": 1.0})
+
+        self.assertEqual(
+            none_throws(client._experiment).trials[trial_index].status,
+            TrialStatus.FAILED,
+        )
+        self.assertTrue(
+            assert_is_instance(
+                none_throws(client._experiment).lookup_data(
+                    trial_indices=[trial_index]
+                ),
+                MapData,
+            ).map_df.equals(
+                pd.DataFrame(
+                    {
+                        "arm_name": {0: "2_0"},
+                        "metric_name": {0: "foo"},
+                        "mean": {0: 1.0},
+                        "sem": {0: np.nan},
+                        "trial_index": {0: 2},
+                        "step": {0: np.nan},
+                    }
+                )
+            ),
+        )
+
     def test_mark_trial_failed(self) -> None:
         client = Client()
 
@@ -445,6 +661,25 @@ class TestClient(TestCase):
         self.assertEqual(
             none_throws(client._experiment).trials[trial_index].status,
             TrialStatus.EARLY_STOPPED,
+        )
+        self.assertTrue(
+            assert_is_instance(
+                none_throws(client._experiment).lookup_data(
+                    trial_indices=[trial_index]
+                ),
+                MapData,
+            ).map_df.equals(
+                pd.DataFrame(
+                    {
+                        "arm_name": {0: "0_0"},
+                        "metric_name": {0: "foo"},
+                        "mean": {0: 0.0},
+                        "sem": {0: np.nan},
+                        "trial_index": {0: 0},
+                        "step": {0: 1.0},
+                    }
+                )
+            ),
         )
 
 

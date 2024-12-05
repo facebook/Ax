@@ -6,6 +6,7 @@
 # pyre-strict
 
 from ax.core.experiment import Experiment
+from ax.core.formatting_utils import DataType
 from ax.core.parameter import (
     ChoiceParameter,
     FixedParameter,
@@ -252,6 +253,7 @@ class TestFromConfig(TestCase):
                 name="test_experiment",
                 description="test description",
                 properties={"owners": ["miles"]},
+                default_data_type=DataType.MAP_DATA,
             ),
         )
 
