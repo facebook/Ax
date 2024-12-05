@@ -504,7 +504,10 @@ class TestAxClient(TestCase):
         """
         ax_client = get_branin_optimization()
         self.assertEqual(
-            [s.model for s in none_throws(ax_client.generation_strategy)._steps],
+            [
+                s.model
+                for s in none_throws(ax_client.standard_generation_strategy)._steps
+            ],
             [Models.SOBOL, Models.BOTORCH_MODULAR],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
@@ -719,7 +722,7 @@ class TestAxClient(TestCase):
             },
         )
         self.assertEqual(
-            [s.model for s in none_throws(ax_client.generation_strategy)._steps],
+            [s.model for s in ax_client.standard_generation_strategy._steps],
             [Models.SOBOL, Models.BOTORCH_MODULAR],
         )
         with self.assertRaisesRegex(ValueError, ".* no trials"):
@@ -782,7 +785,7 @@ class TestAxClient(TestCase):
                 steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
             )
         )
-        with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
+        with self.assertRaisesRegex(AssertionError, "Experiment not set on AxClient"):
             ax_client.experiment
         ax_client.create_experiment(
             name="test_experiment",
@@ -1019,7 +1022,7 @@ class TestAxClient(TestCase):
                 steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
             )
         )
-        with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
+        with self.assertRaisesRegex(AssertionError, "Experiment not set on AxClient"):
             ax_client.experiment
         ax_client.create_experiment(
             name="test_experiment",
@@ -1080,7 +1083,7 @@ class TestAxClient(TestCase):
     def test_create_experiment_with_metric_definitions(self) -> None:
         """Test basic experiment creation."""
         ax_client = AxClient()
-        with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
+        with self.assertRaisesRegex(AssertionError, "Experiment not set on AxClient"):
             ax_client.experiment
 
         metric_definitions = {
@@ -1347,7 +1350,7 @@ class TestAxClient(TestCase):
                 steps=[GenerationStep(model=Models.SOBOL, num_trials=30)]
             )
         )
-        with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
+        with self.assertRaisesRegex(AssertionError, "Experiment not set on AxClient"):
             ax_client.experiment
         ax_client.create_experiment(
             name="test_experiment",
@@ -1581,10 +1584,9 @@ class TestAxClient(TestCase):
                 {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
             ],
         )
-        self.assertFalse(
-            ax_client.generation_strategy._steps[0].enforce_num_trials, False
-        )
-        self.assertFalse(ax_client.generation_strategy._steps[1].max_parallelism, None)
+        gs = ax_client.standard_generation_strategy
+        self.assertFalse(gs._steps[0].enforce_num_trials, False)
+        self.assertFalse(gs._steps[1].max_parallelism, None)
         for _ in range(10):
             parameterization, trial_index = ax_client.get_next_trial()
 
@@ -2100,14 +2102,14 @@ class TestAxClient(TestCase):
                 # pyre-fixme[6]: For 2nd param expected `Union[List[Tuple[Dict[str, U...
                 raw_data=branin(*parameters.values()),
             )
-        gs = ax_client.generation_strategy
+        gs = ax_client.standard_generation_strategy
         ax_client = AxClient(db_settings=db_settings)
         ax_client.load_experiment_from_database("test_experiment")
         # Some fields of the reloaded GS are not expected to be set (both will be
         # set during next model fitting call), so we unset them on the original GS as
         # well.
         gs._unset_non_persistent_state_fields()
-        ax_client.generation_strategy._unset_non_persistent_state_fields()
+        ax_client.standard_generation_strategy._unset_non_persistent_state_fields()
         self.assertEqual(gs, ax_client.generation_strategy)
         with self.assertRaises(ValueError):
             # Overwriting existing experiment.
@@ -2461,8 +2463,9 @@ class TestAxClient(TestCase):
             num_trials=20, outcome_constraints=outcome_constraints
         )
         ax_client.fit_model()
+        gs = ax_client.standard_generation_strategy
         self.assertEqual(
-            ax_client.generation_strategy._curr.model_spec_to_gen_from.model_key,
+            gs._curr.model_spec_to_gen_from.model_key,
             "BoTorch",
         )
 
@@ -2487,7 +2490,7 @@ class TestAxClient(TestCase):
         # This overwrites the `predict` call to return the original observations,
         # while testing the rest of the code as if we're using predictions.
         # pyre-fixme[16]: `Optional` has no attribute `model`.
-        model = ax_client.generation_strategy.model.model
+        model = ax_client.standard_generation_strategy.model.model
         ys = model.surrogate.training_data[0].Y
         with patch.object(
             model, "predict", return_value=(ys, torch.zeros(*ys.shape, ys.shape[-1]))
@@ -2531,8 +2534,9 @@ class TestAxClient(TestCase):
         ax_client, _ = get_branin_currin_optimization_with_N_sobol_trials(
             num_trials=20, minimize=minimize, outcome_constraints=outcome_constraints
         )
+        gs = ax_client.standard_generation_strategy
         self.assertEqual(
-            ax_client.generation_strategy._curr.model_spec_to_gen_from.model_key,
+            gs._curr.model_spec_to_gen_from.model_key,
             "Sobol",
         )
 
@@ -2643,8 +2647,8 @@ class TestAxClient(TestCase):
         ax_client, _ = get_branin_currin_optimization_with_N_sobol_trials(
             num_trials=20, include_objective_thresholds=False
         )
-        ax_client.generation_strategy._maybe_transition_to_next_node()
-        ax_client.generation_strategy._fit_current_model(
+        ax_client.standard_generation_strategy._maybe_transition_to_next_node()
+        ax_client.standard_generation_strategy._fit_current_model(
             data=ax_client.experiment.lookup_data()
         )
 
@@ -2855,7 +2859,8 @@ class TestAxClient(TestCase):
         # Make sure we actually tried a Botorch iteration and all the transforms it
         # applies.
         self.assertEqual(
-            ax_client.generation_strategy._generator_runs[-1]._model_key, "BoTorch"
+            ax_client.standard_generation_strategy._generator_runs[-1]._model_key,
+            "BoTorch",
         )
         self.assertEqual(len(ax_client.experiment.trials), 6)
         ax_client.attach_trial(
@@ -2970,7 +2975,7 @@ class TestAxClient(TestCase):
                 torch_device=device,
             )
         ax_client = get_branin_optimization(torch_device=device)
-        gpei_step_kwargs = ax_client.generation_strategy._steps[1].model_kwargs
+        gpei_step_kwargs = ax_client.standard_generation_strategy._steps[1].model_kwargs
         self.assertEqual(gpei_step_kwargs["torch_device"], device)
 
     def test_repr_function(
@@ -2999,7 +3004,7 @@ class TestAxClient(TestCase):
             name="fixed_features",
         )
         with mock.patch.object(
-            GenerationStrategy, "gen", wraps=ax_client.generation_strategy.gen
+            GenerationStrategy, "gen", wraps=ax_client.standard_generation_strategy.gen
         ) as mock_gen:
             with self.subTest("fixed_features is None"):
                 params, idx = ax_client.get_next_trial()
