@@ -7,7 +7,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional
+from typing import List, Mapping, Optional, Sequence
 
 from ax.preview.api.types import TParameterValue
 
@@ -63,18 +63,14 @@ class ChoiceParameterConfig:
     values: List[float] | List[int] | List[str] | List[bool]
     parameter_type: ParameterType
     is_ordered: bool | None = None
-    dependent_parameters: dict[TParameterValue, str] | None = None
+    dependent_parameters: Mapping[TParameterValue, Sequence[str]] | None = None
 
 
 @dataclass
 class ExperimentConfig:
     """
-    ExperimentConfig allows users to specify the SearchSpace and OptimizationConfig of
-    an Experiment and validates their inputs jointly.
-
-    This will also be the construct that handles transforming string-based inputs (the
-    objective, parameter constraints, and output constraints) into their corresponding
-    Ax class using SymPy.
+    ExperimentConfig allows users to specify the SearchSpace of an experiment along
+    with other metadata.
     """
 
     name: str

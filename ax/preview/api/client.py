@@ -3,6 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-strict
+
 from typing import Sequence
 
 from ax.analysis.analysis import Analysis, AnalysisCard  # Used as a return type
@@ -16,6 +18,8 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
+from ax.exceptions.core import UnsupportedError
+from ax.modelbridge.dispatch_utils import choose_generation_strategy
 
 from ax.preview.api.configs import (
     DatabaseConfig,
@@ -26,29 +30,35 @@ from ax.preview.api.configs import (
 from ax.preview.api.protocols.metric import IMetric
 from ax.preview.api.protocols.runner import IRunner
 from ax.preview.api.types import TOutcome, TParameterization
+from ax.preview.api.utils.instantiation.from_config import experiment_from_config
+from ax.preview.api.utils.instantiation.from_string import (
+    optimization_config_from_string,
+)
+from pyre_extensions import none_throws
 from typing_extensions import Self
 
 
 class Client:
+    _experiment: Experiment | None = None
+    _generation_strategy: GenerationStrategyInterface | None = None
+
     def __init__(
         self,
         db_config: DatabaseConfig | None = None,
         random_seed: int | None = None,
     ) -> None:
         """
-        Many parameter are intentionally omitted from __init__ that were present
-        in AxClient.__init__, including:
+        Initialize a Client, which manages state across the lifecycle of an experiment.
 
-        generation_strategy: Now set via configure_generation_strategy or
-            set_generation_strategy
-        enforce_sequential_optimization: Now set via GenerationStrategyConfig
-        torch_device: Now set via GenerationStrategyConfig
-        verbose_logging: Omitted, user can set the logger level on their root config
-        suppress_storage_errors: Omitted
-        early_stopping_strategy: Now set via set_early_stopping_strategy
-        global_stopping_strategy: Global stopping is not yet supported in API
+        Args:
+            db_config: Configuration for saving to and loading from a database. If
+                elided the experiment will not automatically be saved to a database.
+            random_seed: An optional integer to set the random seed for reproducibility
+                of the experiment's results. If not provided, the random seed will not
+                be set, leading to potentially different results on different runs.
         """
-        ...
+        self.db_config = db_config
+        self.random_seed = random_seed
 
     # -------------------- Section 1: Configure --------------------------------------
     def configure_experiment(self, experiment_config: ExperimentConfig) -> None:
@@ -62,7 +72,17 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        if self._experiment is not None:
+            raise UnsupportedError(
+                "Experiment already configured. Please create a new Client if you "
+                "would like a new experiment."
+            )
+
+        self._experiment = experiment_from_config(config=experiment_config)
+
+        if self.db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
 
     def configure_optimization(
         self,
@@ -72,6 +92,9 @@ class Client:
         objective: str,
         # Outcome constraints will also be parsed via SymPy
         # Ex: "num_layers1 <= num_layers2", "compound_a + compound_b <= 1"
+        # To indicate a relative constraint multiply your bound by "baseline"
+        # Ex: "qps >= 0.95 * baseline" will constrain such that the QPS is at least
+        # 95% of the baseline arm's QPS.
         outcome_constraints: Sequence[str] | None = None,
     ) -> None:
         """
@@ -80,9 +103,33 @@ class Client:
         tracking_metrics if they were were already present (i.e. they were attached via
         configure_metrics) or added as base Metrics.
 
+        Args:
+            objective: Objective is a string and allows us to express single,
+                scalarized, and multi-objective goals. Ex: "loss", "ne1 + ne1",
+                "-ne, qps"
+            outcome_constraints: Outcome constraints are also strings and allow us to
+                express a desire to have a metric clear a threshold but not be
+                further optimized. These constraints are expressed as inequalities.
+                Ex: "qps >= 100", "0.5 * ne1 + 0.5 * ne2 >= 0.95".
+                To indicate a relative constraint multiply your bound by "baseline"
+                Ex: "qps >= 0.95 * baseline" will constrain such that the QPS is at
+                least 95% of the baseline arm's QPS.
+                Note that scalarized outcome constraints cannot be relative.
+
+
         Saves to database on completion if db_config is present.
         """
-        ...
+
+        self._none_throws_experiment().optimization_config = (
+            optimization_config_from_string(
+                objective_str=objective,
+                outcome_constraint_strs=outcome_constraints,
+            )
+        )
+
+        if self.db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
 
     def configure_generation_strategy(
         self, generation_strategy_config: GenerationStrategyConfig
@@ -93,7 +140,26 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        ...
+
+        generation_strategy = choose_generation_strategy(
+            search_space=self._none_throws_experiment().search_space,
+            optimization_config=self._none_throws_experiment().optimization_config,
+            num_trials=generation_strategy_config.num_trials,
+            num_initialization_trials=(
+                generation_strategy_config.num_initialization_trials
+            ),
+            max_parallelism_cap=generation_strategy_config.maximum_parallelism,
+            random_seed=self.random_seed,
+        )
+
+        # Necessary for storage implications, may be removed in the future
+        generation_strategy._experiment = self._none_throws_experiment()
+
+        self._generation_strategy = generation_strategy
+
+        if self.db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
 
     # -------------------- Section 1.1: Configure Automation ------------------------
     def configure_runner(self, runner: IRunner) -> None:
@@ -406,3 +472,12 @@ class Client:
             The restored `AxClient`.
         """
         ...
+
+    def _none_throws_experiment(self) -> Experiment:
+        return none_throws(
+            self._experiment,
+            (
+                "Experiment not set. Please call configure_experiment or load an "
+                "experiment before utilizing any other methods on the Client."
+            ),
+        )
