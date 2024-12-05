@@ -2024,7 +2024,7 @@ class AxSchedulerTestCase(TestCase):
             )
             self.assertEqual(scheduler.experiment.trials[0].status, TrialStatus.FAILED)
 
-    def test_completion_criterion(self) -> None:
+    def test_should_consider_optimization_complete(self) -> None:
         # Tests non-GSS parts of the completion criterion.
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
@@ -2040,7 +2040,7 @@ class AxSchedulerTestCase(TestCase):
             db_settings=self.db_settings_if_always_needed,
         )
         # With total_trials=None.
-        should_stop, message = scheduler.completion_criterion()
+        should_stop, message = scheduler.should_consider_optimization_complete()
         self.assertFalse(should_stop)
         self.assertEqual(message, "")
 
@@ -2050,7 +2050,7 @@ class AxSchedulerTestCase(TestCase):
             **self.scheduler_options_kwargs,
         )
         # Experiment has fewer trials.
-        should_stop, message = scheduler.completion_criterion()
+        should_stop, message = scheduler.should_consider_optimization_complete()
         self.assertFalse(should_stop)
         self.assertEqual(message, "")
         # Experiment has 5 trials.
@@ -2059,7 +2059,7 @@ class AxSchedulerTestCase(TestCase):
             sobol_run = sobol_generator.gen(n=1)
             self.branin_experiment.new_trial(generator_run=sobol_run)
         self.assertEqual(len(self.branin_experiment.trials), 5)
-        should_stop, message = scheduler.completion_criterion()
+        should_stop, message = scheduler.should_consider_optimization_complete()
         self.assertTrue(should_stop)
         self.assertEqual(message, "Exceeding the total number of trials.")
 
