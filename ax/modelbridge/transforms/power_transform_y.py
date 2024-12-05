@@ -19,6 +19,7 @@ from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConst
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.sklearn_y import _compute_sklearn_transforms
 from ax.modelbridge.transforms.utils import get_data, match_ci_width_truncated
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
@@ -83,7 +84,11 @@ class PowerTransformY(Transform):
         Ys = get_data(observation_data=observation_data, metric_names=metric_names)
         self.metric_names: list[str] = list(Ys.keys())
         # pyre-fixme[4]: Attribute must be annotated.
-        self.power_transforms = _compute_power_transforms(Ys=Ys)
+        self.power_transforms = _compute_sklearn_transforms(
+            Ys=Ys,
+            transformer=PowerTransformer,
+            transformer_kwargs={"method": "yeo-johnson"},
+        )
         # pyre-fixme[4]: Attribute must be annotated.
         self.inv_bounds = _compute_inverse_bounds(self.power_transforms, tol=1e-10)
 
@@ -113,9 +118,11 @@ class PowerTransformY(Transform):
         for obsd in observation_data:
             for i, m in enumerate(obsd.metric_names):
                 if m in self.metric_names:
-                    l, u = self.inv_bounds[m]
+                    lower_bound, upper_bound = self.inv_bounds[m]
                     transform = self.power_transforms[m].inverse_transform
-                    if not self.clip_mean and (obsd.means[i] < l or obsd.means[i] > u):
+                    if not self.clip_mean and (
+                        obsd.means[i] < lower_bound or obsd.means[i] > upper_bound
+                    ):
                         raise ValueError(
                             "Can't untransform mean outside the bounds without clipping"
                         )
@@ -123,8 +130,8 @@ class PowerTransformY(Transform):
                         mean=obsd.means[i],
                         variance=obsd.covariance[i, i],
                         transform=lambda y: transform(np.array(y, ndmin=2)),
-                        lower_bound=l,
-                        upper_bound=u,
+                        lower_bound=lower_bound,
+                        upper_bound=upper_bound,
                         clip_mean=True,
                     )
         return observation_data
@@ -170,18 +177,6 @@ class PowerTransformY(Transform):
                     transform = self.power_transforms[c.metric.name].inverse_transform
                     c.bound = transform(np.array(c.bound, ndmin=2)).item()
         return outcome_constraints
-
-
-def _compute_power_transforms(
-    Ys: dict[str, list[float]],
-) -> dict[str, PowerTransformer]:
-    """Compute power transforms."""
-    power_transforms = {}
-    for k, ys in Ys.items():
-        y = np.array(ys)[:, None]  # Need to unsqueeze the last dimension
-        pt = PowerTransformer(method="yeo-johnson").fit(y)
-        power_transforms[k] = pt
-    return power_transforms
 
 
 def _compute_inverse_bounds(

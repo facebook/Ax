@@ -20,9 +20,9 @@ from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConst
 from ax.core.types import ComparisonOp
 from ax.modelbridge.transforms.power_transform_y import (
     _compute_inverse_bounds,
-    _compute_power_transforms,
     PowerTransformY,
 )
+from ax.modelbridge.transforms.sklearn_y import _compute_sklearn_transforms
 from ax.modelbridge.transforms.utils import get_data, match_ci_width_truncated
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_observations_with_invalid_value
@@ -103,7 +103,11 @@ class PowerTransformYTest(TestCase):
 
     def test_ComputePowerTransform(self) -> None:
         Ys = get_data([self.obsd1, self.obsd2, self.obsd3], ["m2"])
-        pts = _compute_power_transforms(Ys)
+        pts = _compute_sklearn_transforms(
+            Ys,
+            transformer=PowerTransformer,
+            transformer_kwargs={"method": "yeo-johnson"},
+        )
         self.assertEqual(pts["m2"].method, "yeo-johnson")
         # pyre-fixme[16]: `PowerTransformer` has no attribute `lambdas_`.
         self.assertIsInstance(pts["m2"].lambdas_, np.ndarray)
@@ -119,7 +123,11 @@ class PowerTransformYTest(TestCase):
 
     def test_ComputeInverseBounds(self) -> None:
         Ys = get_data([self.obsd1, self.obsd2, self.obsd3], ["m2"])
-        pt = _compute_power_transforms(Ys)["m2"]
+        pt = _compute_sklearn_transforms(
+            Ys,
+            transformer=PowerTransformer,
+            transformer_kwargs={"method": "yeo-johnson"},
+        )["m2"]
         # lambda < 0: im(f) = (-inf, -1/lambda) without standardization
         # pyre-fixme[16]: `PowerTransformer` has no attribute `lambdas_`.
         pt.lambdas_.fill(-2.5)
@@ -144,7 +152,11 @@ class PowerTransformYTest(TestCase):
 
     def test_MatchCIWidth(self) -> None:
         Ys = get_data([self.obsd1, self.obsd2, self.obsd3], ["m2"])
-        pt = _compute_power_transforms(Ys)
+        pt = _compute_sklearn_transforms(
+            Ys,
+            transformer=PowerTransformer,
+            transformer_kwargs={"method": "yeo-johnson"},
+        )
         # pyre-fixme[16]: `PowerTransformer` has no attribute `lambdas_`.
         pt["m2"].lambdas_.fill(-3.0)
         bounds = _compute_inverse_bounds(pt)["m2"]
