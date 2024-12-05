@@ -44,7 +44,7 @@ from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.modelbridge.cross_validation import compute_model_fit_metrics_from_modelbridge
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models, ST_MTGP_trans
+from ax.modelbridge.registry import MBM_MTGP_trans, Models
 from ax.runners.single_running_trial_mixin import SingleRunningTrialMixin
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.scheduler import (
@@ -2391,7 +2391,7 @@ class AxSchedulerTestCase(TestCase):
                         model_kwargs={
                             # this will cause and error if the model
                             # doesn't get fixed features
-                            "transforms": ST_MTGP_trans,
+                            "transforms": MBM_MTGP_trans,
                             "transform_configs": {
                                 "TrialAsTask": {
                                     "trial_level_map": {

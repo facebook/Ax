@@ -36,7 +36,6 @@ from ax.modelbridge.transforms.choice_encode import (
     ChoiceToNumericChoice,
     OrderedChoiceToIntegerRange,
 )
-from ax.modelbridge.transforms.convert_metric_names import ConvertMetricNames
 from ax.modelbridge.transforms.derelativize import Derelativize
 from ax.modelbridge.transforms.fill_missing_parameters import FillMissingParameters
 from ax.modelbridge.transforms.int_range_to_choice import IntRangeToChoice
@@ -131,15 +130,6 @@ Y_trans: list[type[Transform]] = [IVW, Derelativize, StandardizeY]
 # call `list.__add__` but got `List[Type[SearchSpaceToChoice]]`.
 TS_trans: list[type[Transform]] = Y_trans + [SearchSpaceToChoice]
 
-# Multi-type MTGP transforms
-MT_MTGP_trans: list[type[Transform]] = Cont_X_trans + [
-    Derelativize,
-    ConvertMetricNames,
-    TrialAsTask,
-    StratifiedStandardizeY,
-    TaskChoiceToIntTaskChoice,
-]
-
 # Single-type MTGP transforms
 ST_MTGP_trans: list[type[Transform]] = Cont_X_trans + [
     Derelativize,
@@ -148,9 +138,9 @@ ST_MTGP_trans: list[type[Transform]] = Cont_X_trans + [
     TaskChoiceToIntTaskChoice,
 ]
 
-# Single-type MTGP transforms
-Specified_Task_ST_MTGP_trans: list[type[Transform]] = Cont_X_trans + [
+MBM_MTGP_trans: list[type[Transform]] = MBM_X_trans + [
     Derelativize,
+    TrialAsTask,
     StratifiedStandardizeY,
     TaskChoiceToIntTaskChoice,
 ]
@@ -218,7 +208,7 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
     "ST_MTGP": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=ModularBoTorchModel,
-        transforms=ST_MTGP_trans,
+        transforms=MBM_MTGP_trans,
         standard_bridge_kwargs=STANDARD_TORCH_BRIDGE_KWARGS,
     ),
     "BO_MIXED": ModelSetup(
@@ -241,7 +231,7 @@ MODEL_KEY_TO_MODEL_SETUP: dict[str, ModelSetup] = {
     "SAAS_MTGP": ModelSetup(
         bridge_class=TorchModelBridge,
         model_class=ModularBoTorchModel,
-        transforms=ST_MTGP_trans,
+        transforms=MBM_MTGP_trans,
         default_model_kwargs={
             "surrogate_spec": SurrogateSpec(
                 botorch_model_class=SaasFullyBayesianMultiTaskGP
