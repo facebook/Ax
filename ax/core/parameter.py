@@ -268,8 +268,7 @@ class RangeParameter(Parameter):
         """
         if is_fidelity and (target_value is None):
             raise UserInputError(
-                "`target_value` should not be None for the fidelity parameter: "
-                "{}".format(name)
+                f"`target_value` should not be None for the fidelity parameter: {name}"
             )
 
         self._name = name
