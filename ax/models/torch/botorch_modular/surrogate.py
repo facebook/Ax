@@ -1151,13 +1151,13 @@ class Surrogate(Base):
                 posterior = assert_is_instance(posterior, GPyTorchPosterior)
                 pred_mean = posterior.mean
                 pred_var = posterior.variance
-            pred_Y[i] = pred_mean.view(-1).numpy()
-            pred_Yvar[i] = pred_var.view(-1).numpy()
+            pred_Y[i] = pred_mean.view(-1).cpu().numpy()
+            pred_Yvar[i] = pred_var.view(-1).cpu().numpy()
             train_mask[i] = 1
         # evaluate model fit metric
         diag_fn = DIAGNOSTIC_FNS[none_throws(self.surrogate_spec.eval_criterion)]
         return diag_fn(
-            y_obs=Y.view(-1).numpy(),
+            y_obs=Y.view(-1).cpu().numpy(),
             y_pred=pred_Y,
             se_pred=pred_Yvar,
         )

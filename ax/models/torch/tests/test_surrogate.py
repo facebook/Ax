@@ -277,9 +277,9 @@ class SurrogateInputConstructorsTest(TestCase):
 
 
 class SurrogateTest(TestCase):
-    def setUp(self) -> None:
+    def setUp(self, cuda: bool = False) -> None:
         super().setUp()
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if cuda else "cpu")
         self.dtype = torch.float
         self.tkwargs = {"device": self.device, "dtype": self.dtype}
         (
@@ -290,7 +290,7 @@ class SurrogateTest(TestCase):
             _,
             self.feature_names,
             _,
-        ) = get_torch_test_data(dtype=self.dtype)
+        ) = get_torch_test_data(dtype=self.dtype, cuda=cuda)
         self.metric_names = ["metric"]
         self.training_data = [
             SupervisedDataset(
@@ -309,13 +309,14 @@ class SurrogateTest(TestCase):
         )
         self.fixed_features = {1: 2.0}
         self.refit = True
-        self.objective_weights = torch.tensor(
-            [-1.0, 1.0], dtype=self.dtype, device=self.device
+        self.objective_weights = torch.tensor([-1.0, 1.0], **self.tkwargs)
+        self.outcome_constraints = (
+            torch.tensor([[1.0]], **self.tkwargs),
+            torch.tensor([[0.5]], **self.tkwargs),
         )
-        self.outcome_constraints = (torch.tensor([[1.0]]), torch.tensor([[0.5]]))
         self.linear_constraints = (
-            torch.tensor([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]]),
-            torch.tensor([[0.5], [1.0]]),
+            torch.tensor([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]], **self.tkwargs),
+            torch.tensor([[0.5], [1.0]], **self.tkwargs),
         )
         self.options = {}
         self.torch_opt_config = TorchOptConfig(
@@ -782,7 +783,9 @@ class SurrogateTest(TestCase):
 
     @mock_botorch_optimize
     @patch("ax.models.torch.botorch_modular.surrogate.DIAGNOSTIC_FNS")
-    def test_fit_multiple_model_configs(self, mock_diag_dict: Mock) -> None:
+    def test_fit_multiple_model_configs(
+        self, mock_diag_dict: Mock, cuda: bool = False
+    ) -> None:
         mse_side_effect = [0.2, 0.1]
         ll_side_effect = [0.3, 0.05]
         mock_mse = Mock()  # this should select linear kernel
@@ -891,15 +894,21 @@ class SurrogateTest(TestCase):
                         expected_X = torch.cat(
                             [
                                 torch.cat(
-                                    [target_dataset.X, torch.zeros(2, 1)],
+                                    [
+                                        target_dataset.X,
+                                        torch.zeros(2, 1, **self.tkwargs),
+                                    ],
                                     dim=-1,
                                 ),
-                                torch.cat([self.ds2.X, torch.ones(2, 1)], dim=-1),
+                                torch.cat(
+                                    [self.ds2.X, torch.ones(2, 1, **self.tkwargs)],
+                                    dim=-1,
+                                ),
                             ],
                             dim=0,
                         )
                         # check that only target data is used for evaluation
-                        mask = torch.ones(4, dtype=torch.bool)
+                        mask = torch.ones(4, dtype=torch.bool, device=self.device)
                         loo_idx = 0
                         for i in range(6):
                             # If i in (0,3) then all data is used.
@@ -925,6 +934,11 @@ class SurrogateTest(TestCase):
                     model.covar_module,
                     LinearKernel if eval_criterion == "MSE" else RBFKernel,
                 )
+
+    def test_fit_multiple_model_configs_cuda(self) -> None:
+        if torch.cuda.is_available():
+            self.setUp(cuda=True)
+            self.test_fit_multiple_model_configs(cuda=True)
 
     def test_cross_validate_error_for_heterogeneous_datasets(self) -> None:
         # self.ds2.outcome_names[0] = "metric"

@@ -42,9 +42,12 @@ def get_torch_test_data(
         )
     ]
     Ys = [torch.tensor([[3.0 + offset], [4.0 + offset]], **tkwargs)]
-    Yvars = [torch.tensor([[0.0 + offset], [2.0 + offset]], **tkwargs)]
     if constant_noise:
-        Yvars[0].fill_(1.0)
+        Yvar = torch.ones(2, 1, **tkwargs)
+    else:
+        Yvar = torch.tensor([[0.0 + offset], [2.0 + offset]], **tkwargs)
+    Yvars = [Yvar]
+
     bounds = [
         (0.0 + offset, 1.0 + offset),
         (1.0 + offset, 4.0 + offset),
