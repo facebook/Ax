@@ -11,6 +11,10 @@ from typing import Sequence
 import numpy as np
 
 from ax.analysis.analysis import Analysis, AnalysisCard  # Used as a return type
+from ax.analysis.markdown.markdown_analysis import (
+    markdown_analysis_card_from_analysis_e,
+)
+from ax.analysis.utils import choose_analyses
 
 from ax.core.base_trial import TrialStatus  # Used as a return type
 
@@ -23,7 +27,7 @@ from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
 
@@ -40,6 +44,8 @@ from ax.preview.api.utils.instantiation.from_config import experiment_from_confi
 from ax.preview.api.utils.instantiation.from_string import (
     optimization_config_from_string,
 )
+from ax.service.scheduler import Scheduler, SchedulerOptions
+from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import with_rng_seed
 from pyre_extensions import assert_is_instance, none_throws
@@ -328,18 +334,12 @@ class Client:
                 "generating trials."
             )
 
-        # If no GenerationStrategy is set, configure a default one
-        if self._generation_strategy is None:
-            self.configure_generation_strategy(
-                generation_strategy_config=GenerationStrategyConfig()
-            )
-
         trials: list[Trial] = []
         with with_rng_seed(seed=self._random_seed):
+            gs = self._generation_strategy_or_choose()
+
             # This will be changed to use gen directly post gen-unfication cc @mgarrard
-            generator_runs = none_throws(
-                self._generation_strategy
-            ).gen_for_multiple_trials_with_multiple_models(
+            generator_runs = gs.gen_for_multiple_trials_with_multiple_models(
                 experiment=self._none_throws_experiment(),
                 pending_observations=(
                     get_pending_observation_features_based_on_trial_status(
@@ -604,7 +604,20 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        ...
+
+        scheduler = Scheduler(
+            experiment=self._none_throws_experiment(),
+            generation_strategy=(self._generation_strategy_or_choose()),
+            options=SchedulerOptions(
+                max_pending_trials=options.parallelism,
+                tolerated_trial_failure_rate=options.tolerated_trial_failure_rate,
+                init_seconds_between_polls=options.initial_seconds_between_polls,
+            ),
+            # TODO[mpolson64] Add db_settings=self._db_config when adding storage
+        )
+
+        # Note: This scheduler call will handle storage internally
+        scheduler.run_n_trials(max_trials=maximum_trials)
 
     # -------------------- Section 3. Analyze ---------------------------------------
     def compute_analyses(
@@ -626,46 +639,247 @@ class Client:
         Returns:
             A list of AnalysisCards.
         """
-        ...
 
-    def get_best_trial(
+        analyses = (
+            analyses
+            if analyses is not None
+            else choose_analyses(experiment=self._none_throws_experiment())
+        )
+
+        # Compute Analyses one by one and accumulate Results holding either the
+        # AnalysisCard or an Exception and some metadata
+        results = [
+            analysis.compute_result(
+                experiment=self._none_throws_experiment(),
+                generation_strategy=self._generation_strategy_or_choose(),
+            )
+            for analysis in analyses
+        ]
+
+        # Turn Exceptions into MarkdownAnalysisCards with the traceback as the message
+        cards = [
+            result.unwrap_or_else(markdown_analysis_card_from_analysis_e)
+            for result in results
+        ]
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save cards to database
+            ...
+
+        return cards
+
+    def get_best_arm(
         self, use_model_predictions: bool = True
-    ) -> tuple[int, TParameterization, TOutcome]:
+    ) -> tuple[str, TParameterization, TOutcome]:
         """
-        Calculates the best in-sample trial.
+        Identifies the best parameterization tried in the experiment so far, the best
+        in-sample arm.
+
+        If `use_model_predictions` is True, first attempts to do so with the model used
+        in optimization and its corresponding predictions if available. If
+        `use_model_predictions` is False or attempts to use the model fails, falls back
+        to the best raw objective based on the data fetched from the experiment.
+
+        Arms which violate outcome constraints are not eligible to be the best arm.
 
         Returns:
-            - The index of the best trial
-            - The parameters of the best trial
-            - The metric values associated withthe best trial
+            - The name of the best arm
+            - The parameters of the best arm
+            - The metric values for the best arm. Uses model prediction if
+                use_model_predictions=True, otherwise returns observed data.
         """
-        ...
+
+        if len(self._none_throws_experiment().trials) < 1:
+            raise UnsupportedError(
+                "No trials have been run yet. Please run at least one trial before "
+                "calling get_best_arm."
+            )
+
+        # Note: Using BestPointMixin directly instead of inheriting to avoid exposing
+        # unwanted public methods
+        trial_index, parameters, _ = none_throws(
+            BestPointMixin._get_best_trial(
+                experiment=self._none_throws_experiment(),
+                # Requiring true GenerationStrategy here, ideally we will loosen this
+                # in the future
+                generation_strategy=assert_is_instance(
+                    self._generation_strategy_or_choose(), GenerationStrategy
+                ),
+                use_model_predictions=use_model_predictions,
+            )
+        )
+
+        arm = none_throws(
+            assert_is_instance(
+                self._none_throws_experiment().trials[trial_index], Trial
+            ).arm
+        )
+
+        if use_model_predictions:
+            try:
+                # pyre-fixme[6]: Core Ax allows users to specify TParameterization
+                # values as None but we do not allow this in the API.
+                prediction = self.predict(points=[parameters])[0]
+            except UnsupportedError:
+                logger.error(
+                    "Model predictions are not available, returning empty prediction"
+                )
+
+                prediction = {}
+        else:
+            data_dict = (
+                self._none_throws_experiment()
+                .lookup_data(trial_indices=[trial_index])
+                .df.to_dict()
+            )
+
+            prediction = {
+                data_dict["metric_name"][i]: (data_dict["mean"][i], data_dict["sem"][i])
+                for i in range(len(data_dict["metric_name"]))
+            }
+
+        # pyre-fixme[7]: Core Ax allows users to specify TParameterization values as
+        # None but we do not allow this in the API.
+        return arm.name, parameters, prediction
 
     def get_pareto_frontier(
         self, use_model_predictions: bool = True
-    ) -> dict[int, tuple[TParameterization, TOutcome]]:
+    ) -> dict[str, tuple[TParameterization, TOutcome]]:
         """
         Calculates the in-sample Pareto frontier.
 
         Returns:
-            A mapping of trial index to its parameterization and metric values.
+            A mapping of the arm name to the parameterization and predicted or observed
+                outcome.
         """
-        ...
+
+        if len(self._none_throws_experiment().trials) < 1:
+            raise UnsupportedError(
+                "No trials have been run yet. Please run at least one trial before "
+                "calling get_pareto_frontier."
+            )
+
+        frontier = BestPointMixin._get_pareto_optimal_parameters(
+            experiment=self._none_throws_experiment(),
+            # Requiring true GenerationStrategy here, ideally we will loosen this
+            # in the future
+            generation_strategy=assert_is_instance(
+                self._generation_strategy_or_choose(), GenerationStrategy
+            ),
+            use_model_predictions=use_model_predictions,
+        )
+
+        frontier_list = [*frontier.items()]
+
+        arm_names = [
+            none_throws(
+                assert_is_instance(
+                    self._none_throws_experiment().trials[trial_index], Trial
+                ).arm
+            ).name
+            for trial_index, _ in frontier_list
+        ]
+
+        if use_model_predictions:
+            try:
+                predictions = self.predict(
+                    # pyre-fixme[6]: Core Ax allows users to specify TParameterization
+                    # values as None but we do not allow this in the API.
+                    points=[value[0] for _key, value in frontier_list]
+                )
+            except UnsupportedError:
+                logger.error(
+                    "Model predictions are not available, returning empty prediction"
+                )
+
+                predictions: list[TOutcome] = [{} for _ in frontier]
+        else:
+            predictions = []
+            for trial_index in frontier.keys():
+                data_dict = (
+                    self._none_throws_experiment()
+                    .lookup_data(trial_indices=[trial_index])
+                    .df.to_dict()
+                )
+
+                predictions.append(
+                    {
+                        data_dict["metric_name"][i]: (
+                            data_dict["mean"][i],
+                            data_dict["sem"][i],
+                        )
+                        for i in range(len(data_dict["metric_name"]))
+                    }
+                )
+
+        try:
+            predictions = self.predict(
+                # pyre-fixme[6]: Core Ax allows users to specify TParameterization
+                # values as None but we do not allow this in the API.
+                points=[value[0] for _key, value in frontier_list]
+            )
+        except UnsupportedError:
+            logger.error(
+                "Model predictions are not available, returning empty prediction"
+            )
+            predictions: list[TOutcome] = [{} for _ in frontier]
+
+        # pyre-fixme[7]: Core Ax allows users to specify TParameterization
+        # values as None but we do not allow this in the API.
+        return {
+            arm_names[i]: (frontier_list[i][1][0], predictions[i])
+            for i in range(len(frontier_list))
+        }
 
     def predict(
         self,
-        parameters: TParameterization,
-        # If None predict for all Metrics
-        metrics: Sequence[str] | None = None,
-    ) -> TOutcome:
+        points: Sequence[TParameterization],
+    ) -> list[TOutcome]:
         """
         Use the GenerationStrategy to predict the outcome of the provided
-        parameterization. If metrics is provided only predict for those metrics.
+        list of parameterizations.
 
         Returns:
-            A mapping of metric name to predicted mean and SEM.
+            A list of mappings from metric name to predicted mean and SEM
         """
-        ...
+        search_space = self._none_throws_experiment().search_space
+        for parameters in points:
+            search_space.check_membership(
+                # pyre-fixme[6]: Core Ax allows users to specify TParameterization
+                # values as None but we do not allow this in the API.
+                parameterization=parameters,
+                raise_error=True,
+                check_all_parameters_present=True,
+            )
+
+        generation_strategy = self._generation_strategy_or_choose()
+
+        try:
+            mean, covariance = none_throws(generation_strategy.model).predict(
+                observation_features=[
+                    # pyre-fixme[6]: Core Ax allows users to specify TParameterization
+                    # values as None but we do not allow this in the API.
+                    ObservationFeatures(parameters=parameters)
+                    for parameters in points
+                ]
+            )
+        except (NotImplementedError, AssertionError) as e:
+            raise UnsupportedError(
+                "Predicting with the GenerationStrategy's modelbridge failed. This "
+                "could be because the current GenerationNode is not predictive -- try "
+                "running more trials to progress to a predictive GenerationNode."
+            ) from e
+
+        return [
+            {
+                metric_name: (
+                    mean[metric_name][i],
+                    covariance[metric_name][metric_name][i],
+                )
+                for metric_name in mean.keys()
+            }
+            for i in range(len(points))
+        ]
 
     # -------------------- Section 4: Save/Load -------------------------------------
     # Note: SQL storage handled automatically during regular usage
@@ -710,6 +924,21 @@ class Client:
                 "experiment before utilizing any other methods on the Client."
             ),
         )
+
+    def _generation_strategy_or_choose(
+        self,
+    ) -> GenerationStrategy:
+        """
+        If a GenerationStrategy is not set, choose a default one (save to database) and
+        return it.
+        """
+
+        if self._generation_strategy is None:
+            self.configure_generation_strategy(
+                generation_strategy_config=GenerationStrategyConfig()
+            )
+
+        return none_throws(self._generation_strategy)
 
     def _overwrite_metric(self, metric: Metric) -> None:
         """
