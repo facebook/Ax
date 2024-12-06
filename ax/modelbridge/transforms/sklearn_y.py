@@ -260,7 +260,7 @@ class HalfRankTransformer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator)
             )
 
             # Calculate rank quantiles
-            ranks = stats.rankdata(col, method="dense")
+            ranks = stats.rankdata(col, method="dense", nan_policy="omit")
             dedup_median_index = np.searchsorted(unique_labels, median)
             denominator = 2 * dedup_median_index + (
                 unique_labels[dedup_median_index] == median
