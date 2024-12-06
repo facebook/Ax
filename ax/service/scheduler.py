@@ -8,8 +8,6 @@
 
 from __future__ import annotations
 
-import traceback
-
 from collections.abc import Callable, Generator, Iterable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass
@@ -20,10 +18,6 @@ from time import sleep
 from typing import Any, cast, NamedTuple, Optional
 
 import ax.service.utils.early_stopping as early_stopping_utils
-import pandas as pd
-from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardLevel, AnalysisE
-from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
-from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
@@ -57,6 +51,7 @@ from ax.exceptions.generation_strategy import (
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import get_fixed_features_from_experiment
+from ax.service.utils.analysis_base import AnalysisBase
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.scheduler_options import SchedulerOptions, TrialType
 from ax.service.utils.with_db_settings_base import DBSettings, WithDBSettingsBase
@@ -70,7 +65,6 @@ from ax.utils.common.logger import (
     set_ax_logger_levels,
 )
 from ax.utils.common.timeutils import current_timestamp_in_millis
-from ax.utils.common.typeutils import checked_cast
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -151,7 +145,7 @@ class MessageOutput:
         self.text += text
 
 
-class Scheduler(WithDBSettingsBase, BestPointMixin):
+class Scheduler(AnalysisBase, BestPointMixin):
     """Closed-loop manager class for Ax optimization.
 
     Attributes:
@@ -678,62 +672,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
             timeout_hours=timeout_hours,
             idle_callback=idle_callback,
         )
-
-    def compute_analyses(
-        self, analyses: Iterable[Analysis] | None = None
-    ) -> list[AnalysisCard]:
-        """
-        Compute Analyses for the Experiment and GenerationStrategy associated with this
-        Scheduler instance and save them to the DB if possible. If an Analysis fails to
-        compute (e.g. due to a missing metric), it will be skipped and a warning will
-        be logged.
-
-        Args:
-            analyses: Analyses to compute. If None, the Scheduler will choose a set of
-                Analyses to compute based on the Experiment and GenerationStrategy.
-        """
-        analyses = analyses if analyses is not None else self._choose_analyses()
-
-        results = [
-            analysis.compute_result(
-                experiment=self.experiment, generation_strategy=self.generation_strategy
-            )
-            for analysis in analyses
-        ]
-
-        # TODO Accumulate Es into their own card, perhaps via unwrap_or_else
-        cards = [result.unwrap() for result in results if result.is_ok()]
-
-        for result in results:
-            if result.is_err():
-                e = checked_cast(AnalysisE, result.err)
-                traceback_str = "".join(
-                    traceback.format_exception(
-                        type(result.err.exception),
-                        e.exception,
-                        e.exception.__traceback__,
-                    )
-                )
-                cards.append(
-                    MarkdownAnalysisCard(
-                        name=e.analysis.name,
-                        # It would be better if we could reliably compute the title
-                        # without risking another error
-                        title=f"{e.analysis.name} Error",
-                        subtitle=f"An error occurred while computing {e.analysis}",
-                        attributes=e.analysis.attributes,
-                        blob=traceback_str,
-                        df=pd.DataFrame(),
-                        level=AnalysisCardLevel.DEBUG,
-                    )
-                )
-
-        self._save_analysis_cards_to_db_if_possible(
-            analysis_cards=cards,
-            experiment=self.experiment,
-        )
-
-        return cards
 
     def run_trials_and_yield_results(
         self,
@@ -1881,14 +1819,6 @@ class Scheduler(WithDBSettingsBase, BestPointMixin):
 
             trials.append(trial)
         return trials, None
-
-    def _choose_analyses(self) -> list[Analysis]:
-        """
-        Choose Analyses to compute based on the Experiment, GenerationStrategy, etc.
-        """
-
-        # TODO Create a useful heuristic for choosing analyses
-        return [ParallelCoordinatesPlot()]
 
     def _gen_new_trials_from_generation_strategy(
         self,
