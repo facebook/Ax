@@ -11,6 +11,10 @@ from typing import Sequence
 import numpy as np
 
 from ax.analysis.analysis import Analysis, AnalysisCard  # Used as a return type
+from ax.analysis.markdown.markdown_analysis import (
+    markdown_analysis_card_from_analysis_e,
+)
+from ax.analysis.utils import choose_analyses
 
 from ax.core.base_trial import TrialStatus  # Used as a return type
 
@@ -634,7 +638,34 @@ class Client:
         Returns:
             A list of AnalysisCards.
         """
-        ...
+
+        analyses = (
+            analyses
+            if analyses is not None
+            else choose_analyses(experiment=self._none_throws_experiment())
+        )
+
+        # Compute Analyses one by one and accumulate Results holding either the
+        # AnalysisCard or an Exception and some metadata
+        results = [
+            analysis.compute_result(
+                experiment=self._none_throws_experiment(),
+                generation_strategy=self._generation_strategy_or_choose(),
+            )
+            for analysis in analyses
+        ]
+
+        # Turn Exceptions into MarkdownAnalysisCards with the traceback as the message
+        cards = [
+            result.unwrap_or_else(markdown_analysis_card_from_analysis_e)
+            for result in results
+        ]
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save cards to database
+            ...
+
+        return cards
 
     def get_best_trial(
         self, use_model_predictions: bool = True
