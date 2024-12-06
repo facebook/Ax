@@ -314,7 +314,8 @@ class TestGenerationNode(TestCase):
                 "'not_in_statuses': None, 'transition_to': None, "
                 "'block_transition_if_unmet': True, 'block_gen_if_met': False, "
                 "'use_all_trials_in_exp': False, "
-                "'continue_trial_generation': False})])"
+                "'continue_trial_generation': False, "
+                "'count_only_trials_with_data': False})])"
             ),
         )
 
