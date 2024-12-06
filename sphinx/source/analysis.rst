@@ -159,3 +159,11 @@ Utils
     :members:
     :undoc-members:
     :show-inheritance:
+
+Utils
+~~~~~
+
+.. automodule:: ax.analysis.utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
