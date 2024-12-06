@@ -95,7 +95,7 @@ class GenerationStrategyConfig:
 class OrchestrationConfig:
     parallelism: int = 1
     tolerated_trial_failure_rate: float = 0.5
-    seconds_between_polls: float = 1.0
+    initial_seconds_between_polls: int = 1
 
 
 @dataclass
