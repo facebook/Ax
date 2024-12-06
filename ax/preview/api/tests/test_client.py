@@ -10,6 +10,7 @@ from typing import Any, Mapping
 import numpy as np
 
 import pandas as pd
+from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 
 from ax.core.base_trial import TrialStatus
 
@@ -35,6 +36,7 @@ from ax.preview.api.configs import (
     ChoiceParameterConfig,
     ExperimentConfig,
     GenerationStrategyConfig,
+    OrchestrationConfig,
     ParameterType,
     RangeParameterConfig,
 )
@@ -767,17 +769,161 @@ class TestClient(TestCase):
         client.get_next_trials(maximum_trials=1)
         self.assertFalse(client.should_stop_trial_early(trial_index=0))
 
+    def test_run_trials(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo")
+        client.configure_metrics(metrics=[DummyMetric(name="foo")])
+        client.configure_runner(runner=DummyRunner())
+
+        client.run_trials(maximum_trials=4, options=OrchestrationConfig())
+
+        self.assertEqual(len(client._none_throws_experiment().trials), 4)
+        self.assertEqual(
+            [
+                trial.index
+                for trial in client._none_throws_experiment().trials_by_status[
+                    TrialStatus.COMPLETED
+                ]
+            ],
+            [0, 1, 2, 3],
+        )
+
+        self.assertTrue(
+            assert_is_instance(
+                client._none_throws_experiment().lookup_data(),
+                MapData,
+            ).map_df.equals(
+                pd.DataFrame(
+                    {
+                        "arm_name": {0: "0_0", 1: "1_0", 2: "2_0", 3: "3_0"},
+                        "metric_name": {0: "foo", 1: "foo", 2: "foo", 3: "foo"},
+                        "mean": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
+                        "sem": {0: np.nan, 1: np.nan, 2: np.nan, 3: np.nan},
+                        "trial_index": {0: 0, 1: 1, 2: 2, 3: 3},
+                        "progression": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
+                    }
+                )
+            ),
+        )
+
+    def test_get_next_trials_then_run_trials(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo")
+        client.configure_metrics(metrics=[DummyMetric(name="foo")])
+        client.configure_runner(runner=DummyRunner())
+
+        # First use Client in ask-tell
+        # Complete two trials
+        for index, _parameters in client.get_next_trials(maximum_trials=2).items():
+            client.complete_trial(trial_index=index, raw_data={"foo": 1.0})
+
+        # Leave one trial RUNNING
+        _ = client.get_next_trials(maximum_trials=1)
+
+        self.assertEqual(
+            len(
+                client._none_throws_experiment().trials_by_status[TrialStatus.COMPLETED]
+            ),
+            2,
+        )
+        self.assertEqual(
+            len(client._none_throws_experiment().trials_by_status[TrialStatus.RUNNING]),
+            1,
+        )
+
+        # Configure runners and Metrics Run another two trials
+        client.configure_metrics(metrics=[DummyMetric(name="foo")])
+        client.configure_runner(runner=DummyRunner())
+        client.run_trials(maximum_trials=2, options=OrchestrationConfig())
+
+        # All trials should be COMPLETED
+        self.assertEqual(
+            len(
+                client._none_throws_experiment().trials_by_status[TrialStatus.COMPLETED]
+            ),
+            5,
+        )
+
+    def test_compute_analyses(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo")
+
+        with self.assertLogs(logger="ax.analysis", level="ERROR") as lg:
+            cards = client.compute_analyses(analyses=[ParallelCoordinatesPlot()])
+
+            self.assertEqual(len(cards), 1)
+            self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
+            self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
+            self.assertEqual(
+                cards[0].subtitle,
+                f"An error occurred while computing {ParallelCoordinatesPlot()}",
+            )
+            self.assertIn("Traceback", cards[0].blob)
+            self.assertTrue(
+                any(
+                    (
+                        "Failed to compute ParallelCoordinatesPlot: "
+                        "No data found for metric "
+                    )
+                    in msg
+                    for msg in lg.output
+                )
+            )
+
+        for trial_index, _ in client.get_next_trials(maximum_trials=1).items():
+            client.complete_trial(trial_index=trial_index, raw_data={"foo": 1.0})
+
+        cards = client.compute_analyses(analyses=[ParallelCoordinatesPlot()])
+
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
+
 
 class DummyRunner(IRunner):
     @override
     def run_trial(
         self, trial_index: int, parameterization: TParameterization
-    ) -> dict[str, Any]: ...
+    ) -> dict[str, Any]:
+        return {}
 
     @override
     def poll_trial(
         self, trial_index: int, trial_metadata: Mapping[str, Any]
-    ) -> TrialStatus: ...
+    ) -> TrialStatus:
+        return TrialStatus.COMPLETED
 
     @override
     def stop_trial(
@@ -790,4 +936,5 @@ class DummyMetric(IMetric):
         self,
         trial_index: int,
         trial_metadata: Mapping[str, Any],
-    ) -> tuple[int, float | tuple[float, float]]: ...
+    ) -> tuple[int, float | tuple[float, float]]:
+        return 0, 0.0
