@@ -16,6 +16,7 @@ from logging import Logger
 from typing import Any, TypeVar
 
 import pandas as pd
+from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
@@ -764,8 +765,12 @@ class GenerationStrategy(GenerationStrategyInterface):
         for step in self._nodes:
             num_trials = remaining_trials
             for criterion in step.transition_criteria:
-                if criterion.criterion_class == "MaxTrials" and isinstance(
-                    criterion, TrialBasedCriterion
+                # backwards compatility of num_trials with MinTrials criterion
+                if (
+                    criterion.criterion_class == "MinTrials"
+                    and isinstance(criterion, TrialBasedCriterion)
+                    and criterion.not_in_statuses
+                    == [TrialStatus.FAILED, TrialStatus.ABANDONED]
                 ):
                     num_trials = criterion.threshold
 
