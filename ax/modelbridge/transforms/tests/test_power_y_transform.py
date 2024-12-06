@@ -18,10 +18,7 @@ from ax.core.observation import Observation, ObservationData, ObservationFeature
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.types import ComparisonOp
-from ax.modelbridge.transforms.power_transform_y import (
-    _compute_inverse_bounds,
-    PowerTransformY,
-)
+from ax.modelbridge.transforms.power_transform_y import PowerTransformY
 from ax.modelbridge.transforms.sklearn_y import _compute_sklearn_transforms
 from ax.modelbridge.transforms.utils import get_data, match_ci_width_truncated
 from ax.utils.common.testutils import TestCase
@@ -131,7 +128,7 @@ class PowerTransformYTest(TestCase):
         # lambda < 0: im(f) = (-inf, -1/lambda) without standardization
         # pyre-fixme[16]: `PowerTransformer` has no attribute `lambdas_`.
         pt.lambdas_.fill(-2.5)
-        bounds = _compute_inverse_bounds({"m2": pt})["m2"]
+        bounds = PowerTransformY._compute_inverse_bounds({"m2": pt})["m2"]
         self.assertEqual(bounds[0], -np.inf)
         # Make sure we got the boundary right
         left = pt.inverse_transform(np.array(bounds[1] - 0.01, ndmin=2))
@@ -139,11 +136,11 @@ class PowerTransformYTest(TestCase):
         self.assertTrue(isnan(right) and not isnan(left))
         # 0 <= lambda <= 2: im(f) = R
         pt.lambdas_.fill(1.0)
-        bounds = _compute_inverse_bounds({"m2": pt})["m2"]
+        bounds = PowerTransformY._compute_inverse_bounds({"m2": pt})["m2"]
         self.assertTrue(bounds == (-np.inf, np.inf))
         # lambda > 2: im(f) = (1 / (2 - lambda), inf) without standardization
         pt.lambdas_.fill(3.5)
-        bounds = _compute_inverse_bounds({"m2": pt})["m2"]
+        bounds = PowerTransformY._compute_inverse_bounds({"m2": pt})["m2"]
         self.assertEqual(bounds[1], np.inf)
         # Make sure we got the boundary right
         left = pt.inverse_transform(np.array(bounds[0] - 0.01, ndmin=2))
@@ -159,7 +156,7 @@ class PowerTransformYTest(TestCase):
         )
         # pyre-fixme[16]: `PowerTransformer` has no attribute `lambdas_`.
         pt["m2"].lambdas_.fill(-3.0)
-        bounds = _compute_inverse_bounds(pt)["m2"]
+        bounds = PowerTransformY._compute_inverse_bounds(pt)["m2"]
 
         # Both will be NaN since we are far outside the bounds
         new_mean_1, new_var_1 = match_ci_width_truncated(

@@ -305,9 +305,3 @@ class TestHalfRankTransformer(TestCase):
         transformer.fit(np.array([[1.0, 2.0], [3.0, 4.0]]))
         with self.assertRaises(ValueError):
             transformer.transform(np.array([[1.0], [2.0]]))
-
-
-if __name__ == "__main__":
-    import unittest
-
-    unittest.main()

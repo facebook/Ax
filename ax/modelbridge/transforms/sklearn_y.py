@@ -566,30 +566,6 @@ def _compute_sklearn_transforms(
     return transforms
 
 
-def _compute_sklearn_inverse_bounds(
-    transforms: dict[str, TransformerMixin],
-    tol: float,
-) -> dict[str, tuple[float, float]]:
-    """Compute inverse bounds for sklearn transforms."""
-    inv_bounds = defaultdict()
-    for k, transformer in transforms.items():
-        bounds = [-np.inf, np.inf]
-        if isinstance(transformer, PowerTransformer):
-            mu, sigma = (
-                transformer._scaler.mean_.item(),
-                transformer._scaler.scale_.item(),
-            )  # pyre-ignore
-            lambda_ = transformer.lambdas_.item()  # pyre-ignore
-            if lambda_ < -1 * tol:
-                bounds[1] = (-1.0 / lambda_ - mu) / sigma
-            elif lambda_ > 2.0 + tol:
-                bounds[0] = (1.0 / (2.0 - lambda_) - mu) / sigma
-            inv_bounds[k] = tuple(checked_cast_list(float, bounds))
-        else:
-            inv_bounds[k] = bounds
-    return inv_bounds
-
-
 class SklearnTransform(Transform):
     """A transform that wraps a sklearn transformer."""
 
@@ -615,6 +591,9 @@ class SklearnTransform(Transform):
                     the sklearn transformer.
                 - "clip_mean": A boolean indicating whether to clip the mean of the
                     transformed data to the bounds.
+                - "match_ci_width": A boolean indicating whether to match the width of
+                    the confidence interval of the transformed data to the width of the
+                    confidence interval of the original data.
         """
         if observations is None or len(observations) == 0:
             raise DataRequiredError("SklearnTransform requires observations.")
@@ -622,6 +601,11 @@ class SklearnTransform(Transform):
         metric_names: list[str] | None = config.get("metrics", None) if config else None
         self.clip_mean: bool = (
             assert_is_instance(config.get("clip_mean", True), bool) if config else True
+        )
+        self.match_ci_width: bool = (
+            assert_is_instance(config.get("match_ci_width", False), bool)
+            if config
+            else False
         )
         observation_data = [obs.data for obs in observations]
         Ys = get_data(observation_data=observation_data, metric_names=metric_names)
@@ -634,7 +618,16 @@ class SklearnTransform(Transform):
             transformer_kwargs=config["transformer_kwargs"],
         )
         # pyre-fixme[4]: Attribute must be annotated.
-        self.inv_bounds = _compute_sklearn_inverse_bounds(self.transforms, tol=1e-10)
+        self.inv_bounds = self._compute_inverse_bounds(self.transforms)
+
+    @staticmethod
+    def _compute_inverse_bounds(
+        transforms: dict[str, TransformerMixin], **kwargs
+    ) -> dict[str, tuple[float, float]]:
+        inv_bounds = defaultdict()
+        for k, _t in transforms.items():
+            inv_bounds[k] = tuple(checked_cast_list(float, [-np.inf, np.inf]))
+        return inv_bounds
 
     def _transform_observation_data(
         self,
@@ -645,13 +638,18 @@ class SklearnTransform(Transform):
             for i, m in enumerate(obsd.metric_names):
                 if m in self.metric_names:
                     transform = self.transforms[m].transform
-                    obsd.means[i], obsd.covariance[i, i] = match_ci_width_truncated(
-                        mean=obsd.means[i],
-                        variance=obsd.covariance[i, i],
-                        transform=lambda y: transform(np.array(y, ndmin=2)),
-                        lower_bound=-np.inf,
-                        upper_bound=np.inf,
-                    )
+                    if self.match_ci_width:
+                        lower_bound, upper_bound = self.inv_bounds[m]
+                        obsd.means[i], obsd.covariance[i, i] = match_ci_width_truncated(
+                            mean=obsd.means[i],
+                            variance=obsd.covariance[i, i],
+                            transform=lambda y: transform(np.array(y, ndmin=2)),
+                            lower_bound=lower_bound,
+                            upper_bound=upper_bound,
+                            clip_mean=self.clip_mean,
+                        )
+                    else:
+                        obsd.means[i] = transform(np.array(obsd.means[i], ndmin=2))
         return observation_data
 
     def _untransform_observation_data(
@@ -662,22 +660,26 @@ class SklearnTransform(Transform):
         for obsd in observation_data:
             for i, m in enumerate(obsd.metric_names):
                 if m in self.metric_names:
-                    lower_bound, upper_bound = self.inv_bounds[m]
                     transform = self.transforms[m].inverse_transform
-                    if not self.clip_mean and (
-                        obsd.means[i] < lower_bound or obsd.means[i] > upper_bound
-                    ):
-                        raise ValueError(
-                            "Can't untransform mean outside the bounds without clipping"
+                    if self.match_ci_width:
+                        lower_bound, upper_bound = self.inv_bounds[m]
+                        if not self.clip_mean and (
+                            obsd.means[i] < lower_bound or obsd.means[i] > upper_bound
+                        ):
+                            raise ValueError(
+                                "Can't untransform mean outside the bounds "
+                                "without clipping"
+                            )
+                        obsd.means[i], obsd.covariance[i, i] = match_ci_width_truncated(
+                            mean=obsd.means[i],
+                            variance=obsd.covariance[i, i],
+                            transform=lambda y: transform(np.array(y, ndmin=2)),
+                            lower_bound=lower_bound,
+                            upper_bound=upper_bound,
+                            clip_mean=True,
                         )
-                    obsd.means[i], obsd.covariance[i, i] = match_ci_width_truncated(
-                        mean=obsd.means[i],
-                        variance=obsd.covariance[i, i],
-                        transform=lambda y: transform(np.array(y, ndmin=2)),
-                        lower_bound=lower_bound,
-                        upper_bound=upper_bound,
-                        clip_mean=True,
-                    )
+                    else:
+                        obsd.means[i] = transform(np.array(obsd.means[i], ndmin=2))
         return observation_data
 
     def transform_optimization_config(
@@ -721,3 +723,140 @@ class SklearnTransform(Transform):
                     transform = self.transforms[c.metric.name].inverse_transform
                     c.bound = transform(np.array(c.bound, ndmin=2)).item()
         return outcome_constraints
+
+
+class PowerTransformY(SklearnTransform):
+    def __init__(
+        self,
+        search_space: SearchSpace | None = None,
+        observations: list[Observation] | None = None,
+        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        config: TConfig | None = None,
+    ) -> None:
+        config = config or {}
+        config["transformer"] = PowerTransformer
+        config["transformer_kwargs"] = {"method": "yeo-johnson"}
+        config["match_ci_width"] = True
+        config["clip_mean"] = True
+        super().__init__(search_space, observations, modelbridge, config)
+
+    @property
+    def power_transforms(self) -> dict[str, TransformerMixin]:
+        """Getter for power_transforms that returns transforms."""
+        return self.transforms
+
+    @power_transforms.setter
+    def power_transforms(self, value: dict[str, TransformerMixin]) -> None:
+        """Setter for power_transforms that sets transforms."""
+        self.transforms = value
+
+    @staticmethod
+    def _compute_inverse_bounds(
+        transforms: dict[str, PowerTransformer],
+        tol=1e-10,
+        **kwargs,
+    ) -> dict[str, tuple[float, float]]:
+        """Computes the image of the transform so we can clip when we untransform.
+
+        The inverse of the Yeo-Johnson transform is given by:
+            if X >= 0 and lambda == 0:
+                X = exp(X_trans) - 1
+            elif X >= 0 and lambda != 0:
+                X = (X_trans * lambda + 1) ** (1 / lambda) - 1
+            elif X < 0 and lambda != 2:
+                X = 1 - (-(2 - lambda) * X_trans + 1) ** (1 / (2 - lambda))
+            elif X < 0 and lambda == 2:
+                X = 1 - exp(-X_trans)
+
+        We can break this down into three cases:
+            lambda < 0:        X < -1 / lambda
+            0 <= lambda <= 2:  X is unbounded
+            lambda > 2:        X > 1 / (2 - lambda)
+
+        Sklearn standardizes the transformed values to have mean zero and standard
+        deviation 1, so we also need to account for this when we compute the bounds.
+        """
+        inv_bounds = defaultdict()
+        for k, pt in transforms.items():
+            if not isinstance(pt, PowerTransformer):
+                raise ValueError(f"Unexpected transformer type: {type(pt)}")
+            bounds = [-np.inf, np.inf]
+            mu, sigma = pt._scaler.mean_.item(), pt._scaler.scale_.item()  # pyre-ignore
+            lambda_ = pt.lambdas_.item()  # pyre-ignore
+            if lambda_ < -1 * tol:
+                bounds[1] = (-1.0 / lambda_ - mu) / sigma
+            elif lambda_ > 2.0 + tol:
+                bounds[0] = (1.0 / (2.0 - lambda_) - mu) / sigma
+            inv_bounds[k] = tuple(checked_cast_list(float, bounds))
+        return inv_bounds
+
+
+class LogWarpingY(SklearnTransform):
+    def __init__(
+        self,
+        search_space: SearchSpace | None = None,
+        observations: list[Observation] | None = None,
+        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        config: TConfig | None = None,
+    ) -> None:
+        config = config or {}
+        config["transformer"] = LogWarpingTransformer()
+        config["match_ci_width"] = True
+        config["clip_mean"] = True
+        super().__init__(search_space, observations, modelbridge, config)
+
+    @staticmethod
+    def _compute_inverse_bounds(
+        transforms: dict[str, LogWarpingTransformer], **kwargs
+    ) -> dict[str, tuple[float, float]]:
+        inv_bounds = defaultdict()
+        for k, lt in transforms.items():
+            if not isinstance(lt, LogWarpingTransformer):
+                raise ValueError(f"Unexpected transformer type: {type(lt)}")
+            inv_bounds[k] = tuple(checked_cast_list(float, [-0.5, 0.5]))
+        return inv_bounds
+
+
+class InfeasibleY(SklearnTransform):
+    def __init__(
+        self,
+        search_space: SearchSpace | None = None,
+        observations: list[Observation] | None = None,
+        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        config: TConfig | None = None,
+    ) -> None:
+        config = config or {}
+        config["transformer"] = InfeasibleTransformer()
+        config["match_ci_width"] = True
+        config["clip_mean"] = True
+        super().__init__(search_space, observations, modelbridge, config)
+
+    @staticmethod
+    def _compute_inverse_bounds(
+        transforms: dict[str, InfeasibleTransformer], **kwargs
+    ) -> dict[str, tuple[float, float]]:
+        inv_bounds = defaultdict()
+        for k, it in transforms.items():
+            if not isinstance(it, InfeasibleTransformer):
+                raise ValueError(f"Unexpected transformer type: {type(it)}")
+            # If we encounter a value that is lower than the warped bad value, we
+            # assign to infeasible values then it would potentially end up with
+            # exceptionally large values when we match the CI width. Clip to the
+            # warped bad value to avoid this.
+            inv_bounds[k] = tuple(
+                checked_cast_list(float, [it.warped_bad_value_[0, 0], np.inf])
+            )
+        return inv_bounds
+
+
+class HalfRankY(SklearnTransform):
+    def __init__(
+        self,
+        search_space: SearchSpace | None = None,
+        observations: list[Observation] | None = None,
+        modelbridge: modelbridge_module.base.ModelBridge | None = None,
+        config: TConfig | None = None,
+    ) -> None:
+        config = config or {}
+        config["transformer"] = HalfRankTransformer()
+        super().__init__(search_space, observations, modelbridge, config)
