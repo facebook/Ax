@@ -628,10 +628,12 @@ class MinTrials(TrialBasedCriterion):
         """If the enforce flag is set, raises an error because the remaining
         TransitionCriterion cannot be completed in the current state.
         """
+        # TODO: @mgarrard make the error message more flexible
         if self.block_gen_if_met:
             raise DataRequiredError(
-                f"This criterion, {self.criterion_class} has been met but cannot "
-                "continue generation from its associated GenerationNode."
+                "All trials for current model have been generated, but not enough "
+                "data has been observed to fit next model. Try again when more data"
+                " are available."
             )
 
 
