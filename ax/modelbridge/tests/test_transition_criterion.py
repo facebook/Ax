@@ -580,7 +580,8 @@ class TestTransitionCriterion(TestCase):
             + "'block_transition_if_unmet': False, "
             + "'block_gen_if_met': True, "
             + "'use_all_trials_in_exp': False, "
-            + "'continue_trial_generation': False})",
+            + "'continue_trial_generation': False, "
+            + "'count_only_trials_with_data': False})",
         )
         minimum_trials_in_status_criterion = MinTrials(
             only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
@@ -599,7 +600,8 @@ class TestTransitionCriterion(TestCase):
             + "'block_transition_if_unmet': False, "
             + "'block_gen_if_met': True, "
             + "'use_all_trials_in_exp': False, "
-            + "'continue_trial_generation': False})",
+            + "'continue_trial_generation': False, "
+            + "'count_only_trials_with_data': False})",
         )
         minimum_preference_occurrences_criterion = MinimumPreferenceOccurances(
             metric_name="m1", threshold=3
