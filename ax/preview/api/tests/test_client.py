@@ -11,7 +11,6 @@ import numpy as np
 
 import pandas as pd
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
-
 from ax.core.base_trial import TrialStatus
 
 from ax.core.experiment import Experiment
@@ -49,6 +48,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_optimization_config,
     get_percentile_early_stopping_strategy,
 )
+from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_generation_strategy
 from pyre_extensions import assert_is_instance, none_throws, override
 
@@ -910,6 +910,51 @@ class TestClient(TestCase):
 
         self.assertEqual(len(cards), 1)
         self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
+
+    @mock_botorch_optimize
+    def test_predict(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            experiment_config=ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo", outcome_constraints=["bar >= 0"])
+        # Set num_initialization_trials=3 so we can reach a predictive GenerationNode
+        # quickly
+        client.configure_generation_strategy(
+            generation_strategy_config=GenerationStrategyConfig(
+                num_initialization_trials=3
+            )
+        )
+
+        with self.assertRaisesRegex(ValueError, "but search space has parameters"):
+            client.predict(points=[{"x0": 0}])
+
+        with self.assertRaisesRegex(UnsupportedError, "not predictive"):
+            client.predict(points=[{"x1": 0}])
+
+        client.configure_metrics(metrics=[DummyMetric(name="baz")])
+        for _ in range(4):
+            for index, parameters in client.get_next_trials(maximum_trials=1).items():
+                client.complete_trial(
+                    trial_index=index,
+                    raw_data={
+                        "foo": assert_is_instance(parameters["x1"], float) ** 2,
+                        "bar": 0.0,
+                    },
+                )
+
+        # Check we've predicted something for foo and bar but not baz (which is a
+        # tracking metric)
+        point = client.predict(points=[{"x1": 0.5}])
+        self.assertEqual({*point[0].keys()}, {"foo", "bar"})
 
 
 class DummyRunner(IRunner):
