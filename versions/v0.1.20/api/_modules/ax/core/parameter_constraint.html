@@ -1,0 +1,352 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/v0.1.20/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/v0.1.20/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/v0.1.20/img/ax.svg"/><link rel="shortcut icon" href="/versions/v0.1.20/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/v0.1.20/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/v0.1.20/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/v0.1.20/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/v0.1.20/css/main.css"/><script src="/versions/v0.1.20/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/v0.1.20/"><img class="logo" src="/versions/v0.1.20/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/v0.1.20/versions.html"><h3>v0.1.20</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/v0.1.20/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/v0.1.20/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/v0.1.20/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.core.parameter_constraint</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="c1"># pyre-strict</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.parameter</span> <span class="kn">import</span> <span class="n">ChoiceParameter</span><span class="p">,</span> <span class="n">FixedParameter</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">,</span> <span class="n">RangeParameter</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">ComparisonOp</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.base</span> <span class="kn">import</span> <span class="n">Base</span>
+
+
+<div class="viewcode-block" id="ParameterConstraint"><a class="viewcode-back" href="../../../core.html#ax.ParameterConstraint">[docs]</a><span class="k">class</span> <span class="nc">ParameterConstraint</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">"""Base class for linear parameter constraints.</span>
+
+<span class="sd">    Constraints are expressed using a map from parameter name to weight</span>
+<span class="sd">    followed by a bound.</span>
+
+<span class="sd">    The constraint is satisfied if w * v &lt;= b where:</span>
+<span class="sd">        w is the vector of parameter weights.</span>
+<span class="sd">        v is a vector of parameter values.</span>
+<span class="sd">        b is the specified bound.</span>
+<span class="sd">        * is the dot product operator.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constraint_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">bound</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Initialize ParameterConstraint</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            constraint_dict: Map from parameter name to weight.</span>
+<span class="sd">            bound: Bound of the inequality of the constraint.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_constraint_dict</span> <span class="o">=</span> <span class="n">constraint_dict</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bound</span> <span class="o">=</span> <span class="n">bound</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">constraint_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+        <span class="sd">"""Get mapping from parameter names to weights."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_constraint_dict</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">bound</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">"""Get bound of the inequality of the constraint."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bound</span>
+
+    <span class="nd">@bound</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">bound</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bound</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Set bound."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bound</span> <span class="o">=</span> <span class="n">bound</span>
+
+<div class="viewcode-block" id="ParameterConstraint.check"><a class="viewcode-back" href="../../../core.html#ax.ParameterConstraint.check">[docs]</a>    <span class="k">def</span> <span class="nf">check</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Whether or not the set of parameter values satisfies the constraint.</span>
+
+<span class="sd">        Does a weighted sum of the parameter values based on the constraint_dict</span>
+<span class="sd">        and checks that the sum is less than the bound.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameter_dict: Map from parameter name to parameter value.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Whether the constraint is satisfied.</span>
+<span class="sd">        """</span>
+        <span class="k">for</span> <span class="n">parameter_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraint_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">parameter_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">parameter_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"`</span><span class="si">{</span><span class="n">parameter_name</span><span class="si">}</span><span class="s2">` not present in param_dict."</span><span class="p">)</span>
+
+        <span class="n">weighted_sum</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
+            <span class="nb">float</span><span class="p">(</span><span class="n">parameter_dict</span><span class="p">[</span><span class="n">param</span><span class="p">])</span> <span class="o">*</span> <span class="n">weight</span>
+            <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraint_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="c1"># Expected `int` for 2nd anonymous parameter to call `int.__le__` but got</span>
+        <span class="c1"># `float`.</span>
+        <span class="k">return</span> <span class="n">weighted_sum</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bound</span></div>
+
+<div class="viewcode-block" id="ParameterConstraint.clone"><a class="viewcode-back" href="../../../core.html#ax.ParameterConstraint.clone">[docs]</a>    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParameterConstraint</span><span class="p">:</span>
+        <span class="sd">"""Clone."""</span>
+        <span class="k">return</span> <span class="n">ParameterConstraint</span><span class="p">(</span>
+            <span class="n">constraint_dict</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_constraint_dict</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">bound</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_bound</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="ParameterConstraint.clone_with_transformed_parameters"><a class="viewcode-back" href="../../../core.html#ax.ParameterConstraint.clone_with_transformed_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">clone_with_transformed_parameters</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">transformed_parameters</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParameterConstraint</span><span class="p">:</span>
+        <span class="sd">"""Clone, but replaced parameters with transformed versions."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="s2">"ParameterConstraint("</span>
+            <span class="o">+</span> <span class="s2">" + "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">"</span><span class="si">{}</span><span class="s2">*</span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraint_dict</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+            <span class="o">+</span> <span class="s2">" &lt;= </span><span class="si">{}</span><span class="s2">)"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bound</span><span class="p">)</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="OrderConstraint"><a class="viewcode-back" href="../../../core.html#ax.OrderConstraint">[docs]</a><span class="k">class</span> <span class="nc">OrderConstraint</span><span class="p">(</span><span class="n">ParameterConstraint</span><span class="p">):</span>
+    <span class="sd">"""Constraint object for specifying one parameter to be smaller than another."""</span>
+
+    <span class="n">_bound</span><span class="p">:</span> <span class="nb">float</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lower_parameter</span><span class="p">:</span> <span class="n">Parameter</span><span class="p">,</span> <span class="n">upper_parameter</span><span class="p">:</span> <span class="n">Parameter</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Initialize OrderConstraint</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            lower_parameter: Parameter that should have the lower value.</span>
+<span class="sd">            upper_parameter: Parameter that should have the higher value.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            The constraint p1 &lt;= p2 can be expressed in matrix notation as</span>
+<span class="sd">            [1, -1] * [p1, p2]^T &lt;= 0.</span>
+<span class="sd">        """</span>
+        <span class="n">validate_constraint_parameters</span><span class="p">([</span><span class="n">lower_parameter</span><span class="p">,</span> <span class="n">upper_parameter</span><span class="p">])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lower_parameter</span> <span class="o">=</span> <span class="n">lower_parameter</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_upper_parameter</span> <span class="o">=</span> <span class="n">upper_parameter</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bound</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">lower_parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Parameter</span><span class="p">:</span>
+        <span class="sd">"""Parameter with lower value."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lower_parameter</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">upper_parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Parameter</span><span class="p">:</span>
+        <span class="sd">"""Parameter with higher value."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_upper_parameter</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Parameter</span><span class="p">]:</span>
+        <span class="sd">"""Parameters."""</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">lower_parameter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">upper_parameter</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">constraint_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+        <span class="sd">"""Weights on parameters for linear constraint representation."""</span>
+        <span class="k">return</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lower_parameter</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">upper_parameter</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">}</span>
+
+<div class="viewcode-block" id="OrderConstraint.clone"><a class="viewcode-back" href="../../../core.html#ax.OrderConstraint.clone">[docs]</a>    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderConstraint</span><span class="p">:</span>
+        <span class="sd">"""Clone."""</span>
+        <span class="k">return</span> <span class="n">OrderConstraint</span><span class="p">(</span>
+            <span class="n">lower_parameter</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lower_parameter</span><span class="o">.</span><span class="n">clone</span><span class="p">(),</span>
+            <span class="n">upper_parameter</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_upper_parameter</span><span class="o">.</span><span class="n">clone</span><span class="p">(),</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="OrderConstraint.clone_with_transformed_parameters"><a class="viewcode-back" href="../../../core.html#ax.OrderConstraint.clone_with_transformed_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">clone_with_transformed_parameters</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">transformed_parameters</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderConstraint</span><span class="p">:</span>
+        <span class="sd">"""Clone, but replace parameters with transformed versions."""</span>
+        <span class="k">return</span> <span class="n">OrderConstraint</span><span class="p">(</span>
+            <span class="n">lower_parameter</span><span class="o">=</span><span class="n">transformed_parameters</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">lower_parameter</span><span class="o">.</span><span class="n">name</span><span class="p">],</span>
+            <span class="n">upper_parameter</span><span class="o">=</span><span class="n">transformed_parameters</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_upper_parameter</span><span class="o">.</span><span class="n">name</span><span class="p">],</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">"OrderConstraint(</span><span class="si">{}</span><span class="s2"> &lt;= </span><span class="si">{}</span><span class="s2">)"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">lower_parameter</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">upper_parameter</span><span class="o">.</span><span class="n">name</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SumConstraint"><a class="viewcode-back" href="../../../core.html#ax.SumConstraint">[docs]</a><span class="k">class</span> <span class="nc">SumConstraint</span><span class="p">(</span><span class="n">ParameterConstraint</span><span class="p">):</span>
+    <span class="sd">"""Constraint on the sum of parameters being greater or less than a bound."""</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Parameter</span><span class="p">],</span> <span class="n">is_upper_bound</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">bound</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Initialize SumConstraint</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameters: List of parameters whose sum to constrain on.</span>
+<span class="sd">            is_upper_bound: Whether the bound is an upper or lower bound on the sum.</span>
+<span class="sd">            bound: The bound on the sum.</span>
+<span class="sd">        """</span>
+        <span class="n">validate_constraint_parameters</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span> <span class="o">=</span> <span class="n">parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_upper_bound</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">is_upper_bound</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameter_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">parameter</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bound</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_inequality_weight</span> <span class="o">*</span> <span class="n">bound</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_constraint_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">name</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_inequality_weight</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameter_names</span>
+        <span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Parameter</span><span class="p">]:</span>
+        <span class="sd">"""Parameters."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">constraint_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+        <span class="sd">"""Weights on parameters for linear constraint representation."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_constraint_dict</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">op</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComparisonOp</span><span class="p">:</span>
+        <span class="sd">"""Whether the sum is constrained by a &lt;= or &gt;= inequality."""</span>
+        <span class="k">return</span> <span class="n">ComparisonOp</span><span class="o">.</span><span class="n">LEQ</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_upper_bound</span> <span class="k">else</span> <span class="n">ComparisonOp</span><span class="o">.</span><span class="n">GEQ</span>
+
+<div class="viewcode-block" id="SumConstraint.clone"><a class="viewcode-back" href="../../../core.html#ax.SumConstraint.clone">[docs]</a>    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SumConstraint</span><span class="p">:</span>
+        <span class="sd">"""Clone.</span>
+
+<span class="sd">        To use the same constraint, we need to reconstruct the original bound.</span>
+<span class="sd">        We do this by re-applying the original bound weighting.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">SumConstraint</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">],</span>
+            <span class="n">is_upper_bound</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_is_upper_bound</span><span class="p">,</span>
+            <span class="n">bound</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_inequality_weight</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bound</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="SumConstraint.clone_with_transformed_parameters"><a class="viewcode-back" href="../../../core.html#ax.SumConstraint.clone_with_transformed_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">clone_with_transformed_parameters</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">transformed_parameters</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SumConstraint</span><span class="p">:</span>
+        <span class="sd">"""Clone, but replace parameters with transformed versions."""</span>
+        <span class="k">return</span> <span class="n">SumConstraint</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="p">[</span><span class="n">transformed_parameters</span><span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">],</span>
+            <span class="n">is_upper_bound</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_is_upper_bound</span><span class="p">,</span>
+            <span class="n">bound</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_inequality_weight</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bound</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_inequality_weight</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">"""Multiplier of all terms in the inequality.</span>
+
+<span class="sd">        If the constraint is an upper bound, it is v1 + v2 ... v_n &lt;= b</span>
+<span class="sd">        If the constraint is an lower bound, it is -v1 + -v2 ... -v_n &lt;= -b</span>
+<span class="sd">        This property returns 1 or -1 depending on the scenario</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="mf">1.0</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_upper_bound</span> <span class="k">else</span> <span class="o">-</span><span class="mf">1.0</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">symbol</span> <span class="o">=</span> <span class="s2">"&gt;="</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">ComparisonOp</span><span class="o">.</span><span class="n">GEQ</span> <span class="k">else</span> <span class="s2">"&lt;="</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="s2">"SumConstraint("</span>
+            <span class="o">+</span> <span class="s2">" + "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameter_names</span><span class="p">)</span>
+            <span class="o">+</span> <span class="s2">" </span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2">)"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">symbol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bound</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">ComparisonOp</span><span class="o">.</span><span class="n">LEQ</span> <span class="k">else</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">_bound</span>
+            <span class="p">)</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="validate_constraint_parameters"><a class="viewcode-back" href="../../../core.html#ax.validate_constraint_parameters">[docs]</a><span class="k">def</span> <span class="nf">validate_constraint_parameters</span><span class="p">(</span><span class="n">parameters</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Parameter</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">"""Basic validation of parameters used in a constraint.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        parameters: Parameters used in constraint.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError if the parameters are not valid for use.</span>
+<span class="sd">    """</span>
+    <span class="n">unique_parameter_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">}</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">unique_parameter_names</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">parameters</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Duplicate parameter in constraint."</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">parameter</span><span class="o">.</span><span class="n">is_numeric</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Parameter constraints only supported for numeric parameters."</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Constraints on FixedParameters are non-sensical.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">FixedParameter</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Parameter constraints not supported for FixedParameter."</span><span class="p">)</span>
+
+        <span class="c1"># ChoiceParameters are transformed either using OneHotEncoding</span>
+        <span class="c1"># or the OrderedChoice transform. Both are non-linear, and</span>
+        <span class="c1"># Ax models only support linear constraints.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">ChoiceParameter</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Parameter constraints not supported for ChoiceParameter."</span><span class="p">)</span>
+
+        <span class="c1"># Log parameters require a non-linear transformation, and Ax</span>
+        <span class="c1"># models only support linear constraints.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">RangeParameter</span><span class="p">)</span> <span class="ow">and</span> <span class="n">parameter</span><span class="o">.</span><span class="n">log_scale</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Parameter constraints not allowed on log scale parameters."</span>
+            <span class="p">)</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/v0.1.20/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2021 Facebook Inc.</section></footer></div></body></html>
