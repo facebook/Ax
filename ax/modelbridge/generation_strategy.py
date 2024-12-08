@@ -548,6 +548,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             a trial being suggested and  each inner list represents a generator
             run for that trial.
         """
+        self.experiment = experiment
         trial_grs = []
         pending_observations = (
             extract_pending_observations(experiment=experiment) or {}
