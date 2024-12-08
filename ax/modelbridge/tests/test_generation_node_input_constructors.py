@@ -113,7 +113,6 @@ class TestGenerationNodeInputConstructors(TestCase):
                     untested_constructors.remove(constructor)
 
         # There should be no untested constructors left.
-        print(untested_constructors)
         self.assertEqual(len(untested_constructors), 0)
 
     def test_consume_all_n_constructor(self) -> None:
