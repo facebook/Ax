@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 import json
 from collections.abc import Iterable
 from enum import IntEnum
@@ -132,7 +134,7 @@ class Analysis(Protocol):
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategyInterface | None = None,
-    ) -> Result[AnalysisCard, ExceptionE]:
+    ) -> Result[AnalysisCard, AnalysisE]:
         """
         Utility method to compute an AnalysisCard as a Result. This can be useful for
         computing many Analyses at once and handling Exceptions later.
