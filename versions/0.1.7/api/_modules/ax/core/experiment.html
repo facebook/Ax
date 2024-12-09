@@ -1,0 +1,647 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.7/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.7/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.7/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.7/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.7/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.7/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.7/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.7/css/main.css"/><script src="/versions/0.1.7/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.7/"><img class="logo" src="/versions/0.1.7/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.7/versions.html"><h3>0.1.7</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.7/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.7/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.7/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.core.experiment</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span><span class="p">,</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">reduce</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.arm</span> <span class="kn">import</span> <span class="n">Arm</span>
+<span class="kn">from</span> <span class="nn">ax.core.base</span> <span class="kn">import</span> <span class="n">Base</span>
+<span class="kn">from</span> <span class="nn">ax.core.base_trial</span> <span class="kn">import</span> <span class="n">BaseTrial</span><span class="p">,</span> <span class="n">TrialStatus</span>
+<span class="kn">from</span> <span class="nn">ax.core.batch_trial</span> <span class="kn">import</span> <span class="n">BatchTrial</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.generator_run</span> <span class="kn">import</span> <span class="n">GeneratorRun</span>
+<span class="kn">from</span> <span class="nn">ax.core.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter</span> <span class="kn">import</span> <span class="n">Parameter</span>
+<span class="kn">from</span> <span class="nn">ax.core.runner</span> <span class="kn">import</span> <span class="n">Runner</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.core.trial</span> <span class="kn">import</span> <span class="n">Trial</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.docutils</span> <span class="kn">import</span> <span class="n">copy_doc</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.timeutils</span> <span class="kn">import</span> <span class="n">current_timestamp_in_millis</span>
+
+
+<span class="n">logger</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="Experiment"><a class="viewcode-back" href="../../../core.html#ax.Experiment">[docs]</a><span class="k">class</span> <span class="nc">Experiment</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">"""Base class for defining an experiment."""</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">tracking_metrics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">runner</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Runner</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">status_quo</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Arm</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">description</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">is_test</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">experiment_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Inits Experiment.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            search_space: Search space of the experiment.</span>
+<span class="sd">            name: Name of the experiment.</span>
+<span class="sd">            optimization_config: Optimization config of the experiment.</span>
+<span class="sd">            tracking_metrics: Additional tracking metrics not used for optimization.</span>
+<span class="sd">            runner: Default runner used for trials on this experiment.</span>
+<span class="sd">            status_quo: Arm representing existing "control" arm.</span>
+<span class="sd">            description: Description of the experiment.</span>
+<span class="sd">            is_test: Convenience metadata tracker for the user to mark test experiments.</span>
+<span class="sd">            experiment_type: The class of experiments this one belongs to.</span>
+<span class="sd">        """</span>
+        <span class="c1"># appease pyre</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_search_space</span><span class="p">:</span> <span class="n">SearchSpace</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status_quo</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Arm</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="n">description</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">runner</span> <span class="o">=</span> <span class="n">runner</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_test</span> <span class="o">=</span> <span class="n">is_test</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data_by_trial</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Data</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_experiment_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">experiment_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_config</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tracking_metrics</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Metric</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_time_created</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_trials</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">BaseTrial</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_arms_by_signature</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Arm</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">tracking_metrics</span> <span class="ow">or</span> <span class="p">[]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">add_tracking_metric</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
+
+        <span class="c1"># call setters defined below</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">search_space</span> <span class="o">=</span> <span class="n">search_space</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">status_quo</span> <span class="o">=</span> <span class="n">status_quo</span>
+        <span class="k">if</span> <span class="n">optimization_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">optimization_config</span> <span class="o">=</span> <span class="n">optimization_config</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">has_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Return true if experiment's name is not None."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">"""Get experiment name. Throws if name is None."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Experiment's name is None."</span><span class="p">)</span>
+        <span class="c1"># pyre-fixme[7]: Expected `str` but got `Optional[str]`.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
+
+    <span class="nd">@name</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Set experiment name."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_simple_experiment</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">"""Whether this experiment is a regular Experiment or the subclassing</span>
+<span class="sd">        `SimpleExperiment`."""</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">time_created</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">datetime</span><span class="p">:</span>
+        <span class="sd">"""Creation time of the experiment."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_time_created</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">experiment_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">"""The type of the experiment."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_experiment_type</span>
+
+    <span class="nd">@experiment_type</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">experiment_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">experiment_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Set the type of the experiment."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_experiment_type</span> <span class="o">=</span> <span class="n">experiment_type</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">search_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SearchSpace</span><span class="p">:</span>
+        <span class="sd">"""The search space for this experiment.</span>
+
+<span class="sd">        When setting a new search space, all parameter names and types</span>
+<span class="sd">        must be preserved. However, if no trials have been created, all</span>
+<span class="sd">        modifications are allowed.</span>
+<span class="sd">        """</span>
+
+        <span class="c1"># TODO maybe return a copy here to guard against implicit changes</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_space</span>
+
+    <span class="nd">@search_space</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">search_space</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Allow all modifications when no trials present.</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">trials</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_search_space</span><span class="o">.</span><span class="n">parameters</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"New search_space must contain all parameters in the existing."</span>
+                <span class="p">)</span>
+            <span class="k">for</span> <span class="n">param_name</span><span class="p">,</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">param_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_space</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Cannot add new parameter `</span><span class="si">{param_name}</span><span class="s2">` because "</span>
+                        <span class="s2">"it is not defined in the existing search space."</span>
+                    <span class="p">)</span>
+                <span class="k">elif</span> <span class="p">(</span>
+                    <span class="n">parameter</span><span class="o">.</span><span class="n">parameter_type</span>
+                    <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_space</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">param_name</span><span class="p">]</span><span class="o">.</span><span class="n">parameter_type</span>
+                <span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Expected parameter `</span><span class="si">{param_name}</span><span class="s2">` to be of type "</span>
+                        <span class="sa">f</span><span class="s2">"</span><span class="si">{self._search_space.parameters[param_name].parameter_type}</span><span class="s2">, "</span>
+                        <span class="sa">f</span><span class="s2">"got </span><span class="si">{parameter.parameter_type}</span><span class="s2">."</span>
+                    <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_search_space</span> <span class="o">=</span> <span class="n">search_space</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">status_quo</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Arm</span><span class="p">]:</span>
+        <span class="sd">"""The existing arm that new arms will be compared against."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status_quo</span>
+
+    <span class="nd">@status_quo</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">status_quo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status_quo</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Arm</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">status_quo</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">search_space</span><span class="o">.</span><span class="n">check_types</span><span class="p">(</span><span class="n">status_quo</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span> <span class="n">raise_error</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+            <span class="c1"># Compute a unique name if "status_quo" is taken</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="s2">"status_quo"</span>
+            <span class="n">sq_idx</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">arms_by_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">arms_by_name</span>
+            <span class="k">while</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">arms_by_name</span><span class="p">:</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"status_quo_e</span><span class="si">{sq_idx}</span><span class="s2">"</span>
+                <span class="n">sq_idx</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_name_and_store_arm_if_not_exists</span><span class="p">(</span><span class="n">arm</span><span class="o">=</span><span class="n">status_quo</span><span class="p">,</span> <span class="n">proposed_name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># If old status_quo not present in any trials,</span>
+        <span class="c1"># remove from _arms_by_signature</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status_quo</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">persist_old_sq</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trials</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="c1"># pyre-fixme[16]: `Optional` has no attribute `name`.</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status_quo</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">trial</span><span class="o">.</span><span class="n">arms_by_name</span><span class="p">:</span>
+                    <span class="n">persist_old_sq</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">break</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">persist_old_sq</span><span class="p">:</span>
+                <span class="c1"># pyre-fixme[16]: `Optional` has no attribute `signature`.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_arms_by_signature</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_status_quo</span><span class="o">.</span><span class="n">signature</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status_quo</span> <span class="o">=</span> <span class="n">status_quo</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]:</span>
+        <span class="sd">"""The parameters in the experiment's search space."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">arms_by_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Arm</span><span class="p">]:</span>
+        <span class="sd">"""The arms belonging to this experiment, by their name."""</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">arm</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">arm</span> <span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_arms_by_signature</span><span class="o">.</span><span class="n">values</span><span class="p">()}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">arms_by_signature</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Arm</span><span class="p">]:</span>
+        <span class="sd">"""The arms belonging to this experiment, by their signature."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_arms_by_signature</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">sum_trial_sizes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">"""Sum of numbers of arms attached to each trial in this experiment."""</span>
+        <span class="k">return</span> <span class="n">reduce</span><span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">arms_by_name</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trials</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_abandoned_arms</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">"""How many arms attached to this experiment are abandoned."""</span>
+        <span class="n">abandoned</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">trial</span><span class="o">.</span><span class="n">abandoned_arms</span><span class="p">:</span>
+                <span class="n">abandoned</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">abandoned</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">optimization_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OptimizationConfig</span><span class="p">]:</span>
+        <span class="sd">"""The experiment's optimization config."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_config</span>
+
+    <span class="nd">@optimization_config</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">optimization_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">optimization_config</span><span class="p">:</span> <span class="n">OptimizationConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tracking_metrics</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">remove_tracking_metric</span><span class="p">(</span><span class="n">metric_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_config</span> <span class="o">=</span> <span class="n">optimization_config</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">data_by_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">OrderedDict</span><span class="p">]:</span>
+        <span class="sd">"""Data stored on the experiment, indexed by trial index and storage time.</span>
+
+<span class="sd">        First key is trial index and second key is storage time in milliseconds.</span>
+<span class="sd">        For a given trial, data is ordered by storage time, so first added data</span>
+<span class="sd">        will appear first in the list.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_by_trial</span>
+
+<div class="viewcode-block" id="Experiment.add_tracking_metric"><a class="viewcode-back" href="../../../core.html#ax.Experiment.add_tracking_metric">[docs]</a>    <span class="k">def</span> <span class="nf">add_tracking_metric</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"Experiment"</span><span class="p">:</span>
+        <span class="sd">"""Add a new metric to the experiment.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            metric: Metric to be added.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tracking_metrics</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Metric `</span><span class="si">{metric.name}</span><span class="s2">` already defined on experiment. "</span>
+                <span class="s2">"Use `update_tracking_metric` to update an existing metric definition."</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimization_config</span> <span class="ow">and</span> <span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Metric `</span><span class="si">{metric.name}</span><span class="s2">` already present in experiment's "</span>
+                <span class="s2">"OptimizationConfig. Set a new OptimizationConfig without this metric "</span>
+                <span class="s2">"before adding it to tracking metrics."</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tracking_metrics</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="Experiment.update_tracking_metric"><a class="viewcode-back" href="../../../core.html#ax.Experiment.update_tracking_metric">[docs]</a>    <span class="k">def</span> <span class="nf">update_tracking_metric</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"Experiment"</span><span class="p">:</span>
+        <span class="sd">"""Redefine a metric that already exists on the experiment.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            metric: New metric definition.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tracking_metrics</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Metric `</span><span class="si">{metric.name}</span><span class="s2">` doesn't exist on experiment."</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tracking_metrics</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="Experiment.remove_tracking_metric"><a class="viewcode-back" href="../../../core.html#ax.Experiment.remove_tracking_metric">[docs]</a>    <span class="k">def</span> <span class="nf">remove_tracking_metric</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metric_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"Experiment"</span><span class="p">:</span>
+        <span class="sd">"""Remove a metric that already exists on the experiment.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            metric_name: Unique name of metric to remove.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">metric_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tracking_metrics</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Metric `</span><span class="si">{metric_name}</span><span class="s2">` doesn't exist on experiment."</span><span class="p">)</span>
+
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tracking_metrics</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Metric</span><span class="p">]:</span>
+        <span class="sd">"""The metrics attached to the experiment."""</span>
+        <span class="n">optimization_config_metrics</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Metric</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimization_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">optimization_config_metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">metrics</span>
+        <span class="k">return</span> <span class="p">{</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_tracking_metrics</span><span class="p">,</span> <span class="o">**</span><span class="n">optimization_config_metrics</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">_metrics_by_class</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">]]:</span>
+        <span class="n">metrics_by_class</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">]]</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span> <span class="ow">or</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+            <span class="n">metrics_by_class</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="vm">__class__</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">metrics_by_class</span>
+
+<div class="viewcode-block" id="Experiment.fetch_data"><a class="viewcode-back" href="../../../core.html#ax.Experiment.fetch_data">[docs]</a>    <span class="k">def</span> <span class="nf">fetch_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="sd">"""Fetches data for all metrics and trials on this experiment.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            metrics: If provided, fetch data for these metrics instead of the ones</span>
+<span class="sd">                defined on the experiment.</span>
+<span class="sd">            kwargs: keyword args to pass to underlying metrics' fetch data functions.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Data for the experiment.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">metrics</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"No metrics to fetch data for, as no metrics are defined for "</span>
+                <span class="s2">"this experiment, and none were passed in to `fetch_data`."</span>
+            <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">data_list</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">metric_cls</span><span class="o">.</span><span class="n">fetch_experiment_data_multi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metric_list</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">metric_cls</span><span class="p">,</span> <span class="n">metric_list</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metrics_by_class</span><span class="p">(</span>
+                    <span class="n">metrics</span><span class="o">=</span><span class="n">metrics</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="p">]</span>
+
+            <span class="c1"># For trials in candidate phase, append any attached data</span>
+            <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">trial</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">CANDIDATE</span><span class="p">:</span>
+                    <span class="n">trial_data</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lookup_data_for_trial</span><span class="p">(</span><span class="n">trial_index</span><span class="o">=</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">trial_data</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+                        <span class="n">data_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">trial_data</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">Data</span><span class="o">.</span><span class="n">from_multiple_data</span><span class="p">(</span><span class="n">data_list</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
+            <span class="c1"># If some of the metrics do not implement data fetching, we should</span>
+            <span class="c1"># fall back to data that has been attached.</span>
+            <span class="k">return</span> <span class="n">Data</span><span class="o">.</span><span class="n">from_multiple_data</span><span class="p">(</span>
+                <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">lookup_data_for_trial</span><span class="p">(</span><span class="n">trial_index</span><span class="o">=</span><span class="n">idx</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">trials</span><span class="p">]</span>
+            <span class="p">)</span></div>
+
+    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">BaseTrial</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_fetch_trial_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">metrics</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"No metrics to fetch data for, as no metrics are defined for "</span>
+                <span class="s2">"this experiment, and none were passed in to `fetch_trial_data`."</span>
+            <span class="p">)</span>
+        <span class="n">trial</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="n">trial_index</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">trial</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">CANDIDATE</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lookup_data_for_trial</span><span class="p">(</span><span class="n">trial_index</span><span class="o">=</span><span class="n">trial_index</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">trial</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">expecting_data</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Data</span><span class="p">()</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Data</span><span class="o">.</span><span class="n">from_multiple_data</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">metric_cls</span><span class="o">.</span><span class="n">fetch_trial_data_multi</span><span class="p">(</span><span class="n">trial</span><span class="p">,</span> <span class="n">metric_list</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">metric_cls</span><span class="p">,</span> <span class="n">metric_list</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metrics_by_class</span><span class="p">(</span>
+                        <span class="n">metrics</span><span class="o">=</span><span class="n">metrics</span>
+                    <span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
+            <span class="c1"># If some of the metrics do not implement data fetching, we should</span>
+            <span class="c1"># fall back to data that has been attached.</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lookup_data_for_trial</span><span class="p">(</span><span class="n">trial_index</span><span class="o">=</span><span class="n">trial_index</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+<div class="viewcode-block" id="Experiment.attach_data"><a class="viewcode-back" href="../../../core.html#ax.Experiment.attach_data">[docs]</a>    <span class="k">def</span> <span class="nf">attach_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">"""Attach data to experiment.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            data: Data object to store.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Timestamp of storage in millis.</span>
+<span class="sd">        """</span>
+        <span class="n">cur_time_millis</span> <span class="o">=</span> <span class="n">current_timestamp_in_millis</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">trial_index</span><span class="p">,</span> <span class="n">trial_df</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">"trial_index"</span><span class="p">]):</span>
+            <span class="n">current_trial_data</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_data_by_trial</span><span class="p">[</span><span class="n">trial_index</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">trial_index</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_by_trial</span>
+                <span class="k">else</span> <span class="n">OrderedDict</span><span class="p">()</span>
+            <span class="p">)</span>
+            <span class="n">current_trial_data</span><span class="p">[</span><span class="n">cur_time_millis</span><span class="p">]</span> <span class="o">=</span> <span class="n">Data</span><span class="p">(</span><span class="n">trial_df</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data_by_trial</span><span class="p">[</span><span class="n">trial_index</span><span class="p">]</span> <span class="o">=</span> <span class="n">current_trial_data</span>
+
+        <span class="k">return</span> <span class="n">cur_time_millis</span></div>
+
+<div class="viewcode-block" id="Experiment.lookup_data_for_ts"><a class="viewcode-back" href="../../../core.html#ax.Experiment.lookup_data_for_ts">[docs]</a>    <span class="k">def</span> <span class="nf">lookup_data_for_ts</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="sd">"""Collect data for all trials stored at this timestamp.</span>
+
+<span class="sd">        Useful when many trials' data was fetched and stored simultaneously</span>
+<span class="sd">        and user wants to retrieve same collection of data later.</span>
+
+<span class="sd">        Can also be used to lookup specific data for a single trial</span>
+<span class="sd">        when storage time is known.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            timestamp: Timestamp in millis at which data was stored.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Data object with all data stored at the timestamp.</span>
+<span class="sd">        """</span>
+        <span class="n">trial_datas</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">_trial_index</span><span class="p">,</span> <span class="n">ts_to_data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_by_trial</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">timestamp</span> <span class="ow">in</span> <span class="n">ts_to_data</span><span class="p">:</span>
+                <span class="n">trial_datas</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ts_to_data</span><span class="p">[</span><span class="n">timestamp</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">Data</span><span class="o">.</span><span class="n">from_multiple_data</span><span class="p">(</span><span class="n">trial_datas</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Experiment.lookup_data_for_trial"><a class="viewcode-back" href="../../../core.html#ax.Experiment.lookup_data_for_trial">[docs]</a>    <span class="k">def</span> <span class="nf">lookup_data_for_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Data</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">"""Lookup stored data for a specific trial.</span>
+
+<span class="sd">        Returns latest data object, and its storage timestamp, present for this trial.</span>
+<span class="sd">        Returns empty data and -1 if no data present.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial_index: The index of the trial to lookup data for.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The requested data object, and its storage timestamp in milliseconds.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">trial_index</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_by_trial</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">Data</span><span class="p">(),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">trial_data_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_by_trial</span><span class="p">[</span><span class="n">trial_index</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="n">storage_time_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_by_trial</span><span class="p">[</span><span class="n">trial_index</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="p">(</span><span class="n">trial_data_list</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">storage_time_list</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">trial_data_list</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="k">else</span> <span class="p">(</span><span class="n">Data</span><span class="p">(),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_trials</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">"""How many trials are associated with this experiment."""</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_trials</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">trials</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">BaseTrial</span><span class="p">]:</span>
+        <span class="sd">"""The trials associated with the experiment."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trials</span>
+
+<div class="viewcode-block" id="Experiment.new_trial"><a class="viewcode-back" href="../../../core.html#ax.Experiment.new_trial">[docs]</a>    <span class="k">def</span> <span class="nf">new_trial</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">generator_run</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">GeneratorRun</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">trial_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Trial</span><span class="p">:</span>
+        <span class="sd">"""Create a new trial associated with this experiment."""</span>
+        <span class="k">return</span> <span class="n">Trial</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_type</span><span class="o">=</span><span class="n">trial_type</span><span class="p">,</span> <span class="n">generator_run</span><span class="o">=</span><span class="n">generator_run</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Experiment.new_batch_trial"><a class="viewcode-back" href="../../../core.html#ax.Experiment.new_batch_trial">[docs]</a>    <span class="k">def</span> <span class="nf">new_batch_trial</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">generator_run</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">GeneratorRun</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">trial_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">optimize_for_power</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BatchTrial</span><span class="p">:</span>
+        <span class="sd">"""Create a new batch trial associated with this experiment."""</span>
+        <span class="k">return</span> <span class="n">BatchTrial</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span>
+            <span class="n">trial_type</span><span class="o">=</span><span class="n">trial_type</span><span class="p">,</span>
+            <span class="n">generator_run</span><span class="o">=</span><span class="n">generator_run</span><span class="p">,</span>
+            <span class="n">optimize_for_power</span><span class="o">=</span><span class="n">optimize_for_power</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_attach_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial</span><span class="p">:</span> <span class="n">BaseTrial</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">"""Attach a trial to this experiment.</span>
+
+<span class="sd">        Should only be called within the trial constructor.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial: The trial to be attached.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The index of the trial within the experiment's trial list.</span>
+<span class="sd">        """</span>
+
+        <span class="k">if</span> <span class="n">trial</span><span class="o">.</span><span class="n">experiment</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"BatchTrial does not belong to this experiment."</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">existing_trial</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trials</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">existing_trial</span> <span class="ow">is</span> <span class="n">trial</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"BatchTrial already attached to experiment."</span><span class="p">)</span>
+
+        <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_trials</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_trials</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_trials</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="n">trial</span>
+        <span class="k">return</span> <span class="n">index</span>
+
+    <span class="k">def</span> <span class="nf">_name_and_store_arm_if_not_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arm</span><span class="p">:</span> <span class="n">Arm</span><span class="p">,</span> <span class="n">proposed_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Tries to lookup arm with same signature, otherwise names and stores it.</span>
+
+<span class="sd">        - Looks up if arm already exists on experiment</span>
+<span class="sd">            - If so, name the input arm the same as the existing arm</span>
+<span class="sd">            - else name the arm with given name and store in _arms_by_signature</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            arm: The arm object to name.</span>
+<span class="sd">            proposed_name: The name to assign if it doesn't have one already.</span>
+<span class="sd">        """</span>
+
+        <span class="c1"># If arm is identical to an existing arm, return that</span>
+        <span class="c1"># so that the names match.</span>
+        <span class="k">if</span> <span class="n">arm</span><span class="o">.</span><span class="n">signature</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">arms_by_signature</span><span class="p">:</span>
+            <span class="n">existing_arm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">arms_by_signature</span><span class="p">[</span><span class="n">arm</span><span class="o">.</span><span class="n">signature</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">arm</span><span class="o">.</span><span class="n">has_name</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">arm</span><span class="o">.</span><span class="n">name</span> <span class="o">!=</span> <span class="n">existing_arm</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Arm already exists with name </span><span class="si">{existing_arm.name}</span><span class="s2">, "</span>
+                        <span class="sa">f</span><span class="s2">"which doesn't match given arm name of </span><span class="si">{arm.name}</span><span class="s2">."</span>
+                    <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">arm</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">existing_arm</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">arm</span><span class="o">.</span><span class="n">has_name</span><span class="p">:</span>
+                <span class="n">arm</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">proposed_name</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_arms_by_signature</span><span class="p">[</span><span class="n">arm</span><span class="o">.</span><span class="n">signature</span><span class="p">]</span> <span class="o">=</span> <span class="n">arm</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">"(</span><span class="si">{self._name}</span><span class="s2">)"</span>
+
+    <span class="c1"># --- MultiTypeExperiment convenience functions ---</span>
+    <span class="c1">#</span>
+    <span class="c1"># Certain functionalities have special behavior for multi-type experiments.</span>
+    <span class="c1"># This defines the base behavior for regular experiments that will be</span>
+    <span class="c1"># overridden in the MultiTypeExperiment class.</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">default_trial_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">"""Default trial type assigned to trials in this experiment.</span>
+
+<span class="sd">        In the base experiment class this is always None. For experiments</span>
+<span class="sd">        with multiple trial types, use the MultiTypeExperiment class.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="Experiment.runner_for_trial"><a class="viewcode-back" href="../../../core.html#ax.Experiment.runner_for_trial">[docs]</a>    <span class="k">def</span> <span class="nf">runner_for_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial</span><span class="p">:</span> <span class="n">BaseTrial</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Runner</span><span class="p">]:</span>
+        <span class="sd">"""The default runner to use for a given trial.</span>
+
+<span class="sd">        In the base experiment class, this is always the default experiment runner.</span>
+<span class="sd">        For experiments with multiple trial types, use the MultiTypeExperiment class.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">runner</span></div>
+
+<div class="viewcode-block" id="Experiment.supports_trial_type"><a class="viewcode-back" href="../../../core.html#ax.Experiment.supports_trial_type">[docs]</a>    <span class="k">def</span> <span class="nf">supports_trial_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Whether this experiment allows trials of the given type.</span>
+
+<span class="sd">        The base experiment class only supports None. For experiments</span>
+<span class="sd">        with multiple trial types, use the MultiTypeExperiment class.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">trial_type</span> <span class="ow">is</span> <span class="kc">None</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">trials_expecting_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">BaseTrial</span><span class="p">]:</span>
+        <span class="sd">"""List[BaseTrial]: the list of all trials for which data has arrived</span>
+<span class="sd">        or is expected to arrive.</span>
+
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">trial</span> <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">if</span> <span class="n">trial</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">expecting_data</span><span class="p">]</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.7/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2019 Facebook Inc.</section></footer></div></body></html>

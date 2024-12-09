@@ -1,0 +1,259 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.4/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.4/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.4/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.4/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.4/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.4/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.4/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.4/css/main.css"/><script src="/versions/0.2.4/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.4/"><img class="logo" src="/versions/0.2.4/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.4/versions.html"><h3>0.2.4</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.4/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.4/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.4/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.modelbridge.transforms.power_transform_y</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">ax.core.observation</span> <span class="kn">import</span> <span class="n">ObservationData</span><span class="p">,</span> <span class="n">ObservationFeatures</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.core.outcome_constraint</span> <span class="kn">import</span> <span class="n">ScalarizedOutcomeConstraint</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.base</span> <span class="kn">import</span> <span class="n">Transform</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.utils</span> <span class="kn">import</span> <span class="n">get_data</span><span class="p">,</span> <span class="n">match_ci_width_truncated</span>
+<span class="kn">from</span> <span class="nn">ax.models.types</span> <span class="kn">import</span> <span class="n">TConfig</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">checked_cast_list</span>
+<span class="kn">from</span> <span class="nn">sklearn.preprocessing</span> <span class="kn">import</span> <span class="n">PowerTransformer</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="c1"># import as module to make sphinx-autodoc-typehints happy</span>
+    <span class="kn">from</span> <span class="nn">ax</span> <span class="kn">import</span> <span class="n">modelbridge</span> <span class="k">as</span> <span class="n">modelbridge_module</span>  <span class="c1"># noqa F401  # pragma: no cover</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="PowerTransformY"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.transforms.power_transform_y.PowerTransformY">[docs]</a><span class="k">class</span> <span class="nc">PowerTransformY</span><span class="p">(</span><span class="n">Transform</span><span class="p">):</span>
+    <span class="sd">"""Transform the values to look as normally distributed as possible.</span>
+
+<span class="sd">    This fits a power transform to the data with the goal of making the transformed</span>
+<span class="sd">    values look as normally distributed as possible. We use Yeo-Johnson</span>
+<span class="sd">    (https://www.stat.umn.edu/arc/yjpower.pdf), which can handle both positive and</span>
+<span class="sd">    negative values.</span>
+
+<span class="sd">    While the transform seems to be quite robust, it probably makes sense to apply a</span>
+<span class="sd">    bit of winsorization and also standardize the inputs before applying the power</span>
+<span class="sd">    transform. The power transform will automatically standardize the data so the</span>
+<span class="sd">    data will remain standardized.</span>
+
+<span class="sd">    The transform can't be inverted for all values, so we apply clipping to move</span>
+<span class="sd">    values to the image of the transform. This behavior can be controlled via the</span>
+<span class="sd">    `clip_mean` setting.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span>
+        <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+        <span class="n">observation_data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span>
+        <span class="n">modelbridge</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">modelbridge_module</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">ModelBridge</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"PowerTransform requires a config."</span><span class="p">)</span>
+        <span class="c1"># pyre-fixme[6]: Same issue as for LogY</span>
+        <span class="n">metric_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"metrics"</span><span class="p">,</span> <span class="p">[]))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">metric_names</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Must specify at least one metric in the config."</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clip_mean</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"clip_mean"</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metric_names</span> <span class="o">=</span> <span class="n">metric_names</span>
+        <span class="n">Ys</span> <span class="o">=</span> <span class="n">get_data</span><span class="p">(</span><span class="n">observation_data</span><span class="o">=</span><span class="n">observation_data</span><span class="p">,</span> <span class="n">metric_names</span><span class="o">=</span><span class="n">metric_names</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">power_transforms</span> <span class="o">=</span> <span class="n">_compute_power_transforms</span><span class="p">(</span><span class="n">Ys</span><span class="o">=</span><span class="n">Ys</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inv_bounds</span> <span class="o">=</span> <span class="n">_compute_inverse_bounds</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">power_transforms</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PowerTransformY.transform_observation_data"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.transforms.power_transform_y.PowerTransformY.transform_observation_data">[docs]</a>    <span class="k">def</span> <span class="nf">transform_observation_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">observation_data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span>
+        <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">]:</span>
+        <span class="sd">"""Winsorize observation data in place."""</span>
+        <span class="k">for</span> <span class="n">obsd</span> <span class="ow">in</span> <span class="n">observation_data</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">obsd</span><span class="o">.</span><span class="n">metric_names</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metric_names</span><span class="p">:</span>
+                    <span class="n">transform</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">power_transforms</span><span class="p">[</span><span class="n">m</span><span class="p">]</span><span class="o">.</span><span class="n">transform</span>
+                    <span class="n">obsd</span><span class="o">.</span><span class="n">means</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">obsd</span><span class="o">.</span><span class="n">covariance</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">match_ci_width_truncated</span><span class="p">(</span>
+                        <span class="n">mean</span><span class="o">=</span><span class="n">obsd</span><span class="o">.</span><span class="n">means</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                        <span class="n">variance</span><span class="o">=</span><span class="n">obsd</span><span class="o">.</span><span class="n">covariance</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">],</span>
+                        <span class="n">transform</span><span class="o">=</span><span class="k">lambda</span> <span class="n">y</span><span class="p">:</span> <span class="n">transform</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">ndmin</span><span class="o">=</span><span class="mi">2</span><span class="p">)),</span>
+                        <span class="n">lower_bound</span><span class="o">=-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span>
+                        <span class="n">upper_bound</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span>
+                    <span class="p">)</span>
+        <span class="k">return</span> <span class="n">observation_data</span></div>
+
+<div class="viewcode-block" id="PowerTransformY.untransform_observation_data"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.transforms.power_transform_y.PowerTransformY.untransform_observation_data">[docs]</a>    <span class="k">def</span> <span class="nf">untransform_observation_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">observation_data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span>
+        <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">]:</span>
+        <span class="sd">"""Winsorize observation data in place."""</span>
+        <span class="k">for</span> <span class="n">obsd</span> <span class="ow">in</span> <span class="n">observation_data</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">obsd</span><span class="o">.</span><span class="n">metric_names</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metric_names</span><span class="p">:</span>
+                    <span class="n">l</span><span class="p">,</span> <span class="n">u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">inv_bounds</span><span class="p">[</span><span class="n">m</span><span class="p">]</span>
+                    <span class="n">transform</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">power_transforms</span><span class="p">[</span><span class="n">m</span><span class="p">]</span><span class="o">.</span><span class="n">inverse_transform</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">clip_mean</span> <span class="ow">and</span> <span class="p">(</span><span class="n">obsd</span><span class="o">.</span><span class="n">means</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">l</span> <span class="ow">or</span> <span class="n">obsd</span><span class="o">.</span><span class="n">means</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">u</span><span class="p">):</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="s2">"Can't untransform mean outside the bounds without clipping"</span>
+                        <span class="p">)</span>
+                    <span class="n">obsd</span><span class="o">.</span><span class="n">means</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">obsd</span><span class="o">.</span><span class="n">covariance</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">match_ci_width_truncated</span><span class="p">(</span>
+                        <span class="n">mean</span><span class="o">=</span><span class="n">obsd</span><span class="o">.</span><span class="n">means</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                        <span class="n">variance</span><span class="o">=</span><span class="n">obsd</span><span class="o">.</span><span class="n">covariance</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">],</span>
+                        <span class="n">transform</span><span class="o">=</span><span class="k">lambda</span> <span class="n">y</span><span class="p">:</span> <span class="n">transform</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">ndmin</span><span class="o">=</span><span class="mi">2</span><span class="p">)),</span>
+                        <span class="n">lower_bound</span><span class="o">=</span><span class="n">l</span><span class="p">,</span>
+                        <span class="n">upper_bound</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
+                        <span class="n">clip_mean</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="p">)</span>
+        <span class="k">return</span> <span class="n">observation_data</span></div>
+
+<div class="viewcode-block" id="PowerTransformY.transform_optimization_config"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.transforms.power_transform_y.PowerTransformY.transform_optimization_config">[docs]</a>    <span class="k">def</span> <span class="nf">transform_optimization_config</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="p">:</span> <span class="n">OptimizationConfig</span><span class="p">,</span>
+        <span class="n">modelbridge</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">modelbridge_module</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">ModelBridge</span><span class="p">],</span>
+        <span class="n">fixed_features</span><span class="p">:</span> <span class="n">ObservationFeatures</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationConfig</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">all_constraints</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">ScalarizedOutcomeConstraint</span><span class="p">):</span>
+                <span class="n">c_metric_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">metrics</span><span class="p">]</span>
+                <span class="n">intersection</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">c_metric_names</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_names</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">intersection</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"PowerTransformY cannot be used for metric(s) </span><span class="si">{</span><span class="n">intersection</span><span class="si">}</span><span class="s2"> "</span>
+                        <span class="s2">"that are part of a ScalarizedOutcomeConstraint."</span>
+                    <span class="p">)</span>
+            <span class="k">elif</span> <span class="n">c</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metric_names</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">relative</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"PowerTransformY cannot be applied to metric </span><span class="si">{</span><span class="n">c</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> "</span>
+                        <span class="s2">"since it is subject to a relative constraint."</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">transform</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">power_transforms</span><span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">transform</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">bound</span> <span class="o">=</span> <span class="n">transform</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">bound</span><span class="p">,</span> <span class="n">ndmin</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">optimization_config</span></div></div>
+
+
+<span class="k">def</span> <span class="nf">_compute_power_transforms</span><span class="p">(</span>
+    <span class="n">Ys</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PowerTransformer</span><span class="p">]:</span>
+    <span class="sd">"""Compute power transforms."""</span>
+    <span class="n">power_transforms</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">ys</span> <span class="ow">in</span> <span class="n">Ys</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ys</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">]</span>  <span class="c1"># Need to unsqueeze the last dimension</span>
+        <span class="n">pt</span> <span class="o">=</span> <span class="n">PowerTransformer</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s2">"yeo-johnson"</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+        <span class="n">power_transforms</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">pt</span>
+    <span class="k">return</span> <span class="n">power_transforms</span>
+
+
+<span class="k">def</span> <span class="nf">_compute_inverse_bounds</span><span class="p">(</span>
+    <span class="n">power_transforms</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PowerTransformer</span><span class="p">],</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-10</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
+    <span class="sd">"""Computes the image of the transform so we can clip when we untransform.</span>
+
+<span class="sd">    The inverse of the Yeo-Johnson transform is given by:</span>
+<span class="sd">    if X &gt;= 0 and lambda == 0:</span>
+<span class="sd">        X = exp(X_trans) - 1</span>
+<span class="sd">    elif X &gt;= 0 and lambda != 0:</span>
+<span class="sd">        X = (X_trans * lambda + 1) ** (1 / lambda) - 1</span>
+<span class="sd">    elif X &lt; 0 and lambda != 2:</span>
+<span class="sd">        X = 1 - (-(2 - lambda) * X_trans + 1) ** (1 / (2 - lambda))</span>
+<span class="sd">    elif X &lt; 0 and lambda == 2:</span>
+<span class="sd">        X = 1 - exp(-X_trans)</span>
+
+<span class="sd">    We can break this down into three cases:</span>
+<span class="sd">    lambda &lt; 0:        X &lt; -1 / lambda</span>
+<span class="sd">    0 &lt;= lambda &lt;= 2:  X is unbounded</span>
+<span class="sd">    lambda &gt; 2:        X &gt; 1 / (2 - lambda)</span>
+
+<span class="sd">    Sklearn standardizes the transformed values to have mean zero and standard</span>
+<span class="sd">    deviation 1, so we also need to account for this when we compute the bounds.</span>
+<span class="sd">    """</span>
+    <span class="n">inv_bounds</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">pt</span> <span class="ow">in</span> <span class="n">power_transforms</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">bounds</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">]</span>
+        <span class="n">mu</span><span class="p">,</span> <span class="n">sigma</span> <span class="o">=</span> <span class="n">pt</span><span class="o">.</span><span class="n">_scaler</span><span class="o">.</span><span class="n">mean_</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="n">pt</span><span class="o">.</span><span class="n">_scaler</span><span class="o">.</span><span class="n">scale_</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>  <span class="c1"># pyre-ignore</span>
+        <span class="n">lambda_</span> <span class="o">=</span> <span class="n">pt</span><span class="o">.</span><span class="n">lambdas_</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>  <span class="c1"># pyre-ignore</span>
+        <span class="k">if</span> <span class="n">lambda_</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="n">tol</span><span class="p">:</span>
+            <span class="n">bounds</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">lambda_</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">sigma</span>
+        <span class="k">elif</span> <span class="n">lambda_</span> <span class="o">&gt;</span> <span class="mf">2.0</span> <span class="o">+</span> <span class="n">tol</span><span class="p">:</span>
+            <span class="n">bounds</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">-</span> <span class="n">lambda_</span><span class="p">)</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">sigma</span>
+        <span class="n">inv_bounds</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">checked_cast_list</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">bounds</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">inv_bounds</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.4/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>
