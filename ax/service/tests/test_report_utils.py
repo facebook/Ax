@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-import copy
 import itertools
 from collections import namedtuple
 from logging import INFO, WARN
@@ -27,6 +26,7 @@ from ax.modelbridge.generation_node import GenerationStep
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Models
 from ax.service.scheduler import Scheduler
+from ax.service.utils.best_point_utils import exp_to_df
 from ax.service.utils.report_utils import (
     _format_comparison_string,
     _get_cross_validation_plots,
@@ -39,12 +39,10 @@ from ax.service.utils.report_utils import (
     BASELINE_ARM_NAME,
     compare_to_baseline,
     compute_maximum_map_values,
-    exp_to_df,
     Experiment,
     FEASIBLE_COL_NAME,
     get_standard_plots,
     plot_feature_importance_by_feature_plotly,
-    select_baseline_arm,
     warn_if_unpredictable_metrics,
 )
 from ax.service.utils.scheduler_options import SchedulerOptions
@@ -84,7 +82,7 @@ DUMMY_MSG = "test_message"
 
 class ReportUtilsTest(TestCase):
     @patch(
-        "ax.service.utils.report_utils._merge_results_if_no_duplicates",
+        "ax.service.utils.best_point_utils._merge_results_if_no_duplicates",
         autospec=True,
         return_value=pd.DataFrame(
             [
@@ -109,7 +107,7 @@ class ReportUtilsTest(TestCase):
             self.assertEqual(row["trial_index"], idx)
 
     @patch(
-        "ax.service.utils.report_utils._merge_results_if_no_duplicates",
+        "ax.service.utils.best_point_utils._merge_results_if_no_duplicates",
         autospec=True,
         return_value=pd.DataFrame(
             [
@@ -1175,100 +1173,6 @@ class ReportUtilsTest(TestCase):
             )
 
             self.assertIsNone(result)
-
-    def test_compare_to_baseline_select_baseline_arm(self) -> None:
-        OBJECTIVE_METRIC = "objective"
-        true_obj_metric = Metric(name=OBJECTIVE_METRIC, lower_is_better=True)
-        experiment = Experiment(
-            search_space=get_branin_search_space(),
-            tracking_metrics=[true_obj_metric],
-        )
-
-        # specified baseline
-        data = [
-            {
-                "trial_index": 0,
-                "arm_name": "m_0",
-                OBJECTIVE_METRIC: 0.2,
-            },
-            {
-                "trial_index": 1,
-                "arm_name": BASELINE_ARM_NAME,
-                OBJECTIVE_METRIC: 0.2,
-            },
-            {
-                "trial_index": 2,
-                "arm_name": "status_quo",
-                OBJECTIVE_METRIC: 0.2,
-            },
-        ]
-        arms_df = pd.DataFrame(data)
-        self.assertEqual(
-            select_baseline_arm(
-                experiment=experiment,
-                arms_df=arms_df,
-                baseline_arm_name=BASELINE_ARM_NAME,
-            ),
-            (BASELINE_ARM_NAME, False),
-        )
-
-        # specified baseline arm not in trial
-        wrong_baseline_name = "wrong_baseline_name"
-        with self.assertRaisesRegex(
-            ValueError,
-            "compare_to_baseline: baseline row: .*" + " not found in arms",
-        ):
-            select_baseline_arm(
-                experiment=experiment,
-                arms_df=arms_df,
-                baseline_arm_name=wrong_baseline_name,
-            )
-
-        # status quo baseline arm
-        experiment_with_status_quo = copy.deepcopy(experiment)
-        experiment_with_status_quo.status_quo = Arm(
-            name="status_quo",
-            parameters={"x1": 0, "x2": 0},
-        )
-        self.assertEqual(
-            select_baseline_arm(
-                experiment=experiment_with_status_quo,
-                arms_df=arms_df,
-                baseline_arm_name=None,
-            ),
-            ("status_quo", False),
-        )
-        # first arm from trials
-        custom_arm = Arm(name="m_0", parameters={"x1": 0.1, "x2": 0.2})
-        experiment.new_trial().add_arm(custom_arm)
-        self.assertEqual(
-            select_baseline_arm(
-                experiment=experiment,
-                arms_df=arms_df,
-                baseline_arm_name=None,
-            ),
-            ("m_0", True),
-        )
-
-        # none selected
-        experiment_with_no_valid_baseline = Experiment(
-            search_space=get_branin_search_space(),
-            tracking_metrics=[true_obj_metric],
-        )
-        experiment_with_no_valid_baseline.status_quo = Arm(
-            name="not found",
-            parameters={"x1": 0, "x2": 0},
-        )
-        custom_arm = Arm(name="also not found", parameters={"x1": 0.1, "x2": 0.2})
-        experiment_with_no_valid_baseline.new_trial().add_arm(custom_arm)
-        with self.assertRaisesRegex(
-            ValueError, "compare_to_baseline: could not find valid baseline arm"
-        ):
-            select_baseline_arm(
-                experiment=experiment_with_no_valid_baseline,
-                arms_df=arms_df,
-                baseline_arm_name=None,
-            )
 
     def test_warn_if_unpredictable_metrics(self) -> None:
         expected_msg = (
