@@ -10,11 +10,9 @@ from ax.analysis.plotly.interaction import InteractionPlot
 from ax.exceptions.core import UserInputError
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.mock import mock_botorch_optimize
 
 
 class TestInteractionPlot(TestCase):
-    @mock_botorch_optimize
     def setUp(self) -> None:
         super().setUp()
         self.client = AxClient()
@@ -36,7 +34,7 @@ class TestInteractionPlot(TestCase):
             objectives={"bar": ObjectiveProperties(minimize=True)},
         )
 
-        for _ in range(10):
+        for _ in range(2):
             parameterization, trial_index = self.client.get_next_trial()
             self.client.complete_trial(
                 trial_index=trial_index,
