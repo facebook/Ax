@@ -10,7 +10,8 @@
 import pandas as pd
 from ax.core.experiment import Experiment
 from ax.plot.base import AxPlotConfig, AxPlotTypes
-from ax.service.utils.report_utils import _get_shortest_unique_suffix_dict, exp_to_df
+from ax.service.utils.best_point_utils import exp_to_df
+from ax.service.utils.report_utils import _get_shortest_unique_suffix_dict
 from plotly import express as px, graph_objs as go
 
 

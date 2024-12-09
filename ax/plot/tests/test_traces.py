@@ -15,7 +15,7 @@ from ax.plot.trace import (
     optimization_trace_single_method_plotly,
     plot_objective_value_vs_trial_index,
 )
-from ax.service.utils.report_utils import exp_to_df
+from ax.service.utils.best_point_utils import exp_to_df
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 from ax.utils.testing.mock import mock_botorch_optimize

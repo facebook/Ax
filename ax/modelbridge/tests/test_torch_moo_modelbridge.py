@@ -37,7 +37,7 @@ from ax.models.torch.botorch_moo_defaults import (
     infer_objective_thresholds,
     pareto_frontier_evaluator,
 )
-from ax.service.utils.report_utils import exp_to_df
+from ax.service.utils.best_point_utils import exp_to_df
 from ax.utils.common.random import set_rng_seed
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast

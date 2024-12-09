@@ -68,12 +68,12 @@ from ax.plot.helper import _format_dict
 from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.analysis_base import AnalysisBase
 from ax.service.utils.best_point_mixin import BestPointMixin
+from ax.service.utils.best_point_utils import exp_to_df
 from ax.service.utils.instantiation import (
     FixedFeatures,
     InstantiationBase,
     ObjectiveProperties,
 )
-from ax.service.utils.report_utils import exp_to_df
 from ax.service.utils.with_db_settings_base import DBSettings
 from ax.storage.json_store.decoder import (
     generation_strategy_from_json,

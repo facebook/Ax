@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+import copy
 import random
 from unittest.mock import MagicMock, patch
 
@@ -14,7 +15,9 @@ import torch
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
+from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.metric import Metric
 from ax.core.objective import ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
@@ -32,10 +35,13 @@ from ax.service.utils.best_point import (
     get_best_raw_objective_point,
     logger as best_point_logger,
 )
+from ax.service.utils.best_point_utils import select_baseline_arm
+from ax.service.utils.report_utils import BASELINE_ARM_NAME
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_metric,
+    get_branin_search_space,
     get_experiment_with_observations,
     get_sobol,
 )
@@ -555,6 +561,100 @@ class TestBestPointUtils(TestCase):
         pd.testing.assert_index_equal(
             df.index, feasible_series.index, check_names=False
         )
+
+    def test_compare_to_baseline_select_baseline_arm(self) -> None:
+        OBJECTIVE_METRIC = "objective"
+        true_obj_metric = Metric(name=OBJECTIVE_METRIC, lower_is_better=True)
+        experiment = Experiment(
+            search_space=get_branin_search_space(),
+            tracking_metrics=[true_obj_metric],
+        )
+
+        # specified baseline
+        data = [
+            {
+                "trial_index": 0,
+                "arm_name": "m_0",
+                OBJECTIVE_METRIC: 0.2,
+            },
+            {
+                "trial_index": 1,
+                "arm_name": BASELINE_ARM_NAME,
+                OBJECTIVE_METRIC: 0.2,
+            },
+            {
+                "trial_index": 2,
+                "arm_name": "status_quo",
+                OBJECTIVE_METRIC: 0.2,
+            },
+        ]
+        arms_df = pd.DataFrame(data)
+        self.assertEqual(
+            select_baseline_arm(
+                experiment=experiment,
+                arms_df=arms_df,
+                baseline_arm_name=BASELINE_ARM_NAME,
+            ),
+            (BASELINE_ARM_NAME, False),
+        )
+
+        # specified baseline arm not in trial
+        wrong_baseline_name = "wrong_baseline_name"
+        with self.assertRaisesRegex(
+            ValueError,
+            "compare_to_baseline: baseline row: .*" + " not found in arms",
+        ):
+            select_baseline_arm(
+                experiment=experiment,
+                arms_df=arms_df,
+                baseline_arm_name=wrong_baseline_name,
+            )
+
+        # status quo baseline arm
+        experiment_with_status_quo = copy.deepcopy(experiment)
+        experiment_with_status_quo.status_quo = Arm(
+            name="status_quo",
+            parameters={"x1": 0, "x2": 0},
+        )
+        self.assertEqual(
+            select_baseline_arm(
+                experiment=experiment_with_status_quo,
+                arms_df=arms_df,
+                baseline_arm_name=None,
+            ),
+            ("status_quo", False),
+        )
+        # first arm from trials
+        custom_arm = Arm(name="m_0", parameters={"x1": 0.1, "x2": 0.2})
+        experiment.new_trial().add_arm(custom_arm)
+        self.assertEqual(
+            select_baseline_arm(
+                experiment=experiment,
+                arms_df=arms_df,
+                baseline_arm_name=None,
+            ),
+            ("m_0", True),
+        )
+
+        # none selected
+        experiment_with_no_valid_baseline = Experiment(
+            search_space=get_branin_search_space(),
+            tracking_metrics=[true_obj_metric],
+        )
+        experiment_with_no_valid_baseline.status_quo = Arm(
+            name="not found",
+            parameters={"x1": 0, "x2": 0},
+        )
+        custom_arm = Arm(name="also not found", parameters={"x1": 0.1, "x2": 0.2})
+        experiment_with_no_valid_baseline.new_trial().add_arm(custom_arm)
+        with self.assertRaisesRegex(
+            ValueError, "compare_to_baseline: could not find valid baseline arm"
+        ):
+            select_baseline_arm(
+                experiment=experiment_with_no_valid_baseline,
+                arms_df=arms_df,
+                baseline_arm_name=None,
+            )
 
 
 def _repeat_elements(list_to_replicate: list[bool], n_repeats: int) -> pd.Series:
