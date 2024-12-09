@@ -14,6 +14,7 @@ from ax.core.observation import Observation, ObservationData, ObservationFeature
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import DataRequiredError
+from ax.modelbridge.transforms.map_key_to_range import MapKeyToRange
 from ax.modelbridge.transforms.metadata_to_range import MetadataToRange
 from ax.utils.common.testutils import TestCase
 from pyre_extensions import assert_is_instance
@@ -176,3 +177,39 @@ class MetadataToRangeTransformTest(TestCase):
         )
         obs_ft2 = self.t.untransform_observation_features(obs_ft2)
         self.assertEqual(obs_ft2, observation_features)
+
+    def test_foo(self) -> None:
+        observations = []
+        for trial_index, width, height, steps in _enumerate():
+            obs_feat = ObservationFeatures(
+                trial_index=trial_index,
+                parameters={"width": width, "height": height},
+                metadata={
+                    "foo": 42,
+                    MapKeyToRange.DEFAULT_MAP_KEY: steps,
+                },
+            )
+            obs_data = ObservationData(
+                metric_names=[], means=np.array([]), covariance=np.empty((0, 0))
+            )
+            observations.append(Observation(features=obs_feat, data=obs_data))
+
+        t = MapKeyToRange(observations=observations)
+
+        self.assertEqual(len(t._parameter_list), 1)
+
+        p = t._parameter_list[0]
+
+        self.assertEqual(p.name, MapKeyToRange.DEFAULT_MAP_KEY)
+        self.assertEqual(p.parameter_type, ParameterType.FLOAT)
+        self.assertEqual(p.lower, 1.0)
+        self.assertEqual(p.upper, 5.0)
+        self.assertTrue(p.log_scale)
+        self.assertFalse(p.logit_scale)
+        self.assertIsNone(p.digits)
+        self.assertFalse(p.is_fidelity)
+        self.assertIsNone(p.target_value)
+
+        obsf = ObservationFeatures(parameters={})
+        t.transform_observation_features([obsf])
+        print(obsf.parameters)
