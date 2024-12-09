@@ -10,6 +10,7 @@ from typing import Any, Mapping
 import numpy as np
 
 import pandas as pd
+from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 
 from ax.core.base_trial import TrialStatus
 
@@ -864,6 +865,51 @@ class TestClient(TestCase):
             ),
             5,
         )
+
+    def test_compute_analyses(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo")
+
+        with self.assertLogs(logger="ax.analysis", level="ERROR") as lg:
+            cards = client.compute_analyses(analyses=[ParallelCoordinatesPlot()])
+
+            self.assertEqual(len(cards), 1)
+            self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
+            self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
+            self.assertEqual(
+                cards[0].subtitle,
+                f"An error occurred while computing {ParallelCoordinatesPlot()}",
+            )
+            self.assertIn("Traceback", cards[0].blob)
+            self.assertTrue(
+                any(
+                    (
+                        "Failed to compute ParallelCoordinatesPlot: "
+                        "No data found for metric "
+                    )
+                    in msg
+                    for msg in lg.output
+                )
+            )
+
+        for trial_index, _ in client.get_next_trials(maximum_trials=1).items():
+            client.complete_trial(trial_index=trial_index, raw_data={"foo": 1.0})
+
+        cards = client.compute_analyses(analyses=[ParallelCoordinatesPlot()])
+
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
 
 
 class DummyRunner(IRunner):
