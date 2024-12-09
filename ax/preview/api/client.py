@@ -40,6 +40,7 @@ from ax.preview.api.utils.instantiation.from_config import experiment_from_confi
 from ax.preview.api.utils.instantiation.from_string import (
     optimization_config_from_string,
 )
+from ax.service.scheduler import Scheduler, SchedulerOptions
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import with_rng_seed
 from pyre_extensions import assert_is_instance, none_throws
@@ -328,18 +329,12 @@ class Client:
                 "generating trials."
             )
 
-        # If no GenerationStrategy is set, configure a default one
-        if self._generation_strategy is None:
-            self.configure_generation_strategy(
-                generation_strategy_config=GenerationStrategyConfig()
-            )
-
         trials: list[Trial] = []
         with with_rng_seed(seed=self._random_seed):
+            gs = self._generation_strategy_or_choose()
+
             # This will be changed to use gen directly post gen-unfication cc @mgarrard
-            generator_runs = none_throws(
-                self._generation_strategy
-            ).gen_for_multiple_trials_with_multiple_models(
+            generator_runs = gs.gen_for_multiple_trials_with_multiple_models(
                 experiment=self._none_throws_experiment(),
                 pending_observations=(
                     get_pending_observation_features_based_on_trial_status(
@@ -604,7 +599,20 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        ...
+
+        scheduler = Scheduler(
+            experiment=self._none_throws_experiment(),
+            generation_strategy=(self._generation_strategy_or_choose()),
+            options=SchedulerOptions(
+                max_pending_trials=options.parallelism,
+                tolerated_trial_failure_rate=options.tolerated_trial_failure_rate,
+                init_seconds_between_polls=options.initial_seconds_between_polls,
+            ),
+            # TODO[mpolson64] Add db_settings=self._db_config when adding storage
+        )
+
+        # Note: This scheduler call will handle storage internally
+        scheduler.run_n_trials(max_trials=maximum_trials)
 
     # -------------------- Section 3. Analyze ---------------------------------------
     def compute_analyses(
@@ -710,6 +718,21 @@ class Client:
                 "experiment before utilizing any other methods on the Client."
             ),
         )
+
+    def _generation_strategy_or_choose(
+        self,
+    ) -> GenerationStrategy:
+        """
+        If a GenerationStrategy is not set, choose a default one (save to database) and
+        return it.
+        """
+
+        if self._generation_strategy is None:
+            self.configure_generation_strategy(
+                generation_strategy_config=GenerationStrategyConfig()
+            )
+
+        return none_throws(self._generation_strategy)
 
     def _overwrite_metric(self, metric: Metric) -> None:
         """
