@@ -31,9 +31,13 @@ from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.benchmark_runner import BenchmarkRunner
+from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
+from ax.benchmark.methods.sobol import get_sobol_generation_strategy
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
+from ax.core.optimization_config import OptimizationConfig
+from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization, TParamValue
 from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
@@ -46,27 +50,38 @@ logger: Logger = get_logger(__name__)
 
 
 def compute_score_trace(
-    optimization_trace: npt.NDArray,
-    num_baseline_trials: int,
-    problem: BenchmarkProblem,
+    optimization_trace: npt.NDArray, num_baseline_trials: int, optimal_value: float
 ) -> npt.NDArray:
-    """Computes a score trace from the optimization trace."""
+    """
+    Compute a score trace from the optimization trace.
 
-    # Use the first GenerationStep's best found point as baseline. Sometimes (ex. in
-    # a timeout) the first GenerationStep will not have not completed and we will not
-    # have enough trials; in this case we do not score.
+    Score is expressed as a percentage of possible improvement over a baseline.
+    A higher score is better.
+
+    Element `i` of the score trace is `optimization_trace[i] - baseline`
+    expressed as a percent of `optimal_value - baseline`, where `baseline` is
+    `optimization_trace[num_baseline_trials - 1]`.
+
+    Args:
+        optimization_trace: Objective values. Can be either higher- or
+            lower-is-better.
+        num_baseline_trials: Number of trials to use as the baseline. Sometimes
+            there are not this many trials, in which case the score trace is all
+            NaN.
+        optimal_value: The best possible value of the objective; when the
+            optimization_trace equals the optimal_value, the score is 100.
+    """
+
     if len(optimization_trace) <= num_baseline_trials:
         return np.full(len(optimization_trace), np.nan)
-    optimum = problem.optimal_value
-    baseline = optimization_trace[num_baseline_trials - 1]
 
-    score_trace = 100 * (1 - (optimization_trace - optimum) / (baseline - optimum))
-    if score_trace.max() > 100:
-        logger.info(
-            "Observed scores above 100. This indicates that we found a trial that is "
-            "better than the optimum. Clipping scores to 100 for now."
-        )
-    return score_trace.clip(min=0, max=100)
+    # Note: In the future, the baseline will be passed explicitly, so
+    # higher_is_better should not need to be inferred.
+    higher_is_better = optimization_trace[0] < optimal_value
+    baseline_trials = optimization_trace[:num_baseline_trials]
+    baseline = baseline_trials.max() if higher_is_better else baseline_trials.min()
+    score_trace = 100 * (optimization_trace - baseline) / (optimal_value - baseline)
+    return score_trace.clip(min=0)
 
 
 def get_benchmark_runner(
@@ -361,7 +376,7 @@ def benchmark_replication(
         score_trace = compute_score_trace(
             optimization_trace=optimization_trace,
             num_baseline_trials=num_baseline_trials,
-            problem=problem,
+            optimal_value=problem.optimal_value,
         )
     except Exception as e:
         logger.warning(
@@ -386,6 +401,50 @@ def benchmark_replication(
         fit_time=fit_time,
         gen_time=gen_time,
     )
+
+
+def compute_baseline_value_from_sobol(
+    optimization_config: OptimizationConfig,
+    search_space: SearchSpace,
+    test_function: BenchmarkTestFunction,
+) -> float:
+    """
+    Compute the `baseline_value` that will be assigned to
+    a `BenchmarkProblem`.
+
+    Computed by taking the best of five quasi-random Sobol trials and then
+    repeating 50 times. The value is evaluated at the ground truth (noiseless
+    and at the target task and fidelity).
+    """
+    gs = get_sobol_generation_strategy()
+    method = BenchmarkMethod(generation_strategy=gs)
+    runner = BenchmarkRunner(test_function=test_function)
+
+    method = BenchmarkMethod(generation_strategy=gs)
+    scheduler_options = get_benchmark_scheduler_options(method=method)
+
+    n_repeats = 50
+    values = np.full(n_repeats, np.nan)
+    for i in range(n_repeats):
+        experiment = Experiment(
+            search_space=search_space,
+            optimization_config=optimization_config,
+            runner=runner,
+        )
+        scheduler = Scheduler(
+            experiment=experiment,
+            generation_strategy=gs,
+            options=scheduler_options,
+        )
+        with with_rng_seed(seed=0):
+            scheduler.run_n_trials(max_trials=5)
+
+        # Use BestPointMixin._get_trace because it works for SOO/MOO and for MapData/Data
+        values[i] = BestPointMixin._get_trace(
+            experiment=experiment, optimization_config=optimization_config
+        )[-1]
+
+    return values.mean()
 
 
 def benchmark_one_method_problem(
