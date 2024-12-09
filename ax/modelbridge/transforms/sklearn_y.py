@@ -77,6 +77,9 @@ class LogWarpingTransformer(OneToOneFeatureMixin, TransformerMixin, BaseEstimato
         X = self._check_input(X, in_fit=False, check_shape=True)
 
         X[:, :] = (self.labels_max_ - X) / (self.labels_max_ - self.labels_min_)
+        # TODO use the taylor series expansion for -ve values of X such that we
+        # can avoid the divergence of the log function if bounds are much larger
+        # than maximum value of X.
         X[:, :] = np.where(
             np.isfinite(X),
             0.5 - (np.log1p(X * (self.offset - 1)) / np.log(self.offset)),
@@ -552,20 +555,6 @@ class HalfRankTransformer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator)
         return {"allow_nan": True}
 
 
-def _compute_sklearn_transforms(
-    Ys: dict[str, list[float]],
-    transformer: Callable[[dict[str, Any]], TransformerMixin],
-    transformer_kwargs: dict[str, Any],
-) -> dict[str, TransformerMixin]:
-    """Compute power transforms."""
-    transforms = {}
-    for k, ys in Ys.items():
-        y = np.array(ys)[:, None]  # Need to unsqueeze the last dimension
-        hrt = transformer(**transformer_kwargs).fit(y)
-        transforms[k] = hrt
-    return transforms
-
-
 class SklearnTransform(Transform):
     """A transform that wraps a sklearn transformer."""
 
@@ -612,10 +601,10 @@ class SklearnTransform(Transform):
         self.metric_names: list[str] = list(Ys.keys())
 
         # pyre-fixme[4]: Attribute must be annotated.
-        self.transforms = _compute_sklearn_transforms(
+        self.transforms = self._compute_sklearn_transforms(
             Ys=Ys,
             transformer=config["transformer"],
-            transformer_kwargs=config["transformer_kwargs"],
+            transformer_kwargs=config.get("transformer_kwargs", {}),
         )
         # pyre-fixme[4]: Attribute must be annotated.
         self.inv_bounds = self._compute_inverse_bounds(self.transforms)
@@ -629,6 +618,20 @@ class SklearnTransform(Transform):
             inv_bounds[k] = tuple(checked_cast_list(float, [-np.inf, np.inf]))
         return inv_bounds
 
+    @staticmethod
+    def _compute_sklearn_transforms(
+        Ys: dict[str, list[float]],
+        transformer: Callable[[dict[str, Any]], TransformerMixin],
+        transformer_kwargs: dict[str, Any],
+    ) -> dict[str, TransformerMixin]:
+        """Compute sklearn transforms."""
+        transforms = {}
+        for k, ys in Ys.items():
+            y = np.array(ys)[:, None]  # Need to unsqueeze the last dimension
+            t = transformer(**transformer_kwargs).fit(y)
+            transforms[k] = t
+        return transforms
+
     def _transform_observation_data(
         self,
         observation_data: list[ObservationData],
@@ -639,14 +642,12 @@ class SklearnTransform(Transform):
                 if m in self.metric_names:
                     transform = self.transforms[m].transform
                     if self.match_ci_width:
-                        lower_bound, upper_bound = self.inv_bounds[m]
                         obsd.means[i], obsd.covariance[i, i] = match_ci_width_truncated(
                             mean=obsd.means[i],
                             variance=obsd.covariance[i, i],
                             transform=lambda y: transform(np.array(y, ndmin=2)),
-                            lower_bound=lower_bound,
-                            upper_bound=upper_bound,
-                            clip_mean=self.clip_mean,
+                            lower_bound=-np.inf,
+                            upper_bound=np.inf,
                         )
                     else:
                         obsd.means[i] = transform(np.array(obsd.means[i], ndmin=2))
@@ -694,14 +695,15 @@ class SklearnTransform(Transform):
                 intersection = set(c_metric_names) & set(self.metric_names)
                 if intersection:
                     raise NotImplementedError(
-                        f"PowerTransformY cannot be used for metric(s) {intersection} "
-                        "that are part of a ScalarizedOutcomeConstraint."
+                        f"{self.__class__.__name__} cannot be used for metric(s) "
+                        f"{intersection} that are part of a "
+                        "ScalarizedOutcomeConstraint."
                     )
             elif c.metric.name in self.metric_names:
                 if c.relative:
                     raise ValueError(
-                        f"PowerTransformY cannot be applied to metric {c.metric.name} "
-                        "since it is subject to a relative constraint."
+                        f"{self.__class__.__name__} cannot be applied to metric "
+                        f"{c.metric.name} since it is subject to a relative constraint."
                     )
                 else:
                     transform = self.transforms[c.metric.name].transform
@@ -800,7 +802,7 @@ class LogWarpingY(SklearnTransform):
         config: TConfig | None = None,
     ) -> None:
         config = config or {}
-        config["transformer"] = LogWarpingTransformer()
+        config["transformer"] = LogWarpingTransformer
         config["match_ci_width"] = True
         config["clip_mean"] = True
         super().__init__(search_space, observations, modelbridge, config)
@@ -813,7 +815,12 @@ class LogWarpingY(SklearnTransform):
         for k, lt in transforms.items():
             if not isinstance(lt, LogWarpingTransformer):
                 raise ValueError(f"Unexpected transformer type: {type(lt)}")
-            inv_bounds[k] = tuple(checked_cast_list(float, [-0.5, 0.5]))
+            # match_ci_width_truncated uses a margin of 0.001 to clip the mean, so
+            # we need to add a small margin to the bounds to avoid clipping.
+            margin = 1e-3
+            inv_bounds[k] = tuple(
+                checked_cast_list(float, [-0.5 - margin, 0.5 + margin])
+            )
         return inv_bounds
 
 
@@ -826,7 +833,7 @@ class InfeasibleY(SklearnTransform):
         config: TConfig | None = None,
     ) -> None:
         config = config or {}
-        config["transformer"] = InfeasibleTransformer()
+        config["transformer"] = InfeasibleTransformer
         config["match_ci_width"] = True
         config["clip_mean"] = True
         super().__init__(search_space, observations, modelbridge, config)
@@ -858,5 +865,5 @@ class HalfRankY(SklearnTransform):
         config: TConfig | None = None,
     ) -> None:
         config = config or {}
-        config["transformer"] = HalfRankTransformer()
+        config["transformer"] = HalfRankTransformer
         super().__init__(search_space, observations, modelbridge, config)
