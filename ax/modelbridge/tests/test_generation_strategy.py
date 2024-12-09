@@ -51,7 +51,6 @@ from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transition_criterion import (
     AutoTransitionAfterGen,
     MaxGenerationParallelism,
-    MaxTrials,
     MinTrials,
 )
 from ax.models.random.sobol import SobolGenerator
@@ -97,7 +96,7 @@ class TestGenerationStrategyWithoutModelBridgeMocks(TestCase):
                     node_name="Sobol",
                     model_specs=[ModelSpec(model_enum=Models.SOBOL)],
                     transition_criteria=[
-                        MaxTrials(threshold=2, transition_to="MBM/BO_MIXED")
+                        MinTrials(threshold=2, transition_to="MBM/BO_MIXED")
                     ],
                 ),
                 GenerationNode(
@@ -203,7 +202,7 @@ class TestGenerationStrategy(TestCase):
 
         # Set up the node-based generation strategy for testing.
         self.sobol_criterion = [
-            MaxTrials(
+            MinTrials(
                 threshold=5,
                 transition_to="MBM_node",
                 block_gen_if_met=True,
@@ -212,7 +211,7 @@ class TestGenerationStrategy(TestCase):
             )
         ]
         self.mbm_criterion = [
-            MaxTrials(
+            MinTrials(
                 threshold=2,
                 # this self-pointing isn't representative of real-world, but is
                 # useful for testing attributes likes repr etc
@@ -223,7 +222,7 @@ class TestGenerationStrategy(TestCase):
             )
         ]
         self.single_running_trial_criterion = [
-            MaxTrials(
+            MinTrials(
                 threshold=1,
                 transition_to="mbm",
                 block_transition_if_unmet=True,
@@ -254,7 +253,7 @@ class TestGenerationStrategy(TestCase):
             name="Sobol+MBM_Nodes",
             nodes=[self.sobol_node, self.mbm_node],
         )
-        self.mbm_to_sobol2_max = MaxTrials(
+        self.mbm_to_sobol2_max = MinTrials(
             threshold=1,
             transition_to="sobol_2",
             block_transition_if_unmet=True,
@@ -322,7 +321,7 @@ class TestGenerationStrategy(TestCase):
                     node_name="sobol_3",
                     model_specs=[self.sobol_model_spec],
                     transition_criteria=[
-                        MaxTrials(
+                        MinTrials(
                             threshold=2,
                             transition_to="sobol_4",
                             block_transition_if_unmet=True,
@@ -1133,7 +1132,7 @@ class TestGenerationStrategy(TestCase):
     def test_gs_setup_with_nodes(self) -> None:
         """Test GS initialization and validation with nodes"""
         node_1_criterion = [
-            MaxTrials(
+            MinTrials(
                 threshold=4,
                 block_gen_if_met=False,
                 transition_to="node_2",
@@ -1220,7 +1219,7 @@ class TestGenerationStrategy(TestCase):
                     GenerationNode(
                         node_name="node_1",
                         transition_criteria=[
-                            MaxTrials(
+                            MinTrials(
                                 threshold=4,
                                 block_gen_if_met=False,
                                 transition_to="node_2",
@@ -1549,7 +1548,7 @@ class TestGenerationStrategy(TestCase):
             node_name="test",
             model_specs=[self.sobol_model_spec],
             transition_criteria=[
-                MaxTrials(
+                MinTrials(
                     threshold=3,
                     block_gen_if_met=True,
                     block_transition_if_unmet=True,
@@ -1606,13 +1605,13 @@ class TestGenerationStrategy(TestCase):
         """Test that a ``GenerationStrategy`` with a node with competing transition
         edges correctly transitions.
         """
-        # this gs has a single sobol node which transitions to mbm. If the MaxTrials
-        # and MinTrials criterion are met, the transition to sobol_2 should occur,
-        # otherwise, should transition to sobol_3
+        # this gs has a single sobol node which transitions to mbm. If both criterion
+        # are met, the transition to sobol_2 should occur, otherwise, should
+        # transition to sobol_3
         gs = self.competing_tc_gs
         exp = get_branin_experiment()
 
-        # check that mbm will move to sobol_3 when MaxTrials and MinTrials are unmet
+        # check that mbm will move to sobol_3 when both are unmet
         exp.new_trial(generator_run=gs.gen(exp)).run()
         gs.gen(exp)
         self.assertEqual(gs.current_node_name, "mbm")
@@ -1621,9 +1620,6 @@ class TestGenerationStrategy(TestCase):
 
     def test_transition_edges(self) -> None:
         """Test transition_edges property of ``GenerationNode``"""
-        # this gs has a single sobol node which transitions to mbm. If the MaxTrials
-        # and MinTrials criterion are met, the transition to sobol_2 should occur,
-        # otherwise, should transition back to sobol.
         mbm_to_sobol_auto = AutoTransitionAfterGen(transition_to="sobol")
         gs = GenerationStrategy(
             nodes=[
@@ -1871,7 +1867,7 @@ class TestGenerationStrategy(TestCase):
     def test_gs_with_fixed_features_constructor(self) -> None:
         exp = get_branin_experiment()
         sobol_criterion = [
-            MaxTrials(
+            MinTrials(
                 threshold=1,
                 transition_to="sobol_2",
                 block_gen_if_met=True,
@@ -2000,7 +1996,7 @@ class TestGenerationStrategy(TestCase):
         """
         exp = get_branin_experiment()
         sobol_criterion = [
-            MaxTrials(
+            MinTrials(
                 threshold=1,
                 transition_to="sobol_2",
                 block_gen_if_met=True,

@@ -12,17 +12,12 @@ import torch
 from ax.analysis.analysis import AnalysisCardLevel
 from ax.analysis.plotly.arm_effects.predicted_effects import PredictedEffectsPlot
 from ax.analysis.plotly.arm_effects.utils import get_predictions_by_arm
-from ax.core.base_trial import TrialStatus
 from ax.core.observation import ObservationFeatures
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
-from ax.modelbridge.generation_node import GenerationNode
-from ax.modelbridge.generation_strategy import GenerationStrategy
-from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.prediction_utils import predict_at_point
 from ax.modelbridge.registry import Models
-from ax.modelbridge.transition_criterion import MaxTrials
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
@@ -31,6 +26,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_outcome_constraint,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
+from ax.utils.testing.modeling_stubs import get_sobol_MBM_MTGP_gs
 from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds
 from pyre_extensions import none_throws
 
@@ -38,47 +34,7 @@ from pyre_extensions import none_throws
 class TestPredictedEffectsPlot(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.generation_strategy = GenerationStrategy(
-            nodes=[
-                GenerationNode(
-                    node_name="Sobol",
-                    model_specs=[ModelSpec(model_enum=Models.SOBOL)],
-                    transition_criteria=[
-                        MaxTrials(
-                            threshold=1,
-                            transition_to="MBM",
-                        )
-                    ],
-                ),
-                GenerationNode(
-                    node_name="MBM",
-                    model_specs=[
-                        ModelSpec(
-                            model_enum=Models.BOTORCH_MODULAR,
-                        ),
-                    ],
-                    transition_criteria=[
-                        MaxTrials(
-                            threshold=1,
-                            transition_to="MTGP",
-                            only_in_statuses=[
-                                TrialStatus.RUNNING,
-                                TrialStatus.COMPLETED,
-                                TrialStatus.EARLY_STOPPED,
-                            ],
-                        )
-                    ],
-                ),
-                GenerationNode(
-                    node_name="MTGP",
-                    model_specs=[
-                        ModelSpec(
-                            model_enum=Models.ST_MTGP,
-                        ),
-                    ],
-                ),
-            ],
-        )
+        self.generation_strategy = get_sobol_MBM_MTGP_gs()
 
     def test_compute_for_requires_an_exp(self) -> None:
         analysis = PredictedEffectsPlot(metric_name="branin")
