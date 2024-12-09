@@ -13,8 +13,8 @@ from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import OrderConstraint, SumConstraint
 from ax.core.search_space import RobustSearchSpace, SearchSpace
-from ax.exceptions.core import UnsupportedError
-from ax.modelbridge.transforms.int_to_float import IntToFloat
+from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.modelbridge.transforms.int_to_float import IntToFloat, LogIntToFloat
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import get_robust_search_space
@@ -324,3 +324,33 @@ class IntToFloatTransformTest(TestCase):
         )
         with self.assertRaisesRegex(UnsupportedError, "transform is not supported"):
             t.transform_search_space(rss)
+
+
+class LogIntToFloatTransformTest(TestCase):
+    def test_log_int_to_float(self) -> None:
+        parameters = [
+            RangeParameter("x", lower=1, upper=3, parameter_type=ParameterType.INT),
+            RangeParameter("y", lower=1, upper=50, parameter_type=ParameterType.INT),
+            RangeParameter(
+                "z", lower=1, upper=50, parameter_type=ParameterType.INT, log_scale=True
+            ),
+        ]
+        search_space = SearchSpace(parameters=parameters)
+        with self.assertRaisesRegex(UserInputError, "min_choices"):
+            LogIntToFloat(search_space=search_space, config={"min_choices": 5})
+        t = LogIntToFloat(search_space=search_space)
+        self.assertFalse(hasattr(t, "min_choices"))
+        self.assertEqual(t.transform_parameters, {"z"})
+        t_ss = t.transform_search_space(search_space)
+        self.assertEqual(t_ss.parameters["x"], parameters[0])
+        self.assertEqual(t_ss.parameters["y"], parameters[1])
+        self.assertEqual(
+            t_ss.parameters["z"],
+            RangeParameter(
+                name="z",
+                lower=0.50001,
+                upper=50.49999,
+                parameter_type=ParameterType.FLOAT,
+                log_scale=True,
+            ),
+        )

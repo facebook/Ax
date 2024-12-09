@@ -22,6 +22,9 @@ from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
 from ax.modelbridge.generation_node import GenerationStep
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Models
+from ax.models.torch.botorch_modular.kernels import ScaleMaternKernel
+from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
+from ax.models.torch.botorch_modular.utils import ModelConfig
 from ax.storage.json_store.decoder import (
     _DEPRECATED_MODEL_TO_REPLACEMENT,
     generation_strategy_from_json,
@@ -131,6 +134,8 @@ from ax.utils.testing.modeling_stubs import (
 )
 from ax.utils.testing.utils import generic_equals
 from ax.utils.testing.utils_testing_stubs import get_backend_simulator_with_trials
+from botorch.models import SingleTaskGP
+from botorch.models.transforms.outcome import Standardize
 from botorch.sampling.normal import SobolQMCNormalSampler
 
 
@@ -862,7 +867,96 @@ class JSONStoreTest(TestCase):
             "warm_start_refit": True,
         }
         expected_object = get_botorch_model_with_surrogate_spec()
+        expected_object.surrogate_spec.model_configs[0].input_transform_classes = None
         self.assertEqual(object_from_json(object_json), expected_object)
+
+    def test_surrogate_spec_backwards_compatibility(self) -> None:
+        # This is an invalid example that has both deprecated args
+        # and model config specified. Deprecated args will be ignored.
+        object_json = {
+            "__type": "SurrogateSpec",
+            "botorch_model_class": {
+                "__type": "Type[Model]",
+                "index": "MultiTaskGP",
+                "class": "<class 'botorch.models.model.Model'>",
+            },
+            "botorch_model_kwargs": {"dummy": 5},
+            "mll_class": {
+                "__type": "Type[MarginalLogLikelihood]",
+                "index": "ExactMarginalLogLikelihood",
+                "class": (
+                    "<class 'gpytorch.mlls.marginal_log_likelihood."
+                    "MarginalLogLikelihood'>"
+                ),
+            },
+            "mll_kwargs": {},
+            "covar_module_class": None,
+            "covar_module_kwargs": None,
+            "likelihood_class": None,
+            "likelihood_kwargs": None,
+            "input_transform_classes": None,
+            "input_transform_options": None,
+            "outcome_transform_classes": None,
+            "outcome_transform_options": None,
+            "allow_batched_models": True,
+            "model_configs": [
+                {
+                    "__type": "ModelConfig",
+                    "botorch_model_class": {
+                        "__type": "Type[Model]",
+                        "index": "SingleTaskGP",
+                        "class": "<class 'botorch.models.model.Model'>",
+                    },
+                    "model_options": {},
+                    "mll_class": {
+                        "__type": "Type[MarginalLogLikelihood]",
+                        "index": "ExactMarginalLogLikelihood",
+                        "class": (
+                            "<class 'gpytorch.mlls.marginal_log_likelihood."
+                            "MarginalLogLikelihood'>"
+                        ),
+                    },
+                    "mll_options": {},
+                    "input_transform_classes": None,
+                    "input_transform_options": {},
+                    "outcome_transform_classes": [
+                        {
+                            "__type": "Type[OutcomeTransform]",
+                            "index": "Standardize",
+                            "class": (
+                                "<class 'botorch.models.transforms.outcome."
+                                "OutcomeTransform'>"
+                            ),
+                        }
+                    ],
+                    "outcome_transform_options": {},
+                    "covar_module_class": {
+                        "__type": "Type[Kernel]",
+                        "index": "ScaleMaternKernel",
+                        "class": "<class 'gpytorch.kernels.kernel.Kernel'>",
+                    },
+                    "covar_module_options": {},
+                    "likelihood_class": None,
+                    "likelihood_options": {},
+                }
+            ],
+            "metric_to_model_configs": {},
+            "eval_criterion": "Rank correlation",
+            "outcomes": [],
+            "use_posterior_predictive": False,
+        }
+        deserialized_object = object_from_json(object_json)
+        expected_object = SurrogateSpec(
+            model_configs=[
+                ModelConfig(
+                    botorch_model_class=SingleTaskGP,
+                    covar_module_class=ScaleMaternKernel,
+                    outcome_transform_classes=[Standardize],
+                    input_transform_classes=None,
+                )
+            ]
+        )
+        self.assertEqual(deserialized_object, expected_object)
 
     def test_model_registry_backwards_compatibility(self) -> None:
         # Check that deprecated model registry entries can be loaded.

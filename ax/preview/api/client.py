@@ -3,19 +3,29 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-strict
+
+from logging import Logger
 from typing import Sequence
+
+import numpy as np
 
 from ax.analysis.analysis import Analysis, AnalysisCard  # Used as a return type
 
 from ax.core.base_trial import TrialStatus  # Used as a return type
 
 from ax.core.experiment import Experiment
-from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from ax.core.metric import Metric
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
-from ax.core.search_space import SearchSpace
+from ax.core.trial import Trial
+from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
+from ax.exceptions.core import UnsupportedError
+from ax.modelbridge.dispatch_utils import choose_generation_strategy
+from ax.modelbridge.generation_strategy import GenerationStrategy
 
 from ax.preview.api.configs import (
     DatabaseConfig,
@@ -26,29 +36,40 @@ from ax.preview.api.configs import (
 from ax.preview.api.protocols.metric import IMetric
 from ax.preview.api.protocols.runner import IRunner
 from ax.preview.api.types import TOutcome, TParameterization
+from ax.preview.api.utils.instantiation.from_config import experiment_from_config
+from ax.preview.api.utils.instantiation.from_string import (
+    optimization_config_from_string,
+)
+from ax.utils.common.logger import get_logger
+from ax.utils.common.random import with_rng_seed
+from pyre_extensions import assert_is_instance, none_throws
 from typing_extensions import Self
+
+logger: Logger = get_logger(__name__)
 
 
 class Client:
+    _experiment: Experiment | None = None
+    _generation_strategy: GenerationStrategy | None = None
+    _early_stopping_strategy: BaseEarlyStoppingStrategy | None = None
+
     def __init__(
         self,
         db_config: DatabaseConfig | None = None,
         random_seed: int | None = None,
     ) -> None:
         """
-        Many parameter are intentionally omitted from __init__ that were present
-        in AxClient.__init__, including:
+        Initialize a Client, which manages state across the lifecycle of an experiment.
 
-        generation_strategy: Now set via configure_generation_strategy or
-            set_generation_strategy
-        enforce_sequential_optimization: Now set via GenerationStrategyConfig
-        torch_device: Now set via GenerationStrategyConfig
-        verbose_logging: Omitted, user can set the logger level on their root config
-        suppress_storage_errors: Omitted
-        early_stopping_strategy: Now set via set_early_stopping_strategy
-        global_stopping_strategy: Global stopping is not yet supported in API
+        Args:
+            db_config: Configuration for saving to and loading from a database. If
+                elided the experiment will not automatically be saved to a database.
+            random_seed: An optional integer to set the random seed for reproducibility
+                of the experiment's results. If not provided, the random seed will not
+                be set, leading to potentially different results on different runs.
         """
-        ...
+        self._db_config = db_config
+        self._random_seed = random_seed
 
     # -------------------- Section 1: Configure --------------------------------------
     def configure_experiment(self, experiment_config: ExperimentConfig) -> None:
@@ -62,7 +83,17 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        if self._experiment is not None:
+            raise UnsupportedError(
+                "Experiment already configured. Please create a new Client if you "
+                "would like a new experiment."
+            )
+
+        self._experiment = experiment_from_config(config=experiment_config)
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
 
     def configure_optimization(
         self,
@@ -72,6 +103,9 @@ class Client:
         objective: str,
         # Outcome constraints will also be parsed via SymPy
         # Ex: "num_layers1 <= num_layers2", "compound_a + compound_b <= 1"
+        # To indicate a relative constraint multiply your bound by "baseline"
+        # Ex: "qps >= 0.95 * baseline" will constrain such that the QPS is at least
+        # 95% of the baseline arm's QPS.
         outcome_constraints: Sequence[str] | None = None,
     ) -> None:
         """
@@ -80,9 +114,33 @@ class Client:
         tracking_metrics if they were were already present (i.e. they were attached via
         configure_metrics) or added as base Metrics.
 
+        Args:
+            objective: Objective is a string and allows us to express single,
+                scalarized, and multi-objective goals. Ex: "loss", "ne1 + ne1",
+                "-ne, qps"
+            outcome_constraints: Outcome constraints are also strings and allow us to
+                express a desire to have a metric clear a threshold but not be
+                further optimized. These constraints are expressed as inequalities.
+                Ex: "qps >= 100", "0.5 * ne1 + 0.5 * ne2 >= 0.95".
+                To indicate a relative constraint multiply your bound by "baseline"
+                Ex: "qps >= 0.95 * baseline" will constrain such that the QPS is at
+                least 95% of the baseline arm's QPS.
+                Note that scalarized outcome constraints cannot be relative.
+
+
         Saves to database on completion if db_config is present.
         """
-        ...
+
+        self._none_throws_experiment().optimization_config = (
+            optimization_config_from_string(
+                objective_str=objective,
+                outcome_constraint_strs=outcome_constraints,
+            )
+        )
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
 
     def configure_generation_strategy(
         self, generation_strategy_config: GenerationStrategyConfig
@@ -93,7 +151,26 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        ...
+
+        generation_strategy = choose_generation_strategy(
+            search_space=self._none_throws_experiment().search_space,
+            optimization_config=self._none_throws_experiment().optimization_config,
+            num_trials=generation_strategy_config.num_trials,
+            num_initialization_trials=(
+                generation_strategy_config.num_initialization_trials
+            ),
+            max_parallelism_cap=generation_strategy_config.maximum_parallelism,
+            random_seed=self._random_seed,
+        )
+
+        # Necessary for storage implications, may be removed in the future
+        generation_strategy._experiment = self._none_throws_experiment()
+
+        self._generation_strategy = generation_strategy
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
 
     # -------------------- Section 1.1: Configure Automation ------------------------
     def configure_runner(self, runner: IRunner) -> None:
@@ -102,77 +179,129 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        self._set_runner(runner=runner)
 
     def configure_metrics(self, metrics: Sequence[IMetric]) -> None:
         """
-        Finds equivallently named Metric that already exists on the Experiment and
-        replaces it with the Metric provided, or adds the Metric provided to the
-        Experiment as tracking metrics.
+        Attach a class with logic for autmating fetching of a given metric by
+        replacing its instance with the provided Metric from metrics sequence input,
+        or adds the Metric provided to the Experiment as a tracking metric if that
+        metric was not already present.
         """
-        ...
+        self._set_metrics(metrics=metrics)
 
     # -------------------- Section 1.2: Set (not API) -------------------------------
     def set_experiment(self, experiment: Experiment) -> None:
         """
+        This method is not part of the API and is provided (without guarantees of
+        method signature stability) for the convenience of some developers, power
+        users, and partners.
+
         Overwrite the existing Experiment with the provided Experiment.
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        self._experiment = experiment
 
-    def set_search_space(self, search_space: SearchSpace) -> None:
-        """
-        Overwrite the existing SearchSpace with the provided SearchSpace.
-
-        Saves to database on completion if db_config is present.
-        """
-        ...
+        if self._db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
 
     def set_optimization_config(self, optimization_config: OptimizationConfig) -> None:
         """
+        This method is not part of the API and is provided (without guarantees of
+        method signature stability) for the convenience of some developers, power
+        users, and partners.
+
         Overwrite the existing OptimizationConfig with the provided OptimizationConfig.
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        self._none_throws_experiment().optimization_config = optimization_config
 
-    def set_generation_strategy(
-        self, generation_strategy: GenerationStrategyInterface
-    ) -> None:
+        if self._db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
+
+    def set_generation_strategy(self, generation_strategy: GenerationStrategy) -> None:
         """
+        This method is not part of the API and is provided (without guarantees of
+        method signature stability) for the convenience of some developers, power
+        users, and partners.
+
         Overwrite the existing GenerationStrategy with the provided GenerationStrategy.
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        self._generation_strategy = generation_strategy
+        none_throws(
+            self._generation_strategy
+        )._experiment = self._none_throws_experiment()
+
+        none_throws(
+            self._generation_strategy
+        )._experiment = self._none_throws_experiment()
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
 
     def set_early_stopping_strategy(
         self, early_stopping_strategy: BaseEarlyStoppingStrategy
     ) -> None:
         """
+        This method is not part of the API and is provided (without guarantees of
+        method signature stability) for the convenience of some developers, power
+        users, and partners.
+
         Overwrite the existing EarlyStoppingStrategy with the provided
         EarlyStoppingStrategy.
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        self._early_stopping_strategy = early_stopping_strategy
 
-    def set_runner(self, runner: Runner) -> None:
+        if self._db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
+
+    def _set_runner(self, runner: Runner) -> None:
         """
+        This method is not part of the API and is provided (without guarantees of
+        method signature stability) for the convenience of some developers and power
+        users.
+
         Attaches a Runner to the Experiment.
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        self._none_throws_experiment().runner = runner
 
-    def set_metrics(self, metrics: Sequence[Metric]) -> None:
+        if self._db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
+
+    def _set_metrics(self, metrics: Sequence[Metric]) -> None:
         """
-        Finds equivallently named Metric that already exists on the Experiment and
-        replaces it with the Metric provided, or adds the Metric provided to the
-        Experiment as tracking metrics.
+        This method is not part of the API and is provided (without guarantees of
+        method signature stability) for the convenience of some developers, power
+        users, and partners.
+
+        Attach a class with logic for autmating fetching of a given metric by
+        replacing its instance with the provided Metric from metrics sequence input,
+        or adds the Metric provided to the Experiment as a tracking metric if that
+        metric was not already present.
         """
-        ...
+        # If an equivalently named Metric already exists on the Experiment, replace it
+        # with the Metric provided. Otherwise, add the Metric to the Experiment as a
+        # tracking metric.
+        for metric in metrics:
+            # Check the optimization config first
+            self._overwrite_metric(metric=metric)
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
 
     # -------------------- Section 2. Conduct Experiment ----------------------------
     def get_next_trials(
@@ -192,7 +321,60 @@ class Client:
         Returns:
             A mapping of trial index to parameterization.
         """
-        ...
+
+        if self._none_throws_experiment().optimization_config is None:
+            raise UnsupportedError(
+                "OptimizationConfig not set. Please call configure_optimization before "
+                "generating trials."
+            )
+
+        # If no GenerationStrategy is set, configure a default one
+        if self._generation_strategy is None:
+            self.configure_generation_strategy(
+                generation_strategy_config=GenerationStrategyConfig()
+            )
+
+        trials: list[Trial] = []
+        with with_rng_seed(seed=self._random_seed):
+            # This will be changed to use gen directly post gen-unfication cc @mgarrard
+            generator_runs = none_throws(
+                self._generation_strategy
+            ).gen_for_multiple_trials_with_multiple_models(
+                experiment=self._none_throws_experiment(),
+                pending_observations=(
+                    get_pending_observation_features_based_on_trial_status(
+                        experiment=self._none_throws_experiment()
+                    )
+                ),
+                n=1,
+                fixed_features=(
+                    # pyre-fixme[6]: Type narrowing broken because core Ax
+                    # TParameterization is dict not Mapping
+                    ObservationFeatures(parameters=fixed_parameters)
+                    if fixed_parameters is not None
+                    else None
+                ),
+                num_trials=maximum_trials,
+            )
+
+        for generator_run in generator_runs:
+            trial = assert_is_instance(
+                self._none_throws_experiment().new_trial(
+                    generator_run=generator_run[0],
+                ),
+                Trial,
+            )
+            trial.mark_running(no_runner_required=True)
+
+            trials.append(trial)
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save trial and update generation strategy
+            ...
+
+        # pyre-fixme[7]: Core Ax allows users to specify TParameterization values as
+        # None, but we do not allow this in the API.
+        return {trial.index: none_throws(trial.arm).parameters for trial in trials}
 
     def complete_trial(
         self,
@@ -211,7 +393,39 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        if raw_data is not None:
+            self.attach_data(
+                trial_index=trial_index, raw_data=raw_data, progression=progression
+            )
+
+        experiment = self._none_throws_experiment()
+
+        # If no OptimizationConfig is set, mark the trial as COMPLETED
+        if (optimization_config := experiment.optimization_config) is None:
+            experiment.trials[trial_index].mark_completed()
+        else:
+            trial_data = experiment.lookup_data(trial_indices=[trial_index])
+            missing_metrics = {*optimization_config.metrics.keys()} - {
+                *trial_data.metric_names
+            }
+
+            # If all necessary metrics are present mark the trial as COMPLETED
+            if len(missing_metrics) == 0:
+                experiment.trials[trial_index].mark_completed()
+
+            # If any metrics are missing mark the trial as FAILED
+            else:
+                logger.warning(
+                    f"Trial {trial_index} marked completed but metrics "
+                    f"{missing_metrics} are missing, marking trial FAILED."
+                )
+                self.mark_trial_failed(trial_index=trial_index)
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save trial
+            ...
+
+        return experiment.trials[trial_index].status
 
     def attach_data(
         self,
@@ -227,7 +441,26 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        ...
+
+        # If no progression is provided assume the data is not timeseries-like and
+        # set step=NaN
+        data_with_progression = [
+            ({"step": progression if progression is not None else np.nan}, raw_data)
+        ]
+
+        trial = assert_is_instance(
+            self._none_throws_experiment().trials[trial_index], Trial
+        )
+        trial.update_trial_data(
+            # pyre-fixme[6]: Type narrowing broken because core Ax TParameterization
+            # is dict not Mapping
+            raw_data=data_with_progression,
+            combine_with_last_data=True,
+        )
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save trial
+            ...
 
     # -------------------- Section 2.1 Custom trials --------------------------------
     def attach_trial(
@@ -243,9 +476,22 @@ class Client:
         Returns:
             The index of the attached trial.
         """
-        ...
+        _, trial_index = self._none_throws_experiment().attach_trial(
+            # pyre-fixme[6]: Type narrowing broken because core Ax TParameterization
+            # is dict not Mapping
+            parameterizations=[parameters],
+            arm_names=[arm_name] if arm_name else None,
+        )
 
-    def attach_baseline(self, baseline: TParameterization) -> int:
+        if self._db_config is not None:
+            # TODO[mpolson64] Save trial
+            ...
+
+        return trial_index
+
+    def attach_baseline(
+        self, parameters: TParameterization, arm_name: str | None = None
+    ) -> int:
         """
         Attaches custom single-arm trial to an experiment specifically for use as the
         baseline or status quo in evaluating relative outcome constraints and
@@ -257,7 +503,19 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        trial_index = self.attach_trial(
+            parameters=parameters,
+            arm_name=arm_name or "baseline",
+        )
+
+        self._none_throws_experiment().status_quo = assert_is_instance(
+            self._none_throws_experiment().trials[trial_index], Trial
+        ).arm
+
+        if self._db_config is not None:
+            ...
+
+        return trial_index
 
     # -------------------- Section 2.2 Early Stopping -------------------------------
     def should_stop_trial_early(self, trial_index: int) -> bool:
@@ -270,36 +528,73 @@ class Client:
         Returns:
             Whether the trial should be stopped early.
         """
-        ...
+        if self._early_stopping_strategy is None:
+            # In the future we may want to support inferring a default early stopping
+            # strategy
+            raise UnsupportedError(
+                "Early stopping strategy not set. Please set an early stopping "
+                "strategy before calling should_stop_trial_early."
+            )
+
+        es_response = none_throws(
+            self._early_stopping_strategy
+        ).should_stop_trials_early(
+            trial_indices={trial_index}, experiment=self._none_throws_experiment()
+        )
+
+        # TODO[mpolson64]: log the returned reason for stopping the trial
+        return trial_index in es_response
 
     # -------------------- Section 2.3 Marking trial status manually ----------------
     def mark_trial_failed(self, trial_index: int) -> None:
         """
-        Manually mark a trial as FAILED. FAILED trials may be re-suggested by
-        get_next_trials.
+        Manually mark a trial as FAILED. FAILED trials typically may be re-suggested by
+        get_next_trials, though this is controlled by the GenerationStrategy.
 
         Saves to database on completion if db_config is present.
         """
-        ...
+        self._none_throws_experiment().trials[trial_index].mark_failed()
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
 
     def mark_trial_abandoned(self, trial_index: int) -> None:
         """
-        Manually mark a trial as ABANDONED. ABANDONED trials may be re-suggested by
+        Manually mark a trial as ABANDONED. ABANDONED trials are typically not able to
+        be re-suggested by get_next_trials, though this is controlled by the
+        GenerationStrategy.
+
+        Saves to database on completion if db_config is present.
+        """
+        self._none_throws_experiment().trials[trial_index].mark_abandoned()
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
+
+    def mark_trial_early_stopped(
+        self, trial_index: int, raw_data: TOutcome, progression: int | None = None
+    ) -> None:
+        """
+        Manually mark a trial as EARLY_STOPPED while attaching the most recent data.
+        This is used when the user has decided (with or without Ax's recommendation) to
+        stop the trial early. EARLY_STOPPED trials will not be re-suggested by
         get_next_trials.
 
         Saves to database on completion if db_config is present.
         """
-        ...
 
-    def mark_trial_early_stopped(self, trial_index: int) -> None:
-        """
-        Manually mark a trial as EARLY_STOPPED. This is used when the user has decided
-        (with or without Ax's recommendation) to stop the trial early. EARLY_STOPPED
-        trials will not be re-suggested by get_next_trials.
+        # First attach the new data
+        self.attach_data(
+            trial_index=trial_index, raw_data=raw_data, progression=progression
+        )
 
-        Saves to database on completion if db_config is present.
-        """
-        ...
+        self._none_throws_experiment().trials[trial_index].mark_early_stopped()
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save to database
+            ...
 
     def run_trials(self, maximum_trials: int, options: OrchestrationConfig) -> None:
         """
@@ -406,3 +701,74 @@ class Client:
             The restored `AxClient`.
         """
         ...
+
+    def _none_throws_experiment(self) -> Experiment:
+        return none_throws(
+            self._experiment,
+            (
+                "Experiment not set. Please call configure_experiment or load an "
+                "experiment before utilizing any other methods on the Client."
+            ),
+        )
+
+    def _overwrite_metric(self, metric: Metric) -> None:
+        """
+        Overwrite an existing Metric on the Experiment with the provided Metric if they
+        share the same name. If not Metric with the same name exists, add the Metric as
+        a tracking metric.
+
+        Note that this method does not save the Experiment to the database (this is
+        handled in self._set_metrics).
+        """
+
+        # Check the OptimizationConfig first
+        if (
+            optimization_config := self._none_throws_experiment().optimization_config
+        ) is not None:
+            # Check the objective
+            if isinstance(
+                multi_objective := optimization_config.objective, MultiObjective
+            ):
+                for i in range(len(multi_objective.objectives)):
+                    if metric.name == multi_objective.objectives[i].metric.name:
+                        multi_objective._objectives[i]._metric = metric
+                        return
+
+            if isinstance(
+                scalarized_objective := optimization_config.objective,
+                ScalarizedObjective,
+            ):
+                for i in range(len(scalarized_objective.metrics)):
+                    if metric.name == scalarized_objective.metrics[i].name:
+                        scalarized_objective._metrics[i] = metric
+                        return
+
+            if (
+                isinstance(optimization_config.objective, Objective)
+                and metric.name == optimization_config.objective.metric.name
+            ):
+                optimization_config.objective._metric = metric
+                return
+
+            # Check the outcome constraints
+            for i in range(len(optimization_config.outcome_constraints)):
+                if (
+                    metric.name
+                    == optimization_config.outcome_constraints[i].metric.name
+                ):
+                    optimization_config._outcome_constraints[i]._metric = metric
+                    return
+
+        # Check the tracking metrics
+        tracking_metric_names = self._none_throws_experiment()._tracking_metrics.keys()
+        if metric.name in tracking_metric_names:
+            self._none_throws_experiment()._tracking_metrics[metric.name] = metric
+            return
+
+        # If an equivalently named Metric does not exist, add it as a tracking
+        # metric.
+        self._none_throws_experiment().add_tracking_metric(metric=metric)
+        logger.warning(
+            f"Metric {metric} not found in optimization config, added as tracking "
+            "metric."
+        )

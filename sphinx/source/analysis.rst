@@ -63,6 +63,14 @@ Healthcheck Analysis
     :undoc-members:
     :show-inheritance:
 
+Constraints Feasibility Analysis
+~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.healthcheck.constraints_feasibility
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 InSample Effects Analysis
 ~~~~~~~~~~~~~~~
 

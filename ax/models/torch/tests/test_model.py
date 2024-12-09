@@ -54,6 +54,7 @@ from botorch.models.model import Model, ModelList
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
+from botorch.utils.types import DEFAULT
 from gpytorch.likelihoods.gaussian_likelihood import FixedNoiseGaussianLikelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from pyre_extensions import none_throws
@@ -335,7 +336,7 @@ class BoTorchModelTest(TestCase):
                 model_options={},
                 mll_class=ExactMarginalLogLikelihood,
                 mll_options={},
-                input_transform_classes=None,
+                input_transform_classes=DEFAULT,
                 input_transform_options={},
                 outcome_transform_classes=None,
                 outcome_transform_options={},
@@ -635,7 +636,7 @@ class BoTorchModelTest(TestCase):
             )
             model.surrogate.fit(
                 datasets=self.block_design_training_data,
-                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
+                search_space_digest=self.search_space_digest,
             )
             if botorch_model_class == SaasFullyBayesianSingleTaskGP:
                 mcmc_samples = {
@@ -741,10 +742,7 @@ class BoTorchModelTest(TestCase):
         )
         model.surrogate.fit(
             datasets=self.block_design_training_data,
-            search_space_digest=SearchSpaceDigest(
-                feature_names=[],
-                bounds=[],
-            ),
+            search_space_digest=self.search_space_digest,
         )
         model.evaluate_acquisition_function(
             X=self.X_test,

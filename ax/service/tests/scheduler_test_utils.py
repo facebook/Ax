@@ -25,6 +25,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
+from ax.core.map_data import MapData
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
@@ -89,7 +90,7 @@ from ax.utils.testing.core_stubs import (
 )
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_generation_strategy
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 from sqlalchemy.orm.exc import StaleDataError
 
 DUMMY_EXCEPTION = "test_exception"
@@ -1518,13 +1519,11 @@ class AxSchedulerTestCase(TestCase):
         num_metrics = 2
         expected_num_rows = num_metrics * total_trials
         # There are 3 trials, and only one metric for "type1".
-        # Currently, lookup_data pulls all metrics for
-        # MultiTypeExperiment (regardless of trial type)
-        self.assertEqual(len(looked_up_data.df), expected_num_rows)
         if isinstance(scheduler.experiment, MultiTypeExperiment):
             # fetch_data only pulls metrics for trial type
             # "type1"
             expected_num_rows = 3
+        self.assertEqual(len(looked_up_data.df), expected_num_rows)
         self.assertEqual(len(fetched_data.df), expected_num_rows)
 
         # expect number of rows in map df to equal:
@@ -1534,15 +1533,16 @@ class AxSchedulerTestCase(TestCase):
         # For MultiTypeExperiment there is only 1 metric
         # for trial type "type1"
         expected_num_rows = 7
-        # Currently lookup_data pulls all metrics for
-        # MultiTypeExperiment (regardless of trial type)
-        # pyre-fixme[16]: `Data` has no attribute `map_df`.
-        self.assertEqual(len(looked_up_data.map_df), expected_num_rows)
         if isinstance(scheduler.experiment, MultiTypeExperiment):
             # fetch_data only pulls metrics for trial type
             # "type1"
             expected_num_rows = 4
-        self.assertEqual(len(fetched_data.map_df), expected_num_rows)
+        self.assertEqual(
+            len(assert_is_instance(looked_up_data, MapData).map_df), expected_num_rows
+        )
+        self.assertEqual(
+            len(assert_is_instance(fetched_data, MapData).map_df), expected_num_rows
+        )
         self.assertIsNotNone(scheduler.options.early_stopping_strategy)
         self.assertAlmostEqual(
             scheduler.options.early_stopping_strategy.estimate_early_stopping_savings(
@@ -1972,7 +1972,7 @@ class AxSchedulerTestCase(TestCase):
 
             self.assertTrue(
                 any(
-                    re.search(r"Failed to fetch (branin|m2) for trial 0", warning)
+                    re.search(r"Failed to fetch branin for trial 0", warning)
                     is not None
                     for warning in lg.output
                 )
@@ -2024,7 +2024,7 @@ class AxSchedulerTestCase(TestCase):
             )
             self.assertEqual(scheduler.experiment.trials[0].status, TrialStatus.FAILED)
 
-    def test_completion_criterion(self) -> None:
+    def test_should_consider_optimization_complete(self) -> None:
         # Tests non-GSS parts of the completion criterion.
         gs = self._get_generation_strategy_strategy_for_test(
             experiment=self.branin_experiment,
@@ -2040,7 +2040,7 @@ class AxSchedulerTestCase(TestCase):
             db_settings=self.db_settings_if_always_needed,
         )
         # With total_trials=None.
-        should_stop, message = scheduler.completion_criterion()
+        should_stop, message = scheduler.should_consider_optimization_complete()
         self.assertFalse(should_stop)
         self.assertEqual(message, "")
 
@@ -2050,7 +2050,7 @@ class AxSchedulerTestCase(TestCase):
             **self.scheduler_options_kwargs,
         )
         # Experiment has fewer trials.
-        should_stop, message = scheduler.completion_criterion()
+        should_stop, message = scheduler.should_consider_optimization_complete()
         self.assertFalse(should_stop)
         self.assertEqual(message, "")
         # Experiment has 5 trials.
@@ -2059,7 +2059,7 @@ class AxSchedulerTestCase(TestCase):
             sobol_run = sobol_generator.gen(n=1)
             self.branin_experiment.new_trial(generator_run=sobol_run)
         self.assertEqual(len(self.branin_experiment.trials), 5)
-        should_stop, message = scheduler.completion_criterion()
+        should_stop, message = scheduler.should_consider_optimization_complete()
         self.assertTrue(should_stop)
         self.assertEqual(message, "Exceeding the total number of trials.")
 

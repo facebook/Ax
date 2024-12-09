@@ -485,6 +485,33 @@ class TestCase(fake_filesystem_unittest.TestCase):
             else:
                 self.assertEqual(a_field, b_field, msg=msg)
 
+    def assertIsSubDict(
+        self,
+        subdict: dict[str, Any],
+        superdict: dict[str, Any],
+        almost_equal: bool = False,
+        consider_nans_equal: bool = False,
+    ) -> None:
+        """Testing utility that checks that all keys and values of `subdict` are
+        contained in `dict`.
+
+        Args:
+            subdict: A smaller dictionary.
+            superdict: A larger dictionary which should contain all keys of subdict
+                and the same values as subdict for the corresponding keys.
+        """
+        intersection_dict = {k: superdict[k] for k in subdict}
+        if consider_nans_equal and not almost_equal:
+            raise ValueError(
+                "`consider_nans_equal` can only be used with `almost_equal`"
+            )
+        if almost_equal:
+            self.assertDictsAlmostEqual(
+                subdict, intersection_dict, consider_nans_equal=consider_nans_equal
+            )
+        else:
+            self.assertEqual(subdict, intersection_dict)
+
     @staticmethod
     @contextlib.contextmanager
     def silence_stderr() -> Generator[None, None, None]:

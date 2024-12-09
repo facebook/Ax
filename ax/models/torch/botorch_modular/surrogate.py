@@ -42,6 +42,7 @@ from ax.models.torch.botorch_modular.utils import (
 )
 from ax.models.torch.utils import (
     _to_inequality_constraints,
+    normalize_indices,
     pick_best_out_of_sample_point_acqf_class,
     predict_from_model,
 )
@@ -69,12 +70,14 @@ from botorch.models.transforms.input import (
     ChainedInputTransform,
     InputPerturbation,
     InputTransform,
+    Normalize,
 )
 from botorch.models.transforms.outcome import ChainedOutcomeTransform, OutcomeTransform
 from botorch.posteriors.gpytorch import GPyTorchPosterior
 from botorch.utils.containers import SliceContainer
 from botorch.utils.datasets import MultiTaskDataset, RankingDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
+from botorch.utils.types import _DefaultType, DEFAULT
 from gpytorch.kernels import Kernel
 from gpytorch.likelihoods.likelihood import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
@@ -126,7 +129,7 @@ def _extract_model_kwargs(
 
 
 def _make_botorch_input_transform(
-    input_transform_classes: list[type[InputTransform]],
+    input_transform_classes: list[type[InputTransform]] | _DefaultType,
     input_transform_options: dict[str, dict[str, Any]],
     dataset: SupervisedDataset,
     search_space_digest: SearchSpaceDigest,
@@ -134,15 +137,46 @@ def _make_botorch_input_transform(
     """
     Makes a BoTorch input transform from the provided input classes and options.
     """
+    if isinstance(input_transform_classes, _DefaultType):
+        transforms = _construct_default_input_transforms(
+            search_space_digest=search_space_digest, dataset=dataset
+        )
+    else:
+        transforms = _construct_specified_input_transforms(
+            input_transform_classes=input_transform_classes,
+            dataset=dataset,
+            search_space_digest=search_space_digest,
+            input_transform_options=input_transform_options,
+        )
+    if len(transforms) == 0:
+        return None
+    elif len(transforms) > 1:
+        return ChainedInputTransform(
+            **{f"tf{i}": t_i for i, t_i in enumerate(transforms)}
+        )
+    else:
+        return transforms[0]
+
+
+def _construct_specified_input_transforms(
+    input_transform_classes: list[type[InputTransform]],
+    input_transform_options: dict[str, dict[str, Any]],
+    dataset: SupervisedDataset,
+    search_space_digest: SearchSpaceDigest,
+) -> list[InputTransform]:
+    """Constructs a list of input transforms from input transform classes and
+    options provided in ``ModelConfig``.
+    """
     if not (
         isinstance(input_transform_classes, list)
         and all(issubclass(c, InputTransform) for c in input_transform_classes)
     ):
-        raise UserInputError("Expected a list of input transforms.")
+        raise UserInputError(
+            "Expected a list of input transform classes. "
+            f"Got {input_transform_classes=}."
+        )
     if search_space_digest.robust_digest is not None:
         input_transform_classes = [InputPerturbation] + input_transform_classes
-    if len(input_transform_classes) == 0:
-        return None
 
     input_transform_kwargs = [
         input_transform_argparse(
@@ -156,7 +190,7 @@ def _make_botorch_input_transform(
         for transform_class in input_transform_classes
     ]
 
-    input_transforms = [
+    return [
         # pyre-fixme[45]: Cannot instantiate abstract class `InputTransform`.
         transform_class(**single_input_transform_kwargs)
         for transform_class, single_input_transform_kwargs in zip(
@@ -164,15 +198,47 @@ def _make_botorch_input_transform(
         )
     ]
 
-    input_transform_instance = (
-        ChainedInputTransform(
-            **{f"tf{i}": input_transforms[i] for i in range(len(input_transforms))}
-        )
-        if len(input_transforms) > 1
-        else input_transforms[0]
-    )
 
-    return input_transform_instance
+def _construct_default_input_transforms(
+    search_space_digest: SearchSpaceDigest,
+    dataset: SupervisedDataset,
+) -> list[InputTransform]:
+    """Construct the default input transforms for the given search space digest.
+
+    The default transforms are added in this order:
+    - If the search space digest has a robust digest, an ``InputPerturbation`` transform
+        is used.
+    - If the bounds for the non-task features are not [0, 1], a ``Normalize`` transform
+        is used. The transfrom only applies to the non-task features.
+    """
+    transforms = []
+    # Add InputPerturbation if there is a robust digest.
+    if search_space_digest.robust_digest is not None:
+        transforms.append(
+            InputPerturbation(
+                **input_transform_argparse(
+                    InputPerturbation,
+                    dataset=dataset,
+                    search_space_digest=search_space_digest,
+                )
+            )
+        )
+    # Processing for Normalize.
+    bounds = torch.tensor(search_space_digest.bounds, dtype=torch.get_default_dtype()).T
+    indices = list(range(bounds.shape[-1]))
+    # Remove task features.
+    for task_feature in normalize_indices(
+        search_space_digest.task_features, d=bounds.shape[-1]
+    ):
+        indices.remove(task_feature)
+    # Skip the Normalize transform if the bounds are [0, 1].
+    if not (
+        torch.allclose(bounds[0, indices], torch.zeros(len(indices)))
+        and torch.allclose(bounds[1, indices], torch.ones(len(indices)))
+    ):
+        transforms.append(Normalize(d=bounds.shape[-1], indices=indices, bounds=bounds))
+
+    return transforms
 
 
 def _make_botorch_outcome_transform(
@@ -314,10 +380,14 @@ def _raise_deprecation_warning(
         msg += "Please specify {k} via `model_configs`."
     warnings_raised = False
     default_is_dict = {"botorch_model_kwargs", "mll_kwargs"}
+    default_is_default = {"input_transform_classes"}
     for k, v in kwargs.items():
         should_raise = False
         if k in default_is_dict:
             if v not in [{}, None]:
+                should_raise = True
+        elif k in default_is_default:
+            if v != DEFAULT:
                 should_raise = True
         elif (v is not None and k != "mll_class") or (
             k == "mll_class" and v is not ExactMarginalLogLikelihood
@@ -340,7 +410,7 @@ def get_model_config_from_deprecated_args(
     mll_options: dict[str, Any] | None,
     outcome_transform_classes: list[type[OutcomeTransform]] | None,
     outcome_transform_options: dict[str, dict[str, Any]] | None,
-    input_transform_classes: list[type[InputTransform]] | None,
+    input_transform_classes: list[type[InputTransform]] | _DefaultType | None,
     input_transform_options: dict[str, dict[str, Any]] | None,
     covar_module_class: type[Kernel] | None,
     covar_module_options: dict[str, Any] | None,
@@ -348,30 +418,21 @@ def get_model_config_from_deprecated_args(
     likelihood_options: dict[str, Any] | None,
 ) -> ModelConfig:
     """Construct a ModelConfig from deprecated arguments."""
-    model_config_kwargs = {
-        "botorch_model_class": botorch_model_class,
-        "model_options": (model_options or {}).copy(),
-        "mll_class": mll_class,
-        "mll_options": (mll_options or {}).copy(),
-        "outcome_transform_classes": outcome_transform_classes,
-        "outcome_transform_options": outcome_transform_options,
-        "input_transform_classes": input_transform_classes,
-        "input_transform_options": input_transform_options,
-        "covar_module_class": covar_module_class,
-        "covar_module_options": covar_module_options,
-        "likelihood_class": likelihood_class,
-        "likelihood_options": likelihood_options,
-    }
-    model_config_kwargs = {
-        k: v for k, v in model_config_kwargs.items() if v is not None
-    }
-    # pyre-fixme [6]: Incompatible parameter type [6]: In call
-    # `ModelConfig.__init__`, for 1st positional argument, expected
-    # `Dict[str, typing.Any]` but got `Union[Dict[str, typing.Any],
-    # Dict[str, Dict[str, typing.Any]], Sequence[Type[InputTransform]],
-    # Sequence[Type[OutcomeTransform]], Type[Union[MarginalLogLikelihood,
-    #  Model]], Type[Likelihood], Type[Kernel]]`.
-    return ModelConfig(**model_config_kwargs, name="from deprecated args")
+    return ModelConfig(
+        botorch_model_class=botorch_model_class,
+        model_options=(model_options or {}).copy(),
+        mll_class=mll_class or ExactMarginalLogLikelihood,
+        mll_options=(mll_options or {}).copy(),
+        outcome_transform_classes=outcome_transform_classes,
+        outcome_transform_options=(outcome_transform_options or {}).copy(),
+        input_transform_classes=input_transform_classes,
+        input_transform_options=(input_transform_options or {}).copy(),
+        covar_module_class=covar_module_class,
+        covar_module_options=(covar_module_options or {}).copy(),
+        likelihood_class=likelihood_class,
+        likelihood_options=(likelihood_options or {}).copy(),
+        name="from deprecated args",
+    )
 
 
 @dataclass(frozen=True)
@@ -416,6 +477,9 @@ class SurrogateSpec:
         input_transform_classes: List of BoTorch input transforms classes.
             Passed down to the BoTorch ``Model``. Multiple input transforms
             will be chained together using ``ChainedInputTransform``.
+            If `DEFAULT`, a default set of input transforms may be constructed
+            based on the search space digest (in `_construct_default_input_transforms`).
+            To disable this behavior, pass in `input_transform_classes=None`.
             This argument is deprecated in favor of model_configs.
         input_transform_options: Input transform classes kwargs. The keys are
             class string names and the values are dictionaries of input transform
@@ -468,7 +532,9 @@ class SurrogateSpec:
     # pyre-ignore [16]: Pyre doesn't understand InitVars.
     likelihood_kwargs: InitVar[dict[str, Any] | None] = None
     # pyre-ignore [16]: Pyre doesn't understand InitVars.
-    input_transform_classes: InitVar[list[type[InputTransform]] | None] = None
+    input_transform_classes: InitVar[
+        list[type[InputTransform]] | _DefaultType | None
+    ] = DEFAULT
     # pyre-ignore [16]: Pyre doesn't understand InitVars.
     input_transform_options: InitVar[dict[str, dict[str, Any]] | None] = None
     # pyre-ignore [16]: Pyre doesn't understand InitVars.
@@ -577,6 +643,9 @@ class Surrogate(Base):
         input_transform_classes: List of BoTorch input transforms classes.
             Passed down to the BoTorch ``Model``. Multiple input transforms
             will be chained together using ``ChainedInputTransform``.
+            If `DEFAULT`, a default set of input transforms may be constructed
+            based on the search space digest. To disable this behavior, pass
+            in `input_transform_classes=None`.
             This argument is deprecated in favor of model_configs.
         input_transform_options: Input transform classes kwargs. The keys are
             class string names and the values are dictionaries of input transform
@@ -619,7 +688,9 @@ class Surrogate(Base):
         mll_options: dict[str, Any] | None = None,
         outcome_transform_classes: list[type[OutcomeTransform]] | None = None,
         outcome_transform_options: dict[str, dict[str, Any]] | None = None,
-        input_transform_classes: list[type[InputTransform]] | None = None,
+        input_transform_classes: list[type[InputTransform]]
+        | _DefaultType
+        | None = DEFAULT,
         input_transform_options: dict[str, dict[str, Any]] | None = None,
         covar_module_class: type[Kernel] | None = None,
         covar_module_options: dict[str, Any] | None = None,
@@ -1080,13 +1151,13 @@ class Surrogate(Base):
                 posterior = assert_is_instance(posterior, GPyTorchPosterior)
                 pred_mean = posterior.mean
                 pred_var = posterior.variance
-            pred_Y[i] = pred_mean.view(-1).numpy()
-            pred_Yvar[i] = pred_var.view(-1).numpy()
+            pred_Y[i] = pred_mean.view(-1).cpu().numpy()
+            pred_Yvar[i] = pred_var.view(-1).cpu().numpy()
             train_mask[i] = 1
         # evaluate model fit metric
         diag_fn = DIAGNOSTIC_FNS[none_throws(self.surrogate_spec.eval_criterion)]
         return diag_fn(
-            y_obs=Y.view(-1).numpy(),
+            y_obs=Y.view(-1).cpu().numpy(),
             y_pred=pred_Y,
             se_pred=pred_Yvar,
         )

@@ -39,6 +39,7 @@ from botorch.models.transforms.input import InputTransform
 from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.transforms import is_fully_bayesian
+from botorch.utils.types import _DefaultType, DEFAULT
 from gpytorch.kernels.kernel import Kernel
 from gpytorch.likelihoods import Likelihood
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
@@ -64,7 +65,6 @@ class ModelConfig:
             Note that the corresponding attribute will later be updated to include any
             additional kwargs passed into ``BoTorchModel.fit``.
         mll_class: ``MarginalLogLikelihood`` class to use for model-fitting.
-            This argument is deprecated in favor of model_configs.
         mll_options: Dictionary of options / kwargs for the MLL.
         outcome_transform_classes: List of BoTorch outcome transforms classes. Passed
             down to the BoTorch ``Model``. Multiple outcome transforms can be chained
@@ -81,6 +81,9 @@ class ModelConfig:
         input_transform_classes: List of BoTorch input transforms classes.
             Passed down to the BoTorch ``Model``. Multiple input transforms
             will be chained together using ``ChainedInputTransform``.
+            If `DEFAULT`, a default set of input transforms may be constructed
+            based on the search space digest (in `_construct_default_input_transforms`).
+            To disable this behavior, pass in `input_transform_classes=None`.
         input_transform_options: Input transform classes kwargs. The keys are
             class string names and the values are dictionaries of input transform
             kwargs. For example,
@@ -108,7 +111,7 @@ class ModelConfig:
     model_options: dict[str, Any] = field(default_factory=dict)
     mll_class: type[MarginalLogLikelihood] = ExactMarginalLogLikelihood
     mll_options: dict[str, Any] = field(default_factory=dict)
-    input_transform_classes: list[type[InputTransform]] | None = None
+    input_transform_classes: list[type[InputTransform]] | _DefaultType | None = DEFAULT
     input_transform_options: dict[str, dict[str, Any]] | None = field(
         default_factory=dict
     )
