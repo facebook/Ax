@@ -93,7 +93,6 @@ from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrateg
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.transition_criterion import (
     MaxGenerationParallelism,
-    MaxTrials,
     MinTrials,
     TrialBasedCriterion,
 )
@@ -162,7 +161,7 @@ def get_experiment_with_map_data_type() -> Experiment:
 
 def get_trial_based_criterion() -> list[TrialBasedCriterion]:
     return [
-        MaxTrials(
+        MinTrials(
             threshold=3,
             only_in_statuses=[TrialStatus.RUNNING, TrialStatus.COMPLETED],
             not_in_statuses=None,
@@ -2417,7 +2416,7 @@ def get_online_sobol_mbm_generation_strategy(
     # TODO: @mgarrard make this more realistic of an actual online gs
     step_model_kwargs = {"silently_filter_kwargs": True}
     sobol_criterion = [
-        MaxTrials(
+        MinTrials(
             threshold=1,
             transition_to="MBM_node",
             block_gen_if_met=True,
