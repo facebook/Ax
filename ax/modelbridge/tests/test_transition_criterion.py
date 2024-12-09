@@ -216,7 +216,7 @@ class TestTransitionCriterion(TestCase):
         gs.experiment = experiment
 
         step_0_expected_transition_criteria = [
-            MaxTrials(
+            MinTrials(
                 threshold=3,
                 block_gen_if_met=True,
                 transition_to="GenerationStep_1",
@@ -225,7 +225,7 @@ class TestTransitionCriterion(TestCase):
             ),
         ]
         step_1_expected_transition_criteria = [
-            MaxTrials(
+            MinTrials(
                 threshold=4,
                 block_gen_if_met=False,
                 transition_to="GenerationStep_2",
