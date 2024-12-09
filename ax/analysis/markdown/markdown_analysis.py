@@ -6,8 +6,10 @@
 # pyre-strict
 
 
+import traceback
+
 import pandas as pd
-from ax.analysis.analysis import Analysis, AnalysisCard
+from ax.analysis.analysis import Analysis, AnalysisCard, AnalysisCardLevel, AnalysisE
 from ax.core.experiment import Experiment
 from ax.core.generation_strategy_interface import GenerationStrategyInterface
 from IPython.display import display, Markdown
@@ -59,3 +61,23 @@ class MarkdownAnalysis(Analysis):
             df=df,
             blob=message,
         )
+
+
+def markdown_analysis_card_from_analysis_e(
+    analysis_e: AnalysisE,
+) -> MarkdownAnalysisCard:
+    return MarkdownAnalysisCard(
+        name=analysis_e.analysis.name,
+        title=f"{analysis_e.analysis.name} Error",
+        subtitle=f"An error occurred while computing {analysis_e.analysis}",
+        attributes=analysis_e.analysis.attributes,
+        blob="".join(
+            traceback.format_exception(
+                type(analysis_e.exception),
+                analysis_e.exception,
+                analysis_e.exception.__traceback__,
+            )
+        ),
+        df=pd.DataFrame(),
+        level=AnalysisCardLevel.DEBUG,
+    )
