@@ -10,7 +10,7 @@ from typing import Any, Mapping
 import numpy as np
 
 import pandas as pd
-
+from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.core.base_trial import TrialStatus
 
 from ax.core.experiment import Experiment
@@ -35,6 +35,7 @@ from ax.preview.api.configs import (
     ChoiceParameterConfig,
     ExperimentConfig,
     GenerationStrategyConfig,
+    OrchestrationConfig,
     ParameterType,
     RangeParameterConfig,
 )
@@ -47,6 +48,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_optimization_config,
     get_percentile_early_stopping_strategy,
 )
+from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_generation_strategy
 from pyre_extensions import assert_is_instance, none_throws, override
 
@@ -156,7 +158,7 @@ class TestClient(TestCase):
         )
 
         self.assertEqual(
-            none_throws(client._experiment).optimization_config,
+            client._experiment.optimization_config,
             OptimizationConfig(
                 objective=Objective(metric=Metric(name="ne"), minimize=True),
                 outcome_constraints=[
@@ -188,7 +190,7 @@ class TestClient(TestCase):
         client.set_experiment(experiment=get_branin_experiment())
         client.configure_runner(runner=runner)
 
-        self.assertEqual(none_throws(client._experiment).runner, runner)
+        self.assertEqual(client._experiment.runner, runner)
 
     def test_configure_metric(self) -> None:
         client = Client()
@@ -214,9 +216,7 @@ class TestClient(TestCase):
 
         self.assertEqual(
             custom_metric,
-            none_throws(
-                none_throws(client._experiment).optimization_config
-            ).objective.metric,
+            none_throws(client._experiment.optimization_config).objective.metric,
         )
 
         # Test replacing a multi-objective
@@ -226,9 +226,7 @@ class TestClient(TestCase):
         self.assertIn(
             custom_metric,
             assert_is_instance(
-                none_throws(
-                    none_throws(client._experiment).optimization_config
-                ).objective,
+                none_throws(client._experiment.optimization_config).objective,
                 MultiObjective,
             ).metrics,
         )
@@ -239,9 +237,7 @@ class TestClient(TestCase):
         self.assertIn(
             custom_metric,
             assert_is_instance(
-                none_throws(
-                    none_throws(client._experiment).optimization_config
-                ).objective,
+                none_throws(client._experiment.optimization_config).objective,
                 ScalarizedObjective,
             ).metrics,
         )
@@ -254,7 +250,7 @@ class TestClient(TestCase):
 
         self.assertEqual(
             custom_metric,
-            none_throws(none_throws(client._experiment).optimization_config)
+            none_throws(client._experiment.optimization_config)
             .outcome_constraints[0]
             .metric,
         )
@@ -263,12 +259,12 @@ class TestClient(TestCase):
         client.configure_optimization(
             objective="foo",
         )
-        none_throws(client._experiment).add_tracking_metric(metric=Metric("custom"))
+        client._experiment.add_tracking_metric(metric=Metric("custom"))
         client.configure_metrics(metrics=[custom_metric])
 
         self.assertEqual(
             custom_metric,
-            none_throws(client._experiment).tracking_metrics[0],
+            client._experiment.tracking_metrics[0],
         )
 
         # Test adding a tracking metric
@@ -287,7 +283,7 @@ class TestClient(TestCase):
 
         self.assertEqual(
             custom_metric,
-            none_throws(client._experiment).tracking_metrics[0],
+            client._experiment.tracking_metrics[0],
         )
 
     def test_set_experiment(self) -> None:
@@ -310,9 +306,7 @@ class TestClient(TestCase):
             optimization_config=optimization_config,
         )
 
-        self.assertEqual(
-            none_throws(client._experiment).optimization_config, optimization_config
-        )
+        self.assertEqual(client._experiment.optimization_config, optimization_config)
 
     def test_set_generation_strategy(self) -> None:
         client = Client()
@@ -411,14 +405,12 @@ class TestClient(TestCase):
         client.attach_data(trial_index=trial_index, raw_data={"foo": 1.0})
 
         self.assertEqual(
-            none_throws(client._experiment).trials[trial_index].status,
+            client._experiment.trials[trial_index].status,
             TrialStatus.RUNNING,
         )
         self.assertTrue(
             assert_is_instance(
-                none_throws(client._experiment).lookup_data(
-                    trial_indices=[trial_index]
-                ),
+                client._experiment.lookup_data(trial_indices=[trial_index]),
                 MapData,
             ).map_df.equals(
                 pd.DataFrame(
@@ -438,14 +430,12 @@ class TestClient(TestCase):
         client.attach_data(trial_index=0, raw_data={"foo": 2.0}, progression=10)
 
         self.assertEqual(
-            none_throws(client._experiment).trials[trial_index].status,
+            client._experiment.trials[trial_index].status,
             TrialStatus.RUNNING,
         )
         self.assertTrue(
             assert_is_instance(
-                none_throws(client._experiment).lookup_data(
-                    trial_indices=[trial_index]
-                ),
+                client._experiment.lookup_data(trial_indices=[trial_index]),
                 MapData,
             ).map_df.equals(
                 pd.DataFrame(
@@ -467,14 +457,12 @@ class TestClient(TestCase):
             raw_data={"foo": 1.0, "bar": 2.0},
         )
         self.assertEqual(
-            none_throws(client._experiment).trials[trial_index].status,
+            client._experiment.trials[trial_index].status,
             TrialStatus.RUNNING,
         )
         self.assertTrue(
             assert_is_instance(
-                none_throws(client._experiment).lookup_data(
-                    trial_indices=[trial_index]
-                ),
+                client._experiment.lookup_data(trial_indices=[trial_index]),
                 MapData,
             ).map_df.equals(
                 pd.DataFrame(
@@ -515,14 +503,12 @@ class TestClient(TestCase):
         )
 
         self.assertEqual(
-            none_throws(client._experiment).trials[trial_index].status,
+            client._experiment.trials[trial_index].status,
             TrialStatus.COMPLETED,
         )
         self.assertTrue(
             assert_is_instance(
-                none_throws(client._experiment).lookup_data(
-                    trial_indices=[trial_index]
-                ),
+                client._experiment.lookup_data(trial_indices=[trial_index]),
                 MapData,
             ).map_df.equals(
                 pd.DataFrame(
@@ -545,15 +531,13 @@ class TestClient(TestCase):
         )
 
         self.assertEqual(
-            none_throws(client._experiment).trials[trial_index].status,
+            client._experiment.trials[trial_index].status,
             TrialStatus.COMPLETED,
         )
 
         self.assertTrue(
             assert_is_instance(
-                none_throws(client._experiment).lookup_data(
-                    trial_indices=[trial_index]
-                ),
+                client._experiment.lookup_data(trial_indices=[trial_index]),
                 MapData,
             ).map_df.equals(
                 pd.DataFrame(
@@ -574,14 +558,12 @@ class TestClient(TestCase):
         client.complete_trial(trial_index=trial_index, raw_data={"foo": 1.0})
 
         self.assertEqual(
-            none_throws(client._experiment).trials[trial_index].status,
+            client._experiment.trials[trial_index].status,
             TrialStatus.FAILED,
         )
         self.assertTrue(
             assert_is_instance(
-                none_throws(client._experiment).lookup_data(
-                    trial_indices=[trial_index]
-                ),
+                client._experiment.lookup_data(trial_indices=[trial_index]),
                 MapData,
             ).map_df.equals(
                 pd.DataFrame(
@@ -616,9 +598,7 @@ class TestClient(TestCase):
         client.configure_optimization(objective="foo")
 
         trial_index = client.attach_trial(parameters={"x1": 0.5}, arm_name="bar")
-        trial = assert_is_instance(
-            none_throws(client._experiment).trials[trial_index], Trial
-        )
+        trial = assert_is_instance(client._experiment.trials[trial_index], Trial)
         self.assertEqual(none_throws(trial.arm).parameters, {"x1": 0.5})
         self.assertEqual(none_throws(trial.arm).name, "bar")
         self.assertEqual(trial.status, TrialStatus.RUNNING)
@@ -642,14 +622,12 @@ class TestClient(TestCase):
         client.configure_optimization(objective="foo")
 
         trial_index = client.attach_baseline(parameters={"x1": 0.5})
-        trial = assert_is_instance(
-            none_throws(client._experiment).trials[trial_index], Trial
-        )
+        trial = assert_is_instance(client._experiment.trials[trial_index], Trial)
         self.assertEqual(none_throws(trial.arm).parameters, {"x1": 0.5})
         self.assertEqual(none_throws(trial.arm).name, "baseline")
         self.assertEqual(trial.status, TrialStatus.RUNNING)
 
-        self.assertEqual(client._none_throws_experiment().status_quo, trial.arm)
+        self.assertEqual(client._experiment.status_quo, trial.arm)
 
     def test_mark_trial_failed(self) -> None:
         client = Client()
@@ -669,7 +647,7 @@ class TestClient(TestCase):
         trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
         client.mark_trial_failed(trial_index=trial_index)
         self.assertEqual(
-            none_throws(client._experiment).trials[trial_index].status,
+            client._experiment.trials[trial_index].status,
             TrialStatus.FAILED,
         )
 
@@ -691,7 +669,7 @@ class TestClient(TestCase):
         trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
         client.mark_trial_abandoned(trial_index=trial_index)
         self.assertEqual(
-            none_throws(client._experiment).trials[trial_index].status,
+            client._experiment.trials[trial_index].status,
             TrialStatus.ABANDONED,
         )
 
@@ -715,14 +693,12 @@ class TestClient(TestCase):
             trial_index=trial_index, raw_data={"foo": 0.0}, progression=1
         )
         self.assertEqual(
-            none_throws(client._experiment).trials[trial_index].status,
+            client._experiment.trials[trial_index].status,
             TrialStatus.EARLY_STOPPED,
         )
         self.assertTrue(
             assert_is_instance(
-                none_throws(client._experiment).lookup_data(
-                    trial_indices=[trial_index]
-                ),
+                client._experiment.lookup_data(trial_indices=[trial_index]),
                 MapData,
             ).map_df.equals(
                 pd.DataFrame(
@@ -753,11 +729,6 @@ class TestClient(TestCase):
         )
         client.configure_optimization(objective="foo")
 
-        with self.assertRaisesRegex(
-            UnsupportedError, "Early stopping strategy not set"
-        ):
-            client.should_stop_trial_early(trial_index=0)
-
         client.set_early_stopping_strategy(
             early_stopping_strategy=PercentileEarlyStoppingStrategy(
                 metric_names=["foo"]
@@ -767,17 +738,356 @@ class TestClient(TestCase):
         client.get_next_trials(maximum_trials=1)
         self.assertFalse(client.should_stop_trial_early(trial_index=0))
 
+    def test_run_trials(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo")
+        client.configure_metrics(metrics=[DummyMetric(name="foo")])
+        client.configure_runner(runner=DummyRunner())
+
+        client.run_trials(maximum_trials=4, options=OrchestrationConfig())
+
+        self.assertEqual(len(client._experiment.trials), 4)
+        self.assertEqual(
+            [
+                trial.index
+                for trial in client._experiment.trials_by_status[TrialStatus.COMPLETED]
+            ],
+            [0, 1, 2, 3],
+        )
+
+        self.assertTrue(
+            assert_is_instance(
+                client._experiment.lookup_data(),
+                MapData,
+            ).map_df.equals(
+                pd.DataFrame(
+                    {
+                        "arm_name": {0: "0_0", 1: "1_0", 2: "2_0", 3: "3_0"},
+                        "metric_name": {0: "foo", 1: "foo", 2: "foo", 3: "foo"},
+                        "mean": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
+                        "sem": {0: np.nan, 1: np.nan, 2: np.nan, 3: np.nan},
+                        "trial_index": {0: 0, 1: 1, 2: 2, 3: 3},
+                        "progression": {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
+                    }
+                )
+            ),
+        )
+
+    def test_get_next_trials_then_run_trials(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo")
+        client.configure_metrics(metrics=[DummyMetric(name="foo")])
+        client.configure_runner(runner=DummyRunner())
+
+        # First use Client in ask-tell
+        # Complete two trials
+        for index, _parameters in client.get_next_trials(maximum_trials=2).items():
+            client.complete_trial(trial_index=index, raw_data={"foo": 1.0})
+
+        # Leave one trial RUNNING
+        _ = client.get_next_trials(maximum_trials=1)
+
+        self.assertEqual(
+            len(client._experiment.trials_by_status[TrialStatus.COMPLETED]),
+            2,
+        )
+        self.assertEqual(
+            len(client._experiment.trials_by_status[TrialStatus.RUNNING]),
+            1,
+        )
+
+        # Configure runners and Metrics Run another two trials
+        client.configure_metrics(metrics=[DummyMetric(name="foo")])
+        client.configure_runner(runner=DummyRunner())
+        client.run_trials(maximum_trials=2, options=OrchestrationConfig())
+
+        # All trials should be COMPLETED
+        self.assertEqual(
+            len(client._experiment.trials_by_status[TrialStatus.COMPLETED]),
+            5,
+        )
+
+    def test_compute_analyses(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo")
+        client.configure_generation_strategy(
+            generation_strategy_config=GenerationStrategyConfig()
+        )
+
+        with self.assertLogs(logger="ax.analysis", level="ERROR") as lg:
+            cards = client.compute_analyses(analyses=[ParallelCoordinatesPlot()])
+
+            self.assertEqual(len(cards), 1)
+            self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
+            self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
+            self.assertEqual(
+                cards[0].subtitle,
+                f"An error occurred while computing {ParallelCoordinatesPlot()}",
+            )
+            self.assertIn("Traceback", cards[0].blob)
+            self.assertTrue(
+                any(
+                    (
+                        "Failed to compute ParallelCoordinatesPlot: "
+                        "No data found for metric "
+                    )
+                    in msg
+                    for msg in lg.output
+                )
+            )
+
+        for trial_index, _ in client.get_next_trials(maximum_trials=1).items():
+            client.complete_trial(trial_index=trial_index, raw_data={"foo": 1.0})
+
+        cards = client.compute_analyses(analyses=[ParallelCoordinatesPlot()])
+
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
+
+    def test_get_best_arm(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            experiment_config=ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo")
+        # Set num_initialization_trials=3 so we can reach a predictive GenerationNode
+        # quickly
+        client.configure_generation_strategy(
+            generation_strategy_config=GenerationStrategyConfig(
+                num_initialization_trials=3
+            )
+        )
+
+        with self.assertRaisesRegex(UnsupportedError, "No trials have been run yet"):
+            client.get_best_arm()
+
+        for _ in range(3):
+            for index, parameters in client.get_next_trials(maximum_trials=1).items():
+                client.complete_trial(
+                    trial_index=index,
+                    raw_data={
+                        "foo": assert_is_instance(parameters["x1"], float) ** 2,
+                    },
+                )
+
+        name, parameters, prediction = client.get_best_arm()
+        self.assertIn(
+            name,
+            [
+                none_throws(assert_is_instance(trial, Trial).arm).name
+                for trial in client._experiment.trials.values()
+            ],
+        )
+        self.assertTrue(
+            client._experiment.search_space.check_membership(
+                parameterization=parameters  # pyre-ignore[6]
+            )
+        )
+        self.assertEqual(prediction, {})  # No prediction since we are still in Sobol
+
+        # Run a non-Sobol trial
+        for index, parameters in client.get_next_trials(maximum_trials=1).items():
+            client.complete_trial(
+                trial_index=index,
+                raw_data={
+                    "foo": assert_is_instance(parameters["x1"], float) ** 2,
+                },
+            )
+        name, parameters, prediction = client.get_best_arm()
+        self.assertIn(
+            name,
+            [
+                none_throws(assert_is_instance(trial, Trial).arm).name
+                for trial in client._experiment.trials.values()
+            ],
+        )
+        self.assertTrue(
+            client._experiment.search_space.check_membership(
+                parameterization=parameters  # pyre-ignore[6]
+            )
+        )
+        self.assertEqual({*prediction.keys()}, {"foo"})
+
+    def test_get_pareto_frontier(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            experiment_config=ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo, bar")
+        # Set num_initialization_trials=3 so we can reach a predictive GenerationNode
+        # quickly
+        client.configure_generation_strategy(
+            generation_strategy_config=GenerationStrategyConfig(
+                num_initialization_trials=3
+            )
+        )
+
+        with self.assertRaisesRegex(UnsupportedError, "No trials have been run yet"):
+            client.get_pareto_frontier()
+
+        for _ in range(3):
+            for index, parameters in client.get_next_trials(maximum_trials=1).items():
+                client.complete_trial(
+                    trial_index=index,
+                    raw_data={
+                        "foo": assert_is_instance(parameters["x1"], float) ** 2,
+                        "bar": 0.0,
+                    },
+                )
+
+        frontier = client.get_pareto_frontier(False)
+        for name, point in frontier.items():
+            parameters, prediction = point
+
+            self.assertIn(
+                name,
+                [
+                    none_throws(assert_is_instance(trial, Trial).arm).name
+                    for trial in client._experiment.trials.values()
+                ],
+            )
+            self.assertTrue(
+                client._experiment.search_space.check_membership(
+                    parameterization=parameters  # pyre-ignore[6]
+                )
+            )
+            self.assertEqual(
+                prediction, {}
+            )  # No prediction since we are still in Sobol
+
+        # Run a non-Sobol trial
+        for index, parameters in client.get_next_trials(maximum_trials=1).items():
+            client.complete_trial(
+                trial_index=index,
+                raw_data={
+                    "foo": assert_is_instance(parameters["x1"], float) ** 2,
+                    "bar": 0.0,
+                },
+            )
+        frontier = client.get_pareto_frontier()
+        for name, point in frontier.items():
+            parameters, prediction = point
+            self.assertIn(
+                name,
+                [
+                    none_throws(assert_is_instance(trial, Trial).arm).name
+                    for trial in client._experiment.trials.values()
+                ],
+            )
+            self.assertTrue(
+                client._experiment.search_space.check_membership(
+                    parameterization=parameters  # pyre-ignore[6]
+                )
+            )
+            self.assertEqual({*prediction.keys()}, {"foo", "bar"})
+
+    @mock_botorch_optimize
+    def test_predict(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            experiment_config=ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo", outcome_constraints=["bar >= 0"])
+        # Set num_initialization_trials=3 so we can reach a predictive GenerationNode
+        # quickly
+        client.configure_generation_strategy(
+            generation_strategy_config=GenerationStrategyConfig(
+                num_initialization_trials=3
+            )
+        )
+
+        with self.assertRaisesRegex(ValueError, "but search space has parameters"):
+            client.predict(points=[{"x0": 0}])
+
+        with self.assertRaisesRegex(UnsupportedError, "not predictive"):
+            client.predict(points=[{"x1": 0}])
+
+        client.configure_metrics(metrics=[DummyMetric(name="baz")])
+        for _ in range(4):
+            for index, parameters in client.get_next_trials(maximum_trials=1).items():
+                client.complete_trial(
+                    trial_index=index,
+                    raw_data={
+                        "foo": assert_is_instance(parameters["x1"], float) ** 2,
+                        "bar": 0.0,
+                    },
+                )
+
+        # Check we've predicted something for foo and bar but not baz (which is a
+        # tracking metric)
+        point = client.predict(points=[{"x1": 0.5}])
+        self.assertEqual({*point[0].keys()}, {"foo", "bar"})
+
 
 class DummyRunner(IRunner):
     @override
     def run_trial(
         self, trial_index: int, parameterization: TParameterization
-    ) -> dict[str, Any]: ...
+    ) -> dict[str, Any]:
+        return {}
 
     @override
     def poll_trial(
         self, trial_index: int, trial_metadata: Mapping[str, Any]
-    ) -> TrialStatus: ...
+    ) -> TrialStatus:
+        return TrialStatus.COMPLETED
 
     @override
     def stop_trial(
@@ -790,4 +1100,5 @@ class DummyMetric(IMetric):
         self,
         trial_index: int,
         trial_metadata: Mapping[str, Any],
-    ) -> tuple[int, float | tuple[float, float]]: ...
+    ) -> tuple[int, float | tuple[float, float]]:
+        return 0, 0.0

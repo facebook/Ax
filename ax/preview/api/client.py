@@ -11,6 +11,10 @@ from typing import Sequence
 import numpy as np
 
 from ax.analysis.analysis import Analysis, AnalysisCard  # Used as a return type
+from ax.analysis.markdown.markdown_analysis import (
+    markdown_analysis_card_from_analysis_e,
+)
+from ax.analysis.utils import choose_analyses
 
 from ax.core.base_trial import TrialStatus  # Used as a return type
 
@@ -22,7 +26,10 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
-from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
+from ax.early_stopping.strategies import (
+    BaseEarlyStoppingStrategy,
+    PercentileEarlyStoppingStrategy,
+)
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -40,6 +47,8 @@ from ax.preview.api.utils.instantiation.from_config import experiment_from_confi
 from ax.preview.api.utils.instantiation.from_string import (
     optimization_config_from_string,
 )
+from ax.service.scheduler import Scheduler, SchedulerOptions
+from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import with_rng_seed
 from pyre_extensions import assert_is_instance, none_throws
@@ -49,9 +58,9 @@ logger: Logger = get_logger(__name__)
 
 
 class Client:
-    _experiment: Experiment | None = None
-    _generation_strategy: GenerationStrategy | None = None
-    _early_stopping_strategy: BaseEarlyStoppingStrategy | None = None
+    _maybe_experiment: Experiment | None = None
+    _maybe_generation_strategy: GenerationStrategy | None = None
+    _maybe_early_stopping_strategy: BaseEarlyStoppingStrategy | None = None
 
     def __init__(
         self,
@@ -83,13 +92,13 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        if self._experiment is not None:
+        if self._maybe_experiment is not None:
             raise UnsupportedError(
                 "Experiment already configured. Please create a new Client if you "
                 "would like a new experiment."
             )
 
-        self._experiment = experiment_from_config(config=experiment_config)
+        self._maybe_experiment = experiment_from_config(config=experiment_config)
 
         if self._db_config is not None:
             # TODO[mpolson64] Save to database
@@ -131,11 +140,9 @@ class Client:
         Saves to database on completion if db_config is present.
         """
 
-        self._none_throws_experiment().optimization_config = (
-            optimization_config_from_string(
-                objective_str=objective,
-                outcome_constraint_strs=outcome_constraints,
-            )
+        self._experiment.optimization_config = optimization_config_from_string(
+            objective_str=objective,
+            outcome_constraint_strs=outcome_constraints,
         )
 
         if self._db_config is not None:
@@ -153,8 +160,8 @@ class Client:
         """
 
         generation_strategy = choose_generation_strategy(
-            search_space=self._none_throws_experiment().search_space,
-            optimization_config=self._none_throws_experiment().optimization_config,
+            search_space=self._experiment.search_space,
+            optimization_config=self._experiment.optimization_config,
             num_trials=generation_strategy_config.num_trials,
             num_initialization_trials=(
                 generation_strategy_config.num_initialization_trials
@@ -164,9 +171,9 @@ class Client:
         )
 
         # Necessary for storage implications, may be removed in the future
-        generation_strategy._experiment = self._none_throws_experiment()
+        generation_strategy._experiment = self._experiment
 
-        self._generation_strategy = generation_strategy
+        self._maybe_generation_strategy = generation_strategy
 
         if self._db_config is not None:
             # TODO[mpolson64] Save to database
@@ -201,7 +208,7 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        self._experiment = experiment
+        self._maybe_experiment = experiment
 
         if self._db_config is not None:
             # TODO[mpolson64] Save to database
@@ -217,7 +224,7 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        self._none_throws_experiment().optimization_config = optimization_config
+        self._experiment.optimization_config = optimization_config
 
         if self._db_config is not None:
             # TODO[mpolson64] Save to database
@@ -233,14 +240,9 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        self._generation_strategy = generation_strategy
-        none_throws(
-            self._generation_strategy
-        )._experiment = self._none_throws_experiment()
+        self._maybe_generation_strategy = generation_strategy
 
-        none_throws(
-            self._generation_strategy
-        )._experiment = self._none_throws_experiment()
+        none_throws(self._maybe_generation_strategy)._experiment = self._experiment
 
         if self._db_config is not None:
             # TODO[mpolson64] Save to database
@@ -259,7 +261,7 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        self._early_stopping_strategy = early_stopping_strategy
+        self._maybe_early_stopping_strategy = early_stopping_strategy
 
         if self._db_config is not None:
             # TODO[mpolson64] Save to database
@@ -275,7 +277,7 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        self._none_throws_experiment().runner = runner
+        self._experiment.runner = runner
 
         if self._db_config is not None:
             # TODO[mpolson64] Save to database
@@ -322,28 +324,22 @@ class Client:
             A mapping of trial index to parameterization.
         """
 
-        if self._none_throws_experiment().optimization_config is None:
+        if self._experiment.optimization_config is None:
             raise UnsupportedError(
                 "OptimizationConfig not set. Please call configure_optimization before "
                 "generating trials."
             )
 
-        # If no GenerationStrategy is set, configure a default one
-        if self._generation_strategy is None:
-            self.configure_generation_strategy(
-                generation_strategy_config=GenerationStrategyConfig()
-            )
-
         trials: list[Trial] = []
         with with_rng_seed(seed=self._random_seed):
+            gs = self._generation_strategy_or_choose()
+
             # This will be changed to use gen directly post gen-unfication cc @mgarrard
-            generator_runs = none_throws(
-                self._generation_strategy
-            ).gen_for_multiple_trials_with_multiple_models(
-                experiment=self._none_throws_experiment(),
+            generator_runs = gs.gen_for_multiple_trials_with_multiple_models(
+                experiment=self._experiment,
                 pending_observations=(
                     get_pending_observation_features_based_on_trial_status(
-                        experiment=self._none_throws_experiment()
+                        experiment=self._experiment
                     )
                 ),
                 n=1,
@@ -359,7 +355,7 @@ class Client:
 
         for generator_run in generator_runs:
             trial = assert_is_instance(
-                self._none_throws_experiment().new_trial(
+                self._experiment.new_trial(
                     generator_run=generator_run[0],
                 ),
                 Trial,
@@ -398,20 +394,18 @@ class Client:
                 trial_index=trial_index, raw_data=raw_data, progression=progression
             )
 
-        experiment = self._none_throws_experiment()
-
         # If no OptimizationConfig is set, mark the trial as COMPLETED
-        if (optimization_config := experiment.optimization_config) is None:
-            experiment.trials[trial_index].mark_completed()
+        if (optimization_config := self._experiment.optimization_config) is None:
+            self._experiment.trials[trial_index].mark_completed()
         else:
-            trial_data = experiment.lookup_data(trial_indices=[trial_index])
+            trial_data = self._experiment.lookup_data(trial_indices=[trial_index])
             missing_metrics = {*optimization_config.metrics.keys()} - {
                 *trial_data.metric_names
             }
 
             # If all necessary metrics are present mark the trial as COMPLETED
             if len(missing_metrics) == 0:
-                experiment.trials[trial_index].mark_completed()
+                self._experiment.trials[trial_index].mark_completed()
 
             # If any metrics are missing mark the trial as FAILED
             else:
@@ -425,7 +419,7 @@ class Client:
             # TODO[mpolson64] Save trial
             ...
 
-        return experiment.trials[trial_index].status
+        return self._experiment.trials[trial_index].status
 
     def attach_data(
         self,
@@ -448,9 +442,7 @@ class Client:
             ({"step": progression if progression is not None else np.nan}, raw_data)
         ]
 
-        trial = assert_is_instance(
-            self._none_throws_experiment().trials[trial_index], Trial
-        )
+        trial = assert_is_instance(self._experiment.trials[trial_index], Trial)
         trial.update_trial_data(
             # pyre-fixme[6]: Type narrowing broken because core Ax TParameterization
             # is dict not Mapping
@@ -476,7 +468,7 @@ class Client:
         Returns:
             The index of the attached trial.
         """
-        _, trial_index = self._none_throws_experiment().attach_trial(
+        _, trial_index = self._experiment.attach_trial(
             # pyre-fixme[6]: Type narrowing broken because core Ax TParameterization
             # is dict not Mapping
             parameterizations=[parameters],
@@ -508,8 +500,8 @@ class Client:
             arm_name=arm_name or "baseline",
         )
 
-        self._none_throws_experiment().status_quo = assert_is_instance(
-            self._none_throws_experiment().trials[trial_index], Trial
+        self._experiment.status_quo = assert_is_instance(
+            self._experiment.trials[trial_index], Trial
         ).arm
 
         if self._db_config is not None:
@@ -528,18 +520,11 @@ class Client:
         Returns:
             Whether the trial should be stopped early.
         """
-        if self._early_stopping_strategy is None:
-            # In the future we may want to support inferring a default early stopping
-            # strategy
-            raise UnsupportedError(
-                "Early stopping strategy not set. Please set an early stopping "
-                "strategy before calling should_stop_trial_early."
-            )
 
         es_response = none_throws(
-            self._early_stopping_strategy
+            self._early_stopping_strategy_or_choose()
         ).should_stop_trials_early(
-            trial_indices={trial_index}, experiment=self._none_throws_experiment()
+            trial_indices={trial_index}, experiment=self._experiment
         )
 
         # TODO[mpolson64]: log the returned reason for stopping the trial
@@ -553,7 +538,7 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        self._none_throws_experiment().trials[trial_index].mark_failed()
+        self._experiment.trials[trial_index].mark_failed()
 
         if self._db_config is not None:
             # TODO[mpolson64] Save to database
@@ -567,7 +552,7 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        self._none_throws_experiment().trials[trial_index].mark_abandoned()
+        self._experiment.trials[trial_index].mark_abandoned()
 
         if self._db_config is not None:
             # TODO[mpolson64] Save to database
@@ -590,7 +575,7 @@ class Client:
             trial_index=trial_index, raw_data=raw_data, progression=progression
         )
 
-        self._none_throws_experiment().trials[trial_index].mark_early_stopped()
+        self._experiment.trials[trial_index].mark_early_stopped()
 
         if self._db_config is not None:
             # TODO[mpolson64] Save to database
@@ -604,7 +589,20 @@ class Client:
 
         Saves to database on completion if db_config is present.
         """
-        ...
+
+        scheduler = Scheduler(
+            experiment=self._experiment,
+            generation_strategy=self._generation_strategy_or_choose(),
+            options=SchedulerOptions(
+                max_pending_trials=options.parallelism,
+                tolerated_trial_failure_rate=options.tolerated_trial_failure_rate,
+                init_seconds_between_polls=options.initial_seconds_between_polls,
+            ),
+            # TODO[mpolson64] Add db_settings=self._db_config when adding storage
+        )
+
+        # Note: This scheduler call will handle storage internally
+        scheduler.run_n_trials(max_trials=maximum_trials)
 
     # -------------------- Section 3. Analyze ---------------------------------------
     def compute_analyses(
@@ -626,46 +624,230 @@ class Client:
         Returns:
             A list of AnalysisCards.
         """
-        ...
 
-    def get_best_trial(
+        analyses = (
+            analyses
+            if analyses is not None
+            else choose_analyses(experiment=self._experiment)
+        )
+
+        # Compute Analyses one by one and accumulate Results holding either the
+        # AnalysisCard or an Exception and some metadata
+        results = [
+            analysis.compute_result(
+                experiment=self._experiment,
+                generation_strategy=self._generation_strategy,
+            )
+            for analysis in analyses
+        ]
+
+        # Turn Exceptions into MarkdownAnalysisCards with the traceback as the message
+        cards = [
+            result.unwrap_or_else(markdown_analysis_card_from_analysis_e)
+            for result in results
+        ]
+
+        if self._db_config is not None:
+            # TODO[mpolson64] Save cards to database
+            ...
+
+        return cards
+
+    def get_best_arm(
         self, use_model_predictions: bool = True
-    ) -> tuple[int, TParameterization, TOutcome]:
+    ) -> tuple[str, TParameterization, TOutcome]:
         """
-        Calculates the best in-sample trial.
+        Identifies the best parameterization tried in the experiment so far, the best
+        in-sample arm.
+
+        If `use_model_predictions` is True, first attempts to do so with the model used
+        in optimization and its corresponding predictions if available. If
+        `use_model_predictions` is False or attempts to use the model fails, falls back
+        to the best raw objective based on the data fetched from the experiment.
+
+        Arms which violate outcome constraints are not eligible to be the best arm.
 
         Returns:
-            - The index of the best trial
-            - The parameters of the best trial
-            - The metric values associated withthe best trial
+            - The name of the best arm
+            - The parameters of the best arm
+            - The metric values for the best arm. Uses model prediction if
+                use_model_predictions=True, otherwise returns observed data.
         """
-        ...
+
+        if len(self._experiment.trials) < 1:
+            raise UnsupportedError(
+                "No trials have been run yet. Please run at least one trial before "
+                "calling get_best_arm."
+            )
+
+        # Note: Using BestPointMixin directly instead of inheriting to avoid exposing
+        # unwanted public methods
+        trial_index, parameters, _ = none_throws(
+            BestPointMixin._get_best_trial(
+                experiment=self._experiment,
+                generation_strategy=self._generation_strategy,
+                use_model_predictions=use_model_predictions,
+            )
+        )
+
+        arm = none_throws(
+            assert_is_instance(self._experiment.trials[trial_index], Trial).arm
+        )
+
+        if use_model_predictions:
+            try:
+                # pyre-fixme[6]: Core Ax allows users to specify TParameterization
+                # values as None but we do not allow this in the API.
+                prediction = self.predict(points=[parameters])[0]
+            except UnsupportedError:
+                logger.error(
+                    "Model predictions are not available, returning empty prediction"
+                )
+
+                prediction = {}
+        else:
+            data_dict = self._experiment.lookup_data(
+                trial_indices=[trial_index]
+            ).df.to_dict()
+
+            prediction = {
+                data_dict["metric_name"][i]: (data_dict["mean"][i], data_dict["sem"][i])
+                for i in range(len(data_dict["metric_name"]))
+            }
+
+        # pyre-fixme[7]: Core Ax allows users to specify TParameterization values as
+        # None but we do not allow this in the API.
+        return arm.name, parameters, prediction
 
     def get_pareto_frontier(
         self, use_model_predictions: bool = True
-    ) -> dict[int, tuple[TParameterization, TOutcome]]:
+    ) -> dict[str, tuple[TParameterization, TOutcome]]:
         """
         Calculates the in-sample Pareto frontier.
 
         Returns:
-            A mapping of trial index to its parameterization and metric values.
+            A mapping of the arm name to the parameterization and predicted or observed
+                outcome.
         """
-        ...
+
+        if len(self._experiment.trials) < 1:
+            raise UnsupportedError(
+                "No trials have been run yet. Please run at least one trial before "
+                "calling get_pareto_frontier."
+            )
+
+        frontier = BestPointMixin._get_pareto_optimal_parameters(
+            experiment=self._experiment,
+            # Requiring true GenerationStrategy here, ideally we will loosen this
+            # in the future
+            generation_strategy=self._generation_strategy,
+            use_model_predictions=use_model_predictions,
+        )
+
+        frontier_list = [*frontier.items()]
+
+        arm_names = [
+            none_throws(
+                assert_is_instance(self._experiment.trials[trial_index], Trial).arm
+            ).name
+            for trial_index, _ in frontier_list
+        ]
+
+        if use_model_predictions:
+            try:
+                predictions = self.predict(
+                    # pyre-fixme[6]: Core Ax allows users to specify TParameterization
+                    # values as None but we do not allow this in the API.
+                    points=[value[0] for _key, value in frontier_list]
+                )
+            except UnsupportedError:
+                logger.error(
+                    "Model predictions are not available, returning empty prediction"
+                )
+
+                predictions: list[TOutcome] = [{} for _ in frontier]
+        else:
+            predictions = []
+            for trial_index in frontier.keys():
+                data_dict = self._experiment.lookup_data(
+                    trial_indices=[trial_index]
+                ).df.to_dict()
+
+                predictions.append(
+                    {
+                        data_dict["metric_name"][i]: (
+                            data_dict["mean"][i],
+                            data_dict["sem"][i],
+                        )
+                        for i in range(len(data_dict["metric_name"]))
+                    }
+                )
+
+        try:
+            predictions = self.predict(
+                # pyre-fixme[6]: Core Ax allows users to specify TParameterization
+                # values as None but we do not allow this in the API.
+                points=[value[0] for _key, value in frontier_list]
+            )
+        except UnsupportedError:
+            logger.error(
+                "Model predictions are not available, returning empty prediction"
+            )
+            predictions: list[TOutcome] = [{} for _ in frontier]
+
+        # pyre-fixme[7]: Core Ax allows users to specify TParameterization
+        # values as None but we do not allow this in the API.
+        return {
+            arm_names[i]: (frontier_list[i][1][0], predictions[i])
+            for i in range(len(frontier_list))
+        }
 
     def predict(
         self,
-        parameters: TParameterization,
-        # If None predict for all Metrics
-        metrics: Sequence[str] | None = None,
-    ) -> TOutcome:
+        points: Sequence[TParameterization],
+    ) -> list[TOutcome]:
         """
         Use the GenerationStrategy to predict the outcome of the provided
-        parameterization. If metrics is provided only predict for those metrics.
+        list of parameterizations.
 
         Returns:
-            A mapping of metric name to predicted mean and SEM.
+            A list of mappings from metric name to predicted mean and SEM
         """
-        ...
+        for parameters in points:
+            self._experiment.search_space.check_membership(
+                # pyre-fixme[6]: Core Ax allows users to specify TParameterization
+                # values as None but we do not allow this in the API.
+                parameterization=parameters,
+                raise_error=True,
+                check_all_parameters_present=True,
+            )
+
+        try:
+            mean, covariance = none_throws(self._generation_strategy.model).predict(
+                observation_features=[
+                    # pyre-fixme[6]: Core Ax allows users to specify TParameterization
+                    # values as None but we do not allow this in the API.
+                    ObservationFeatures(parameters=parameters)
+                    for parameters in points
+                ]
+            )
+        except (NotImplementedError, AssertionError) as e:
+            raise UnsupportedError(
+                "Predicting with the GenerationStrategy's modelbridge failed. This "
+                "could be because the current GenerationNode is not predictive -- try "
+                "running more trials to progress to a predictive GenerationNode."
+            ) from e
+
+        return [
+            {
+                metric_name: (
+                    mean[metric_name][i],
+                    covariance[metric_name][metric_name][i],
+                )
+                for metric_name in mean.keys()
+            }
+            for i in range(len(points))
+        ]
 
     # -------------------- Section 4: Save/Load -------------------------------------
     # Note: SQL storage handled automatically during regular usage
@@ -702,14 +884,74 @@ class Client:
         """
         ...
 
-    def _none_throws_experiment(self) -> Experiment:
+    # -------------------- Section 5: Private Methods -------------------------------
+    # -------------------- Section 5.1: Getters and defaults ------------------------
+    @property
+    def _experiment(self) -> Experiment:
         return none_throws(
-            self._experiment,
+            self._maybe_experiment,
             (
                 "Experiment not set. Please call configure_experiment or load an "
                 "experiment before utilizing any other methods on the Client."
             ),
         )
+
+    @property
+    def _generation_strategy(self) -> GenerationStrategy:
+        return none_throws(
+            self._maybe_generation_strategy,
+            (
+                "GenerationStrategy not set. Please call "
+                "configure_generation_strategy, load a GenerationStrategy, or call "
+                "get_next_trials or run_trials to automatically choose a "
+                "GenerationStrategy before utilizing any other methods on the Client "
+                "which require one."
+            ),
+        )
+
+    @property
+    def _early_stopping_strategy(self) -> BaseEarlyStoppingStrategy:
+        return none_throws(
+            self._maybe_early_stopping_strategy,
+            "Early stopping strategy not set. Please set an early stopping strategy "
+            "before calling should_stop_trial_early.",
+        )
+
+    def _generation_strategy_or_choose(
+        self,
+    ) -> GenerationStrategy:
+        """
+        If a GenerationStrategy is not set, choose a default one (save to database) and
+        return it.
+        """
+
+        try:
+            return self._generation_strategy
+        except AssertionError:
+            self.configure_generation_strategy(
+                generation_strategy_config=GenerationStrategyConfig()
+            )
+
+            return self._generation_strategy
+
+    def _early_stopping_strategy_or_choose(
+        self,
+    ) -> BaseEarlyStoppingStrategy:
+        """
+        If an EarlyStoppingStrategy is not set choose a default one and return it.
+        """
+
+        try:
+            return self._early_stopping_strategy
+        except AssertionError:
+            # PercetinleEarlyStoppingStrategy may or may not have sensible defaults at
+            # current moment -- we will need to be critical of these settings during
+            # benchmarking
+            self.set_early_stopping_strategy(
+                early_stopping_strategy=PercentileEarlyStoppingStrategy()
+            )
+
+            return self._early_stopping_strategy
 
     def _overwrite_metric(self, metric: Metric) -> None:
         """
@@ -722,9 +964,7 @@ class Client:
         """
 
         # Check the OptimizationConfig first
-        if (
-            optimization_config := self._none_throws_experiment().optimization_config
-        ) is not None:
+        if (optimization_config := self._experiment.optimization_config) is not None:
             # Check the objective
             if isinstance(
                 multi_objective := optimization_config.objective, MultiObjective
@@ -760,14 +1000,13 @@ class Client:
                     return
 
         # Check the tracking metrics
-        tracking_metric_names = self._none_throws_experiment()._tracking_metrics.keys()
-        if metric.name in tracking_metric_names:
-            self._none_throws_experiment()._tracking_metrics[metric.name] = metric
+        if metric.name in self._experiment._tracking_metrics.keys():
+            self._experiment._tracking_metrics[metric.name] = metric
             return
 
         # If an equivalently named Metric does not exist, add it as a tracking
         # metric.
-        self._none_throws_experiment().add_tracking_metric(metric=metric)
+        self._experiment.add_tracking_metric(metric=metric)
         logger.warning(
             f"Metric {metric} not found in optimization config, added as tracking "
             "metric."
