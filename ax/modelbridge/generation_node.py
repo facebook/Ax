@@ -34,7 +34,6 @@ from ax.modelbridge.registry import _extract_model_state_after_gen, ModelRegistr
 from ax.modelbridge.transition_criterion import (
     AutoTransitionAfterGen,
     MaxGenerationParallelism,
-    MaxTrials,
     MinTrials,
     TransitionCriterion,
     TrialBasedCriterion,
@@ -545,8 +544,9 @@ class GenerationNode(SerializationMixin, SortableBase):
         """Returns a dictionary mapping the next ``GenerationNode`` to the
         TransitionCriteria that define the transition that that node.
 
-        Ex: if the transition from the current node to node x is defined by MaxTrials
-        and MinTrials criterion then the return would be {'x': [MaxTrials, MinTrials]}.
+        Ex: if the transition from the current node to node `x` is defined by
+        IsSingleObjective and MinTrials criterion then the return would be
+        {'x': [IsSingleObjective, MinTrials]}.
 
         Returns:
             Dict[str, List[TransitionCriterion]]: A dictionary mapping the next
@@ -823,16 +823,16 @@ class GenerationStep(GenerationNode, SortableBase):
             model_name = model_spec.model_key
         self.model_name: str = model_name
 
-        # Create transition criteria for this step. MaximumTrialsInStatus can be used
-        # to ensure that requirements related to num_trials and unlimited trials
-        # are met. MinimumTrialsInStatus can be used enforce the min_trials_observed
-        # requirement, and override MaxTrials if enforce flag is set to true. We set
-        # `transition_to` is set in `GenerationStrategy` constructor,
-        # because only then is the order of the generation steps actually known.
+        # Create transition criteria for this step. If num_trials is provided to
+        # this `GenerationStep`, then we create a `MinTrials` criterion which ensures
+        # at least that many trials in good status are generated. `MinTrials` can also
+        # enforce the min_trials_observed requirement. The `transition_to` arguement
+        # is set in `GenerationStrategy` constructor, because only then is the order
+        # of the generation steps actually known.
         transition_criteria = []
         if self.num_trials != -1:
             transition_criteria.append(
-                MaxTrials(
+                MinTrials(
                     threshold=self.num_trials,
                     not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
                     block_gen_if_met=self.enforce_num_trials,
