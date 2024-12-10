@@ -17,6 +17,7 @@ from ax.benchmark.benchmark import (
     benchmark_multiple_problems_methods,
     benchmark_one_method_problem,
     benchmark_replication,
+    compute_score_trace,
     get_benchmark_scheduler_options,
     get_oracle_experiment_from_experiment,
     get_oracle_experiment_from_params,
@@ -185,6 +186,31 @@ class TestBenchmark(TestCase):
             self.assertEqual(
                 experiment.optimization_config, problem.optimization_config
             )
+
+    def test_compute_score_trace(self) -> None:
+        opt_trace = np.array([1, 0, -1, 2, float("nan"), 4])
+        num_baseline_trials = 2
+
+        with self.subTest("Higher is better"):
+            optimal_value = 5
+            expected_trace = np.array([0, -25, -50, 25, float("nan"), 75.0])
+            trace = compute_score_trace(
+                optimization_trace=opt_trace,
+                num_baseline_trials=num_baseline_trials,
+                optimal_value=optimal_value,
+            )
+            self.assertTrue(np.array_equal(trace, expected_trace, equal_nan=True))
+
+        with self.subTest("Lower is better"):
+            optimal_value = -1
+            # baseline should be 0
+            expected_trace = np.array([-100, 0, 100, -200, float("nan"), -400])
+            trace = compute_score_trace(
+                optimization_trace=opt_trace,
+                num_baseline_trials=num_baseline_trials,
+                optimal_value=optimal_value,
+            )
+            self.assertTrue(np.array_equal(trace, expected_trace, equal_nan=True))
 
     def test_replication_sobol_surrogate(self) -> None:
         method = get_sobol_benchmark_method(distribute_replications=False)
@@ -479,8 +505,6 @@ class TestBenchmark(TestCase):
 
         self.assertEqual(res.optimization_trace.shape, (problem.num_trials,))
         self.assertTrue((res.inference_trace >= res.oracle_trace).all())
-        self.assertTrue((res.score_trace >= 0).all())
-        self.assertTrue((res.score_trace <= 100).all())
 
     def test_replication_with_inference_value(self) -> None:
         for (
