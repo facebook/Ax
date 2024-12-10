@@ -18,4 +18,4 @@ def int_from_params(
     Get an int between 0 and n_possibilities - 1, using a hash of the parameters.
     """
     arm_hash = Arm.md5hash(parameters=params)
-    return int(arm_hash[-1], 16) % 10
+    return int(arm_hash[-1], base=16) % n_possibilities
