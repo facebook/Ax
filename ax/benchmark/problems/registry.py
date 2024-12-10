@@ -32,6 +32,7 @@ class BenchmarkProblemRegistryEntry:
     factory_kwargs: dict[str, Any]
 
 
+# Baseline values were obtained with `compute_baseline_value_from_sobol`
 BENCHMARK_PROBLEM_REGISTRY = {
     "ackley4": BenchmarkProblemRegistryEntry(
         factory_fn=create_problem_from_botorch,
@@ -40,6 +41,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
             "test_problem_kwargs": {"dim": 4},
             "num_trials": 40,
             "observe_noise_sd": False,
+            "baseline_value": 19.837273921447853,
         },
     ),
     "ackley4_async_noisy": BenchmarkProblemRegistryEntry(
@@ -52,6 +54,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
             "observe_noise_sd": False,
             "step_runtime_function": int_from_params,
             "name": "ackley4_async_noisy",
+            "baseline_value": 19.837273921447853,
         },
     ),
     "branin": BenchmarkProblemRegistryEntry(
@@ -79,6 +82,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
                 test_problem_kwargs={},
                 num_trials=num_trials,
                 observe_noise_sd=False,
+                baseline_value=3.0187520516793587,
             ),
             total_dimensionality=n,
         ),
@@ -91,6 +95,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
             "test_problem_kwargs": {"dim": 4},
             "num_trials": 40,
             "observe_noise_sd": False,
+            "baseline_value": 60.037068040081095,
         },
     ),
     "hartmann3": BenchmarkProblemRegistryEntry(
@@ -100,6 +105,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
             "test_problem_kwargs": {"dim": 3},
             "num_trials": 30,
             "observe_noise_sd": False,
+            "baseline_value": -2.3423173903286716,
         },
     ),
     "hartmann6": BenchmarkProblemRegistryEntry(
@@ -109,6 +115,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
             "test_problem_kwargs": {"dim": 6},
             "num_trials": 35,
             "observe_noise_sd": False,
+            "baseline_value": -0.796988050854654,
         },
     ),
     "hartmann30": BenchmarkProblemRegistryEntry(
@@ -118,6 +125,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
                 test_problem_kwargs={"dim": 6},
                 num_trials=num_trials,
                 observe_noise_sd=False,
+                baseline_value=-0.8359462084890045,
             ),
             total_dimensionality=n,
         ),
@@ -148,6 +156,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
             "test_problem_kwargs": {"dim": 4},
             "num_trials": 40,
             "observe_noise_sd": False,
+            "baseline_value": 14.198811442165178,
         },
     ),
     "powell4": BenchmarkProblemRegistryEntry(
@@ -157,6 +166,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
             "test_problem_kwargs": {"dim": 4},
             "num_trials": 40,
             "observe_noise_sd": False,
+            "baseline_value": 932.3102865964689,
         },
     ),
     "rosenbrock4": BenchmarkProblemRegistryEntry(
@@ -166,6 +176,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
             "test_problem_kwargs": {"dim": 4},
             "num_trials": 40,
             "observe_noise_sd": False,
+            "baseline_value": 30143.767857949348,
         },
     ),
     "six_hump_camel": BenchmarkProblemRegistryEntry(
@@ -212,6 +223,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
                 test_problem_kwargs={},
                 num_trials=num_trials,
                 observe_noise_sd=True,
+                baseline_value=3.0187520516793587,
             ),
             total_dimensionality=n,
         ),
@@ -224,6 +236,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
             "test_problem_kwargs": {"dim": 6},
             "num_trials": 50,
             "observe_noise_sd": True,
+            "baseline_value": -0.796988050854654,
         },
     ),
     "hartmann30_observed_noise": BenchmarkProblemRegistryEntry(
@@ -233,6 +246,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
                 test_problem_kwargs={"dim": 6},
                 num_trials=num_trials,
                 observe_noise_sd=True,
+                baseline_value=-0.8359462084890045,
             ),
             total_dimensionality=n,
         ),
