@@ -6,6 +6,7 @@
 # pyre-strict
 
 
+from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.problems.registry import BENCHMARK_PROBLEM_REGISTRY, get_problem
 from ax.benchmark.problems.runtime_funcs import int_from_params
 from ax.utils.common.testutils import TestCase
@@ -18,7 +19,8 @@ class TestProblems(TestCase):
             if "MNIST" in name:
                 continue  # Skip these as they cause the test to take a long time
 
-            get_problem(problem_key=name)
+            problem = get_problem(problem_key=name)
+            self.assertIsInstance(problem, BenchmarkProblem, msg=name)
 
     def test_name(self) -> None:
         expected_names = [
@@ -29,6 +31,9 @@ class TestProblems(TestCase):
             ("branin_currin_observed_noise", "BraninCurrin_observed_noise"),
             ("branin_currin30_observed_noise", "BraninCurrin_observed_noise_30d"),
             ("levy4", "Levy_4d"),
+        ] + [
+            (name, name)
+            for name in ["Discrete Ackley", "Discrete Hartmann", "Discrete Rosenbrock"]
         ]
         for registry_key, problem_name in expected_names:
             problem = get_problem(problem_key=registry_key)

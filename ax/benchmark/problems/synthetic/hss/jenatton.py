@@ -16,6 +16,8 @@ from ax.core.search_space import HierarchicalSearchSpace
 from pyre_extensions import none_throws
 
 JENATTON_OPTIMAL_VALUE = 0.1
+# Baseline value was obtained with `compute_baseline_value_from_sobol`
+JENATTON_BASELINE_VALUE = 0.5797074938368603
 
 
 def jenatton_test_function(
@@ -117,4 +119,5 @@ def get_jenatton_benchmark_problem(
         noise_std=noise_std,
         num_trials=num_trials,
         optimal_value=JENATTON_OPTIMAL_VALUE,
+        baseline_value=JENATTON_BASELINE_VALUE,
     )

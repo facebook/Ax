@@ -6,6 +6,7 @@
 # pyre-strict
 
 import tempfile
+from dataclasses import replace
 from itertools import product
 from math import pi
 from time import monotonic
@@ -17,12 +18,18 @@ from ax.benchmark.benchmark import (
     benchmark_multiple_problems_methods,
     benchmark_one_method_problem,
     benchmark_replication,
+    compute_baseline_value_from_sobol,
+    compute_score_trace,
     get_benchmark_scheduler_options,
     get_oracle_experiment_from_experiment,
     get_oracle_experiment_from_params,
 )
 from ax.benchmark.benchmark_method import BenchmarkMethod
-from ax.benchmark.benchmark_problem import create_problem_from_botorch
+from ax.benchmark.benchmark_problem import (
+    create_problem_from_botorch,
+    get_moo_opt_config,
+    get_soo_opt_config,
+)
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.methods.modular_botorch import (
@@ -50,10 +57,12 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import (
     get_async_benchmark_method,
     get_async_benchmark_problem,
+    get_discrete_search_space,
     get_moo_surrogate,
     get_multi_objective_benchmark_problem,
     get_single_objective_benchmark_problem,
     get_soo_surrogate,
+    IdentityTestFunction,
     TestDataset,
 )
 
@@ -185,6 +194,31 @@ class TestBenchmark(TestCase):
             self.assertEqual(
                 experiment.optimization_config, problem.optimization_config
             )
+
+    def test_compute_score_trace(self) -> None:
+        opt_trace = np.array([1, 0, -1, 2, float("nan"), 4])
+        num_baseline_trials = 2
+
+        with self.subTest("Higher is better"):
+            optimal_value = 5
+            expected_trace = np.array([0, -25, -50, 25, float("nan"), 75.0])
+            trace = compute_score_trace(
+                optimization_trace=opt_trace,
+                num_baseline_trials=num_baseline_trials,
+                optimal_value=optimal_value,
+            )
+            self.assertTrue(np.array_equal(trace, expected_trace, equal_nan=True))
+
+        with self.subTest("Lower is better"):
+            optimal_value = -1
+            # baseline should be 0
+            expected_trace = np.array([-100, 0, 100, -200, float("nan"), -400])
+            trace = compute_score_trace(
+                optimization_trace=opt_trace,
+                num_baseline_trials=num_baseline_trials,
+                optimal_value=optimal_value,
+            )
+            self.assertTrue(np.array_equal(trace, expected_trace, equal_nan=True))
 
     def test_replication_sobol_surrogate(self) -> None:
         method = get_sobol_benchmark_method(distribute_replications=False)
@@ -479,8 +513,6 @@ class TestBenchmark(TestCase):
 
         self.assertEqual(res.optimization_trace.shape, (problem.num_trials,))
         self.assertTrue((res.inference_trace >= res.oracle_trace).all())
-        self.assertTrue((res.score_trace >= 0).all())
-        self.assertTrue((res.score_trace <= 100).all())
 
     def test_replication_with_inference_value(self) -> None:
         for (
@@ -666,6 +698,7 @@ class TestBenchmark(TestCase):
             test_problem_class=Branin,
             test_problem_kwargs={},
             num_trials=1000,  # Unachievable num_trials
+            baseline_value=100,
         )
 
         generation_strategy = get_sobol_botorch_modular_acquisition(
@@ -819,14 +852,16 @@ class TestBenchmark(TestCase):
                 target_value=1,
             )
         ]
-        problem = create_problem_from_botorch(
+        base_problem = create_problem_from_botorch(
             test_problem_class=AugmentedBranin,
             test_problem_kwargs={},
-            # pyre-fixme: Incompatible parameter type [6]: In call
-            # `SearchSpace.__init__`, for 1st positional argument, expected
-            # `List[Parameter]` but got `List[RangeParameter]`.
             search_space=SearchSpace(parameters),
             num_trials=3,
+            baseline_value=3.0,
+        )
+        problem = replace(
+            base_problem,
+            search_space=SearchSpace(parameters),
         )
         params = {"x0": 1.0, "x1": 0.0, "x2": 0.0}
         at_target = assert_is_instance(
@@ -907,3 +942,60 @@ class TestBenchmark(TestCase):
                 1,
                 msg=f"Trial index: {t.index}",
             )
+
+    def test_compute_baseline_value_from_sobol(self) -> None:
+        """
+        In this setting, every point from 0-4 will be evaluated,
+        and it will produce outcomes 0-4.
+        """
+        search_space = get_discrete_search_space(n_values=5)
+        test_function = IdentityTestFunction()
+
+        with self.subTest("SOO, lower is better"):
+            opt_config = get_soo_opt_config(outcome_names=test_function.outcome_names)
+            result = compute_baseline_value_from_sobol(
+                optimization_config=opt_config,
+                search_space=search_space,
+                test_function=test_function,
+                n_repeats=1,
+            )
+            self.assertEqual(result, 0)
+        return
+
+        with self.subTest("SOO, MapData"):
+            map_test_function = IdentityTestFunction(n_steps=2)
+            map_opt_config = get_soo_opt_config(
+                outcome_names=test_function.outcome_names, use_map_metric=True
+            )
+            result = compute_baseline_value_from_sobol(
+                optimization_config=map_opt_config,
+                search_space=search_space,
+                test_function=map_test_function,
+                n_repeats=1,
+            )
+            self.assertEqual(result, 0)
+
+        with self.subTest("SOO, higher is better"):
+            opt_config = get_soo_opt_config(
+                outcome_names=test_function.outcome_names, lower_is_better=False
+            )
+            result = compute_baseline_value_from_sobol(
+                optimization_config=opt_config,
+                search_space=search_space,
+                test_function=test_function,
+                n_repeats=1,
+            )
+            self.assertEqual(result, 4)
+
+        moo_test_function = IdentityTestFunction(outcome_names=["foo", "bar"])
+        with self.subTest("MOO"):
+            moo_opt_config = get_moo_opt_config(
+                outcome_names=moo_test_function.outcome_names, ref_point=[5, 5]
+            )
+            result = compute_baseline_value_from_sobol(
+                optimization_config=moo_opt_config,
+                search_space=search_space,
+                test_function=moo_test_function,
+                n_repeats=1,
+            )
+            self.assertEqual(result, 25)
