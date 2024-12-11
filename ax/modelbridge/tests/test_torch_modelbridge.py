@@ -16,6 +16,7 @@ import torch
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.observation import (
@@ -29,10 +30,11 @@ from ax.core.optimization_config import (
     OptimizationConfig,
 )
 from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
-from ax.core.parameter import ParameterType, RangeParameter
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import ComparisonOp
 from ax.modelbridge.base import ModelBridge
+from ax.modelbridge.registry import MBM_X_trans
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.standardize_y import StandardizeY
@@ -57,6 +59,7 @@ from botorch.utils.datasets import (
     MultiTaskDataset,
     SupervisedDataset,
 )
+from pandas import DataFrame
 from pyre_extensions import none_throws
 
 
@@ -878,3 +881,65 @@ class TorchModelBridgeTest(TestCase):
                 mock_untransform.assert_not_called()
             else:
                 mock_untransform.assert_called_once()
+
+    @mock_botorch_optimize
+    def test_gen_with_expanded_parameter_space(self) -> None:
+        # Test that an expanded search space with range and unordered choice
+        # parameters can still generate (when using the default transforms).
+        search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x1",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                ChoiceParameter(
+                    name="x2",
+                    parameter_type=ParameterType.FLOAT,
+                    values=[0.0, 1.0, 2.0],
+                    is_ordered=False,
+                ),
+            ]
+        )
+        experiment = get_experiment_with_observations(
+            observations=[[0.0, 1.0], [2.0, 3.0]], search_space=search_space
+        )
+        # Attach a trial from outside of the search space.
+        trial = experiment.new_trial(
+            generator_run=GeneratorRun(
+                arms=[Arm(parameters={"x1": 1.5, "x2": 0.5}, name="manual")]
+            )
+        )
+        data = Data(
+            df=DataFrame.from_records(
+                [
+                    {
+                        "arm_name": "manual",
+                        "metric_name": metric,
+                        "mean": o,
+                        "sem": None,
+                        "trial_index": trial.index,
+                    }
+                    for metric, o in (("m1", 0.2), ("m2", 0.5))
+                ]
+            )
+        )
+        experiment.attach_data(data)
+        trial.run().complete()
+        modelbridge = _get_modelbridge_from_experiment(
+            experiment=experiment, transforms=MBM_X_trans
+        )
+        # Check the expanded model space. Range is expanded, Choice is not.
+        model_space = modelbridge._model_space
+        self.assertEqual(
+            model_space.parameters["x1"],
+            RangeParameter(
+                name="x1", lower=0.0, upper=1.5, parameter_type=ParameterType.FLOAT
+            ),
+        )
+        self.assertEqual(model_space.parameters["x2"], search_space.parameters["x2"])
+        self.assertNotEqual(modelbridge._model_space, modelbridge._search_space)
+        # Generate candidates.
+        gr = modelbridge.gen(n=3)
+        self.assertEqual(len(gr.arms), 3)
