@@ -77,12 +77,19 @@ class LogWarpingTransformer(OneToOneFeatureMixin, TransformerMixin, BaseEstimato
         X = self._check_input(X, in_fit=False, check_shape=True)
 
         X[:, :] = (self.labels_max_ - X) / (self.labels_max_ - self.labels_min_)
-        # TODO use the taylor series expansion for -ve values of X such that we
-        # can avoid the divergence of the log function if bounds are much larger
-        # than maximum value of X.
+        finite_mask = np.isfinite(X)
+        positive_mask = X >= 0
         X[:, :] = np.where(
-            np.isfinite(X),
+            finite_mask & positive_mask,
             0.5 - (np.log1p(X * (self.offset - 1)) / np.log(self.offset)),
+            X,
+        )
+        # This isn't in the vizier implementation but allows us to handle the
+        # transformation of values of X that are larger than the maximum value
+        # of X seen in the fitting data.
+        X[:, :] = np.where(
+            finite_mask & ~positive_mask,
+            0.5 - X * (self.offset - 1) / np.log(self.offset),
             X,
         )
 
@@ -92,10 +99,22 @@ class LogWarpingTransformer(OneToOneFeatureMixin, TransformerMixin, BaseEstimato
         check_is_fitted(self)
         X = self._check_input(X, in_fit=False, check_shape=True)
 
-        X[:, :] = self.labels_max_ - (np.exp(np.log(self.offset) * (0.5 - X)) - 1) * (
-            self.labels_max_ - self.labels_min_
-        ) / (self.offset - 1)
+        above_max_mask = X > 0.5
+        X[:, :] = np.where(
+            ~above_max_mask,
+            np.expm1(np.log(self.offset) * (0.5 - X)) / (self.offset - 1),
+            X,
+        )
+        # This isn't in the vizier implementation but allows us to handle the
+        # inverse transformation of values of X that are larger than the maximum
+        # value of X seen in the fitting data.
+        X[:, :] = np.where(
+            above_max_mask,
+            (0.5 - X) * np.log(self.offset) / (self.offset - 1),
+            X,
+        )
 
+        X[:, :] = self.labels_max_ - X * (self.labels_max_ - self.labels_min_)
         return X
 
     def _check_input(self, X, in_fit, check_shape=False):
@@ -650,6 +669,9 @@ class SklearnTransform(Transform):
                             upper_bound=np.inf,
                         )
                     else:
+                        # TODO: for sklearn transformers that would have known
+                        # variance/covariance transforms we should work out an
+                        # interface to use them.
                         obsd.means[i] = transform(np.array(obsd.means[i], ndmin=2))
         return observation_data
 
@@ -677,9 +699,12 @@ class SklearnTransform(Transform):
                             transform=lambda y: transform(np.array(y, ndmin=2)),
                             lower_bound=lower_bound,
                             upper_bound=upper_bound,
-                            clip_mean=True,
+                            clip_mean=self.clip_mean,
                         )
                     else:
+                        # TODO: for sklearn transformers that would have known
+                        # variance/covariance inverse transforms we should work
+                        # out an interface to use them.
                         obsd.means[i] = transform(np.array(obsd.means[i], ndmin=2))
         return observation_data
 
@@ -804,24 +829,7 @@ class LogWarpingY(SklearnTransform):
         config = config or {}
         config["transformer"] = LogWarpingTransformer
         config["match_ci_width"] = True
-        config["clip_mean"] = True
         super().__init__(search_space, observations, modelbridge, config)
-
-    @staticmethod
-    def _compute_inverse_bounds(
-        transforms: dict[str, LogWarpingTransformer], **kwargs
-    ) -> dict[str, tuple[float, float]]:
-        inv_bounds = defaultdict()
-        for k, lt in transforms.items():
-            if not isinstance(lt, LogWarpingTransformer):
-                raise ValueError(f"Unexpected transformer type: {type(lt)}")
-            # match_ci_width_truncated uses a margin of 0.001 to clip the mean, so
-            # we need to add a small margin to the bounds to avoid clipping.
-            margin = 1e-3
-            inv_bounds[k] = tuple(
-                checked_cast_list(float, [-0.5 - margin, 0.5 + margin])
-            )
-        return inv_bounds
 
 
 class InfeasibleY(SklearnTransform):
@@ -835,7 +843,6 @@ class InfeasibleY(SklearnTransform):
         config = config or {}
         config["transformer"] = InfeasibleTransformer
         config["match_ci_width"] = True
-        config["clip_mean"] = True
         super().__init__(search_space, observations, modelbridge, config)
 
     @staticmethod
@@ -846,10 +853,10 @@ class InfeasibleY(SklearnTransform):
         for k, it in transforms.items():
             if not isinstance(it, InfeasibleTransformer):
                 raise ValueError(f"Unexpected transformer type: {type(it)}")
-            # If we encounter a value that is lower than the warped bad value, we
-            # assign to infeasible values then it would potentially end up with
-            # exceptionally large values when we match the CI width. Clip to the
-            # warped bad value to avoid this.
+            # If we encounter a value that is lower than the warped bad value
+            # that we assign to infeasible values then it makes sense to clip
+            # to the warped bad value to avoid giving the idea that a value is
+            # worse than being infeasible.
             inv_bounds[k] = tuple(
                 checked_cast_list(float, [it.warped_bad_value_[0, 0], np.inf])
             )

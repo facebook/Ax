@@ -81,8 +81,7 @@ class LogWarpingYTest(TestCase):
             self.assertIsInstance(tf.inv_bounds, dict)
             self.assertEqual([*tf.inv_bounds], [m])  # Check keys
             self.assertIsInstance(tf.inv_bounds[m], tuple)
-            margin = 1e-3  # TODO clean this up
-            self.assertEqual(tf.inv_bounds[m], (-0.5 - margin, 0.5 + margin))
+            self.assertEqual(tf.inv_bounds[m], (-np.inf, np.inf))
 
     def test_TransformAndUntransformOneMetric(self) -> None:
         t = LogWarpingY(
