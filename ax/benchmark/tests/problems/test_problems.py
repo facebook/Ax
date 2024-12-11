@@ -29,6 +29,9 @@ class TestProblems(TestCase):
             ("branin_currin_observed_noise", "BraninCurrin_observed_noise"),
             ("branin_currin30_observed_noise", "BraninCurrin_observed_noise_30d"),
             ("levy4", "Levy_4d"),
+        ] + [
+            (name, name)
+            for name in ["Discrete Ackley", "Discrete Hartmann", "Discrete Rosenbrock"]
         ]
         for registry_key, problem_name in expected_names:
             problem = get_problem(problem_key=registry_key)
