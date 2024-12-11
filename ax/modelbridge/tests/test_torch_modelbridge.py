@@ -35,6 +35,8 @@ from ax.core.types import ComparisonOp
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.torch import TorchModelBridge
 from ax.modelbridge.transforms.base import Transform
+from ax.modelbridge.transforms.standardize_y import StandardizeY
+from ax.modelbridge.transforms.unit_x import UnitX
 from ax.models.torch.botorch_modular.model import BoTorchModel
 from ax.models.torch_base import TorchGenResults, TorchModel
 from ax.utils.common.constants import Keys
@@ -43,10 +45,10 @@ from ax.utils.common.typeutils import checked_cast
 from ax.utils.testing.core_stubs import (
     get_branin_data,
     get_branin_experiment,
-    get_branin_search_space,
+    get_branin_experiment_with_multi_objective,
     get_experiment_with_observations,
-    get_optimization_config_no_constraints,
     get_search_space_for_range_value,
+    get_search_space_for_range_values,
 )
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_observation1, transform_1, transform_2
@@ -56,6 +58,23 @@ from botorch.utils.datasets import (
     SupervisedDataset,
 )
 from pyre_extensions import none_throws
+
+
+def _get_modelbridge_from_experiment(
+    experiment: Experiment,
+    transforms: list[type[Transform]] | None = None,
+    dtype: torch.dtype | None = None,
+    device: torch.device | None = None,
+) -> TorchModelBridge:
+    return TorchModelBridge(
+        experiment=experiment,
+        search_space=experiment.search_space,
+        data=experiment.lookup_data(),
+        model=BoTorchModel(),
+        transforms=transforms or [],
+        torch_dtype=dtype,
+        torch_device=device,
+    )
 
 
 def _get_mock_modelbridge(
@@ -99,9 +118,8 @@ class TorchModelBridgeTest(TestCase):
         # Test `_fit`.
         feature_names = ["x1", "x2", "x3"]
         model = mock.MagicMock(TorchModel, autospec=True, instance=True)
-        search_space = mock.MagicMock(SearchSpace, autospec=True, instance=True)
-        type(search_space).parameters = mock.PropertyMock(
-            return_value={fn: None for fn in feature_names}  # only need `.keys()`
+        search_space = get_search_space_for_range_values(
+            min=0.0, max=5.0, parameter_names=feature_names
         )
         X = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], **tkwargs)
         datasets = {
@@ -325,112 +343,80 @@ class TorchModelBridgeTest(TestCase):
         if torch.cuda.is_available():
             self.test_TorchModelBridge(device=torch.device("cuda"))
 
-    @mock.patch(f"{TorchModel.__module__}.TorchModel", autospec=True)
-    @mock.patch(f"{ModelBridge.__module__}.ModelBridge.__init__")
-    def test_evaluate_acquisition_function(self, _, mock_torch_model: Mock) -> None:
-        ma = TorchModelBridge(
-            experiment=Mock(),
-            search_space=Mock(),
-            data=Mock(),
-            model=Mock(),
-            transforms=[],
-            torch_dtype=torch.float64,
-            torch_device=torch.device("cpu"),
+    def test_evaluate_acquisition_function(self) -> None:
+        experiment = get_branin_experiment(with_completed_trial=True)
+        modelbridge = _get_modelbridge_from_experiment(
+            experiment=experiment, transforms=[UnitX, StandardizeY]
         )
-        ma._fit_tracking_metrics = True
-        ma._experiment_properties = {}
-        # These attributes would've been set by `ModelBridge` __init__, but it's mocked.
-        ma.model = mock_torch_model()
-        t = mock.MagicMock(Transform, autospec=True, wraps=Transform(None, None, None))
-        ma.transforms = {"ExampleTransform": t}
-        ma.parameters = ["x", "y"]
-        model_eval_acqf = mock_torch_model.return_value.evaluate_acquisition_function
-        model_eval_acqf.return_value = torch.tensor([5.0], dtype=torch.float64)
+        obsf = ObservationFeatures(parameters={"x1": 1.0, "x2": 2.0})
 
-        ma._model_space = get_branin_search_space()
-        ma._search_space = get_branin_search_space()
-        ma._optimization_config = None
-        ma.outcomes = ["test_metric"]
-        ma._fit_out_of_design = False
+        # Check for value error when optimization config is not set.
+        with mock.patch.object(
+            modelbridge, "_optimization_config", None
+        ), self.assertRaisesRegex(ValueError, "optimization_config"):
+            modelbridge.evaluate_acquisition_function(observation_features=[obsf])
 
-        with self.assertRaisesRegex(ValueError, "optimization_config"):
-            ma.evaluate_acquisition_function(
-                observation_features=[
-                    ObservationFeatures(parameters={"x": 1.0, "y": 2.0})
-                ],
+        with mock.patch.object(
+            modelbridge, "_evaluate_acquisition_function", return_value=[5.0]
+        ) as mock_eval:
+            acqf_vals = modelbridge.evaluate_acquisition_function(
+                observation_features=[obsf]
             )
-
-        with mock.patch(
-            "ax.modelbridge.torch.extract_search_space_digest",
-            return_value=SearchSpaceDigest(feature_names=[], bounds=[]),
-        ):
-            acqf_vals = ma.evaluate_acquisition_function(
-                observation_features=[
-                    ObservationFeatures(parameters={"x": 1.0, "y": 2.0})
-                ],
-                optimization_config=get_optimization_config_no_constraints(),
-            )
-
         self.assertEqual(acqf_vals, [5.0])
-        t.transform_observation_features.assert_any_call(
-            [ObservationFeatures(parameters={"x": 1.0, "y": 2.0})],
+        mock_eval.assert_called_once()
+        # Check that the private method was called with transformed obsf.
+        expected_X = [6.0 / 15.0, 2.0 / 15.0]
+        self.assertEqual(
+            mock_eval.call_args.kwargs["observation_features"],
+            [
+                [
+                    ObservationFeatures(
+                        parameters={"x1": expected_X[0], "x2": expected_X[1]}
+                    )
+                ]
+            ],
         )
-        t.transform_observation_features.reset_mock()
-        model_eval_acqf.assert_called_once()
-        self.assertTrue(
-            torch.equal(  # `call_args` is an (args, kwargs) tuple
-                model_eval_acqf.call_args[1]["X"],
-                torch.tensor([[[1.0, 2.0]]], dtype=torch.float64),
+
+        # Check calls down to the acquisition function.
+        acqf_path = "botorch.acquisition.logei.qLogNoisyExpectedImprovement.forward"
+        with mock.patch(
+            acqf_path, return_value=torch.tensor([5.0], dtype=torch.double)
+        ) as mock_acqf:
+            acqf_vals = modelbridge.evaluate_acquisition_function(
+                observation_features=[obsf]
             )
+        self.assertEqual(acqf_vals, [5.0])
+        mock_acqf.assert_called_once()
+        expected_tensor = torch.tensor([expected_X], dtype=torch.double)
+        self.assertTrue(
+            torch.allclose(mock_acqf.call_args.kwargs["X"], expected_tensor)
         )
 
         # Test evaluating at multiple points.
         # Case 1: List[ObsFeat, ObsFeat], should be 2 x 1 x d.
         with mock.patch(
-            "ax.modelbridge.torch.extract_search_space_digest",
-            return_value=SearchSpaceDigest(feature_names=[], bounds=[]),
-        ):
-            acqf_vals = ma.evaluate_acquisition_function(
-                observation_features=[
-                    ObservationFeatures(parameters={"x": 1.0, "y": 2.0}),
-                    ObservationFeatures(parameters={"x": 1.0, "y": 2.0}),
-                ],
-                optimization_config=get_optimization_config_no_constraints(),
+            acqf_path, return_value=torch.tensor([5.0, 5.0], dtype=torch.double)
+        ) as mock_acqf:
+            acqf_vals = modelbridge.evaluate_acquisition_function(
+                observation_features=[obsf, obsf.clone()]
             )
-        t.transform_observation_features.assert_any_call(
-            [ObservationFeatures(parameters={"x": 1.0, "y": 2.0})],
-        )
-        t.transform_observation_features.reset_mock()
+        mock_acqf.assert_called_once()
         self.assertTrue(
-            torch.equal(  # `call_args` is an (args, kwargs) tuple
-                model_eval_acqf.call_args[-1]["X"],
-                torch.tensor([[[1.0, 2.0]], [[1.0, 2.0]]], dtype=torch.float64),
+            torch.allclose(
+                mock_acqf.call_args.kwargs["X"], expected_tensor.repeat(2, 1, 1)
             )
         )
         # Case 2: List[List[ObsFeat, ObsFeat]], should be 1 x 2 x d.
         with mock.patch(
-            "ax.modelbridge.torch.extract_search_space_digest",
-            return_value=SearchSpaceDigest(feature_names=[], bounds=[]),
-        ):
-            acqf_vals = ma.evaluate_acquisition_function(
-                observation_features=[
-                    [
-                        ObservationFeatures(parameters={"x": 1.0, "y": 2.0}),
-                        ObservationFeatures(parameters={"x": 1.0, "y": 2.0}),
-                    ]
-                ],
-                optimization_config=get_optimization_config_no_constraints(),
+            acqf_path, return_value=torch.tensor([5.0, 5.0], dtype=torch.double)
+        ) as mock_acqf:
+            acqf_vals = modelbridge.evaluate_acquisition_function(
+                observation_features=[[obsf, obsf.clone()]]
             )
-        t.transform_observation_features.assert_any_call(
-            [
-                ObservationFeatures(parameters={"x": 1.0, "y": 2.0}),
-                ObservationFeatures(parameters={"x": 1.0, "y": 2.0}),
-            ],
-        )
+        mock_acqf.assert_called_once()
         self.assertTrue(
-            torch.equal(  # `call_args` is an (args, kwargs) tuple
-                model_eval_acqf.call_args[-1]["X"],
-                torch.tensor([[[1.0, 2.0], [1.0, 2.0]]], dtype=torch.float64),
+            torch.allclose(
+                mock_acqf.call_args.kwargs["X"], expected_tensor.repeat(1, 2, 1)
             )
         )
 
@@ -538,59 +524,18 @@ class TorchModelBridgeTest(TestCase):
             res = modelbridge.model_best_point()
         self.assertIsNone(res)
 
-    @mock.patch(
-        f"{ModelBridge.__module__}.observations_from_data",
-        autospec=True,
-        return_value=([get_observation1()]),
-    )
-    @mock.patch(
-        f"{ModelBridge.__module__}.unwrap_observation_data",
-        autospec=True,
-        return_value=(2, 2),
-    )
-    @mock.patch(
-        f"{ModelBridge.__module__}.gen_arms",
-        autospec=True,
-        return_value=[Arm(parameters={})],
-    )
-    @mock.patch(
-        f"{ModelBridge.__module__}.ModelBridge.predict",
-        autospec=True,
-        return_value=({"m": [1.0]}, {"m": {"m": [2.0]}}),
-    )
-    @mock.patch(f"{TorchModelBridge.__module__}.TorchModelBridge._fit", autospec=True)
-    # pyre-fixme[56]: Pyre was not able to infer the type of argument
-    #  `numpy.array([[[1.000000]], [[2.000000]]])` to decorator factory
-    #  `unittest.mock.patch`.
-    @mock.patch(
-        f"{TorchModel.__module__}.TorchModel.feature_importances",
-        return_value=np.array([[[1.0]], [[2.0]]]),
-        autospec=True,
-    )
-    def test_importances(
-        self,
-        _mock_feature_importances,
-        _mock_fit,
-        _mock_predict,
-        _mock_gen_arms,
-        _mock_unwrap,
-        _mock_obs_from_data,
-    ) -> None:
-        exp = Experiment(search_space=get_search_space_for_range_value(), name="test")
-        search_space = get_search_space_for_range_value()
-        modelbridge = TorchModelBridge(
-            search_space=search_space,
-            model=TorchModel(),
-            transforms=[transform_1, transform_2],
-            experiment=exp,
-            data=Data(),
+    def test_importances(self) -> None:
+        experiment = get_branin_experiment_with_multi_objective(
+            with_completed_trial=True
         )
-        # _fit is mocked, which typically sets these
-        modelbridge.parameters = list(search_space.parameters.keys())
-        modelbridge.outcomes = ["a", "b"]
-
-        self.assertEqual(modelbridge.feature_importances("a"), {"x": [1.0]})
-        self.assertEqual(modelbridge.feature_importances("b"), {"x": [2.0]})
+        modelbridge = _get_modelbridge_from_experiment(experiment=experiment)
+        # Model doesn't have enough data for training, so equal importances.
+        self.assertEqual(
+            modelbridge.feature_importances("branin_a"), {"x1": 0.5, "x2": 0.5}
+        )
+        self.assertEqual(
+            modelbridge.feature_importances("branin_b"), {"x1": 0.5, "x2": 0.5}
+        )
 
     @mock.patch(
         f"{TorchModel.__module__}.TorchModel.gen",
@@ -712,12 +657,8 @@ class TorchModelBridgeTest(TestCase):
             self.assertEqual(len(call_kwargs["datasets"]), len(expected_outcomes))
 
     def test_convert_observations(self) -> None:
-        with mock.patch(
-            f"{ModelBridge.__module__}.ModelBridge.__init__",
-            autospec=True,
-        ):
-            mb = _get_mock_modelbridge()
-            mb._experiment_properties = {"parameter_decomposition": None}
+        experiment = get_branin_experiment(with_completed_trial=True)
+        mb = _get_modelbridge_from_experiment(experiment=experiment)
         raw_X = torch.rand(10, 3) * 5
         raw_X[:, -1].round_()  # Make sure last column is integer.
         raw_X[0, -1] = 0  # Make sure task value 0 exists.
