@@ -31,9 +31,14 @@ from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_problem import BenchmarkProblem
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.benchmark_runner import BenchmarkRunner
+from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
+from ax.benchmark.methods.sobol import get_sobol_generation_strategy
 from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
+from ax.core.objective import MultiObjective
+from ax.core.optimization_config import OptimizationConfig
+from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization, TParamValue
 from ax.core.utils import get_model_times
 from ax.service.scheduler import Scheduler
@@ -398,6 +403,59 @@ def benchmark_replication(
         fit_time=fit_time,
         gen_time=gen_time,
     )
+
+
+def compute_baseline_value_from_sobol(
+    optimization_config: OptimizationConfig,
+    search_space: SearchSpace,
+    test_function: BenchmarkTestFunction,
+    target_fidelity_and_task: Mapping[str, TParamValue] | None = None,
+    n_repeats: int = 50,
+) -> float:
+    """
+    Compute the `baseline_value` that will be assigned to
+    a `BenchmarkProblem`.
+
+    Computed by taking the best of five quasi-random Sobol trials and then
+    repeating 50 times. The value is evaluated at the ground truth (noiseless
+    and at the target task and fidelity).
+
+    Args:
+        optimization_config: Typically, the `optimization_config` of a
+            `BenchmarkProblem` (or that will later be used to define a
+            `BenchmarkProblem`).
+        search_space: Similarly, the `search_space` of a `BenchmarkProblem`.
+        test_function: Similarly, the `test_function` of a `BenchmarkProblem`.
+        target_fidelity_and_task: Typically, the `target_fidelity_and_task` of a
+            `BenchmarkProblem`.
+        n_repeats: Number of times to repeat the five Sobol trials.
+    """
+    gs = get_sobol_generation_strategy()
+    method = BenchmarkMethod(generation_strategy=gs)
+    target_fidelity_and_task = {} if target_fidelity_and_task is None else {}
+
+    # set up a dummy problem so we can use `benchmark_replication`
+    # MOO problems are always higher-is-better because they use hypervolume
+    higher_is_better = isinstance(optimization_config.objective, MultiObjective) or (
+        not optimization_config.objective.minimize
+    )
+    dummy_optimal_value = float("inf") if higher_is_better else float("-inf")
+    dummy_problem = BenchmarkProblem(
+        name="dummy",
+        optimization_config=optimization_config,
+        search_space=search_space,
+        num_trials=5,
+        test_function=test_function,
+        optimal_value=dummy_optimal_value,
+        target_fidelity_and_task=target_fidelity_and_task,
+    )
+
+    values = np.full(n_repeats, np.nan)
+    for i in range(n_repeats):
+        result = benchmark_replication(problem=dummy_problem, method=method, seed=i)
+        values[i] = result.optimization_trace[-1]
+
+    return values.mean()
 
 
 def benchmark_one_method_problem(
