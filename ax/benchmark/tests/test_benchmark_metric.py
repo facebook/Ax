@@ -96,7 +96,7 @@ def get_test_trial(
     return trial
 
 
-class BenchmarkMetricTest(TestCase):
+class TestBenchmarkMetric(TestCase):
     def setUp(self) -> None:
         self.outcome_names = ["test_metric1", "test_metric2"]
         self.metric1, self.metric2 = (
