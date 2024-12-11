@@ -93,7 +93,6 @@ from ax.modelbridge.generation_strategy import GenerationNode, GenerationStrateg
 from ax.modelbridge.model_spec import ModelSpec
 from ax.modelbridge.transition_criterion import (
     MaxGenerationParallelism,
-    MaxTrials,
     MinTrials,
     TrialBasedCriterion,
 )
@@ -162,7 +161,7 @@ def get_experiment_with_map_data_type() -> Experiment:
 
 def get_trial_based_criterion() -> list[TrialBasedCriterion]:
     return [
-        MaxTrials(
+        MinTrials(
             threshold=3,
             only_in_statuses=[TrialStatus.RUNNING, TrialStatus.COMPLETED],
             not_in_statuses=None,
@@ -850,8 +849,6 @@ def get_high_dimensional_branin_experiment(
     with_batch: bool = False, with_status_quo: bool = False
 ) -> Experiment:
     search_space = SearchSpace(
-        # pyre-fixme[6]: In call `SearchSpace.__init__`, for 1st parameter `parameters`
-        # expected `List[Parameter]` but got `List[RangeParameter]`.
         parameters=[
             RangeParameter(
                 name=f"x{i}",
@@ -1022,7 +1019,7 @@ def get_large_ordinal_search_space(
     n_continuous_range_parameters: int,
 ) -> SearchSpace:
     return SearchSpace(
-        parameters=[  # pyre-ignore[6]
+        parameters=[
             RangeParameter(
                 name=f"x{i}",
                 parameter_type=ParameterType.FLOAT,
@@ -1073,12 +1070,14 @@ def get_search_space_for_range_value(min: float = 3.0, max: float = 6.0) -> Sear
 
 
 def get_search_space_for_range_values(
-    min: float = 3.0, max: float = 6.0
+    min: float = 3.0, max: float = 6.0, parameter_names: list[str] | None = None
 ) -> SearchSpace:
+    if parameter_names is None:
+        parameter_names = ["x", "y"]
     return SearchSpace(
         [
-            RangeParameter("x", ParameterType.FLOAT, min, max),
-            RangeParameter("y", ParameterType.FLOAT, min, max),
+            RangeParameter(name, ParameterType.FLOAT, min, max)
+            for name in parameter_names
         ]
     )
 
@@ -2417,7 +2416,7 @@ def get_online_sobol_mbm_generation_strategy(
     # TODO: @mgarrard make this more realistic of an actual online gs
     step_model_kwargs = {"silently_filter_kwargs": True}
     sobol_criterion = [
-        MaxTrials(
+        MinTrials(
             threshold=1,
             transition_to="MBM_node",
             block_gen_if_met=True,
