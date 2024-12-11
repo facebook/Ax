@@ -266,6 +266,14 @@ def execute_with_timeout(partial_func: Callable[..., T], timeout: float) -> T:
     context_dict = {}
 
     def execute_partial_with_context(context: dict[str, Any]) -> None:
+        """Execute the partial function and update the context dict, which
+        will either store the result or exception because threads cannot
+        directly return results.
+
+        NOTE: There is a bug specifically when using this with sqlite that the
+        database is not initialized and saving within the thread will not
+        work if the database connection is initialized outside.
+        """
         try:
             context["return_value"] = partial_func()
         except Exception as e:
