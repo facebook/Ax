@@ -308,10 +308,11 @@ class ModelSpec(SortableBase, SerializationMixin):
         )
         return (
             "ModelSpec("
-            f"\tmodel_enum={self.model_enum.value},\n"
-            f"\tmodel_kwargs={model_kwargs},\n"
-            f"\tmodel_gen_kwargs={model_gen_kwargs},\n"
-            f"\tmodel_cv_kwargs={model_cv_kwargs},\n"
+            f"\tmodel_enum={self.model_enum.value}, "
+            f"\tmodel_kwargs={model_kwargs}, "
+            f"\tmodel_gen_kwargs={model_gen_kwargs}, "
+            f"\tmodel_cv_kwargs={model_cv_kwargs}, "
+            f"\tmodel_key_override={self.model_key_override}"
             ")"
         )
 

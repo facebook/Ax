@@ -474,7 +474,7 @@ class TestGenerationStrategy(TestCase):
             "GenerationStrategy(name='test', nodes=[GenerationNode("
             "model_specs=[ModelSpec(model_enum=Sobol, "
             "model_kwargs={}, model_gen_kwargs={}, model_cv_kwargs={},"
-            " )], node_name=test, "
+            " model_key_override=None)], node_name=test, "
             "transition_criteria=[])])",
         )
 

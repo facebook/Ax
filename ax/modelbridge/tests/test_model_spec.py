@@ -186,6 +186,23 @@ class ModelSpecTest(BaseModelSpecTest):
         self.assertIsInstance(gen_metadata["model_fit_generalization"], float)
         self.assertIsInstance(gen_metadata["model_std_generalization"], float)
 
+    def test_spec_string_representation(self) -> None:
+        ms = ModelSpec(
+            model_enum=Models.BOTORCH_MODULAR,
+            model_kwargs={"test_model_kwargs": 1},
+            model_gen_kwargs={"test_gen_kwargs": 1},
+            model_cv_kwargs={"test_cv_kwargs": 1},
+        )
+        ms.model_key_override = "test_model_key_override"
+
+        repr_str = repr(ms)
+
+        self.assertNotIn("\n", repr_str)
+        self.assertIn("test_model_kwargs", repr_str)
+        self.assertIn("test_gen_kwargs", repr_str)
+        self.assertIn("test_cv_kwargs", repr_str)
+        self.assertIn("test_model_key_override", repr_str)
+
 
 class FactoryFunctionModelSpecTest(BaseModelSpecTest):
     def test_construct(self) -> None:
