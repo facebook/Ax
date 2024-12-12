@@ -113,7 +113,10 @@ class Experiment(Base):
             description: Description of the experiment.
             is_test: Convenience metadata tracker for the user to mark test experiments.
             experiment_type: The class of experiments this one belongs to.
-            properties: Dictionary of this experiment's properties.
+            properties: Dictionary of this experiment's properties.  It is meant to
+                only store primitives that pertain to Ax experiment state. Any trial
+                deployment-related information and modeling-layer configuration
+                should be stored elsewhere, e.g. in ``run_metadata`` of the trials.
             default_data_type: Enum representing the data type this experiment uses.
             auxiliary_experiments_by_purpose: Dictionary of auxiliary experiments
                 for different purposes (e.g., transfer learning).

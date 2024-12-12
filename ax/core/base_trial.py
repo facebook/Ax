@@ -266,6 +266,10 @@ class BaseTrial(ABC, SortableBase):
         # strategy, this property will be set to the generation step that produced
         # the generator run(s).
         self._generation_step_index: int | None = None
+        # Please do not store any data related to trial deployment or data-
+        # fetching in properties. It is intended to only store properties related
+        # to core Ax functionality and not to any third-system that the trials
+        # might be getting deployed to.
         # pyre-fixme[4]: Attribute must be annotated.
         self._properties = {}
 
