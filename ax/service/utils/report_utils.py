@@ -61,6 +61,7 @@ from ax.plot.trace import (
     plot_objective_value_vs_trial_index,
 )
 from ax.service.utils.best_point import _derel_opt_config_wrapper, _is_row_feasible
+from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
 from ax.service.utils.early_stopping import get_early_stopping_metrics
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
@@ -1331,50 +1332,6 @@ def _build_result_tuple(
     return result
 
 
-def select_baseline_arm(
-    experiment: Experiment, arms_df: pd.DataFrame, baseline_arm_name: str | None
-) -> tuple[str, bool]:
-    """
-    Choose a baseline arm that is found in arms_df
-
-    Returns:
-        Tuple:
-            baseline_arm_name if valid baseline exists
-            true when baseline selected from first arm of sweep
-        raise ValueError if no valid baseline found
-    """
-
-    if baseline_arm_name:
-        if arms_df[arms_df["arm_name"] == baseline_arm_name].empty:
-            raise ValueError(
-                f"compare_to_baseline: baseline row: {baseline_arm_name=}"
-                " not found in arms"
-            )
-        return baseline_arm_name, False
-
-    else:
-        if (
-            experiment.status_quo
-            and not arms_df[
-                arms_df["arm_name"] == none_throws(experiment.status_quo).name
-            ].empty
-        ):
-            baseline_arm_name = none_throws(experiment.status_quo).name
-            return baseline_arm_name, False
-
-        if (
-            experiment.trials
-            and experiment.trials[0].arms
-            and not arms_df[
-                arms_df["arm_name"] == experiment.trials[0].arms[0].name
-            ].empty
-        ):
-            baseline_arm_name = experiment.trials[0].arms[0].name
-            return baseline_arm_name, True
-        else:
-            raise ValueError("compare_to_baseline: could not find valid baseline arm")
-
-
 def maybe_extract_baseline_comparison_values(
     experiment: Experiment,
     optimization_config: OptimizationConfig | None,
@@ -1425,8 +1382,8 @@ def maybe_extract_baseline_comparison_values(
         return None
 
     try:
-        baseline_arm_name, _ = select_baseline_arm(
-            experiment=experiment, arms_df=arms_df, baseline_arm_name=baseline_arm_name
+        baseline_arm_name, _ = select_baseline_name_default_first_trial(
+            experiment=experiment, baseline_arm_name=baseline_arm_name
         )
     except Exception as e:
         logger.info(f"compare_to_baseline: could not select baseline arm. Reason: {e}")

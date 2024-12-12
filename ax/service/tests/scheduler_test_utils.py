@@ -2197,6 +2197,8 @@ class AxSchedulerTestCase(TestCase):
             scheduler.experiment.trials[0].lookup_data().df["arm_name"].iloc[0]
         )
         percent_improvement = scheduler.get_improvement_over_baseline(
+            experiment=scheduler.experiment,
+            generation_strategy=scheduler.standard_generation_strategy,
             baseline_arm_name=first_trial_name,
         )
 
@@ -2209,11 +2211,7 @@ class AxSchedulerTestCase(TestCase):
         self.branin_experiment.optimization_config = (
             get_branin_multi_objective_optimization_config()
         )
-
-        gs = self._get_generation_strategy_strategy_for_test(
-            experiment=self.branin_experiment,
-            generation_strategy=self.sobol_MBM_GS,
-        )
+        gs = self.sobol_MBM_GS
 
         scheduler = Scheduler(
             experiment=self.branin_experiment,
@@ -2227,6 +2225,8 @@ class AxSchedulerTestCase(TestCase):
 
         with self.assertRaises(NotImplementedError):
             scheduler.get_improvement_over_baseline(
+                experiment=scheduler.experiment,
+                generation_strategy=scheduler.standard_generation_strategy,
                 baseline_arm_name=None,
             )
 
@@ -2236,10 +2236,7 @@ class AxSchedulerTestCase(TestCase):
         experiment.name = f"{self.branin_experiment.name}_but_moo"
         experiment.runner = self.runner
 
-        gs = self._get_generation_strategy_strategy_for_test(
-            experiment=experiment,
-            generation_strategy=self.two_sobol_steps_GS,
-        )
+        gs = self.two_sobol_steps_GS
         scheduler = Scheduler(
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,
@@ -2251,8 +2248,10 @@ class AxSchedulerTestCase(TestCase):
             db_settings=self.db_settings_if_always_needed,
         )
 
-        with self.assertRaises(UserInputError):
+        with self.assertRaises(ValueError):
             scheduler.get_improvement_over_baseline(
+                experiment=scheduler.experiment,
+                generation_strategy=scheduler.standard_generation_strategy,
                 baseline_arm_name=None,
             )
 
@@ -2267,19 +2266,20 @@ class AxSchedulerTestCase(TestCase):
         scheduler.experiment = exp_copy
 
         with self.assertRaises(ValueError):
-            scheduler.get_improvement_over_baseline(baseline_arm_name="baseline")
+            scheduler.get_improvement_over_baseline(
+                experiment=scheduler.experiment,
+                generation_strategy=scheduler.standard_generation_strategy,
+                baseline_arm_name="baseline",
+            )
 
     def test_get_improvement_over_baseline_no_baseline(self) -> None:
         """Test that get_improvement_over_baseline returns UserInputError when
         baseline is not found in data."""
         n_total_trials = 8
-        gs = self._get_generation_strategy_strategy_for_test(
-            experiment=self.branin_experiment,
-            generation_strategy=self.two_sobol_steps_GS,
-        )
-
+        experiment = self.branin_experiment
+        gs = self.two_sobol_steps_GS
         scheduler = Scheduler(
-            experiment=self.branin_experiment,  # Has runner and metrics.
+            experiment=experiment,  # Has runner and metrics.
             generation_strategy=gs,
             options=SchedulerOptions(
                 total_trials=n_total_trials,
@@ -2293,6 +2293,8 @@ class AxSchedulerTestCase(TestCase):
 
         with self.assertRaises(UserInputError):
             scheduler.get_improvement_over_baseline(
+                experiment=experiment,
+                generation_strategy=gs,
                 baseline_arm_name="baseline_arm_not_in_data",
             )
 
