@@ -310,6 +310,15 @@ Transforms
     :undoc-members:
     :show-inheritance:
 
+
+`ax.modelbridge.transforms.metadata\_to\_range`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.metadata_to_range
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 `ax.modelbridge.transforms.rounding`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
