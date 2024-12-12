@@ -11,6 +11,8 @@ from ax.exceptions.core import UserInputError
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.utils.common.testutils import TestCase
 
+from ax.utils.testing.mock import mock_botorch_optimize
+
 
 class TestInteractionPlot(TestCase):
     def setUp(self) -> None:
@@ -43,6 +45,10 @@ class TestInteractionPlot(TestCase):
                 },
             )
 
+    @TestCase.ax_long_test(
+        reason="This test requires fitting an OAK model, which can be time intensive"
+    )
+    @mock_botorch_optimize
     def test_compute(self) -> None:
         analysis = InteractionPlot(metric_name="bar")
 
