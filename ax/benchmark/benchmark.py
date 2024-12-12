@@ -46,27 +46,39 @@ logger: Logger = get_logger(__name__)
 
 
 def compute_score_trace(
-    optimization_trace: npt.NDArray,
-    num_baseline_trials: int,
-    problem: BenchmarkProblem,
+    optimization_trace: npt.NDArray, num_baseline_trials: int, optimal_value: float
 ) -> npt.NDArray:
-    """Computes a score trace from the optimization trace."""
+    """
+    Compute a score trace from the optimization trace.
 
-    # Use the first GenerationStep's best found point as baseline. Sometimes (ex. in
-    # a timeout) the first GenerationStep will not have not completed and we will not
-    # have enough trials; in this case we do not score.
+    Score is expressed as a percentage of possible improvement over a baseline.
+    A higher score is better.
+
+    Element `i` of the score trace is `optimization_trace[i] - baseline`
+    expressed as a percent of `optimal_value - baseline`, where `baseline` is
+    `optimization_trace[num_baseline_trials - 1]`. It can be over 100 if values
+    better than `optimal_value` are attained or below 0 if values worse than the
+    baseline value are attained.
+
+    Args:
+        optimization_trace: Objective values. Can be either higher- or
+            lower-is-better.
+        num_baseline_trials: Number of trials to use as the baseline. Sometimes
+            there are not this many trials, in which case the score trace is all
+            NaN.
+        optimal_value: The best possible value of the objective; when the
+            optimization_trace equals the optimal_value, the score is 100.
+    """
+
     if len(optimization_trace) <= num_baseline_trials:
         return np.full(len(optimization_trace), np.nan)
-    optimum = problem.optimal_value
-    baseline = optimization_trace[num_baseline_trials - 1]
 
-    score_trace = 100 * (1 - (optimization_trace - optimum) / (baseline - optimum))
-    if score_trace.max() > 100:
-        logger.info(
-            "Observed scores above 100. This indicates that we found a trial that is "
-            "better than the optimum. Clipping scores to 100 for now."
-        )
-    return score_trace.clip(min=0, max=100)
+    # Note: In the future, the baseline will be passed explicitly, so
+    # higher_is_better should not need to be inferred.
+    higher_is_better = optimization_trace[0] < optimal_value
+    baseline_trials = optimization_trace[:num_baseline_trials]
+    baseline = baseline_trials.max() if higher_is_better else baseline_trials.min()
+    return 100 * (optimization_trace - baseline) / (optimal_value - baseline)
 
 
 def get_benchmark_runner(
@@ -361,7 +373,7 @@ def benchmark_replication(
         score_trace = compute_score_trace(
             optimization_trace=optimization_trace,
             num_baseline_trials=num_baseline_trials,
-            problem=problem,
+            optimal_value=problem.optimal_value,
         )
     except Exception as e:
         logger.warning(
