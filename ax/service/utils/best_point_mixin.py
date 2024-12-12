@@ -21,6 +21,7 @@ from ax.core.optimization_config import (
     OptimizationConfig,
 )
 from ax.core.types import TModelPredictArm, TParameterization
+from ax.exceptions.core import UserInputError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.modelbridge_utils import (
     extract_objective_thresholds,
@@ -43,6 +44,7 @@ from ax.service.utils.best_point import (
     extract_Y_from_data,
     fill_missing_thresholds_from_nadir,
 )
+from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
@@ -637,3 +639,73 @@ class BestPointMixin(metaclass=ABCMeta):
         # pyre-fixme[16]: Item `List` of `Union[List[float], ndarray[typing.Any,
         #  np.dtype[typing.Any]]]` has no attribute `squeeze`.
         return best_observed.tolist(), bins.squeeze(axis=0).tolist()
+
+    def get_improvement_over_baseline(
+        self,
+        experiment: Experiment,
+        generation_strategy: GenerationStrategy,
+        baseline_arm_name: str | None = None,
+    ) -> float:
+        """Returns the scalarized improvement over baseline, if applicable.
+
+        Returns:
+            For Single Objective cases, returns % improvement of objective.
+            Positive indicates improvement over baseline. Negative indicates regression.
+            For Multi Objective cases, throws NotImplementedError
+        """
+        if experiment.is_moo_problem:
+            raise NotImplementedError(
+                "`get_improvement_over_baseline` not yet implemented"
+                + " for multi-objective problems."
+            )
+        if not baseline_arm_name:
+            baseline_arm_name, _ = select_baseline_name_default_first_trial(
+                experiment=experiment,
+                baseline_arm_name=baseline_arm_name,
+            )
+
+        optimization_config = experiment.optimization_config
+        if not optimization_config:
+            raise ValueError("No optimization config found.")
+
+        objective_metric_name = optimization_config.objective.metric.name
+
+        # get the baseline trial
+        data = experiment.lookup_data().df
+        data = data[data["arm_name"] == baseline_arm_name]
+        if len(data) == 0:
+            raise UserInputError(
+                "`get_improvement_over_baseline`"
+                " could not find baseline arm"
+                f" `{baseline_arm_name}` in the experiment data."
+            )
+        data = data[data["metric_name"] == objective_metric_name]
+        baseline_value = data.iloc[0]["mean"]
+
+        # Find objective value of the best trial
+        idx, param, best_arm = none_throws(
+            self._get_best_trial(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                optimization_config=optimization_config,
+                use_model_predictions=False,
+            )
+        )
+        best_arm = none_throws(best_arm)
+        best_obj_value = best_arm[0][objective_metric_name]
+
+        def percent_change(x: float, y: float, minimize: bool) -> float:
+            if x == 0:
+                raise ZeroDivisionError(
+                    "Cannot compute percent improvement when denom is zero"
+                )
+            percent_change = (y - x) / abs(x) * 100
+            if minimize:
+                percent_change = -percent_change
+            return percent_change
+
+        return percent_change(
+            x=baseline_value,
+            y=best_obj_value,
+            minimize=optimization_config.objective.minimize,
+        )

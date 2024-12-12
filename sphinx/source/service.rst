@@ -73,6 +73,12 @@ Best Point Identification
     :show-inheritance:
 
 
+.. automodule:: ax.service.utils.best_point_utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 Instantiation
 ~~~~~~~~~~~~~
 
