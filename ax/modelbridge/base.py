@@ -32,7 +32,7 @@ from ax.core.observation import (
     separate_observations,
 )
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.types import (
     TCandidateMetadata,
@@ -432,8 +432,6 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
             if isinstance(p, RangeParameter):
                 p.lower = min(p.lower, min(param_vals[p.name]))
                 p.upper = max(p.upper, max(param_vals[p.name]))
-            elif isinstance(p, ChoiceParameter) and not p.is_ordered:
-                p.set_values(values=list(set(p.values).union(set(param_vals[p.name]))))
 
     def _set_status_quo(
         self,
