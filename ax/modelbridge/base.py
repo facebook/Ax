@@ -297,6 +297,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
             data=data,
             statuses_to_include=self.statuses_to_fit,
             statuses_to_include_map_metric=self.statuses_to_fit_map_metric,
+            map_keys_as_parameters=False,
         )
 
     def _transform_data(

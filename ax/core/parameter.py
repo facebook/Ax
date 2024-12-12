@@ -71,6 +71,9 @@ PARAMETER_PYTHON_TYPE_MAP: dict[ParameterType, TParameterType] = {
     ParameterType.BOOL: bool,
 }
 
+INVERSE_PARAMETER_PYTHON_TYPE_MAP: dict[TParameterType, ParameterType] = {
+    v: k for k, v in PARAMETER_PYTHON_TYPE_MAP.items()
+}
 SUPPORTED_PARAMETER_TYPES: tuple[
     type[bool] | type[float] | type[int] | type[str], ...
 ] = tuple(PARAMETER_PYTHON_TYPE_MAP.values())
@@ -80,10 +83,21 @@ SUPPORTED_PARAMETER_TYPES: tuple[
 #  avoid runtime subscripting errors.
 def _get_parameter_type(python_type: type) -> ParameterType:
     """Given a Python type, retrieve corresponding Ax ``ParameterType``."""
-    for param_type, py_type in PARAMETER_PYTHON_TYPE_MAP.items():
-        if py_type == python_type:
-            return param_type
-    raise ValueError(f"No Ax parameter type corresponding to {python_type}.")
+    try:
+        return INVERSE_PARAMETER_PYTHON_TYPE_MAP[python_type]
+    except KeyError:
+        raise ValueError(f"No Ax parameter type corresponding to {python_type}.")
+
+
+def _infer_parameter_type_from_value(value: TParameterType) -> ParameterType:
+    # search in order of class hierarchy (e.g. bool is a subclass of int)
+    # therefore cannot directly use SUPPORTED_PARAMETER_TYPES
+    # (unless it is sorted correctly)
+    return next(
+        INVERSE_PARAMETER_PYTHON_TYPE_MAP[typ]
+        for typ in (bool, int, float, str)
+        if isinstance(value, typ)
+    )
 
 
 class Parameter(SortableBase, metaclass=ABCMeta):
@@ -268,8 +282,7 @@ class RangeParameter(Parameter):
         """
         if is_fidelity and (target_value is None):
             raise UserInputError(
-                "`target_value` should not be None for the fidelity parameter: "
-                "{}".format(name)
+                f"`target_value` should not be None for the fidelity parameter: {name}"
             )
 
         self._name = name
