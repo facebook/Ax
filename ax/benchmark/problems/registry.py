@@ -32,6 +32,7 @@ class BenchmarkProblemRegistryEntry:
     factory_kwargs: dict[str, Any]
 
 
+# Baseline values were obtained with `compute_baseline_value_from_sobol`
 BENCHMARK_PROBLEM_REGISTRY = {
     "ackley4": BenchmarkProblemRegistryEntry(
         factory_fn=create_problem_from_botorch,
@@ -79,6 +80,7 @@ BENCHMARK_PROBLEM_REGISTRY = {
                 test_problem_kwargs={},
                 num_trials=num_trials,
                 observe_noise_sd=False,
+                baseline_value=3.0187520516793587,
             ),
             total_dimensionality=n,
         ),

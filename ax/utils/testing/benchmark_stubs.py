@@ -65,6 +65,7 @@ def get_single_objective_benchmark_problem(
         report_inference_value_as_trace=report_inference_value_as_trace,
         noise_std=noise_std,
         status_quo_params=status_quo_params,
+        baseline_value=3,
     )
 
 
@@ -80,6 +81,7 @@ def get_multi_objective_benchmark_problem(
         num_trials=num_trials,
         observe_noise_sd=observe_noise_sd,
         report_inference_value_as_trace=report_inference_value_as_trace,
+        baseline_value=0.0,
     )
 
 
@@ -120,6 +122,7 @@ def get_soo_surrogate() -> BenchmarkProblem:
         optimization_config=optimization_config,
         num_trials=6,
         optimal_value=0.0,
+        baseline_value=3.0,
         test_function=test_function,
     )
 
@@ -150,6 +153,7 @@ def get_moo_surrogate() -> BenchmarkProblem:
         optimization_config=optimization_config,
         num_trials=10,
         optimal_value=1.0,
+        baseline_value=0.0,
         test_function=test_function,
     )
 
@@ -357,7 +361,8 @@ def get_async_benchmark_problem(
         optimization_config=optimization_config,
         test_function=test_function,
         num_trials=4,
-        optimal_value=19.0,
+        baseline_value=19 if lower_is_better else 0,
+        optimal_value=0 if lower_is_better else 19,
         step_runtime_function=step_runtime_fn,
     )
 
