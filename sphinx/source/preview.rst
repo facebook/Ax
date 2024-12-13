@@ -77,3 +77,20 @@ From String
     :members:
     :undoc-members:
     :show-inheritance:
+
+
+ModelBridge
+~~~~~~~~~~~
+
+.. automodule:: ax.preview.modelbridge
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Dispatch Utils
+~~~~~~~~~~~~~~
+
+.. automodule:: ax.preview.modelbridge.dispatch_utils
+    :members:
+    :undoc-members:
+    :show-inheritance:

@@ -15,9 +15,7 @@ from ax.analysis.markdown.markdown_analysis import (
     markdown_analysis_card_from_analysis_e,
 )
 from ax.analysis.utils import choose_analyses
-
 from ax.core.base_trial import TrialStatus  # Used as a return type
-
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -28,9 +26,7 @@ from ax.core.trial import Trial
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError, UserInputError
-from ax.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.modelbridge.generation_strategy import GenerationStrategy
-
 from ax.preview.api.configs import (
     DatabaseConfig,
     ExperimentConfig,
@@ -44,6 +40,7 @@ from ax.preview.api.utils.instantiation.from_config import experiment_from_confi
 from ax.preview.api.utils.instantiation.from_string import (
     optimization_config_from_string,
 )
+from ax.preview.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.service.scheduler import Scheduler, SchedulerOptions
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import with_rng_seed
@@ -158,18 +155,7 @@ class Client:
         """
 
         generation_strategy = choose_generation_strategy(
-            search_space=self._none_throws_experiment().search_space,
-            optimization_config=self._none_throws_experiment().optimization_config,
-            num_initialization_trials=(
-                generation_strategy_config.initialization_budget
-            ),
-            min_sobol_trials_observed=(
-                generation_strategy_config.min_observed_initialization_trials
-            ),
-            enforce_sequential_optimization=(
-                not generation_strategy_config.allow_exceeding_initialization_budget
-            ),
-            random_seed=generation_strategy_config.initialization_random_seed,
+            gs_config=generation_strategy_config
         )
 
         # Necessary for storage implications, may be removed in the future
