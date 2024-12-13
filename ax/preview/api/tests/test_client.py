@@ -361,8 +361,7 @@ class TestClient(TestCase):
         client.configure_generation_strategy(
             generation_strategy_config=GenerationStrategyConfig(
                 # Set this to a large number so test runs fast
-                num_initialization_trials=999,
-                maximum_parallelism=5,
+                initialization_budget=999,
             )
         )
 
@@ -383,12 +382,6 @@ class TestClient(TestCase):
         trials = client.get_next_trials(maximum_trials=1, fixed_parameters={"x1": 0.5})
         value = assert_is_instance(trials[3]["x1"], float)
         self.assertEqual(value, 0.5)
-
-        # Test respects max parallelism
-        # Returns 1 even though we asked for 2 because maximum parallelism has been
-        # reached.
-        trials = client.get_next_trials(maximum_trials=2)
-        self.assertEqual(len(trials), 1)
 
     def test_attach_data(self) -> None:
         client = Client()
@@ -929,9 +922,7 @@ class TestClient(TestCase):
         # Set num_initialization_trials=3 so we can reach a predictive GenerationNode
         # quickly
         client.configure_generation_strategy(
-            generation_strategy_config=GenerationStrategyConfig(
-                num_initialization_trials=3
-            )
+            generation_strategy_config=GenerationStrategyConfig(initialization_budget=3)
         )
 
         with self.assertRaisesRegex(ValueError, "but search space has parameters"):

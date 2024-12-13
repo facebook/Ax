@@ -160,12 +160,16 @@ class Client:
         generation_strategy = choose_generation_strategy(
             search_space=self._none_throws_experiment().search_space,
             optimization_config=self._none_throws_experiment().optimization_config,
-            num_trials=generation_strategy_config.num_trials,
             num_initialization_trials=(
-                generation_strategy_config.num_initialization_trials
+                generation_strategy_config.initialization_budget
             ),
-            max_parallelism_cap=generation_strategy_config.maximum_parallelism,
-            random_seed=self._random_seed,
+            min_sobol_trials_observed=(
+                generation_strategy_config.min_observed_initialization_trials
+            ),
+            enforce_sequential_optimization=(
+                not generation_strategy_config.allow_exceeding_initialization_budget
+            ),
+            random_seed=generation_strategy_config.initialization_random_seed,
         )
 
         # Necessary for storage implications, may be removed in the future
