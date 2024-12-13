@@ -518,9 +518,9 @@ class Data(BaseData):
 
         return df.loc[trial_indices_mask & metric_names_mask]
 
-    @staticmethod
+    @classmethod
     def from_multiple_data(
-        data: Iterable[Data], subset_metrics: Iterable[str] | None = None
+        cls, data: Iterable[Data], subset_metrics: Iterable[str] | None = None
     ) -> Data:
         """Combines multiple objects into one (with the concatenated
         underlying dataframe).
@@ -531,7 +531,7 @@ class Data(BaseData):
                 metrics, names of which appear in this iterable,
                 in the underlying dataframe.
         """
-        data_out = Data.from_multiple(data=data)
+        data_out = cls.from_multiple(data=data)
         if len(data_out.df.index) == 0:
             return data_out
         if subset_metrics:
