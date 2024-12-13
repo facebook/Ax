@@ -51,7 +51,7 @@ logger: Logger = get_logger(__name__)
 
 
 def compute_score_trace(
-    optimization_trace: npt.NDArray, num_baseline_trials: int, optimal_value: float
+    optimization_trace: npt.NDArray, baseline_value: float, optimal_value: float
 ) -> npt.NDArray:
     """
     Compute a score trace from the optimization trace.
@@ -68,22 +68,14 @@ def compute_score_trace(
     Args:
         optimization_trace: Objective values. Can be either higher- or
             lower-is-better.
-        num_baseline_trials: Number of trials to use as the baseline. Sometimes
-            there are not this many trials, in which case the score trace is all
-            NaN.
+        baseline_value: Value to use as a baseline. Any values that are not
+            better than the baseline will receive negative scores.
         optimal_value: The best possible value of the objective; when the
             optimization_trace equals the optimal_value, the score is 100.
     """
-
-    if len(optimization_trace) <= num_baseline_trials:
-        return np.full(len(optimization_trace), np.nan)
-
-    # Note: In the future, the baseline will be passed explicitly, so
-    # higher_is_better should not need to be inferred.
-    higher_is_better = optimization_trace[0] < optimal_value
-    baseline_trials = optimization_trace[:num_baseline_trials]
-    baseline = baseline_trials.max() if higher_is_better else baseline_trials.min()
-    return 100 * (optimization_trace - baseline) / (optimal_value - baseline)
+    return (
+        100 * (optimization_trace - baseline_value) / (optimal_value - baseline_value)
+    )
 
 
 def get_benchmark_runner(
@@ -364,27 +356,11 @@ def benchmark_replication(
         inference_trace if problem.report_inference_value_as_trace else oracle_trace
     )
 
-    try:
-        # Catch any errors that may occur during score computation, such as errors
-        # while accessing "steps" in node based generation strategies. The error
-        # handling here is intentionally broad. The score computations is not
-        # an essential step of the benchmark runs. We do not want to throw away
-        # valuable results after the benchmark run completes just because a
-        # non-essential step failed.
-        num_baseline_trials = scheduler.standard_generation_strategy._steps[
-            0
-        ].num_trials
-
-        score_trace = compute_score_trace(
-            optimization_trace=optimization_trace,
-            num_baseline_trials=num_baseline_trials,
-            optimal_value=problem.optimal_value,
-        )
-    except Exception as e:
-        logger.warning(
-            f"Failed to compute score trace. Returning NaN. Original error message: {e}"
-        )
-        score_trace = np.full(len(optimization_trace), np.nan)
+    score_trace = compute_score_trace(
+        optimization_trace=optimization_trace,
+        optimal_value=problem.optimal_value,
+        baseline_value=problem.baseline_value,
+    )
 
     fit_time, gen_time = get_model_times(experiment=experiment)
     if strip_runner_before_saving:

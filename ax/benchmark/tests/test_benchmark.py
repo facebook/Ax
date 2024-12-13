@@ -196,25 +196,25 @@ class TestBenchmark(TestCase):
 
     def test_compute_score_trace(self) -> None:
         opt_trace = np.array([1, 0, -1, 2, float("nan"), 4])
-        num_baseline_trials = 2
 
         with self.subTest("Higher is better"):
             optimal_value = 5
+            baseline_value = 1
             expected_trace = np.array([0, -25, -50, 25, float("nan"), 75.0])
             trace = compute_score_trace(
                 optimization_trace=opt_trace,
-                num_baseline_trials=num_baseline_trials,
+                baseline_value=baseline_value,
                 optimal_value=optimal_value,
             )
             self.assertTrue(np.array_equal(trace, expected_trace, equal_nan=True))
 
         with self.subTest("Lower is better"):
             optimal_value = -1
-            # baseline should be 0
+            baseline_value = 0
             expected_trace = np.array([-100, 0, 100, -200, float("nan"), -400])
             trace = compute_score_trace(
                 optimization_trace=opt_trace,
-                num_baseline_trials=num_baseline_trials,
+                baseline_value=baseline_value,
                 optimal_value=optimal_value,
             )
             self.assertTrue(np.array_equal(trace, expected_trace, equal_nan=True))
@@ -751,7 +751,7 @@ class TestBenchmark(TestCase):
         res = benchmark_replication(problem=problem, method=method, seed=0)
 
         self.assertEqual(problem.num_trials, len(none_throws(res.experiment).trials))
-        self.assertTrue(np.isnan(res.score_trace).all())
+        self.assertFalse(np.isnan(res.score_trace).any())
 
     def test_get_oracle_experiment_from_params(self) -> None:
         problem = create_problem_from_botorch(
