@@ -1,0 +1,664 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.3.4/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.3.4/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.3.4/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.3.4/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.3.4/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.3.4/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.3.4/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.3.4/css/main.css"/><script src="/versions/0.3.4/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.3.4/"><img class="logo" src="/versions/0.3.4/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.3.4/versions.html"><h3>0.3.4</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.3.4/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.3.4/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.3.4/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.core.metric</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">traceback</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">reduce</span>
+<span class="kn">from</span> <span class="nn">logging</span> <span class="kn">import</span> <span class="n">Logger</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Dict</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+    <span class="n">TYPE_CHECKING</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.base</span> <span class="kn">import</span> <span class="n">SortableBase</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.result</span> <span class="kn">import</span> <span class="n">Err</span><span class="p">,</span> <span class="n">Ok</span><span class="p">,</span> <span class="n">Result</span><span class="p">,</span> <span class="n">UnwrapError</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.serialization</span> <span class="kn">import</span> <span class="n">SerializationMixin</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="c1"># import as module to make sphinx-autodoc-typehints happy</span>
+    <span class="kn">from</span> <span class="nn">ax</span> <span class="kn">import</span> <span class="n">core</span>  <span class="c1"># noqa F401</span>
+
+
+<span class="n">logger</span><span class="p">:</span> <span class="n">Logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="MetricFetchE"><a class="viewcode-back" href="../../../core.html#ax.MetricFetchE">[docs]</a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">MetricFetchE</span><span class="p">:</span>
+    <span class="c1"># NOTE/TODO[mpolson64]: This could probably be generalized to a</span>
+    <span class="c1"># `PythonExceptionE` class in the future. Let's do our best to avoid</span>
+    <span class="c1"># reinventing the wheel in the next `Result` use case in Ax.</span>
+
+    <span class="n">message</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">exception</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="ne">Exception</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">msg</span><span class="o">=</span><span class="sa">f</span><span class="s2">"MetricFetchE INFO: Initialized </span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s1">'MetricFetchE(message="</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s1">")'</span>
+
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s1">'MetricFetchE(message="</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s1">", exception=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="si">}</span><span class="s1">)</span><span class="se">\n</span><span class="s1">'</span>
+            <span class="sa">f</span><span class="s2">"with Traceback:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tb_str</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="MetricFetchE.tb_str"><a class="viewcode-back" href="../../../core.html#ax.MetricFetchE.tb_str">[docs]</a>    <span class="k">def</span> <span class="nf">tb_str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="n">reduce</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">:</span> <span class="n">left</span> <span class="o">+</span> <span class="n">right</span><span class="p">,</span>
+            <span class="n">traceback</span><span class="o">.</span><span class="n">format_exception</span><span class="p">(</span>
+                <span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">exception</span><span class="o">.</span><span class="n">__traceback__</span>
+            <span class="p">),</span>
+        <span class="p">)</span></div></div>
+
+
+<span class="n">MetricFetchResult</span> <span class="o">=</span> <span class="n">Result</span><span class="p">[</span><span class="n">Data</span><span class="p">,</span> <span class="n">MetricFetchE</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="Metric"><a class="viewcode-back" href="../../../core.html#ax.Metric">[docs]</a><span class="k">class</span> <span class="nc">Metric</span><span class="p">(</span><span class="n">SortableBase</span><span class="p">,</span> <span class="n">SerializationMixin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Base class for representing metrics.</span>
+
+<span class="sd">    The `fetch_trial_data` method is the essential method to override when</span>
+<span class="sd">    subclassing, which specifies how to retrieve a Metric, for a given trial.</span>
+
+<span class="sd">    A Metric must return a Data object, which requires (at minimum) the following:</span>
+<span class="sd">        https://ax.dev/api/_modules/ax/core/data.html#Data.required_columns</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        lower_is_better: Flag for metrics which should be minimized.</span>
+<span class="sd">        properties: Properties specific to a particular metric.</span>
+<span class="sd">    """</span>
+
+    <span class="n">data_constructor</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">Data</span><span class="p">]</span> <span class="o">=</span> <span class="n">Data</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">lower_is_better</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">properties</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Inits Metric.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name: Name of metric.</span>
+<span class="sd">            lower_is_better: Flag for metrics which should be minimized.</span>
+<span class="sd">            properties: Dictionary of this metric's properties</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lower_is_better</span> <span class="o">=</span> <span class="n">lower_is_better</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">properties</span> <span class="ow">or</span> <span class="p">{}</span>
+
+    <span class="c1"># ---------- Properties and methods that subclasses often override. ----------</span>
+
+    <span class="c1"># NOTE: Override this if your metric can be fetched before the trial is complete,</span>
+    <span class="c1"># especially if new data is available over time while the trial continues running.</span>
+<div class="viewcode-block" id="Metric.is_available_while_running"><a class="viewcode-back" href="../../../core.html#ax.Metric.is_available_while_running">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">is_available_while_running</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Whether metrics of this class are available while the trial is running.</span>
+<span class="sd">        Metrics that are not available while the trial is running are assumed to be</span>
+<span class="sd">        available only upon trial completion. For such metrics, data is assumed to</span>
+<span class="sd">        never change once the trial is completed.</span>
+
+<span class="sd">        NOTE: If this method returns `False`, data-fetching via `experiment.fetch_data`</span>
+<span class="sd">        will return the data cached on the experiment (for the metrics of the given</span>
+<span class="sd">        class) whenever its available. Data is cached on experiment when attached</span>
+<span class="sd">        via `experiment.attach_data`.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+    <span class="c1"># NOTE: This is rarely overridden –– oonly if you want to fetch data in groups</span>
+    <span class="c1"># consisting of multiple different metric classes, for data to be fetched together.</span>
+    <span class="c1"># This makes sense only if `fetch_trial data_multi` or `fetch_experiment_data_multi`</span>
+    <span class="c1"># leverages fetching multiple metrics at once instead of fetching each serially,</span>
+    <span class="c1"># and that fetching logic is shared across the metric group.</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">fetch_multi_group_by_metric</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">Metric</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Metric class, with which to group this metric in</span>
+<span class="sd">        `Experiment._metrics_by_class`, which is used to combine metrics on experiment</span>
+<span class="sd">        into groups and then fetch their data via `Metric.fetch_trial_data_multi` for</span>
+<span class="sd">        each group.</span>
+
+<span class="sd">        NOTE: By default, this property will just return the class on which it is</span>
+<span class="sd">        defined; however, in some cases it is useful to group metrics by their</span>
+<span class="sd">        superclass, in which case this property should return that superclass.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span>
+
+    <span class="c1"># NOTE: This is always overridden by subclasses, sometimes along with `bulk_fetch</span>
+    <span class="c1"># trial_data` and/or `bulk_fetch_experiment_data`. The entrypoint to metric</span>
+    <span class="c1"># fetching is tupically `fetch_data_prefer_lookup`, which calls `bulk_fetch_</span>
+    <span class="c1"># experiment_data`, so it can be sufficient to override just that method, then</span>
+    <span class="c1"># use it to implement this one.</span>
+<div class="viewcode-block" id="Metric.fetch_trial_data"><a class="viewcode-back" href="../../../core.html#ax.Metric.fetch_trial_data">[docs]</a>    <span class="k">def</span> <span class="nf">fetch_trial_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">trial</span><span class="p">:</span> <span class="n">core</span><span class="o">.</span><span class="n">base_trial</span><span class="o">.</span><span class="n">BaseTrial</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricFetchResult</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Fetch data for one trial."""</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Metric </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> does not implement data-fetching logic."</span>
+        <span class="p">)</span></div>
+
+    <span class="c1"># NOTE: Override this if your metric requires custom string representation with</span>
+    <span class="c1"># more attributes included than just the name.</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">"</span><span class="si">{class_name}</span><span class="s2">('</span><span class="si">{metric_name}</span><span class="s2">')"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">class_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">metric_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+        <span class="p">)</span>
+
+    <span class="c1"># NOTE: This should be overridden if there is a benefit to fetching multiple</span>
+    <span class="c1"># metrics that all share the `fetch_multi_group_by_metric` setting, at once.</span>
+    <span class="c1"># This gives an opportunity to perform a given operation (e.g. retrieve results</span>
+    <span class="c1"># of some remote job) only once, and then use the result to fetch each metric's</span>
+    <span class="c1"># value (via `fetch_trial_data` if that is how this method is implemented on the</span>
+    <span class="c1"># subclass, or in other ways).</span>
+    <span class="c1"># NOTE: this replaces a now-deprecated classmethod `fetch_trial_data_multi`;</span>
+    <span class="c1"># in the base implementation, it currently still calls `cls.fetch_experiment_data_</span>
+    <span class="c1"># multi` to avoid backward incompatibility. A `DeprecationWarning` is raised if</span>
+    <span class="c1"># this is not overridden but `fetch_trial_data_multi` is.</span>
+<div class="viewcode-block" id="Metric.bulk_fetch_trial_data"><a class="viewcode-back" href="../../../core.html#ax.Metric.bulk_fetch_trial_data">[docs]</a>    <span class="k">def</span> <span class="nf">bulk_fetch_trial_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">trial</span><span class="p">:</span> <span class="n">core</span><span class="o">.</span><span class="n">base_trial</span><span class="o">.</span><span class="n">BaseTrial</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MetricFetchResult</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Fetch multiple metrics data for one trial, using instance attributes</span>
+<span class="sd">        of the metrics.</span>
+
+<span class="sd">        Returns Dict of metric_name =&gt; Result</span>
+<span class="sd">        Default behavior calls `fetch_trial_data` for each metric. Subclasses should</span>
+<span class="sd">        override this to perform trial data computation for multiple metrics.</span>
+<span class="sd">        """</span>
+        <span class="c1"># By default, use the legacy classmethods that served the same function.</span>
+        <span class="c1"># Overriding the instance methods instead will allow to leverage</span>
+        <span class="c1"># instance-level configurations of the metric.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">maybe_raise_deprecation_warning_on_class_methods</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="n">fetch_experiment_data_multi</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="n">trial</span><span class="o">.</span><span class="n">experiment</span><span class="p">,</span> <span class="n">trials</span><span class="o">=</span><span class="p">[</span><span class="n">trial</span><span class="p">],</span> <span class="n">metrics</span><span class="o">=</span><span class="n">metrics</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)[</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">]</span></div>
+
+    <span class="c1"># NOTE: This should be overridden if there is a benefit to fetching multiple</span>
+    <span class="c1"># metrics that all share the `fetch_multi_group_by_metric` setting, at once,</span>
+    <span class="c1"># AND ALSO FOR MULTIPLE TRIALS AT ONCE.</span>
+    <span class="c1"># This gives an opportunity to perform a given operation (e.g. retrieve results</span>
+    <span class="c1"># of some set of remote jobs, each representing a trial) only once, and then</span>
+    <span class="c1"># use the result to fetch each metric's value for a set of trials.</span>
+    <span class="c1"># NOTE: this replaces a now-deprecated classmethod `fetch_experiment_data_multi`;</span>
+    <span class="c1"># in the base implementation, it calls `bulk_fetch_trial_data`.</span>
+<div class="viewcode-block" id="Metric.bulk_fetch_experiment_data"><a class="viewcode-back" href="../../../core.html#ax.Metric.bulk_fetch_experiment_data">[docs]</a>    <span class="k">def</span> <span class="nf">bulk_fetch_experiment_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">core</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">Experiment</span><span class="p">,</span>
+        <span class="n">metrics</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span>
+        <span class="n">trials</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">core</span><span class="o">.</span><span class="n">base_trial</span><span class="o">.</span><span class="n">BaseTrial</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MetricFetchResult</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""Fetch multiple metrics data for multiple trials on an experiment, using</span>
+<span class="sd">        instance attributes of the metrics.</span>
+
+<span class="sd">        Returns Dict of metric_name =&gt; Result</span>
+<span class="sd">        Default behavior calls `fetch_trial_data` for each metric.</span>
+<span class="sd">        Subclasses should override this to trial data computation for multiple metrics.</span>
+<span class="sd">        """</span>
+        <span class="n">trials</span> <span class="o">=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">if</span> <span class="n">trials</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">trials</span>
+        <span class="n">experiment</span><span class="o">.</span><span class="n">validate_trials</span><span class="p">(</span><span class="n">trials</span><span class="o">=</span><span class="n">trials</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">bulk_fetch_trial_data</span><span class="p">(</span>
+                <span class="n">trial</span><span class="o">=</span><span class="n">trial</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">metrics</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="n">trials</span>
+            <span class="k">if</span> <span class="n">trial</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">expecting_data</span>
+        <span class="p">}</span></div>
+
+    <span class="c1"># NOTE: Also overridable are `serialize_init_args` and `deserialize_init_args`,</span>
+    <span class="c1"># which are inherited from the `SerializationMixin` base class.</span>
+    <span class="c1"># Override those if and only if your metric requires custom serialization; e.g. if</span>
+    <span class="c1"># some of its attributes are not readily serializable and require pre-processing.</span>
+    <span class="c1"># Note that all these serialized attributes will be deserialized by the</span>
+    <span class="c1"># `deserialize_init_args` method on the same class.</span>
+
+    <span class="c1"># ---------- Properties and metrods that should not be overridden. ----------</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get name of metric."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
+
+<div class="viewcode-block" id="Metric.clone"><a class="viewcode-back" href="../../../core.html#ax.Metric.clone">[docs]</a>    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Metric</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Create a copy of this Metric."""</span>
+        <span class="bp">cls</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="o">**</span><span class="bp">cls</span><span class="o">.</span><span class="n">deserialize_init_args</span><span class="p">(</span><span class="n">args</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="n">serialize_init_args</span><span class="p">(</span><span class="n">obj</span><span class="o">=</span><span class="bp">self</span><span class="p">)),</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Metric.fetch_data_prefer_lookup"><a class="viewcode-back" href="../../../core.html#ax.Metric.fetch_data_prefer_lookup">[docs]</a>    <span class="k">def</span> <span class="nf">fetch_data_prefer_lookup</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">core</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">Experiment</span><span class="p">,</span>
+        <span class="n">metrics</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span>
+        <span class="n">trials</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">core</span><span class="o">.</span><span class="n">base_trial</span><span class="o">.</span><span class="n">BaseTrial</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MetricFetchResult</span><span class="p">]],</span> <span class="nb">bool</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Fetch or lookup (with fallback to fetching) data for given metrics,</span>
+<span class="sd">        depending on whether they are available while running. Return a tuple</span>
+<span class="sd">        containing the data, along with a boolean that will be True if new</span>
+<span class="sd">        data was fetched, and False if all data was looked up from cache.</span>
+
+<span class="sd">        If metric is available while running, its data can change (and therefore</span>
+<span class="sd">        we should always re-fetch it). If metric is available only upon trial</span>
+<span class="sd">        completion, its data does not change, so we can look up that data on</span>
+<span class="sd">        the experiment and only fetch the data that is not already attached to</span>
+<span class="sd">        the experiment.</span>
+
+<span class="sd">        NOTE: If fetching data for a metrics class that is only available upon</span>
+<span class="sd">        trial completion, data fetched in this function (data that was not yet</span>
+<span class="sd">        available on experiment) will be attached to experiment.</span>
+<span class="sd">        """</span>
+        <span class="c1"># If this metric is available while trial is running, just default to</span>
+        <span class="c1"># `fetch_experiment_data_multi`.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_available_while_running</span><span class="p">():</span>
+            <span class="n">fetched_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bulk_fetch_experiment_data</span><span class="p">(</span>
+                <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">metrics</span><span class="p">,</span> <span class="n">trials</span><span class="o">=</span><span class="n">trials</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">fetched_data</span><span class="p">,</span> <span class="kc">True</span>
+
+        <span class="c1"># If this metric is available only upon trial completion, look up data</span>
+        <span class="c1"># on experiment and only fetch data that is not already cached.</span>
+        <span class="n">completed_trials</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">experiment</span><span class="o">.</span><span class="n">completed_trials</span>
+            <span class="k">if</span> <span class="n">trials</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">trials</span> <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">is_completed</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">completed_trials</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{},</span> <span class="kc">False</span>
+
+        <span class="n">trials_results</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">contains_new_data</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="c1"># TODO: Refactor this to not fetch data for each trial individually.</span>
+        <span class="c1"># Since we use `bulk_fetch_experiment_data`, we should be able to</span>
+        <span class="c1"># first identify trial + metric combos to fetch, then fetch them all</span>
+        <span class="c1"># at once.</span>
+        <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="n">completed_trials</span><span class="p">:</span>
+            <span class="n">cached_trial_data</span> <span class="o">=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">lookup_data_for_trial</span><span class="p">(</span>
+                <span class="n">trial_index</span><span class="o">=</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+            <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="n">cached_metric_names</span> <span class="o">=</span> <span class="n">cached_trial_data</span><span class="o">.</span><span class="n">metric_names</span>
+            <span class="n">metrics_to_fetch</span> <span class="o">=</span> <span class="p">[</span><span class="n">m</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">metrics</span> <span class="k">if</span> <span class="n">m</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cached_metric_names</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">metrics_to_fetch</span><span class="p">:</span>
+                <span class="c1"># If all needed data fetched from cache, no need to fetch any other data</span>
+                <span class="c1"># for trial.</span>
+                <span class="n">trials_results</span><span class="p">[</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wrap_trial_data_multi</span><span class="p">(</span>
+                    <span class="n">data</span><span class="o">=</span><span class="n">cached_trial_data</span>
+                <span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">fetched_trial_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bulk_fetch_experiment_data</span><span class="p">(</span>
+                    <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+                    <span class="n">metrics</span><span class="o">=</span><span class="n">metrics_to_fetch</span><span class="p">,</span>
+                    <span class="n">trials</span><span class="o">=</span><span class="p">[</span><span class="n">trial</span><span class="p">],</span>
+                    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+                <span class="p">)[</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+
+                <span class="n">contains_new_data</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
+                    <span class="n">result</span><span class="o">.</span><span class="n">is_ok</span><span class="p">()</span> <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">fetched_trial_data</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
+                <span class="c1"># Metric does not implement fetching logic and only uses lookup.</span>
+                <span class="c1"># TODO: This is only useful for base `Metric` –– all other metrics</span>
+                <span class="c1"># do implement fetching logic. Should this exist then or is it only</span>
+                <span class="c1"># adding complexity?</span>
+                <span class="n">fetched_trial_data</span> <span class="o">=</span> <span class="p">{}</span>
+
+            <span class="n">trials_results</span><span class="p">[</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_wrap_trial_data_multi</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">cached_trial_data</span><span class="p">),</span>
+                <span class="o">**</span><span class="n">fetched_trial_data</span><span class="p">,</span>
+            <span class="p">}</span>
+
+        <span class="n">results</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">trial_index</span><span class="p">:</span> <span class="p">{</span>
+                <span class="n">metric_name</span><span class="p">:</span> <span class="n">results</span>
+                <span class="k">for</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">results</span> <span class="ow">in</span> <span class="n">results_by_metric_name</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="c1"># We subset the metrics because cached results might have more</span>
+                <span class="c1"># metrics than requested in arguments passed to this method.</span>
+                <span class="k">if</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">]</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">trial_index</span><span class="p">,</span> <span class="n">results_by_metric_name</span> <span class="ow">in</span> <span class="n">trials_results</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">results</span><span class="p">,</span> <span class="n">contains_new_data</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_unique_id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="c1"># ---------------- Legacy class methods for backward compatibility ----------------</span>
+    <span class="c1"># ------------------- with previously implemented subclasses  ---------------------</span>
+
+<div class="viewcode-block" id="Metric.fetch_trial_data_multi"><a class="viewcode-back" href="../../../core.html#ax.Metric.fetch_trial_data_multi">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">fetch_trial_data_multi</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">trial</span><span class="p">:</span> <span class="n">core</span><span class="o">.</span><span class="n">base_trial</span><span class="o">.</span><span class="n">BaseTrial</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MetricFetchResult</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Fetch multiple metrics data for one trial.</span>
+
+<span class="sd">        Returns Dict of metric_name =&gt; Result</span>
+<span class="sd">        Default behavior calls `fetch_trial_data` for each metric.</span>
+<span class="sd">        Subclasses should override this to trial data computation for multiple metrics.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">metric</span><span class="o">.</span><span class="n">fetch_trial_data</span><span class="p">(</span><span class="n">trial</span><span class="o">=</span><span class="n">trial</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span>
+        <span class="p">}</span></div>
+
+<div class="viewcode-block" id="Metric.fetch_experiment_data_multi"><a class="viewcode-back" href="../../../core.html#ax.Metric.fetch_experiment_data_multi">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">fetch_experiment_data_multi</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">core</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">Experiment</span><span class="p">,</span>
+        <span class="n">metrics</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span>
+        <span class="n">trials</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">core</span><span class="o">.</span><span class="n">base_trial</span><span class="o">.</span><span class="n">BaseTrial</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MetricFetchResult</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""Fetch multiple metrics data for an experiment.</span>
+
+<span class="sd">        Returns Dict of trial_index =&gt; (metric_name =&gt; Result)</span>
+<span class="sd">        Default behavior calls `fetch_trial_data_multi` for each trial.</span>
+<span class="sd">        Subclasses should override to batch data computation across trials + metrics.</span>
+<span class="sd">        """</span>
+        <span class="n">trials</span> <span class="o">=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">if</span> <span class="n">trials</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">trials</span>
+        <span class="n">experiment</span><span class="o">.</span><span class="n">validate_trials</span><span class="p">(</span><span class="n">trials</span><span class="o">=</span><span class="n">trials</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">:</span> <span class="bp">cls</span><span class="o">.</span><span class="n">fetch_trial_data_multi</span><span class="p">(</span>
+                <span class="n">trial</span><span class="o">=</span><span class="n">trial</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">metrics</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="n">trials</span>
+            <span class="k">if</span> <span class="n">trial</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">expecting_data</span>
+        <span class="p">}</span></div>
+
+<div class="viewcode-block" id="Metric.maybe_raise_deprecation_warning_on_class_methods"><a class="viewcode-back" href="../../../core.html#ax.Metric.maybe_raise_deprecation_warning_on_class_methods">[docs]</a>    <span class="k">def</span> <span class="nf">maybe_raise_deprecation_warning_on_class_methods</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># This is a temporary hack to allow us to deprecate old metric class method</span>
+        <span class="c1"># implementations. There does not seem to be another way of checking whether</span>
+        <span class="c1"># base class' classmethods are overridden in subclasses.</span>
+        <span class="n">is_fetch_trial_data_multi_overriden</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="n">fetch_trial_data_multi</span><span class="p">,</span> <span class="s2">"__code__"</span><span class="p">,</span> <span class="s2">"DEFAULT"</span><span class="p">)</span>
+            <span class="o">!=</span> <span class="n">Metric</span><span class="o">.</span><span class="n">fetch_trial_data_multi</span><span class="o">.</span><span class="vm">__code__</span>  <span class="c1"># pyre-ignore[16]</span>
+        <span class="p">)</span>
+        <span class="n">is_fetch_experiment_data_multi_overriden</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">getattr</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="n">fetch_experiment_data_multi</span><span class="p">,</span>
+                <span class="s2">"__code__"</span><span class="p">,</span>
+                <span class="s2">"DEFAULT"</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="o">!=</span> <span class="n">Metric</span><span class="o">.</span><span class="n">fetch_experiment_data_multi</span><span class="o">.</span><span class="vm">__code__</span>  <span class="c1"># pyre-ignore[16]</span>
+        <span class="p">)</span>
+        <span class="c1"># Raise deprecation warning if this method from the base class is used (meaning</span>
+        <span class="c1"># that it is not overridden and the classmethod is overridden instead), unless</span>
+        <span class="c1"># the only overridden method is `fetch_trial_data` (in which case the setup is</span>
+        <span class="c1"># not changing for that metric with the deprecation of the classmethods).</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">is_fetch_trial_data_multi_overriden</span>
+            <span class="ow">or</span> <span class="n">is_fetch_experiment_data_multi_overriden</span>
+        <span class="p">):</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>  <span class="c1"># noqa B028 (level 1 stack trace is ok in this case)</span>
+                <span class="ne">DeprecationWarning</span><span class="p">(</span>
+                    <span class="s2">"Data-fetching class-methods: `fetch_trial_data_multi` and "</span>
+                    <span class="s2">"`fetch_experiment_data_multi`, will soon be deprecated in Ax. "</span>
+                    <span class="s2">"please leverage instance-methods like `bulk_fetch_trial_data` "</span>
+                    <span class="s2">"or `bulk_fetch_experiment_data` instead going forward. "</span>
+                    <span class="sa">f</span><span class="s2">"Metric </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> (class: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="si">}</span><span class="s2"> in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__module__</span><span class="si">}</span><span class="s2">)"</span>
+                    <span class="s2">" implementation overrides the class methods."</span>
+                <span class="p">)</span>
+            <span class="p">)</span></div>
+
+    <span class="c1"># -------- Wrapping and unwrapping of data into insulated `Result` objects, --------</span>
+    <span class="c1"># ----------- which enforce proper handling of these errors downstream. ------------</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_unwrap_experiment_data</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">results</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">MetricFetchResult</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="c1"># NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and</span>
+        <span class="c1"># lose rows)if some MetricFetchResults contain Data not of type</span>
+        <span class="c1"># `cls.data_constructor`</span>
+
+        <span class="n">oks</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Ok</span><span class="p">[</span><span class="n">Data</span><span class="p">,</span> <span class="n">MetricFetchE</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">result</span> <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">Ok</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">oks</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">):</span>
+            <span class="n">errs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Err</span><span class="p">[</span><span class="n">Data</span><span class="p">,</span> <span class="n">MetricFetchE</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">result</span> <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">Err</span><span class="p">)</span>
+            <span class="p">]</span>
+
+            <span class="c1"># TODO[mpolson64] Raise all errors in a group via PEP 654</span>
+            <span class="n">exceptions</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">err</span><span class="o">.</span><span class="n">err</span><span class="o">.</span><span class="n">exception</span>
+                <span class="k">if</span> <span class="n">err</span><span class="o">.</span><span class="n">err</span><span class="o">.</span><span class="n">exception</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="ne">Exception</span><span class="p">(</span><span class="n">err</span><span class="o">.</span><span class="n">err</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">err</span> <span class="ow">in</span> <span class="n">errs</span>
+            <span class="p">]</span>
+
+            <span class="k">raise</span> <span class="n">UnwrapError</span><span class="p">(</span><span class="n">errs</span><span class="p">)</span> <span class="kn">from</span> <span class="p">(</span>
+                <span class="n">exceptions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">exceptions</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="ne">Exception</span><span class="p">(</span><span class="n">exceptions</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">ok</span><span class="o">.</span><span class="n">ok</span> <span class="k">for</span> <span class="n">ok</span> <span class="ow">in</span> <span class="n">oks</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">data_constructor</span><span class="o">.</span><span class="n">from_multiple_data</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="k">else</span> <span class="bp">cls</span><span class="o">.</span><span class="n">data_constructor</span><span class="p">()</span>
+        <span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_unwrap_trial_data_multi</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">results</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MetricFetchResult</span><span class="p">],</span>
+        <span class="c1"># TODO[mpolson64] Add critical_metric_names to other unwrap methods</span>
+        <span class="n">critical_metric_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="c1"># NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and</span>
+        <span class="c1"># lose rows)if some MetricFetchResults contain Data not of type</span>
+        <span class="c1"># `cls.data_constructor`</span>
+
+        <span class="n">oks</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Ok</span><span class="p">[</span><span class="n">Data</span><span class="p">,</span> <span class="n">MetricFetchE</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">result</span> <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">Ok</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">oks</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">):</span>
+            <span class="c1"># If no critical_metric_names supplied all metrics to be treated as</span>
+            <span class="c1"># critical</span>
+            <span class="n">critical_metric_names</span> <span class="o">=</span> <span class="n">critical_metric_names</span> <span class="ow">or</span> <span class="n">results</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+
+            <span class="c1"># Noncritical Errs should be brought to the user's attention via warnings</span>
+            <span class="c1"># but not raise an Exception</span>
+            <span class="n">noncritical_errs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Err</span><span class="p">[</span><span class="n">Data</span><span class="p">,</span> <span class="n">MetricFetchE</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">result</span>
+                <span class="k">for</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">Err</span><span class="p">)</span> <span class="ow">and</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="n">critical_metric_names</span>
+            <span class="p">]</span>
+
+            <span class="k">for</span> <span class="n">err</span> <span class="ow">in</span> <span class="n">noncritical_errs</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Err encountered while unwrapping MetricFetchResults: </span><span class="si">{</span><span class="n">err</span><span class="o">.</span><span class="n">err</span><span class="si">}</span><span class="s2">. "</span>
+                    <span class="s2">"Metric is not marked critical, ignoring for now."</span>
+                <span class="p">)</span>
+
+            <span class="n">critical_errs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Err</span><span class="p">[</span><span class="n">Data</span><span class="p">,</span> <span class="n">MetricFetchE</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">result</span>
+                <span class="k">for</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">Err</span><span class="p">)</span> <span class="ow">and</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="n">critical_metric_names</span>
+            <span class="p">]</span>
+
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">critical_errs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># TODO[mpolson64] Raise all errors in a group via PEP 654</span>
+                <span class="n">exceptions</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">err</span><span class="o">.</span><span class="n">err</span><span class="o">.</span><span class="n">exception</span>
+                    <span class="k">if</span> <span class="n">err</span><span class="o">.</span><span class="n">err</span><span class="o">.</span><span class="n">exception</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                    <span class="k">else</span> <span class="ne">Exception</span><span class="p">(</span><span class="n">err</span><span class="o">.</span><span class="n">err</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">err</span> <span class="ow">in</span> <span class="n">critical_errs</span>
+                <span class="p">]</span>
+                <span class="k">raise</span> <span class="n">UnwrapError</span><span class="p">(</span><span class="n">critical_errs</span><span class="p">)</span> <span class="kn">from</span> <span class="p">(</span>
+                    <span class="n">exceptions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">exceptions</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="ne">Exception</span><span class="p">(</span><span class="n">exceptions</span><span class="p">)</span>
+                <span class="p">)</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">ok</span><span class="o">.</span><span class="n">ok</span> <span class="k">for</span> <span class="n">ok</span> <span class="ow">in</span> <span class="n">oks</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">data_constructor</span><span class="o">.</span><span class="n">from_multiple_data</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="k">else</span> <span class="bp">cls</span><span class="o">.</span><span class="n">data_constructor</span><span class="p">()</span>
+        <span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_unwrap_experiment_data_multi</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">results</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MetricFetchResult</span><span class="p">]],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="c1"># NOTE: This can be lossy (ex. a MapData could get implicitly cast to a Data and</span>
+        <span class="c1"># lose rows)if some MetricFetchResults contain Data not of type</span>
+        <span class="c1"># `cls.data_constructor`</span>
+
+        <span class="n">flattened</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">result</span> <span class="k">for</span> <span class="n">sublist</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">sublist</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+        <span class="p">]</span>
+        <span class="n">oks</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Ok</span><span class="p">[</span><span class="n">Data</span><span class="p">,</span> <span class="n">MetricFetchE</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">result</span> <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">flattened</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">Ok</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">oks</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">flattened</span><span class="p">):</span>
+            <span class="n">errs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Err</span><span class="p">[</span><span class="n">Data</span><span class="p">,</span> <span class="n">MetricFetchE</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">result</span> <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">flattened</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">Err</span><span class="p">)</span>
+            <span class="p">]</span>
+
+            <span class="c1"># TODO[mpolson64] Raise all errors in a group via PEP 654</span>
+            <span class="n">exceptions</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">err</span><span class="o">.</span><span class="n">err</span><span class="o">.</span><span class="n">exception</span>
+                <span class="k">if</span> <span class="n">err</span><span class="o">.</span><span class="n">err</span><span class="o">.</span><span class="n">exception</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="ne">Exception</span><span class="p">(</span><span class="n">err</span><span class="o">.</span><span class="n">err</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">err</span> <span class="ow">in</span> <span class="n">errs</span>
+            <span class="p">]</span>
+            <span class="k">raise</span> <span class="n">UnwrapError</span><span class="p">(</span><span class="n">errs</span><span class="p">)</span> <span class="kn">from</span> <span class="p">(</span>
+                <span class="n">exceptions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">exceptions</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="ne">Exception</span><span class="p">(</span><span class="n">exceptions</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">ok</span><span class="o">.</span><span class="n">ok</span> <span class="k">for</span> <span class="n">ok</span> <span class="ow">in</span> <span class="n">oks</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">data_constructor</span><span class="o">.</span><span class="n">from_multiple_data</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="k">else</span> <span class="bp">cls</span><span class="o">.</span><span class="n">data_constructor</span><span class="p">()</span>
+        <span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_wrap_experiment_data</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">MetricFetchResult</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">trial_index</span><span class="p">:</span> <span class="n">Ok</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">trial_indices</span><span class="o">=</span><span class="p">[</span><span class="n">trial_index</span><span class="p">]))</span>
+            <span class="k">for</span> <span class="n">trial_index</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">true_df</span><span class="p">[</span><span class="s2">"trial_index"</span><span class="p">]</span>
+        <span class="p">}</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_wrap_trial_data_multi</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MetricFetchResult</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">metric_name</span><span class="p">:</span> <span class="n">Ok</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">metric_names</span><span class="o">=</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]))</span>
+            <span class="k">for</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">true_df</span><span class="p">[</span><span class="s2">"metric_name"</span><span class="p">]</span>
+        <span class="p">}</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_wrap_experiment_data_multi</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Data</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MetricFetchResult</span><span class="p">]]:</span>
+        <span class="c1"># pyre-fixme[7]</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">trial_index</span><span class="p">:</span> <span class="p">{</span>
+                <span class="n">metric_name</span><span class="p">:</span> <span class="n">Ok</span><span class="p">(</span>
+                    <span class="n">value</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                        <span class="n">trial_indices</span><span class="o">=</span><span class="p">[</span><span class="n">trial_index</span><span class="p">],</span> <span class="n">metric_names</span><span class="o">=</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">true_df</span><span class="p">[</span><span class="s2">"metric_name"</span><span class="p">]</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">trial_index</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">true_df</span><span class="p">[</span><span class="s2">"trial_index"</span><span class="p">]</span>
+        <span class="p">}</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../telemetry.html">ax.telemetry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.3.4/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2023 Meta Platforms, Inc.</section></footer></div></body></html>

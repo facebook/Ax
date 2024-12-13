@@ -1,0 +1,1147 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.11/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.11/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.11/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.11/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.11/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.11/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.11/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.11/css/main.css"/><script src="/versions/0.1.11/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.11/"><img class="logo" src="/versions/0.1.11/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.11/versions.html"><h3>0.1.11</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.11/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.11/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.11/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.service.ax_client</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">ax.service.utils.best_point</span> <span class="k">as</span> <span class="nn">best_point_utils</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">ax.core.arm</span> <span class="kn">import</span> <span class="n">Arm</span>
+<span class="kn">from</span> <span class="nn">ax.core.base_trial</span> <span class="kn">import</span> <span class="n">BaseTrial</span>
+<span class="kn">from</span> <span class="nn">ax.core.batch_trial</span> <span class="kn">import</span> <span class="n">BatchTrial</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.generator_run</span> <span class="kn">import</span> <span class="n">GeneratorRun</span>
+<span class="kn">from</span> <span class="nn">ax.core.trial</span> <span class="kn">import</span> <span class="n">Trial</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">TEvaluationOutcome</span><span class="p">,</span>
+    <span class="n">TModelPredictArm</span><span class="p">,</span>
+    <span class="n">TParameterization</span><span class="p">,</span>
+    <span class="n">TParamValue</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.dispatch_utils</span> <span class="kn">import</span> <span class="n">choose_generation_strategy</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.generation_strategy</span> <span class="kn">import</span> <span class="n">GenerationStrategy</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.modelbridge_utils</span> <span class="kn">import</span> <span class="n">get_pending_observation_features</span>
+<span class="kn">from</span> <span class="nn">ax.plot.base</span> <span class="kn">import</span> <span class="n">AxPlotConfig</span>
+<span class="kn">from</span> <span class="nn">ax.plot.contour</span> <span class="kn">import</span> <span class="n">plot_contour</span>
+<span class="kn">from</span> <span class="nn">ax.plot.exp_utils</span> <span class="kn">import</span> <span class="n">exp_to_df</span>
+<span class="kn">from</span> <span class="nn">ax.plot.feature_importances</span> <span class="kn">import</span> <span class="n">plot_feature_importance_by_feature</span>
+<span class="kn">from</span> <span class="nn">ax.plot.helper</span> <span class="kn">import</span> <span class="n">_format_dict</span><span class="p">,</span> <span class="n">_get_in_sample_arms</span>
+<span class="kn">from</span> <span class="nn">ax.plot.trace</span> <span class="kn">import</span> <span class="n">optimization_trace_single_method</span>
+<span class="kn">from</span> <span class="nn">ax.service.utils.instantiation</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">data_from_evaluations</span><span class="p">,</span>
+    <span class="n">make_experiment</span><span class="p">,</span>
+    <span class="n">raw_data_to_evaluation</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.storage.json_store.decoder</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">generation_strategy_from_json</span><span class="p">,</span>
+    <span class="n">object_from_json</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.storage.json_store.encoder</span> <span class="kn">import</span> <span class="n">object_to_json</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.docutils</span> <span class="kn">import</span> <span class="n">copy_doc</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.exec_utils</span> <span class="kn">import</span> <span class="n">retry_on_exception</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">_round_floats_for_logging</span><span class="p">,</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">checked_cast</span><span class="p">,</span>
+    <span class="n">checked_cast_dict</span><span class="p">,</span>
+    <span class="n">checked_cast_optional</span><span class="p">,</span>
+    <span class="n">not_none</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">botorch.utils.sampling</span> <span class="kn">import</span> <span class="n">manual_seed</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="k">try</span><span class="p">:</span>  <span class="c1"># We don't require SQLAlchemy by default.</span>
+    <span class="kn">from</span> <span class="nn">sqlalchemy.exc</span> <span class="kn">import</span> <span class="n">OperationalError</span>
+    <span class="kn">from</span> <span class="nn">ax.storage.sqa_store.structs</span> <span class="kn">import</span> <span class="n">DBSettings</span>
+    <span class="kn">from</span> <span class="nn">ax.service.utils.storage</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="n">load_experiment_and_generation_strategy</span><span class="p">,</span>
+        <span class="n">save_experiment</span><span class="p">,</span>
+        <span class="n">save_generation_strategy</span><span class="p">,</span>
+        <span class="n">save_new_trial</span><span class="p">,</span>
+        <span class="n">save_updated_trial</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">retry_exception_type_tuple</span> <span class="o">=</span> <span class="p">(</span><span class="n">OperationalError</span><span class="p">,)</span>
+<span class="k">except</span> <span class="ne">ModuleNotFoundError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="n">DBSettings</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># Return a list of suppressable exceptions not including unimportable ones.</span>
+    <span class="c1"># pyre-fixme[9]: declared as `Tuple[...[OperationalError]]` but used as `Tuple[]`.</span>
+    <span class="n">retry_exception_type_tuple</span> <span class="o">=</span> <span class="p">()</span>
+
+
+<div class="viewcode-block" id="AxClient"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient">[docs]</a><span class="k">class</span> <span class="nc">AxClient</span><span class="p">:</span>
+    <span class="sd">"""</span>
+<span class="sd">    Convenience handler for management of experimentation cycle through a</span>
+<span class="sd">    service-like API. External system manages scheduling of the cycle and makes</span>
+<span class="sd">    calls to this client to get next suggestion in the experiment and log back</span>
+<span class="sd">    data from the evaluation of that suggestion.</span>
+
+<span class="sd">    Note: `AxClient` expects to only propose 1 arm (suggestion) per trial; support</span>
+<span class="sd">    for use cases that require use of batches is coming soon.</span>
+
+<span class="sd">    Two custom types used in this class for convenience are `TParamValue` and</span>
+<span class="sd">    `TParameterization`. Those are shortcuts for `Union[str, bool, float, int]`</span>
+<span class="sd">    and `Dict[str, Union[str, bool, float, int]]`, respectively.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        generation_strategy: Optional generation strategy. If not set, one is</span>
+<span class="sd">            intelligently chosen based on properties of search space.</span>
+
+<span class="sd">        db_settings: Settings for saving and reloading the underlying experiment</span>
+<span class="sd">            to a database. Expected to be of type</span>
+<span class="sd">            ax.storage.sqa_store.structs.DBSettings and require SQLAlchemy.</span>
+
+<span class="sd">        enforce_sequential_optimization: Whether to enforce that when it is</span>
+<span class="sd">            reasonable to switch models during the optimization (as prescribed</span>
+<span class="sd">            by `num_trials` in generation strategy), Ax will wait for enough trials</span>
+<span class="sd">            to be completed with data to proceed. Defaults to True. If set to</span>
+<span class="sd">            False, Ax will keep generating new trials from the previous model</span>
+<span class="sd">            until enough data is gathered. Use this only if necessary;</span>
+<span class="sd">            otherwise, it is more resource-efficient to</span>
+<span class="sd">            optimize sequentially, by waiting until enough data is available to</span>
+<span class="sd">            use the next model.</span>
+
+<span class="sd">        random_seed: Optional integer random seed, set to fix the optimization</span>
+<span class="sd">            random seed for reproducibility. Works only for Sobol quasi-random</span>
+<span class="sd">            generator and for BoTorch-powered models. For the latter models, the</span>
+<span class="sd">            trials generated from the same optimization setup with the same seed,</span>
+<span class="sd">            will be mostly similar, but the exact parameter values may still vary</span>
+<span class="sd">            and trials latter in the optimizations will diverge more and more.</span>
+<span class="sd">            This is because a degree of randomness is essential for high performance</span>
+<span class="sd">            of the Bayesian optimization models and is not controlled by the seed.</span>
+
+<span class="sd">            Note: In multi-threaded environments, the random seed is thread-safe,</span>
+<span class="sd">            but does not actually guarantee reproducibility. Whether the outcomes</span>
+<span class="sd">            will be exactly the same for two same operations that use the random</span>
+<span class="sd">            seed, depends on whether the threads modify the random state in the</span>
+<span class="sd">            same order across the two operations.</span>
+
+<span class="sd">        verbose_logging: Whether Ax should log significant optimization events,</span>
+<span class="sd">            defaults to `True`.</span>
+
+<span class="sd">        suppress_storage_errors: Whether to suppress SQL storage-related errors if</span>
+<span class="sd">            encounted. Only use if SQL storage is not important for the given use</span>
+<span class="sd">            case, since this will only log, but not raise, an exception if its</span>
+<span class="sd">            encountered while saving to DB or loading from it.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">generation_strategy</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">GenerationStrategy</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">db_settings</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">enforce_sequential_optimization</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">random_seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">verbose_logging</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">suppress_storage_errors</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">verbose_logging</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">)</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">"Starting optimization with verbose logging. To disable logging, "</span>
+                <span class="s2">"set the `verbose_logging` argument to `False`. Note that float "</span>
+                <span class="s2">"values in the logs are rounded to 2 decimal points."</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_generation_strategy</span> <span class="o">=</span> <span class="n">generation_strategy</span>
+        <span class="k">if</span> <span class="n">db_settings</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="n">DBSettings</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">db_settings</span><span class="p">,</span> <span class="n">DBSettings</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"`db_settings` argument should be of type ax.storage.sqa_store."</span>
+                <span class="s2">"structs.DBSettings. To use `DBSettings`, you will need SQLAlchemy "</span>
+                <span class="s2">"installed in your environment (can be installed through pip)."</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">db_settings</span> <span class="o">=</span> <span class="n">db_settings</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Experiment</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_enforce_sequential_optimization</span> <span class="o">=</span> <span class="n">enforce_sequential_optimization</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_random_seed</span> <span class="o">=</span> <span class="n">random_seed</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_suppress_storage_errors</span> <span class="o">=</span> <span class="n">suppress_storage_errors</span>
+        <span class="k">if</span> <span class="n">random_seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Random seed set to </span><span class="si">{</span><span class="n">random_seed</span><span class="si">}</span><span class="s2">. Note that this setting "</span>
+                <span class="s2">"only affects the Sobol quasi-random generator "</span>
+                <span class="s2">"and BoTorch-powered Bayesian optimization models. For the latter "</span>
+                <span class="s2">"models, setting random seed to the same number for two optimizations "</span>
+                <span class="s2">"will make the generated trials similar, but not exactly the same, "</span>
+                <span class="s2">"and over time the trials will diverge more."</span>
+            <span class="p">)</span>
+
+    <span class="c1"># ------------------------ Public API methods. ------------------------</span>
+
+<div class="viewcode-block" id="AxClient.create_experiment"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.create_experiment">[docs]</a>    <span class="k">def</span> <span class="nf">create_experiment</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">TParamValue</span><span class="p">]]]],</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">objective_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">minimize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">parameter_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">status_quo</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TParameterization</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">overwrite_existing_experiment</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">experiment_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">choose_generation_strategy_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Create a new experiment and save it if DBSettings available.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameters: List of dictionaries representing parameters in the</span>
+<span class="sd">                experiment search space. Required elements in the dictionaries</span>
+<span class="sd">                are: "name" (name of this parameter, string), "type" (type of the</span>
+<span class="sd">                parameter: "range", "fixed", or "choice", string), and "bounds"</span>
+<span class="sd">                for range parameters (list of two values, lower bound first),</span>
+<span class="sd">                "values" for choice parameters (list of values), and "value" for</span>
+<span class="sd">                fixed parameters (single value).</span>
+<span class="sd">            objective: Name of the metric used as objective in this experiment.</span>
+<span class="sd">                This metric must be present in `raw_data` argument to `complete_trial`.</span>
+<span class="sd">            name: Name of the experiment to be created.</span>
+<span class="sd">            minimize: Whether this experiment represents a minimization problem.</span>
+<span class="sd">            parameter_constraints: List of string representation of parameter</span>
+<span class="sd">                constraints, such as "x3 &gt;= x4" or "-x3 + 2*x4 - 3.5*x5 &gt;= 2". For</span>
+<span class="sd">                the latter constraints, any number of arguments is accepted, and</span>
+<span class="sd">                acceptable operators are "&lt;=" and "&gt;=".</span>
+<span class="sd">            outcome_constraints: List of string representation of outcome</span>
+<span class="sd">                constraints of form "metric_name &gt;= bound", like "m1 &lt;= 3."</span>
+<span class="sd">            status_quo: Parameterization of the current state of the system.</span>
+<span class="sd">                If set, this will be added to each trial to be evaluated alongside</span>
+<span class="sd">                test configurations.</span>
+<span class="sd">            overwrite_existing_experiment: If an experiment has already been set</span>
+<span class="sd">                on this `AxClient` instance, whether to reset it to the new one.</span>
+<span class="sd">                If overwriting the experiment, generation strategy will be</span>
+<span class="sd">                re-selected for the new experiment and restarted.</span>
+<span class="sd">                To protect experiments in production, one cannot overwrite existing</span>
+<span class="sd">                experiments if the experiment is already stored in the database,</span>
+<span class="sd">                regardless of the value of `overwrite_existing_experiment`.</span>
+<span class="sd">            choose_generation_strategy_kwargs: Keyword arguments to pass to</span>
+<span class="sd">                `choose_generation_strategy` function which determines what</span>
+<span class="sd">                generation strategy should be used when none was specified on init.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">db_settings</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">name</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="s2">"Must give the experiment a name if `db_settings` is not None."</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">db_settings</span><span class="p">:</span>
+            <span class="n">existing</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">existing</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">load_experiment_and_generation_strategy</span><span class="p">(</span>
+                    <span class="n">experiment_name</span><span class="o">=</span><span class="n">not_none</span><span class="p">(</span><span class="n">name</span><span class="p">),</span> <span class="n">db_settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">db_settings</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>  <span class="c1"># Experiment does not exist, nothing to do.</span>
+                <span class="k">pass</span>
+            <span class="k">if</span> <span class="n">existing</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Experiment </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> already exists in the database. "</span>
+                    <span class="s2">"To protect experiments that are running in production, "</span>
+                    <span class="s2">"overwriting stored experiments is not allowed. To "</span>
+                    <span class="s2">"start a new experiment and store it, change the "</span>
+                    <span class="s2">"experiment's name."</span>
+                <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">overwrite_existing_experiment</span><span class="p">:</span>
+                <span class="n">exp_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">_name</span> <span class="ow">or</span> <span class="s2">"untitled"</span>
+                <span class="n">new_exp_name</span> <span class="o">=</span> <span class="n">name</span> <span class="ow">or</span> <span class="s2">"untitled"</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Overwriting existing experiment (</span><span class="si">{</span><span class="n">exp_name</span><span class="si">}</span><span class="s2">) on this client "</span>
+                    <span class="sa">f</span><span class="s2">"with new experiment (</span><span class="si">{</span><span class="n">new_exp_name</span><span class="si">}</span><span class="s2">) and restarting the "</span>
+                    <span class="s2">"generation strategy."</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_generation_strategy</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Experiment already created for this client instance. "</span>
+                    <span class="s2">"Set the `overwrite_existing_experiment` to `True` to overwrite "</span>
+                    <span class="s2">"with new experiment."</span>
+                <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span> <span class="o">=</span> <span class="n">make_experiment</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span><span class="p">,</span>
+            <span class="n">objective_name</span><span class="o">=</span><span class="n">objective_name</span><span class="p">,</span>
+            <span class="n">minimize</span><span class="o">=</span><span class="n">minimize</span><span class="p">,</span>
+            <span class="n">parameter_constraints</span><span class="o">=</span><span class="n">parameter_constraints</span><span class="p">,</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="n">status_quo</span><span class="o">=</span><span class="n">status_quo</span><span class="p">,</span>
+            <span class="n">experiment_type</span><span class="o">=</span><span class="n">experiment_type</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_generation_strategy</span><span class="p">(</span>
+            <span class="n">choose_generation_strategy_kwargs</span><span class="o">=</span><span class="n">choose_generation_strategy_kwargs</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_experiment_to_db_if_possible</span><span class="p">(</span>
+            <span class="n">suppress_all_errors</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_suppress_storage_errors</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_generation_strategy_to_db_if_possible</span><span class="p">(</span>
+            <span class="n">suppress_all_errors</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_suppress_storage_errors</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxClient.get_next_trial"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.get_next_trial">[docs]</a>    <span class="k">def</span> <span class="nf">get_next_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">TParameterization</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Generate trial with the next set of parameters to try in the iteration process.</span>
+
+<span class="sd">        Note: Service API currently supports only 1-arm trials.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Tuple of trial parameterization, trial index</span>
+<span class="sd">        """</span>
+        <span class="n">trial</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">new_trial</span><span class="p">(</span><span class="n">generator_run</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_gen_new_generator_run</span><span class="p">())</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Generated new trial </span><span class="si">{</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="si">}</span><span class="s2"> with parameters "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">_round_floats_for_logging</span><span class="p">(</span><span class="n">item</span><span class="o">=</span><span class="n">not_none</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">arm</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+        <span class="p">)</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">mark_running</span><span class="p">(</span><span class="n">no_runner_required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_new_trial_to_db_if_possible</span><span class="p">(</span>
+            <span class="n">trial</span><span class="o">=</span><span class="n">trial</span><span class="p">,</span> <span class="n">suppress_all_errors</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_suppress_storage_errors</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_generation_strategy_to_db_if_possible</span><span class="p">(</span>
+            <span class="n">suppress_all_errors</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_suppress_storage_errors</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">not_none</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">arm</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span> <span class="n">trial</span><span class="o">.</span><span class="n">index</span></div>
+
+<div class="viewcode-block" id="AxClient.complete_trial"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.complete_trial">[docs]</a>    <span class="k">def</span> <span class="nf">complete_trial</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">raw_data</span><span class="p">:</span> <span class="n">TEvaluationOutcome</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">sample_size</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Completes the trial with given metric values and adds optional metadata</span>
+<span class="sd">        to it.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial_index: Index of trial within the experiment.</span>
+<span class="sd">            raw_data: Evaluation data for the trial. Can be a mapping from</span>
+<span class="sd">                metric name to a tuple of mean and SEM, just a tuple of mean and</span>
+<span class="sd">                SEM if only one metric in optimization, or just the mean if there</span>
+<span class="sd">                is no SEM.  Can also be a list of (fidelities, mapping from</span>
+<span class="sd">                metric name to a tuple of mean and SEM).</span>
+<span class="sd">            metadata: Additional metadata to track about this run.</span>
+<span class="sd">            sample_size: Number of samples collected for the underlying arm,</span>
+<span class="sd">                optional.</span>
+<span class="sd">        """</span>
+        <span class="c1"># Validate that trial can be completed.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">trial_index</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>  <span class="c1"># pragma: no cover</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Trial index must be an int, got: </span><span class="si">{</span><span class="n">trial_index</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+        <span class="n">trial</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_trial</span><span class="p">(</span><span class="n">trial_index</span><span class="o">=</span><span class="n">trial_index</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_can_complete_trial</span><span class="p">(</span><span class="n">trial</span><span class="o">=</span><span class="n">trial</span><span class="p">)</span>
+
+        <span class="c1"># Format the data to save.</span>
+        <span class="n">sample_sizes</span> <span class="o">=</span> <span class="p">{</span><span class="n">not_none</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">arm</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">sample_size</span><span class="p">}</span> <span class="k">if</span> <span class="n">sample_size</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="n">evaluations</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_evaluations_and_data</span><span class="p">(</span>
+            <span class="n">trial</span><span class="o">=</span><span class="n">trial</span><span class="p">,</span> <span class="n">raw_data</span><span class="o">=</span><span class="n">raw_data</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span> <span class="n">sample_sizes</span><span class="o">=</span><span class="n">sample_sizes</span>
+        <span class="p">)</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">_run_metadata</span> <span class="o">=</span> <span class="n">metadata</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">attach_data</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">mark_completed</span><span class="p">()</span>
+        <span class="n">data_for_logging</span> <span class="o">=</span> <span class="n">_round_floats_for_logging</span><span class="p">(</span>
+            <span class="n">item</span><span class="o">=</span><span class="n">evaluations</span><span class="p">[</span><span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">evaluations</span><span class="o">.</span><span class="n">keys</span><span class="p">()))]</span>
+        <span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Completed trial </span><span class="si">{</span><span class="n">trial_index</span><span class="si">}</span><span class="s2"> with data: "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">_round_floats_for_logging</span><span class="p">(</span><span class="n">item</span><span class="o">=</span><span class="n">data_for_logging</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_updated_trial_to_db_if_possible</span><span class="p">(</span>
+            <span class="n">trial</span><span class="o">=</span><span class="n">trial</span><span class="p">,</span> <span class="n">suppress_all_errors</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_suppress_storage_errors</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxClient.update_trial_data"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.update_trial_data">[docs]</a>    <span class="k">def</span> <span class="nf">update_trial_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">raw_data</span><span class="p">:</span> <span class="n">TEvaluationOutcome</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">sample_size</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Attaches additional data for completed trial (for example, if trial was</span>
+<span class="sd">        completed with data for only one of the required metrics and more data</span>
+<span class="sd">        needs to be attached).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial_index: Index of trial within the experiment.</span>
+<span class="sd">            raw_data: Evaluation data for the trial. Can be a mapping from</span>
+<span class="sd">                metric name to a tuple of mean and SEM, just a tuple of mean and</span>
+<span class="sd">                SEM if only one metric in optimization, or just the mean if there</span>
+<span class="sd">                is no SEM.  Can also be a list of (fidelities, mapping from</span>
+<span class="sd">                metric name to a tuple of mean and SEM).</span>
+<span class="sd">            metadata: Additional metadata to track about this run.</span>
+<span class="sd">            sample_size: Number of samples collected for the underlying arm,</span>
+<span class="sd">                optional.</span>
+<span class="sd">        """</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span>
+            <span class="n">trial_index</span><span class="p">,</span> <span class="nb">int</span>
+        <span class="p">),</span> <span class="sa">f</span><span class="s2">"Trial index must be an int, got: </span><span class="si">{</span><span class="n">trial_index</span><span class="si">}</span><span class="s2">."</span>  <span class="c1"># pragma: no cover</span>
+        <span class="n">trial</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_trial</span><span class="p">(</span><span class="n">trial_index</span><span class="o">=</span><span class="n">trial_index</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">trial</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">is_completed</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Trial </span><span class="si">{</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="si">}</span><span class="s2"> has not yet been completed with data."</span>
+                <span class="s2">"To complete it, use `ax_client.complete_trial`."</span>
+            <span class="p">)</span>
+        <span class="n">sample_sizes</span> <span class="o">=</span> <span class="p">{</span><span class="n">not_none</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">arm</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">sample_size</span><span class="p">}</span> <span class="k">if</span> <span class="n">sample_size</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="n">evaluations</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_evaluations_and_data</span><span class="p">(</span>
+            <span class="n">trial</span><span class="o">=</span><span class="n">trial</span><span class="p">,</span> <span class="n">raw_data</span><span class="o">=</span><span class="n">raw_data</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span> <span class="n">sample_sizes</span><span class="o">=</span><span class="n">sample_sizes</span>
+        <span class="p">)</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">_run_metadata</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">metadata</span> <span class="ow">or</span> <span class="p">{})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">attach_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">combine_with_last_data</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">data_for_logging</span> <span class="o">=</span> <span class="n">_round_floats_for_logging</span><span class="p">(</span>
+            <span class="n">item</span><span class="o">=</span><span class="n">evaluations</span><span class="p">[</span><span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">evaluations</span><span class="o">.</span><span class="n">keys</span><span class="p">()))]</span>
+        <span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Added data: </span><span class="si">{</span><span class="n">_round_floats_for_logging</span><span class="p">(</span><span class="n">item</span><span class="o">=</span><span class="n">data_for_logging</span><span class="p">)</span><span class="si">}</span><span class="s2"> "</span>
+            <span class="sa">f</span><span class="s2">"to trial </span><span class="si">{</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="si">}</span><span class="s2">."</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_experiment_to_db_if_possible</span><span class="p">(</span>
+            <span class="n">suppress_all_errors</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_suppress_storage_errors</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxClient.log_trial_failure"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.log_trial_failure">[docs]</a>    <span class="k">def</span> <span class="nf">log_trial_failure</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Mark that the given trial has failed while running.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial_index: Index of trial within the experiment.</span>
+<span class="sd">            metadata: Additional metadata to track about this run.</span>
+<span class="sd">        """</span>
+        <span class="n">trial</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="n">trial_index</span><span class="p">]</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">mark_failed</span><span class="p">()</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Registered failure of trial </span><span class="si">{</span><span class="n">trial_index</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">trial</span><span class="o">.</span><span class="n">_run_metadata</span> <span class="o">=</span> <span class="n">metadata</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_experiment_to_db_if_possible</span><span class="p">(</span>
+            <span class="n">suppress_all_errors</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_suppress_storage_errors</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxClient.attach_trial"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.attach_trial">[docs]</a>    <span class="k">def</span> <span class="nf">attach_trial</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">:</span> <span class="n">TParameterization</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">TParameterization</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">"""Attach a new trial with the given parameterization to the experiment.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameters: Parameterization of the new trial.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Tuple of parameterization and trial index from newly created trial.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_search_space_membership</span><span class="p">(</span><span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span><span class="p">)</span>
+        <span class="n">trial</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">new_trial</span><span class="p">()</span><span class="o">.</span><span class="n">add_arm</span><span class="p">(</span><span class="n">Arm</span><span class="p">(</span><span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span><span class="p">))</span>
+        <span class="n">trial</span><span class="o">.</span><span class="n">mark_running</span><span class="p">(</span><span class="n">no_runner_required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">"Attached custom parameterization "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">_round_floats_for_logging</span><span class="p">(</span><span class="n">item</span><span class="o">=</span><span class="n">parameters</span><span class="p">)</span><span class="si">}</span><span class="s2"> as trial </span><span class="si">{</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="si">}</span><span class="s2">."</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_new_trial_to_db_if_possible</span><span class="p">(</span>
+            <span class="n">trial</span><span class="o">=</span><span class="n">trial</span><span class="p">,</span> <span class="n">suppress_all_errors</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_suppress_storage_errors</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">not_none</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">arm</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span> <span class="n">trial</span><span class="o">.</span><span class="n">index</span></div>
+
+<div class="viewcode-block" id="AxClient.get_trial_parameters"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.get_trial_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">get_trial_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TParameterization</span><span class="p">:</span>
+        <span class="sd">"""Retrieve the parameterization of the trial by the given index."""</span>
+        <span class="k">return</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_trial</span><span class="p">(</span><span class="n">trial_index</span><span class="p">)</span><span class="o">.</span><span class="n">arm</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span></div>
+
+<div class="viewcode-block" id="AxClient.get_best_parameters"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.get_best_parameters">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">best_point_utils</span><span class="o">.</span><span class="n">get_best_parameters</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">get_best_parameters</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">TParameterization</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TModelPredictArm</span><span class="p">]]]:</span>
+        <span class="k">return</span> <span class="n">best_point_utils</span><span class="o">.</span><span class="n">get_best_parameters</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxClient.get_trials_data_frame"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.get_trials_data_frame">[docs]</a>    <span class="k">def</span> <span class="nf">get_trials_data_frame</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">exp_to_df</span><span class="p">(</span><span class="n">exp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxClient.get_max_parallelism"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.get_max_parallelism">[docs]</a>    <span class="k">def</span> <span class="nf">get_max_parallelism</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+        <span class="sd">"""Retrieves maximum number of trials that can be scheduled in parallel</span>
+<span class="sd">        at different stages of optimization.</span>
+
+<span class="sd">        Some optimization algorithms profit significantly from sequential</span>
+<span class="sd">        optimization (i.e. suggest a few points, get updated with data for them,</span>
+<span class="sd">        repeat, see https://ax.dev/docs/bayesopt.html).</span>
+<span class="sd">        Parallelism setting indicates how many trials should be running simulteneously</span>
+<span class="sd">        (generated, but not yet completed with data).</span>
+
+<span class="sd">        The output of this method is mapping of form</span>
+<span class="sd">        {num_trials -&gt; max_parallelism_setting}, where the max_parallelism_setting</span>
+<span class="sd">        is used for num_trials trials. If max_parallelism_setting is -1, as</span>
+<span class="sd">        many of the trials can be ran in parallel, as necessary. If num_trials</span>
+<span class="sd">        in a tuple is -1, then the corresponding max_parallelism_setting</span>
+<span class="sd">        should be used for all subsequent trials.</span>
+
+<span class="sd">        For example, if the returned list is [(5, -1), (12, 6), (-1, 3)],</span>
+<span class="sd">        the schedule could be: run 5 trials with any parallelism, run 6 trials in</span>
+<span class="sd">        parallel twice, run 3 trials in parallel for as long as needed. Here,</span>
+<span class="sd">        'running' a trial means obtaining a next trial from `AxClient` through</span>
+<span class="sd">        get_next_trials and completing it with data when available.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Mapping of form {num_trials -&gt; max_parallelism_setting}.</span>
+<span class="sd">        """</span>
+        <span class="n">parallelism_settings</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">generation_strategy</span><span class="o">.</span><span class="n">_steps</span><span class="p">:</span>
+            <span class="n">parallelism_settings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">step</span><span class="o">.</span><span class="n">num_trials</span><span class="p">,</span> <span class="n">step</span><span class="o">.</span><span class="n">max_parallelism</span> <span class="ow">or</span> <span class="n">step</span><span class="o">.</span><span class="n">num_trials</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">parallelism_settings</span></div>
+
+<div class="viewcode-block" id="AxClient.get_optimization_trace"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.get_optimization_trace">[docs]</a>    <span class="k">def</span> <span class="nf">get_optimization_trace</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">objective_optimum</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AxPlotConfig</span><span class="p">:</span>
+        <span class="sd">"""Retrieves the plot configuration for optimization trace, which shows</span>
+<span class="sd">        the evolution of the objective mean over iterations.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            objective_optimum: Optimal objective, if known, for display in the</span>
+<span class="sd">                visualization.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Cannot generate plot as there are no trials."</span><span class="p">)</span>
+        <span class="n">objective_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span>
+        <span class="n">best_objectives</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="p">[</span>
+                    <span class="n">checked_cast</span><span class="p">(</span><span class="n">Trial</span><span class="p">,</span> <span class="n">trial</span><span class="p">)</span><span class="o">.</span><span class="n">objective_mean</span>
+                    <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+                <span class="p">]</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">hover_labels</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">_format_dict</span><span class="p">(</span><span class="n">not_none</span><span class="p">(</span><span class="n">checked_cast</span><span class="p">(</span><span class="n">Trial</span><span class="p">,</span> <span class="n">trial</span><span class="p">)</span><span class="o">.</span><span class="n">arm</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+        <span class="p">]</span>
+        <span class="k">return</span> <span class="n">optimization_trace_single_method</span><span class="p">(</span>
+            <span class="n">y</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="o">.</span><span class="n">accumulate</span><span class="p">(</span><span class="n">best_objectives</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">minimize</span>
+                <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="o">.</span><span class="n">accumulate</span><span class="p">(</span><span class="n">best_objectives</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="p">),</span>
+            <span class="n">optimum</span><span class="o">=</span><span class="n">objective_optimum</span><span class="p">,</span>
+            <span class="n">title</span><span class="o">=</span><span class="s2">"Model performance vs. # of iterations"</span><span class="p">,</span>
+            <span class="n">ylabel</span><span class="o">=</span><span class="n">objective_name</span><span class="o">.</span><span class="n">capitalize</span><span class="p">(),</span>
+            <span class="n">hover_labels</span><span class="o">=</span><span class="n">hover_labels</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxClient.get_contour_plot"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.get_contour_plot">[docs]</a>    <span class="k">def</span> <span class="nf">get_contour_plot</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">param_x</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">param_y</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">metric_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AxPlotConfig</span><span class="p">:</span>
+        <span class="sd">"""Retrieves a plot configuration for a contour plot of the response</span>
+<span class="sd">        surface. For response surfaces with more than two parameters,</span>
+<span class="sd">        selected two parameters will appear on the axes, and remaining parameters</span>
+<span class="sd">        will be affixed to the middle of their range. If contour params arguments</span>
+<span class="sd">        are not provided, the first two parameters in the search space will be</span>
+<span class="sd">        used. If contour metrics are not provided, objective will be used.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            param_x: name of parameters to use on x-axis for</span>
+<span class="sd">                the contour response surface plots.</span>
+<span class="sd">            param_y: name of parameters to use on y-axis for</span>
+<span class="sd">                the contour response surface plots.</span>
+<span class="sd">            metric_name: Name of the metric, for which to plot the response</span>
+<span class="sd">                surface.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Cannot generate plot as there are no trials."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Cannot create a contour plot as experiment has less than 2 "</span>
+                <span class="s2">"parameters, but a contour-related argument was provided."</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">param_x</span> <span class="ow">or</span> <span class="n">param_y</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="n">param_x</span> <span class="ow">and</span> <span class="n">param_y</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"If `param_x` is provided, `param_y` is "</span>
+                <span class="s2">"required as well, and vice-versa."</span>
+            <span class="p">)</span>
+        <span class="n">objective_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">objective_name</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">metric_name</span><span class="p">:</span>
+            <span class="n">metric_name</span> <span class="o">=</span> <span class="n">objective_name</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">param_x</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">param_y</span><span class="p">:</span>
+            <span class="n">parameter_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="n">param_x</span> <span class="o">=</span> <span class="n">parameter_names</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">param_y</span> <span class="o">=</span> <span class="n">parameter_names</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">param_x</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">'Parameter "</span><span class="si">{</span><span class="n">param_x</span><span class="si">}</span><span class="s1">" not found in the optimization search space.'</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">param_y</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">'Parameter "</span><span class="si">{</span><span class="n">param_y</span><span class="si">}</span><span class="s1">" not found in the optimization search space.'</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">metric_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">'Metric "</span><span class="si">{</span><span class="n">metric_name</span><span class="si">}</span><span class="s1">" is not associated with this optimization.'</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">generation_strategy</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Retrieving contour plot with parameter '</span><span class="si">{</span><span class="n">param_x</span><span class="si">}</span><span class="s2">' on X-axis "</span>
+                    <span class="sa">f</span><span class="s2">"and '</span><span class="si">{</span><span class="n">param_y</span><span class="si">}</span><span class="s2">' on Y-axis, for metric '</span><span class="si">{</span><span class="n">metric_name</span><span class="si">}</span><span class="s2">'. "</span>
+                    <span class="s2">"Ramaining parameters are affixed to the middle of their range."</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="n">plot_contour</span><span class="p">(</span>
+                    <span class="n">model</span><span class="o">=</span><span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">generation_strategy</span><span class="o">.</span><span class="n">model</span><span class="p">),</span>
+                    <span class="n">param_x</span><span class="o">=</span><span class="n">param_x</span><span class="p">,</span>
+                    <span class="n">param_y</span><span class="o">=</span><span class="n">param_y</span><span class="p">,</span>
+                    <span class="n">metric_name</span><span class="o">=</span><span class="n">metric_name</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
+                <span class="c1"># Some models don't implement '_predict', which is needed</span>
+                <span class="c1"># for the contour plots.</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Model </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">generation_strategy</span><span class="o">.</span><span class="n">model</span><span class="si">}</span><span class="s2"> does not implement "</span>
+                    <span class="s2">"`predict`, so it cannot be used to generate a response "</span>
+                    <span class="s2">"surface plot."</span>
+                <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">'Could not obtain contour plot of "</span><span class="si">{</span><span class="n">metric_name</span><span class="si">}</span><span class="s1">" for parameters '</span>
+            <span class="sa">f</span><span class="s1">'"</span><span class="si">{</span><span class="n">param_x</span><span class="si">}</span><span class="s1">" and "</span><span class="si">{</span><span class="n">param_y</span><span class="si">}</span><span class="s1">", as a model with predictive ability, '</span>
+            <span class="s2">"such as a Gaussian Process, has not yet been trained in the course "</span>
+            <span class="s2">"of this optimization."</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxClient.get_feature_importances"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.get_feature_importances">[docs]</a>    <span class="k">def</span> <span class="nf">get_feature_importances</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">relative</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AxPlotConfig</span><span class="p">:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Get a bar chart showing feature_importances for a metric.</span>
+
+<span class="sd">        A drop-down controls the metric for which the importances are displayed.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            relative: Whether the values are displayed as percentiles or</span>
+<span class="sd">                as raw importance metrics.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Cannot generate plot as there are no trials."</span><span class="p">)</span>
+        <span class="n">cur_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generation_strategy</span><span class="o">.</span><span class="n">model</span>
+        <span class="k">if</span> <span class="n">cur_model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">plot_feature_importance_by_feature</span><span class="p">(</span><span class="n">cur_model</span><span class="p">,</span> <span class="n">relative</span><span class="o">=</span><span class="n">relative</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Model </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">generation_strategy</span><span class="o">.</span><span class="n">model</span><span class="si">}</span><span class="s2"> does not implement "</span>
+                    <span class="s2">"`feature_importances`, so it cannot be used to generate "</span>
+                    <span class="s2">"this plot. Only certain models, specifically GPEI, implement "</span>
+                    <span class="s2">"feature importances."</span>
+                <span class="p">)</span>
+
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"Could not obtain feature_importances for any metrics "</span>
+            <span class="s2">" as a model that can produce feature importances, such as a "</span>
+            <span class="s2">"Gaussian Process, has not yet been trained in the course "</span>
+            <span class="s2">"of this optimization."</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxClient.load_experiment_from_database"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.load_experiment_from_database">[docs]</a>    <span class="k">def</span> <span class="nf">load_experiment_from_database</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">experiment_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">choose_generation_strategy_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Load an existing experiment from database using the `DBSettings`</span>
+<span class="sd">        passed to this `AxClient` on instantiation.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            experiment_name: Name of the experiment.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Experiment object.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">db_settings</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="s2">"Cannot load an experiment in the absence of the DB settings."</span>
+                <span class="s2">"Please initialize `AxClient` with DBSettings."</span>
+            <span class="p">)</span>
+        <span class="n">experiment</span><span class="p">,</span> <span class="n">generation_strategy</span> <span class="o">=</span> <span class="n">load_experiment_and_generation_strategy</span><span class="p">(</span>
+            <span class="n">experiment_name</span><span class="o">=</span><span class="n">experiment_name</span><span class="p">,</span> <span class="n">db_settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">db_settings</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span> <span class="o">=</span> <span class="n">experiment</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Loaded </span><span class="si">{</span><span class="n">experiment</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">generation_strategy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_set_generation_strategy</span><span class="p">(</span>
+                <span class="n">choose_generation_strategy_kwargs</span><span class="o">=</span><span class="n">choose_generation_strategy_kwargs</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_generation_strategy</span> <span class="o">=</span> <span class="n">generation_strategy</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Using generation strategy associated with the loaded experiment:"</span>
+                <span class="sa">f</span><span class="s2">" </span><span class="si">{</span><span class="n">generation_strategy</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxClient.get_model_predictions"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.get_model_predictions">[docs]</a>    <span class="k">def</span> <span class="nf">get_model_predictions</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">metric_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]:</span>
+        <span class="sd">"""Retrieve model-estimated means and covariances for all metrics.</span>
+<span class="sd">        Note: this function retrieves the predictions for the 'in-sample' arms,</span>
+<span class="sd">        which means that the return mapping on this function will only contain</span>
+<span class="sd">        predictions for trials that have been completed with data.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            metric_names: Names of the metrics, for which to retrieve predictions.</span>
+<span class="sd">                All metrics on experiment will be retrieved if this argument was</span>
+<span class="sd">                not specified.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A mapping from trial index to a mapping of metric names to tuples</span>
+<span class="sd">            of predicted metric mean and SEM, of form:</span>
+<span class="sd">            { trial_index -&gt; { metric_name: ( mean, SEM ) } }.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">generation_strategy</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"No model has been instantiated yet."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">metric_names</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">metrics</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="s2">"No metrics to retrieve specified on the experiment or as "</span>
+                <span class="s2">"argument to `get_model_predictions`."</span>
+            <span class="p">)</span>
+        <span class="n">arm_info</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_get_in_sample_arms</span><span class="p">(</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">generation_strategy</span><span class="o">.</span><span class="n">model</span><span class="p">),</span>
+            <span class="n">metric_names</span><span class="o">=</span><span class="nb">set</span><span class="p">(</span><span class="n">metric_names</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">metric_names</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="nb">set</span><span class="p">(</span><span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">metrics</span><span class="p">)</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span>
+        <span class="p">)</span>
+        <span class="n">trials</span> <span class="o">=</span> <span class="n">checked_cast_dict</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">Trial</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">trial_index</span><span class="p">:</span> <span class="p">{</span>
+                <span class="n">m</span><span class="p">:</span> <span class="p">(</span>
+                    <span class="n">arm_info</span><span class="p">[</span><span class="n">not_none</span><span class="p">(</span><span class="n">trials</span><span class="p">[</span><span class="n">trial_index</span><span class="p">]</span><span class="o">.</span><span class="n">arm</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">y_hat</span><span class="p">[</span><span class="n">m</span><span class="p">],</span>
+                    <span class="n">arm_info</span><span class="p">[</span><span class="n">not_none</span><span class="p">(</span><span class="n">trials</span><span class="p">[</span><span class="n">trial_index</span><span class="p">]</span><span class="o">.</span><span class="n">arm</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">se_hat</span><span class="p">[</span><span class="n">m</span><span class="p">],</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">arm_info</span><span class="p">[</span><span class="n">not_none</span><span class="p">(</span><span class="n">trials</span><span class="p">[</span><span class="n">trial_index</span><span class="p">]</span><span class="o">.</span><span class="n">arm</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">y_hat</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">trial_index</span> <span class="ow">in</span> <span class="n">trials</span>
+            <span class="k">if</span> <span class="n">not_none</span><span class="p">(</span><span class="n">trials</span><span class="p">[</span><span class="n">trial_index</span><span class="p">]</span><span class="o">.</span><span class="n">arm</span><span class="p">)</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">arm_info</span>
+        <span class="p">}</span></div>
+
+<div class="viewcode-block" id="AxClient.verify_trial_parameterization"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.verify_trial_parameterization">[docs]</a>    <span class="k">def</span> <span class="nf">verify_trial_parameterization</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">parameterization</span><span class="p">:</span> <span class="n">TParameterization</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Whether the given parameterization matches that of the arm in the trial</span>
+<span class="sd">        specified in the trial index.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_trial</span><span class="p">(</span><span class="n">trial_index</span><span class="o">=</span><span class="n">trial_index</span><span class="p">)</span><span class="o">.</span><span class="n">arm</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span>
+            <span class="o">==</span> <span class="n">parameterization</span>
+        <span class="p">)</span></div>
+
+    <span class="c1"># ------------------ JSON serialization &amp; storage methods. -----------------</span>
+
+<div class="viewcode-block" id="AxClient.save_to_json_file"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.save_to_json_file">[docs]</a>    <span class="k">def</span> <span class="nf">save_to_json_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"ax_client_snapshot.json"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Save a JSON-serialized snapshot of this `AxClient`'s settings and state</span>
+<span class="sd">        to a .json file by the given path.</span>
+<span class="sd">        """</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">"w+"</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_json_snapshot</span><span class="p">()))</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Saved JSON-serialized state of optimization to `</span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">`."</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxClient.load_from_json_file"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.load_from_json_file">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">load_from_json_file</span><span class="p">(</span>
+        <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"ax_client_snapshot.json"</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"AxClient"</span><span class="p">:</span>
+        <span class="sd">"""Restore an `AxClient` and its state from a JSON-serialized snapshot,</span>
+<span class="sd">        residing in a .json file by the given path.</span>
+<span class="sd">        """</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="n">serialized</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+            <span class="k">return</span> <span class="n">AxClient</span><span class="o">.</span><span class="n">from_json_snapshot</span><span class="p">(</span><span class="n">serialized</span><span class="o">=</span><span class="n">serialized</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxClient.to_json_snapshot"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.to_json_snapshot">[docs]</a>    <span class="k">def</span> <span class="nf">to_json_snapshot</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">"""Serialize this `AxClient` to JSON to be able to interrupt and restart</span>
+<span class="sd">        optimization and save it to file by the provided path.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A JSON-safe dict representation of this `AxClient`.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"_type"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">"experiment"</span><span class="p">:</span> <span class="n">object_to_json</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span><span class="p">),</span>
+            <span class="s2">"generation_strategy"</span><span class="p">:</span> <span class="n">object_to_json</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_generation_strategy</span><span class="p">),</span>
+            <span class="s2">"_enforce_sequential_optimization"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_enforce_sequential_optimization</span><span class="p">,</span>
+        <span class="p">}</span></div>
+
+<div class="viewcode-block" id="AxClient.from_json_snapshot"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.from_json_snapshot">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">from_json_snapshot</span><span class="p">(</span><span class="n">serialized</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"AxClient"</span><span class="p">:</span>
+        <span class="sd">"""Recreate an `AxClient` from a JSON snapshot."""</span>
+        <span class="n">experiment</span> <span class="o">=</span> <span class="n">object_from_json</span><span class="p">(</span><span class="n">serialized</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"experiment"</span><span class="p">))</span>
+        <span class="n">serialized_generation_strategy</span> <span class="o">=</span> <span class="n">serialized</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"generation_strategy"</span><span class="p">)</span>
+        <span class="n">ax_client</span> <span class="o">=</span> <span class="n">AxClient</span><span class="p">(</span>
+            <span class="n">generation_strategy</span><span class="o">=</span><span class="n">generation_strategy_from_json</span><span class="p">(</span>
+                <span class="n">generation_strategy_json</span><span class="o">=</span><span class="n">serialized_generation_strategy</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">serialized_generation_strategy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">enforce_sequential_optimization</span><span class="o">=</span><span class="n">serialized</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span>
+                <span class="s2">"_enforce_sequential_optimization"</span>
+            <span class="p">),</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">ax_client</span><span class="o">.</span><span class="n">_experiment</span> <span class="o">=</span> <span class="n">experiment</span>
+        <span class="k">return</span> <span class="n">ax_client</span></div>
+
+    <span class="c1"># ---------------------- Private helper methods. ---------------------</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">experiment</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Experiment</span><span class="p">:</span>
+        <span class="sd">"""Returns the experiment set on this Ax client."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Experiment not set on Ax client. Must first "</span>
+                <span class="s2">"call load_experiment or create_experiment to use handler functions."</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">generation_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GenerationStrategy</span><span class="p">:</span>
+        <span class="sd">"""Returns the generation strategy, set on this experiment."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generation_strategy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"No generation strategy has been set on this optimization yet."</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_generation_strategy</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">objective_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">"""Returns the name of the objective in this optimization."""</span>
+        <span class="n">opt_config</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">optimization_config</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">opt_config</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span>
+
+    <span class="k">def</span> <span class="nf">_set_generation_strategy</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">choose_generation_strategy_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Selects the generation strategy and applies specified dispatch kwargs,</span>
+<span class="sd">        if any.</span>
+<span class="sd">        """</span>
+        <span class="n">choose_generation_strategy_kwargs</span> <span class="o">=</span> <span class="n">choose_generation_strategy_kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">random_seed</span> <span class="o">=</span> <span class="n">choose_generation_strategy_kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span>
+            <span class="s2">"random_seed"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_random_seed</span>
+        <span class="p">)</span>
+        <span class="n">enforce_sequential_optimization</span> <span class="o">=</span> <span class="n">choose_generation_strategy_kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span>
+            <span class="s2">"enforce_sequential_optimization"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_enforce_sequential_optimization</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generation_strategy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_generation_strategy</span> <span class="o">=</span> <span class="n">choose_generation_strategy</span><span class="p">(</span>
+                <span class="n">search_space</span><span class="o">=</span><span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_experiment</span><span class="p">)</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span>
+                <span class="n">enforce_sequential_optimization</span><span class="o">=</span><span class="n">enforce_sequential_optimization</span><span class="p">,</span>
+                <span class="n">random_seed</span><span class="o">=</span><span class="n">random_seed</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">choose_generation_strategy_kwargs</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="nd">@retry_on_exception</span><span class="p">(</span>
+        <span class="n">retries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="n">default_return_on_suppression</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">exception_type</span><span class="o">=</span><span class="n">retry_exception_type_tuple</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_save_experiment_to_db_if_possible</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">suppress_all_errors</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Saves attached experiment and generation strategy if DB settings are</span>
+<span class="sd">        set on this AxClient instance.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: Whether the experiment was saved.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">db_settings</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">save_experiment</span><span class="p">(</span><span class="n">experiment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="p">,</span> <span class="n">db_settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">db_settings</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="nd">@retry_on_exception</span><span class="p">(</span>
+        <span class="n">retries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="n">default_return_on_suppression</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">exception_type</span><span class="o">=</span><span class="n">retry_exception_type_tuple</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_save_new_trial_to_db_if_possible</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">trial</span><span class="p">:</span> <span class="n">BaseTrial</span><span class="p">,</span> <span class="n">suppress_all_errors</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Saves given trial and generation strategy if DB settings are</span>
+<span class="sd">        set on this AxClient instance.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: Whether the experiment was saved.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">db_settings</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">save_new_trial</span><span class="p">(</span>
+                <span class="n">experiment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="p">,</span> <span class="n">trial</span><span class="o">=</span><span class="n">trial</span><span class="p">,</span> <span class="n">db_settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">db_settings</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="nd">@retry_on_exception</span><span class="p">(</span>
+        <span class="n">retries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="n">default_return_on_suppression</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">exception_type</span><span class="o">=</span><span class="n">retry_exception_type_tuple</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_save_updated_trial_to_db_if_possible</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">trial</span><span class="p">:</span> <span class="n">BaseTrial</span><span class="p">,</span> <span class="n">suppress_all_errors</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Saves attached experiment and generation strategy if DB settings are</span>
+<span class="sd">        set on this AxClient instance.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: Whether the experiment was saved.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">db_settings</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">save_updated_trial</span><span class="p">(</span>
+                <span class="n">experiment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="p">,</span> <span class="n">trial</span><span class="o">=</span><span class="n">trial</span><span class="p">,</span> <span class="n">db_settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">db_settings</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="nd">@retry_on_exception</span><span class="p">(</span>
+        <span class="n">retries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="n">default_return_on_suppression</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">exception_type</span><span class="o">=</span><span class="n">retry_exception_type_tuple</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_save_generation_strategy_to_db_if_possible</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">suppress_all_errors</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Saves attached experiment and generation strategy if DB settings are</span>
+<span class="sd">        set on this AxClient instance.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: Whether the experiment was saved.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">db_settings</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">save_generation_strategy</span><span class="p">(</span>
+                <span class="n">generation_strategy</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">generation_strategy</span><span class="p">,</span>
+                <span class="n">db_settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">db_settings</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">_gen_new_generator_run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GeneratorRun</span><span class="p">:</span>
+        <span class="sd">"""Generate new generator run for this experiment.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            n: Number of arms to generate.</span>
+<span class="sd">        """</span>
+        <span class="c1"># If random seed is not set for this optimization, context manager does</span>
+        <span class="c1"># nothing; otherwise, it sets the random seed for torch, but only for the</span>
+        <span class="c1"># scope of this call. This is important because torch seed is set globally,</span>
+        <span class="c1"># so if we just set the seed without the context manager, it can have</span>
+        <span class="c1"># serious negative impact on the performance of the models that employ</span>
+        <span class="c1"># stochasticity.</span>
+        <span class="k">with</span> <span class="n">manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_random_seed</span><span class="p">)</span> <span class="ow">and</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
+            <span class="c1"># Filter out GPYTorch warnings to avoid confusing users.</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">"ignore"</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">generation_strategy</span><span class="p">)</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span>
+                <span class="n">experiment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="p">,</span>
+                <span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span>
+                <span class="n">pending_observations</span><span class="o">=</span><span class="n">get_pending_observation_features</span><span class="p">(</span>
+                    <span class="n">experiment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Trial</span><span class="p">:</span>
+        <span class="sd">"""Gets trial by given index or raises an error if it does not exist."""</span>
+        <span class="k">if</span> <span class="n">trial_index</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">:</span>
+            <span class="n">trial</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">trial_index</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">trial</span><span class="p">,</span> <span class="n">Trial</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                    <span class="s2">"`AxClient` only supports `Trial`, not `BatchTrial`."</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">trial</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Trial </span><span class="si">{</span><span class="n">trial_index</span><span class="si">}</span><span class="s2"> does not yet exist."</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_find_last_trial_with_parameterization</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">parameterization</span><span class="p">:</span> <span class="n">TParameterization</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">"""Given a parameterization, find the last trial in the experiment that</span>
+<span class="sd">        contains an arm with that parameterization.</span>
+<span class="sd">        """</span>
+        <span class="k">for</span> <span class="n">trial_idx</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_trial</span><span class="p">(</span><span class="n">trial_idx</span><span class="p">)</span><span class="o">.</span><span class="n">arm</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span> <span class="o">==</span> <span class="n">parameterization</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">trial_idx</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"No trial on experiment matches parameterization </span><span class="si">{</span><span class="n">parameterization</span><span class="si">}</span><span class="s2">."</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_make_evaluations_and_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">trial</span><span class="p">:</span> <span class="n">BaseTrial</span><span class="p">,</span>
+        <span class="n">raw_data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">TEvaluationOutcome</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TEvaluationOutcome</span><span class="p">]],</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]],</span>
+        <span class="n">sample_sizes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TEvaluationOutcome</span><span class="p">],</span> <span class="n">Data</span><span class="p">]:</span>
+        <span class="sd">"""Formats given raw data as Ax evaluations and `Data`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial: Trial within the experiment.</span>
+<span class="sd">            raw_data: Metric outcomes for 1-arm trials, map from arm name to</span>
+<span class="sd">                metric outcomes for batched trials.</span>
+<span class="sd">            sample_size: Integer sample size for 1-arm trials, dict from arm</span>
+<span class="sd">                name to sample size for batched trials. Optional.</span>
+<span class="sd">            metadata: Additional metadata to track about this run.</span>
+<span class="sd">            data_is_for_batched_trials: Whether making evaluations and data for</span>
+<span class="sd">                a batched trial or a 1-arm trial.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">trial</span><span class="p">,</span> <span class="n">BatchTrial</span><span class="p">):</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="n">raw_data</span><span class="p">,</span> <span class="nb">dict</span>
+            <span class="p">),</span> <span class="sa">f</span><span class="s2">"Raw data must be a dict for batched trials."</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">trial</span><span class="p">,</span> <span class="n">Trial</span><span class="p">):</span>
+            <span class="n">arm_name</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">arm</span><span class="p">)</span><span class="o">.</span><span class="n">name</span>
+            <span class="n">raw_data</span> <span class="o">=</span> <span class="p">{</span><span class="n">arm_name</span><span class="p">:</span> <span class="n">raw_data</span><span class="p">}</span>  <span class="c1"># pyre-ignore[9]</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unexpected trial type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">trial</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw_data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+        <span class="n">evaluations</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">arm_name</span><span class="p">:</span> <span class="n">raw_data_to_evaluation</span><span class="p">(</span>
+                <span class="n">raw_data</span><span class="o">=</span><span class="n">raw_data</span><span class="p">[</span><span class="n">arm_name</span><span class="p">],</span> <span class="n">objective_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">objective_name</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">arm_name</span> <span class="ow">in</span> <span class="n">raw_data</span>
+        <span class="p">}</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">data_from_evaluations</span><span class="p">(</span>
+            <span class="n">evaluations</span><span class="o">=</span><span class="n">evaluations</span><span class="p">,</span>
+            <span class="n">trial_index</span><span class="o">=</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+            <span class="n">sample_sizes</span><span class="o">=</span><span class="n">sample_sizes</span> <span class="ow">or</span> <span class="p">{},</span>
+            <span class="n">start_time</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">checked_cast_optional</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"start_time"</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="kc">None</span>
+            <span class="p">),</span>
+            <span class="n">end_time</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">checked_cast_optional</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"end_time"</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="kc">None</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">evaluations</span><span class="p">,</span> <span class="n">data</span>
+
+    <span class="c1"># ------------------------------ Validators. -------------------------------</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_validate_can_complete_trial</span><span class="p">(</span><span class="n">trial</span><span class="p">:</span> <span class="n">BaseTrial</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">trial</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">is_completed</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Trial </span><span class="si">{</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="si">}</span><span class="s2"> has already been completed with data."</span>
+                <span class="s2">"To add more data to it (for example, for a different metric), "</span>
+                <span class="s2">"use `ax_client.update_trial_data`."</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">trial</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">is_abandoned</span> <span class="ow">or</span> <span class="n">trial</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">is_failed</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Trial </span><span class="si">{</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="si">}</span><span class="s2"> has been marked </span><span class="si">{</span><span class="n">trial</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">, so it "</span>
+                <span class="s2">"no longer expects data."</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_validate_search_space_membership</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">:</span> <span class="n">TParameterization</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">search_space</span><span class="o">.</span><span class="n">check_membership</span><span class="p">(</span>
+            <span class="n">parameterization</span><span class="o">=</span><span class="n">parameters</span><span class="p">,</span> <span class="n">raise_error</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="c1"># `check_membership` uses int and float interchangeably, which we don't</span>
+        <span class="c1"># want here.</span>
+        <span class="k">for</span> <span class="n">p_name</span><span class="p">,</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="n">p_name</span><span class="p">],</span> <span class="n">parameter</span><span class="o">.</span><span class="n">python_type</span><span class="p">):</span>
+                <span class="n">typ</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="n">p_name</span><span class="p">])</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Value for parameter </span><span class="si">{</span><span class="n">p_name</span><span class="si">}</span><span class="s2"> is of type </span><span class="si">{</span><span class="n">typ</span><span class="si">}</span><span class="s2">, expected "</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">parameter</span><span class="o">.</span><span class="n">python_type</span><span class="si">}</span><span class="s2">. If the intention was to have the "</span>
+                    <span class="sa">f</span><span class="s2">"parameter on experiment be of type </span><span class="si">{</span><span class="n">typ</span><span class="si">}</span><span class="s2">, set `value_type` "</span>
+                    <span class="s2">"on experiment creation for </span><span class="si">{p_name}</span><span class="s2">."</span>
+                <span class="p">)</span>
+
+    <span class="c1"># -------- Backward-compatibility with old save / load method names. -------</span>
+
+<div class="viewcode-block" id="AxClient.get_recommended_max_parallelism"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.get_recommended_max_parallelism">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_recommended_max_parallelism</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">"Use `get_max_parallelism` instead; parallelism levels are now "</span>
+            <span class="s2">"enforced in generation strategy, so max parallelism is no longer "</span>
+            <span class="s2">"just recommended."</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxClient.load_experiment"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.load_experiment">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">load_experiment</span><span class="p">(</span><span class="n">experiment_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">"Use `load_experiment_from_database` to load from SQL database or "</span>
+            <span class="s2">"`load_from_json_file` to load optimization state from .json file."</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxClient.load"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.load">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="n">filepath</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">"Use `load_experiment_from_database` to load from SQL database or "</span>
+            <span class="s2">"`load_from_json_file` to load optimization state from .json file."</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxClient.save"><a class="viewcode-back" href="../../../service.html#ax.service.ax_client.AxClient.save">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="n">filepath</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">"Use `save_to_json_file` to save optimization state to .json file."</span>
+        <span class="p">)</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.11/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2020 Facebook Inc.</section></footer></div></body></html>

@@ -1,0 +1,461 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.6/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.6/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.6/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.6/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.6/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.6/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.6/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.6/css/main.css"/><script src="/versions/0.1.6/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.6/"><img class="logo" src="/versions/0.1.6/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.6/versions.html"><h3>0.1.6</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.6/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.6/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.6/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.benchmark.benchmark_runner</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="k">import</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">ax.benchmark.benchmark_problem</span> <span class="k">import</span> <span class="n">BenchmarkProblem</span>
+<span class="kn">from</span> <span class="nn">ax.core.batch_trial</span> <span class="k">import</span> <span class="n">BatchTrial</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="k">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="k">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.generator_run</span> <span class="k">import</span> <span class="n">GeneratorRun</span>
+<span class="kn">from</span> <span class="nn">ax.core.observation</span> <span class="k">import</span> <span class="n">ObservationFeatures</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="k">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.core.trial</span> <span class="k">import</span> <span class="n">Trial</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="k">import</span> <span class="n">ComparisonOp</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.base</span> <span class="k">import</span> <span class="n">gen_arms</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.generation_strategy</span> <span class="k">import</span> <span class="n">GenerationStrategy</span>
+<span class="kn">from</span> <span class="nn">ax.runners.synthetic</span> <span class="k">import</span> <span class="n">SyntheticRunner</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="k">import</span> <span class="n">get_logger</span>
+
+
+<span class="n">logger</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">ALLOWED_RUN_RETRIES</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="n">PROBLEM_METHOD_DELIMETER</span> <span class="o">=</span> <span class="s2">"_on_"</span>
+<span class="n">RUN_DELIMETER</span> <span class="o">=</span> <span class="s2">"_run_"</span>
+
+
+<div class="viewcode-block" id="BenchmarkResult"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_runner.BenchmarkResult">[docs]</a><span class="k">class</span> <span class="nc">BenchmarkResult</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="c1"># {method_name -&gt; [[best objective per trial] per benchmark run]}</span>
+    <span class="n">objective_at_true_best</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+    <span class="c1"># {method_name -&gt; trials where generation strategy changed}</span>
+    <span class="n">generator_changes</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]</span>
+    <span class="n">optimum</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="c1"># {method_name -&gt; [total fit time per run]}</span>
+    <span class="n">fit_times</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span>
+    <span class="c1"># {method_name -&gt; [total gen time per run]}</span>
+    <span class="n">gen_times</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span></div>
+
+
+<div class="viewcode-block" id="BenchmarkSetup"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_runner.BenchmarkSetup">[docs]</a><span class="k">class</span> <span class="nc">BenchmarkSetup</span><span class="p">(</span><span class="n">Experiment</span><span class="p">):</span>
+    <span class="sd">"""An extension of `Experiment`, specific to benchmarking. Contains</span>
+<span class="sd">    additional data, such as the benchmarking problem, iterations to run per</span>
+<span class="sd">    benchmarking method and problem combination, etc.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        problem: description of the benchmarking problem for</span>
+<span class="sd">            this setup</span>
+<span class="sd">        total_iterations: how many optimization iterations to run</span>
+<span class="sd">        batch_size: if this benchmark requires batch trials,</span>
+<span class="sd">            batch size for those. Defaults to None</span>
+<span class="sd">    """</span>
+
+    <span class="n">problem</span><span class="p">:</span> <span class="n">BenchmarkProblem</span>
+    <span class="n">total_iterations</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">:</span> <span class="n">BenchmarkProblem</span><span class="p">,</span> <span class="n">total_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">problem</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">problem</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span>
+            <span class="n">runner</span><span class="o">=</span><span class="n">SyntheticRunner</span><span class="p">(),</span>
+            <span class="n">optimization_config</span><span class="o">=</span><span class="n">problem</span><span class="o">.</span><span class="n">optimization_config</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">problem</span> <span class="o">=</span> <span class="n">problem</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">total_iterations</span> <span class="o">=</span> <span class="n">total_iterations</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">=</span> <span class="n">batch_size</span>
+
+<div class="viewcode-block" id="BenchmarkSetup.clone_reset"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_runner.BenchmarkSetup.clone_reset">[docs]</a>    <span class="k">def</span> <span class="nf">clone_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"BenchmarkSetup"</span><span class="p">:</span>
+        <span class="sd">"""Create a clean copy of this benchmarking setup, with no run data</span>
+<span class="sd">        attached to it."""</span>
+        <span class="k">return</span> <span class="n">BenchmarkSetup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">total_iterations</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BenchmarkSetup.evaluation_function"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_runner.BenchmarkSetup.evaluation_function">[docs]</a>    <span class="k">def</span> <span class="nf">evaluation_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">"""</span>
+<span class="sd">        An interface for directly calling the benchmark problem evaluation</span>
+<span class="sd">        function. Tracks each call as a Trial. Only works for unconstrained</span>
+<span class="sd">        problems with a batch size of 1.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x: A vector of the point to evaluate</span>
+
+<span class="sd">        Returns: Value of the objective at x</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">trials</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">total_iterations</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">"Evaluation budget exhausted."</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="c1"># Create an ObservationFeatures</span>
+        <span class="n">param_dict</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">pname</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">pname</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="p">}</span>
+        <span class="n">obsf</span> <span class="o">=</span> <span class="n">ObservationFeatures</span><span class="p">(</span><span class="n">parameters</span><span class="o">=</span><span class="n">param_dict</span><span class="p">)</span>  <span class="c1"># pyre-ignore</span>
+        <span class="c1"># Get the time since last call</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">trials</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">gen_time</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">gen_time</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">trials</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">time_created</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
+            <span class="p">)</span>
+        <span class="c1"># Create a GR</span>
+        <span class="n">gr</span> <span class="o">=</span> <span class="n">GeneratorRun</span><span class="p">(</span>
+            <span class="n">arms</span><span class="o">=</span><span class="n">gen_arms</span><span class="p">(</span>
+                <span class="n">observation_features</span><span class="o">=</span><span class="p">[</span><span class="n">obsf</span><span class="p">],</span> <span class="n">arms_by_signature</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">arms_by_signature</span>
+            <span class="p">),</span>
+            <span class="n">gen_time</span><span class="o">=</span><span class="n">gen_time</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># Add it as a trial</span>
+        <span class="n">trial</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_trial</span><span class="p">()</span><span class="o">.</span><span class="n">add_generator_run</span><span class="p">(</span><span class="n">gr</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+        <span class="c1"># Evaluate function</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">trial</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">()</span><span class="o">.</span><span class="n">df</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">"Does not support multiple outcomes"</span><span class="p">)</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span></div></div>
+
+
+<span class="c1"># pyre-fixme[44]: `BenchmarkRunner` non-abstract class with abstract methods.</span>
+<div class="viewcode-block" id="BenchmarkRunner"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_runner.BenchmarkRunner">[docs]</a><span class="k">class</span> <span class="nc">BenchmarkRunner</span><span class="p">:</span>
+    <span class="sd">"""Runner that keeps track of benchmark runs and failures encountered</span>
+<span class="sd">    during benchmarking.</span>
+<span class="sd">    """</span>
+
+    <span class="n">_failed_runs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span>
+    <span class="n">_runs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">BenchmarkSetup</span><span class="p">]</span>
+    <span class="n">_error_messages</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="n">_generator_changes</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_runs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_failed_runs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_error_messages</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_generator_changes</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="BenchmarkRunner.run_benchmark_run"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_runner.BenchmarkRunner.run_benchmark_run">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">run_benchmark_run</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">setup</span><span class="p">:</span> <span class="n">BenchmarkSetup</span><span class="p">,</span> <span class="n">generation_strategy</span><span class="p">:</span> <span class="n">GenerationStrategy</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BenchmarkSetup</span><span class="p">:</span>
+        <span class="sd">"""Run a single full benchmark run of the given problem and method</span>
+<span class="sd">        combination.</span>
+<span class="sd">        """</span>
+        <span class="k">pass</span>  <span class="c1"># pragma: no cover</span></div>
+
+<div class="viewcode-block" id="BenchmarkRunner.run_benchmark_test"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_runner.BenchmarkRunner.run_benchmark_test">[docs]</a>    <span class="k">def</span> <span class="nf">run_benchmark_test</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">setup</span><span class="p">:</span> <span class="n">BenchmarkSetup</span><span class="p">,</span>
+        <span class="n">generation_strategy</span><span class="p">:</span> <span class="n">GenerationStrategy</span><span class="p">,</span>
+        <span class="n">num_runs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+        <span class="n">raise_all_errors</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">BenchmarkSetup</span><span class="p">]:</span>
+        <span class="sd">"""Run full benchmark test for the given method and problem combination.</span>
+<span class="sd">        A benchmark test consists of repeated full benchmark runs.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            setup: setup, runs on which to execute; includes</span>
+<span class="sd">                a benchmarking problem, total number of iterations, etc.</span>
+<span class="sd">            generation strategy: generation strategy that defines which</span>
+<span class="sd">                generation methods should be used in this benchmarking test</span>
+<span class="sd">            num_runs: how many benchmark runs of given problem and method</span>
+<span class="sd">                combination to run with the given setup for one benchmark test</span>
+<span class="sd">        """</span>
+        <span class="n">num_failures</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">benchmark_runs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">BenchmarkSetup</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">f</span><span class="s2">"Testing </span><span class="si">{generation_strategy.name}</span><span class="s2"> on </span><span class="si">{setup.name}</span><span class="s2">:"</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">run_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_runs</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">f</span><span class="s2">"Run </span><span class="si">{run_idx}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">run_key</span> <span class="o">=</span> <span class="p">(</span><span class="n">setup</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">generation_strategy</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">run_idx</span><span class="p">)</span>
+            <span class="c1"># If this run has already been executed, log and skip it.</span>
+            <span class="k">if</span> <span class="n">run_key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runs</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_error_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="n">f</span><span class="s2">"Run </span><span class="si">{run_idx}</span><span class="s2"> of </span><span class="si">{generation_strategy.name}</span><span class="s2"> on </span><span class="si">{setup.name}</span><span class="s2"> "</span>
+                    <span class="s2">"has already been executed in this benchmarking suite."</span>
+                    <span class="s2">"Check that this method + problem combination is not "</span>
+                    <span class="s2">"included in the benchmarking suite twice. Only the first "</span>
+                    <span class="s2">"run will be recorded."</span>
+                <span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># When number of failures in this test exceeds the allowed max,</span>
+            <span class="c1"># we consider the whole run failed.</span>
+            <span class="k">while</span> <span class="n">num_failures</span> <span class="o">&lt;</span> <span class="n">ALLOWED_RUN_RETRIES</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">benchmark_runs</span><span class="p">[</span><span class="n">run_key</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_benchmark_run</span><span class="p">(</span>
+                        <span class="n">setup</span><span class="o">.</span><span class="n">clone_reset</span><span class="p">(),</span> <span class="n">generation_strategy</span><span class="o">.</span><span class="n">clone_reset</span><span class="p">()</span>
+                    <span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_generator_changes</span><span class="p">[</span>
+                        <span class="n">run_key</span>
+                    <span class="p">]</span> <span class="o">=</span> <span class="n">generation_strategy</span><span class="o">.</span><span class="n">generator_changes</span>
+                    <span class="k">break</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="k">if</span> <span class="n">raise_all_errors</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="n">err</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+                    <span class="n">num_failures</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_error_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f</span><span class="s2">"Error in </span><span class="si">{run_key}</span><span class="s2">: </span><span class="si">{err}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">num_failures</span> <span class="o">&gt;=</span> <span class="mi">5</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_error_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">f</span><span class="s2">"Considering </span><span class="si">{generation_strategy.name}</span><span class="s2"> on </span><span class="si">{setup.name}</span><span class="s2"> failed"</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_failed_runs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">setup</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">generation_strategy</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_runs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">benchmark_runs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runs</span></div>
+
+<div class="viewcode-block" id="BenchmarkRunner.aggregate_results"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_runner.BenchmarkRunner.aggregate_results">[docs]</a>    <span class="k">def</span> <span class="nf">aggregate_results</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">BenchmarkResult</span><span class="p">]:</span>
+        <span class="sd">"""Pull results from each of the runs (BenchmarkSetups aka Experiments)</span>
+<span class="sd">        and aggregate them into a BenchmarkResult for each problem.</span>
+<span class="sd">        """</span>
+        <span class="n">n_iters</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">optima</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="c1"># Results will be put in nested dictionaries problem -&gt; method -&gt; results</span>
+        <span class="n">objective_at_true_best</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">fit_times</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">gen_times</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">generator_changes</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">r</span><span class="p">),</span> <span class="n">setup</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_runs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">res_dict</span> <span class="ow">in</span> <span class="p">[</span>
+                <span class="n">objective_at_true_best</span><span class="p">,</span>
+                <span class="n">fit_times</span><span class="p">,</span>
+                <span class="n">gen_times</span><span class="p">,</span>
+                <span class="n">generator_changes</span><span class="p">,</span>
+            <span class="p">]:</span>
+                <span class="k">if</span> <span class="n">p</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">res_dict</span><span class="p">:</span>
+                    <span class="n">res_dict</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+            <span class="n">optima</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">setup</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">fbest</span>
+            <span class="n">generator_changes</span><span class="p">[</span><span class="n">p</span><span class="p">][</span><span class="n">m</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generator_changes</span><span class="p">[(</span><span class="n">p</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">r</span><span class="p">)]</span>
+            <span class="c1"># Extract iterations for this pmr</span>
+            <span class="n">names</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="n">setup</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">arm</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">arms</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">trial</span><span class="p">,</span> <span class="n">BatchTrial</span><span class="p">):</span>
+                        <span class="n">reps</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">weights</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">reps</span> <span class="o">=</span> <span class="mi">1</span>
+                    <span class="n">names</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">arm</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">*</span> <span class="n">reps</span><span class="p">)</span>
+            <span class="c1"># Make sure every run has the same number of iterations, so we can safely</span>
+            <span class="c1"># stack them in a matrix.</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span> <span class="ow">in</span> <span class="n">n_iters</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)</span> <span class="o">!=</span> <span class="n">n_iters</span><span class="p">[(</span><span class="n">p</span><span class="p">,</span> <span class="n">m</span><span class="p">)]:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                        <span class="n">f</span><span class="s2">"Expected </span><span class="si">{n_iters[(p, m)]}</span><span class="s2"> iterations, got {len(names)}"</span>
+                    <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">n_iters</span><span class="p">[(</span><span class="n">p</span><span class="p">,</span> <span class="n">m</span><span class="p">)]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)</span>
+            <span class="c1"># Get true values for every outcome for each iteration</span>
+            <span class="n">iters_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">"arm_name"</span><span class="p">:</span> <span class="n">names</span><span class="p">})</span>
+            <span class="n">data_df</span> <span class="o">=</span> <span class="n">setup</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">(</span><span class="n">noisy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">df</span>
+            <span class="n">metrics</span> <span class="o">=</span> <span class="n">data_df</span><span class="p">[</span><span class="s2">"metric_name"</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
+            <span class="n">true_values</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
+                <span class="n">df_m</span> <span class="o">=</span> <span class="n">data_df</span><span class="p">[</span><span class="n">data_df</span><span class="p">[</span><span class="s2">"metric_name"</span><span class="p">]</span> <span class="o">==</span> <span class="n">metric</span><span class="p">]</span>
+                <span class="c1"># Get one row per arm</span>
+                <span class="n">df_m</span> <span class="o">=</span> <span class="n">df_m</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"arm_name"</span><span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+                <span class="n">df_b</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">iters_df</span><span class="p">,</span> <span class="n">df_m</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">"left"</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s2">"arm_name"</span><span class="p">)</span>
+                <span class="n">true_values</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span> <span class="o">=</span> <span class="n">df_b</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+            <span class="c1"># Compute the things we care about</span>
+            <span class="c1"># 1. True best objective value.</span>
+            <span class="n">objective_at_true_best</span><span class="p">[</span><span class="n">p</span><span class="p">][</span><span class="n">m</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">true_best_objective</span><span class="p">(</span>
+                    <span class="n">optimization_config</span><span class="o">=</span><span class="n">setup</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">optimization_config</span><span class="p">,</span>
+                    <span class="n">true_values</span><span class="o">=</span><span class="n">true_values</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="c1"># 2. Time</span>
+            <span class="n">fit_time</span><span class="p">,</span> <span class="n">gen_time</span> <span class="o">=</span> <span class="n">get_model_times</span><span class="p">(</span><span class="n">setup</span><span class="p">)</span>
+            <span class="n">fit_times</span><span class="p">[</span><span class="n">p</span><span class="p">][</span><span class="n">m</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fit_time</span><span class="p">)</span>
+            <span class="n">gen_times</span><span class="p">[</span><span class="n">p</span><span class="p">][</span><span class="n">m</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gen_time</span><span class="p">)</span>
+            <span class="c1"># 3. True objective value of model-predicted best (TODO)</span>
+            <span class="c1"># 4. True feasiblity of model-predicted best (TODO)</span>
+            <span class="c1"># 5. Model prediction MSE for each gen run (TODO)</span>
+
+        <span class="c1"># Combine methods for each problem for the BenchmarkResult</span>
+        <span class="n">res</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">BenchmarkResult</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">objective_at_true_best</span><span class="p">:</span>
+            <span class="n">res</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">BenchmarkResult</span><span class="p">(</span>
+                <span class="n">objective_at_true_best</span><span class="o">=</span><span class="p">{</span>
+                    <span class="n">m</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">objective_at_true_best</span><span class="p">[</span><span class="n">p</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="p">},</span>
+                <span class="n">generator_changes</span><span class="o">=</span><span class="n">generator_changes</span><span class="p">[</span><span class="n">p</span><span class="p">],</span>
+                <span class="n">optimum</span><span class="o">=</span><span class="n">optima</span><span class="p">[</span><span class="n">p</span><span class="p">],</span>
+                <span class="n">fit_times</span><span class="o">=</span><span class="n">fit_times</span><span class="p">[</span><span class="n">p</span><span class="p">],</span>
+                <span class="n">gen_times</span><span class="o">=</span><span class="n">gen_times</span><span class="p">[</span><span class="n">p</span><span class="p">],</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">res</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">errors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">"""Messages from errors encoutered while running benchmark test."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_error_messages</span></div>
+
+
+<div class="viewcode-block" id="BanditBenchmarkRunner"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_runner.BanditBenchmarkRunner">[docs]</a><span class="k">class</span> <span class="nc">BanditBenchmarkRunner</span><span class="p">(</span><span class="n">BenchmarkRunner</span><span class="p">):</span>
+<div class="viewcode-block" id="BanditBenchmarkRunner.run_benchmark_run"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_runner.BanditBenchmarkRunner.run_benchmark_run">[docs]</a>    <span class="k">def</span> <span class="nf">run_benchmark_run</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">setup</span><span class="p">:</span> <span class="n">BenchmarkSetup</span><span class="p">,</span> <span class="n">generation_strategy</span><span class="p">:</span> <span class="n">GenerationStrategy</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BenchmarkSetup</span><span class="p">:</span>
+        <span class="k">pass</span>  <span class="c1"># pragma: no cover  TODO[drfreund]</span></div></div>
+
+
+<div class="viewcode-block" id="BOBenchmarkRunner"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_runner.BOBenchmarkRunner">[docs]</a><span class="k">class</span> <span class="nc">BOBenchmarkRunner</span><span class="p">(</span><span class="n">BenchmarkRunner</span><span class="p">):</span>
+<div class="viewcode-block" id="BOBenchmarkRunner.run_benchmark_run"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_runner.BOBenchmarkRunner.run_benchmark_run">[docs]</a>    <span class="k">def</span> <span class="nf">run_benchmark_run</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">setup</span><span class="p">:</span> <span class="n">BenchmarkSetup</span><span class="p">,</span> <span class="n">generation_strategy</span><span class="p">:</span> <span class="n">GenerationStrategy</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BenchmarkSetup</span><span class="p">:</span>
+        <span class="n">remaining_iterations</span> <span class="o">=</span> <span class="n">setup</span><span class="o">.</span><span class="n">total_iterations</span>
+        <span class="n">updated_trials</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">while</span> <span class="n">remaining_iterations</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">num_suggestions</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">remaining_iterations</span><span class="p">,</span> <span class="n">setup</span><span class="o">.</span><span class="n">batch_size</span><span class="p">)</span>
+            <span class="n">generator_run</span> <span class="o">=</span> <span class="n">generation_strategy</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span>
+                <span class="n">experiment</span><span class="o">=</span><span class="n">setup</span><span class="p">,</span>
+                <span class="n">new_data</span><span class="o">=</span><span class="n">Data</span><span class="o">.</span><span class="n">from_multiple_data</span><span class="p">(</span>
+                    <span class="p">[</span><span class="n">setup</span><span class="o">.</span><span class="n">_fetch_trial_data</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">updated_trials</span><span class="p">]</span>
+                <span class="p">),</span>
+                <span class="n">n</span><span class="o">=</span><span class="n">setup</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">updated_trials</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">if</span> <span class="n">setup</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+                <span class="n">trial</span> <span class="o">=</span> <span class="n">setup</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">()</span><span class="o">.</span><span class="n">add_generator_run</span><span class="p">(</span><span class="n">generator_run</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">trial</span> <span class="o">=</span> <span class="n">setup</span><span class="o">.</span><span class="n">new_trial</span><span class="p">(</span><span class="n">generator_run</span><span class="o">=</span><span class="n">generator_run</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+            <span class="n">updated_trials</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+            <span class="n">remaining_iterations</span> <span class="o">-=</span> <span class="n">num_suggestions</span>
+        <span class="k">return</span> <span class="n">setup</span></div></div>
+
+
+<div class="viewcode-block" id="true_best_objective"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_runner.true_best_objective">[docs]</a><span class="k">def</span> <span class="nf">true_best_objective</span><span class="p">(</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">OptimizationConfig</span><span class="p">,</span> <span class="n">true_values</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">"""Compute the true best objective value found by each iteration.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        optimization_config: Optimization config</span>
+<span class="sd">        true_values: Dictionary from metric name to array of value at each</span>
+<span class="sd">            iteration.</span>
+
+<span class="sd">    Returns: Array of cumulative best feasible value.</span>
+<span class="sd">    """</span>
+    <span class="c1"># Get objective at each iteration</span>
+    <span class="n">objective</span> <span class="o">=</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">true_values</span><span class="p">[</span><span class="n">objective</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+    <span class="c1"># Set infeasible points to have inf bad values</span>
+    <span class="k">if</span> <span class="n">objective</span><span class="o">.</span><span class="n">minimize</span><span class="p">:</span>
+        <span class="n">infeas_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">Inf</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">infeas_val</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">Inf</span>
+    <span class="k">for</span> <span class="n">oc</span> <span class="ow">in</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">oc</span><span class="o">.</span><span class="n">relative</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Benchmark aggregation does not support relative constraints"</span>
+            <span class="p">)</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">true_values</span><span class="p">[</span><span class="n">oc</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">oc</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">ComparisonOp</span><span class="o">.</span><span class="n">LEQ</span><span class="p">:</span>
+            <span class="n">feas</span> <span class="o">=</span> <span class="n">g</span> <span class="o">&lt;=</span> <span class="n">oc</span><span class="o">.</span><span class="n">bound</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">feas</span> <span class="o">=</span> <span class="n">g</span> <span class="o">&gt;=</span> <span class="n">oc</span><span class="o">.</span><span class="n">bound</span>
+        <span class="n">f</span><span class="p">[</span><span class="o">~</span><span class="n">feas</span><span class="p">]</span> <span class="o">=</span> <span class="n">infeas_val</span>
+    <span class="c1"># Get cumulative best</span>
+    <span class="k">if</span> <span class="n">objective</span><span class="o">.</span><span class="n">minimize</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="o">.</span><span class="n">accumulate</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="o">.</span><span class="n">accumulate</span><span class="p">(</span><span class="n">f</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_model_times"><a class="viewcode-back" href="../../../benchmark.html#ax.benchmark.benchmark_runner.get_model_times">[docs]</a><span class="k">def</span> <span class="nf">get_model_times</span><span class="p">(</span><span class="n">setup</span><span class="p">:</span> <span class="n">BenchmarkSetup</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="n">fit_time</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">gen_time</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="n">setup</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">trial</span><span class="p">,</span> <span class="n">BatchTrial</span><span class="p">):</span>  <span class="c1"># pragma: no cover</span>
+            <span class="n">gr</span> <span class="o">=</span> <span class="n">trial</span><span class="o">.</span><span class="n">_generator_run_structs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">generator_run</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">trial</span><span class="p">,</span> <span class="n">Trial</span><span class="p">):</span>
+            <span class="n">gr</span> <span class="o">=</span> <span class="n">trial</span><span class="o">.</span><span class="n">generator_run</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Unexpected trial type"</span><span class="p">)</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">if</span> <span class="n">gr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># for typing</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Unexpected trial with no generator run"</span>
+            <span class="p">)</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">if</span> <span class="n">gr</span><span class="o">.</span><span class="n">fit_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># pyre-fixme[6]: Expected `float` for 1st param but got `Optional[float]`.</span>
+            <span class="n">fit_time</span> <span class="o">+=</span> <span class="n">gr</span><span class="o">.</span><span class="n">fit_time</span>
+        <span class="k">if</span> <span class="n">gr</span><span class="o">.</span><span class="n">gen_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># pyre-fixme[6]: Expected `float` for 1st param but got `Optional[float]`.</span>
+            <span class="n">gen_time</span> <span class="o">+=</span> <span class="n">gr</span><span class="o">.</span><span class="n">gen_time</span>
+    <span class="k">return</span> <span class="n">fit_time</span><span class="p">,</span> <span class="n">gen_time</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.6/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2019 Facebook Inc.</section></footer></div></body></html>

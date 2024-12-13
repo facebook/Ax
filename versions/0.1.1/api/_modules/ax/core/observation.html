@@ -1,0 +1,272 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.1/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.1/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.1/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.1/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.1/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.1/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><link rel="stylesheet" href="/versions/0.1.1/css/main.css"/><script src="/versions/0.1.1/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.1/"><img class="logo" src="/versions/0.1.1/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.1/versions.html"><h3>0.1.1</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.1/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.1/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.1/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.core.observation</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.</span>
+
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">ax.core.arm</span> <span class="k">import</span> <span class="n">Arm</span>
+<span class="kn">from</span> <span class="nn">ax.core.base</span> <span class="k">import</span> <span class="n">Base</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="k">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="k">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="k">import</span> <span class="n">TParameterization</span>
+
+
+<div class="viewcode-block" id="ObservationFeatures"><a class="viewcode-back" href="../../../core.html#ax.core.observation.ObservationFeatures">[docs]</a><span class="k">class</span> <span class="nc">ObservationFeatures</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">"""The features of an observation.</span>
+
+<span class="sd">    These include both the arm parameters and the features of the</span>
+<span class="sd">    observation found in the Data object: trial index, times,</span>
+<span class="sd">    and random split. This object is meant to contain everything needed to</span>
+<span class="sd">    represent this observation in a model feature space. It is essentially a</span>
+<span class="sd">    row of Data joined with the arm parameters.</span>
+
+<span class="sd">    An ObservationFeatures object would typically have a corresponding</span>
+<span class="sd">    ObservationData object that provides the observed outcomes.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        parameters: arm parameters</span>
+<span class="sd">        trial_index: trial index</span>
+<span class="sd">        start_time: batch start time</span>
+<span class="sd">        end_time: batch end time</span>
+<span class="sd">        random_split: random split</span>
+
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="n">TParameterization</span><span class="p">,</span>
+        <span class="n">trial_index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">start_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">end_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">random_split</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span> <span class="o">=</span> <span class="n">parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trial_index</span> <span class="o">=</span> <span class="n">trial_index</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">=</span> <span class="n">start_time</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">end_time</span> <span class="o">=</span> <span class="n">end_time</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">random_split</span> <span class="o">=</span> <span class="n">random_split</span>
+
+<div class="viewcode-block" id="ObservationFeatures.from_arm"><a class="viewcode-back" href="../../../core.html#ax.core.observation.ObservationFeatures.from_arm">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">from_arm</span><span class="p">(</span>
+        <span class="n">arm</span><span class="p">:</span> <span class="n">Arm</span><span class="p">,</span>
+        <span class="n">trial_index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">start_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">end_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">random_split</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"ObservationFeatures"</span><span class="p">:</span>
+        <span class="sd">"""Convert a Arm to an ObservationFeatures, including additional</span>
+<span class="sd">        data as specified.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">ObservationFeatures</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="n">arm</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span>
+            <span class="n">trial_index</span><span class="o">=</span><span class="n">trial_index</span><span class="p">,</span>
+            <span class="n">start_time</span><span class="o">=</span><span class="n">start_time</span><span class="p">,</span>
+            <span class="n">end_time</span><span class="o">=</span><span class="n">end_time</span><span class="p">,</span>
+            <span class="n">random_split</span><span class="o">=</span><span class="n">random_split</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">strs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"trial_index"</span><span class="p">,</span> <span class="s2">"start_time"</span><span class="p">,</span> <span class="s2">"end_time"</span><span class="p">,</span> <span class="s2">"random_split"</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">strs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">", </span><span class="si">{attr}</span><span class="s2">=</span><span class="si">{val}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">attr</span><span class="o">=</span><span class="n">attr</span><span class="p">,</span> <span class="n">val</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">)))</span>
+        <span class="n">repr_str</span> <span class="o">=</span> <span class="s2">"ObservationFeatures(parameters=</span><span class="si">{parameters}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span>
+        <span class="p">)</span>
+        <span class="n">repr_str</span> <span class="o">+=</span> <span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">strs</span><span class="p">)</span> <span class="o">+</span> <span class="s2">")"</span>
+        <span class="k">return</span> <span class="n">repr_str</span>
+
+    <span class="k">def</span> <span class="nf">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="ow">is</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">:</span>
+                <span class="n">parameters</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>  <span class="c1"># pragma: no cover</span>
+            <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="ow">is</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">:</span>
+                <span class="n">parameters</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>  <span class="c1"># pragma: no cover  # pyre-ignore</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">trial_index</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">end_time</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">random_split</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ObservationData"><a class="viewcode-back" href="../../../core.html#ax.core.observation.ObservationData">[docs]</a><span class="k">class</span> <span class="nc">ObservationData</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">"""Outcomes observed at a point.</span>
+
+<span class="sd">    The "point" corresponding to this ObservationData would be an</span>
+<span class="sd">    ObservationFeatures object.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        metric_names: A list of k metric names that were observed</span>
+<span class="sd">        means: a k-array of observed means</span>
+<span class="sd">        covariance: a (k x k) array of observed covariances</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">metric_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">means</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">covariance</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">metric_names</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">means</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">k</span><span class="p">,):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Shape of means should be </span><span class="si">{}</span><span class="s2">, is </span><span class="si">{}</span><span class="s2">."</span><span class="o">.</span><span class="n">format</span><span class="p">((</span><span class="n">k</span><span class="p">,),</span> <span class="p">(</span><span class="n">means</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">covariance</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Shape of covariance should be </span><span class="si">{}</span><span class="s2">, is </span><span class="si">{}</span><span class="s2">."</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span><span class="p">),</span> <span class="p">(</span><span class="n">covariance</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metric_names</span> <span class="o">=</span> <span class="n">metric_names</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">means</span> <span class="o">=</span> <span class="n">means</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">covariance</span> <span class="o">=</span> <span class="n">covariance</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">"ObservationData(metric_names=</span><span class="si">{mn}</span><span class="s2">, means=</span><span class="si">{m}</span><span class="s2">, covariance=</span><span class="si">{c}</span><span class="s2">)"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">mn</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metric_names</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">means</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">covariance</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Observation"><a class="viewcode-back" href="../../../core.html#ax.core.observation.Observation">[docs]</a><span class="k">class</span> <span class="nc">Observation</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">"""Represents an observation.</span>
+
+<span class="sd">    A set of features (ObservationFeatures) and corresponding measurements</span>
+<span class="sd">    (ObservationData). Optionally, a arm name associated with the</span>
+<span class="sd">    features.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        features (ObservationFeatures)</span>
+<span class="sd">        data (ObservationData)</span>
+<span class="sd">        arm_name (Optional[str])</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">features</span><span class="p">:</span> <span class="n">ObservationFeatures</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">ObservationData</span><span class="p">,</span>
+        <span class="n">arm_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">features</span> <span class="o">=</span> <span class="n">features</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">arm_name</span> <span class="o">=</span> <span class="n">arm_name</span></div>
+
+
+<div class="viewcode-block" id="observations_from_data"><a class="viewcode-back" href="../../../core.html#ax.core.observation.observations_from_data">[docs]</a><span class="k">def</span> <span class="nf">observations_from_data</span><span class="p">(</span><span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Observation</span><span class="p">]:</span>
+    <span class="sd">"""Convert Data to observations.</span>
+
+<span class="sd">    Converts a Data object to a list of Observation objects. Pulls</span>
+<span class="sd">    arm parameters from experiment.</span>
+
+<span class="sd">    Uses a diagonal covariance matrix across metric_names.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        experiment: Experiment with arm parameters.</span>
+<span class="sd">        data: Data of observations</span>
+
+<span class="sd">    Returns: List of Observation objects.</span>
+<span class="sd">    """</span>
+    <span class="n">feature_cols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">"arm_name"</span><span class="p">,</span>
+            <span class="s2">"trial_index"</span><span class="p">,</span>
+            <span class="s2">"start_time"</span><span class="p">,</span>
+            <span class="s2">"end_time"</span><span class="p">,</span>
+            <span class="s2">"random_split"</span><span class="p">,</span>
+        <span class="p">}</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">observations</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">g</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="n">feature_cols</span><span class="p">):</span>
+        <span class="c1"># If g were a single value, zip would transform it into an index,</span>
+        <span class="c1"># and we want the value.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+            <span class="n">g</span> <span class="o">=</span> <span class="p">[</span><span class="n">g</span><span class="p">]</span>  <span class="c1"># pragma: no cover</span>
+        <span class="n">features</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">feature_cols</span><span class="p">,</span> <span class="n">g</span><span class="p">))</span>
+        <span class="n">obs_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">obs_parameters</span> <span class="o">=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">arms_by_name</span><span class="p">[</span><span class="n">features</span><span class="p">[</span><span class="s2">"arm_name"</span><span class="p">]]</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">obs_parameters</span><span class="p">:</span>
+            <span class="n">obs_kwargs</span><span class="p">[</span><span class="s2">"parameters"</span><span class="p">]</span> <span class="o">=</span> <span class="n">obs_parameters</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"trial_index"</span><span class="p">,</span> <span class="s2">"start_time"</span><span class="p">,</span> <span class="s2">"end_time"</span><span class="p">,</span> <span class="s2">"random_split"</span><span class="p">]:</span>
+            <span class="n">obs_kwargs</span><span class="p">[</span><span class="n">f</span><span class="p">]</span> <span class="o">=</span> <span class="n">features</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">observations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">Observation</span><span class="p">(</span>
+                <span class="n">features</span><span class="o">=</span><span class="n">ObservationFeatures</span><span class="p">(</span><span class="o">**</span><span class="n">obs_kwargs</span><span class="p">),</span>
+                <span class="n">data</span><span class="o">=</span><span class="n">ObservationData</span><span class="p">(</span>
+                    <span class="n">metric_names</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">"metric_name"</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">),</span>
+                    <span class="n">means</span><span class="o">=</span><span class="n">d</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+                    <span class="n">covariance</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">"sem"</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="o">**</span> <span class="mi">2</span><span class="p">),</span>
+                <span class="p">),</span>
+                <span class="n">arm_name</span><span class="o">=</span><span class="n">features</span><span class="p">[</span><span class="s2">"arm_name"</span><span class="p">],</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">observations</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3>Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input name="q" type="text"/>
+<input type="submit" value="Go"/>
+<input name="check_keywords" type="hidden" value="yes"/>
+<input name="area" type="hidden" value="default"/>
+</form>
+</div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.1/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2019 Facebook Inc.</section></footer></div></body></html>

@@ -1,0 +1,545 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.7.2/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.7.2/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.7.2/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.7.2/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.7.2/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.7.2/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.7.2/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.7.2/css/main.css"/><script src="/versions/0.2.7.2/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.7.2/"><img class="logo" src="/versions/0.2.7.2/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.7.2/versions.html"><h3>0.2.7.2</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.7.2/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.7.2/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.7.2/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.modelbridge.cross_validation</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">from</span> <span class="nn">numbers</span> <span class="kn">import</span> <span class="n">Number</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">ax.core.observation</span> <span class="kn">import</span> <span class="n">Observation</span><span class="p">,</span> <span class="n">ObservationData</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.base</span> <span class="kn">import</span> <span class="n">ModelBridge</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">scipy.stats</span> <span class="kn">import</span> <span class="n">fisher_exact</span><span class="p">,</span> <span class="n">norm</span><span class="p">,</span> <span class="n">pearsonr</span><span class="p">,</span> <span class="n">spearmanr</span>
+
+<span class="c1"># pyre-fixme[5]: Global expression must be annotated.</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">CVDiagnostics</span> <span class="o">=</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span>
+
+<span class="n">MEAN_PREDICTION_CI</span> <span class="o">=</span> <span class="s2">"Mean prediction CI"</span>
+<span class="n">MAPE</span> <span class="o">=</span> <span class="s2">"MAPE"</span>
+<span class="n">TOTAL_RAW_EFFECT</span> <span class="o">=</span> <span class="s2">"Total raw effect"</span>
+<span class="n">CORRELATION_COEFFICIENT</span> <span class="o">=</span> <span class="s2">"Correlation coefficient"</span>
+<span class="n">RANK_CORRELATION</span> <span class="o">=</span> <span class="s2">"Rank correlation"</span>
+<span class="n">FISHER_EXACT_TEST_P</span> <span class="o">=</span> <span class="s2">"Fisher exact test p"</span>
+<span class="n">LOG_LIKELIHOOD</span> <span class="o">=</span> <span class="s2">"Log likelihood"</span>
+
+
+<div class="viewcode-block" id="CVResult"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.cross_validation.CVResult">[docs]</a><span class="k">class</span> <span class="nc">CVResult</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="sd">"""Container for cross validation results."""</span>
+
+    <span class="n">observed</span><span class="p">:</span> <span class="n">Observation</span>
+    <span class="n">predicted</span><span class="p">:</span> <span class="n">ObservationData</span></div>
+
+
+<div class="viewcode-block" id="AssessModelFitResult"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.cross_validation.AssessModelFitResult">[docs]</a><span class="k">class</span> <span class="nc">AssessModelFitResult</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="sd">"""Container for model fit assessment results"""</span>
+
+    <span class="n">good_fit_metrics_to_fisher_score</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>
+    <span class="n">bad_fit_metrics_to_fisher_score</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="cross_validate"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.cross_validation.cross_validate">[docs]</a><span class="k">def</span> <span class="nf">cross_validate</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">ModelBridge</span><span class="p">,</span>
+    <span class="n">folds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+    <span class="c1"># pyre-fixme[24]: Generic type `Callable` expects 2 type parameters.</span>
+    <span class="n">test_selector</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">CVResult</span><span class="p">]:</span>
+    <span class="sd">"""Cross validation for model predictions.</span>
+
+<span class="sd">    Splits the model's training data into train/test folds and makes</span>
+<span class="sd">    out-of-sample predictions on the test folds.</span>
+
+<span class="sd">    Train/test splits are made based on arm names, so that repeated</span>
+<span class="sd">    observations of a arm will always be in the train or test set</span>
+<span class="sd">    together.</span>
+
+<span class="sd">    The test set can be limited to a specific set of observations by passing in</span>
+<span class="sd">    a test_selector callable. This function should take in an Observation</span>
+<span class="sd">    and return a boolean indiciating if it should be used in the test set or</span>
+<span class="sd">    not. For example, we can limit the test set to arms with trial 0 with</span>
+<span class="sd">    test_selector = lambda obs: obs.features.trial_index == 0</span>
+<span class="sd">    If not provided, all observations will be available for the test set.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: Fitted model (ModelBridge) to cross validate.</span>
+<span class="sd">        folds: Number of folds. Use -1 for leave-one-out, otherwise will be</span>
+<span class="sd">            k-fold.</span>
+<span class="sd">        test_selector: Function for selecting observations for the test set.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A CVResult for each observation in the training data.</span>
+<span class="sd">    """</span>
+    <span class="c1"># Get in-design training points</span>
+    <span class="n">training_data</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">obs</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">obs</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">get_training_data</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">training_in_design</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+    <span class="p">]</span>
+    <span class="n">arm_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">obs</span><span class="o">.</span><span class="n">arm_name</span> <span class="k">for</span> <span class="n">obs</span> <span class="ow">in</span> <span class="n">training_data</span><span class="p">}</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">arm_names</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">folds</span> <span class="o">&gt;</span> <span class="n">n</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Training data only has </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> arms, which is less than folds"</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> has no training data.  Either it has been "</span>
+            <span class="s2">"incorrectly initialized or should not be cross validated."</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="n">folds</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">folds</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Folds must be -1 for LOO, or &gt; 1."</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">folds</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+        <span class="n">folds</span> <span class="o">=</span> <span class="n">n</span>
+
+    <span class="n">arm_names_rnd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arm_names</span><span class="p">))</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">arm_names_rnd</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">train_names</span><span class="p">,</span> <span class="n">test_names</span> <span class="ow">in</span> <span class="n">_gen_train_test_split</span><span class="p">(</span>
+        <span class="n">folds</span><span class="o">=</span><span class="n">folds</span><span class="p">,</span> <span class="n">arm_names</span><span class="o">=</span><span class="n">arm_names_rnd</span>
+    <span class="p">):</span>
+        <span class="c1"># Construct train/test data</span>
+        <span class="n">cv_training_data</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">cv_test_data</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">cv_test_points</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">obs</span> <span class="ow">in</span> <span class="n">training_data</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">obs</span><span class="o">.</span><span class="n">arm_name</span> <span class="ow">in</span> <span class="n">train_names</span><span class="p">:</span>
+                <span class="n">cv_training_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">obs</span><span class="o">.</span><span class="n">arm_name</span> <span class="ow">in</span> <span class="n">test_names</span> <span class="ow">and</span> <span class="p">(</span>
+                <span class="n">test_selector</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">test_selector</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="n">cv_test_points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">obs</span><span class="o">.</span><span class="n">features</span><span class="p">)</span>
+                <span class="n">cv_test_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">cv_test_points</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="c1"># Make the prediction</span>
+        <span class="n">cv_test_predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">cross_validate</span><span class="p">(</span>
+            <span class="n">cv_training_data</span><span class="o">=</span><span class="n">cv_training_data</span><span class="p">,</span> <span class="n">cv_test_points</span><span class="o">=</span><span class="n">cv_test_points</span>
+        <span class="p">)</span>
+        <span class="c1"># Form CVResult objects</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">obs</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">cv_test_data</span><span class="p">):</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CVResult</span><span class="p">(</span><span class="n">observed</span><span class="o">=</span><span class="n">obs</span><span class="p">,</span> <span class="n">predicted</span><span class="o">=</span><span class="n">cv_test_predictions</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
+    <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="cross_validate_by_trial"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.cross_validation.cross_validate_by_trial">[docs]</a><span class="k">def</span> <span class="nf">cross_validate_by_trial</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">ModelBridge</span><span class="p">,</span> <span class="n">trial</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">CVResult</span><span class="p">]:</span>
+    <span class="sd">"""Cross validation for model predictions on a particular trial.</span>
+
+<span class="sd">    Uses all of the data up until the specified trial to predict each of the</span>
+<span class="sd">    arms that was launched in that trial. Defaults to the last trial.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: Fitted model (ModelBridge) to cross validate.</span>
+<span class="sd">        trial: Trial for which predictions are evaluated.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A CVResult for each observation in the training data.</span>
+<span class="sd">    """</span>
+    <span class="c1"># Get in-design training points</span>
+    <span class="n">training_data</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">obs</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">obs</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">get_training_data</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">training_in_design</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+    <span class="p">]</span>
+    <span class="n">all_trials</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nb">int</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">trial_index</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">training_data</span>
+        <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">trial_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_trials</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Training data has fewer than 2 trials (</span><span class="si">{</span><span class="n">all_trials</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">trial</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">trial</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">all_trials</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">trial</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">all_trials</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Trial </span><span class="si">{</span><span class="n">trial</span><span class="si">}</span><span class="s2"> not found in training data"</span><span class="p">)</span>
+    <span class="c1"># Construct train/test data</span>
+    <span class="n">cv_training_data</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">cv_test_data</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">cv_test_points</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">obs</span> <span class="ow">in</span> <span class="n">training_data</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">obs</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">trial_index</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">elif</span> <span class="n">obs</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">trial_index</span> <span class="o">&lt;</span> <span class="n">trial</span><span class="p">:</span>
+            <span class="n">cv_training_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">obs</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">trial_index</span> <span class="o">==</span> <span class="n">trial</span><span class="p">:</span>
+            <span class="n">cv_test_points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">obs</span><span class="o">.</span><span class="n">features</span><span class="p">)</span>
+            <span class="n">cv_test_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+    <span class="c1"># Make the prediction</span>
+    <span class="n">cv_test_predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">cross_validate</span><span class="p">(</span>
+        <span class="n">cv_training_data</span><span class="o">=</span><span class="n">cv_training_data</span><span class="p">,</span> <span class="n">cv_test_points</span><span class="o">=</span><span class="n">cv_test_points</span>
+    <span class="p">)</span>
+    <span class="c1"># Form CVResult objects</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">CVResult</span><span class="p">(</span><span class="n">observed</span><span class="o">=</span><span class="n">obs</span><span class="p">,</span> <span class="n">predicted</span><span class="o">=</span><span class="n">cv_test_predictions</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">obs</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">cv_test_data</span><span class="p">)</span>
+    <span class="p">]</span>
+    <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="compute_diagnostics"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.cross_validation.compute_diagnostics">[docs]</a><span class="k">def</span> <span class="nf">compute_diagnostics</span><span class="p">(</span><span class="n">result</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">CVResult</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">CVDiagnostics</span><span class="p">:</span>
+    <span class="sd">"""Computes diagnostics for given cross validation results.</span>
+
+<span class="sd">    It provides a dictionary with values for the following diagnostics, for</span>
+<span class="sd">    each metric:</span>
+
+<span class="sd">    - 'Mean prediction CI': the average width of the CIs at each of the CV</span>
+<span class="sd">      predictions, relative to the observed mean.</span>
+<span class="sd">    - 'MAPE': mean absolute percentage error of the estimated mean relative</span>
+<span class="sd">      to the observed mean.</span>
+<span class="sd">    - 'Total raw effect': the multiple change from the smallest observed</span>
+<span class="sd">      mean to the largest observed mean, i.e. `(max - min) / min`.</span>
+<span class="sd">    - 'Correlation coefficient': the Pearson correlation of the estimated</span>
+<span class="sd">      and observed means.</span>
+<span class="sd">    - 'Rank correlation': the Spearman correlation of the estimated</span>
+<span class="sd">      and observed means.</span>
+<span class="sd">    - 'Fisher exact test p': we test if the model is able to distinguish the</span>
+<span class="sd">      bottom half of the observations from the top half, using Fisher's</span>
+<span class="sd">      exact test and the observed/estimated means. A low p value indicates</span>
+<span class="sd">      that the model has some ability to identify good arms. A high p value</span>
+<span class="sd">      indicates that the model cannot identify arms better than chance, or</span>
+<span class="sd">      that the observations are too noisy to be able to tell.</span>
+
+<span class="sd">    Each of these is returned as a dictionary from metric name to value for</span>
+<span class="sd">    that metric.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        result: Output of cross_validate</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A dictionary keyed by diagnostic name with results as described above.</span>
+<span class="sd">    """</span>
+    <span class="c1"># Extract per-metric outcomes from CVResults.</span>
+    <span class="n">y_obs</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">y_pred</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">se_pred</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">res</span> <span class="ow">in</span> <span class="n">result</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">observed</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">metric_names</span><span class="p">):</span>
+            <span class="n">y_obs</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">observed</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">means</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="c1"># Find the matching prediction</span>
+            <span class="n">k</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">predicted</span><span class="o">.</span><span class="n">metric_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">metric_name</span><span class="p">)</span>
+            <span class="n">y_pred</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">predicted</span><span class="o">.</span><span class="n">means</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
+            <span class="n">se_pred</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">predicted</span><span class="o">.</span><span class="n">covariance</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span><span class="p">]))</span>
+
+    <span class="n">diagnostic_fns</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">MEAN_PREDICTION_CI</span><span class="p">:</span> <span class="n">_mean_prediction_ci</span><span class="p">,</span>
+        <span class="n">MAPE</span><span class="p">:</span> <span class="n">_mape</span><span class="p">,</span>
+        <span class="n">TOTAL_RAW_EFFECT</span><span class="p">:</span> <span class="n">_total_raw_effect</span><span class="p">,</span>
+        <span class="n">CORRELATION_COEFFICIENT</span><span class="p">:</span> <span class="n">_correlation_coefficient</span><span class="p">,</span>
+        <span class="n">RANK_CORRELATION</span><span class="p">:</span> <span class="n">_rank_correlation</span><span class="p">,</span>
+        <span class="n">FISHER_EXACT_TEST_P</span><span class="p">:</span> <span class="n">_fisher_exact_test_p</span><span class="p">,</span>
+        <span class="n">LOG_LIKELIHOOD</span><span class="p">:</span> <span class="n">_log_likelihood</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">diagnostics</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="c1"># Get all per-metric diagnostics.</span>
+    <span class="k">for</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="n">y_obs</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">fn</span> <span class="ow">in</span> <span class="n">diagnostic_fns</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">diagnostics</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="n">metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">fn</span><span class="p">(</span>
+                <span class="n">y_obs</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">y_obs</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]),</span>
+                <span class="n">y_pred</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">y_pred</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]),</span>
+                <span class="n">se_pred</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">se_pred</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]),</span>
+            <span class="p">)</span>
+    <span class="k">return</span> <span class="n">diagnostics</span></div>
+
+
+<div class="viewcode-block" id="assess_model_fit"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.cross_validation.assess_model_fit">[docs]</a><span class="k">def</span> <span class="nf">assess_model_fit</span><span class="p">(</span>
+    <span class="n">diagnostics</span><span class="p">:</span> <span class="n">CVDiagnostics</span><span class="p">,</span>
+    <span class="n">significance_level</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssessModelFitResult</span><span class="p">:</span>
+    <span class="sd">"""Assess model fit for given diagnostics results.</span>
+
+<span class="sd">    It determines if a model fit is good or bad based on Fisher exact test p</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        diagnostics: Output of compute_diagnostics</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Two dictionaries, one for good metrics, one for bad metrics, each</span>
+<span class="sd">        mapping metric name to p-value</span>
+<span class="sd">    """</span>
+
+    <span class="n">good_fit_metrics_to_fisher_score</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">bad_fit_metrics_to_fisher_score</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">for</span> <span class="n">metric</span><span class="p">,</span> <span class="n">score</span> <span class="ow">in</span> <span class="n">diagnostics</span><span class="p">[</span><span class="n">FISHER_EXACT_TEST_P</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">score</span> <span class="o">&gt;</span> <span class="n">significance_level</span><span class="p">:</span>
+            <span class="n">bad_fit_metrics_to_fisher_score</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span> <span class="o">=</span> <span class="n">score</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">good_fit_metrics_to_fisher_score</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span> <span class="o">=</span> <span class="n">score</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bad_fit_metrics_to_fisher_score</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">"</span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2"> unable to be reliably fit."</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="p">(</span><span class="s2">"Metrics"</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bad_fit_metrics_to_fisher_score</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="s2">"Metric"</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">" , "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bad_fit_metrics_to_fisher_score</span><span class="o">.</span><span class="n">keys</span><span class="p">())),</span>
+                <span class="p">(</span><span class="s2">"were"</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bad_fit_metrics_to_fisher_score</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="s2">"was"</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">AssessModelFitResult</span><span class="p">(</span>
+        <span class="n">good_fit_metrics_to_fisher_score</span><span class="o">=</span><span class="n">good_fit_metrics_to_fisher_score</span><span class="p">,</span>
+        <span class="n">bad_fit_metrics_to_fisher_score</span><span class="o">=</span><span class="n">bad_fit_metrics_to_fisher_score</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="has_good_opt_config_model_fit"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.cross_validation.has_good_opt_config_model_fit">[docs]</a><span class="k">def</span> <span class="nf">has_good_opt_config_model_fit</span><span class="p">(</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">OptimizationConfig</span><span class="p">,</span>
+    <span class="n">assess_model_fit_result</span><span class="p">:</span> <span class="n">AssessModelFitResult</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="sd">"""Assess model fit for given diagnostics results across the optimization</span>
+<span class="sd">    config metrics</span>
+
+<span class="sd">    Bad fit criteria: Any objective metrics are poorly fit based on</span>
+<span class="sd">    the Fisher exact test p (see assess_model_fit())</span>
+
+<span class="sd">    TODO[]: Incl. outcome constraints in assessment</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        optimization_config: Objective/Outcome constraint metrics to assess</span>
+<span class="sd">        diagnostics: Output of compute_diagnostics</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Two dictionaries, one for good metrics, one for bad metrics, each</span>
+<span class="sd">        mapping metric name to p-value</span>
+<span class="sd">    """</span>
+
+    <span class="c1"># Bad fit criteria: Any objective metrics are poorly fit</span>
+    <span class="c1"># TODO[]: Incl. outcome constraints in assessment</span>
+    <span class="n">has_good_opt_config_fit</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">assess_model_fit_result</span><span class="o">.</span><span class="n">good_fit_metrics_to_fisher_score</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">metrics</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">has_good_opt_config_fit</span></div>
+
+
+<span class="k">def</span> <span class="nf">_gen_train_test_split</span><span class="p">(</span>
+    <span class="n">folds</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">arm_names</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]:</span>
+    <span class="sd">"""Return train/test splits of arm names.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        folds: Number of folds to return</span>
+<span class="sd">        arm_names: Array of arm names</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Yields (train, test) tuple of arm names.</span>
+<span class="sd">    """</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">arm_names</span><span class="p">)</span>
+    <span class="n">test_size</span> <span class="o">=</span> <span class="n">n</span> <span class="o">//</span> <span class="n">folds</span>  <span class="c1"># The size of all test sets but the last</span>
+    <span class="n">final_size</span> <span class="o">=</span> <span class="n">test_size</span> <span class="o">+</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="n">folds</span> <span class="o">*</span> <span class="n">test_size</span><span class="p">)</span>  <span class="c1"># Grab the leftovers</span>
+    <span class="k">for</span> <span class="n">fold</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">folds</span><span class="p">):</span>
+        <span class="c1"># We will take the test set from the back of the array.</span>
+        <span class="c1"># Roll the list of arm names to get a fresh test set</span>
+        <span class="n">arm_names</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">arm_names</span><span class="p">,</span> <span class="n">test_size</span><span class="p">)</span>
+        <span class="n">n_test</span> <span class="o">=</span> <span class="n">test_size</span> <span class="k">if</span> <span class="n">fold</span> <span class="o">&lt;</span> <span class="n">folds</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">final_size</span>
+        <span class="k">yield</span> <span class="nb">set</span><span class="p">(</span><span class="n">arm_names</span><span class="p">[:</span><span class="o">-</span><span class="n">n_test</span><span class="p">]),</span> <span class="nb">set</span><span class="p">(</span><span class="n">arm_names</span><span class="p">[</span><span class="o">-</span><span class="n">n_test</span><span class="p">:])</span>
+
+
+<span class="k">def</span> <span class="nf">_mean_prediction_ci</span><span class="p">(</span>
+    <span class="n">y_obs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">se_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="c1"># Pyre does not allow float * np.ndarray.</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mf">1.96</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">se_pred</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">y_obs</span><span class="p">)))</span>
+
+
+<span class="k">def</span> <span class="nf">_log_likelihood</span><span class="p">(</span>
+    <span class="n">y_obs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">se_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">norm</span><span class="o">.</span><span class="n">logpdf</span><span class="p">(</span><span class="n">y_obs</span><span class="p">,</span> <span class="n">loc</span><span class="o">=</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">se_pred</span><span class="p">)))</span>
+
+
+<span class="k">def</span> <span class="nf">_mape</span><span class="p">(</span><span class="n">y_obs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">se_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">((</span><span class="n">y_pred</span> <span class="o">-</span> <span class="n">y_obs</span><span class="p">)</span> <span class="o">/</span> <span class="n">y_obs</span><span class="p">)))</span>
+
+
+<span class="k">def</span> <span class="nf">_total_raw_effect</span><span class="p">(</span>
+    <span class="n">y_obs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">se_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="n">min_y_obs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">y_obs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">y_obs</span><span class="p">)</span> <span class="o">-</span> <span class="n">min_y_obs</span><span class="p">)</span> <span class="o">/</span> <span class="n">min_y_obs</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_correlation_coefficient</span><span class="p">(</span>
+    <span class="n">y_obs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">se_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">invalid</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">):</span>
+        <span class="n">rho</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">pearsonr</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">y_obs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">rho</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_rank_correlation</span><span class="p">(</span>
+    <span class="n">y_obs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">se_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">invalid</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">):</span>
+        <span class="n">rho</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">spearmanr</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">y_obs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">rho</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_fisher_exact_test_p</span><span class="p">(</span>
+    <span class="n">y_obs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">se_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="n">n_half</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_obs</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
+    <span class="n">top_obs</span> <span class="o">=</span> <span class="n">y_obs</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)[</span><span class="o">-</span><span class="n">n_half</span><span class="p">:]</span>
+    <span class="n">top_est</span> <span class="o">=</span> <span class="n">y_pred</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)[</span><span class="o">-</span><span class="n">n_half</span><span class="p">:]</span>
+    <span class="c1"># Construct contingency table</span>
+    <span class="n">tp</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">top_est</span><span class="p">)</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">top_obs</span><span class="p">))</span>
+    <span class="n">fp</span> <span class="o">=</span> <span class="n">n_half</span> <span class="o">-</span> <span class="n">tp</span>
+    <span class="n">fn</span> <span class="o">=</span> <span class="n">n_half</span> <span class="o">-</span> <span class="n">tp</span>
+    <span class="n">tn</span> <span class="o">=</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y_obs</span><span class="p">)</span> <span class="o">-</span> <span class="n">n_half</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">n_half</span> <span class="o">-</span> <span class="n">tp</span><span class="p">)</span>
+    <span class="n">table</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">tp</span><span class="p">,</span> <span class="n">fp</span><span class="p">],</span> <span class="p">[</span><span class="n">fn</span><span class="p">,</span> <span class="n">tn</span><span class="p">]])</span>
+    <span class="c1"># Compute the test statistic</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">fisher_exact</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">alternative</span><span class="o">=</span><span class="s2">"greater"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="BestModelSelector"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.cross_validation.BestModelSelector">[docs]</a><span class="k">class</span> <span class="nc">BestModelSelector</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<div class="viewcode-block" id="BestModelSelector.best_diagnostic"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.cross_validation.BestModelSelector.best_diagnostic">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">best_diagnostic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">diagnostics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">CVDiagnostics</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Return the index of the best diagnostic.</span>
+<span class="sd">        """</span>
+        <span class="k">pass</span>  <span class="c1"># pragma: no cover</span></div></div>
+
+
+<div class="viewcode-block" id="CallableEnum"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.cross_validation.CallableEnum">[docs]</a><span class="k">class</span> <span class="nc">CallableEnum</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="c1"># pyre-fixme[3]: Return annotation cannot be `Any`.</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MetricAggregation"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.cross_validation.MetricAggregation">[docs]</a><span class="k">class</span> <span class="nc">MetricAggregation</span><span class="p">(</span><span class="n">CallableEnum</span><span class="p">):</span>
+    <span class="n">MEAN</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Number</span><span class="p">]],</span> <span class="n">Number</span><span class="p">]</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="DiagnosticCriterion"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.cross_validation.DiagnosticCriterion">[docs]</a><span class="k">class</span> <span class="nc">DiagnosticCriterion</span><span class="p">(</span><span class="n">CallableEnum</span><span class="p">):</span>
+    <span class="n">MIN</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Number</span><span class="p">]],</span> <span class="n">Number</span><span class="p">]</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">amin</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SingleDiagnosticBestModelSelector"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.cross_validation.SingleDiagnosticBestModelSelector">[docs]</a><span class="k">class</span> <span class="nc">SingleDiagnosticBestModelSelector</span><span class="p">(</span><span class="n">BestModelSelector</span><span class="p">):</span>
+    <span class="sd">"""Choose the best model using a single cross-validation diagnostic.</span>
+
+<span class="sd">    The input is a list of CVDiagnostics, each corresponding to one model.</span>
+<span class="sd">    The specified diagnostic is extracted from each of the CVDiagnostics,</span>
+<span class="sd">    its values (each of which corresponds to a separate metric) are</span>
+<span class="sd">    aggregated with the aggregation function, the best one is determined</span>
+<span class="sd">    with the criterion, and the index of the best diagnostic result is returned.</span>
+
+
+<span class="sd">     Example:</span>
+
+<span class="sd">     ::</span>
+<span class="sd">        s = SingleDiagnosticBestModelSelector(</span>
+<span class="sd">            diagnostic = 'Fisher exact test p',</span>
+<span class="sd">            criterion = DiagnosticCriterion.MIN,</span>
+<span class="sd">            metric_aggregation = MetricAggregation.MEAN,</span>
+<span class="sd">        )</span>
+<span class="sd">        best_diagnostic_index = s.best_diagnostic(diagnostics)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">         diagnostic (str): The name of the diagnostic to use, which should be</span>
+<span class="sd">             a key in CVDiagnostic.</span>
+<span class="sd">         metric_aggregation (MetricAggregation): Callable</span>
+<span class="sd">            applied to the values of the diagnostic for a single model to</span>
+<span class="sd">            produce a single number.</span>
+<span class="sd">         criterion (DiagnosticCriterion): Callable used</span>
+<span class="sd">            to determine which of the (aggregated) diagnostics is the best.</span>
+
+
+<span class="sd">     Returns:</span>
+<span class="sd">         int: index of the selected best diagnostic.</span>
+
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">diagnostic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">metric_aggregation</span><span class="p">:</span> <span class="n">MetricAggregation</span><span class="p">,</span>
+        <span class="n">criterion</span><span class="p">:</span> <span class="n">DiagnosticCriterion</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">diagnostic</span> <span class="o">=</span> <span class="n">diagnostic</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metric_aggregation</span> <span class="o">=</span> <span class="n">metric_aggregation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">criterion</span> <span class="o">=</span> <span class="n">criterion</span>
+
+<div class="viewcode-block" id="SingleDiagnosticBestModelSelector.best_diagnostic"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.cross_validation.SingleDiagnosticBestModelSelector.best_diagnostic">[docs]</a>    <span class="k">def</span> <span class="nf">best_diagnostic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">diagnostics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">CVDiagnostics</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="n">aggregated_diagnostic_values</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">metric_aggregation</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">diagnostic</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+            <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">diagnostics</span>
+        <span class="p">]</span>
+        <span class="n">best_diagnostic</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">criterion</span><span class="p">(</span><span class="n">aggregated_diagnostic_values</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">aggregated_diagnostic_values</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">best_diagnostic</span><span class="p">)</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.7.2/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

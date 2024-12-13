@@ -1,0 +1,1383 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.6/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.6/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.6/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.6/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.6/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.6/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.6/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.6/css/main.css"/><script src="/versions/0.2.6/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.6/"><img class="logo" src="/versions/0.2.6/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.6/versions.html"><h3>0.2.6</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.6/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.6/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.6/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.modelbridge.modelbridge_utils</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">Dict</span><span class="p">,</span>
+    <span class="n">Iterator</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">MutableMapping</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+    <span class="n">TYPE_CHECKING</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">ax.core.base_trial</span> <span class="kn">import</span> <span class="n">TrialStatus</span>
+<span class="kn">from</span> <span class="nn">ax.core.batch_trial</span> <span class="kn">import</span> <span class="n">BatchTrial</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.objective</span> <span class="kn">import</span> <span class="n">MultiObjective</span><span class="p">,</span> <span class="n">Objective</span><span class="p">,</span> <span class="n">ScalarizedObjective</span>
+<span class="kn">from</span> <span class="nn">ax.core.observation</span> <span class="kn">import</span> <span class="n">Observation</span><span class="p">,</span> <span class="n">ObservationData</span><span class="p">,</span> <span class="n">ObservationFeatures</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">,</span>
+    <span class="n">OptimizationConfig</span><span class="p">,</span>
+    <span class="n">TRefPoint</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.core.outcome_constraint</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ComparisonOp</span><span class="p">,</span>
+    <span class="n">OutcomeConstraint</span><span class="p">,</span>
+    <span class="n">ScalarizedOutcomeConstraint</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter</span> <span class="kn">import</span> <span class="n">ChoiceParameter</span><span class="p">,</span> <span class="n">ParameterType</span><span class="p">,</span> <span class="n">RangeParameter</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter_constraint</span> <span class="kn">import</span> <span class="n">ParameterConstraint</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">RobustSearchSpace</span><span class="p">,</span>
+    <span class="n">RobustSearchSpaceDigest</span><span class="p">,</span>
+    <span class="n">SearchSpace</span><span class="p">,</span>
+    <span class="n">SearchSpaceDigest</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.core.trial</span> <span class="kn">import</span> <span class="n">Trial</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">TBounds</span><span class="p">,</span> <span class="n">TCandidateMetadata</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.base</span> <span class="kn">import</span> <span class="n">Transform</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.derelativize</span> <span class="kn">import</span> <span class="n">Derelativize</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.frontier_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">get_default_frontier_evaluator</span><span class="p">,</span>
+    <span class="n">get_weighted_mc_objective_and_objective_thresholds</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">checked_cast_optional</span><span class="p">,</span>
+    <span class="n">checked_cast_to_tuple</span><span class="p">,</span>
+    <span class="n">not_none</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">botorch.utils.multi_objective.box_decompositions.dominated</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">DominatedPartitioning</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="c1"># import as module to make sphinx-autodoc-typehints happy</span>
+    <span class="kn">from</span> <span class="nn">ax</span> <span class="kn">import</span> <span class="n">modelbridge</span> <span class="k">as</span> <span class="n">modelbridge_module</span>  <span class="c1"># noqa F401  # pragma: no cover</span>
+
+
+<div class="viewcode-block" id="check_has_multi_objective_and_data"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.check_has_multi_objective_and_data">[docs]</a><span class="k">def</span> <span class="nf">check_has_multi_objective_and_data</span><span class="p">(</span>
+    <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">,</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">"""Raise an error if not using a `MultiObjective` or if the data is empty."""</span>
+    <span class="n">optimization_config</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span>
+        <span class="n">optimization_config</span> <span class="ow">or</span> <span class="n">experiment</span><span class="o">.</span><span class="n">optimization_config</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="p">,</span> <span class="n">MultiObjective</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Multi-objective optimization requires multiple objectives."</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"MultiObjectiveOptimization requires non-empty data."</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="extract_parameter_constraints"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.extract_parameter_constraints">[docs]</a><span class="k">def</span> <span class="nf">extract_parameter_constraints</span><span class="p">(</span>
+    <span class="n">parameter_constraints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ParameterConstraint</span><span class="p">],</span> <span class="n">param_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TBounds</span><span class="p">:</span>
+    <span class="sd">"""Extract parameter constraints."""</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parameter_constraints</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">parameter_constraints</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">param_names</span><span class="p">)))</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">parameter_constraints</span><span class="p">),</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">parameter_constraints</span><span class="p">):</span>
+        <span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">bound</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">constraint_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">A</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">param_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">name</span><span class="p">)]</span> <span class="o">=</span> <span class="n">val</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="extract_search_space_digest"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.extract_search_space_digest">[docs]</a><span class="k">def</span> <span class="nf">extract_search_space_digest</span><span class="p">(</span>
+    <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span> <span class="n">param_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SearchSpaceDigest</span><span class="p">:</span>
+    <span class="sd">"""Extract basic parameter properties from a search space."""</span>
+    <span class="n">bounds</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">ordinal_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">categorical_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">discrete_choices</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">task_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">fidelity_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">target_fidelities</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">param_names</span><span class="p">):</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p_name</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">ChoiceParameter</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">is_task</span><span class="p">:</span>
+                <span class="n">task_features</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">p</span><span class="o">.</span><span class="n">is_ordered</span><span class="p">:</span>
+                <span class="n">ordinal_features</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">categorical_features</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="c1"># at this point we can assume that values are numeric due to transforms</span>
+            <span class="n">discrete_choices</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">values</span>  <span class="c1"># pyre-ignore [6]</span>
+            <span class="n">bounds</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="nb">min</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">values</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">values</span><span class="p">)))</span>  <span class="c1"># pyre-ignore [6]</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">RangeParameter</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">log_scale</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2"> is log scale"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">parameter_type</span> <span class="o">==</span> <span class="n">ParameterType</span><span class="o">.</span><span class="n">INT</span><span class="p">:</span>
+                <span class="n">ordinal_features</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                <span class="n">d_choices</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">lower</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">upper</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+                <span class="n">discrete_choices</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d_choices</span>  <span class="c1"># pyre-ignore [6]</span>
+            <span class="n">bounds</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">p</span><span class="o">.</span><span class="n">lower</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">upper</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown parameter type </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">p</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">is_fidelity</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">not_none</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">target_value</span><span class="p">),</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"Only numerical target values are supported."</span><span class="p">)</span>
+            <span class="n">target_fidelities</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">checked_cast_to_tuple</span><span class="p">((</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">),</span> <span class="n">p</span><span class="o">.</span><span class="n">target_value</span><span class="p">)</span>
+            <span class="n">fidelity_features</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">SearchSpaceDigest</span><span class="p">(</span>
+        <span class="n">feature_names</span><span class="o">=</span><span class="n">param_names</span><span class="p">,</span>
+        <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+        <span class="n">ordinal_features</span><span class="o">=</span><span class="n">ordinal_features</span><span class="p">,</span>
+        <span class="n">categorical_features</span><span class="o">=</span><span class="n">categorical_features</span><span class="p">,</span>
+        <span class="n">discrete_choices</span><span class="o">=</span><span class="n">discrete_choices</span><span class="p">,</span>
+        <span class="n">task_features</span><span class="o">=</span><span class="n">task_features</span><span class="p">,</span>
+        <span class="n">fidelity_features</span><span class="o">=</span><span class="n">fidelity_features</span><span class="p">,</span>
+        <span class="n">target_fidelities</span><span class="o">=</span><span class="n">target_fidelities</span><span class="p">,</span>
+        <span class="n">robust_digest</span><span class="o">=</span><span class="n">extract_robust_digest</span><span class="p">(</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span> <span class="n">param_names</span><span class="o">=</span><span class="n">param_names</span>
+        <span class="p">),</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="extract_robust_digest"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.extract_robust_digest">[docs]</a><span class="k">def</span> <span class="nf">extract_robust_digest</span><span class="p">(</span>
+    <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span> <span class="n">param_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">RobustSearchSpaceDigest</span><span class="p">]:</span>
+    <span class="sd">"""Extracts the `RobustSearchSpaceDigest`.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        search_space: A `SearchSpace` to digest.</span>
+<span class="sd">        param_names: A list of names of the parameters that are used in optimization.</span>
+<span class="sd">            If environmental variables are present, these should be the last entries</span>
+<span class="sd">            in `param_names`.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        If the `search_space` is not a `RobustSearchSpace`, this returns None.</span>
+<span class="sd">        Otherwise, it returns a `RobustSearchSpaceDigest` with entries populated</span>
+<span class="sd">        from the properties of the `search_space`. In particular, this constructs</span>
+<span class="sd">        two optional callables, `sample_param_perturbations` and `sample_environmental`,</span>
+<span class="sd">        that require no inputs and return a `num_samples x d`-dim array of samples</span>
+<span class="sd">        from the corresponding parameter distributions, where `d` is the number of</span>
+<span class="sd">        environmental variables for `environmental_sampler and the number of</span>
+<span class="sd">        non-environmental parameters in `param_names` for `distribution_sampler`.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">search_space</span><span class="p">,</span> <span class="n">RobustSearchSpace</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">dist_params</span> <span class="o">=</span> <span class="n">search_space</span><span class="o">.</span><span class="n">_distributional_parameters</span>
+    <span class="n">env_vars</span> <span class="o">=</span> <span class="n">search_space</span><span class="o">.</span><span class="n">_environmental_variables</span>
+    <span class="n">pert_params</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">dist_params</span> <span class="k">if</span> <span class="n">p</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">env_vars</span><span class="p">]</span>
+    <span class="c1"># Make sure all distributional parameters are in param_names.</span>
+    <span class="n">dist_idcs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">p_name</span> <span class="ow">in</span> <span class="n">dist_params</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">p_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">param_names</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">"All distributional parameters must be included in `param_names`."</span>
+            <span class="p">)</span>
+        <span class="n">dist_idcs</span><span class="p">[</span><span class="n">p_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">param_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">p_name</span><span class="p">)</span>
+    <span class="n">num_samples</span> <span class="o">=</span> <span class="n">search_space</span><span class="o">.</span><span class="n">num_samples</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">env_vars</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">num_non_env_vars</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">param_names</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">env_vars</span><span class="p">)</span>
+        <span class="n">env_idcs</span> <span class="o">=</span> <span class="p">{</span><span class="n">idx</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">dist_idcs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">env_vars</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">env_idcs</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">num_non_env_vars</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">param_names</span><span class="p">))):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">"Environmental variables must be last entries in `param_names`. "</span>
+                <span class="s2">"Otherwise, `AppendFeatures` will not work."</span>
+            <span class="p">)</span>
+        <span class="c1"># NOTE: Extracting it from `param_names` in case the ordering is different.</span>
+        <span class="n">environmental_variables</span> <span class="o">=</span> <span class="n">param_names</span><span class="p">[</span><span class="n">num_non_env_vars</span><span class="p">:]</span>
+
+        <span class="k">def</span> <span class="nf">sample_environmental</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+            <span class="sd">"""Get samples from the environmental distributions.</span>
+
+<span class="sd">            Samples have the same dimension as the number of environmental variables.</span>
+<span class="sd">            The samples of an environmental variable appears in the same order it is</span>
+<span class="sd">            in `param_names`.</span>
+<span class="sd">            """</span>
+            <span class="n">samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_samples</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">env_vars</span><span class="p">)))</span>
+            <span class="c1"># pyre-ignore [16]</span>
+            <span class="k">for</span> <span class="n">dist</span> <span class="ow">in</span> <span class="n">search_space</span><span class="o">.</span><span class="n">_environmental_distributions</span><span class="p">:</span>
+                <span class="n">dist_samples</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">distribution</span><span class="o">.</span><span class="n">rvs</span><span class="p">(</span><span class="n">num_samples</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+                    <span class="n">num_samples</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">parameters</span><span class="p">):</span>
+                    <span class="n">target_idx</span> <span class="o">=</span> <span class="n">dist_idcs</span><span class="p">[</span><span class="n">p_name</span><span class="p">]</span> <span class="o">-</span> <span class="n">num_non_env_vars</span>
+                    <span class="n">samples</span><span class="p">[:,</span> <span class="n">target_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">dist_samples</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">samples</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">sample_environmental</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">environmental_variables</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pert_params</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">constructor</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span> <span class="k">if</span> <span class="n">search_space</span><span class="o">.</span><span class="n">multiplicative</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span>
+
+        <span class="k">def</span> <span class="nf">sample_param_perturbations</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+            <span class="sd">"""Get samples of the input perturbations.</span>
+
+<span class="sd">            Samples have the same dimension as the length of `param_names`</span>
+<span class="sd">            minus the number of environmental variables. The samples of a</span>
+<span class="sd">            parameter appears in the same order it is in `param_names`. For</span>
+<span class="sd">            non-distributional parameters, their values are filled as 0 if</span>
+<span class="sd">            the perturbations are additive and 1 if multiplicative.</span>
+<span class="sd">            """</span>
+            <span class="n">samples</span> <span class="o">=</span> <span class="n">constructor</span><span class="p">((</span><span class="n">num_samples</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">param_names</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">env_vars</span><span class="p">)))</span>
+            <span class="c1"># pyre-ignore [16]</span>
+            <span class="k">for</span> <span class="n">dist</span> <span class="ow">in</span> <span class="n">search_space</span><span class="o">.</span><span class="n">_perturbation_distributions</span><span class="p">:</span>
+                <span class="n">dist_samples</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">distribution</span><span class="o">.</span><span class="n">rvs</span><span class="p">(</span><span class="n">num_samples</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+                    <span class="n">num_samples</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">parameters</span><span class="p">):</span>
+                    <span class="n">samples</span><span class="p">[:,</span> <span class="n">dist_idcs</span><span class="p">[</span><span class="n">p_name</span><span class="p">]]</span> <span class="o">=</span> <span class="n">dist_samples</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">samples</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">sample_param_perturbations</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">return</span> <span class="n">RobustSearchSpaceDigest</span><span class="p">(</span>
+        <span class="n">sample_param_perturbations</span><span class="o">=</span><span class="n">sample_param_perturbations</span><span class="p">,</span>
+        <span class="n">sample_environmental</span><span class="o">=</span><span class="n">sample_environmental</span><span class="p">,</span>
+        <span class="n">environmental_variables</span><span class="o">=</span><span class="n">environmental_variables</span><span class="p">,</span>
+        <span class="n">multiplicative</span><span class="o">=</span><span class="n">search_space</span><span class="o">.</span><span class="n">multiplicative</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="extract_objective_thresholds"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.extract_objective_thresholds">[docs]</a><span class="k">def</span> <span class="nf">extract_objective_thresholds</span><span class="p">(</span>
+    <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">TRefPoint</span><span class="p">,</span>
+    <span class="n">objective</span><span class="p">:</span> <span class="n">Objective</span><span class="p">,</span>
+    <span class="n">outcomes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">"""Extracts objective thresholds' values, in the order of `outcomes`.</span>
+
+<span class="sd">    Will return None if no objective thresholds, otherwise the extracted tensor</span>
+<span class="sd">    will be the same length as `outcomes`.</span>
+
+<span class="sd">    If one objective threshold is specified, they must be specified for every</span>
+<span class="sd">    metric in the objective.</span>
+
+<span class="sd">    Outcomes that are not part of an objective will be given a threshold of 0</span>
+<span class="sd">    in this tensor, under the assumption that its value will not be used. Note</span>
+<span class="sd">    that setting it to 0 for an outcome that is part of the objective would be</span>
+<span class="sd">    incorrect, hence we validate that all objective metrics are represented.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        objective_thresholds: Objective thresholds to extract values from.</span>
+<span class="sd">        objective: The corresponding Objective, for validation purposes.</span>
+<span class="sd">        outcomes: n-length list of names of metrics.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        (n,) array of thresholds</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">objective_thresholds</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">objective_threshold_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">ot</span> <span class="ow">in</span> <span class="n">objective_thresholds</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">ot</span><span class="o">.</span><span class="n">relative</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Objective </span><span class="si">{</span><span class="n">ot</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> has a relative threshold that is not "</span>
+                <span class="sa">f</span><span class="s2">"supported here."</span>
+            <span class="p">)</span>
+        <span class="n">objective_threshold_dict</span><span class="p">[</span><span class="n">ot</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">ot</span><span class="o">.</span><span class="n">bound</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">objective_threshold_dict</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">objective</span><span class="o">.</span><span class="n">metrics</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"Objective thresholds do not match number of objective metrics."</span>
+        <span class="p">)</span>
+    <span class="c1"># Initialize these to be nan to make sure that objective thresholds for</span>
+    <span class="c1"># non-objective metrics are never used</span>
+    <span class="n">obj_t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">outcomes</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">objective</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">objective_threshold_dict</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Objective threshold not specified for </span><span class="si">{</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">. Thresholds must "</span>
+                <span class="sa">f</span><span class="s2">"be specified for all objective metrics or for none."</span>
+            <span class="p">)</span>
+        <span class="n">obj_t</span><span class="p">[</span><span class="n">outcomes</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">)]</span> <span class="o">=</span> <span class="n">objective_threshold_dict</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">obj_t</span></div>
+
+
+<div class="viewcode-block" id="extract_objective_weights"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.extract_objective_weights">[docs]</a><span class="k">def</span> <span class="nf">extract_objective_weights</span><span class="p">(</span><span class="n">objective</span><span class="p">:</span> <span class="n">Objective</span><span class="p">,</span> <span class="n">outcomes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">"""Extract a weights for objectives.</span>
+
+<span class="sd">    Weights are for a maximization problem.</span>
+
+<span class="sd">    Give an objective weight to each modeled outcome. Outcomes that are modeled</span>
+<span class="sd">    but not part of the objective get weight 0.</span>
+
+<span class="sd">    In the single metric case, the objective is given either +/- 1, depending</span>
+<span class="sd">    on the minimize flag.</span>
+
+<span class="sd">    In the multiple metric case, each objective is given the input weight,</span>
+<span class="sd">    multiplied by the minimize flag.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        objective: Objective to extract weights from.</span>
+<span class="sd">        outcomes: n-length list of names of metrics.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        n-length array of weights.</span>
+
+<span class="sd">    """</span>
+    <span class="n">objective_weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">outcomes</span><span class="p">))</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="n">ScalarizedObjective</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="o">-</span><span class="mf">1.0</span> <span class="k">if</span> <span class="n">objective</span><span class="o">.</span><span class="n">minimize</span> <span class="k">else</span> <span class="mf">1.0</span>
+        <span class="k">for</span> <span class="n">obj_metric</span><span class="p">,</span> <span class="n">obj_weight</span> <span class="ow">in</span> <span class="n">objective</span><span class="o">.</span><span class="n">metric_weights</span><span class="p">:</span>
+            <span class="n">objective_weights</span><span class="p">[</span><span class="n">outcomes</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">obj_metric</span><span class="o">.</span><span class="n">name</span><span class="p">)]</span> <span class="o">=</span> <span class="n">obj_weight</span> <span class="o">*</span> <span class="n">s</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="n">MultiObjective</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">obj</span><span class="p">,</span> <span class="n">obj_weight</span> <span class="ow">in</span> <span class="n">objective</span><span class="o">.</span><span class="n">objective_weights</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="o">-</span><span class="mf">1.0</span> <span class="k">if</span> <span class="n">obj</span><span class="o">.</span><span class="n">minimize</span> <span class="k">else</span> <span class="mf">1.0</span>
+            <span class="n">objective_weights</span><span class="p">[</span><span class="n">outcomes</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">)]</span> <span class="o">=</span> <span class="n">obj_weight</span> <span class="o">*</span> <span class="n">s</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="o">-</span><span class="mf">1.0</span> <span class="k">if</span> <span class="n">objective</span><span class="o">.</span><span class="n">minimize</span> <span class="k">else</span> <span class="mf">1.0</span>
+        <span class="n">objective_weights</span><span class="p">[</span><span class="n">outcomes</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">objective</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">)]</span> <span class="o">=</span> <span class="n">s</span>
+    <span class="k">return</span> <span class="n">objective_weights</span></div>
+
+
+<div class="viewcode-block" id="extract_outcome_constraints"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.extract_outcome_constraints">[docs]</a><span class="k">def</span> <span class="nf">extract_outcome_constraints</span><span class="p">(</span>
+    <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">OutcomeConstraint</span><span class="p">],</span> <span class="n">outcomes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TBounds</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">outcome_constraints</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="c1"># Extract outcome constraints</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">outcome_constraints</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">outcomes</span><span class="p">)))</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">outcome_constraints</span><span class="p">),</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">outcome_constraints</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">ComparisonOp</span><span class="o">.</span><span class="n">LEQ</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">ScalarizedOutcomeConstraint</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">c_metric</span><span class="p">,</span> <span class="n">c_weight</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">metric_weights</span><span class="p">:</span>
+                <span class="n">j</span> <span class="o">=</span> <span class="n">outcomes</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">c_metric</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                <span class="n">A</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">s</span> <span class="o">*</span> <span class="n">c_weight</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">j</span> <span class="o">=</span> <span class="n">outcomes</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="n">A</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">s</span>
+        <span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">s</span> <span class="o">*</span> <span class="n">c</span><span class="o">.</span><span class="n">bound</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="validate_and_apply_final_transform"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.validate_and_apply_final_transform">[docs]</a><span class="k">def</span> <span class="nf">validate_and_apply_final_transform</span><span class="p">(</span>
+    <span class="n">objective_weights</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span>
+    <span class="n">linear_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span>
+    <span class="n">pending_observations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span>
+    <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">final_transform</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span>
+    <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]],</span>
+    <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]],</span>
+    <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]],</span>
+    <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+<span class="p">]:</span>
+    <span class="c1"># TODO: use some container down the road (similar to</span>
+    <span class="c1"># SearchSpaceDigest) to limit the return arguments</span>
+    <span class="c1"># pyre-fixme[35]: Target cannot be annotated.</span>
+    <span class="n">objective_weights</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">=</span> <span class="n">final_transform</span><span class="p">(</span><span class="n">objective_weights</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">outcome_constraints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="c1"># pyre-fixme[35]: Target cannot be annotated.</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">final_transform</span><span class="p">(</span><span class="n">outcome_constraints</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+            <span class="n">final_transform</span><span class="p">(</span><span class="n">outcome_constraints</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">linear_constraints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="c1"># pyre-fixme[35]: Target cannot be annotated.</span>
+        <span class="n">linear_constraints</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">final_transform</span><span class="p">(</span><span class="n">linear_constraints</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+            <span class="n">final_transform</span><span class="p">(</span><span class="n">linear_constraints</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">pending_observations</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="c1"># pyre-fixme[35]: Target cannot be annotated.</span>
+        <span class="n">pending_observations</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">final_transform</span><span class="p">(</span><span class="n">pending_obs</span><span class="p">)</span> <span class="k">for</span> <span class="n">pending_obs</span> <span class="ow">in</span> <span class="n">pending_observations</span>
+        <span class="p">]</span>
+    <span class="k">if</span> <span class="n">objective_thresholds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># pyre-fixme[35]: Target cannot be annotated.</span>
+        <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Tensor</span> <span class="o">=</span> <span class="n">final_transform</span><span class="p">(</span><span class="n">objective_thresholds</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="n">objective_weights</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">,</span>
+        <span class="n">linear_constraints</span><span class="p">,</span>
+        <span class="n">pending_observations</span><span class="p">,</span>
+        <span class="n">objective_thresholds</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_fixed_features"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.get_fixed_features">[docs]</a><span class="k">def</span> <span class="nf">get_fixed_features</span><span class="p">(</span>
+    <span class="n">fixed_features</span><span class="p">:</span> <span class="n">ObservationFeatures</span><span class="p">,</span> <span class="n">param_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
+    <span class="sd">"""Reformat a set of fixed_features."""</span>
+    <span class="n">fixed_features_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">p_name</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">fixed_features</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="c1"># These all need to be floats at this point.</span>
+        <span class="c1"># pyre-ignore[6]: All float here.</span>
+        <span class="n">val_</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+        <span class="n">fixed_features_dict</span><span class="p">[</span><span class="n">param_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">p_name</span><span class="p">)]</span> <span class="o">=</span> <span class="n">val_</span>
+    <span class="n">fixed_features_dict</span> <span class="o">=</span> <span class="n">fixed_features_dict</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fixed_features_dict</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">fixed_features_dict</span></div>
+
+
+<div class="viewcode-block" id="pending_observations_as_array_list"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.pending_observations_as_array_list">[docs]</a><span class="k">def</span> <span class="nf">pending_observations_as_array_list</span><span class="p">(</span>
+    <span class="n">pending_observations</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]],</span>
+    <span class="n">outcome_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">param_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+    <span class="sd">"""Re-format pending observations.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        pending_observations: List of raw numpy pending observations.</span>
+<span class="sd">        outcome_names: List of outcome names.</span>
+<span class="sd">        param_names: List fitted param names.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Filtered pending observations data, by outcome and param names.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pending_observations</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">pending</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">outcome_names</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">po_list</span> <span class="ow">in</span> <span class="n">pending_observations</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="c1"># It is possible that some metrics attached to the experiment should</span>
+        <span class="c1"># not be included in pending features for a given model. For example,</span>
+        <span class="c1"># if a model is fit to the initial data that is missing some of the</span>
+        <span class="c1"># metrics on the experiment or if a model just should not be fit for</span>
+        <span class="c1"># some of the metrics attached to the experiment, so metrics that</span>
+        <span class="c1"># appear in pending_observations (drawn from an experiment) but not</span>
+        <span class="c1"># in outcome_names (metrics, expected for the model) are filtered out.</span>
+        <span class="k">if</span> <span class="n">metric_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">outcome_names</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">pending</span><span class="p">[</span><span class="n">outcome_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">metric_name</span><span class="p">)]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[[</span><span class="n">po</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">param_names</span><span class="p">]</span> <span class="k">for</span> <span class="n">po</span> <span class="ow">in</span> <span class="n">po_list</span><span class="p">]</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">pending</span></div>
+
+
+<div class="viewcode-block" id="parse_observation_features"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.parse_observation_features">[docs]</a><span class="k">def</span> <span class="nf">parse_observation_features</span><span class="p">(</span>
+    <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">param_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">candidate_metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">TCandidateMetadata</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]:</span>
+    <span class="sd">"""Re-format raw model-generated candidates into ObservationFeatures.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        param_names: List of param names.</span>
+<span class="sd">        X: Raw np.ndarray of candidate values.</span>
+<span class="sd">        candidate_metadata: Model's metadata for candidates it produced.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        List of candidates, represented as ObservationFeatures.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">candidate_metadata</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidate_metadata</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+            <span class="s2">"Observations metadata list provided is not of "</span>
+            <span class="s2">"the same size as the number of candidates."</span>
+        <span class="p">)</span>
+    <span class="n">observation_features</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
+        <span class="n">observation_features</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">ObservationFeatures</span><span class="p">(</span>
+                <span class="n">parameters</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">param_names</span><span class="p">,</span> <span class="n">x</span><span class="p">)),</span>
+                <span class="n">metadata</span><span class="o">=</span><span class="n">candidate_metadata</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">if</span> <span class="n">candidate_metadata</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">observation_features</span></div>
+
+
+<div class="viewcode-block" id="transform_callback"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.transform_callback">[docs]</a><span class="k">def</span> <span class="nf">transform_callback</span><span class="p">(</span>
+    <span class="n">param_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">transforms</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Transform</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">"""A closure for performing the `round trip` transformations.</span>
+
+<span class="sd">    The function round points by de-transforming points back into</span>
+<span class="sd">    the original space (done by applying transforms in reverse), and then</span>
+<span class="sd">    re-transforming them.</span>
+<span class="sd">    This function is specifically for points which are formatted as numpy</span>
+<span class="sd">    arrays. This function is passed to _model_gen.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        param_names: Names of parameters to transform.</span>
+<span class="sd">        transforms: Ordered set of transforms which were applied to the points.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        a function with for performing the roundtrip transform.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="nf">_roundtrip_transform</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">"""Inner function for performing aforementioned functionality.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x: points in the transformed space (e.g. all transforms have been applied</span>
+<span class="sd">                to them)</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            points in the transformed space, but rounded via the original space.</span>
+<span class="sd">        """</span>
+        <span class="c1"># apply reverse terminal transform to turn array to ObservationFeatures</span>
+        <span class="n">observation_features</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">ObservationFeatures</span><span class="p">(</span>
+                <span class="n">parameters</span><span class="o">=</span><span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">param_names</span><span class="p">)}</span>
+            <span class="p">)</span>
+        <span class="p">]</span>
+        <span class="c1"># reverse loop through the transforms and do untransform</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">transforms</span><span class="o">.</span><span class="n">values</span><span class="p">())):</span>
+            <span class="n">observation_features</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">untransform_observation_features</span><span class="p">(</span>
+                <span class="n">observation_features</span>
+            <span class="p">)</span>
+        <span class="c1"># forward loop through the transforms and do transform</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">transforms</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="n">observation_features</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">transform_observation_features</span><span class="p">(</span>
+                <span class="n">observation_features</span>
+            <span class="p">)</span>
+        <span class="c1"># parameters are guaranteed to be float compatible here, but pyre doesn't know</span>
+        <span class="n">new_x</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="c1"># pyre-fixme[6]: Expected `Union[_SupportsIndex, bytearray, bytes, str,</span>
+            <span class="c1">#  typing.SupportsFloat]` for 1st param but got `Union[None, bool, float,</span>
+            <span class="c1">#  int, str]`.</span>
+            <span class="nb">float</span><span class="p">(</span><span class="n">observation_features</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">param_names</span>
+        <span class="p">]</span>
+        <span class="c1"># turn it back into an array</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">new_x</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">_roundtrip_transform</span></div>
+
+
+<div class="viewcode-block" id="get_pending_observation_features"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.get_pending_observation_features">[docs]</a><span class="k">def</span> <span class="nf">get_pending_observation_features</span><span class="p">(</span>
+    <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span> <span class="n">include_failed_as_pending</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]]]:</span>
+    <span class="sd">"""Computes a list of pending observation features (corresponding to arms that</span>
+<span class="sd">    have been generated and deployed in the course of the experiment, but have not</span>
+<span class="sd">    been completed with data or to arms that have been abandoned or belong to</span>
+<span class="sd">    abandoned trials).</span>
+
+<span class="sd">    NOTE: Pending observation features are passed to the model to</span>
+<span class="sd">    instruct it to not generate the same points again.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        experiment: Experiment, pending features on which we seek to compute.</span>
+<span class="sd">        include_failed_as_pending: Whether to include failed trials as pending</span>
+<span class="sd">            (for example, to avoid the model suggesting them again).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        An optional mapping from metric names to a list of observation features,</span>
+<span class="sd">        pending for that metric (i.e. do not have evaluation data for that metric).</span>
+<span class="sd">        If there are no pending features for any of the metrics, return is None.</span>
+<span class="sd">    """</span>
+    <span class="n">pending_features</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="c1"># Note that this assumes that if a metric appears in fetched data, the trial is</span>
+    <span class="c1"># not pending for the metric. Where only the most recent data matters, this will</span>
+    <span class="c1"># work, but may need to add logic to check previously added data objects, too.</span>
+    <span class="k">for</span> <span class="n">trial_index</span><span class="p">,</span> <span class="n">trial</span> <span class="ow">in</span> <span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">dat</span> <span class="o">=</span> <span class="n">trial</span><span class="o">.</span><span class="n">lookup_data</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="n">experiment</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">metric_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">pending_features</span><span class="p">:</span>
+                <span class="n">pending_features</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">include_since_failed</span> <span class="o">=</span> <span class="n">include_failed_as_pending</span> <span class="ow">and</span> <span class="n">trial</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">is_failed</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">trial</span><span class="p">,</span> <span class="n">BatchTrial</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">trial</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">is_abandoned</span> <span class="ow">or</span> <span class="p">(</span>
+                    <span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">is_deployed</span> <span class="ow">or</span> <span class="n">include_since_failed</span><span class="p">)</span>
+                    <span class="ow">and</span> <span class="n">metric_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dat</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">metric_name</span><span class="o">.</span><span class="n">values</span>
+                    <span class="ow">and</span> <span class="n">trial</span><span class="o">.</span><span class="n">arms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="p">):</span>
+                    <span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">trial</span><span class="o">.</span><span class="n">arms</span><span class="p">:</span>
+                        <span class="n">not_none</span><span class="p">(</span><span class="n">pending_features</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">metric_name</span><span class="p">))</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="n">ObservationFeatures</span><span class="o">.</span><span class="n">from_arm</span><span class="p">(</span>
+                                <span class="n">arm</span><span class="o">=</span><span class="n">arm</span><span class="p">,</span>
+                                <span class="n">trial_index</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">(</span><span class="n">trial_index</span><span class="p">),</span>
+                                <span class="n">metadata</span><span class="o">=</span><span class="n">trial</span><span class="o">.</span><span class="n">_get_candidate_metadata</span><span class="p">(</span>
+                                    <span class="n">arm_name</span><span class="o">=</span><span class="n">arm</span><span class="o">.</span><span class="n">name</span>
+                                <span class="p">),</span>
+                            <span class="p">)</span>
+                        <span class="p">)</span>
+                <span class="n">abandoned_arms</span> <span class="o">=</span> <span class="n">trial</span><span class="o">.</span><span class="n">abandoned_arms</span>
+                <span class="k">for</span> <span class="n">abandoned_arm</span> <span class="ow">in</span> <span class="n">abandoned_arms</span><span class="p">:</span>
+                    <span class="n">not_none</span><span class="p">(</span><span class="n">pending_features</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">metric_name</span><span class="p">))</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">ObservationFeatures</span><span class="o">.</span><span class="n">from_arm</span><span class="p">(</span>
+                            <span class="n">arm</span><span class="o">=</span><span class="n">abandoned_arm</span><span class="p">,</span>
+                            <span class="n">trial_index</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">(</span><span class="n">trial_index</span><span class="p">),</span>
+                            <span class="n">metadata</span><span class="o">=</span><span class="n">trial</span><span class="o">.</span><span class="n">_get_candidate_metadata</span><span class="p">(</span>
+                                <span class="n">arm_name</span><span class="o">=</span><span class="n">abandoned_arm</span><span class="o">.</span><span class="n">name</span>
+                            <span class="p">),</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">trial</span><span class="p">,</span> <span class="n">Trial</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">trial</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">is_abandoned</span> <span class="ow">or</span> <span class="p">(</span>
+                    <span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">is_deployed</span> <span class="ow">or</span> <span class="n">include_since_failed</span><span class="p">)</span>
+                    <span class="ow">and</span> <span class="n">metric_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dat</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">metric_name</span><span class="o">.</span><span class="n">values</span>
+                    <span class="ow">and</span> <span class="n">trial</span><span class="o">.</span><span class="n">arm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="p">):</span>
+                    <span class="n">not_none</span><span class="p">(</span><span class="n">pending_features</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">metric_name</span><span class="p">))</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">ObservationFeatures</span><span class="o">.</span><span class="n">from_arm</span><span class="p">(</span>
+                            <span class="n">arm</span><span class="o">=</span><span class="n">not_none</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">arm</span><span class="p">),</span>
+                            <span class="n">trial_index</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">(</span><span class="n">trial_index</span><span class="p">),</span>
+                            <span class="n">metadata</span><span class="o">=</span><span class="n">trial</span><span class="o">.</span><span class="n">_get_candidate_metadata</span><span class="p">(</span>
+                                <span class="n">arm_name</span><span class="o">=</span><span class="n">not_none</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">arm</span><span class="p">)</span><span class="o">.</span><span class="n">name</span>
+                            <span class="p">),</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">pending_features</span> <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">pending_features</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="k">else</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="get_pending_observation_features_based_on_trial_status"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.get_pending_observation_features_based_on_trial_status">[docs]</a><span class="k">def</span> <span class="nf">get_pending_observation_features_based_on_trial_status</span><span class="p">(</span>
+    <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]]]:</span>
+    <span class="sd">"""A faster analogue of ``get_pending_observation_features`` that makes</span>
+<span class="sd">    assumptions about trials in experiment in order to speed up extraction</span>
+<span class="sd">    of pending points.</span>
+
+<span class="sd">    Assumptions:</span>
+
+<span class="sd">    * All arms in all trials in ``STAGED,`` ``RUNNING`` and ``ABANDONED`` statuses</span>
+<span class="sd">      are to be considered pending for all outcomes.</span>
+<span class="sd">    * All arms in all trials in other statuses are to be considered not pending for</span>
+<span class="sd">      all outcomes.</span>
+
+<span class="sd">    This entails:</span>
+
+<span class="sd">    * No actual data-fetching for trials to determine whether arms in them are pending</span>
+<span class="sd">      for specific outcomes.</span>
+<span class="sd">    * Even if data is present for some outcomes in ``RUNNING`` trials, their arms will</span>
+<span class="sd">      still be considered pending for those outcomes.</span>
+
+<span class="sd">    NOTE: This function should not be used to extract pending features in field</span>
+<span class="sd">    experiments, where arms in running trials should not be considered pending if</span>
+<span class="sd">    there is data for those arms.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        experiment: Experiment, pending features on which we seek to compute.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        An optional mapping from metric names to a list of observation features,</span>
+<span class="sd">        pending for that metric (i.e. do not have evaluation data for that metric).</span>
+<span class="sd">        If there are no pending features for any of the metrics, return is None.</span>
+<span class="sd">    """</span>
+    <span class="n">pending_features</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">status</span> <span class="ow">in</span> <span class="p">[</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">STAGED</span><span class="p">,</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">,</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">ABANDONED</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="n">experiment</span><span class="o">.</span><span class="n">trials_by_status</span><span class="p">[</span><span class="n">status</span><span class="p">]:</span>
+            <span class="k">for</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="n">experiment</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
+                <span class="n">pending_features</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                    <span class="n">ObservationFeatures</span><span class="o">.</span><span class="n">from_arm</span><span class="p">(</span>
+                        <span class="n">arm</span><span class="o">=</span><span class="n">arm</span><span class="p">,</span>
+                        <span class="n">trial_index</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">),</span>
+                        <span class="n">metadata</span><span class="o">=</span><span class="n">trial</span><span class="o">.</span><span class="n">_get_candidate_metadata</span><span class="p">(</span><span class="n">arm_name</span><span class="o">=</span><span class="n">arm</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+                    <span class="p">)</span>
+                    <span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">trial</span><span class="o">.</span><span class="n">arms</span>
+                <span class="p">)</span>
+
+    <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">pending_features</span><span class="p">)</span> <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">pending_features</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="k">else</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="get_pareto_frontier_and_configs"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.get_pareto_frontier_and_configs">[docs]</a><span class="k">def</span> <span class="nf">get_pareto_frontier_and_configs</span><span class="p">(</span>
+    <span class="n">modelbridge</span><span class="p">:</span> <span class="n">modelbridge_module</span><span class="o">.</span><span class="n">torch</span><span class="o">.</span><span class="n">TorchModelBridge</span><span class="p">,</span>
+    <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+    <span class="n">observation_data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TRefPoint</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MultiObjectiveOptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">arm_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">use_model_predictions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">transform_outcomes_and_configs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Observation</span><span class="p">],</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]]:</span>
+    <span class="sd">"""Helper that applies transforms and calls ``frontier_evaluator``.</span>
+
+<span class="sd">    Returns the ``frontier_evaluator`` configs in addition to the Pareto</span>
+<span class="sd">    observations.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        modelbridge: ``Modelbridge`` used to predict metrics outcomes.</span>
+<span class="sd">        observation_features: Observation features to consider for the Pareto</span>
+<span class="sd">            frontier.</span>
+<span class="sd">        observation_data: Data for computing the Pareto front, unless</span>
+<span class="sd">            ``observation_features`` are provided and ``model_predictions is True``.</span>
+<span class="sd">        objective_thresholds: Metric values bounding the region of interest in</span>
+<span class="sd">            the objective outcome space; used to override objective thresholds</span>
+<span class="sd">            specified in ``optimization_config``, if necessary.</span>
+<span class="sd">        optimization_config: Multi-objective optimization config.</span>
+<span class="sd">        arm_names: Arm names for each observation in ``observation_features``.</span>
+<span class="sd">        use_model_predictions: If ``True``, will use model predictions at</span>
+<span class="sd">            ``observation_features`` to compute Pareto front. If ``False``,</span>
+<span class="sd">            will use ``observation_data`` directly to compute Pareto front, ignoring</span>
+<span class="sd">            ``observation_features``.</span>
+<span class="sd">        transform_outcomes_and_configs: If ``True``, will transform the optimization</span>
+<span class="sd">            config, observation features and observation data, before calling</span>
+<span class="sd">            ``frontier_evaluator``, then will untransform all of the above before</span>
+<span class="sd">            returning the observations.</span>
+
+<span class="sd">    Returns: Four-item tuple of:</span>
+<span class="sd">          - frontier_observations: Observations of points on the pareto frontier,</span>
+<span class="sd">          - f: n x m tensor representation of the Pareto frontier values where n is the</span>
+<span class="sd">            length of frontier_observations and m is the number of metrics,</span>
+<span class="sd">          - obj_w: m tensor of objective weights,</span>
+<span class="sd">          - obj_t: m tensor of objective thresholds corresponding to Y, or None if no</span>
+<span class="sd">            objective thresholds used.</span>
+<span class="sd">    """</span>
+
+    <span class="n">array_to_tensor</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">_array_to_tensor</span><span class="p">,</span> <span class="n">modelbridge</span><span class="o">=</span><span class="n">modelbridge</span><span class="p">)</span>
+    <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Yvar</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">use_model_predictions</span><span class="p">:</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">array_to_tensor</span><span class="p">(</span>
+            <span class="n">modelbridge</span><span class="o">.</span><span class="n">transform_observation_features</span><span class="p">(</span><span class="n">observation_features</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">observation_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">transform_outcomes_and_configs</span><span class="p">:</span>
+            <span class="n">Y</span><span class="p">,</span> <span class="n">Yvar</span> <span class="o">=</span> <span class="n">modelbridge</span><span class="o">.</span><span class="n">transform_observation_data</span><span class="p">(</span><span class="n">observation_data</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">Y</span><span class="p">,</span> <span class="n">Yvar</span> <span class="o">=</span> <span class="n">observation_data_to_array</span><span class="p">(</span>
+                <span class="n">outcomes</span><span class="o">=</span><span class="n">modelbridge</span><span class="o">.</span><span class="n">outcomes</span><span class="p">,</span> <span class="n">observation_data</span><span class="o">=</span><span class="n">observation_data</span>
+            <span class="p">)</span>
+        <span class="n">Y</span><span class="p">,</span> <span class="n">Yvar</span> <span class="o">=</span> <span class="p">(</span><span class="n">array_to_tensor</span><span class="p">(</span><span class="n">Y</span><span class="p">),</span> <span class="n">array_to_tensor</span><span class="p">(</span><span class="n">Yvar</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">arm_names</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">arm_names</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">observation_features</span><span class="p">)</span>
+
+    <span class="c1"># Extract optimization config: make sure that the problem is a MOO</span>
+    <span class="c1"># problem and clone the optimization config with specified</span>
+    <span class="c1"># `objective_thresholds` if those are provided. If `optimization_config`</span>
+    <span class="c1"># is not specified, uses the one stored on `modelbridge`.</span>
+    <span class="n">optimization_config</span> <span class="o">=</span> <span class="n">_get_multiobjective_optimization_config</span><span class="p">(</span>
+        <span class="n">modelbridge</span><span class="o">=</span><span class="n">modelbridge</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+        <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Transform optimization config.</span>
+    <span class="n">fixed_features</span> <span class="o">=</span> <span class="n">ObservationFeatures</span><span class="p">(</span><span class="n">parameters</span><span class="o">=</span><span class="p">{})</span>
+    <span class="k">if</span> <span class="n">transform_outcomes_and_configs</span><span class="p">:</span>
+        <span class="n">optimization_config</span> <span class="o">=</span> <span class="n">modelbridge</span><span class="o">.</span><span class="n">transform_optimization_config</span><span class="p">(</span>
+            <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+            <span class="n">fixed_features</span><span class="o">=</span><span class="n">fixed_features</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># de-relativize outcome constraints and objective thresholds</span>
+        <span class="n">obs_feats</span><span class="p">,</span> <span class="n">obs_data</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_get_modelbridge_training_data</span><span class="p">(</span><span class="n">modelbridge</span><span class="o">=</span><span class="n">modelbridge</span><span class="p">)</span>
+        <span class="n">tf</span> <span class="o">=</span> <span class="n">Derelativize</span><span class="p">(</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">modelbridge</span><span class="o">.</span><span class="n">model_space</span><span class="o">.</span><span class="n">clone</span><span class="p">(),</span>
+            <span class="n">observation_data</span><span class="o">=</span><span class="n">obs_data</span><span class="p">,</span>
+            <span class="n">observation_features</span><span class="o">=</span><span class="n">obs_feats</span><span class="p">,</span>
+            <span class="n">config</span><span class="o">=</span><span class="p">{</span><span class="s2">"use_raw_status_quo"</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+        <span class="p">)</span>
+        <span class="c1"># pyre-ignore [9]</span>
+        <span class="n">optimization_config</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">transform_optimization_config</span><span class="p">(</span>
+            <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">clone</span><span class="p">(),</span>
+            <span class="n">modelbridge</span><span class="o">=</span><span class="n">modelbridge</span><span class="p">,</span>
+            <span class="n">fixed_features</span><span class="o">=</span><span class="n">fixed_features</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="c1"># Extract weights, constraints, and objective_thresholds</span>
+    <span class="n">objective_weights</span> <span class="o">=</span> <span class="n">extract_objective_weights</span><span class="p">(</span>
+        <span class="n">objective</span><span class="o">=</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="p">,</span> <span class="n">outcomes</span><span class="o">=</span><span class="n">modelbridge</span><span class="o">.</span><span class="n">outcomes</span>
+    <span class="p">)</span>
+    <span class="n">outcome_constraints</span> <span class="o">=</span> <span class="n">extract_outcome_constraints</span><span class="p">(</span>
+        <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">,</span>
+        <span class="n">outcomes</span><span class="o">=</span><span class="n">modelbridge</span><span class="o">.</span><span class="n">outcomes</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">obj_t</span> <span class="o">=</span> <span class="n">extract_objective_thresholds</span><span class="p">(</span>
+        <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">objective_thresholds</span><span class="p">,</span>
+        <span class="n">objective</span><span class="o">=</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="p">,</span>
+        <span class="n">outcomes</span><span class="o">=</span><span class="n">modelbridge</span><span class="o">.</span><span class="n">outcomes</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">obj_t</span> <span class="o">=</span> <span class="n">array_to_tensor</span><span class="p">(</span><span class="n">obj_t</span><span class="p">)</span>
+    <span class="c1"># Transform to tensors.</span>
+    <span class="n">obj_w</span><span class="p">,</span> <span class="n">oc_c</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">validate_and_apply_final_transform</span><span class="p">(</span>
+        <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+        <span class="n">linear_constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">pending_observations</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">final_transform</span><span class="o">=</span><span class="n">array_to_tensor</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">frontier_evaluator</span> <span class="o">=</span> <span class="n">get_default_frontier_evaluator</span><span class="p">()</span>
+    <span class="c1"># pyre-ignore[28]: Unexpected keyword `modelbridge` to anonymous call</span>
+    <span class="n">f</span><span class="p">,</span> <span class="n">cov</span><span class="p">,</span> <span class="n">indx</span> <span class="o">=</span> <span class="n">frontier_evaluator</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">modelbridge</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
+        <span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">,</span>
+        <span class="n">Y</span><span class="o">=</span><span class="n">Y</span><span class="p">,</span>
+        <span class="n">Yvar</span><span class="o">=</span><span class="n">Yvar</span><span class="p">,</span>
+        <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">obj_t</span><span class="p">,</span>
+        <span class="n">objective_weights</span><span class="o">=</span><span class="n">obj_w</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">oc_c</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">f</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">(),</span> <span class="n">cov</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+    <span class="n">indx</span> <span class="o">=</span> <span class="n">indx</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="n">frontier_observation_data</span> <span class="o">=</span> <span class="n">array_to_observation_data</span><span class="p">(</span>
+        <span class="n">f</span><span class="o">=</span><span class="n">f</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">cov</span><span class="o">=</span><span class="n">cov</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">outcomes</span><span class="o">=</span><span class="n">not_none</span><span class="p">(</span><span class="n">modelbridge</span><span class="o">.</span><span class="n">outcomes</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">use_model_predictions</span><span class="p">:</span>
+        <span class="c1"># Untransform observations</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">modelbridge</span><span class="o">.</span><span class="n">transforms</span><span class="o">.</span><span class="n">values</span><span class="p">())):</span>
+            <span class="n">frontier_observation_data</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">untransform_observation_data</span><span class="p">(</span>
+                <span class="n">frontier_observation_data</span><span class="p">,</span> <span class="p">[]</span>
+            <span class="p">)</span>
+        <span class="c1"># reconstruct tensor representation of untransformed predictions</span>
+        <span class="n">Y_arr</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">observation_data_to_array</span><span class="p">(</span>
+            <span class="n">outcomes</span><span class="o">=</span><span class="n">modelbridge</span><span class="o">.</span><span class="n">outcomes</span><span class="p">,</span> <span class="n">observation_data</span><span class="o">=</span><span class="n">frontier_observation_data</span>
+        <span class="p">)</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">_array_to_tensor</span><span class="p">(</span><span class="n">Y_arr</span><span class="p">)</span>
+    <span class="c1"># Construct observations</span>
+    <span class="n">frontier_observations</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">obsd</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">frontier_observation_data</span><span class="p">):</span>
+        <span class="n">frontier_observations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">Observation</span><span class="p">(</span>
+                <span class="n">features</span><span class="o">=</span><span class="n">observation_features</span><span class="p">[</span><span class="n">indx</span><span class="p">[</span><span class="n">i</span><span class="p">]],</span>
+                <span class="n">data</span><span class="o">=</span><span class="n">obsd</span><span class="p">,</span>
+                <span class="n">arm_name</span><span class="o">=</span><span class="n">arm_names</span><span class="p">[</span><span class="n">indx</span><span class="p">[</span><span class="n">i</span><span class="p">]],</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">frontier_observations</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">obj_w</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span> <span class="n">obj_t</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="pareto_frontier"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.pareto_frontier">[docs]</a><span class="k">def</span> <span class="nf">pareto_frontier</span><span class="p">(</span>
+    <span class="n">modelbridge</span><span class="p">:</span> <span class="n">modelbridge_module</span><span class="o">.</span><span class="n">torch</span><span class="o">.</span><span class="n">TorchModelBridge</span><span class="p">,</span>
+    <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+    <span class="n">observation_data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TRefPoint</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MultiObjectiveOptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">arm_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">use_model_predictions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Observation</span><span class="p">]:</span>
+    <span class="sd">"""Compute the list of points on the Pareto frontier as `Observation`-s</span>
+<span class="sd">    in the untransformed search space.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        modelbridge: ``Modelbridge`` used to predict metrics outcomes.</span>
+<span class="sd">        observation_features: Observation features to consider for the Pareto</span>
+<span class="sd">            frontier.</span>
+<span class="sd">        observation_data: Data for computing the Pareto front, unless</span>
+<span class="sd">            ``observation_features`` are provided and ``model_predictions is True``.</span>
+<span class="sd">        objective_thresholds: Metric values bounding the region of interest in</span>
+<span class="sd">            the objective outcome space; used to override objective thresholds</span>
+<span class="sd">            specified in ``optimization_config``, if necessary.</span>
+<span class="sd">        optimization_config: Multi-objective optimization config.</span>
+<span class="sd">        arm_names: Arm names for each observation in ``observation_features``.</span>
+<span class="sd">        use_model_predictions: If ``True``, will use model predictions at</span>
+<span class="sd">            ``observation_features`` to compute Pareto front. If ``False``,</span>
+<span class="sd">            will use ``observation_data`` directly to compute Pareto front, ignoring</span>
+<span class="sd">            ``observation_features``.</span>
+
+<span class="sd">    Returns: Points on the Pareto frontier as `Observation`-s.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">get_pareto_frontier_and_configs</span><span class="p">(</span>
+        <span class="n">modelbridge</span><span class="o">=</span><span class="n">modelbridge</span><span class="p">,</span>
+        <span class="n">observation_features</span><span class="o">=</span><span class="n">observation_features</span><span class="p">,</span>
+        <span class="n">observation_data</span><span class="o">=</span><span class="n">observation_data</span><span class="p">,</span>
+        <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+        <span class="n">arm_names</span><span class="o">=</span><span class="n">arm_names</span><span class="p">,</span>
+        <span class="n">use_model_predictions</span><span class="o">=</span><span class="n">use_model_predictions</span><span class="p">,</span>
+        <span class="n">transform_outcomes_and_configs</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="predicted_pareto_frontier"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.predicted_pareto_frontier">[docs]</a><span class="k">def</span> <span class="nf">predicted_pareto_frontier</span><span class="p">(</span>
+    <span class="n">modelbridge</span><span class="p">:</span> <span class="n">modelbridge_module</span><span class="o">.</span><span class="n">torch</span><span class="o">.</span><span class="n">TorchModelBridge</span><span class="p">,</span>
+    <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TRefPoint</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">observation_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MultiObjectiveOptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Observation</span><span class="p">]:</span>
+    <span class="sd">"""Generate a Pareto frontier based on the posterior means of given</span>
+<span class="sd">    observation features. Given a model and optionally features to evaluate</span>
+<span class="sd">    (will use model training data if not specified), use the model to predict</span>
+<span class="sd">    which points lie on the Pareto frontier.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        modelbridge: ``Modelbridge`` used to predict metrics outcomes.</span>
+<span class="sd">        observation_features: Observation features to predict, if provided and</span>
+<span class="sd">            ``use_model_predictions is True``.</span>
+<span class="sd">        objective_thresholds: Metric values bounding the region of interest in</span>
+<span class="sd">            the objective outcome space; used to override objective thresholds</span>
+<span class="sd">            specified in ``optimization_config``, if necessary.</span>
+<span class="sd">        optimization_config: Multi-objective optimization config.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Observations representing points on the Pareto frontier.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">observation_features</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">observation_features</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">arm_names</span> <span class="o">=</span> <span class="n">_get_modelbridge_training_data</span><span class="p">(</span>
+            <span class="n">modelbridge</span><span class="o">=</span><span class="n">modelbridge</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">arm_names</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">observation_features</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"Must receive observation_features as input or the model must "</span>
+            <span class="s2">"have training data."</span>
+        <span class="p">)</span>
+
+    <span class="n">pareto_observations</span> <span class="o">=</span> <span class="n">pareto_frontier</span><span class="p">(</span>
+        <span class="n">modelbridge</span><span class="o">=</span><span class="n">modelbridge</span><span class="p">,</span>
+        <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="p">,</span>
+        <span class="n">observation_features</span><span class="o">=</span><span class="n">observation_features</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+        <span class="n">arm_names</span><span class="o">=</span><span class="n">arm_names</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">pareto_observations</span></div>
+
+
+<div class="viewcode-block" id="observed_pareto_frontier"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.observed_pareto_frontier">[docs]</a><span class="k">def</span> <span class="nf">observed_pareto_frontier</span><span class="p">(</span>
+    <span class="n">modelbridge</span><span class="p">:</span> <span class="n">modelbridge_module</span><span class="o">.</span><span class="n">torch</span><span class="o">.</span><span class="n">TorchModelBridge</span><span class="p">,</span>
+    <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TRefPoint</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MultiObjectiveOptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Observation</span><span class="p">]:</span>
+    <span class="sd">"""Generate a pareto frontier based on observed data. Given observed data</span>
+<span class="sd">    (sourced from model training data), return points on the Pareto frontier</span>
+<span class="sd">    as `Observation`-s.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        modelbridge: ``Modelbridge`` that holds previous training data.</span>
+<span class="sd">        objective_thresholds: Metric values bounding the region of interest in</span>
+<span class="sd">            the objective outcome space; used to override objective thresholds</span>
+<span class="sd">            in the optimization config, if needed.</span>
+<span class="sd">        optimization_config: Multi-objective optimization config.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Data representing points on the pareto frontier.</span>
+<span class="sd">    """</span>
+    <span class="c1"># Get observation_data from current training data</span>
+    <span class="n">obs_feats</span><span class="p">,</span> <span class="n">obs_data</span><span class="p">,</span> <span class="n">arm_names</span> <span class="o">=</span> <span class="n">_get_modelbridge_training_data</span><span class="p">(</span>
+        <span class="n">modelbridge</span><span class="o">=</span><span class="n">modelbridge</span>
+    <span class="p">)</span>
+
+    <span class="n">pareto_observations</span> <span class="o">=</span> <span class="n">pareto_frontier</span><span class="p">(</span>
+        <span class="n">modelbridge</span><span class="o">=</span><span class="n">modelbridge</span><span class="p">,</span>
+        <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="p">,</span>
+        <span class="n">observation_data</span><span class="o">=</span><span class="n">obs_data</span><span class="p">,</span>
+        <span class="n">observation_features</span><span class="o">=</span><span class="n">obs_feats</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+        <span class="n">arm_names</span><span class="o">=</span><span class="n">arm_names</span><span class="p">,</span>
+        <span class="n">use_model_predictions</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">pareto_observations</span></div>
+
+
+<div class="viewcode-block" id="hypervolume"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.hypervolume">[docs]</a><span class="k">def</span> <span class="nf">hypervolume</span><span class="p">(</span>
+    <span class="n">modelbridge</span><span class="p">:</span> <span class="n">modelbridge_module</span><span class="o">.</span><span class="n">torch</span><span class="o">.</span><span class="n">TorchModelBridge</span><span class="p">,</span>
+    <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+    <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TRefPoint</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">observation_data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MultiObjectiveOptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">selected_metrics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">use_model_predictions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sd">"""Helper function that computes (feasible) hypervolume.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        modelbridge: The modelbridge.</span>
+<span class="sd">        observation_features: The observation features for the in-sample arms.</span>
+<span class="sd">        objective_thresholds: The objective thresholds to be used for computing</span>
+<span class="sd">            the hypervolume. If None, these are extracted from the optimization</span>
+<span class="sd">            config.</span>
+<span class="sd">        observation_data: The observed outcomes for the in-sample arms.</span>
+<span class="sd">        optimization_config: The optimization config specifying the objectives,</span>
+<span class="sd">            objectives thresholds, and outcome constraints.</span>
+<span class="sd">        selected_metrics: A list of objective metric names specifying which</span>
+<span class="sd">            objectives to use in hypervolume computation. By default, all</span>
+<span class="sd">            objectives are used.</span>
+<span class="sd">        use_model_predictions: A boolean indicating whether to use model predictions</span>
+<span class="sd">            for determining the in-sample Pareto frontier instead of the raw observed</span>
+<span class="sd">            values.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The (feasible) hypervolume.</span>
+
+<span class="sd">    """</span>
+    <span class="n">frontier_observations</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">obj_w</span><span class="p">,</span> <span class="n">obj_t</span> <span class="o">=</span> <span class="n">get_pareto_frontier_and_configs</span><span class="p">(</span>
+        <span class="n">modelbridge</span><span class="o">=</span><span class="n">modelbridge</span><span class="p">,</span>
+        <span class="n">observation_features</span><span class="o">=</span><span class="n">observation_features</span><span class="p">,</span>
+        <span class="n">observation_data</span><span class="o">=</span><span class="n">observation_data</span><span class="p">,</span>
+        <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+        <span class="n">use_model_predictions</span><span class="o">=</span><span class="n">use_model_predictions</span><span class="p">,</span>
+        <span class="n">transform_outcomes_and_configs</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">obj_t</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"Cannot compute hypervolume without having objective thresholds specified."</span>
+        <span class="p">)</span>
+    <span class="n">oc</span> <span class="o">=</span> <span class="n">_get_multiobjective_optimization_config</span><span class="p">(</span>
+        <span class="n">modelbridge</span><span class="o">=</span><span class="n">modelbridge</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+        <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># Set to all metrics if unspecified</span>
+    <span class="k">if</span> <span class="n">selected_metrics</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">selected_metrics</span> <span class="o">=</span> <span class="n">oc</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">metric_names</span>
+    <span class="c1"># filter to only include objectives</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">m</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">oc</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">metric_names</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">selected_metrics</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"All selected metrics must be objectives."</span><span class="p">)</span>
+
+    <span class="c1"># Create a mask indicating selected metrics</span>
+    <span class="n">selected_metrics_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">metric</span> <span class="ow">in</span> <span class="n">selected_metrics</span> <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">modelbridge</span><span class="o">.</span><span class="n">outcomes</span><span class="p">],</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">f</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># Apply appropriate weights and thresholds</span>
+    <span class="n">obj</span><span class="p">,</span> <span class="n">obj_t</span> <span class="o">=</span> <span class="n">get_weighted_mc_objective_and_objective_thresholds</span><span class="p">(</span>
+        <span class="n">objective_weights</span><span class="o">=</span><span class="n">obj_w</span><span class="p">,</span> <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">not_none</span><span class="p">(</span><span class="n">obj_t</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">f_t</span> <span class="o">=</span> <span class="n">obj</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="n">obj_mask</span> <span class="o">=</span> <span class="n">obj_w</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">selected_metrics_mask</span> <span class="o">=</span> <span class="n">selected_metrics_mask</span><span class="p">[</span><span class="n">obj_mask</span><span class="p">]</span>
+    <span class="n">f_t</span> <span class="o">=</span> <span class="n">f_t</span><span class="p">[:,</span> <span class="n">selected_metrics_mask</span><span class="p">]</span>
+    <span class="n">obj_t</span> <span class="o">=</span> <span class="n">obj_t</span><span class="p">[</span><span class="n">selected_metrics_mask</span><span class="p">]</span>
+    <span class="n">bd</span> <span class="o">=</span> <span class="n">DominatedPartitioning</span><span class="p">(</span><span class="n">ref_point</span><span class="o">=</span><span class="n">obj_t</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="n">f_t</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">bd</span><span class="o">.</span><span class="n">compute_hypervolume</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span></div>
+
+
+<span class="k">def</span> <span class="nf">_get_multiobjective_optimization_config</span><span class="p">(</span>
+    <span class="n">modelbridge</span><span class="p">:</span> <span class="n">modelbridge_module</span><span class="o">.</span><span class="n">torch</span><span class="o">.</span><span class="n">TorchModelBridge</span><span class="p">,</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TRefPoint</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">:</span>
+    <span class="c1"># Optimization_config</span>
+    <span class="n">mooc</span> <span class="o">=</span> <span class="n">optimization_config</span> <span class="ow">or</span> <span class="n">checked_cast_optional</span><span class="p">(</span>
+        <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">,</span> <span class="n">modelbridge</span><span class="o">.</span><span class="n">_optimization_config</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">mooc</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="s2">"Experiment must have an existing optimization_config "</span>
+                <span class="s2">"of type `MultiObjectiveOptimizationConfig` "</span>
+                <span class="s2">"or `optimization_config` must be passed as an argument."</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mooc</span><span class="p">,</span> <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"optimization_config must be a MultiObjectiveOptimizationConfig."</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">objective_thresholds</span><span class="p">:</span>
+        <span class="n">mooc</span> <span class="o">=</span> <span class="n">mooc</span><span class="o">.</span><span class="n">clone_with_args</span><span class="p">(</span><span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">mooc</span>
+
+
+<div class="viewcode-block" id="predicted_hypervolume"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.predicted_hypervolume">[docs]</a><span class="k">def</span> <span class="nf">predicted_hypervolume</span><span class="p">(</span>
+    <span class="n">modelbridge</span><span class="p">:</span> <span class="n">modelbridge_module</span><span class="o">.</span><span class="n">torch</span><span class="o">.</span><span class="n">TorchModelBridge</span><span class="p">,</span>
+    <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TRefPoint</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">observation_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MultiObjectiveOptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">selected_metrics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sd">"""Calculate hypervolume of a pareto frontier based on the posterior means of</span>
+<span class="sd">    given observation features.</span>
+
+<span class="sd">    Given a model and features to evaluate calculate the hypervolume of the pareto</span>
+<span class="sd">    frontier formed from their predicted outcomes.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        modelbridge: Modelbridge used to predict metrics outcomes.</span>
+<span class="sd">        objective_thresholds: point defining the origin of hyperrectangles that</span>
+<span class="sd">            can contribute to hypervolume.</span>
+<span class="sd">        observation_features: observation features to predict. Model's training</span>
+<span class="sd">            data used by default if unspecified.</span>
+<span class="sd">        optimization_config: Optimization config</span>
+<span class="sd">        selected_metrics: If specified, hypervolume will only be evaluated on</span>
+<span class="sd">            the specified subset of metrics. Otherwise, all metrics will be used.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        calculated hypervolume.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">observation_features</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">observation_features</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">__</span> <span class="o">=</span> <span class="n">_get_modelbridge_training_data</span><span class="p">(</span>
+            <span class="n">modelbridge</span><span class="o">=</span><span class="n">modelbridge</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">observation_features</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"Must receive observation_features as input or the model must "</span>
+            <span class="s2">"have training data."</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">hypervolume</span><span class="p">(</span>
+        <span class="n">modelbridge</span><span class="o">=</span><span class="n">modelbridge</span><span class="p">,</span>
+        <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="p">,</span>
+        <span class="n">observation_features</span><span class="o">=</span><span class="n">observation_features</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+        <span class="n">selected_metrics</span><span class="o">=</span><span class="n">selected_metrics</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="observed_hypervolume"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.observed_hypervolume">[docs]</a><span class="k">def</span> <span class="nf">observed_hypervolume</span><span class="p">(</span>
+    <span class="n">modelbridge</span><span class="p">:</span> <span class="n">modelbridge_module</span><span class="o">.</span><span class="n">torch</span><span class="o">.</span><span class="n">TorchModelBridge</span><span class="p">,</span>
+    <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TRefPoint</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MultiObjectiveOptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">selected_metrics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sd">"""Calculate hypervolume of a pareto frontier based on observed data.</span>
+
+<span class="sd">    Given observed data, return the hypervolume of the pareto frontier formed from</span>
+<span class="sd">    those outcomes.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        modelbridge: Modelbridge that holds previous training data.</span>
+<span class="sd">        objective_thresholds: point defining the origin of hyperrectangles that</span>
+<span class="sd">            can contribute to hypervolume.</span>
+<span class="sd">        observation_features: observation features to predict. Model's training</span>
+<span class="sd">            data used by default if unspecified.</span>
+<span class="sd">        optimization_config: Optimization config</span>
+<span class="sd">        selected_metrics: If specified, hypervolume will only be evaluated on</span>
+<span class="sd">            the specified subset of metrics. Otherwise, all metrics will be used.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        (float) calculated hypervolume.</span>
+<span class="sd">    """</span>
+    <span class="c1"># Get observation_data from current training data.</span>
+    <span class="n">obs_feats</span><span class="p">,</span> <span class="n">obs_data</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_get_modelbridge_training_data</span><span class="p">(</span><span class="n">modelbridge</span><span class="o">=</span><span class="n">modelbridge</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">hypervolume</span><span class="p">(</span>
+        <span class="n">modelbridge</span><span class="o">=</span><span class="n">modelbridge</span><span class="p">,</span>
+        <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="p">,</span>
+        <span class="n">observation_features</span><span class="o">=</span><span class="n">obs_feats</span><span class="p">,</span>
+        <span class="n">observation_data</span><span class="o">=</span><span class="n">obs_data</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+        <span class="n">selected_metrics</span><span class="o">=</span><span class="n">selected_metrics</span><span class="p">,</span>
+        <span class="n">use_model_predictions</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="array_to_observation_data"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.array_to_observation_data">[docs]</a><span class="k">def</span> <span class="nf">array_to_observation_data</span><span class="p">(</span>
+    <span class="n">f</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cov</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">outcomes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">]:</span>
+    <span class="sd">"""Convert arrays of model predictions to a list of ObservationData.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        f: An (n x m) array</span>
+<span class="sd">        cov: An (n x m x m) array</span>
+<span class="sd">        outcomes: A list of d outcome names</span>
+
+<span class="sd">    Returns: A list of n ObservationData</span>
+<span class="sd">    """</span>
+    <span class="n">observation_data</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="n">observation_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">ObservationData</span><span class="p">(</span>
+                <span class="n">metric_names</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">outcomes</span><span class="p">),</span>
+                <span class="n">means</span><span class="o">=</span><span class="n">f</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+                <span class="n">covariance</span><span class="o">=</span><span class="n">cov</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">observation_data</span></div>
+
+
+<div class="viewcode-block" id="observation_data_to_array"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.observation_data_to_array">[docs]</a><span class="k">def</span> <span class="nf">observation_data_to_array</span><span class="p">(</span>
+    <span class="n">outcomes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">observation_data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">"""Convert a list of Observation data to arrays.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        observation_data: A list of n ObservationData</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        An array of n ObservationData, each containing</span>
+<span class="sd">            - f: An (n x m) array</span>
+<span class="sd">            - cov: An (n x m x m) array</span>
+<span class="sd">    """</span>
+    <span class="n">means</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">cov</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">obsd</span> <span class="ow">in</span> <span class="n">observation_data</span><span class="p">:</span>
+        <span class="n">metric_idxs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">obsd</span><span class="o">.</span><span class="n">metric_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">outcomes</span><span class="p">])</span>
+        <span class="n">means</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">obsd</span><span class="o">.</span><span class="n">means</span><span class="p">[</span><span class="n">metric_idxs</span><span class="p">])</span>
+        <span class="n">cov</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">obsd</span><span class="o">.</span><span class="n">covariance</span><span class="p">[</span><span class="n">metric_idxs</span><span class="p">][:,</span> <span class="n">metric_idxs</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">means</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cov</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="observation_features_to_array"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.observation_features_to_array">[docs]</a><span class="k">def</span> <span class="nf">observation_features_to_array</span><span class="p">(</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">obsf</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">"""Convert a list of Observation features to arrays."""</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">of</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">]</span> <span class="k">for</span> <span class="n">of</span> <span class="ow">in</span> <span class="n">obsf</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="detect_duplicates"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.detect_duplicates">[docs]</a><span class="k">def</span> <span class="nf">detect_duplicates</span><span class="p">(</span>
+    <span class="n">X</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">rtol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span><span class="p">,</span>
+    <span class="n">atol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+    <span class="sd">"""Returns an iterator over index pairs `(duplicate index, original index)` for all</span>
+<span class="sd">    duplicate entries of `X`.</span>
+<span class="sd">    """</span>
+    <span class="n">tols</span> <span class="o">=</span> <span class="n">atol</span>
+    <span class="k">if</span> <span class="n">rtol</span><span class="p">:</span>
+        <span class="n">rval</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+        <span class="n">tols</span> <span class="o">=</span> <span class="n">tols</span> <span class="o">+</span> <span class="n">rtol</span> <span class="o">*</span> <span class="n">rval</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">rval</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">))</span>
+
+    <span class="n">n</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">X</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">X</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">dist</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">triu_indices</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">unbind</span><span class="p">()]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">pdist</span><span class="p">(</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">j</span><span class="p">))</span>
+        <span class="c1"># pyre-fixme[19]: Expected 1 positional argument.</span>
+        <span class="k">for</span> <span class="n">diff</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">dist</span> <span class="o">-</span> <span class="n">tols</span><span class="p">)</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">2</span><span class="p">),</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">diff</span> <span class="o">&lt;</span> <span class="mi">0</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="feasible_hypervolume"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.modelbridge_utils.feasible_hypervolume">[docs]</a><span class="k">def</span> <span class="nf">feasible_hypervolume</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+    <span class="n">optimization_config</span><span class="p">:</span> <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">"""Compute the feasible hypervolume each iteration.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        optimization_config: Optimization config.</span>
+<span class="sd">        values: Dictionary from metric name to array of value at each</span>
+<span class="sd">            iteration (each array is `n`-dim). If optimization config contains</span>
+<span class="sd">            outcome constraints, values for them must be present in `values`.</span>
+
+<span class="sd">    Returns: Array of feasible hypervolumes.</span>
+<span class="sd">    """</span>
+    <span class="c1"># Get objective at each iteration</span>
+    <span class="n">obj_threshold_dict</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">ot</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">ot</span><span class="o">.</span><span class="n">bound</span> <span class="k">for</span> <span class="n">ot</span> <span class="ow">in</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">objective_thresholds</span>
+    <span class="p">}</span>
+    <span class="n">f_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">values</span><span class="p">[</span><span class="n">m</span><span class="o">.</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">metrics</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">obj_thresholds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">obj_threshold_dict</span><span class="p">[</span><span class="n">m</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">metrics</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="c1"># Set infeasible points to be the objective threshold</span>
+    <span class="k">for</span> <span class="n">oc</span> <span class="ow">in</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">outcome_constraints</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">oc</span><span class="o">.</span><span class="n">relative</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="s2">"Benchmark aggregation does not support relative constraints"</span>
+            <span class="p">)</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="n">oc</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+        <span class="n">feas</span> <span class="o">=</span> <span class="n">g</span> <span class="o">&lt;=</span> <span class="n">oc</span><span class="o">.</span><span class="n">bound</span> <span class="k">if</span> <span class="n">oc</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">ComparisonOp</span><span class="o">.</span><span class="n">LEQ</span> <span class="k">else</span> <span class="n">g</span> <span class="o">&gt;=</span> <span class="n">oc</span><span class="o">.</span><span class="n">bound</span>
+        <span class="n">f_vals</span><span class="p">[</span><span class="o">~</span><span class="n">feas</span><span class="p">]</span> <span class="o">=</span> <span class="n">obj_thresholds</span>
+
+    <span class="n">obj_weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+        <span class="p">[</span><span class="o">-</span><span class="mi">1</span> <span class="k">if</span> <span class="n">m</span><span class="o">.</span><span class="n">lower_is_better</span> <span class="k">else</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">metrics</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">obj_thresholds</span> <span class="o">=</span> <span class="n">obj_thresholds</span> <span class="o">*</span> <span class="n">obj_weights</span>
+    <span class="n">f_vals</span> <span class="o">=</span> <span class="n">f_vals</span> <span class="o">*</span> <span class="n">obj_weights</span>
+    <span class="n">partitioning</span> <span class="o">=</span> <span class="n">DominatedPartitioning</span><span class="p">(</span>
+        <span class="n">ref_point</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">obj_thresholds</span><span class="p">)</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
+    <span class="p">)</span>
+    <span class="n">f_vals_torch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">f_vals</span><span class="p">)</span><span class="o">.</span><span class="n">double</span><span class="p">()</span>
+    <span class="c1"># compute hv at each iteration</span>
+    <span class="n">hvs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">f_vals</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="c1"># update with new point</span>
+        <span class="n">partitioning</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">Y</span><span class="o">=</span><span class="n">f_vals_torch</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">hv</span> <span class="o">=</span> <span class="n">partitioning</span><span class="o">.</span><span class="n">compute_hypervolume</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">hvs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">hv</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">hvs</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_array_to_tensor</span><span class="p">(</span>
+    <span class="n">array</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span>
+    <span class="n">modelbridge</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">modelbridge_module</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">ModelBridge</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">modelbridge</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">modelbridge</span><span class="p">,</span> <span class="s2">"_array_to_tensor"</span><span class="p">):</span>
+        <span class="c1"># pyre-ignore[16]: modelbridge does not have attribute `_array_to_tensor`</span>
+        <span class="k">return</span> <span class="n">modelbridge</span><span class="o">.</span><span class="n">_array_to_tensor</span><span class="p">(</span><span class="n">array</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">array</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_modelbridge_training_data</span><span class="p">(</span>
+    <span class="n">modelbridge</span><span class="p">:</span> <span class="n">modelbridge_module</span><span class="o">.</span><span class="n">torch</span><span class="o">.</span><span class="n">TorchModelBridge</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]:</span>
+    <span class="n">obs</span> <span class="o">=</span> <span class="n">modelbridge</span><span class="o">.</span><span class="n">get_training_data</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">_unpack_observations</span><span class="p">(</span><span class="n">obs</span><span class="o">=</span><span class="n">obs</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_unpack_observations</span><span class="p">(</span>
+    <span class="n">obs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Observation</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]:</span>
+    <span class="n">obs_feats</span><span class="p">,</span> <span class="n">obs_data</span><span class="p">,</span> <span class="n">arm_names</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">ob</span> <span class="ow">in</span> <span class="n">obs</span><span class="p">:</span>
+        <span class="n">obs_feats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ob</span><span class="o">.</span><span class="n">features</span><span class="p">)</span>
+        <span class="n">obs_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ob</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">arm_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ob</span><span class="o">.</span><span class="n">arm_name</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">obs_feats</span><span class="p">,</span> <span class="n">obs_data</span><span class="p">,</span> <span class="n">arm_names</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.6/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

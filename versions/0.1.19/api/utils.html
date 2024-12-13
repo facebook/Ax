@@ -1,0 +1,1620 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.19/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.19/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.19/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.19/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.19/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.19/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.19/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.19/css/main.css"/><script src="/versions/0.1.19/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.19/"><img class="logo" src="/versions/0.1.19/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.19/versions.html"><h3>0.1.19</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.19/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.19/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.19/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<div class="section" id="module-ax.utils">
+<span id="ax-utils"></span><h1>ax.utils<a class="headerlink" href="#module-ax.utils" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="common">
+<h2>Common<a class="headerlink" href="#common" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-ax.utils.common.docutils">
+<span id="docutils"></span><h3>Docutils<a class="headerlink" href="#module-ax.utils.common.docutils" title="Permalink to this headline">¶</a></h3>
+<p>Support functions for sphinx et. al</p>
+<dl class="function">
+<dt id="ax.utils.common.docutils.copy_doc">
+<code class="sig-prename descclassname">ax.utils.common.docutils.</code><code class="sig-name descname">copy_doc</code><span class="sig-paren">(</span><em class="sig-param">src: Callable[[...], Any]</em><span class="sig-paren">)</span> → Callable[[_T], _T]<a class="reference internal" href="_modules/ax/utils/common/docutils.html#copy_doc"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.docutils.copy_doc" title="Permalink to this definition">¶</a></dt>
+<dd><p>A decorator that copies the docstring of another object</p>
+<p>Since <code class="docutils literal notranslate"><span class="pre">sphinx</span></code> actually loads the python modules to grab the docstrings
+this works with both <code class="docutils literal notranslate"><span class="pre">sphinx</span></code> and the <code class="docutils literal notranslate"><span class="pre">help</span></code> function.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Cat</span><span class="p">(</span><span class="n">Mamal</span><span class="p">):</span>
+
+  <span class="nd">@property</span>
+  <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">Mamal</span><span class="o">.</span><span class="n">is_feline</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">is_feline</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">true</span><span class="p">:</span>
+      <span class="o">...</span>
+</pre></div>
+</div>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.utils.common.equality">
+<span id="equality"></span><h3>Equality<a class="headerlink" href="#module-ax.utils.common.equality" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.utils.common.equality.dataframe_equals">
+<code class="sig-prename descclassname">ax.utils.common.equality.</code><code class="sig-name descname">dataframe_equals</code><span class="sig-paren">(</span><em class="sig-param">df1: pandas.DataFrame</em>, <em class="sig-param">df2: pandas.DataFrame</em><span class="sig-paren">)</span> → bool<a class="reference internal" href="_modules/ax/utils/common/equality.html#dataframe_equals"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.equality.dataframe_equals" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compare equality of two pandas dataframes.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.equality.datetime_equals">
+<code class="sig-prename descclassname">ax.utils.common.equality.</code><code class="sig-name descname">datetime_equals</code><span class="sig-paren">(</span><em class="sig-param">dt1: Optional[datetime.datetime], dt2: Optional[datetime.datetime]</em><span class="sig-paren">)</span> → bool<a class="reference internal" href="_modules/ax/utils/common/equality.html#datetime_equals"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.equality.datetime_equals" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compare equality of two datetimes, ignoring microseconds.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.equality.equality_typechecker">
+<code class="sig-prename descclassname">ax.utils.common.equality.</code><code class="sig-name descname">equality_typechecker</code><span class="sig-paren">(</span><em class="sig-param">eq_func: Callable</em><span class="sig-paren">)</span> → Callable<a class="reference internal" href="_modules/ax/utils/common/equality.html#equality_typechecker"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.equality.equality_typechecker" title="Permalink to this definition">¶</a></dt>
+<dd><p>A decorator to wrap all __eq__ methods to ensure that the inputs
+are of the right type.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.equality.object_attribute_dicts_equal">
+<code class="sig-prename descclassname">ax.utils.common.equality.</code><code class="sig-name descname">object_attribute_dicts_equal</code><span class="sig-paren">(</span><em class="sig-param">one_dict: Dict[str, Any], other_dict: Dict[str, Any]</em><span class="sig-paren">)</span> → bool<a class="reference internal" href="_modules/ax/utils/common/equality.html#object_attribute_dicts_equal"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.equality.object_attribute_dicts_equal" title="Permalink to this definition">¶</a></dt>
+<dd><p>Utility to check if all items in attribute dicts of two Ax objects
+are the same.</p>
+<p>NOTE: Special-cases some Ax object attributes, like “_experiment” or
+“_model”, where full equality is hard to check.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.equality.object_attribute_dicts_find_unequal_fields">
+<code class="sig-prename descclassname">ax.utils.common.equality.</code><code class="sig-name descname">object_attribute_dicts_find_unequal_fields</code><span class="sig-paren">(</span><em class="sig-param">one_dict: Dict[str, Any], other_dict: Dict[str, Any], fast_return: bool = True, skip_db_id_check: bool = False</em><span class="sig-paren">)</span> → Tuple[Dict[str, Tuple[Any, Any]], Dict[str, Tuple[Any, Any]]]<a class="reference internal" href="_modules/ax/utils/common/equality.html#object_attribute_dicts_find_unequal_fields"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.equality.object_attribute_dicts_find_unequal_fields" title="Permalink to this definition">¶</a></dt>
+<dd><p>Utility for finding out what attributes of two objects’ attribute dicts
+are unequal.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>one_dict</strong> – First object’s attribute dict (<cite>obj.__dict__</cite>).</p></li>
+<li><p><strong>other_dict</strong> – Second object’s attribute dict (<cite>obj.__dict__</cite>).</p></li>
+<li><p><strong>fast_return</strong> – Boolean representing whether to return as soon as a
+single unequal attribute was found or to iterate over all attributes
+and collect all unequal ones.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p>attribute name to attribute values of unequal type (as a tuple),</p></li>
+<li><p>attribute name to attribute values of unequal value (as a tuple).</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Two dictionaries</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.equality.same_elements">
+<code class="sig-prename descclassname">ax.utils.common.equality.</code><code class="sig-name descname">same_elements</code><span class="sig-paren">(</span><em class="sig-param">list1: List[Any], list2: List[Any]</em><span class="sig-paren">)</span> → bool<a class="reference internal" href="_modules/ax/utils/common/equality.html#same_elements"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.equality.same_elements" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compare equality of two lists of core Ax objects.</p>
+<dl class="simple">
+<dt>Assumptions:</dt><dd><p>– The contents of each list are types that implement __eq__
+– The lists do not contain duplicates</p>
+</dd>
+</dl>
+<p>Checking equality is then the same as checking that the lists are the same
+length, and that one is a subset of the other.</p>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.utils.common.kwargs">
+<span id="kwargs"></span><h3>Kwargs<a class="headerlink" href="#module-ax.utils.common.kwargs" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.utils.common.kwargs.consolidate_kwargs">
+<code class="sig-prename descclassname">ax.utils.common.kwargs.</code><code class="sig-name descname">consolidate_kwargs</code><span class="sig-paren">(</span><em class="sig-param">kwargs_iterable: Iterable[Optional[Dict[str, Any]]], keywords: Iterable[str]</em><span class="sig-paren">)</span> → Dict[str, Any]<a class="reference internal" href="_modules/ax/utils/common/kwargs.html#consolidate_kwargs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.kwargs.consolidate_kwargs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Combine an iterable of kwargs into a single dict of kwargs, where kwargs
+by duplicate keys that appear later in the iterable get priority over the
+ones that appear earlier and only kwargs referenced in keywords will be
+used. This allows to combine somewhat redundant sets of kwargs, where a
+user-set kwarg, for instance, needs to override a default kwarg.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">consolidate_kwargs</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">kwargs_iterable</span><span class="o">=</span><span class="p">[{</span><span class="s1">'a'</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">'b'</span><span class="p">:</span> <span class="mi">2</span><span class="p">},</span> <span class="p">{</span><span class="s1">'b'</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s1">'c'</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span> <span class="s1">'d'</span><span class="p">:</span> <span class="mi">5</span><span class="p">}],</span>
+<span class="gp">... </span>    <span class="n">keywords</span><span class="o">=</span><span class="p">[</span><span class="s1">'a'</span><span class="p">,</span> <span class="s1">'b'</span><span class="p">,</span> <span class="s1">'d'</span><span class="p">]</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="go">{'a': 1, 'b': 3, 'd': 5}</span>
+</pre></div>
+</div>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.kwargs.get_function_argument_names">
+<code class="sig-prename descclassname">ax.utils.common.kwargs.</code><code class="sig-name descname">get_function_argument_names</code><span class="sig-paren">(</span><em class="sig-param">function: Callable</em>, <em class="sig-param">omit: Optional[List[str]] = None</em><span class="sig-paren">)</span> → List[str]<a class="reference internal" href="_modules/ax/utils/common/kwargs.html#get_function_argument_names"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.kwargs.get_function_argument_names" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extract parameter names from function signature.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.kwargs.get_function_default_arguments">
+<code class="sig-prename descclassname">ax.utils.common.kwargs.</code><code class="sig-name descname">get_function_default_arguments</code><span class="sig-paren">(</span><em class="sig-param">function: Callable</em><span class="sig-paren">)</span> → Dict[str, Any]<a class="reference internal" href="_modules/ax/utils/common/kwargs.html#get_function_default_arguments"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.kwargs.get_function_default_arguments" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extract default arguments from function signature.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.kwargs.validate_kwarg_typing">
+<code class="sig-prename descclassname">ax.utils.common.kwargs.</code><code class="sig-name descname">validate_kwarg_typing</code><span class="sig-paren">(</span><em class="sig-param">typed_callables: List[Callable], **kwargs: Any</em><span class="sig-paren">)</span> → None<a class="reference internal" href="_modules/ax/utils/common/kwargs.html#validate_kwarg_typing"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.kwargs.validate_kwarg_typing" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if keywords in kwargs exist in any of the typed_callables and
+if the type of each keyword value matches the type of corresponding arg in one of
+the callables</p>
+<p>Note: this function expects the typed callables to have unique keywords for
+the arguments and will raise an error if repeat keywords are found.</p>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.utils.common.logger">
+<span id="logger"></span><h3>Logger<a class="headerlink" href="#module-ax.utils.common.logger" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="ax.utils.common.logger.AxOutputNameFilter">
+<em class="property">class </em><code class="sig-prename descclassname">ax.utils.common.logger.</code><code class="sig-name descname">AxOutputNameFilter</code><span class="sig-paren">(</span><em class="sig-param">name=''</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/common/logger.html#AxOutputNameFilter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.logger.AxOutputNameFilter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.Filter" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">logging.Filter</span></code></a></p>
+<p>This is a filter which sets the record’s output_name, if
+not configured</p>
+<dl class="method">
+<dt id="ax.utils.common.logger.AxOutputNameFilter.filter">
+<code class="sig-name descname">filter</code><span class="sig-paren">(</span><em class="sig-param">record: logging.LogRecord</em><span class="sig-paren">)</span> → bool<a class="reference internal" href="_modules/ax/utils/common/logger.html#AxOutputNameFilter.filter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.logger.AxOutputNameFilter.filter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determine if the specified record is to be logged.</p>
+<p>Is the specified record to be logged? Returns 0 for no, nonzero for
+yes. If deemed appropriate, the record may be modified in-place.</p>
+</dd></dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.logger.build_file_handler">
+<code class="sig-prename descclassname">ax.utils.common.logger.</code><code class="sig-name descname">build_file_handler</code><span class="sig-paren">(</span><em class="sig-param">filepath: str</em>, <em class="sig-param">level: int = 20</em><span class="sig-paren">)</span> → logging.StreamHandler<a class="reference internal" href="_modules/ax/utils/common/logger.html#build_file_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.logger.build_file_handler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Build a file handle that logs entries to the given file, using the
+same formatting as the stream handler.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filepath</strong> – Location of the file to log output to. If the file exists, output
+will be appended. If it does not exist, a new file will be created.</p></li>
+<li><p><strong>level</strong> – The log level. By default, sets level to INFO</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A logging.FileHandler instance</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.logger.build_stream_handler">
+<code class="sig-prename descclassname">ax.utils.common.logger.</code><code class="sig-name descname">build_stream_handler</code><span class="sig-paren">(</span><em class="sig-param">level: int = 20</em><span class="sig-paren">)</span> → logging.StreamHandler<a class="reference internal" href="_modules/ax/utils/common/logger.html#build_stream_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.logger.build_stream_handler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Build the default stream handler used for most Ax logging. Sets
+default level to INFO, instead of WARNING.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>level</strong> – The log level. By default, sets level to INFO</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A logging.StreamHandler instance</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.logger.get_logger">
+<code class="sig-prename descclassname">ax.utils.common.logger.</code><code class="sig-name descname">get_logger</code><span class="sig-paren">(</span><em class="sig-param">name: str</em><span class="sig-paren">)</span> → logging.Logger<a class="reference internal" href="_modules/ax/utils/common/logger.html#get_logger"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.logger.get_logger" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get an Axlogger.</p>
+<p>To set a human-readable “output_name” that appears in logger outputs,
+add <cite>{“output_name”: “[MY_OUTPUT_NAME]”}</cite> to the logger’s contextual
+information. By default, we use the logger’s <cite>name</cite></p>
+<p>NOTE: To change the log level on particular outputs (e.g. STDERR logs),
+set the proper log level on the relevant handler, instead of the logger
+e.g. logger.handers[0].setLevel(INFO)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>name</strong> – The name of the logger.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The logging.Logger object.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.logger.set_stderr_log_level">
+<code class="sig-prename descclassname">ax.utils.common.logger.</code><code class="sig-name descname">set_stderr_log_level</code><span class="sig-paren">(</span><em class="sig-param">level: int</em><span class="sig-paren">)</span> → None<a class="reference internal" href="_modules/ax/utils/common/logger.html#set_stderr_log_level"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.logger.set_stderr_log_level" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the log level for stream handler, such that logs of given level
+are printed to STDERR by the root logger</p>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.utils.common.serialization">
+<span id="serialization"></span><h3>Serialization<a class="headerlink" href="#module-ax.utils.common.serialization" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.utils.common.serialization.callable_from_reference">
+<code class="sig-prename descclassname">ax.utils.common.serialization.</code><code class="sig-name descname">callable_from_reference</code><span class="sig-paren">(</span><em class="sig-param">path: str</em><span class="sig-paren">)</span> → Callable<a class="reference internal" href="_modules/ax/utils/common/serialization.html#callable_from_reference"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.serialization.callable_from_reference" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieves a callable by its path.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.serialization.callable_to_reference">
+<code class="sig-prename descclassname">ax.utils.common.serialization.</code><code class="sig-name descname">callable_to_reference</code><span class="sig-paren">(</span><em class="sig-param">callable: Callable</em><span class="sig-paren">)</span> → str<a class="reference internal" href="_modules/ax/utils/common/serialization.html#callable_to_reference"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.serialization.callable_to_reference" title="Permalink to this definition">¶</a></dt>
+<dd><p>Obtains path to the callable of form &lt;module&gt;.&lt;name&gt;.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.serialization.extract_init_args">
+<code class="sig-prename descclassname">ax.utils.common.serialization.</code><code class="sig-name descname">extract_init_args</code><span class="sig-paren">(</span><em class="sig-param">args: Dict[str, Any], class_: Type</em><span class="sig-paren">)</span> → Dict[str, Any]<a class="reference internal" href="_modules/ax/utils/common/serialization.html#extract_init_args"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.serialization.extract_init_args" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given a dictionary, extract the arguments required for the
+given class’s constructor.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.serialization.named_tuple_to_dict">
+<code class="sig-prename descclassname">ax.utils.common.serialization.</code><code class="sig-name descname">named_tuple_to_dict</code><span class="sig-paren">(</span><em class="sig-param">data: Any</em><span class="sig-paren">)</span> → Any<a class="reference internal" href="_modules/ax/utils/common/serialization.html#named_tuple_to_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.serialization.named_tuple_to_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Recursively convert NamedTuples to dictionaries.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.serialization.serialize_init_args">
+<code class="sig-prename descclassname">ax.utils.common.serialization.</code><code class="sig-name descname">serialize_init_args</code><span class="sig-paren">(</span><em class="sig-param">object: Any</em>, <em class="sig-param">exclude_fields: Optional[List[str]] = None</em><span class="sig-paren">)</span> → Dict[str, Any]<a class="reference internal" href="_modules/ax/utils/common/serialization.html#serialize_init_args"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.serialization.serialize_init_args" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given an object, return a dictionary of the arguments that are
+needed by its constructor.</p>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.utils.common.testutils">
+<span id="testutils"></span><h3>Testutils<a class="headerlink" href="#module-ax.utils.common.testutils" title="Permalink to this headline">¶</a></h3>
+<p>Support functions for tests</p>
+<dl class="class">
+<dt id="ax.utils.common.testutils.TestCase">
+<em class="property">class </em><code class="sig-prename descclassname">ax.utils.common.testutils.</code><code class="sig-name descname">TestCase</code><span class="sig-paren">(</span><em class="sig-param">methodName: str = 'runTest'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/common/testutils.html#TestCase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.testutils.TestCase" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">unittest.case.TestCase</span></code></p>
+<p>The base Ax test case, contains various helper functions to write unittests.</p>
+<dl class="method">
+<dt id="ax.utils.common.testutils.TestCase.assertEqual">
+<code class="sig-name descname">assertEqual</code><span class="sig-paren">(</span><em class="sig-param">first: Any</em>, <em class="sig-param">second: Any</em>, <em class="sig-param">msg: Optional[str] = None</em><span class="sig-paren">)</span> → None<a class="reference internal" href="_modules/ax/utils/common/testutils.html#TestCase.assertEqual"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.testutils.TestCase.assertEqual" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fail if the two objects are unequal as determined by the ‘==’
+operator.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.utils.common.testutils.TestCase.assertRaisesOn">
+<code class="sig-name descname">assertRaisesOn</code><span class="sig-paren">(</span><em class="sig-param">exc: Type[Exception], line: Optional[str] = None, regex: Optional[str] = None</em><span class="sig-paren">)</span> → AbstractContextManager[None]<a class="reference internal" href="_modules/ax/utils/common/testutils.html#TestCase.assertRaisesOn"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.testutils.TestCase.assertRaisesOn" title="Permalink to this definition">¶</a></dt>
+<dd><p>Assert that an exception is raised on a specific line.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.utils.common.testutils.TestCase.silence_stderr">
+<em class="property">static </em><code class="sig-name descname">silence_stderr</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → Generator[None, None, None]<a class="reference internal" href="_modules/ax/utils/common/testutils.html#TestCase.silence_stderr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.testutils.TestCase.silence_stderr" title="Permalink to this definition">¶</a></dt>
+<dd><p>A context manager that silences stderr for part of a test.</p>
+<p>If any exception passes through this context manager the stderr will be printed,
+otherwise it will be discarded.</p>
+</dd></dl>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.utils.common.timeutils">
+<span id="timeutils"></span><h3>Timeutils<a class="headerlink" href="#module-ax.utils.common.timeutils" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.utils.common.timeutils.current_timestamp_in_millis">
+<code class="sig-prename descclassname">ax.utils.common.timeutils.</code><code class="sig-name descname">current_timestamp_in_millis</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → int<a class="reference internal" href="_modules/ax/utils/common/timeutils.html#current_timestamp_in_millis"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.timeutils.current_timestamp_in_millis" title="Permalink to this definition">¶</a></dt>
+<dd><p>Grab current timestamp in milliseconds as an int.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.timeutils.timestamps_in_range">
+<code class="sig-prename descclassname">ax.utils.common.timeutils.</code><code class="sig-name descname">timestamps_in_range</code><span class="sig-paren">(</span><em class="sig-param">start: datetime.datetime</em>, <em class="sig-param">end: datetime.datetime</em>, <em class="sig-param">delta: datetime.timedelta</em><span class="sig-paren">)</span> → Generator[datetime.datetime, None, None]<a class="reference internal" href="_modules/ax/utils/common/timeutils.html#timestamps_in_range"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.timeutils.timestamps_in_range" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generator of timestamps in range [start, end], at intervals
+delta.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.timeutils.to_ds">
+<code class="sig-prename descclassname">ax.utils.common.timeutils.</code><code class="sig-name descname">to_ds</code><span class="sig-paren">(</span><em class="sig-param">ts: datetime.datetime</em><span class="sig-paren">)</span> → str<a class="reference internal" href="_modules/ax/utils/common/timeutils.html#to_ds"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.timeutils.to_ds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert a <cite>datetime</cite> to a DS string.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.timeutils.to_ts">
+<code class="sig-prename descclassname">ax.utils.common.timeutils.</code><code class="sig-name descname">to_ts</code><span class="sig-paren">(</span><em class="sig-param">ds: str</em><span class="sig-paren">)</span> → datetime.datetime<a class="reference internal" href="_modules/ax/utils/common/timeutils.html#to_ts"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.timeutils.to_ts" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert a DS string to a <cite>datetime</cite>.</p>
+</dd></dl>
+</div>
+<div class="section" id="module-ax.utils.common.typeutils">
+<span id="typeutils"></span><h3>Typeutils<a class="headerlink" href="#module-ax.utils.common.typeutils" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.utils.common.typeutils.checked_cast">
+<code class="sig-prename descclassname">ax.utils.common.typeutils.</code><code class="sig-name descname">checked_cast</code><span class="sig-paren">(</span><em class="sig-param">typ: Type[T], val: V</em><span class="sig-paren">)</span> → T<a class="reference internal" href="_modules/ax/utils/common/typeutils.html#checked_cast"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.typeutils.checked_cast" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cast a value to a type (with a runtime safety check).</p>
+<p>Returns the value unchanged and checks its type at runtime. This signals to the
+typechecker that the value has the designated type.</p>
+<p>Like <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.cast">typing.cast</a> <code class="docutils literal notranslate"><span class="pre">check_cast</span></code> performs no runtime conversion on its argument,
+but, unlike <code class="docutils literal notranslate"><span class="pre">typing.cast</span></code>, <code class="docutils literal notranslate"><span class="pre">checked_cast</span></code> will throw an error if the value is
+not of the expected type. The type passed as an argument should be a python class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>typ</strong> – the type to cast to</p></li>
+<li><p><strong>val</strong> – the value that we are casting</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>the <code class="docutils literal notranslate"><span class="pre">val</span></code> argument, unchanged</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.typeutils.checked_cast_dict">
+<code class="sig-prename descclassname">ax.utils.common.typeutils.</code><code class="sig-name descname">checked_cast_dict</code><span class="sig-paren">(</span><em class="sig-param">key_typ: Type[K], value_typ: Type[V], d: Dict[X, Y]</em><span class="sig-paren">)</span> → Dict[K, V]<a class="reference internal" href="_modules/ax/utils/common/typeutils.html#checked_cast_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.typeutils.checked_cast_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calls checked_cast on all keys and values in the dictionary.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.typeutils.checked_cast_list">
+<code class="sig-prename descclassname">ax.utils.common.typeutils.</code><code class="sig-name descname">checked_cast_list</code><span class="sig-paren">(</span><em class="sig-param">typ: Type[T], old_l: List[V]</em><span class="sig-paren">)</span> → List[T]<a class="reference internal" href="_modules/ax/utils/common/typeutils.html#checked_cast_list"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.typeutils.checked_cast_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calls checked_cast on all items in a list.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.typeutils.checked_cast_optional">
+<code class="sig-prename descclassname">ax.utils.common.typeutils.</code><code class="sig-name descname">checked_cast_optional</code><span class="sig-paren">(</span><em class="sig-param">typ: Type[T], val: Optional[V]</em><span class="sig-paren">)</span> → Optional[T]<a class="reference internal" href="_modules/ax/utils/common/typeutils.html#checked_cast_optional"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.typeutils.checked_cast_optional" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calls checked_cast only if value is not None.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.typeutils.checked_cast_to_tuple">
+<code class="sig-prename descclassname">ax.utils.common.typeutils.</code><code class="sig-name descname">checked_cast_to_tuple</code><span class="sig-paren">(</span><em class="sig-param">typ: Tuple[Type[V], ...], val: V</em><span class="sig-paren">)</span> → T<a class="reference internal" href="_modules/ax/utils/common/typeutils.html#checked_cast_to_tuple"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.typeutils.checked_cast_to_tuple" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cast a value to a union of multiple types (with a runtime safety check).
+This function is similar to <cite>checked_cast</cite>, but allows for the type to be
+defined as a tuple of types, in which case the value is cast as a union of
+the types in the tuple.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>typ</strong> – the tuple of types to cast to</p></li>
+<li><p><strong>val</strong> – the value that we are casting</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>the <code class="docutils literal notranslate"><span class="pre">val</span></code> argument, unchanged</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.typeutils.not_none">
+<code class="sig-prename descclassname">ax.utils.common.typeutils.</code><code class="sig-name descname">not_none</code><span class="sig-paren">(</span><em class="sig-param">val: Optional[T]</em><span class="sig-paren">)</span> → T<a class="reference internal" href="_modules/ax/utils/common/typeutils.html#not_none"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.typeutils.not_none" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unbox an optional type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>val</strong> – the value to cast to a non <code class="docutils literal notranslate"><span class="pre">None</span></code> type</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">val</span></code> when <code class="docutils literal notranslate"><span class="pre">val</span></code> is not <code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>V</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Throws:</dt><dd><p>ValueError if <code class="docutils literal notranslate"><span class="pre">val</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.typeutils.numpy_type_to_python_type">
+<code class="sig-prename descclassname">ax.utils.common.typeutils.</code><code class="sig-name descname">numpy_type_to_python_type</code><span class="sig-paren">(</span><em class="sig-param">value: Any</em><span class="sig-paren">)</span> → Any<a class="reference internal" href="_modules/ax/utils/common/typeutils.html#numpy_type_to_python_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.typeutils.numpy_type_to_python_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>If <cite>value</cite> is a Numpy int or float, coerce to a Python int or float.
+This is necessary because some of our transforms return Numpy values.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.typeutils.torch_type_from_str">
+<code class="sig-prename descclassname">ax.utils.common.typeutils.</code><code class="sig-name descname">torch_type_from_str</code><span class="sig-paren">(</span><em class="sig-param">identifier: str</em>, <em class="sig-param">type_name: str</em><span class="sig-paren">)</span> → Union[torch.dtype, torch.device]<a class="reference internal" href="_modules/ax/utils/common/typeutils.html#torch_type_from_str"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.typeutils.torch_type_from_str" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.common.typeutils.torch_type_to_str">
+<code class="sig-prename descclassname">ax.utils.common.typeutils.</code><code class="sig-name descname">torch_type_to_str</code><span class="sig-paren">(</span><em class="sig-param">value: Any</em><span class="sig-paren">)</span> → str<a class="reference internal" href="_modules/ax/utils/common/typeutils.html#torch_type_to_str"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.common.typeutils.torch_type_to_str" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converts torch types, commonly used in Ax, to string representations.</p>
+</dd></dl>
+</div>
+</div>
+<div class="section" id="measurement">
+<h2>Measurement<a class="headerlink" href="#measurement" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-ax.utils.measurement.synthetic_functions">
+<span id="synthetic-functions"></span><h3>Synthetic Functions<a class="headerlink" href="#module-ax.utils.measurement.synthetic_functions" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="ax.utils.measurement.synthetic_functions.Aug_Branin">
+<em class="property">class </em><code class="sig-prename descclassname">ax.utils.measurement.synthetic_functions.</code><code class="sig-name descname">Aug_Branin</code><a class="reference internal" href="_modules/ax/utils/measurement/synthetic_functions.html#Aug_Branin"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.measurement.synthetic_functions.Aug_Branin" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.utils.measurement.synthetic_functions.SyntheticFunction" title="ax.utils.measurement.synthetic_functions.SyntheticFunction"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.utils.measurement.synthetic_functions.SyntheticFunction</span></code></a></p>
+<p>Augmented Branin function (3-dimensional with infinitely many global minima).</p>
+</dd></dl>
+<dl class="class">
+<dt id="ax.utils.measurement.synthetic_functions.Aug_Hartmann6">
+<em class="property">class </em><code class="sig-prename descclassname">ax.utils.measurement.synthetic_functions.</code><code class="sig-name descname">Aug_Hartmann6</code><a class="reference internal" href="_modules/ax/utils/measurement/synthetic_functions.html#Aug_Hartmann6"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.measurement.synthetic_functions.Aug_Hartmann6" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.utils.measurement.synthetic_functions.Hartmann6" title="ax.utils.measurement.synthetic_functions.Hartmann6"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.utils.measurement.synthetic_functions.Hartmann6</span></code></a></p>
+<p>Augmented Hartmann6 function (7-dimensional with 1 global minimum).</p>
+</dd></dl>
+<dl class="class">
+<dt id="ax.utils.measurement.synthetic_functions.Branin">
+<em class="property">class </em><code class="sig-prename descclassname">ax.utils.measurement.synthetic_functions.</code><code class="sig-name descname">Branin</code><a class="reference internal" href="_modules/ax/utils/measurement/synthetic_functions.html#Branin"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.measurement.synthetic_functions.Branin" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.utils.measurement.synthetic_functions.SyntheticFunction" title="ax.utils.measurement.synthetic_functions.SyntheticFunction"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.utils.measurement.synthetic_functions.SyntheticFunction</span></code></a></p>
+<p>Branin function (2-dimensional with 3 global minima).</p>
+</dd></dl>
+<dl class="class">
+<dt id="ax.utils.measurement.synthetic_functions.FromBotorch">
+<em class="property">class </em><code class="sig-prename descclassname">ax.utils.measurement.synthetic_functions.</code><code class="sig-name descname">FromBotorch</code><span class="sig-paren">(</span><em class="sig-param">botorch_synthetic_function: botorch.test_functions.synthetic.SyntheticTestFunction</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/measurement/synthetic_functions.html#FromBotorch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.measurement.synthetic_functions.FromBotorch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.utils.measurement.synthetic_functions.SyntheticFunction" title="ax.utils.measurement.synthetic_functions.SyntheticFunction"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.utils.measurement.synthetic_functions.SyntheticFunction</span></code></a></p>
+<dl class="method">
+<dt id="ax.utils.measurement.synthetic_functions.FromBotorch.name">
+<em class="property">property </em><code class="sig-name descname">name</code><a class="headerlink" href="#ax.utils.measurement.synthetic_functions.FromBotorch.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.utils.measurement.synthetic_functions.Hartmann6">
+<em class="property">class </em><code class="sig-prename descclassname">ax.utils.measurement.synthetic_functions.</code><code class="sig-name descname">Hartmann6</code><a class="reference internal" href="_modules/ax/utils/measurement/synthetic_functions.html#Hartmann6"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.measurement.synthetic_functions.Hartmann6" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#ax.utils.measurement.synthetic_functions.SyntheticFunction" title="ax.utils.measurement.synthetic_functions.SyntheticFunction"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.utils.measurement.synthetic_functions.SyntheticFunction</span></code></a></p>
+<p>Hartmann6 function (6-dimensional with 1 global minimum).</p>
+</dd></dl>
+<dl class="class">
+<dt id="ax.utils.measurement.synthetic_functions.SyntheticFunction">
+<em class="property">class </em><code class="sig-prename descclassname">ax.utils.measurement.synthetic_functions.</code><code class="sig-name descname">SyntheticFunction</code><a class="reference internal" href="_modules/ax/utils/measurement/synthetic_functions.html#SyntheticFunction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.measurement.synthetic_functions.SyntheticFunction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">abc.ABC</span></code></a></p>
+<dl class="method">
+<dt id="ax.utils.measurement.synthetic_functions.SyntheticFunction.domain">
+<em class="property">property </em><code class="sig-name descname">domain</code><a class="headerlink" href="#ax.utils.measurement.synthetic_functions.SyntheticFunction.domain" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="method">
+<dt id="ax.utils.measurement.synthetic_functions.SyntheticFunction.f">
+<code class="sig-name descname">f</code><span class="sig-paren">(</span><em class="sig-param">X: numpy.ndarray</em><span class="sig-paren">)</span> → Union[float, numpy.ndarray]<a class="reference internal" href="_modules/ax/utils/measurement/synthetic_functions.html#SyntheticFunction.f"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.measurement.synthetic_functions.SyntheticFunction.f" title="Permalink to this definition">¶</a></dt>
+<dd><p>Synthetic function implementation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>X</strong> (<em>numpy.ndarray</em>) – an n by d array, where n represents the number
+of observations and d is the dimensionality of the inputs.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>an n-dimensional array.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>numpy.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.utils.measurement.synthetic_functions.SyntheticFunction.fmax">
+<em class="property">property </em><code class="sig-name descname">fmax</code><a class="headerlink" href="#ax.utils.measurement.synthetic_functions.SyntheticFunction.fmax" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="method">
+<dt id="ax.utils.measurement.synthetic_functions.SyntheticFunction.fmin">
+<em class="property">property </em><code class="sig-name descname">fmin</code><a class="headerlink" href="#ax.utils.measurement.synthetic_functions.SyntheticFunction.fmin" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="method">
+<dt id="ax.utils.measurement.synthetic_functions.SyntheticFunction.maximums">
+<em class="property">property </em><code class="sig-name descname">maximums</code><a class="headerlink" href="#ax.utils.measurement.synthetic_functions.SyntheticFunction.maximums" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="method">
+<dt id="ax.utils.measurement.synthetic_functions.SyntheticFunction.minimums">
+<em class="property">property </em><code class="sig-name descname">minimums</code><a class="headerlink" href="#ax.utils.measurement.synthetic_functions.SyntheticFunction.minimums" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="method">
+<dt id="ax.utils.measurement.synthetic_functions.SyntheticFunction.name">
+<em class="property">property </em><code class="sig-name descname">name</code><a class="headerlink" href="#ax.utils.measurement.synthetic_functions.SyntheticFunction.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="method">
+<dt id="ax.utils.measurement.synthetic_functions.SyntheticFunction.required_dimensionality">
+<em class="property">property </em><code class="sig-name descname">required_dimensionality</code><a class="headerlink" href="#ax.utils.measurement.synthetic_functions.SyntheticFunction.required_dimensionality" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.measurement.synthetic_functions.from_botorch">
+<code class="sig-prename descclassname">ax.utils.measurement.synthetic_functions.</code><code class="sig-name descname">from_botorch</code><span class="sig-paren">(</span><em class="sig-param">botorch_synthetic_function: botorch.test_functions.synthetic.SyntheticTestFunction</em><span class="sig-paren">)</span> → ax.utils.measurement.synthetic_functions.SyntheticFunction<a class="reference internal" href="_modules/ax/utils/measurement/synthetic_functions.html#from_botorch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.measurement.synthetic_functions.from_botorch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Utility to generate Ax synthetic functions from BoTorch synthetic functions.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.measurement.synthetic_functions.informative_failure_on_none">
+<code class="sig-prename descclassname">ax.utils.measurement.synthetic_functions.</code><code class="sig-name descname">informative_failure_on_none</code><span class="sig-paren">(</span><em class="sig-param">func: Callable</em><span class="sig-paren">)</span> → Any<a class="reference internal" href="_modules/ax/utils/measurement/synthetic_functions.html#informative_failure_on_none"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.measurement.synthetic_functions.informative_failure_on_none" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</div>
+</div>
+<div class="section" id="notebook">
+<h2>Notebook<a class="headerlink" href="#notebook" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-ax.utils.notebook.plotting">
+<span id="plotting"></span><h3>Plotting<a class="headerlink" href="#module-ax.utils.notebook.plotting" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.utils.notebook.plotting.init_notebook_plotting">
+<code class="sig-prename descclassname">ax.utils.notebook.plotting.</code><code class="sig-name descname">init_notebook_plotting</code><span class="sig-paren">(</span><em class="sig-param">offline=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/notebook/plotting.html#init_notebook_plotting"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.notebook.plotting.init_notebook_plotting" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialize plotting in notebooks, either in online or offline mode.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.notebook.plotting.render">
+<code class="sig-prename descclassname">ax.utils.notebook.plotting.</code><code class="sig-name descname">render</code><span class="sig-paren">(</span><em class="sig-param">plot_config: ax.plot.base.AxPlotConfig</em>, <em class="sig-param">inject_helpers=False</em><span class="sig-paren">)</span> → None<a class="reference internal" href="_modules/ax/utils/notebook/plotting.html#render"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.notebook.plotting.render" title="Permalink to this definition">¶</a></dt>
+<dd><p>Render plot config.</p>
+</dd></dl>
+</div>
+</div>
+<div class="section" id="report">
+<h2>Report<a class="headerlink" href="#report" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-ax.utils.report.render">
+<span id="render"></span><h3>Render<a class="headerlink" href="#module-ax.utils.report.render" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.utils.report.render.h2_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">h2_html</code><span class="sig-paren">(</span><em class="sig-param">text: str</em><span class="sig-paren">)</span> → str<a class="reference internal" href="_modules/ax/utils/report/render.html#h2_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.h2_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed text in subheading tag.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.h3_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">h3_html</code><span class="sig-paren">(</span><em class="sig-param">text: str</em><span class="sig-paren">)</span> → str<a class="reference internal" href="_modules/ax/utils/report/render.html#h3_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.h3_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed text in subsubheading tag.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.link_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">link_html</code><span class="sig-paren">(</span><em class="sig-param">text: str</em>, <em class="sig-param">href: str</em><span class="sig-paren">)</span> → str<a class="reference internal" href="_modules/ax/utils/report/render.html#link_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.link_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed text and reference address into link tag.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.list_item_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">list_item_html</code><span class="sig-paren">(</span><em class="sig-param">text: str</em><span class="sig-paren">)</span> → str<a class="reference internal" href="_modules/ax/utils/report/render.html#list_item_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.list_item_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed text in list element tag.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.p_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">p_html</code><span class="sig-paren">(</span><em class="sig-param">text: str</em><span class="sig-paren">)</span> → str<a class="reference internal" href="_modules/ax/utils/report/render.html#p_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.p_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed text in paragraph tag.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.render_report_elements">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">render_report_elements</code><span class="sig-paren">(</span><em class="sig-param">experiment_name: str, html_elements: List[str], header: bool = True, offline: bool = False, notebook_env: bool = False</em><span class="sig-paren">)</span> → str<a class="reference internal" href="_modules/ax/utils/report/render.html#render_report_elements"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.render_report_elements" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate Ax HTML report for a given experiment from HTML elements.</p>
+<p>Uses Jinja2 for template. Injects Plotly JS for graph rendering.</p>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">html_elements</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">h2_html</span><span class="p">(</span><span class="s2">"Subsection with plot"</span><span class="p">),</span>
+    <span class="n">p_html</span><span class="p">(</span><span class="s2">"This is an example paragraph."</span><span class="p">),</span>
+    <span class="n">plot_html</span><span class="p">(</span><span class="n">plot_fitted</span><span class="p">(</span><span class="n">gp_model</span><span class="p">,</span> <span class="s1">'perf_metric'</span><span class="p">)),</span>
+    <span class="n">h2_html</span><span class="p">(</span><span class="s2">"Subsection with table"</span><span class="p">),</span>
+    <span class="n">pandas_html</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="p">),</span>
+<span class="p">]</span>
+<span class="n">html</span> <span class="o">=</span> <span class="n">render_report_elements</span><span class="p">(</span><span class="s1">'My experiment'</span><span class="p">,</span> <span class="n">html_elements</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>experiment_name</strong> – the name of the experiment to use for title.</p></li>
+<li><p><strong>html_elements</strong> – list of HTML strings to render in report
+body.</p></li>
+<li><p><strong>header</strong> – if True, render experiment title as a header.
+Meant to be used for standalone reports (e.g. via email), as opposed
+to served on the front-end.</p></li>
+<li><p><strong>offline</strong> – if True, entire Plotly library is bundled
+with report.</p></li>
+<li><p><strong>notebook_env</strong> – if True, caps the report width to 700px for viewing in a
+notebook environment.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>HTML string.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.table_cell_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">table_cell_html</code><span class="sig-paren">(</span><em class="sig-param">text: str</em>, <em class="sig-param">width: Optional[str] = None</em><span class="sig-paren">)</span> → str<a class="reference internal" href="_modules/ax/utils/report/render.html#table_cell_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.table_cell_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed text or an HTML element into table cell tag.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.table_heading_cell_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">table_heading_cell_html</code><span class="sig-paren">(</span><em class="sig-param">text: str</em><span class="sig-paren">)</span> → str<a class="reference internal" href="_modules/ax/utils/report/render.html#table_heading_cell_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.table_heading_cell_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed text or an HTML element into table heading cell tag.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.table_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">table_html</code><span class="sig-paren">(</span><em class="sig-param">table_rows: List[str]</em><span class="sig-paren">)</span> → str<a class="reference internal" href="_modules/ax/utils/report/render.html#table_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.table_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed list of HTML elements into table tag.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.table_row_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">table_row_html</code><span class="sig-paren">(</span><em class="sig-param">table_cells: List[str]</em><span class="sig-paren">)</span> → str<a class="reference internal" href="_modules/ax/utils/report/render.html#table_row_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.table_row_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed list of HTML elements into table row tag.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.report.render.unordered_list_html">
+<code class="sig-prename descclassname">ax.utils.report.render.</code><code class="sig-name descname">unordered_list_html</code><span class="sig-paren">(</span><em class="sig-param">list_items: List[str]</em><span class="sig-paren">)</span> → str<a class="reference internal" href="_modules/ax/utils/report/render.html#unordered_list_html"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.report.render.unordered_list_html" title="Permalink to this definition">¶</a></dt>
+<dd><p>Embed list of html elements into an unordered list tag.</p>
+</dd></dl>
+</div>
+</div>
+<div class="section" id="stats">
+<h2>Stats<a class="headerlink" href="#stats" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-ax.utils.stats.statstools">
+<span id="statstools"></span><h3>Statstools<a class="headerlink" href="#module-ax.utils.stats.statstools" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.utils.stats.statstools.agresti_coull_sem">
+<code class="sig-prename descclassname">ax.utils.stats.statstools.</code><code class="sig-name descname">agresti_coull_sem</code><span class="sig-paren">(</span><em class="sig-param">n_numer: Union[pandas.Series, numpy.ndarray, int], n_denom: Union[pandas.Series, numpy.ndarray, int], prior_successes: int = 2, prior_failures: int = 2</em><span class="sig-paren">)</span> → Union[numpy.ndarray, float]<a class="reference internal" href="_modules/ax/utils/stats/statstools.html#agresti_coull_sem"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.stats.statstools.agresti_coull_sem" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the Agresti-Coull style standard error for a binomial proportion.</p>
+<p>Reference:
+<em>Agresti, Alan, and Brent A. Coull. Approximate Is Better than ‘Exact’ for
+Interval Estimation of Binomial Proportions.” The American Statistician,
+vol. 52, no. 2, 1998, pp. 119-126. JSTOR, www.jstor.org/stable/2685469.</em></p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.stats.statstools.inverse_variance_weight">
+<code class="sig-prename descclassname">ax.utils.stats.statstools.</code><code class="sig-name descname">inverse_variance_weight</code><span class="sig-paren">(</span><em class="sig-param">means: numpy.ndarray</em>, <em class="sig-param">variances: numpy.ndarray</em>, <em class="sig-param">conflicting_noiseless: str = 'warn'</em><span class="sig-paren">)</span> → Tuple[float, float]<a class="reference internal" href="_modules/ax/utils/stats/statstools.html#inverse_variance_weight"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.stats.statstools.inverse_variance_weight" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform inverse variance weighting.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>means</strong> – The means of the observations.</p></li>
+<li><p><strong>variances</strong> – The variances of the observations.</p></li>
+<li><p><strong>conflicting_noiseless</strong> – How to handle the case of
+multiple observations with zero variance but different means.
+Options are “warn” (default), “ignore” or “raise”.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.stats.statstools.marginal_effects">
+<code class="sig-prename descclassname">ax.utils.stats.statstools.</code><code class="sig-name descname">marginal_effects</code><span class="sig-paren">(</span><em class="sig-param">df: pandas.DataFrame</em><span class="sig-paren">)</span> → pandas.DataFrame<a class="reference internal" href="_modules/ax/utils/stats/statstools.html#marginal_effects"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.stats.statstools.marginal_effects" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method calculates the relative (in %) change in the outcome achieved
+by using any individual factor level versus randomizing across all factor
+levels. It does this by estimating a baseline under the experiment by
+marginalizing over all factors/levels. For each factor level, then,
+it conditions on that level for the individual factor and then marginalizes
+over all levels for all other factors.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>df</strong> – Dataframe containing columns named mean and sem. All other columns
+are assumed to be factors for which to calculate marginal effects.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>A dataframe containing columns “Name”, “Level”, “Beta” and “SE”</dt><dd><p>corresponding to the factor, level, effect and standard error.
+Results are relativized as percentage changes.</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.stats.statstools.positive_part_james_stein">
+<code class="sig-prename descclassname">ax.utils.stats.statstools.</code><code class="sig-name descname">positive_part_james_stein</code><span class="sig-paren">(</span><em class="sig-param">means: Union[numpy.ndarray, List[float]], sems: Union[numpy.ndarray, List[float]]</em><span class="sig-paren">)</span> → Tuple[numpy.ndarray, numpy.ndarray]<a class="reference internal" href="_modules/ax/utils/stats/statstools.html#positive_part_james_stein"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.stats.statstools.positive_part_james_stein" title="Permalink to this definition">¶</a></dt>
+<dd><p>Estimation method for Positive-part James-Stein estimator.</p>
+<p>This method takes a vector of K means (<cite>y_i</cite>) and standard errors
+(<cite>sigma_i</cite>) and calculates the positive-part James Stein estimator.</p>
+<p>Resulting estimates are the shrunk means and standard errors. The positive
+part James-Stein estimator shrinks each constituent average to the grand
+average:</p>
+<blockquote>
+<div><p>y_i - phi_i * y_i + phi_i * ybar</p>
+</div></blockquote>
+<p>The variable phi_i determines the amount of shrinkage. For <cite>phi_i = 1</cite>,
+<cite>mu_hat</cite> is equal to <cite>ybar</cite> (the mean of all <cite>y_i</cite>), while for <cite>phi_i = 0</cite>,
+<cite>mu_hat</cite> is equal to <cite>y_i</cite>. It can be shown that restricting <cite>phi_i &lt;= 1</cite>
+dominates the unrestricted estimator, so this method restricts <cite>phi_i</cite> in
+this manner. The amount of shrinkage, <cite>phi_i</cite>, is determined by:</p>
+<blockquote>
+<div><p>(K - 3) * sigma2_i / s2</p>
+</div></blockquote>
+<p>That is, less shrinkage is applied when individual means are estimated with
+greater precision, and more shrinkage is applied when individual means are
+very tightly clustered together. We also restrict <cite>phi_i</cite> to never be larger
+than 1.</p>
+<p>The variance of the mean estimator is:</p>
+<blockquote>
+<div><p>(1 - phi_i) * sigma2_i
++ phi * sigma2_i / K
++ 2 * phi_i ** 2 * (y_i - ybar)^2 / (K - 3)</p>
+</div></blockquote>
+<p>The first term is the variance component from <cite>y_i</cite>, the second term is the
+contribution from the mean of all <cite>y_i</cite>, and the third term is the
+contribution from the uncertainty in the sum of squared deviations of <cite>y_i</cite>
+from the mean of all <cite>y_i</cite>.</p>
+<p>For more information, see <a class="reference external" href="https://fburl.com/empirical_bayes">https://fburl.com/empirical_bayes</a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>means</strong> – Means of each arm</p></li>
+<li><p><strong>sems</strong> – Standard errors of each arm</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Empirical Bayes estimate of each arm’s mean
+sem_i: Empirical Bayes estimate of each arm’s sem</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>mu_hat_i</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.stats.statstools.relativize">
+<code class="sig-prename descclassname">ax.utils.stats.statstools.</code><code class="sig-name descname">relativize</code><span class="sig-paren">(</span><em class="sig-param">means_t: Union[numpy.ndarray, List[float], float], sems_t: Union[numpy.ndarray, List[float], float], mean_c: float, sem_c: float, bias_correction: bool = True, cov_means: Union[numpy.ndarray, List[float], float] = 0.0, as_percent: bool = False</em><span class="sig-paren">)</span> → Tuple[numpy.ndarray, numpy.ndarray]<a class="reference internal" href="_modules/ax/utils/stats/statstools.html#relativize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.stats.statstools.relativize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Ratio estimator based on the delta method.</p>
+<p>This uses the delta method (i.e. a Taylor series approximation) to estimate
+the mean and standard deviation of the sampling distribution of the ratio
+between test and control – that is, the sampling distribution of an
+estimator of the true population value under the assumption that the means
+in test and control have a known covariance:</p>
+<blockquote>
+<div><p>(mu_t / mu_c) - 1.</p>
+</div></blockquote>
+<p>Under a second-order Taylor expansion, the sampling distribution of the
+relative change in empirical means, which is <cite>m_t / m_c - 1</cite>, is
+approximately normally distributed with mean</p>
+<blockquote>
+<div><p>[(mu_t - mu_c) / mu_c] - [(sigma_c)^2 * mu_t] / (mu_c)^3</p>
+</div></blockquote>
+<p>and variance</p>
+<blockquote>
+<div><p>(sigma_t / mu_c)^2
+- 2 * mu_t _ sigma_tc / mu_c^3
++ [(sigma_c * mu_t)^2 / (mu_c)^4]</p>
+</div></blockquote>
+<p>as the higher terms are assumed to be close to zero in the full Taylor
+series. To estimate these parameters, we plug in the empirical means and
+standard errors. This gives us the estimators:</p>
+<blockquote>
+<div><p>[(m_t - m_c) / m_c] - [(s_c)^2 * m_t] / (m_c)^3</p>
+</div></blockquote>
+<p>and</p>
+<blockquote>
+<div><p>(s_t / m_c)^2 - 2 * m_t * s_tc / m_c^3 + [(s_c * m_t)^2 / (m_c)^4]</p>
+</div></blockquote>
+<p>Note that the delta method does NOT take as input the empirical standard
+deviation of a metric, but rather the standard error of the mean of that
+metric – that is, the standard deviation of the metric after division by
+the square root of the total number of observations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>means_t</strong> – Sample means (test)</p></li>
+<li><p><strong>sems_t</strong> – Sample standard errors of the means (test)</p></li>
+<li><p><strong>mean_c</strong> – Sample mean (control)</p></li>
+<li><p><strong>sem_c</strong> – Sample standard error of the mean (control)</p></li>
+<li><p><strong>cov_means</strong> – Sample covariance between test and control</p></li>
+<li><p><strong>as_percent</strong> – If true, return results in percent (* 100)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Inferred means of the sampling distribution of</dt><dd><p>the relative change <cite>(mean_t / mean_c) - 1</cite></p>
+</dd>
+<dt>sem_hat: Inferred standard deviation of the sampling</dt><dd><p>distribution of rel_hat – i.e. the standard error.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>rel_hat</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.stats.statstools.relativize_data">
+<code class="sig-prename descclassname">ax.utils.stats.statstools.</code><code class="sig-name descname">relativize_data</code><span class="sig-paren">(</span><em class="sig-param">data: ax.core.data.Data</em>, <em class="sig-param">status_quo_name: str = 'status_quo'</em>, <em class="sig-param">as_percent: bool = False</em>, <em class="sig-param">include_sq: bool = False</em><span class="sig-paren">)</span> → ax.core.data.Data<a class="reference internal" href="_modules/ax/utils/stats/statstools.html#relativize_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.stats.statstools.relativize_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Relativize a data object w.r.t. a status_quo arm.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> – The data object to be relativized.</p></li>
+<li><p><strong>status_quo_name</strong> – The name of the status_quo arm.</p></li>
+<li><p><strong>as_percent</strong> – If True, return results as percentage change.</p></li>
+<li><p><strong>include_sq</strong> – Include status quo in final df.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>The new data object with the relativized metrics (excluding the</dt><dd><p>status_quo arm)</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.stats.statstools.total_variance">
+<code class="sig-prename descclassname">ax.utils.stats.statstools.</code><code class="sig-name descname">total_variance</code><span class="sig-paren">(</span><em class="sig-param">means: numpy.ndarray</em>, <em class="sig-param">variances: numpy.ndarray</em>, <em class="sig-param">sample_sizes: numpy.ndarray</em><span class="sig-paren">)</span> → float<a class="reference internal" href="_modules/ax/utils/stats/statstools.html#total_variance"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.stats.statstools.total_variance" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute total variance.</p>
+</dd></dl>
+</div>
+</div>
+<div class="section" id="testing">
+<h2>Testing<a class="headerlink" href="#testing" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-ax.utils.testing.core_stubs">
+<span id="core-stubs"></span><h3>Core Stubs<a class="headerlink" href="#module-ax.utils.testing.core_stubs" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_abandoned_arm">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_abandoned_arm</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.batch_trial.AbandonedArm<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_abandoned_arm"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_abandoned_arm" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_acquisition_function_type">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_acquisition_function_type</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → Type[botorch.acquisition.acquisition.AcquisitionFunction]<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_acquisition_function_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_acquisition_function_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_acquisition_type">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_acquisition_type</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → Type[ax.models.torch.botorch_modular.acquisition.Acquisition]<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_acquisition_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_acquisition_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_arm">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_arm</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.arm.Arm<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_arm"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_arm" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_arm_weights1">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_arm_weights1</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → MutableMapping[ax.core.arm.Arm, float]<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_arm_weights1"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_arm_weights1" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_arm_weights2">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_arm_weights2</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → MutableMapping[ax.core.arm.Arm, float]<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_arm_weights2"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_arm_weights2" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_arms">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_arms</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → List[ax.core.arm.Arm]<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_arms"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_arms" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_arms_from_dict">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_arms_from_dict</code><span class="sig-paren">(</span><em class="sig-param">arm_weights_dict: MutableMapping[ax.core.arm.Arm, float]</em><span class="sig-paren">)</span> → List[ax.core.arm.Arm]<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_arms_from_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_arms_from_dict" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_augmented_branin_metric">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_augmented_branin_metric</code><span class="sig-paren">(</span><em class="sig-param">name='aug_branin'</em><span class="sig-paren">)</span> → ax.metrics.branin.AugmentedBraninMetric<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_augmented_branin_metric"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_augmented_branin_metric" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_augmented_branin_objective">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_augmented_branin_objective</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.objective.Objective<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_augmented_branin_objective"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_augmented_branin_objective" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_augmented_branin_optimization_config">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_augmented_branin_optimization_config</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.optimization_config.OptimizationConfig<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_augmented_branin_optimization_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_augmented_branin_optimization_config" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_augmented_hartmann_metric">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_augmented_hartmann_metric</code><span class="sig-paren">(</span><em class="sig-param">name='aug_hartmann'</em><span class="sig-paren">)</span> → ax.metrics.hartmann6.AugmentedHartmann6Metric<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_augmented_hartmann_metric"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_augmented_hartmann_metric" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_augmented_hartmann_objective">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_augmented_hartmann_objective</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.objective.Objective<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_augmented_hartmann_objective"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_augmented_hartmann_objective" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_augmented_hartmann_optimization_config">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_augmented_hartmann_optimization_config</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.optimization_config.OptimizationConfig<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_augmented_hartmann_optimization_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_augmented_hartmann_optimization_config" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_batch_trial">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_batch_trial</code><span class="sig-paren">(</span><em class="sig-param">abandon_arm: bool = True</em><span class="sig-paren">)</span> → ax.core.batch_trial.BatchTrial<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_batch_trial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_batch_trial" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_batch_trial_with_repeated_arms">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_batch_trial_with_repeated_arms</code><span class="sig-paren">(</span><em class="sig-param">num_repeated_arms: int</em><span class="sig-paren">)</span> → ax.core.batch_trial.BatchTrial<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_batch_trial_with_repeated_arms"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_batch_trial_with_repeated_arms" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a batch that contains both new arms and N arms from the last
+existed trial in the experiment. Where N is equal to the input argument
+‘num_repeated_arms’.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_botorch_model">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_botorch_model</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.models.torch.botorch_modular.model.BoTorchModel<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_botorch_model"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_botorch_model" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_botorch_model_with_default_acquisition_class">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_botorch_model_with_default_acquisition_class</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.models.torch.botorch_modular.model.BoTorchModel<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_botorch_model_with_default_acquisition_class"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_botorch_model_with_default_acquisition_class" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_branin_arms">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_branin_arms</code><span class="sig-paren">(</span><em class="sig-param">n: int</em>, <em class="sig-param">seed: int</em><span class="sig-paren">)</span> → List[ax.core.arm.Arm]<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_branin_arms"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_branin_arms" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_branin_data">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_branin_data</code><span class="sig-paren">(</span><em class="sig-param">trial_indices: Optional[Iterable[int]] = None</em><span class="sig-paren">)</span> → ax.core.data.Data<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_branin_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_branin_data" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_branin_data_batch">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_branin_data_batch</code><span class="sig-paren">(</span><em class="sig-param">batch: ax.core.batch_trial.BatchTrial</em><span class="sig-paren">)</span> → ax.core.data.Data<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_branin_data_batch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_branin_data_batch" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_branin_data_multi_objective">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_branin_data_multi_objective</code><span class="sig-paren">(</span><em class="sig-param">trial_indices: Optional[Iterable[int]] = None</em><span class="sig-paren">)</span> → ax.core.data.Data<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_branin_data_multi_objective"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_branin_data_multi_objective" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_branin_experiment">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_branin_experiment</code><span class="sig-paren">(</span><em class="sig-param">has_optimization_config: bool = True</em>, <em class="sig-param">with_batch: bool = False</em>, <em class="sig-param">with_status_quo: bool = False</em>, <em class="sig-param">with_fidelity_parameter: bool = False</em>, <em class="sig-param">with_choice_parameter: bool = False</em>, <em class="sig-param">search_space: Optional[ax.core.search_space.SearchSpace] = None</em><span class="sig-paren">)</span> → ax.core.experiment.Experiment<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_branin_experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_branin_experiment" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_branin_experiment_with_multi_objective">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_branin_experiment_with_multi_objective</code><span class="sig-paren">(</span><em class="sig-param">has_optimization_config: bool = True</em>, <em class="sig-param">with_batch: bool = False</em>, <em class="sig-param">with_status_quo: bool = False</em>, <em class="sig-param">with_fidelity_parameter: bool = False</em><span class="sig-paren">)</span> → ax.core.experiment.Experiment<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_branin_experiment_with_multi_objective"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_branin_experiment_with_multi_objective" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_branin_metric">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_branin_metric</code><span class="sig-paren">(</span><em class="sig-param">name='branin'</em><span class="sig-paren">)</span> → ax.metrics.branin.BraninMetric<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_branin_metric"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_branin_metric" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_branin_multi_objective">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_branin_multi_objective</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.objective.Objective<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_branin_multi_objective"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_branin_multi_objective" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_branin_multi_objective_optimization_config">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_branin_multi_objective_optimization_config</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.optimization_config.OptimizationConfig<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_branin_multi_objective_optimization_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_branin_multi_objective_optimization_config" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_branin_objective">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_branin_objective</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.objective.Objective<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_branin_objective"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_branin_objective" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_branin_optimization_config">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_branin_optimization_config</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.optimization_config.OptimizationConfig<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_branin_optimization_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_branin_optimization_config" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_branin_outcome_constraint">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_branin_outcome_constraint</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.outcome_constraint.OutcomeConstraint<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_branin_outcome_constraint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_branin_outcome_constraint" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_branin_search_space">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_branin_search_space</code><span class="sig-paren">(</span><em class="sig-param">with_fidelity_parameter: bool = False</em>, <em class="sig-param">with_choice_parameter: bool = False</em><span class="sig-paren">)</span> → ax.core.search_space.SearchSpace<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_branin_search_space"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_branin_search_space" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_choice_parameter">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_choice_parameter</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.parameter.ChoiceParameter<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_choice_parameter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_choice_parameter" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_data">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_data</code><span class="sig-paren">(</span><em class="sig-param">trial_index: int = 0</em><span class="sig-paren">)</span> → ax.core.data.Data<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_data" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_discrete_search_space">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_discrete_search_space</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.search_space.SearchSpace<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_discrete_search_space"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_discrete_search_space" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_experiment">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_experiment</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.experiment.Experiment<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_experiment" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_experiment_with_batch_and_single_trial">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_experiment_with_batch_and_single_trial</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.experiment.Experiment<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_experiment_with_batch_and_single_trial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_experiment_with_batch_and_single_trial" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_experiment_with_batch_trial">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_experiment_with_batch_trial</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.experiment.Experiment<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_experiment_with_batch_trial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_experiment_with_batch_trial" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_experiment_with_data">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_experiment_with_data</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.experiment.Experiment<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_experiment_with_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_experiment_with_data" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_experiment_with_multi_objective">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_experiment_with_multi_objective</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.experiment.Experiment<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_experiment_with_multi_objective"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_experiment_with_multi_objective" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_experiment_with_repeated_arms">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_experiment_with_repeated_arms</code><span class="sig-paren">(</span><em class="sig-param">num_repeated_arms: int</em><span class="sig-paren">)</span> → ax.core.experiment.Experiment<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_experiment_with_repeated_arms"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_experiment_with_repeated_arms" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_experiment_with_scalarized_objective">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_experiment_with_scalarized_objective</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.experiment.Experiment<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_experiment_with_scalarized_objective"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_experiment_with_scalarized_objective" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_experiment_with_trial_with_ttl">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_experiment_with_trial_with_ttl</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.experiment.Experiment<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_experiment_with_trial_with_ttl"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_experiment_with_trial_with_ttl" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_factorial_experiment">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_factorial_experiment</code><span class="sig-paren">(</span><em class="sig-param">has_optimization_config: bool = True</em>, <em class="sig-param">with_batch: bool = False</em>, <em class="sig-param">with_status_quo: bool = False</em><span class="sig-paren">)</span> → ax.core.experiment.Experiment<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_factorial_experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_factorial_experiment" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_factorial_metric">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_factorial_metric</code><span class="sig-paren">(</span><em class="sig-param">name: str = 'success_metric'</em><span class="sig-paren">)</span> → ax.metrics.factorial.FactorialMetric<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_factorial_metric"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_factorial_metric" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_factorial_search_space">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_factorial_search_space</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.search_space.SearchSpace<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_factorial_search_space"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_factorial_search_space" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_fixed_parameter">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_fixed_parameter</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.parameter.FixedParameter<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_fixed_parameter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_fixed_parameter" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_generator_run">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_generator_run</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.generator_run.GeneratorRun<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_generator_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_generator_run" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_generator_run2">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_generator_run2</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.generator_run.GeneratorRun<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_generator_run2"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_generator_run2" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_hartmann_metric">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_hartmann_metric</code><span class="sig-paren">(</span><em class="sig-param">name='hartmann'</em><span class="sig-paren">)</span> → ax.metrics.hartmann6.Hartmann6Metric<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_hartmann_metric"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_hartmann_metric" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_hartmann_objective">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_hartmann_objective</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.objective.Objective<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_hartmann_objective"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_hartmann_objective" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_hartmann_optimization_config">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_hartmann_optimization_config</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.optimization_config.OptimizationConfig<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_hartmann_optimization_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_hartmann_optimization_config" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_hartmann_search_space">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_hartmann_search_space</code><span class="sig-paren">(</span><em class="sig-param">with_fidelity_parameter: bool = False</em><span class="sig-paren">)</span> → ax.core.search_space.SearchSpace<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_hartmann_search_space"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_hartmann_search_space" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_list_surrogate">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_list_surrogate</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.models.torch.botorch_modular.surrogate.Surrogate<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_list_surrogate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_list_surrogate" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_metric">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_metric</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.metric.Metric<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_metric"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_metric" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_mll_type">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_mll_type</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → Type[gpytorch.mlls.marginal_log_likelihood.MarginalLogLikelihood]<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_mll_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_mll_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_model_covariance">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_model_covariance</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → Dict[str, Dict[str, List[float]]]<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_model_covariance"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_model_covariance" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_model_mean">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_model_mean</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → Dict[str, List[float]]<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_model_mean"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_model_mean" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_model_predictions">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_model_predictions</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → Tuple[Dict[str, List[float]], Dict[str, Dict[str, List[float]]]]<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_model_predictions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_model_predictions" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_model_predictions_per_arm">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_model_predictions_per_arm</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → Dict[str, Tuple[Dict[str, float], Optional[Dict[str, Dict[str, float]]]]]<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_model_predictions_per_arm"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_model_predictions_per_arm" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_model_type">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_model_type</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → Type[botorch.models.model.Model]<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_model_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_model_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_multi_objective">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_multi_objective</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.objective.Objective<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_multi_objective"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_multi_objective" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_multi_objective_optimization_config">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_multi_objective_optimization_config</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.optimization_config.OptimizationConfig<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_multi_objective_optimization_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_multi_objective_optimization_config" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_multi_type_experiment">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_multi_type_experiment</code><span class="sig-paren">(</span><em class="sig-param">add_trial_type: bool = True</em>, <em class="sig-param">add_trials: bool = False</em><span class="sig-paren">)</span> → ax.core.multi_type_experiment.MultiTypeExperiment<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_multi_type_experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_multi_type_experiment" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_objective">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_objective</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.objective.Objective<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_objective"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_objective" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_objective_threshold">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_objective_threshold</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.outcome_constraint.ObjectiveThreshold<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_objective_threshold"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_objective_threshold" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_optimization_config">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_optimization_config</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.optimization_config.OptimizationConfig<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_optimization_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_optimization_config" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_optimization_config_no_constraints">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_optimization_config_no_constraints</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.optimization_config.OptimizationConfig<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_optimization_config_no_constraints"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_optimization_config_no_constraints" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_order_constraint">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_order_constraint</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.parameter_constraint.OrderConstraint<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_order_constraint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_order_constraint" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_outcome_constraint">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_outcome_constraint</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.outcome_constraint.OutcomeConstraint<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_outcome_constraint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_outcome_constraint" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_parameter_constraint">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_parameter_constraint</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.parameter_constraint.ParameterConstraint<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_parameter_constraint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_parameter_constraint" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_range_parameter">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_range_parameter</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.parameter.RangeParameter<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_range_parameter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_range_parameter" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_range_parameter2">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_range_parameter2</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.parameter.RangeParameter<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_range_parameter2"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_range_parameter2" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_scalarized_objective">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_scalarized_objective</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.objective.Objective<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_scalarized_objective"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_scalarized_objective" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_search_space">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_search_space</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.search_space.SearchSpace<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_search_space"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_search_space" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_search_space_for_range_value">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_search_space_for_range_value</code><span class="sig-paren">(</span><em class="sig-param">min: float = 3.0</em>, <em class="sig-param">max: float = 6.0</em><span class="sig-paren">)</span> → ax.core.search_space.SearchSpace<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_search_space_for_range_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_search_space_for_range_value" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_search_space_for_range_values">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_search_space_for_range_values</code><span class="sig-paren">(</span><em class="sig-param">min: float = 3.0</em>, <em class="sig-param">max: float = 6.0</em><span class="sig-paren">)</span> → ax.core.search_space.SearchSpace<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_search_space_for_range_values"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_search_space_for_range_values" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_search_space_for_value">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_search_space_for_value</code><span class="sig-paren">(</span><em class="sig-param">val: float = 3.0</em><span class="sig-paren">)</span> → ax.core.search_space.SearchSpace<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_search_space_for_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_search_space_for_value" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_simple_experiment">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_simple_experiment</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.simple_experiment.SimpleExperiment<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_simple_experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_simple_experiment" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_simple_experiment_with_batch_trial">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_simple_experiment_with_batch_trial</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.simple_experiment.SimpleExperiment<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_simple_experiment_with_batch_trial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_simple_experiment_with_batch_trial" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_status_quo">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_status_quo</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.arm.Arm<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_status_quo"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_status_quo" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_sum_constraint1">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_sum_constraint1</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.parameter_constraint.SumConstraint<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_sum_constraint1"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_sum_constraint1" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_sum_constraint2">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_sum_constraint2</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.parameter_constraint.SumConstraint<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_sum_constraint2"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_sum_constraint2" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_surrogate">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_surrogate</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.models.torch.botorch_modular.surrogate.Surrogate<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_surrogate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_surrogate" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_synthetic_runner">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_synthetic_runner</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.runners.synthetic.SyntheticRunner<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_synthetic_runner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_synthetic_runner" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_trial">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_trial</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.trial.Trial<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_trial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_trial" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_weights">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_weights</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → List[float]<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_weights"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_weights" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.core_stubs.get_weights_from_dict">
+<code class="sig-prename descclassname">ax.utils.testing.core_stubs.</code><code class="sig-name descname">get_weights_from_dict</code><span class="sig-paren">(</span><em class="sig-param">arm_weights_dict: MutableMapping[ax.core.arm.Arm, float]</em><span class="sig-paren">)</span> → List[float]<a class="reference internal" href="_modules/ax/utils/testing/core_stubs.html#get_weights_from_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.core_stubs.get_weights_from_dict" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</div>
+<div class="section" id="module-ax.utils.testing.modeling_stubs">
+<span id="modeling-stubs"></span><h3>Modeling Stubs<a class="headerlink" href="#module-ax.utils.testing.modeling_stubs" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="ax.utils.testing.modeling_stubs.get_experiment_for_value">
+<code class="sig-prename descclassname">ax.utils.testing.modeling_stubs.</code><code class="sig-name descname">get_experiment_for_value</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.experiment.Experiment<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#get_experiment_for_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.get_experiment_for_value" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.modeling_stubs.get_generation_strategy">
+<code class="sig-prename descclassname">ax.utils.testing.modeling_stubs.</code><code class="sig-name descname">get_generation_strategy</code><span class="sig-paren">(</span><em class="sig-param">with_experiment: bool = False</em>, <em class="sig-param">with_callable_model_kwarg: bool = True</em><span class="sig-paren">)</span> → ax.modelbridge.generation_strategy.GenerationStrategy<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#get_generation_strategy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.get_generation_strategy" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.modeling_stubs.get_observation">
+<code class="sig-prename descclassname">ax.utils.testing.modeling_stubs.</code><code class="sig-name descname">get_observation</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.observation.Observation<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#get_observation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.get_observation" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.modeling_stubs.get_observation1">
+<code class="sig-prename descclassname">ax.utils.testing.modeling_stubs.</code><code class="sig-name descname">get_observation1</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.observation.Observation<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#get_observation1"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.get_observation1" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.modeling_stubs.get_observation1trans">
+<code class="sig-prename descclassname">ax.utils.testing.modeling_stubs.</code><code class="sig-name descname">get_observation1trans</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.observation.Observation<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#get_observation1trans"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.get_observation1trans" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.modeling_stubs.get_observation2">
+<code class="sig-prename descclassname">ax.utils.testing.modeling_stubs.</code><code class="sig-name descname">get_observation2</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.observation.Observation<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#get_observation2"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.get_observation2" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.modeling_stubs.get_observation2trans">
+<code class="sig-prename descclassname">ax.utils.testing.modeling_stubs.</code><code class="sig-name descname">get_observation2trans</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.observation.Observation<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#get_observation2trans"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.get_observation2trans" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.modeling_stubs.get_observation_features">
+<code class="sig-prename descclassname">ax.utils.testing.modeling_stubs.</code><code class="sig-name descname">get_observation_features</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.observation.ObservationFeatures<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#get_observation_features"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.get_observation_features" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.modeling_stubs.get_observation_status_quo0">
+<code class="sig-prename descclassname">ax.utils.testing.modeling_stubs.</code><code class="sig-name descname">get_observation_status_quo0</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.observation.Observation<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#get_observation_status_quo0"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.get_observation_status_quo0" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.modeling_stubs.get_observation_status_quo1">
+<code class="sig-prename descclassname">ax.utils.testing.modeling_stubs.</code><code class="sig-name descname">get_observation_status_quo1</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.observation.Observation<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#get_observation_status_quo1"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.get_observation_status_quo1" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="function">
+<dt id="ax.utils.testing.modeling_stubs.get_transform_type">
+<code class="sig-prename descclassname">ax.utils.testing.modeling_stubs.</code><code class="sig-name descname">get_transform_type</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → Type[ax.modelbridge.transforms.base.Transform]<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#get_transform_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.get_transform_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="class">
+<dt id="ax.utils.testing.modeling_stubs.transform_1">
+<em class="property">class </em><code class="sig-prename descclassname">ax.utils.testing.modeling_stubs.</code><code class="sig-name descname">transform_1</code><span class="sig-paren">(</span><em class="sig-param">search_space: Optional[ax.core.search_space.SearchSpace], observation_features: List[ax.core.observation.ObservationFeatures], observation_data: List[ax.core.observation.ObservationData], config: Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#transform_1"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.transform_1" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="modelbridge.html#ax.modelbridge.transforms.base.Transform" title="ax.modelbridge.transforms.base.Transform"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.modelbridge.transforms.base.Transform</span></code></a></p>
+<dl class="attribute">
+<dt id="ax.utils.testing.modeling_stubs.transform_1.config">
+<code class="sig-name descname">config</code><em class="property"> = None</em><a class="headerlink" href="#ax.utils.testing.modeling_stubs.transform_1.config" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="method">
+<dt id="ax.utils.testing.modeling_stubs.transform_1.transform_observation_data">
+<code class="sig-name descname">transform_observation_data</code><span class="sig-paren">(</span><em class="sig-param">observation_data: List[ax.core.observation.ObservationData], observation_features: List[ax.core.observation.ObservationFeatures]</em><span class="sig-paren">)</span> → List[ax.core.observation.ObservationData]<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#transform_1.transform_observation_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.transform_1.transform_observation_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transform observation features.</p>
+<p>This is typically done in-place. This class implements the identity
+transform (does nothing).</p>
+<p>This takes in observation_features, so that data transforms can be
+conditional on features, but observation_features are notmutated.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>observation_data</strong> – Observation data</p></li>
+<li><p><strong>observation_features</strong> – Corresponding observation features</p></li>
+</ul>
+</dd>
+</dl>
+<p>Returns: transformed observation data</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.utils.testing.modeling_stubs.transform_1.transform_observation_features">
+<code class="sig-name descname">transform_observation_features</code><span class="sig-paren">(</span><em class="sig-param">observation_features: List[ax.core.observation.ObservationFeatures]</em><span class="sig-paren">)</span> → List[ax.core.observation.ObservationFeatures]<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#transform_1.transform_observation_features"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.transform_1.transform_observation_features" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transform observation features.</p>
+<p>This is typically done in-place. This class implements the identity
+transform (does nothing).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>observation_features</strong> – Observation features</p>
+</dd>
+</dl>
+<p>Returns: transformed observation features</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.utils.testing.modeling_stubs.transform_1.transform_optimization_config">
+<code class="sig-name descname">transform_optimization_config</code><span class="sig-paren">(</span><em class="sig-param">optimization_config: ax.core.optimization_config.OptimizationConfig, modelbridge: Optional[ax.modelbridge.base.ModelBridge], fixed_features: ax.core.observation.ObservationFeatures</em><span class="sig-paren">)</span> → ax.core.optimization_config.OptimizationConfig<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#transform_1.transform_optimization_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.transform_1.transform_optimization_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transform optimization config.</p>
+<p>This is typically done in-place. This class implements the identity
+transform (does nothing).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>optimization_config</strong> – The optimization config</p>
+</dd>
+</dl>
+<p>Returns: transformed optimization config.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.utils.testing.modeling_stubs.transform_1.transform_search_space">
+<code class="sig-name descname">transform_search_space</code><span class="sig-paren">(</span><em class="sig-param">search_space: ax.core.search_space.SearchSpace</em><span class="sig-paren">)</span> → ax.core.search_space.SearchSpace<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#transform_1.transform_search_space"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.transform_1.transform_search_space" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transform search space.</p>
+<p>This is typically done in-place. This class implements the identity
+transform (does nothing).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>search_space</strong> – The search space</p>
+</dd>
+</dl>
+<p>Returns: transformed search space.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.utils.testing.modeling_stubs.transform_1.untransform_observation_data">
+<code class="sig-name descname">untransform_observation_data</code><span class="sig-paren">(</span><em class="sig-param">observation_data: List[ax.core.observation.ObservationData], observation_features: List[ax.core.observation.ObservationFeatures]</em><span class="sig-paren">)</span> → List[ax.core.observation.ObservationData]<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#transform_1.untransform_observation_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.transform_1.untransform_observation_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Untransform observation data.</p>
+<p>This is typically done in-place. This class implements the identity
+transform (does nothing).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>observation_data</strong> – Observation data, in transformed space</p></li>
+<li><p><strong>observation_features</strong> – Corresponding observation features, in same
+space.</p></li>
+</ul>
+</dd>
+</dl>
+<p>Returns: observation data in original space.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.utils.testing.modeling_stubs.transform_1.untransform_observation_features">
+<code class="sig-name descname">untransform_observation_features</code><span class="sig-paren">(</span><em class="sig-param">observation_features: List[ax.core.observation.ObservationFeatures]</em><span class="sig-paren">)</span> → List[ax.core.observation.ObservationFeatures]<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#transform_1.untransform_observation_features"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.transform_1.untransform_observation_features" title="Permalink to this definition">¶</a></dt>
+<dd><p>Untransform observation features.</p>
+<p>This is typically done in-place. This class implements the identity
+transform (does nothing).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>observation_features</strong> – Observation features in the transformed space</p>
+</dd>
+</dl>
+<p>Returns: observation features in the original space</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.utils.testing.modeling_stubs.transform_2">
+<em class="property">class </em><code class="sig-prename descclassname">ax.utils.testing.modeling_stubs.</code><code class="sig-name descname">transform_2</code><span class="sig-paren">(</span><em class="sig-param">search_space: Optional[ax.core.search_space.SearchSpace], observation_features: List[ax.core.observation.ObservationFeatures], observation_data: List[ax.core.observation.ObservationData], config: Optional[Dict[str, Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, Dict[str, Any]]]] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#transform_2"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.transform_2" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="modelbridge.html#ax.modelbridge.transforms.base.Transform" title="ax.modelbridge.transforms.base.Transform"><code class="xref py py-class docutils literal notranslate"><span class="pre">ax.modelbridge.transforms.base.Transform</span></code></a></p>
+<dl class="attribute">
+<dt id="ax.utils.testing.modeling_stubs.transform_2.config">
+<code class="sig-name descname">config</code><em class="property"> = None</em><a class="headerlink" href="#ax.utils.testing.modeling_stubs.transform_2.config" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+<dl class="method">
+<dt id="ax.utils.testing.modeling_stubs.transform_2.transform_observation_data">
+<code class="sig-name descname">transform_observation_data</code><span class="sig-paren">(</span><em class="sig-param">observation_data: List[ax.core.observation.ObservationData], observation_features: List[ax.core.observation.ObservationFeatures]</em><span class="sig-paren">)</span> → List[ax.core.observation.ObservationData]<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#transform_2.transform_observation_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.transform_2.transform_observation_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transform observation features.</p>
+<p>This is typically done in-place. This class implements the identity
+transform (does nothing).</p>
+<p>This takes in observation_features, so that data transforms can be
+conditional on features, but observation_features are notmutated.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>observation_data</strong> – Observation data</p></li>
+<li><p><strong>observation_features</strong> – Corresponding observation features</p></li>
+</ul>
+</dd>
+</dl>
+<p>Returns: transformed observation data</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.utils.testing.modeling_stubs.transform_2.transform_observation_features">
+<code class="sig-name descname">transform_observation_features</code><span class="sig-paren">(</span><em class="sig-param">observation_features: List[ax.core.observation.ObservationFeatures]</em><span class="sig-paren">)</span> → List[ax.core.observation.ObservationFeatures]<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#transform_2.transform_observation_features"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.transform_2.transform_observation_features" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transform observation features.</p>
+<p>This is typically done in-place. This class implements the identity
+transform (does nothing).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>observation_features</strong> – Observation features</p>
+</dd>
+</dl>
+<p>Returns: transformed observation features</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.utils.testing.modeling_stubs.transform_2.transform_optimization_config">
+<code class="sig-name descname">transform_optimization_config</code><span class="sig-paren">(</span><em class="sig-param">optimization_config: ax.core.optimization_config.OptimizationConfig, modelbridge: Optional[ax.modelbridge.base.ModelBridge], fixed_features: ax.core.observation.ObservationFeatures</em><span class="sig-paren">)</span> → ax.core.optimization_config.OptimizationConfig<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#transform_2.transform_optimization_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.transform_2.transform_optimization_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transform optimization config.</p>
+<p>This is typically done in-place. This class implements the identity
+transform (does nothing).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>optimization_config</strong> – The optimization config</p>
+</dd>
+</dl>
+<p>Returns: transformed optimization config.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.utils.testing.modeling_stubs.transform_2.transform_search_space">
+<code class="sig-name descname">transform_search_space</code><span class="sig-paren">(</span><em class="sig-param">search_space: ax.core.search_space.SearchSpace</em><span class="sig-paren">)</span> → ax.core.search_space.SearchSpace<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#transform_2.transform_search_space"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.transform_2.transform_search_space" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transform search space.</p>
+<p>This is typically done in-place. This class implements the identity
+transform (does nothing).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>search_space</strong> – The search space</p>
+</dd>
+</dl>
+<p>Returns: transformed search space.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.utils.testing.modeling_stubs.transform_2.untransform_observation_data">
+<code class="sig-name descname">untransform_observation_data</code><span class="sig-paren">(</span><em class="sig-param">observation_data: List[ax.core.observation.ObservationData], observation_features: List[ax.core.observation.ObservationFeatures]</em><span class="sig-paren">)</span> → List[ax.core.observation.ObservationData]<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#transform_2.untransform_observation_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.transform_2.untransform_observation_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Untransform observation data.</p>
+<p>This is typically done in-place. This class implements the identity
+transform (does nothing).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>observation_data</strong> – Observation data, in transformed space</p></li>
+<li><p><strong>observation_features</strong> – Corresponding observation features, in same
+space.</p></li>
+</ul>
+</dd>
+</dl>
+<p>Returns: observation data in original space.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.utils.testing.modeling_stubs.transform_2.untransform_observation_features">
+<code class="sig-name descname">untransform_observation_features</code><span class="sig-paren">(</span><em class="sig-param">observation_features: List[ax.core.observation.ObservationFeatures]</em><span class="sig-paren">)</span> → List[ax.core.observation.ObservationFeatures]<a class="reference internal" href="_modules/ax/utils/testing/modeling_stubs.html#transform_2.untransform_observation_features"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.testing.modeling_stubs.transform_2.untransform_observation_features" title="Permalink to this definition">¶</a></dt>
+<dd><p>Untransform observation features.</p>
+<p>This is typically done in-place. This class implements the identity
+transform (does nothing).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>observation_features</strong> – Observation features in the transformed space</p>
+</dd>
+</dl>
+<p>Returns: observation features in the original space</p>
+</dd></dl>
+</dd></dl>
+</div>
+</div>
+<div class="section" id="tutorials">
+<h2>Tutorials<a class="headerlink" href="#tutorials" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-ax.utils.tutorials.cnn_utils">
+<span id="neural-net"></span><h3>Neural Net<a class="headerlink" href="#module-ax.utils.tutorials.cnn_utils" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="ax.utils.tutorials.cnn_utils.CNN">
+<em class="property">class </em><code class="sig-prename descclassname">ax.utils.tutorials.cnn_utils.</code><code class="sig-name descname">CNN</code><a class="reference internal" href="_modules/ax/utils/tutorials/cnn_utils.html#CNN"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.tutorials.cnn_utils.CNN" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<p>Convolutional Neural Network.</p>
+<dl class="method">
+<dt id="ax.utils.tutorials.cnn_utils.CNN.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/utils/tutorials/cnn_utils.html#CNN.forward"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.tutorials.cnn_utils.CNN.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.utils.tutorials.cnn_utils.CNN.training">
+<code class="sig-name descname">training</code><em class="property"> = None</em><a class="headerlink" href="#ax.utils.tutorials.cnn_utils.CNN.training" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.tutorials.cnn_utils.evaluate">
+<code class="sig-prename descclassname">ax.utils.tutorials.cnn_utils.</code><code class="sig-name descname">evaluate</code><span class="sig-paren">(</span><em class="sig-param">net: torch.nn.modules.module.Module</em>, <em class="sig-param">data_loader: torch.utils.data.dataloader.DataLoader</em>, <em class="sig-param">dtype: torch.dtype</em>, <em class="sig-param">device: torch.device</em><span class="sig-paren">)</span> → float<a class="reference internal" href="_modules/ax/utils/tutorials/cnn_utils.html#evaluate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.tutorials.cnn_utils.evaluate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute classification accuracy on provided dataset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>net</strong> – trained model</p></li>
+<li><p><strong>data_loader</strong> – DataLoader containing the evaluation set</p></li>
+<li><p><strong>dtype</strong> – torch dtype</p></li>
+<li><p><strong>device</strong> – torch device</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>classification accuracy</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)">float</a></p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.tutorials.cnn_utils.get_partition_data_loaders">
+<code class="sig-prename descclassname">ax.utils.tutorials.cnn_utils.</code><code class="sig-name descname">get_partition_data_loaders</code><span class="sig-paren">(</span><em class="sig-param">train_valid_set: torch.utils.data.dataset.Dataset</em>, <em class="sig-param">test_set: torch.utils.data.dataset.Dataset</em>, <em class="sig-param">downsample_pct: float = 0.5</em>, <em class="sig-param">train_pct: float = 0.8</em>, <em class="sig-param">batch_size: int = 128</em>, <em class="sig-param">num_workers: int = 0</em>, <em class="sig-param">deterministic_partitions: bool = False</em>, <em class="sig-param">downsample_pct_test: Optional[float] = None</em><span class="sig-paren">)</span> → Tuple[torch.utils.data.dataloader.DataLoader, torch.utils.data.dataloader.DataLoader, torch.utils.data.dataloader.DataLoader]<a class="reference internal" href="_modules/ax/utils/tutorials/cnn_utils.html#get_partition_data_loaders"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.tutorials.cnn_utils.get_partition_data_loaders" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>Helper function for partitioning training data into training and validation sets,</dt><dd><p>downsampling data, and initializing DataLoaders for each partition.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>train_valid_set</strong> – torch.dataset</p></li>
+<li><p><strong>downsample_pct</strong> – the proportion of the dataset to use for training, and
+validation</p></li>
+<li><p><strong>train_pct</strong> – the proportion of the downsampled data to use for training</p></li>
+<li><p><strong>batch_size</strong> – how many samples per batch to load</p></li>
+<li><p><strong>num_workers</strong> – number of workers (subprocesses) for loading data</p></li>
+<li><p><strong>deterministic_partitions</strong> – whether to partition data in a deterministic
+fashion</p></li>
+<li><p><strong>downsample_pct_test</strong> – the proportion of the dataset to use for test, default
+to be equal to downsample_pct</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>training data
+DataLoader: validation data
+DataLoader: test data</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>DataLoader</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.tutorials.cnn_utils.load_mnist">
+<code class="sig-prename descclassname">ax.utils.tutorials.cnn_utils.</code><code class="sig-name descname">load_mnist</code><span class="sig-paren">(</span><em class="sig-param">downsample_pct: float = 0.5</em>, <em class="sig-param">train_pct: float = 0.8</em>, <em class="sig-param">data_path: str = './data'</em>, <em class="sig-param">batch_size: int = 128</em>, <em class="sig-param">num_workers: int = 0</em>, <em class="sig-param">deterministic_partitions: bool = False</em>, <em class="sig-param">downsample_pct_test: Optional[float] = None</em><span class="sig-paren">)</span> → Tuple[torch.utils.data.dataloader.DataLoader, torch.utils.data.dataloader.DataLoader, torch.utils.data.dataloader.DataLoader]<a class="reference internal" href="_modules/ax/utils/tutorials/cnn_utils.html#load_mnist"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.tutorials.cnn_utils.load_mnist" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>Load MNIST dataset (download if necessary) and split data into training,</dt><dd><p>validation, and test sets.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>downsample_pct</strong> – the proportion of the dataset to use for training,
+validation, and test</p></li>
+<li><p><strong>train_pct</strong> – the proportion of the downsampled data to use for training</p></li>
+<li><p><strong>data_path</strong> – Root directory of dataset where <cite>MNIST/processed/training.pt</cite>
+and <cite>MNIST/processed/test.pt</cite> exist.</p></li>
+<li><p><strong>batch_size</strong> – how many samples per batch to load</p></li>
+<li><p><strong>num_workers</strong> – number of workers (subprocesses) for loading data</p></li>
+<li><p><strong>deterministic_partitions</strong> – whether to partition data in a deterministic
+fashion</p></li>
+<li><p><strong>downsample_pct_test</strong> – the proportion of the dataset to use for test, default
+to be equal to downsample_pct</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>training data
+DataLoader: validation data
+DataLoader: test data</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>DataLoader</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.tutorials.cnn_utils.split_dataset">
+<code class="sig-prename descclassname">ax.utils.tutorials.cnn_utils.</code><code class="sig-name descname">split_dataset</code><span class="sig-paren">(</span><em class="sig-param">dataset: torch.utils.data.dataset.Dataset, lengths: List[int], deterministic_partitions: bool = False</em><span class="sig-paren">)</span> → List[torch.utils.data.dataset.Dataset]<a class="reference internal" href="_modules/ax/utils/tutorials/cnn_utils.html#split_dataset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.tutorials.cnn_utils.split_dataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Split a dataset either randomly or deterministically.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dataset</strong> – the dataset to split</p></li>
+<li><p><strong>lengths</strong> – the lengths of each partition</p></li>
+<li><p><strong>deterministic_partitions</strong> – deterministic_partitions: whether to partition
+data in a deterministic fashion</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>split datasets</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>List[Dataset]</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.utils.tutorials.cnn_utils.train">
+<code class="sig-prename descclassname">ax.utils.tutorials.cnn_utils.</code><code class="sig-name descname">train</code><span class="sig-paren">(</span><em class="sig-param">net: torch.nn.modules.module.Module, train_loader: torch.utils.data.dataloader.DataLoader, parameters: Dict[str, float], dtype: torch.dtype, device: torch.device</em><span class="sig-paren">)</span> → torch.nn.modules.module.Module<a class="reference internal" href="_modules/ax/utils/tutorials/cnn_utils.html#train"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.utils.tutorials.cnn_utils.train" title="Permalink to this definition">¶</a></dt>
+<dd><p>Train CNN on provided data set.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>net</strong> – initialized neural network</p></li>
+<li><p><strong>train_loader</strong> – DataLoader containing training set</p></li>
+<li><p><strong>parameters</strong> – dictionary containing parameters to be passed to the optimizer.
+- lr: default (0.001)
+- momentum: default (0.0)
+- weight_decay: default (0.0)
+- num_epochs: default (1)</p></li>
+<li><p><strong>dtype</strong> – torch dtype</p></li>
+<li><p><strong>device</strong> – torch device</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>trained CNN.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>nn.Module</p>
+</dd>
+</dl>
+</dd></dl>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="storage.html">ax.storage</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">ax.utils</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#common">Common</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#measurement">Measurement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#notebook">Notebook</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#report">Report</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#stats">Stats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#testing">Testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#tutorials">Tutorials</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="index.html">Documentation overview</a><ul>
+<li>Previous: <a href="storage.html" title="previous chapter">ax.storage</a></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.19/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2020 Facebook Inc.</section></footer></div></body></html>

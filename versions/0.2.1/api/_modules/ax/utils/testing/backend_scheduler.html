@@ -1,0 +1,216 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.1/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.1/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.1/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.1/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.1/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.1/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.1/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.1/css/main.css"/><script src="/versions/0.2.1/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.1/"><img class="logo" src="/versions/0.2.1/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.1/versions.html"><h3>0.2.1</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.1/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.1/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.1/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.utils.testing.backend_scheduler</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.base_trial</span> <span class="kn">import</span> <span class="n">TrialStatus</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.generation_strategy</span> <span class="kn">import</span> <span class="n">GenerationStrategy</span>
+<span class="kn">from</span> <span class="nn">ax.runners.simulated_backend</span> <span class="kn">import</span> <span class="n">SimulatedBackendRunner</span>
+<span class="kn">from</span> <span class="nn">ax.service.scheduler</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Scheduler</span><span class="p">,</span>
+    <span class="n">SchedulerOptions</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">not_none</span>
+<span class="kn">from</span> <span class="nn">ax.utils.testing.backend_simulator</span> <span class="kn">import</span> <span class="n">BackendSimulator</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="AsyncSimulatedBackendScheduler"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_scheduler.AsyncSimulatedBackendScheduler">[docs]</a><span class="k">class</span> <span class="nc">AsyncSimulatedBackendScheduler</span><span class="p">(</span><span class="n">Scheduler</span><span class="p">):</span>
+    <span class="sd">"""A Scheduler that uses a simulated backend for Ax asynchronous benchmarks."""</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span>
+        <span class="n">generation_strategy</span><span class="p">:</span> <span class="n">GenerationStrategy</span><span class="p">,</span>
+        <span class="n">max_pending_trials</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">options</span><span class="p">:</span> <span class="n">SchedulerOptions</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""A Scheduler for Ax asynchronous benchmarks.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            experiment: Experiment, in which results of the optimization</span>
+<span class="sd">                will be recorded.</span>
+<span class="sd">            generation_strategy: Generation strategy for the optimization,</span>
+<span class="sd">                describes models that will be used in optimization.</span>
+<span class="sd">            max_pending_trials: The maximum number of pending trials allowed.</span>
+<span class="sd">            options: `SchedulerOptions` for this Scheduler instance.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">experiment</span><span class="o">.</span><span class="n">runner</span><span class="p">,</span> <span class="n">SimulatedBackendRunner</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"experiment must have runner of type SimulatedBackendRunner attached"</span>
+            <span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+            <span class="n">generation_strategy</span><span class="o">=</span><span class="n">generation_strategy</span><span class="p">,</span>
+            <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">,</span>
+            <span class="n">_skip_experiment_save</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_pending_trials</span> <span class="o">=</span> <span class="n">max_pending_trials</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">backend_simulator</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BackendSimulator</span><span class="p">:</span>
+        <span class="sd">"""Get the ``BackendSimulator`` stored on the runner of the experiment.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The backend simulator.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">runner</span><span class="o">.</span><span class="n">simulator</span>  <span class="c1"># pyre-ignore[16]</span>
+
+<div class="viewcode-block" id="AsyncSimulatedBackendScheduler.poll_trial_status"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_scheduler.AsyncSimulatedBackendScheduler.poll_trial_status">[docs]</a>    <span class="k">def</span> <span class="nf">poll_trial_status</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="n">TrialStatus</span><span class="p">,</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]]:</span>
+        <span class="sd">"""Poll trial status from the ``BackendSimulator``. NOTE: The ``Scheduler``</span>
+<span class="sd">        currently marks trials as running when they are created, but some of these</span>
+<span class="sd">        trials may actually be in queued on the ``BackendSimulator``.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A Dict mapping statuses to sets of trial indices.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">backend_simulator</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
+        <span class="n">trials_by_status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials_by_status</span>
+        <span class="n">trial_status</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="p">(</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">CANDIDATE</span><span class="p">,</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">STAGED</span><span class="p">,</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="n">trials_by_status</span><span class="p">[</span><span class="n">ts</span><span class="p">]:</span>
+                <span class="n">t_index</span> <span class="o">=</span> <span class="n">trial</span><span class="o">.</span><span class="n">index</span>
+                <span class="n">status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend_simulator</span><span class="o">.</span><span class="n">lookup_trial_index_status</span><span class="p">(</span><span class="n">t_index</span><span class="p">)</span>
+                <span class="n">trial_status</span><span class="p">[</span><span class="n">status</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">t_index</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">trial_status</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AsyncSimulatedBackendScheduler.has_capacity"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_scheduler.AsyncSimulatedBackendScheduler.has_capacity">[docs]</a>    <span class="k">def</span> <span class="nf">has_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Whether or not there is available capacity for ``n`` trials.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            n: The number of trials</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A boolean representing whether or not there is available capacity.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">poll_available_capacity</span><span class="p">())</span> <span class="o">&gt;=</span> <span class="n">n</span></div>
+
+<div class="viewcode-block" id="AsyncSimulatedBackendScheduler.poll_available_capacity"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_scheduler.AsyncSimulatedBackendScheduler.poll_available_capacity">[docs]</a>    <span class="k">def</span> <span class="nf">poll_available_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">"""Get the capacity remaining after accounting for staged and running</span>
+<span class="sd">        trials, with the maximum being ``max_pending_trials``.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The available capacity.</span>
+<span class="sd">        """</span>
+        <span class="n">trials_by_status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials_by_status</span>
+        <span class="n">num_staged</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">trials_by_status</span><span class="p">[</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">STAGED</span><span class="p">])</span>
+        <span class="n">num_running</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">trials_by_status</span><span class="p">[</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">])</span>
+        <span class="n">capacity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_pending_trials</span> <span class="o">-</span> <span class="p">(</span><span class="n">num_staged</span> <span class="o">+</span> <span class="n">num_running</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">capacity</span></div>
+
+<div class="viewcode-block" id="AsyncSimulatedBackendScheduler.should_stop_trials_early"><a class="viewcode-back" href="../../../../utils.html#ax.utils.testing.backend_scheduler.AsyncSimulatedBackendScheduler.should_stop_trials_early">[docs]</a>    <span class="k">def</span> <span class="nf">should_stop_trials_early</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">trial_indices</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+        <span class="sd">"""Given a set of trial indices, decide whether or not to early-stop</span>
+<span class="sd">        running trials using the ``early_stopping_strategy``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial_indices: Indices of trials to consider for early stopping.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Dict with new suggested ``TrialStatus`` as keys and a set of</span>
+<span class="sd">            indices of trials to update (subset of initially-passed trials) as values.</span>
+<span class="sd">        """</span>
+        <span class="c1"># TODO: The status on the experiment does not distinguish between</span>
+        <span class="c1"># running and queued trials, so here we check status on the</span>
+        <span class="c1"># ``backend_simulator`` directly to make sure it is running.</span>
+        <span class="n">running_trials</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">skipped_trials</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">trial_index</span> <span class="ow">in</span> <span class="n">trial_indices</span><span class="p">:</span>
+            <span class="n">sim_trial</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend_simulator</span><span class="o">.</span><span class="n">get_sim_trial_by_index</span><span class="p">(</span><span class="n">trial_index</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">sim_trial</span><span class="o">.</span><span class="n">sim_start_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>  <span class="c1"># pyre-ignore[16]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">backend_simulator</span><span class="o">.</span><span class="n">time</span> <span class="o">-</span> <span class="n">sim_trial</span><span class="o">.</span><span class="n">sim_start_time</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="p">):</span>
+                <span class="n">running_trials</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">trial_index</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">skipped_trials</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">trial_index</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">skipped_trials</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Not sending </span><span class="si">{</span><span class="n">skipped_trials</span><span class="si">}</span><span class="s2"> to base `should_stop_trials_early` "</span>
+                <span class="s2">"because they have not been running for a positive amount of time "</span>
+                <span class="s2">"on the backend simulator."</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">should_stop_trials_early</span><span class="p">(</span><span class="n">trial_indices</span><span class="o">=</span><span class="n">running_trials</span><span class="p">)</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.1/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2021 Facebook Inc.</section></footer></div></body></html>

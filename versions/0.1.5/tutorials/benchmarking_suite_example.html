@@ -1,0 +1,849 @@
+<!DOCTYPE html><html lang=""><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.5/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.5/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.5/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.5/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.5/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.5/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.5/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.5/css/main.css"/><script src="/versions/0.1.5/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.5/"><img class="logo" src="/versions/0.1.5/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.5/versions.html"><h3>0.1.5</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.5/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.5/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.5/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="container docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><div class="hamburger-menu"><div class="line1"></div><div class="line2"></div><div class="line3"></div></div></div><h2><i>›</i><span></span></h2><div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div></div><div class="navGroups"><div class="navGroup"><h3 class="navGroupCategoryTitle">Tutorials</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.1.5/tutorials/">Overview</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">API Comparison</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.1.5/tutorials/gpei_hartmann_loop.html">Loop API</a></li><li class="navListItem"><a class="navItem" href="/versions/0.1.5/tutorials/gpei_hartmann_service.html">Service API</a></li><li class="navListItem"><a class="navItem" href="/versions/0.1.5/tutorials/gpei_hartmann_developer.html">Developer API</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Bayesian Optimization</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.1.5/tutorials/tune_cnn.html">Hyperparameter Optimization for PyTorch</a></li><li class="navListItem"><a class="navItem" href="/versions/0.1.5/tutorials/multi_task.html">Multi-Task Modeling</a></li><li class="navListItem navListItemActive"><a class="navItem" href="/versions/0.1.5/tutorials/benchmarking_suite_example.html">Benchmarking Suite</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Field Experiments</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.1.5/tutorials/factorial.html">Bandit Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/0.1.5/tutorials/human_in_the_loop/human_in_the_loop.html">Human-in-the-Loop Optimization</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Deep Dives</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.1.5/tutorials/building_blocks.html">Building Blocks of Ax</a></li><li class="navListItem"><a class="navItem" href="/versions/0.1.5/tutorials/visualizations.html">Visualizations</a></li></ul></div></div></section></div><script>
+            var coll = document.getElementsByClassName('collapsible');
+            var checkActiveCategory = true;
+            for (var i = 0; i < coll.length; i++) {
+              var links = coll[i].nextElementSibling.getElementsByTagName('*');
+              if (checkActiveCategory){
+                for (var j = 0; j < links.length; j++) {
+                  if (links[j].classList.contains('navListItemActive')){
+                    coll[i].nextElementSibling.classList.toggle('hide');
+                    coll[i].childNodes[1].classList.toggle('rotate');
+                    checkActiveCategory = false;
+                    break;
+                  }
+                }
+              }
+
+              coll[i].addEventListener('click', function() {
+                var arrow = this.childNodes[1];
+                arrow.classList.toggle('rotate');
+                var content = this.nextElementSibling;
+                content.classList.toggle('hide');
+              });
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+              createToggler('#navToggler', '#docsNav', 'docsSliderActive');
+              createToggler('#tocToggler', 'body', 'tocActive');
+
+              var headings = document.querySelector('.toc-headings');
+              headings && headings.addEventListener('click', function(event) {
+                var el = event.target;
+                while(el !== headings){
+                  if (el.tagName === 'A') {
+                    document.body.classList.remove('tocActive');
+                    break;
+                  } else{
+                    el = el.parentNode;
+                  }
+                }
+              }, false);
+
+              function createToggler(togglerSelector, targetSelector, className) {
+                var toggler = document.querySelector(togglerSelector);
+                var target = document.querySelector(targetSelector);
+
+                if (!toggler) {
+                  return;
+                }
+
+                toggler.onclick = function(event) {
+                  event.preventDefault();
+
+                  target.classList.toggle(className);
+                };
+              }
+            });
+        </script></nav></div><div class="container mainContainer"><div class="wrapper"><div class="tutorialBody">
+<script>
+const requirejs = Object();
+requirejs.config = function() { };
+
+const dependencyMap = {
+    'plotly': Plotly,
+}
+
+function require(deps, fxn) {
+    return fxn(...deps.map(dep => dependencyMap[dep]));
+};
+</script>
+<div class="notebook">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="The-Ax-Benchmarking-Suite">The Ax Benchmarking Suite<a class="anchor-link" href="#The-Ax-Benchmarking-Suite">¶</a></h1><p>Ax makes it easy to evaluate performance of Bayesian optimization methods on synthetic problems through the use of benchmarking tools. This notebook illustrates how the benchmark suite can be used to easy test new methods on custom problems.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="1.-Define-a-problem">1. Define a problem<a class="anchor-link" href="#1.-Define-a-problem">¶</a></h2><p>The first step is to define the benchmark problem. There are a collection of built-in useful benchmark problems, such as the classic Hartmann 6 optimization test problem:</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [1]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax.benchmark.benchmark_problem</span> <span class="k">import</span> <span class="n">hartmann6</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Or you can create a new problem. Benchmark problems can be defined by creating a <code>BenchmarkProblem</code> object, as is done here for the constrained problem from Gramacy et al. (2016).</p>
+<p>This entails defining a search space, optimization config, and the true optimal value of the benchmark.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [2]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">ax.benchmark.benchmark_problem</span> <span class="k">import</span> <span class="n">BenchmarkProblem</span>
+<span class="kn">from</span> <span class="nn">ax.core.objective</span> <span class="k">import</span> <span class="n">Objective</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="k">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.core.outcome_constraint</span> <span class="k">import</span> <span class="n">ComparisonOp</span><span class="p">,</span> <span class="n">OutcomeConstraint</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter</span> <span class="k">import</span> <span class="n">ParameterType</span><span class="p">,</span> <span class="n">RangeParameter</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="k">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.metrics.noisy_function</span> <span class="k">import</span> <span class="n">NoisyFunctionMetric</span>
+
+<span class="c1"># Create a Metric object for each function used in the problem</span>
+<span class="k">class</span> <span class="nc">GramacyObjective</span><span class="p">(</span><span class="n">NoisyFunctionMetric</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+<span class="k">class</span> <span class="nc">GramacyConstraint1</span><span class="p">(</span><span class="n">NoisyFunctionMetric</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mf">1.5</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+
+<span class="k">class</span> <span class="nc">GramacyConstraint2</span><span class="p">(</span><span class="n">NoisyFunctionMetric</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="mf">1.5</span>
+
+<span class="c1"># Create the search space and optimization config</span>
+<span class="n">search_space</span> <span class="o">=</span> <span class="n">SearchSpace</span><span class="p">(</span>
+    <span class="n">parameters</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">RangeParameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"x1"</span><span class="p">,</span> <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">,</span> <span class="n">lower</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mf">1.0</span><span class="p">),</span>
+        <span class="n">RangeParameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"x2"</span><span class="p">,</span> <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">,</span> <span class="n">lower</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mf">1.0</span><span class="p">),</span>
+    <span class="p">]</span>
+<span class="p">)</span>
+
+<span class="c1"># When we create the OptimizationConfig, we can define the noise level for each metric.</span>
+<span class="n">optimization_config</span><span class="o">=</span><span class="n">OptimizationConfig</span><span class="p">(</span>
+    <span class="n">objective</span><span class="o">=</span><span class="n">Objective</span><span class="p">(</span>
+        <span class="n">metric</span><span class="o">=</span><span class="n">GramacyObjective</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"objective"</span><span class="p">,</span> <span class="n">param_names</span><span class="o">=</span><span class="p">[</span><span class="s2">"x1"</span><span class="p">,</span> <span class="s2">"x2"</span><span class="p">],</span> <span class="n">noise_sd</span><span class="o">=</span><span class="mf">0.05</span>
+        <span class="p">),</span>
+        <span class="n">minimize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="n">outcome_constraints</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">OutcomeConstraint</span><span class="p">(</span>
+            <span class="n">metric</span><span class="o">=</span><span class="n">GramacyConstraint1</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"constraint_1"</span><span class="p">,</span> <span class="n">param_names</span><span class="o">=</span><span class="p">[</span><span class="s2">"x1"</span><span class="p">,</span> <span class="s2">"x2"</span><span class="p">],</span> <span class="n">noise_sd</span><span class="o">=</span><span class="mf">0.05</span><span class="p">),</span>
+            <span class="n">op</span><span class="o">=</span><span class="n">ComparisonOp</span><span class="o">.</span><span class="n">LEQ</span><span class="p">,</span>
+            <span class="n">bound</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">relative</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">OutcomeConstraint</span><span class="p">(</span>
+            <span class="n">metric</span><span class="o">=</span><span class="n">GramacyConstraint2</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"constraint_2"</span><span class="p">,</span> <span class="n">param_names</span><span class="o">=</span><span class="p">[</span><span class="s2">"x1"</span><span class="p">,</span> <span class="s2">"x2"</span><span class="p">],</span> <span class="n">noise_sd</span><span class="o">=</span><span class="mf">0.2</span><span class="p">),</span>
+            <span class="n">op</span><span class="o">=</span><span class="n">ComparisonOp</span><span class="o">.</span><span class="n">LEQ</span><span class="p">,</span>
+            <span class="n">bound</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">relative</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+
+<span class="c1"># Create a BenchmarkProblem object</span>
+<span class="n">gramacy_problem</span> <span class="o">=</span> <span class="n">BenchmarkProblem</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"Gramacy"</span><span class="p">,</span>
+    <span class="n">fbest</span><span class="o">=</span><span class="mf">0.5998</span><span class="p">,</span>
+    <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+    <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="2.-Define-optimization-methods">2. Define optimization methods<a class="anchor-link" href="#2.-Define-optimization-methods">¶</a></h2><p>The Bayesian optimization methods to be used in benchmark runs are defined as a <code>GenerationStrategy</code>, which is a list of model definitions and a specification of how many iterations to use each model for. Model definitions can be:</p>
+<ul>
+<li>members of the <code>Models</code> registry with custom keyword arguments specified in <code>GenerationStep</code>,</li>
+<li>custom factory functions that return a <code>ModelBridge</code>. </li>
+</ul>
+<p>Note that in the latter case, <code>GenerationStrategy</code> cannot be serialized, so first approach is recommended wherever possible.</p>
+<p>Here we construct a <code>GenerationStrategy</code> that begins with 10 points from a non-scrambled Sobol sequence (we disable scrambling so all methods begin with the same initialization) and then switches to Bayesian optimization (using the Botorch model default of GP  with noisy expected improvement) for any number of additional iterations.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [3]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax.modelbridge.generation_strategy</span> <span class="k">import</span> <span class="n">GenerationStrategy</span><span class="p">,</span> <span class="n">GenerationStep</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.registry</span> <span class="k">import</span> <span class="n">Models</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.unit_x</span> <span class="k">import</span> <span class="n">UnitX</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.standardize_y</span> <span class="k">import</span> <span class="n">StandardizeY</span>
+
+<span class="n">strategy1</span> <span class="o">=</span> <span class="n">GenerationStrategy</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s1">'GP+NEI'</span><span class="p">,</span>
+    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">GenerationStep</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">Models</span><span class="o">.</span><span class="n">SOBOL</span><span class="p">,</span> <span class="n">num_arms</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"scramble"</span><span class="p">:</span> <span class="kc">False</span><span class="p">}),</span>
+        <span class="n">GenerationStep</span><span class="p">(</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">Models</span><span class="o">.</span><span class="n">BOTORCH</span><span class="p">,</span> 
+            <span class="n">num_arms</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>  <span class="c1"># Do not limit the number of arms this phase can generate.</span>
+            <span class="n">model_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"transforms"</span><span class="p">:</span> <span class="p">[</span><span class="n">UnitX</span><span class="p">,</span> <span class="n">StandardizeY</span><span class="p">]},</span>
+        <span class="p">),</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The Botorch generation step above could also be expressed using a custom factory function.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [4]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax.modelbridge.torch</span> <span class="k">import</span> <span class="n">TorchModelBridge</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch</span> <span class="k">import</span> <span class="n">BotorchModel</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.unit_x</span> <span class="k">import</span> <span class="n">UnitX</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.standardize_y</span> <span class="k">import</span> <span class="n">StandardizeY</span>
+
+<span class="k">def</span> <span class="nf">get_botorch_model</span><span class="p">(</span><span class="n">experiment</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">search_space</span><span class="p">):</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">BotorchModel</span><span class="p">()</span>  <span class="c1"># This can be any implementation of TorchModel</span>
+    <span class="k">return</span> <span class="n">TorchModelBridge</span><span class="p">(</span>
+        <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+        <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">m</span><span class="p">,</span>
+        <span class="n">transforms</span><span class="o">=</span><span class="p">[</span><span class="n">UnitX</span><span class="p">,</span> <span class="n">StandardizeY</span><span class="p">],</span>
+    <span class="p">)</span>
+<span class="n">generation_step</span> <span class="o">=</span> <span class="n">GenerationStep</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">get_botorch_model</span><span class="p">,</span> <span class="n">num_arms</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The <code>get_botorch_model</code> factory function defined above is equivalent to using the built-in <code>Models.BOTORCH</code> function, but was defined explicitly here to illustrate how custom models can be used in the benchmarking.</p>
+<p>We can also easily create purely (quasi-)random strategies for comparison:</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [5]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax.modelbridge.factory</span> <span class="k">import</span> <span class="n">get_sobol</span>
+
+<span class="n">strategy2</span> <span class="o">=</span> <span class="n">GenerationStrategy</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s1">'Quasirandom'</span><span class="p">,</span>
+    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">GenerationStep</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">Models</span><span class="o">.</span><span class="n">SOBOL</span><span class="p">,</span> <span class="n">num_arms</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"scramble"</span><span class="p">:</span> <span class="kc">False</span><span class="p">}),</span>
+        <span class="n">GenerationStep</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">Models</span><span class="o">.</span><span class="n">SOBOL</span><span class="p">,</span> <span class="n">num_arms</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="3.-Run-the-benchmarks">3. Run the benchmarks<a class="anchor-link" href="#3.-Run-the-benchmarks">¶</a></h2><p>We now run the benchmarks, which using the BOBenchmarkingSuite object will run each of the supplied methods on each of the supplied problems. Note that this runs a real set of benchmarks and so will take several minutes to complete. Here we repeat each benchmark test 5 times; normally that would be increased to reduce variance in the results.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [6]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax.benchmark.benchmark_suite</span> <span class="k">import</span> <span class="n">BOBenchmarkingSuite</span>
+
+<span class="n">b</span> <span class="o">=</span> <span class="n">BOBenchmarkingSuite</span><span class="p">()</span>
+
+<span class="n">b</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+    <span class="n">num_runs</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>  <span class="c1"># Each benchmark task is repeated this many times</span>
+    <span class="n">total_iterations</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>  <span class="c1"># The total number of iterations in each optimization</span>
+    <span class="n">batch_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>  <span class="c1"># Number of synchronous parallel evaluations</span>
+    <span class="n">bo_strategies</span><span class="o">=</span><span class="p">[</span><span class="n">strategy1</span><span class="p">,</span> <span class="n">strategy2</span><span class="p">],</span>
+    <span class="n">bo_problems</span><span class="o">=</span><span class="p">[</span><span class="n">hartmann6</span><span class="p">,</span> <span class="n">gramacy_problem</span><span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[INFO 06-24 18:24:34] ax.benchmark.benchmark_runner: Testing GP+NEI on Hartmann6:
+[INFO 06-24 18:24:34] ax.benchmark.benchmark_runner: Run 0
+[INFO 06-24 18:42:38] ax.benchmark.benchmark_runner: Run 1
+[INFO 06-24 18:59:08] ax.benchmark.benchmark_runner: Run 2
+[INFO 06-24 19:17:03] ax.benchmark.benchmark_runner: Run 3
+[INFO 06-24 19:36:28] ax.benchmark.benchmark_runner: Run 4
+[INFO 06-24 19:55:43] ax.benchmark.benchmark_runner: Testing Quasirandom on Hartmann6:
+[INFO 06-24 19:55:43] ax.benchmark.benchmark_runner: Run 0
+[INFO 06-24 19:55:44] ax.benchmark.benchmark_runner: Run 1
+[INFO 06-24 19:55:45] ax.benchmark.benchmark_runner: Run 2
+[INFO 06-24 19:55:45] ax.benchmark.benchmark_runner: Run 3
+[INFO 06-24 19:55:46] ax.benchmark.benchmark_runner: Run 4
+[INFO 06-24 19:55:46] ax.benchmark.benchmark_runner: Testing GP+NEI on Gramacy:
+[INFO 06-24 19:55:46] ax.benchmark.benchmark_runner: Run 0
+/data/users/drfreund/fbsource/fbcode/buck-out/dev/gen/bento/kernels/bento_kernel_ae#link-tree/gpytorch/utils/cholesky.py:42: RuntimeWarning:
+
+A not p.d., added jitter of 1e-08 to the diagonal
+
+[INFO 06-24 22:04:42] ax.benchmark.benchmark_runner: Run 1
+/data/users/drfreund/fbsource/fbcode/buck-out/dev/gen/bento/kernels/bento_kernel_ae#link-tree/gpytorch/utils/cholesky.py:42: RuntimeWarning:
+
+A not p.d., added jitter of 1e-08 to the diagonal
+
+/data/users/drfreund/fbsource/fbcode/buck-out/dev/gen/bento/kernels/bento_kernel_ae#link-tree/gpytorch/utils/cholesky.py:42: RuntimeWarning:
+
+A not p.d., added jitter of 1e-08 to the diagonal
+
+/data/users/drfreund/fbsource/fbcode/buck-out/dev/gen/bento/kernels/bento_kernel_ae#link-tree/gpytorch/utils/cholesky.py:42: RuntimeWarning:
+
+A not p.d., added jitter of 1e-08 to the diagonal
+
+/data/users/drfreund/fbsource/fbcode/buck-out/dev/gen/bento/kernels/bento_kernel_ae#link-tree/gpytorch/utils/cholesky.py:42: RuntimeWarning:
+
+A not p.d., added jitter of 1e-08 to the diagonal
+
+/data/users/drfreund/fbsource/fbcode/buck-out/dev/gen/bento/kernels/bento_kernel_ae#link-tree/gpytorch/utils/cholesky.py:42: RuntimeWarning:
+
+A not p.d., added jitter of 1e-08 to the diagonal
+
+/data/users/drfreund/fbsource/fbcode/buck-out/dev/gen/bento/kernels/bento_kernel_ae#link-tree/gpytorch/utils/cholesky.py:42: RuntimeWarning:
+
+A not p.d., added jitter of 1e-08 to the diagonal
+
+/data/users/drfreund/fbsource/fbcode/buck-out/dev/gen/bento/kernels/bento_kernel_ae#link-tree/gpytorch/utils/cholesky.py:42: RuntimeWarning:
+
+A not p.d., added jitter of 1e-08 to the diagonal
+
+[INFO 06-25 00:18:51] ax.benchmark.benchmark_runner: Run 2
+[INFO 06-25 02:17:40] ax.benchmark.benchmark_runner: Run 3
+[INFO 06-25 03:58:55] ax.benchmark.benchmark_runner: Run 4
+[INFO 06-25 05:55:26] ax.benchmark.benchmark_runner: Testing Quasirandom on Gramacy:
+[INFO 06-25 05:55:26] ax.benchmark.benchmark_runner: Run 0
+[INFO 06-25 05:55:27] ax.benchmark.benchmark_runner: Run 1
+[INFO 06-25 05:55:28] ax.benchmark.benchmark_runner: Run 2
+[INFO 06-25 05:55:29] ax.benchmark.benchmark_runner: Run 3
+[INFO 06-25 05:55:30] ax.benchmark.benchmark_runner: Run 4
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt output_prompt">Out[6]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>&lt;ax.benchmark.benchmark_runner.BOBenchmarkRunner at 0x7ff7aa7aa898&gt;</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="4.-Generate-Report">4. Generate Report<a class="anchor-link" href="#4.-Generate-Report">¶</a></h2><p>Once the benchmark is finished running, we can generate a report that shows the optimization performance for each method, as well as the wall time spent in model fitting and in candidate generation by each method.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [7]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">IPython.core.display</span> <span class="k">import</span> <span class="n">HTML</span>
+
+<span class="n">report</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">generate_report</span><span class="p">(</span><span class="n">include_individual</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">HTML</span><span class="p">(</span><span class="n">report</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[7]:</div>
+<div class="output_html rendered_html output_subarea output_execute_result"><iframe src="data:text/html;charset=utf-8,&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+&lt;title&gt;bo_benchmark_suite_test&lt;/title&gt;
+&lt;script src=&quot;https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js&quot;&gt;&lt;/script&gt;
+&lt;style&gt;/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
+body {
+    background-color: %23E9EBF4;
+    font-family: SF Optimized, system-ui, -apple-system,
+      BlinkMacSystemFont, '.SFNSText-Regular', sans-serif;
+    font-size: 14px;
+    font-weight: 200;
+    margin: 20px 0px;
+    padding: 0;
+}
+
+.left {
+    float: left;
+    margin: 0;
+    padding: 0;
+}
+
+.middle {
+    display: inline-block;
+}
+
+.right {
+    float: right;
+    margin: 0;
+    padding: 0;
+    text-align: right;
+}
+
+.report {
+    background-color: var(--fig-white);
+    margin: 0px auto;
+    width: 1100px;
+}
+
+.report_title_section {
+    background-color: %233b5998;
+    color: white;
+    margin: 50px 0px 0px;
+    overflow: hidden;
+    padding: 15px 25px;
+}
+
+.report_footer {
+    margin-bottom: 50px;
+}
+
+.report_title {
+    font-size: 26px;
+    font-weight: 200;
+    margin: 0px 0px 10px 0px;
+}
+
+.report_subtitle {
+    font-size: 14px;
+    font-weight: 200;
+    margin: 0px;
+}
+
+.report_content {
+    background-color: white;
+    padding: 25px;
+}
+
+/* CELL FORMATTING */
+
+.cell_header {
+  background-color: %23CED0D4;
+  color: %234B4F56;
+  cursor: pointer;
+  margin: 25px 0px 0px;
+  padding: 5px 25px;
+}
+
+.cell_header:after {
+  color: %234B4F56;
+  content: &quot;+&quot;;
+  font-weight: bold;
+  float: right;
+  margin: -20px 0px 0px 5px;
+}
+
+.cell_header.show:after {
+  content: &quot;-&quot;;
+}
+
+.cell_header h2 {
+  font-weight: 200;
+  margin: 0;
+}
+
+.cell_body {
+  border: 1px solid %23CED0D4;
+  overflow-x: auto;
+  padding: 0px 25px;
+}
+
+.cell_body.hidden {
+  display: none;
+}
+
+.message {
+  padding: 10px 25px;
+  margin-bottom: 10px;
+}
+
+.message.error {
+  background-color: %23fde1e9;
+  border: %239a0a33 1px solid;
+  text-align: inherit;
+  margin: inherit;
+  margin-bottom: 10px;
+}
+
+.message.error p {
+  font-size: inherit;
+}
+
+.message.warning {
+  background-color: %23fef9da;
+  border: %23dec74a 1px solid;
+}
+
+.message.info {
+  background-color: %23d3e0fc;
+  border: %235186f7 1px solid;
+}
+
+.tldr-warning img {
+  display: inline;
+}
+
+pre {
+  background-color: %23eee;
+  padding: 10px;
+}
+
+/* TABLE */
+table {
+  border-collapse: collapse;
+  font-size: 12px;
+  margin: 10px auto;
+}
+
+table, th, td {
+  border: 1px solid %234B4F56;
+}
+
+th {
+  padding: 5px;
+  text-align: center;
+}
+
+td {
+  padding: 5px;
+  text-align: left;
+}
+
+tr:hover {background-color: %23f5f5f5}
+
+/* TOOLTIP */
+.report-tooltip {
+    border-bottom: 1px dotted %234B4F56;
+    display: inline-block;
+    position: relative;
+}
+
+.report-tooltip .report-tooltiptext {
+    background-color: %23555555;
+    border-radius: 6px;
+    color: %23fff;
+    font-size: 12px;
+    font-weight: 200;
+    min-width: 120px;
+    padding: 10px;
+    position: absolute;
+    text-align: center;
+    visibility: hidden;
+    z-index: 1;
+}
+
+.report-tooltip .report-tooltiptext.top-tooltip {
+    bottom: 100%;
+    left: 50%;
+    margin-left: -60px;
+    min-width: 120px;
+}
+
+.report-tooltip:hover .report-tooltiptext {
+    visibility: visible;
+}
+
+table.tooltip-arm {
+  border: 0px;
+  color: %23fff;
+  font-size: 12px;
+}
+
+.tooltip-arm th, .tooltip-arm td{
+  border: 0px;
+}
+
+.tooltip-arm tr:hover {
+  background-color: %234B4F56
+}
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
+.hovertext {
+  opacity: 0.85;
+}
+
+.plot-menu div {
+  margin-top: 5px;
+  margin-bottom: 5px;
+}
+
+.plot-menu select {
+  height: 30px;
+  padding: 6px 10px;
+  background-color: %23fff;
+  border: 1px solid %23D1D1D1;
+  border-radius: 4px;
+  box-shadow: none;
+  box-sizing: border-box;
+  margin-left: 15px;
+  margin-bottom: 0px;
+}
+
+.plot-menu select:focus {
+  border: 1px solid %2333C3F0;
+  outline: 0;
+}
+
+.plot-menu button {
+  display: inline-block;
+  height: 30px;
+  padding: 0 10px;
+  color: %23555;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  background-color: transparent;
+  border-radius: 4px;
+  border: 1px solid %23bbb;
+  cursor: pointer;
+  box-sizing: border-box;
+  background-color: %23fff;
+  margin-left: 15px;
+}
+&lt;/style&gt;
+&lt;script type=&quot;text/javascript&quot;&gt;/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
+requirejs.config({
+  paths: {
+    plotly: ['https://cdn.plot.ly/plotly-latest.min'],
+  },
+});
+if (!window.Plotly) {
+  require(['plotly'], function(plotly) {
+    window.Plotly = plotly;
+  });
+}
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
+// helper functions used across multiple plots
+function rgb(rgb_array) {
+  return 'rgb(' + rgb_array.join() + ')';
+}
+
+function copy_and_reverse(arr) {
+  const copy = arr.slice();
+  copy.reverse();
+  return copy;
+}
+
+function axis_range(grid, is_log) {
+  return is_log ?
+    [Math.log10(Math.min(...grid)), Math.log10(Math.max(...grid))]:
+    [Math.min(...grid), Math.max(...grid)];
+}
+
+function relativize_data(f, sd, rel, arm_data, metric) {
+  // if relative, extract status quo &amp; compute ratio
+  const f_final = rel === true ? [] : f;
+  const sd_final = rel === true ? []: sd;
+
+  if (rel === true) {
+    const f_sq = (
+      arm_data['in_sample'][arm_data['status_quo_name']]['y'][metric]
+    );
+    const sd_sq = (
+      arm_data['in_sample'][arm_data['status_quo_name']]['se'][metric]
+    );
+
+    for (let i = 0; i &lt; f.length; i++) {
+      res = relativize(f[i], sd[i], f_sq, sd_sq);
+      f_final.push(100 * res[0]);
+      sd_final.push(100 * res[1]);
+    }
+  }
+
+  return [f_final, sd_final];
+}
+
+function relativize(m_t, sem_t, m_c, sem_c) {
+  r_hat = (
+    (m_t - m_c) / Math.abs(m_c) -
+    Math.pow(sem_c, 2) * m_t / Math.pow(Math.abs(m_c), 3)
+  );
+  variance = (
+    (Math.pow(sem_t, 2) + Math.pow((m_t / m_c * sem_c), 2)) /
+    Math.pow(m_c, 2)
+   )
+   return [r_hat, Math.sqrt(variance)];
+}
+&lt;/script&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;base target=&quot;_parent&quot;/&gt;
+&lt;div class=&quot;report&quot;&gt;
+&lt;div class=&quot;report_title_section&quot;&gt;
+&lt;h1 class=&quot;report_title&quot;&gt;
+            
+            Report for  %23 of
+            &lt;code&gt;bo_benchmark_suite_test&lt;/code&gt;
+&lt;/h1&gt;
+&lt;h2 class=&quot;report_subtitle&quot;&gt;Powered by Ax&lt;/h2&gt;
+&lt;/div&gt;
+&lt;div class=&quot;report_content&quot;&gt;
+&lt;h2&gt;Bayesian Optimization benchmarking suite report&lt;/h2&gt;
+&lt;h3&gt;Hartmann6:&lt;/h3&gt;
+&lt;div class=&quot;plotly-graph-div&quot; id=&quot;40c1757e63d64c13b0e08980d30ac130&quot; style=&quot;width: 100%;&quot;&gt;&lt;/div&gt;&lt;script type=&quot;text/javascript&quot;&gt;/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
+require(['plotly'], function(Plotly) {
+  window.PLOTLYENV = window.PLOTLYENV || {};
+  window.PLOTLYENV.BASE_URL = 'https://plot.ly';
+  /*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
+Plotly.newPlot(
+  &quot;40c1757e63d64c13b0e08980d30ac130&quot;,
+  [{&quot;type&quot;: &quot;scatter&quot;, &quot;x&quot;: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], &quot;y&quot;: [-0.5053149917022333, -0.5053149917022333, -0.5053149917022333, -0.5053149917022333, -0.5053149917022333, -1.0181401423399055, -1.0181401423399055, -1.0181401423399055, -1.0181401423399055, -1.0181401423399055, -1.7349221025993484, -1.7349221025993484, -2.1181507109204794, -2.1181507109204794, -2.4503756414669158, -2.4503756414669158, -2.616984329982706, -2.6373670515478462, -2.8195075809745687, -2.8269806978012593], &quot;legendgroup&quot;: &quot;GP+NEI&quot;, &quot;mode&quot;: &quot;lines&quot;, &quot;line&quot;: {&quot;width&quot;: 0}, &quot;showlegend&quot;: false, &quot;hoverinfo&quot;: &quot;none&quot;}, {&quot;type&quot;: &quot;scatter&quot;, &quot;name&quot;: &quot;GP+NEI&quot;, &quot;legendgroup&quot;: &quot;GP+NEI&quot;, &quot;x&quot;: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], &quot;y&quot;: [-0.5053149917022333, -0.5053149917022333, -0.5053149917022333, -0.5053149917022333, -0.5053149917022333, -1.0181401423399055, -1.0181401423399055, -1.0181401423399055, -1.0181401423399055, -1.0181401423399055, -1.7299938724357389, -1.7299938724357389, -2.0924066123855694, -2.0924066123855694, -2.39668412182115, -2.39668412182115, -2.5355929504579278, -2.5860116469395225, -2.7748349873548688, -2.7920267655565225], &quot;mode&quot;: &quot;lines&quot;, &quot;line&quot;: {&quot;color&quot;: &quot;rgba(128,177,211,1)&quot;}, &quot;fillcolor&quot;: &quot;rgba(128,177,211,0.3)&quot;, &quot;fill&quot;: &quot;tonexty&quot;}, {&quot;type&quot;: &quot;scatter&quot;, &quot;x&quot;: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], &quot;y&quot;: [-0.5053149917022333, -0.5053149917022333, -0.5053149917022333, -0.5053149917022333, -0.5053149917022333, -1.0181401423399055, -1.0181401423399055, -1.0181401423399055, -1.0181401423399055, -1.0181401423399055, -1.7250656422721293, -1.7250656422721293, -2.0666625138506594, -2.0666625138506594, -2.3429926021753844, -2.3429926021753844, -2.4542015709331495, -2.5346562423311987, -2.730162393735169, -2.7570728333117858], &quot;legendgroup&quot;: &quot;GP+NEI&quot;, &quot;mode&quot;: &quot;lines&quot;, &quot;line&quot;: {&quot;width&quot;: 0}, &quot;fillcolor&quot;: &quot;rgba(128,177,211,0.3)&quot;, &quot;fill&quot;: &quot;tonexty&quot;, &quot;showlegend&quot;: false, &quot;hoverinfo&quot;: &quot;none&quot;}, {&quot;type&quot;: &quot;scatter&quot;, &quot;x&quot;: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], &quot;y&quot;: [-0.5053149917022333, -0.5053149917022333, -0.5053149917022333, -0.5053149917022333, -0.5053149917022333, -1.0181401423399055, -1.0181401423399055, -1.0181401423399055, -1.0181401423399055, -1.0181401423399055, -1.091199950624812, -1.7006393222233411, -1.7006393222233411, -1.7006393222233411, -1.7006393222233411, -1.7006393222233411, -1.7006393222233411, -1.7006393222233411, -2.080547649798246, -2.080547649798246], &quot;legendgroup&quot;: &quot;Quasirandom&quot;, &quot;mode&quot;: &quot;lines&quot;, &quot;line&quot;: {&quot;width&quot;: 0}, &quot;showlegend&quot;: false, &quot;hoverinfo&quot;: &quot;none&quot;}, {&quot;type&quot;: &quot;scatter&quot;, &quot;name&quot;: &quot;Quasirandom&quot;, &quot;legendgroup&quot;: &quot;Quasirandom&quot;, &quot;x&quot;: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], &quot;y&quot;: [-0.5053149917022333, -0.5053149917022333, -0.5053149917022333, -0.5053149917022333, -0.5053149917022333, -1.0181401423399055, -1.0181401423399055, -1.0181401423399055, -1.0181401423399055, -1.0181401423399055, -1.0443372104824582, -1.2628639917773328, -1.2628639917773328, -1.2628639917773328, -1.2628639917773328, -1.2628639917773328, -1.2628639917773328, -1.2628639917773328, -1.5500949174010121, -1.5500949174010121], &quot;mode&quot;: &quot;lines&quot;, &quot;line&quot;: {&quot;color&quot;: &quot;rgba(251,128,114,1)&quot;}, &quot;fillcolor&quot;: &quot;rgba(251,128,114,0.3)&quot;, &quot;fill&quot;: &quot;tonexty&quot;}, {&quot;type&quot;: &quot;scatter&quot;, &quot;x&quot;: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], &quot;y&quot;: [-0.5053149917022333, -0.5053149917022333, -0.5053149917022333, -0.5053149917022333, -0.5053149917022333, -1.0181401423399055, -1.0181401423399055, -1.0181401423399055, -1.0181401423399055, -1.0181401423399055, -0.9974744703401043, -0.8250886613313244, -0.8250886613313244, -0.8250886613313244, -0.8250886613313244, -0.8250886613313244, -0.8250886613313244, -0.8250886613313244, -1.0196421850037782, -1.0196421850037782], &quot;legendgroup&quot;: &quot;Quasirandom&quot;, &quot;mode&quot;: &quot;lines&quot;, &quot;line&quot;: {&quot;width&quot;: 0}, &quot;fillcolor&quot;: &quot;rgba(251,128,114,0.3)&quot;, &quot;fill&quot;: &quot;tonexty&quot;, &quot;showlegend&quot;: false, &quot;hoverinfo&quot;: &quot;none&quot;}, {&quot;type&quot;: &quot;scatter&quot;, &quot;x&quot;: [1, 20], &quot;y&quot;: [-3.32237, -3.32237], &quot;mode&quot;: &quot;lines&quot;, &quot;line&quot;: {&quot;dash&quot;: &quot;dash&quot;, &quot;color&quot;: &quot;rgba(253,180,98,1)&quot;}, &quot;name&quot;: &quot;Optimum&quot;}],
+  {&quot;title&quot;: &quot;Hartmann6: cumulative best objective&quot;, &quot;showlegend&quot;: true, &quot;yaxis&quot;: {&quot;title&quot;: &quot;Objective at best-feasible point observed so far&quot;}, &quot;xaxis&quot;: {&quot;title&quot;: &quot;Iteration&quot;}},
+  {&quot;showLink&quot;: false}
+);
+});&lt;/script&gt;
+&lt;div class=&quot;plotly-graph-div&quot; id=&quot;d3b7a4fc2ed84cb3b04c3086a98ca4ab&quot; style=&quot;width: 100%;&quot;&gt;&lt;/div&gt;&lt;script type=&quot;text/javascript&quot;&gt;/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
+require(['plotly'], function(Plotly) {
+  window.PLOTLYENV = window.PLOTLYENV || {};
+  window.PLOTLYENV.BASE_URL = 'https://plot.ly';
+  /*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
+Plotly.newPlot(
+  &quot;d3b7a4fc2ed84cb3b04c3086a98ca4ab&quot;,
+  [{&quot;type&quot;: &quot;bar&quot;, &quot;x&quot;: [&quot;GP+NEI&quot;, &quot;Quasirandom&quot;], &quot;y&quot;: [4.026444435119629, 0.009698438644409179], &quot;text&quot;: &quot;Fitting&quot;, &quot;textposition&quot;: &quot;auto&quot;, &quot;error_y&quot;: {&quot;type&quot;: &quot;data&quot;, &quot;array&quot;: [0.05659149913657706, 0.00023773302315497794], &quot;visible&quot;: true}, &quot;marker&quot;: {&quot;color&quot;: &quot;rgba(128,177,211,1)&quot;, &quot;line&quot;: {&quot;color&quot;: &quot;rgb(0,0,0)&quot;, &quot;width&quot;: 1.0}}, &quot;opacity&quot;: 0.6, &quot;name&quot;: &quot;Fitting&quot;}, {&quot;type&quot;: &quot;bar&quot;, &quot;x&quot;: [&quot;GP+NEI&quot;, &quot;Quasirandom&quot;], &quot;y&quot;: [1089.3526821136475, 0.15229620933532714], &quot;text&quot;: &quot;Generation&quot;, &quot;textposition&quot;: &quot;auto&quot;, &quot;error_y&quot;: {&quot;type&quot;: &quot;data&quot;, &quot;array&quot;: [56.899201548480136, 0.22679796193849106], &quot;visible&quot;: true}, &quot;marker&quot;: {&quot;color&quot;: &quot;rgba(251,128,114,1)&quot;, &quot;line&quot;: {&quot;color&quot;: &quot;rgb(0,0,0)&quot;, &quot;width&quot;: 1.0}}, &quot;opacity&quot;: 0.6, &quot;name&quot;: &quot;Generation&quot;}, {&quot;type&quot;: &quot;bar&quot;, &quot;x&quot;: [&quot;GP+NEI&quot;, &quot;Quasirandom&quot;], &quot;y&quot;: [1093.379126548767, 0.16199464797973634], &quot;text&quot;: &quot;Total&quot;, &quot;textposition&quot;: &quot;auto&quot;, &quot;error_y&quot;: {&quot;type&quot;: &quot;data&quot;, &quot;array&quot;: [56.924723853365435, 0.22691132499645025], &quot;visible&quot;: true}, &quot;marker&quot;: {&quot;color&quot;: &quot;rgba(141,211,199,1)&quot;, &quot;line&quot;: {&quot;color&quot;: &quot;rgb(0,0,0)&quot;, &quot;width&quot;: 1.0}}, &quot;opacity&quot;: 0.6, &quot;name&quot;: &quot;Total&quot;}],
+  {&quot;title&quot;: &quot;Hartmann6: optimization times&quot;, &quot;showlegend&quot;: false, &quot;yaxis&quot;: {&quot;title&quot;: &quot;Time&quot;}, &quot;xaxis&quot;: {&quot;title&quot;: &quot;Method&quot;}},
+  {&quot;showLink&quot;: false}
+);
+});&lt;/script&gt;
+&lt;h3&gt;Gramacy:&lt;/h3&gt;
+&lt;div class=&quot;plotly-graph-div&quot; id=&quot;0b9b152ff06d4c0482cfd5d6532a182b&quot; style=&quot;width: 100%;&quot;&gt;&lt;/div&gt;&lt;script type=&quot;text/javascript&quot;&gt;/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
+require(['plotly'], function(Plotly) {
+  window.PLOTLYENV = window.PLOTLYENV || {};
+  window.PLOTLYENV.BASE_URL = 'https://plot.ly';
+  /*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
+Plotly.newPlot(
+  &quot;0b9b152ff06d4c0482cfd5d6532a182b&quot;,
+  [{&quot;type&quot;: &quot;scatter&quot;, &quot;x&quot;: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], &quot;y&quot;: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.8830097092364326, 0.8338603615142361, 0.7657554105196016, 0.7657554105196016, 0.6669895154504597, 0.6669895154504597, 0.6336752595085382, 0.6336752595085382, 0.6314567220508792, 0.6314567220508792], &quot;legendgroup&quot;: &quot;GP+NEI&quot;, &quot;mode&quot;: &quot;lines&quot;, &quot;line&quot;: {&quot;width&quot;: 0}, &quot;showlegend&quot;: false, &quot;hoverinfo&quot;: &quot;none&quot;}, {&quot;type&quot;: &quot;scatter&quot;, &quot;name&quot;: &quot;GP+NEI&quot;, &quot;legendgroup&quot;: &quot;GP+NEI&quot;, &quot;x&quot;: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], &quot;y&quot;: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.958050771127148, 0.9208371453921774, 0.7973780828896226, 0.7973780828896226, 0.7336454527837842, 0.7336454527837842, 0.6560448870767449, 0.6560448870767449, 0.651370535590907, 0.651370535590907], &quot;mode&quot;: &quot;lines&quot;, &quot;line&quot;: {&quot;color&quot;: &quot;rgba(128,177,211,1)&quot;}, &quot;fillcolor&quot;: &quot;rgba(128,177,211,0.3)&quot;, &quot;fill&quot;: &quot;tonexty&quot;}, {&quot;type&quot;: &quot;scatter&quot;, &quot;x&quot;: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], &quot;y&quot;: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0330918330178633, 1.0078139292701187, 0.8290007552596437, 0.8290007552596437, 0.8003013901171088, 0.8003013901171088, 0.6784145146449516, 0.6784145146449516, 0.6712843491309347, 0.6712843491309347], &quot;legendgroup&quot;: &quot;GP+NEI&quot;, &quot;mode&quot;: &quot;lines&quot;, &quot;line&quot;: {&quot;width&quot;: 0}, &quot;fillcolor&quot;: &quot;rgba(128,177,211,0.3)&quot;, &quot;fill&quot;: &quot;tonexty&quot;, &quot;showlegend&quot;: false, &quot;hoverinfo&quot;: &quot;none&quot;}, {&quot;type&quot;: &quot;scatter&quot;, &quot;x&quot;: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], &quot;y&quot;: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.9600349695545933, 0.9431165543235565, 0.9431165543235565, 0.9431165543235565, 0.9431165543235565, 0.9431165543235565, 0.9032494276045842, 0.8347572480539491, 0.8347572480539491], &quot;legendgroup&quot;: &quot;Quasirandom&quot;, &quot;mode&quot;: &quot;lines&quot;, &quot;line&quot;: {&quot;width&quot;: 0}, &quot;showlegend&quot;: false, &quot;hoverinfo&quot;: &quot;none&quot;}, {&quot;type&quot;: &quot;scatter&quot;, &quot;name&quot;: &quot;Quasirandom&quot;, &quot;legendgroup&quot;: &quot;Quasirandom&quot;, &quot;x&quot;: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], &quot;y&quot;: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.985669732093811, 0.968881969153881, 0.968881969153881, 0.968881969153881, 0.968881969153881, 0.968881969153881, 0.9513526871800423, 0.9184132531285286, 0.9184132531285286], &quot;mode&quot;: &quot;lines&quot;, &quot;line&quot;: {&quot;color&quot;: &quot;rgba(251,128,114,1)&quot;}, &quot;fillcolor&quot;: &quot;rgba(251,128,114,0.3)&quot;, &quot;fill&quot;: &quot;tonexty&quot;}, {&quot;type&quot;: &quot;scatter&quot;, &quot;x&quot;: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], &quot;y&quot;: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0113044946330287, 0.9946473839842056, 0.9946473839842056, 0.9946473839842056, 0.9946473839842056, 0.9946473839842056, 0.9994559467555004, 1.002069258203108, 1.002069258203108], &quot;legendgroup&quot;: &quot;Quasirandom&quot;, &quot;mode&quot;: &quot;lines&quot;, &quot;line&quot;: {&quot;width&quot;: 0}, &quot;fillcolor&quot;: &quot;rgba(251,128,114,0.3)&quot;, &quot;fill&quot;: &quot;tonexty&quot;, &quot;showlegend&quot;: false, &quot;hoverinfo&quot;: &quot;none&quot;}, {&quot;type&quot;: &quot;scatter&quot;, &quot;x&quot;: [1, 20], &quot;y&quot;: [0.5998, 0.5998], &quot;mode&quot;: &quot;lines&quot;, &quot;line&quot;: {&quot;dash&quot;: &quot;dash&quot;, &quot;color&quot;: &quot;rgba(253,180,98,1)&quot;}, &quot;name&quot;: &quot;Optimum&quot;}],
+  {&quot;title&quot;: &quot;Gramacy: cumulative best objective&quot;, &quot;showlegend&quot;: true, &quot;yaxis&quot;: {&quot;title&quot;: &quot;Objective at best-feasible point observed so far&quot;}, &quot;xaxis&quot;: {&quot;title&quot;: &quot;Iteration&quot;}},
+  {&quot;showLink&quot;: false}
+);
+});&lt;/script&gt;
+&lt;div class=&quot;plotly-graph-div&quot; id=&quot;6776b4123eed4ef39faf9ec7f5111bca&quot; style=&quot;width: 100%;&quot;&gt;&lt;/div&gt;&lt;script type=&quot;text/javascript&quot;&gt;/*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
+require(['plotly'], function(Plotly) {
+  window.PLOTLYENV = window.PLOTLYENV || {};
+  window.PLOTLYENV.BASE_URL = 'https://plot.ly';
+  /*
+ * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ */
+
+Plotly.newPlot(
+  &quot;6776b4123eed4ef39faf9ec7f5111bca&quot;,
+  [{&quot;type&quot;: &quot;bar&quot;, &quot;x&quot;: [&quot;GP+NEI&quot;, &quot;Quasirandom&quot;], &quot;y&quot;: [9.124966621398926, 0.009044075012207031], &quot;text&quot;: &quot;Fitting&quot;, &quot;textposition&quot;: &quot;auto&quot;, &quot;error_y&quot;: {&quot;type&quot;: &quot;data&quot;, &quot;array&quot;: [0.22260730274530777, 0.00034708501084342914], &quot;visible&quot;: true}, &quot;marker&quot;: {&quot;color&quot;: &quot;rgba(128,177,211,1)&quot;, &quot;line&quot;: {&quot;color&quot;: &quot;rgb(0,0,0)&quot;, &quot;width&quot;: 1.0}}, &quot;opacity&quot;: 0.6, &quot;name&quot;: &quot;Fitting&quot;}, {&quot;type&quot;: &quot;bar&quot;, &quot;x&quot;: [&quot;GP+NEI&quot;, &quot;Quasirandom&quot;], &quot;y&quot;: [7185.837327432632, 0.018694496154785155], &quot;text&quot;: &quot;Generation&quot;, &quot;textposition&quot;: &quot;auto&quot;, &quot;error_y&quot;: {&quot;type&quot;: &quot;data&quot;, &quot;array&quot;: [609.4880567878143, 0.00700011641376758], &quot;visible&quot;: true}, &quot;marker&quot;: {&quot;color&quot;: &quot;rgba(251,128,114,1)&quot;, &quot;line&quot;: {&quot;color&quot;: &quot;rgb(0,0,0)&quot;, &quot;width&quot;: 1.0}}, &quot;opacity&quot;: 0.6, &quot;name&quot;: &quot;Generation&quot;}, {&quot;type&quot;: &quot;bar&quot;, &quot;x&quot;: [&quot;GP+NEI&quot;, &quot;Quasirandom&quot;], &quot;y&quot;: [7194.962294054031, 0.027738571166992188], &quot;text&quot;: &quot;Total&quot;, &quot;textposition&quot;: &quot;auto&quot;, &quot;error_y&quot;: {&quot;type&quot;: &quot;data&quot;, &quot;array&quot;: [609.4537207213425, 0.006963871292531525], &quot;visible&quot;: true}, &quot;marker&quot;: {&quot;color&quot;: &quot;rgba(141,211,199,1)&quot;, &quot;line&quot;: {&quot;color&quot;: &quot;rgb(0,0,0)&quot;, &quot;width&quot;: 1.0}}, &quot;opacity&quot;: 0.6, &quot;name&quot;: &quot;Total&quot;}],
+  {&quot;title&quot;: &quot;Gramacy: optimization times&quot;, &quot;showlegend&quot;: false, &quot;yaxis&quot;: {&quot;title&quot;: &quot;Time&quot;}, &quot;xaxis&quot;: {&quot;title&quot;: &quot;Method&quot;}},
+  {&quot;showLink&quot;: false}
+);
+});&lt;/script&gt;
+&lt;h3&gt;No errors encountered&lt;/h3&gt;
+&lt;/div&gt;
+&lt;div class=&quot;report_footer&quot;&gt;&lt;/div&gt;
+&lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;"></iframe></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="References">References<a class="anchor-link" href="#References">¶</a></h4><p>Gramacy,  R.  B.,  Gray,  G.  A.,  Digabel,  S.  L.,  Lee,  H.  K.  H., Ranjan, P., Wells, G., and Wild, S. M. Modeling an Augmented Lagrangian for Blackbox Constrained Optimization. <em>Technometrics</em>, 58(1): 1–11, 2016.</p>
+</div>
+</div>
+</div>
+</div></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/0.1.5/files/benchmarking_suite_example.ipynb" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Jupyter Notebook</a></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/0.1.5/files//benchmarking_suite_example.py" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Source Code</a></div></div></div></div><footer class="nav-footer" id="footer"><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.5/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2019 Facebook Inc.</section></footer></div></body></html>

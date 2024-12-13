@@ -1,0 +1,253 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.4/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.4/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.4/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.4/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.4/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.4/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.4/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.4/css/main.css"/><script src="/versions/0.2.4/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.4/"><img class="logo" src="/versions/0.2.4/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.4/versions.html"><h3>0.2.4</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.4/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.4/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.4/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.models.torch.cbo_lcea</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpaceDigest</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">TCandidateMetadata</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.alebo</span> <span class="kn">import</span> <span class="n">ei_or_nei</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.botorch</span> <span class="kn">import</span> <span class="n">BotorchModel</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.cbo_sac</span> <span class="kn">import</span> <span class="n">generate_model_space_decomposition</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch_base</span> <span class="kn">import</span> <span class="n">TorchModel</span>
+<span class="kn">from</span> <span class="nn">ax.models.types</span> <span class="kn">import</span> <span class="n">TConfig</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.docutils</span> <span class="kn">import</span> <span class="n">copy_doc</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">botorch.fit</span> <span class="kn">import</span> <span class="n">fit_gpytorch_model</span>
+<span class="kn">from</span> <span class="nn">botorch.models.contextual</span> <span class="kn">import</span> <span class="n">LCEAGP</span>
+<span class="kn">from</span> <span class="nn">botorch.models.gpytorch</span> <span class="kn">import</span> <span class="n">GPyTorchModel</span>
+<span class="kn">from</span> <span class="nn">botorch.models.model_list_gp_regression</span> <span class="kn">import</span> <span class="n">ModelListGP</span>
+<span class="kn">from</span> <span class="nn">gpytorch.mlls.exact_marginal_log_likelihood</span> <span class="kn">import</span> <span class="n">ExactMarginalLogLikelihood</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
+
+
+<span class="n">MIN_OBSERVED_NOISE_LEVEL</span> <span class="o">=</span> <span class="mf">1e-7</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="get_map_model"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.cbo_lcea.get_map_model">[docs]</a><span class="k">def</span> <span class="nf">get_map_model</span><span class="p">(</span>
+    <span class="n">train_X</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">train_Y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">train_Yvar</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">decomposition</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span>
+    <span class="n">train_embedding</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">cat_feature_dict</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">embs_feature_dict</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">embs_dim_list</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">context_weight_dict</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">LCEAGP</span><span class="p">,</span> <span class="n">ExactMarginalLogLikelihood</span><span class="p">]:</span>
+    <span class="sd">"""Obtain MAP fitting of Latent Context Embedding Additive (LCE-A) GP."""</span>
+    <span class="c1"># assert train_X is non-batched</span>
+    <span class="k">assert</span> <span class="n">train_X</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">"Don't support batch training"</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">LCEAGP</span><span class="p">(</span>
+        <span class="n">train_X</span><span class="o">=</span><span class="n">train_X</span><span class="p">,</span>
+        <span class="n">train_Y</span><span class="o">=</span><span class="n">train_Y</span><span class="p">,</span>
+        <span class="n">train_Yvar</span><span class="o">=</span><span class="n">train_Yvar</span><span class="p">,</span>
+        <span class="n">decomposition</span><span class="o">=</span><span class="n">decomposition</span><span class="p">,</span>
+        <span class="n">train_embedding</span><span class="o">=</span><span class="n">train_embedding</span><span class="p">,</span>
+        <span class="n">embs_dim_list</span><span class="o">=</span><span class="n">embs_dim_list</span><span class="p">,</span>
+        <span class="n">cat_feature_dict</span><span class="o">=</span><span class="n">cat_feature_dict</span><span class="p">,</span>
+        <span class="n">embs_feature_dict</span><span class="o">=</span><span class="n">embs_feature_dict</span><span class="p">,</span>
+        <span class="n">context_weight_dict</span><span class="o">=</span><span class="n">context_weight_dict</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">mll</span> <span class="o">=</span> <span class="n">ExactMarginalLogLikelihood</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">likelihood</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
+    <span class="n">fit_gpytorch_model</span><span class="p">(</span><span class="n">mll</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">model</span><span class="p">,</span> <span class="n">mll</span></div>
+
+
+<div class="viewcode-block" id="LCEABO"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.cbo_lcea.LCEABO">[docs]</a><span class="k">class</span> <span class="nc">LCEABO</span><span class="p">(</span><span class="n">BotorchModel</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sd">"""Does Bayesian optimization with Latent Context Embedding Additive (LCE-A) GP.</span>
+<span class="sd">    The parameter space decomposition must be provided.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        decomposition: Keys are context names. Values are the lists of parameter</span>
+<span class="sd">            names belong to the context, e.g.</span>
+<span class="sd">            {'context1': ['p1_c1', 'p2_c1'],'context2': ['p1_c2', 'p2_c2']}.</span>
+<span class="sd">        gp_model_args: Dictionary of kwargs to pass to GP model training.</span>
+<span class="sd">            - train_embedding: Boolen. If true, we will train context embedding;</span>
+<span class="sd">            otherwise, we use pre-trained embeddings from embds_feature_dict only.</span>
+<span class="sd">            Default is True.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">decomposition</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
+        <span class="n">cat_feature_dict</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">embs_feature_dict</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">context_weight_dict</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">embs_dim_list</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">gp_model_args</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># add validation for input decomposition</span>
+        <span class="k">for</span> <span class="n">param_list</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">decomposition</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">param_list</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span>
+                <span class="nb">list</span><span class="p">(</span><span class="n">decomposition</span><span class="o">.</span><span class="n">values</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="p">),</span> <span class="s2">"Each Context should contain same number of parameters"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">decomposition</span> <span class="o">=</span> <span class="n">decomposition</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cat_feature_dict</span> <span class="o">=</span> <span class="n">cat_feature_dict</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embs_feature_dict</span> <span class="o">=</span> <span class="n">embs_feature_dict</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">context_weight_dict</span> <span class="o">=</span> <span class="n">context_weight_dict</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embs_dim_list</span> <span class="o">=</span> <span class="n">embs_dim_list</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gp_model_args</span> <span class="o">=</span> <span class="n">gp_model_args</span> <span class="k">if</span> <span class="n">gp_model_args</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feature_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_embedding</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gp_model_args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"train_embedding"</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">model_constructor</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_and_fit_model</span><span class="p">,</span>
+            <span class="n">acqf_constructor</span><span class="o">=</span><span class="n">ei_or_nei</span><span class="p">,</span>  <span class="c1"># pyre-ignore</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="LCEABO.fit"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.cbo_lcea.LCEABO.fit">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">TorchModel</span><span class="o">.</span><span class="n">fit</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">Xs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">Ys</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">Yvars</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">search_space_digest</span><span class="p">:</span> <span class="n">SearchSpaceDigest</span><span class="p">,</span>
+        <span class="n">metric_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">candidate_metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">TCandidateMetadata</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">search_space_digest</span><span class="o">.</span><span class="n">feature_names</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"feature names are required for LCEABO"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feature_names</span> <span class="o">=</span> <span class="n">search_space_digest</span><span class="o">.</span><span class="n">feature_names</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+            <span class="n">Xs</span><span class="o">=</span><span class="n">Xs</span><span class="p">,</span>
+            <span class="n">Ys</span><span class="o">=</span><span class="n">Ys</span><span class="p">,</span>
+            <span class="n">Yvars</span><span class="o">=</span><span class="n">Yvars</span><span class="p">,</span>
+            <span class="n">search_space_digest</span><span class="o">=</span><span class="n">search_space_digest</span><span class="p">,</span>
+            <span class="n">metric_names</span><span class="o">=</span><span class="n">metric_names</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="LCEABO.best_point"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.cbo_lcea.LCEABO.best_point">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">TorchModel</span><span class="o">.</span><span class="n">best_point</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">best_point</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bounds</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+        <span class="n">objective_weights</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">linear_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">fixed_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_gen_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">target_fidelities</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="LCEABO.get_and_fit_model"><a class="viewcode-back" href="../../../../models.html#ax.models.torch.cbo_lcea.LCEABO.get_and_fit_model">[docs]</a>    <span class="k">def</span> <span class="nf">get_and_fit_model</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">Xs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">Ys</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">Yvars</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">task_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">fidelity_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">metric_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">state_dict</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">fidelity_model_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GPyTorchModel</span><span class="p">:</span>
+        <span class="sd">"""Get a fitted LCEAGP model for each outcome.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            Xs: X for each outcome.</span>
+<span class="sd">            Ys: Y for each outcome.</span>
+<span class="sd">            Yvars: Noise variance of Y for each outcome.</span>
+<span class="sd">        Returns: Fitted LCEAGP model.</span>
+<span class="sd">        """</span>
+        <span class="c1"># generate model space decomposition dict</span>
+        <span class="n">decomp_index</span> <span class="o">=</span> <span class="n">generate_model_space_decomposition</span><span class="p">(</span>
+            <span class="n">decomposition</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">decomposition</span><span class="p">,</span> <span class="n">feature_names</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">feature_names</span>
+        <span class="p">)</span>
+
+        <span class="n">models</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">X</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">Xs</span><span class="p">):</span>
+            <span class="n">Yvar</span> <span class="o">=</span> <span class="n">Yvars</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">clamp_min_</span><span class="p">(</span><span class="n">MIN_OBSERVED_NOISE_LEVEL</span><span class="p">)</span>
+            <span class="n">gp_m</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">get_map_model</span><span class="p">(</span>
+                <span class="n">train_X</span><span class="o">=</span><span class="n">X</span><span class="p">,</span>
+                <span class="n">train_Y</span><span class="o">=</span><span class="n">Ys</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                <span class="n">train_Yvar</span><span class="o">=</span><span class="n">Yvar</span><span class="p">,</span>
+                <span class="n">decomposition</span><span class="o">=</span><span class="n">decomp_index</span><span class="p">,</span>
+                <span class="n">train_embedding</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">train_embedding</span><span class="p">,</span>
+                <span class="n">cat_feature_dict</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cat_feature_dict</span><span class="p">,</span>
+                <span class="n">embs_feature_dict</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">embs_feature_dict</span><span class="p">,</span>
+                <span class="n">embs_dim_list</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">embs_dim_list</span><span class="p">,</span>
+                <span class="n">context_weight_dict</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">context_weight_dict</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">models</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gp_m</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">models</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="n">models</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="n">ModelListGP</span><span class="p">(</span><span class="o">*</span><span class="n">models</span><span class="p">)</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">Xs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">model</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.4/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

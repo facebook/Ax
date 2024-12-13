@@ -1,0 +1,342 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.5/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.5/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.5/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.5/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.5/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.5/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.5/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.5/css/main.css"/><script src="/versions/0.2.5/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.5/"><img class="logo" src="/versions/0.2.5/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.5/versions.html"><h3>0.2.5</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.5/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.5/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.5/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.models.discrete.thompson</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">import</span> <span class="nn">hashlib</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">TGenMetadata</span><span class="p">,</span> <span class="n">TParamValue</span><span class="p">,</span> <span class="n">TParamValueList</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.constants</span> <span class="kn">import</span> <span class="n">TS_MIN_WEIGHT_ERROR</span><span class="p">,</span> <span class="n">TS_NO_FEASIBLE_ARMS_ERROR</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.model</span> <span class="kn">import</span> <span class="n">ModelError</span>
+<span class="kn">from</span> <span class="nn">ax.models.discrete_base</span> <span class="kn">import</span> <span class="n">DiscreteModel</span>
+<span class="kn">from</span> <span class="nn">ax.models.types</span> <span class="kn">import</span> <span class="n">TConfig</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.docutils</span> <span class="kn">import</span> <span class="n">copy_doc</span>
+
+
+<div class="viewcode-block" id="ThompsonSampler"><a class="viewcode-back" href="../../../../models.html#ax.models.discrete.thompson.ThompsonSampler">[docs]</a><span class="k">class</span> <span class="nc">ThompsonSampler</span><span class="p">(</span><span class="n">DiscreteModel</span><span class="p">):</span>
+    <span class="sd">"""Generator for Thompson sampling.</span>
+
+<span class="sd">    The generator performs Thompson sampling on the data passed in via `fit`.</span>
+<span class="sd">    Arms are given weight proportional to the probability that they are</span>
+<span class="sd">    winners, according to Monte Carlo simulations.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+        <span class="n">min_weight</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">uniform_weights</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""</span>
+<span class="sd">        Args:</span>
+<span class="sd">            num_samples: The number of samples to draw from the posterior.</span>
+<span class="sd">            min_weight: The minimum weight a arm must be</span>
+<span class="sd">                given in order for it to be returned from the gernerator. If not</span>
+<span class="sd">                specified, will be set to 2 / (number of arms).</span>
+<span class="sd">            uniform_weights: If True, the arms returned from the</span>
+<span class="sd">                generator will each be given a weight of 1 / (number of arms).</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_samples</span> <span class="o">=</span> <span class="n">num_samples</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_weight</span> <span class="o">=</span> <span class="n">min_weight</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">uniform_weights</span> <span class="o">=</span> <span class="n">uniform_weights</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Ys</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Yvars</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">X_to_Ys_and_Yvars</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="ThompsonSampler.fit"><a class="viewcode-back" href="../../../../models.html#ax.models.discrete.thompson.ThompsonSampler.fit">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">DiscreteModel</span><span class="o">.</span><span class="n">fit</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">Xs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">TParamValueList</span><span class="p">]],</span>
+        <span class="n">Ys</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span>
+        <span class="n">Yvars</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span>
+        <span class="n">parameter_values</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TParamValueList</span><span class="p">],</span>
+        <span class="n">outcome_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">X</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fit_X</span><span class="p">(</span><span class="n">Xs</span><span class="o">=</span><span class="n">Xs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Ys</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Yvars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fit_Ys_and_Yvars</span><span class="p">(</span>
+            <span class="n">Ys</span><span class="o">=</span><span class="n">Ys</span><span class="p">,</span> <span class="n">Yvars</span><span class="o">=</span><span class="n">Yvars</span><span class="p">,</span> <span class="n">outcome_names</span><span class="o">=</span><span class="n">outcome_names</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">X_to_Ys_and_Yvars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fit_X_to_Ys_and_Yvars</span><span class="p">(</span>
+            <span class="n">X</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">Ys</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Ys</span><span class="p">,</span> <span class="n">Yvars</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Yvars</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="ThompsonSampler.gen"><a class="viewcode-back" href="../../../../models.html#ax.models.discrete.thompson.ThompsonSampler.gen">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">DiscreteModel</span><span class="o">.</span><span class="n">gen</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">gen</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">parameter_values</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TParamValueList</span><span class="p">],</span>
+        <span class="n">objective_weights</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">fixed_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">TParamValue</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">pending_observations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">TParamValueList</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_gen_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">TParamValueList</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">TGenMetadata</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">objective_weights</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"ThompsonSampler requires objective weights."</span><span class="p">)</span>
+
+        <span class="n">arms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">arms</span><span class="p">)</span>
+
+        <span class="n">weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_weights</span><span class="p">(</span>
+            <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span> <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span>
+        <span class="p">)</span>
+        <span class="n">min_weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_weight</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_weight</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mf">2.0</span> <span class="o">/</span> <span class="n">k</span>
+
+        <span class="c1"># Second entry is used for tie-breaking</span>
+        <span class="n">weighted_arms</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">weights</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">(),</span> <span class="n">arms</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">weights</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">min_weight</span>
+        <span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">weighted_arms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ModelError</span><span class="p">(</span>
+                <span class="n">TS_MIN_WEIGHT_ERROR</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">min_weight</span><span class="o">=</span><span class="n">min_weight</span><span class="p">,</span> <span class="n">max_weight</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="n">weighted_arms</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">top_weighted_arms</span> <span class="o">=</span> <span class="n">weighted_arms</span><span class="p">[:</span><span class="n">n</span><span class="p">]</span> <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">weighted_arms</span>
+        <span class="n">top_arms</span> <span class="o">=</span> <span class="p">[</span><span class="n">arm</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">top_weighted_arms</span><span class="p">]</span>
+        <span class="n">top_weights</span> <span class="o">=</span> <span class="p">[</span><span class="n">weight</span> <span class="k">for</span> <span class="n">weight</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">top_weighted_arms</span><span class="p">]</span>
+
+        <span class="c1"># N TS arms should have total weight N</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">uniform_weights</span><span class="p">:</span>
+            <span class="n">top_weights</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">top_weights</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">top_weights</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">top_weights</span><span class="p">))</span> <span class="o">/</span> <span class="nb">sum</span><span class="p">(</span><span class="n">top_weights</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">top_weights</span>
+            <span class="p">]</span>
+        <span class="k">return</span> <span class="n">top_arms</span><span class="p">,</span> <span class="n">top_weights</span><span class="p">,</span> <span class="p">{</span><span class="s2">"arms_to_weights"</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">arms</span><span class="p">,</span> <span class="n">weights</span><span class="p">))}</span></div>
+
+<div class="viewcode-block" id="ThompsonSampler.predict"><a class="viewcode-back" href="../../../../models.html#ax.models.discrete.thompson.ThompsonSampler.predict">[docs]</a>    <span class="nd">@copy_doc</span><span class="p">(</span><span class="n">DiscreteModel</span><span class="o">.</span><span class="n">predict</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TParamValueList</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>  <span class="c1"># number of parameterizations at which to make predictions</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Ys</span><span class="p">)</span>  <span class="c1"># number of outcomes</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="p">))</span>  <span class="c1"># array of outcome predictions</span>
+        <span class="n">cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">m</span><span class="p">))</span>  <span class="c1"># array of predictive covariances</span>
+        <span class="n">predictX</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_hash_TParamValueList</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">X</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">X_to_Y_and_Yvar</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X_to_Ys_and_Yvars</span><span class="p">):</span>
+            <span class="c1"># iterate through outcomes</span>
+            <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">predictX</span><span class="p">):</span>
+                <span class="c1"># iterate through parameterizations at which to make predictions</span>
+                <span class="k">if</span> <span class="n">x</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">X_to_Y_and_Yvar</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">"ThompsonSampler does not support out-of-sample prediction."</span>
+                    <span class="p">)</span>
+                <span class="n">f</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">],</span> <span class="n">cov</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">X_to_Y_and_Yvar</span><span class="p">[</span><span class="n">x</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">f</span><span class="p">,</span> <span class="n">cov</span></div>
+
+    <span class="k">def</span> <span class="nf">_generate_weights</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">objective_weights</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+        <span class="n">samples</span><span class="p">,</span> <span class="n">fraction_all_infeasible</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_produce_samples</span><span class="p">(</span>
+            <span class="n">num_samples</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_samples</span><span class="p">,</span>
+            <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">fraction_all_infeasible</span> <span class="o">&gt;</span> <span class="mf">0.99</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ModelError</span><span class="p">(</span><span class="n">TS_NO_FEASIBLE_ARMS_ERROR</span><span class="p">)</span>
+
+        <span class="n">num_valid_samples</span> <span class="o">=</span> <span class="n">samples</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">while</span> <span class="n">num_valid_samples</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_samples</span><span class="p">:</span>
+            <span class="n">num_additional_samples</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_samples</span> <span class="o">-</span> <span class="n">num_valid_samples</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span>
+                <span class="mi">1</span> <span class="o">-</span> <span class="n">fraction_all_infeasible</span>
+            <span class="p">)</span>
+            <span class="n">num_additional_samples</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">num_additional_samples</span><span class="p">,</span> <span class="mi">100</span><span class="p">))</span>
+            <span class="n">new_samples</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_produce_samples</span><span class="p">(</span>
+                <span class="n">num_samples</span><span class="o">=</span><span class="n">num_additional_samples</span><span class="p">,</span>
+                <span class="n">objective_weights</span><span class="o">=</span><span class="n">objective_weights</span><span class="p">,</span>
+                <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">samples</span><span class="p">,</span> <span class="n">new_samples</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">num_valid_samples</span> <span class="o">=</span> <span class="n">samples</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">winner_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># (num_samples,)</span>
+        <span class="n">winner_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">))</span>  <span class="c1"># (k,)</span>
+        <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">winner_indices</span><span class="p">:</span>
+            <span class="n">winner_counts</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="n">winner_counts</span> <span class="o">/</span> <span class="n">winner_counts</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">weights</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_generate_samples_per_metric</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">samples_per_metric</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">num_samples</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Ys</span><span class="p">))</span>
+        <span class="p">)</span>  <span class="c1"># k x num_samples x m</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">Y</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Ys</span><span class="p">):</span>  <span class="c1"># (k x 1)</span>
+            <span class="n">Yvar</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Yvars</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="c1"># (k x 1)</span>
+            <span class="n">cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">Yvar</span><span class="p">)</span>  <span class="c1"># (k x k)</span>
+            <span class="n">samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">multivariate_normal</span><span class="p">(</span>
+                <span class="n">Y</span><span class="p">,</span> <span class="n">cov</span><span class="p">,</span> <span class="n">num_samples</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">T</span>  <span class="c1"># (k x num_samples)</span>
+            <span class="n">samples_per_metric</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">samples</span>
+        <span class="k">return</span> <span class="n">samples_per_metric</span>
+
+    <span class="k">def</span> <span class="nf">_produce_samples</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">objective_weights</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">samples_per_metric</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_samples_per_metric</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="n">num_samples</span><span class="p">)</span>
+
+        <span class="n">any_violation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">k</span><span class="p">,</span> <span class="n">num_samples</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>  <span class="c1"># (k x num_samples)</span>
+        <span class="k">if</span> <span class="n">outcome_constraints</span><span class="p">:</span>
+            <span class="c1"># A is (num_constraints x m)</span>
+            <span class="c1"># b is (num_constraints x 1)</span>
+            <span class="n">A</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">outcome_constraints</span>
+
+            <span class="c1"># (k x num_samples x m) dot (num_constraints x m)^T</span>
+            <span class="c1"># = (k x num_samples x m) dot (m x num_constraints)</span>
+            <span class="c1"># ==&gt; (k x num_samples x num_constraints)</span>
+            <span class="n">constraint_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">samples_per_metric</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="n">violations</span> <span class="o">=</span> <span class="n">constraint_values</span> <span class="o">&gt;</span> <span class="n">b</span><span class="o">.</span><span class="n">T</span>
+            <span class="n">any_violation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">violations</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># (k x num_samples)</span>
+
+        <span class="n">objective_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span>
+            <span class="n">samples_per_metric</span><span class="p">,</span> <span class="n">objective_weights</span>
+        <span class="p">)</span>  <span class="c1"># (k x num_samples)</span>
+        <span class="n">objective_values</span><span class="p">[</span><span class="n">any_violation</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">Inf</span>
+        <span class="n">best_arm</span> <span class="o">=</span> <span class="n">objective_values</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># (num_samples,)</span>
+        <span class="n">all_arms_infeasible</span> <span class="o">=</span> <span class="n">best_arm</span> <span class="o">==</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">Inf</span>  <span class="c1"># (num_samples,)</span>
+        <span class="n">fraction_all_infeasible</span> <span class="o">=</span> <span class="n">all_arms_infeasible</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+        <span class="n">filtered_objective</span> <span class="o">=</span> <span class="n">objective_values</span><span class="p">[:,</span> <span class="o">~</span><span class="n">all_arms_infeasible</span><span class="p">]</span>  <span class="c1"># (k x ?)</span>
+        <span class="k">return</span> <span class="n">filtered_objective</span><span class="p">,</span> <span class="n">fraction_all_infeasible</span>
+
+    <span class="k">def</span> <span class="nf">_validate_Xs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Xs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">TParamValueList</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""</span>
+<span class="sd">        1. Require that all Xs have the same arms, i.e. we have observed</span>
+<span class="sd">        all arms for all metrics. If so, we can safely use Xs[0] exclusively.</span>
+<span class="sd">        2. Require that all rows of X are unique, i.e. only one observation</span>
+<span class="sd">        per parameterization.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">x</span> <span class="o">==</span> <span class="n">Xs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">Xs</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"ThompsonSampler requires that all elements of Xs are identical; "</span>
+                <span class="s2">"i.e. that we have observed all arms for all metrics."</span>
+            <span class="p">)</span>
+
+        <span class="n">X</span> <span class="o">=</span> <span class="n">Xs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">uniqueX</span> <span class="o">=</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_hash_TParamValueList</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">X</span><span class="p">}</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">uniqueX</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"ThompsonSampler requires all rows of X to be unique; "</span>
+                <span class="s2">"i.e. that there is only one observation per parameterization."</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_fit_X</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Xs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">TParamValueList</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">TParamValueList</span><span class="p">]:</span>
+        <span class="sd">"""After validation has been performed, it's safe to use Xs[0]."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_Xs</span><span class="p">(</span><span class="n">Xs</span><span class="o">=</span><span class="n">Xs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Xs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">_fit_Ys_and_Yvars</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">Ys</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span> <span class="n">Yvars</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span> <span class="n">outcome_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]:</span>
+        <span class="sd">"""For plain Thompson Sampling, there's nothing to be done here.</span>
+<span class="sd">        EmpiricalBayesThompsonSampler will overwrite this method to perform</span>
+<span class="sd">        shrinkage.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">Ys</span><span class="p">,</span> <span class="n">Yvars</span>
+
+    <span class="k">def</span> <span class="nf">_fit_X_to_Ys_and_Yvars</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TParamValueList</span><span class="p">],</span> <span class="n">Ys</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span> <span class="n">Yvars</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="n">TParamValueList</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]:</span>
+        <span class="sd">"""Construct lists of mappings, one per outcome, of parameterizations</span>
+<span class="sd">        to the a tuple of their mean and variance.</span>
+<span class="sd">        """</span>
+        <span class="n">X_to_Ys_and_Yvars</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">hashableX</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_hash_TParamValueList</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">X</span><span class="p">]</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">Y</span><span class="p">,</span> <span class="n">Yvar</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">Ys</span><span class="p">,</span> <span class="n">Yvars</span><span class="p">):</span>
+            <span class="n">X_to_Ys_and_Yvars</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">hashableX</span><span class="p">,</span> <span class="nb">zip</span><span class="p">(</span><span class="n">Y</span><span class="p">,</span> <span class="n">Yvar</span><span class="p">))))</span>
+        <span class="k">return</span> <span class="n">X_to_Ys_and_Yvars</span>
+
+    <span class="k">def</span> <span class="nf">_hash_TParamValueList</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">TParamValueList</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">"""Hash a list of parameter values. This is safer than converting the</span>
+<span class="sd">        list to a tuple because of int/floats.</span>
+<span class="sd">        """</span>
+        <span class="n">param_values_str</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">md5</span><span class="p">(</span><span class="n">param_values_str</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">))</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.5/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

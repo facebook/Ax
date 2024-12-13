@@ -1,0 +1,930 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/v0.1.20/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/v0.1.20/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/v0.1.20/img/ax.svg"/><link rel="shortcut icon" href="/versions/v0.1.20/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/v0.1.20/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/v0.1.20/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/v0.1.20/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/v0.1.20/css/main.css"/><script src="/versions/v0.1.20/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/v0.1.20/"><img class="logo" src="/versions/v0.1.20/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/v0.1.20/versions.html"><h3>v0.1.20</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/v0.1.20/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/v0.1.20/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/v0.1.20/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.plot.helper</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">ax.core.generator_run</span> <span class="kn">import</span> <span class="n">GeneratorRun</span>
+<span class="kn">from</span> <span class="nn">ax.core.observation</span> <span class="kn">import</span> <span class="n">Observation</span><span class="p">,</span> <span class="n">ObservationFeatures</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter</span> <span class="kn">import</span> <span class="n">ChoiceParameter</span><span class="p">,</span> <span class="n">FixedParameter</span><span class="p">,</span> <span class="n">RangeParameter</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">TParameterization</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.base</span> <span class="kn">import</span> <span class="n">ModelBridge</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.ivw</span> <span class="kn">import</span> <span class="n">IVW</span>
+<span class="kn">from</span> <span class="nn">ax.plot.base</span> <span class="kn">import</span> <span class="n">DECIMALS</span><span class="p">,</span> <span class="n">PlotData</span><span class="p">,</span> <span class="n">PlotInSampleArm</span><span class="p">,</span> <span class="n">PlotOutOfSampleArm</span><span class="p">,</span> <span class="n">Z</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">not_none</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="c1"># Typing alias</span>
+<span class="n">RawData</span> <span class="o">=</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span>
+
+<span class="n">TNullableGeneratorRunsDict</span> <span class="o">=</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">GeneratorRun</span><span class="p">]]</span>
+
+
+<span class="k">def</span> <span class="nf">_format_dict</span><span class="p">(</span><span class="n">param_dict</span><span class="p">:</span> <span class="n">TParameterization</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"Parameterization"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="sd">"""Format a dictionary for labels.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        param_dict: Dictionary to be formatted</span>
+<span class="sd">        name: String name of the thing being formatted.</span>
+
+<span class="sd">    Returns: stringified blob.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">param_dict</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">10</span><span class="p">:</span>
+        <span class="n">blob</span> <span class="o">=</span> <span class="s2">"</span><span class="si">{}</span><span class="s2"> has too many items to render on hover (</span><span class="si">{}</span><span class="s2">)."</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">name</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">param_dict</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">blob</span> <span class="o">=</span> <span class="s2">"&lt;br&gt;&lt;em&gt;</span><span class="si">{}</span><span class="s2">:&lt;/em&gt;&lt;br&gt;</span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">name</span><span class="p">,</span> <span class="s2">"&lt;br&gt;"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">"</span><span class="si">{}</span><span class="s2">: </span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">param_dict</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">blob</span>
+
+
+<span class="k">def</span> <span class="nf">_wrap_metric</span><span class="p">(</span><span class="n">metric_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="sd">"""Put a newline on "::" for metric names.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        metric_name: metric name.</span>
+
+<span class="sd">    Returns: wrapped metric name.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="s2">"::"</span> <span class="ow">in</span> <span class="n">metric_name</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">"&lt;br&gt;"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">metric_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"::"</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">metric_name</span>
+
+
+<span class="k">def</span> <span class="nf">_format_CI</span><span class="p">(</span><span class="n">estimate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">relative</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">zval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Z</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="sd">"""Format confidence intervals given estimate and standard deviation.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        estimate: point estimate.</span>
+<span class="sd">        sd: standard deviation of point estimate.</span>
+<span class="sd">        relative: if True, '%' is appended.</span>
+<span class="sd">        zval: z-value associated with desired CI (e.g. 1.96 for 95% CIs)</span>
+
+<span class="sd">    Returns: formatted confidence interval.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="s2">"[{lb:.</span><span class="si">{digits}</span><span class="s2">f}</span><span class="si">{perc}</span><span class="s2">, {ub:.</span><span class="si">{digits}</span><span class="s2">f}</span><span class="si">{perc}</span><span class="s2">]"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+        <span class="n">lb</span><span class="o">=</span><span class="n">estimate</span> <span class="o">-</span> <span class="n">zval</span> <span class="o">*</span> <span class="n">sd</span><span class="p">,</span>
+        <span class="n">ub</span><span class="o">=</span><span class="n">estimate</span> <span class="o">+</span> <span class="n">zval</span> <span class="o">*</span> <span class="n">sd</span><span class="p">,</span>
+        <span class="n">digits</span><span class="o">=</span><span class="n">DECIMALS</span><span class="p">,</span>
+        <span class="n">perc</span><span class="o">=</span><span class="s2">"%"</span> <span class="k">if</span> <span class="n">relative</span> <span class="k">else</span> <span class="s2">""</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<div class="viewcode-block" id="arm_name_to_tuple"><a class="viewcode-back" href="../../../plot.html#ax.plot.helper.arm_name_to_tuple">[docs]</a><span class="k">def</span> <span class="nf">arm_name_to_tuple</span><span class="p">(</span><span class="n">arm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]]:</span>
+    <span class="n">tup</span> <span class="o">=</span> <span class="n">arm_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"_"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tup</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">tup</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">tup</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="mi">0</span><span class="p">,)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="mi">0</span><span class="p">,)</span></div>
+
+
+<div class="viewcode-block" id="resize_subtitles"><a class="viewcode-back" href="../../../plot.html#ax.plot.helper.resize_subtitles">[docs]</a><span class="k">def</span> <span class="nf">resize_subtitles</span><span class="p">(</span><span class="n">figure</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">ant</span> <span class="ow">in</span> <span class="n">figure</span><span class="p">[</span><span class="s2">"layout"</span><span class="p">][</span><span class="s2">"annotations"</span><span class="p">]:</span>
+        <span class="n">ant</span><span class="p">[</span><span class="s2">"font"</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">size</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">figure</span></div>
+
+
+<span class="k">def</span> <span class="nf">_filter_dict</span><span class="p">(</span>
+    <span class="n">param_dict</span><span class="p">:</span> <span class="n">TParameterization</span><span class="p">,</span> <span class="n">subset_keys</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TParameterization</span><span class="p">:</span>
+    <span class="sd">"""Filter a dictionary to keys present in a given list."""</span>
+    <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">param_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">subset_keys</span><span class="p">}</span>
+
+
+<span class="k">def</span> <span class="nf">_get_in_sample_arms</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">ModelBridge</span><span class="p">,</span>
+    <span class="n">metric_names</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">fixed_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">data_selector</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">Observation</span><span class="p">],</span> <span class="nb">bool</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PlotInSampleArm</span><span class="p">],</span> <span class="n">RawData</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TParameterization</span><span class="p">]]:</span>
+    <span class="sd">"""Get in-sample arms from a model with observed and predicted values</span>
+<span class="sd">    for specified metrics.</span>
+
+<span class="sd">    Returns a PlotInSampleArm object in which repeated observations are merged</span>
+<span class="sd">    with IVW, and a RawData object in which every observation is listed.</span>
+
+<span class="sd">    Fixed features input can be used to override fields of the insample arms</span>
+<span class="sd">    when making model predictions.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: An instance of the model bridge.</span>
+<span class="sd">        metric_names: Restrict predictions to these metrics. If None, uses all</span>
+<span class="sd">            metrics in the model.</span>
+<span class="sd">        fixed_features: Features that should be fixed in the arms this function</span>
+<span class="sd">            will obtain predictions for.</span>
+<span class="sd">        data_selector: Function for selecting observations for plotting.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A tuple containing</span>
+
+<span class="sd">        - Map from arm name to PlotInSampleArm.</span>
+<span class="sd">        - List of the data for each observation like::</span>
+
+<span class="sd">            {'metric_name': 'likes', 'arm_name': '0_0', 'mean': 1., 'sem': 0.1}</span>
+
+<span class="sd">        - Map from arm name to parameters</span>
+<span class="sd">    """</span>
+    <span class="n">observations</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_training_data</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">data_selector</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">observations</span> <span class="o">=</span> <span class="p">[</span><span class="n">obs</span> <span class="k">for</span> <span class="n">obs</span> <span class="ow">in</span> <span class="n">observations</span> <span class="k">if</span> <span class="n">data_selector</span><span class="p">(</span><span class="n">obs</span><span class="p">)]</span>
+    <span class="c1"># Calculate raw data</span>
+    <span class="n">raw_data</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">arm_name_to_parameters</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">obs</span> <span class="ow">in</span> <span class="n">observations</span><span class="p">:</span>
+        <span class="n">arm_name_to_parameters</span><span class="p">[</span><span class="n">obs</span><span class="o">.</span><span class="n">arm_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">obs</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">parameters</span>
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">obs</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">metric_names</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="n">metric_names</span><span class="p">:</span>
+                <span class="n">raw_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="p">{</span>
+                        <span class="s2">"metric_name"</span><span class="p">:</span> <span class="n">metric_name</span><span class="p">,</span>
+                        <span class="s2">"arm_name"</span><span class="p">:</span> <span class="n">obs</span><span class="o">.</span><span class="n">arm_name</span><span class="p">,</span>
+                        <span class="s2">"mean"</span><span class="p">:</span> <span class="n">obs</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">means</span><span class="p">[</span><span class="n">j</span><span class="p">],</span>
+                        <span class="s2">"sem"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">obs</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">covariance</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">j</span><span class="p">]),</span>
+                    <span class="p">}</span>
+                <span class="p">)</span>
+
+    <span class="c1"># Check that we have one ObservationFeatures per arm name since we</span>
+    <span class="c1"># key by arm name and the model is not Multi-task.</span>
+    <span class="c1"># If "TrialAsTask" is present, one of the arms is also chosen.</span>
+    <span class="k">if</span> <span class="p">(</span><span class="s2">"TrialAsTask"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">transforms</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="ow">and</span> <span class="p">(</span>
+        <span class="nb">len</span><span class="p">(</span><span class="n">arm_name_to_parameters</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">observations</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+            <span class="s2">"Have observations of arms with different features but same"</span>
+            <span class="s2">" name. Arbitrary one will be plotted."</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Merge multiple measurements within each Observation with IVW to get</span>
+    <span class="c1"># un-modeled prediction</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">IVW</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="p">[],</span> <span class="p">[])</span>
+    <span class="n">obs_data</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">transform_observation_data</span><span class="p">([</span><span class="n">obs</span><span class="o">.</span><span class="n">data</span> <span class="k">for</span> <span class="n">obs</span> <span class="ow">in</span> <span class="n">observations</span><span class="p">],</span> <span class="p">[])</span>
+    <span class="c1"># Start filling in plot data</span>
+    <span class="n">in_sample_plot</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PlotInSampleArm</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">obs</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">observations</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">obs</span><span class="o">.</span><span class="n">arm_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Observation must have arm name for plotting."</span><span class="p">)</span>
+
+        <span class="c1"># Extract raw measurement</span>
+        <span class="n">obs_y</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Observed metric means.</span>
+        <span class="n">obs_se</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Observed metric standard errors.</span>
+        <span class="c1"># Use the IVW data, not obs.data</span>
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">obs_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">metric_names</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="n">metric_names</span><span class="p">:</span>
+                <span class="n">obs_y</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">obs_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">means</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="n">obs_se</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">obs_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">covariance</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">j</span><span class="p">])</span>
+        <span class="c1"># Make a prediction.</span>
+        <span class="n">features</span> <span class="o">=</span> <span class="n">obs</span><span class="o">.</span><span class="n">features</span>
+        <span class="k">if</span> <span class="n">fixed_features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">features</span><span class="o">.</span><span class="n">update_features</span><span class="p">(</span><span class="n">fixed_features</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">training_in_design</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+            <span class="n">pred_y</span><span class="p">,</span> <span class="n">pred_se</span> <span class="o">=</span> <span class="n">_predict_at_point</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">features</span><span class="p">,</span> <span class="n">metric_names</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Use raw data for out-of-design points</span>
+            <span class="n">pred_y</span> <span class="o">=</span> <span class="n">obs_y</span>
+            <span class="n">pred_se</span> <span class="o">=</span> <span class="n">obs_se</span>
+        <span class="n">in_sample_plot</span><span class="p">[</span><span class="n">not_none</span><span class="p">(</span><span class="n">obs</span><span class="o">.</span><span class="n">arm_name</span><span class="p">)]</span> <span class="o">=</span> <span class="n">PlotInSampleArm</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">not_none</span><span class="p">(</span><span class="n">obs</span><span class="o">.</span><span class="n">arm_name</span><span class="p">),</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">obs_y</span><span class="p">,</span>
+            <span class="n">se</span><span class="o">=</span><span class="n">obs_se</span><span class="p">,</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="n">obs</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span>
+            <span class="n">y_hat</span><span class="o">=</span><span class="n">pred_y</span><span class="p">,</span>
+            <span class="n">se_hat</span><span class="o">=</span><span class="n">pred_se</span><span class="p">,</span>
+            <span class="n">context_stratum</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">in_sample_plot</span><span class="p">,</span> <span class="n">raw_data</span><span class="p">,</span> <span class="n">arm_name_to_parameters</span>
+
+
+<span class="k">def</span> <span class="nf">_predict_at_point</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">ModelBridge</span><span class="p">,</span> <span class="n">obsf</span><span class="p">:</span> <span class="n">ObservationFeatures</span><span class="p">,</span> <span class="n">metric_names</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
+    <span class="sd">"""Make a prediction at a point.</span>
+
+<span class="sd">    Returns mean and standard deviation in format expected by plotting.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: ModelBridge</span>
+<span class="sd">        obsf: ObservationFeatures for which to predict</span>
+<span class="sd">        metric_names: Limit predictions to these metrics.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A tuple containing</span>
+
+<span class="sd">        - Map from metric name to prediction.</span>
+<span class="sd">        - Map from metric name to standard error.</span>
+<span class="sd">    """</span>
+    <span class="n">y_hat</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">se_hat</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">f_pred</span><span class="p">,</span> <span class="n">cov_pred</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">([</span><span class="n">obsf</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="n">f_pred</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">metric_name</span> <span class="ow">in</span> <span class="n">metric_names</span><span class="p">:</span>
+            <span class="n">y_hat</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">f_pred</span><span class="p">[</span><span class="n">metric_name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">se_hat</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">cov_pred</span><span class="p">[</span><span class="n">metric_name</span><span class="p">][</span><span class="n">metric_name</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">y_hat</span><span class="p">,</span> <span class="n">se_hat</span>
+
+
+<span class="k">def</span> <span class="nf">_get_out_of_sample_arms</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">ModelBridge</span><span class="p">,</span>
+    <span class="n">generator_runs_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">GeneratorRun</span><span class="p">],</span>
+    <span class="n">metric_names</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">fixed_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PlotOutOfSampleArm</span><span class="p">]]:</span>
+    <span class="sd">"""Get out-of-sample predictions from a model given a dict of generator runs.</span>
+
+<span class="sd">    Fixed features input can be used to override fields of the candidate arms</span>
+<span class="sd">    when making model predictions.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: The model.</span>
+<span class="sd">        generator_runs_dict: a mapping from generator run name to generator run.</span>
+<span class="sd">        metric_names: metrics to include in the plot.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A mapping from name to a mapping from arm name to plot.</span>
+
+<span class="sd">    """</span>
+    <span class="n">out_of_sample_plot</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PlotOutOfSampleArm</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">generator_run_name</span><span class="p">,</span> <span class="n">generator_run</span> <span class="ow">in</span> <span class="n">generator_runs_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">out_of_sample_plot</span><span class="p">[</span><span class="n">generator_run_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">generator_run</span><span class="o">.</span><span class="n">arms</span><span class="p">:</span>
+            <span class="c1"># This assumes context is None</span>
+            <span class="n">obsf</span> <span class="o">=</span> <span class="n">ObservationFeatures</span><span class="o">.</span><span class="n">from_arm</span><span class="p">(</span><span class="n">arm</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">fixed_features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">obsf</span><span class="o">.</span><span class="n">update_features</span><span class="p">(</span><span class="n">fixed_features</span><span class="p">)</span>
+
+            <span class="c1"># Make a prediction</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">pred_y</span><span class="p">,</span> <span class="n">pred_se</span> <span class="o">=</span> <span class="n">_predict_at_point</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">obsf</span><span class="p">,</span> <span class="n">metric_names</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="c1"># Check if it is an out-of-design arm.</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">model</span><span class="o">.</span><span class="n">model_space</span><span class="o">.</span><span class="n">check_membership</span><span class="p">(</span><span class="n">obsf</span><span class="o">.</span><span class="n">parameters</span><span class="p">):</span>
+                    <span class="c1"># Skip this point</span>
+                    <span class="k">continue</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># It should have worked</span>
+                    <span class="k">raise</span>
+            <span class="n">arm_name</span> <span class="o">=</span> <span class="n">arm</span><span class="o">.</span><span class="n">name_or_short_signature</span>
+            <span class="n">out_of_sample_plot</span><span class="p">[</span><span class="n">generator_run_name</span><span class="p">][</span><span class="n">arm_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">PlotOutOfSampleArm</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">arm_name</span><span class="p">,</span>
+                <span class="n">parameters</span><span class="o">=</span><span class="n">obsf</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span>
+                <span class="n">y_hat</span><span class="o">=</span><span class="n">pred_y</span><span class="p">,</span>
+                <span class="n">se_hat</span><span class="o">=</span><span class="n">pred_se</span><span class="p">,</span>
+                <span class="n">context_stratum</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="p">)</span>
+    <span class="k">return</span> <span class="n">out_of_sample_plot</span>
+
+
+<div class="viewcode-block" id="get_plot_data"><a class="viewcode-back" href="../../../plot.html#ax.plot.helper.get_plot_data">[docs]</a><span class="k">def</span> <span class="nf">get_plot_data</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">ModelBridge</span><span class="p">,</span>
+    <span class="n">generator_runs_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">GeneratorRun</span><span class="p">],</span>
+    <span class="n">metric_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">fixed_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">data_selector</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">Observation</span><span class="p">],</span> <span class="nb">bool</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">PlotData</span><span class="p">,</span> <span class="n">RawData</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TParameterization</span><span class="p">]]:</span>
+    <span class="sd">"""Format data object with metrics for in-sample and out-of-sample</span>
+<span class="sd">    arms.</span>
+
+<span class="sd">    Calculate both observed and predicted metrics for in-sample arms.</span>
+<span class="sd">    Calculate predicted metrics for out-of-sample arms passed via the</span>
+<span class="sd">    `generator_runs_dict` argument.</span>
+
+<span class="sd">    In PlotData, in-sample observations are merged with IVW. In RawData, they</span>
+<span class="sd">    are left un-merged and given as a list of dictionaries, one for each</span>
+<span class="sd">    observation and having keys 'arm_name', 'mean', and 'sem'.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: The model.</span>
+<span class="sd">        generator_runs_dict: a mapping from generator run name to generator run.</span>
+<span class="sd">        metric_names: Restrict predictions to this set. If None, all metrics</span>
+<span class="sd">            in the model will be returned.</span>
+<span class="sd">        fixed_features: Fixed features to use when making model predictions.</span>
+<span class="sd">        data_selector: Function for selecting observations for plotting.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A tuple containing</span>
+
+<span class="sd">        - PlotData object with in-sample and out-of-sample predictions.</span>
+<span class="sd">        - List of observations like::</span>
+
+<span class="sd">            {'metric_name': 'likes', 'arm_name': '0_1', 'mean': 1., 'sem': 0.1}.</span>
+
+<span class="sd">        - Mapping from arm name to parameters.</span>
+<span class="sd">    """</span>
+    <span class="n">metrics_plot</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">metric_names</span> <span class="k">if</span> <span class="n">metric_names</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">metric_names</span>
+    <span class="n">in_sample_plot</span><span class="p">,</span> <span class="n">raw_data</span><span class="p">,</span> <span class="n">cond_name_to_parameters</span> <span class="o">=</span> <span class="n">_get_in_sample_arms</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+        <span class="n">metric_names</span><span class="o">=</span><span class="n">metrics_plot</span><span class="p">,</span>
+        <span class="n">fixed_features</span><span class="o">=</span><span class="n">fixed_features</span><span class="p">,</span>
+        <span class="n">data_selector</span><span class="o">=</span><span class="n">data_selector</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">out_of_sample_plot</span> <span class="o">=</span> <span class="n">_get_out_of_sample_arms</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+        <span class="n">generator_runs_dict</span><span class="o">=</span><span class="n">generator_runs_dict</span><span class="p">,</span>
+        <span class="n">metric_names</span><span class="o">=</span><span class="n">metrics_plot</span><span class="p">,</span>
+        <span class="n">fixed_features</span><span class="o">=</span><span class="n">fixed_features</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># pyre-fixme[16]: `Optional` has no attribute `arm_name`.</span>
+    <span class="n">status_quo_name</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">status_quo</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">model</span><span class="o">.</span><span class="n">status_quo</span><span class="o">.</span><span class="n">arm_name</span>
+    <span class="n">plot_data</span> <span class="o">=</span> <span class="n">PlotData</span><span class="p">(</span>
+        <span class="n">metrics</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">metrics_plot</span><span class="p">),</span>
+        <span class="n">in_sample</span><span class="o">=</span><span class="n">in_sample_plot</span><span class="p">,</span>
+        <span class="n">out_of_sample</span><span class="o">=</span><span class="n">out_of_sample_plot</span><span class="p">,</span>
+        <span class="n">status_quo_name</span><span class="o">=</span><span class="n">status_quo_name</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">plot_data</span><span class="p">,</span> <span class="n">raw_data</span><span class="p">,</span> <span class="n">cond_name_to_parameters</span></div>
+
+
+<div class="viewcode-block" id="get_range_parameter"><a class="viewcode-back" href="../../../plot.html#ax.plot.helper.get_range_parameter">[docs]</a><span class="k">def</span> <span class="nf">get_range_parameter</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">ModelBridge</span><span class="p">,</span> <span class="n">param_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RangeParameter</span><span class="p">:</span>
+    <span class="sd">"""</span>
+<span class="sd">    Get the range parameter with the given name from the model.</span>
+
+<span class="sd">    Throws if parameter doesn't exist or is not a range parameter.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: The model.</span>
+<span class="sd">        param_name: The name of the RangeParameter to be found.</span>
+
+<span class="sd">    Returns: The RangeParameter named `param_name`.</span>
+<span class="sd">    """</span>
+
+    <span class="n">range_param</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">model_space</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">param_name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">range_param</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Parameter `</span><span class="si">{</span><span class="n">param_name</span><span class="si">}</span><span class="s2">` does not exist."</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">range_param</span><span class="p">,</span> <span class="n">RangeParameter</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">param_name</span><span class="si">}</span><span class="s2"> is not a RangeParameter"</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">range_param</span></div>
+
+
+<div class="viewcode-block" id="get_range_parameters"><a class="viewcode-back" href="../../../plot.html#ax.plot.helper.get_range_parameters">[docs]</a><span class="k">def</span> <span class="nf">get_range_parameters</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">ModelBridge</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">RangeParameter</span><span class="p">]:</span>
+    <span class="sd">"""</span>
+<span class="sd">    Get a list of range parameters from a model.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: The model.</span>
+
+<span class="sd">    Returns: List of RangeParameters.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="p">[</span>
+        <span class="n">parameter</span>
+        <span class="k">for</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">model_space</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">RangeParameter</span><span class="p">)</span>
+    <span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="get_grid_for_parameter"><a class="viewcode-back" href="../../../plot.html#ax.plot.helper.get_grid_for_parameter">[docs]</a><span class="k">def</span> <span class="nf">get_grid_for_parameter</span><span class="p">(</span><span class="n">parameter</span><span class="p">:</span> <span class="n">RangeParameter</span><span class="p">,</span> <span class="n">density</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">"""Get a grid of points along the range of the parameter.</span>
+
+<span class="sd">    Will be a log-scale grid if parameter is log scale.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        parameter: Parameter for which to generate grid.</span>
+<span class="sd">        density: Number of points in the grid.</span>
+<span class="sd">    """</span>
+    <span class="n">is_log</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">log_scale</span>
+    <span class="k">if</span> <span class="n">is_log</span><span class="p">:</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">parameter</span><span class="o">.</span><span class="n">lower</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">parameter</span><span class="o">.</span><span class="n">upper</span><span class="p">),</span> <span class="n">density</span>
+        <span class="p">)</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">**</span> <span class="n">grid</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">parameter</span><span class="o">.</span><span class="n">lower</span><span class="p">,</span> <span class="n">parameter</span><span class="o">.</span><span class="n">upper</span><span class="p">,</span> <span class="n">density</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">grid</span></div>
+
+
+<div class="viewcode-block" id="get_fixed_values"><a class="viewcode-back" href="../../../plot.html#ax.plot.helper.get_fixed_values">[docs]</a><span class="k">def</span> <span class="nf">get_fixed_values</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">ModelBridge</span><span class="p">,</span>
+    <span class="n">slice_values</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">trial_index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TParameterization</span><span class="p">:</span>
+    <span class="sd">"""Get fixed values for parameters in a slice plot.</span>
+
+<span class="sd">    If there is an in-design status quo, those values will be used. Otherwise,</span>
+<span class="sd">    the mean of RangeParameters or the mode of ChoiceParameters is used.</span>
+
+<span class="sd">    Any value in slice_values will override the above.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: ModelBridge being used for plotting</span>
+<span class="sd">        slice_values: Map from parameter name to value at which is should be</span>
+<span class="sd">            fixed.</span>
+
+<span class="sd">    Returns: Map from parameter name to fixed value.</span>
+<span class="sd">    """</span>
+
+    <span class="k">if</span> <span class="n">trial_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">slice_values</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">slice_values</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">slice_values</span><span class="p">[</span><span class="s2">"TRIAL_PARAM"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">trial_index</span><span class="p">)</span>
+
+    <span class="c1"># Check if status_quo is in design</span>
+    <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">status_quo</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">model</span><span class="o">.</span><span class="n">model_space</span><span class="o">.</span><span class="n">check_membership</span><span class="p">(</span>
+        <span class="c1"># pyre-fixme[16]: `Optional` has no attribute `features`.</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">status_quo</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">parameters</span>
+    <span class="p">):</span>
+        <span class="n">setx</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">status_quo</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">parameters</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">observations</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_training_data</span><span class="p">()</span>
+        <span class="n">setx</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">p_name</span><span class="p">,</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">model_space</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="c1"># Exclude out of design status quo (no parameters)</span>
+            <span class="n">vals</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">obs</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p_name</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">obs</span> <span class="ow">in</span> <span class="n">observations</span>
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="n">obs</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                    <span class="ow">and</span> <span class="n">parameter</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">obs</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p_name</span><span class="p">])</span>
+                <span class="p">)</span>
+            <span class="p">]</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">FixedParameter</span><span class="p">):</span>
+                <span class="n">setx</span><span class="p">[</span><span class="n">p_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">value</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">ChoiceParameter</span><span class="p">):</span>
+                <span class="n">setx</span><span class="p">[</span><span class="n">p_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span><span class="o">.</span><span class="n">most_common</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">RangeParameter</span><span class="p">):</span>
+                <span class="n">setx</span><span class="p">[</span><span class="n">p_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">vals</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">slice_values</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># slice_values has type Dictionary[str, Any]</span>
+        <span class="n">setx</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">slice_values</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">setx</span></div>
+
+
+<span class="c1"># Utility methods ported from JS</span>
+<div class="viewcode-block" id="contour_config_to_trace"><a class="viewcode-back" href="../../../plot.html#ax.plot.helper.contour_config_to_trace">[docs]</a><span class="k">def</span> <span class="nf">contour_config_to_trace</span><span class="p">(</span><span class="n">config</span><span class="p">):</span>
+    <span class="c1"># Load from config</span>
+    <span class="n">arm_data</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"arm_data"</span><span class="p">]</span>
+    <span class="n">density</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"density"</span><span class="p">]</span>
+    <span class="n">grid_x</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"grid_x"</span><span class="p">]</span>
+    <span class="n">grid_y</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"grid_y"</span><span class="p">]</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"f"</span><span class="p">]</span>
+    <span class="n">lower_is_better</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"lower_is_better"</span><span class="p">]</span>
+    <span class="n">metric</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"metric"</span><span class="p">]</span>
+    <span class="n">rel</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"rel"</span><span class="p">]</span>
+    <span class="n">sd</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"sd"</span><span class="p">]</span>
+    <span class="n">xvar</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"xvar"</span><span class="p">]</span>
+    <span class="n">yvar</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"yvar"</span><span class="p">]</span>
+
+    <span class="n">green_scale</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"green_scale"</span><span class="p">]</span>
+    <span class="n">green_pink_scale</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"green_pink_scale"</span><span class="p">]</span>
+    <span class="n">blue_scale</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"blue_scale"</span><span class="p">]</span>
+
+    <span class="c1"># format data</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">relativize_data</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">rel</span><span class="p">,</span> <span class="n">arm_data</span><span class="p">,</span> <span class="n">metric</span><span class="p">)</span>
+    <span class="n">f_final</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">sd_final</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="c1"># calculate max of abs(outcome), used for colorscale</span>
+    <span class="n">f_absmax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">f_final</span><span class="p">)),</span> <span class="nb">max</span><span class="p">(</span><span class="n">f_final</span><span class="p">))</span>
+
+    <span class="c1"># transform to nested array</span>
+    <span class="n">f_plt</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">ind</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">f_final</span><span class="p">),</span> <span class="n">density</span><span class="p">):</span>
+        <span class="n">f_plt</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f_final</span><span class="p">[</span><span class="n">ind</span> <span class="p">:</span> <span class="n">ind</span> <span class="o">+</span> <span class="n">density</span><span class="p">])</span>
+    <span class="n">sd_plt</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">ind</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">sd_final</span><span class="p">),</span> <span class="n">density</span><span class="p">):</span>
+        <span class="n">sd_plt</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sd_final</span><span class="p">[</span><span class="n">ind</span> <span class="p">:</span> <span class="n">ind</span> <span class="o">+</span> <span class="n">density</span><span class="p">])</span>
+
+    <span class="n">CONTOUR_CONFIG</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"autocolorscale"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">"autocontour"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">"contours"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"coloring"</span><span class="p">:</span> <span class="s2">"heatmap"</span><span class="p">},</span>
+        <span class="s2">"hoverinfo"</span><span class="p">:</span> <span class="s2">"x+y+z"</span><span class="p">,</span>
+        <span class="s2">"ncontours"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">density</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"contour"</span><span class="p">,</span>
+        <span class="s2">"x"</span><span class="p">:</span> <span class="n">grid_x</span><span class="p">,</span>
+        <span class="s2">"y"</span><span class="p">:</span> <span class="n">grid_y</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="n">rel</span><span class="p">:</span>
+        <span class="n">f_scale</span> <span class="o">=</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">green_pink_scale</span><span class="p">)</span> <span class="k">if</span> <span class="n">lower_is_better</span> <span class="k">else</span> <span class="n">green_pink_scale</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">f_scale</span> <span class="o">=</span> <span class="n">green_scale</span>
+
+    <span class="n">f_trace</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"colorbar"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"x"</span><span class="p">:</span> <span class="mf">0.45</span><span class="p">,</span>
+            <span class="s2">"y"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span>
+            <span class="s2">"ticksuffix"</span><span class="p">:</span> <span class="s2">"%"</span> <span class="k">if</span> <span class="n">rel</span> <span class="k">else</span> <span class="s2">""</span><span class="p">,</span>
+            <span class="s2">"tickfont"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"size"</span><span class="p">:</span> <span class="mi">8</span><span class="p">},</span>
+        <span class="p">},</span>
+        <span class="s2">"colorscale"</span><span class="p">:</span> <span class="p">[(</span><span class="n">i</span> <span class="o">/</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">f_scale</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span> <span class="n">rgb</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">f_scale</span><span class="p">)],</span>
+        <span class="s2">"xaxis"</span><span class="p">:</span> <span class="s2">"x"</span><span class="p">,</span>
+        <span class="s2">"yaxis"</span><span class="p">:</span> <span class="s2">"y"</span><span class="p">,</span>
+        <span class="s2">"z"</span><span class="p">:</span> <span class="n">f_plt</span><span class="p">,</span>
+        <span class="c1"># zmax and zmin are ignored if zauto is true</span>
+        <span class="s2">"zauto"</span><span class="p">:</span> <span class="ow">not</span> <span class="n">rel</span><span class="p">,</span>
+        <span class="s2">"zmax"</span><span class="p">:</span> <span class="n">f_absmax</span><span class="p">,</span>
+        <span class="s2">"zmin"</span><span class="p">:</span> <span class="o">-</span><span class="n">f_absmax</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">sd_trace</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"colorbar"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"x"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s2">"y"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span>
+            <span class="s2">"ticksuffix"</span><span class="p">:</span> <span class="s2">"%"</span> <span class="k">if</span> <span class="n">rel</span> <span class="k">else</span> <span class="s2">""</span><span class="p">,</span>
+            <span class="s2">"tickfont"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"size"</span><span class="p">:</span> <span class="mi">8</span><span class="p">},</span>
+        <span class="p">},</span>
+        <span class="s2">"colorscale"</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">i</span> <span class="o">/</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">blue_scale</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span> <span class="n">rgb</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">blue_scale</span><span class="p">)</span>
+        <span class="p">],</span>
+        <span class="s2">"xaxis"</span><span class="p">:</span> <span class="s2">"x2"</span><span class="p">,</span>
+        <span class="s2">"yaxis"</span><span class="p">:</span> <span class="s2">"y2"</span><span class="p">,</span>
+        <span class="s2">"z"</span><span class="p">:</span> <span class="n">sd_plt</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">f_trace</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">CONTOUR_CONFIG</span><span class="p">)</span>
+    <span class="n">sd_trace</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">CONTOUR_CONFIG</span><span class="p">)</span>
+
+    <span class="c1"># get in-sample arms</span>
+    <span class="n">arm_text</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">arm_data</span><span class="p">[</span><span class="s2">"in_sample"</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="n">arm_x</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">arm_data</span><span class="p">[</span><span class="s2">"in_sample"</span><span class="p">][</span><span class="n">arm_name</span><span class="p">][</span><span class="s2">"parameters"</span><span class="p">][</span><span class="n">xvar</span><span class="p">]</span> <span class="k">for</span> <span class="n">arm_name</span> <span class="ow">in</span> <span class="n">arm_text</span>
+    <span class="p">]</span>
+    <span class="n">arm_y</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">arm_data</span><span class="p">[</span><span class="s2">"in_sample"</span><span class="p">][</span><span class="n">arm_name</span><span class="p">][</span><span class="s2">"parameters"</span><span class="p">][</span><span class="n">yvar</span><span class="p">]</span> <span class="k">for</span> <span class="n">arm_name</span> <span class="ow">in</span> <span class="n">arm_text</span>
+    <span class="p">]</span>
+
+    <span class="c1"># configs for in-sample arms</span>
+    <span class="n">base_in_sample_arm_config</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"hoverinfo"</span><span class="p">:</span> <span class="s2">"text"</span><span class="p">,</span>
+        <span class="s2">"legendgroup"</span><span class="p">:</span> <span class="s2">"In-sample"</span><span class="p">,</span>
+        <span class="s2">"marker"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"color"</span><span class="p">:</span> <span class="s2">"black"</span><span class="p">,</span> <span class="s2">"symbol"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"opacity"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">},</span>
+        <span class="s2">"mode"</span><span class="p">:</span> <span class="s2">"markers"</span><span class="p">,</span>
+        <span class="s2">"name"</span><span class="p">:</span> <span class="s2">"In-sample"</span><span class="p">,</span>
+        <span class="s2">"text"</span><span class="p">:</span> <span class="n">arm_text</span><span class="p">,</span>
+        <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"scatter"</span><span class="p">,</span>
+        <span class="s2">"x"</span><span class="p">:</span> <span class="n">arm_x</span><span class="p">,</span>
+        <span class="s2">"y"</span><span class="p">:</span> <span class="n">arm_y</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">f_in_sample_arm_trace</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"xaxis"</span><span class="p">:</span> <span class="s2">"x"</span><span class="p">,</span> <span class="s2">"yaxis"</span><span class="p">:</span> <span class="s2">"y"</span><span class="p">}</span>
+
+    <span class="n">sd_in_sample_arm_trace</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"showlegend"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">"xaxis"</span><span class="p">:</span> <span class="s2">"x2"</span><span class="p">,</span> <span class="s2">"yaxis"</span><span class="p">:</span> <span class="s2">"y2"</span><span class="p">}</span>
+
+    <span class="n">f_in_sample_arm_trace</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">base_in_sample_arm_config</span><span class="p">)</span>
+    <span class="n">sd_in_sample_arm_trace</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">base_in_sample_arm_config</span><span class="p">)</span>
+
+    <span class="n">traces</span> <span class="o">=</span> <span class="p">[</span><span class="n">f_trace</span><span class="p">,</span> <span class="n">sd_trace</span><span class="p">,</span> <span class="n">f_in_sample_arm_trace</span><span class="p">,</span> <span class="n">sd_in_sample_arm_trace</span><span class="p">]</span>
+
+    <span class="c1"># iterate over out-of-sample arms</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">generator_run_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arm_data</span><span class="p">[</span><span class="s2">"out_of_sample"</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+        <span class="n">symbol</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">2</span>  <span class="c1"># symbols starts from 2 for candidate markers</span>
+
+        <span class="n">ax</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">ay</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">atext</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">arm_name</span> <span class="ow">in</span> <span class="n">arm_data</span><span class="p">[</span><span class="s2">"out_of_sample"</span><span class="p">][</span><span class="n">generator_run_name</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">arm_data</span><span class="p">[</span><span class="s2">"out_of_sample"</span><span class="p">][</span><span class="n">generator_run_name</span><span class="p">][</span><span class="n">arm_name</span><span class="p">][</span><span class="s2">"parameters"</span><span class="p">][</span>
+                    <span class="n">xvar</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">ay</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">arm_data</span><span class="p">[</span><span class="s2">"out_of_sample"</span><span class="p">][</span><span class="n">generator_run_name</span><span class="p">][</span><span class="n">arm_name</span><span class="p">][</span><span class="s2">"parameters"</span><span class="p">][</span>
+                    <span class="n">yvar</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">atext</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"&lt;em&gt;Candidate "</span> <span class="o">+</span> <span class="n">arm_name</span> <span class="o">+</span> <span class="s2">"&lt;/em&gt;"</span><span class="p">)</span>
+
+        <span class="n">traces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">"hoverinfo"</span><span class="p">:</span> <span class="s2">"text"</span><span class="p">,</span>
+                <span class="s2">"legendgroup"</span><span class="p">:</span> <span class="n">generator_run_name</span><span class="p">,</span>
+                <span class="s2">"marker"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"color"</span><span class="p">:</span> <span class="s2">"black"</span><span class="p">,</span> <span class="s2">"symbol"</span><span class="p">:</span> <span class="n">symbol</span><span class="p">,</span> <span class="s2">"opacity"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">},</span>
+                <span class="s2">"mode"</span><span class="p">:</span> <span class="s2">"markers"</span><span class="p">,</span>
+                <span class="s2">"name"</span><span class="p">:</span> <span class="n">generator_run_name</span><span class="p">,</span>
+                <span class="s2">"text"</span><span class="p">:</span> <span class="n">atext</span><span class="p">,</span>
+                <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"scatter"</span><span class="p">,</span>
+                <span class="s2">"xaxis"</span><span class="p">:</span> <span class="s2">"x"</span><span class="p">,</span>
+                <span class="s2">"x"</span><span class="p">:</span> <span class="n">ax</span><span class="p">,</span>
+                <span class="s2">"yaxis"</span><span class="p">:</span> <span class="s2">"y"</span><span class="p">,</span>
+                <span class="s2">"y"</span><span class="p">:</span> <span class="n">ay</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="n">traces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">"hoverinfo"</span><span class="p">:</span> <span class="s2">"text"</span><span class="p">,</span>
+                <span class="s2">"legendgroup"</span><span class="p">:</span> <span class="n">generator_run_name</span><span class="p">,</span>
+                <span class="s2">"marker"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"color"</span><span class="p">:</span> <span class="s2">"black"</span><span class="p">,</span> <span class="s2">"symbol"</span><span class="p">:</span> <span class="n">symbol</span><span class="p">,</span> <span class="s2">"opacity"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">},</span>
+                <span class="s2">"mode"</span><span class="p">:</span> <span class="s2">"markers"</span><span class="p">,</span>
+                <span class="s2">"name"</span><span class="p">:</span> <span class="s2">"In-sample"</span><span class="p">,</span>
+                <span class="s2">"showlegend"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="s2">"text"</span><span class="p">:</span> <span class="n">atext</span><span class="p">,</span>
+                <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"scatter"</span><span class="p">,</span>
+                <span class="s2">"x"</span><span class="p">:</span> <span class="n">ax</span><span class="p">,</span>
+                <span class="s2">"xaxis"</span><span class="p">:</span> <span class="s2">"x2"</span><span class="p">,</span>
+                <span class="s2">"y"</span><span class="p">:</span> <span class="n">ay</span><span class="p">,</span>
+                <span class="s2">"yaxis"</span><span class="p">:</span> <span class="s2">"y2"</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">traces</span></div>
+
+
+<div class="viewcode-block" id="axis_range"><a class="viewcode-back" href="../../../plot.html#ax.plot.helper.axis_range">[docs]</a><span class="k">def</span> <span class="nf">axis_range</span><span class="p">(</span><span class="n">grid</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">is_log</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+    <span class="k">if</span> <span class="n">is_log</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">math</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">grid</span><span class="p">)),</span> <span class="n">math</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">grid</span><span class="p">))]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="nb">min</span><span class="p">(</span><span class="n">grid</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">grid</span><span class="p">)]</span></div>
+
+
+<div class="viewcode-block" id="relativize"><a class="viewcode-back" href="../../../plot.html#ax.plot.helper.relativize">[docs]</a><span class="k">def</span> <span class="nf">relativize</span><span class="p">(</span><span class="n">m_t</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">sem_t</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">m_c</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">sem_c</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+    <span class="n">r_hat</span> <span class="o">=</span> <span class="p">(</span><span class="n">m_t</span> <span class="o">-</span> <span class="n">m_c</span><span class="p">)</span> <span class="o">/</span> <span class="nb">abs</span><span class="p">(</span><span class="n">m_c</span><span class="p">)</span> <span class="o">-</span> <span class="n">sem_c</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">m_t</span> <span class="o">/</span> <span class="nb">abs</span><span class="p">(</span><span class="n">m_c</span><span class="p">)</span> <span class="o">**</span> <span class="mi">3</span>
+    <span class="n">variance</span> <span class="o">=</span> <span class="p">(</span><span class="n">sem_t</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">m_t</span> <span class="o">/</span> <span class="n">m_c</span> <span class="o">*</span> <span class="n">sem_c</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">m_c</span> <span class="o">**</span> <span class="mi">2</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">r_hat</span><span class="p">,</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">variance</span><span class="p">)]</span></div>
+
+
+<div class="viewcode-block" id="relativize_data"><a class="viewcode-back" href="../../../plot.html#ax.plot.helper.relativize_data">[docs]</a><span class="k">def</span> <span class="nf">relativize_data</span><span class="p">(</span>
+    <span class="n">f</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">sd</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">rel</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">arm_data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">metric</span><span class="p">:</span> <span class="nb">str</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]:</span>
+    <span class="c1"># if relative, extract status quo &amp; compute ratio</span>
+    <span class="n">f_final</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">rel</span> <span class="k">else</span> <span class="n">f</span>
+    <span class="n">sd_final</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">rel</span> <span class="k">else</span> <span class="n">sd</span>
+
+    <span class="k">if</span> <span class="n">rel</span><span class="p">:</span>
+        <span class="n">f_sq</span> <span class="o">=</span> <span class="n">arm_data</span><span class="p">[</span><span class="s2">"in_sample"</span><span class="p">][</span><span class="n">arm_data</span><span class="p">[</span><span class="s2">"status_quo_name"</span><span class="p">]][</span><span class="s2">"y"</span><span class="p">][</span><span class="n">metric</span><span class="p">]</span>
+        <span class="n">sd_sq</span> <span class="o">=</span> <span class="n">arm_data</span><span class="p">[</span><span class="s2">"in_sample"</span><span class="p">][</span><span class="n">arm_data</span><span class="p">[</span><span class="s2">"status_quo_name"</span><span class="p">]][</span><span class="s2">"se"</span><span class="p">][</span><span class="n">metric</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">f</span><span class="p">)):</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">relativize</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">sd</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">f_sq</span><span class="p">,</span> <span class="n">sd_sq</span><span class="p">)</span>
+            <span class="n">f_final</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="n">res</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">sd_final</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="n">res</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="p">[</span><span class="n">f_final</span><span class="p">,</span> <span class="n">sd_final</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="rgb"><a class="viewcode-back" href="../../../plot.html#ax.plot.helper.rgb">[docs]</a><span class="k">def</span> <span class="nf">rgb</span><span class="p">(</span><span class="n">arr</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">return</span> <span class="s2">"rgb(</span><span class="si">{}</span><span class="s2">,</span><span class="si">{}</span><span class="s2">,</span><span class="si">{}</span><span class="s2">)"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="o">*</span><span class="n">arr</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="infer_is_relative"><a class="viewcode-back" href="../../../plot.html#ax.plot.helper.infer_is_relative">[docs]</a><span class="k">def</span> <span class="nf">infer_is_relative</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">ModelBridge</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">non_constraint_rel</span><span class="p">:</span> <span class="nb">bool</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
+    <span class="sd">"""Determine whether or not to relativize a metric.</span>
+
+<span class="sd">    Metrics that are constraints will get this decision from their `relative` flag.</span>
+<span class="sd">    Other metrics will use the `default_rel`.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: model fit on metrics.</span>
+<span class="sd">        metrics: list of metric names.</span>
+<span class="sd">        non_constraint_rel: whether or not to relativize non-constraint metrics</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Dict[str, bool] containing whether or not to relativize each input metric.</span>
+<span class="sd">    """</span>
+    <span class="n">relative</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">constraint_relativity</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">_optimization_config</span><span class="p">:</span>
+        <span class="n">constraints</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">_optimization_config</span><span class="p">)</span><span class="o">.</span><span class="n">outcome_constraints</span>
+        <span class="n">constraint_relativity</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">constraint</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">constraint</span><span class="o">.</span><span class="n">relative</span> <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="n">constraints</span>
+        <span class="p">}</span>
+    <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">metric</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">constraint_relativity</span><span class="p">:</span>
+            <span class="n">relative</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span> <span class="o">=</span> <span class="n">non_constraint_rel</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">relative</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span> <span class="o">=</span> <span class="n">constraint_relativity</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">relative</span></div>
+
+
+<div class="viewcode-block" id="slice_config_to_trace"><a class="viewcode-back" href="../../../plot.html#ax.plot.helper.slice_config_to_trace">[docs]</a><span class="k">def</span> <span class="nf">slice_config_to_trace</span><span class="p">(</span>
+    <span class="n">arm_data</span><span class="p">,</span>
+    <span class="n">arm_name_to_parameters</span><span class="p">,</span>
+    <span class="n">f</span><span class="p">,</span>
+    <span class="n">fit_data</span><span class="p">,</span>
+    <span class="n">grid</span><span class="p">,</span>
+    <span class="n">metric</span><span class="p">,</span>
+    <span class="n">param</span><span class="p">,</span>
+    <span class="n">rel</span><span class="p">,</span>
+    <span class="n">setx</span><span class="p">,</span>
+    <span class="n">sd</span><span class="p">,</span>
+    <span class="n">is_log</span><span class="p">,</span>
+    <span class="n">visible</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="c1"># format data</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">relativize_data</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">rel</span><span class="p">,</span> <span class="n">arm_data</span><span class="p">,</span> <span class="n">metric</span><span class="p">)</span>
+    <span class="n">f_final</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">sd_final</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="c1"># get data for standard deviation fill plot</span>
+    <span class="n">sd_upper</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">sd_lower</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sd</span><span class="p">)):</span>
+        <span class="n">sd_upper</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f_final</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">sd_final</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">sd_lower</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f_final</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">sd_final</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+    <span class="n">grid_rev</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="n">grid</span><span class="p">))</span>
+    <span class="n">sd_lower_rev</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="n">sd_lower</span><span class="p">))</span>
+    <span class="n">sd_x</span> <span class="o">=</span> <span class="n">grid</span> <span class="o">+</span> <span class="n">grid_rev</span>
+    <span class="n">sd_y</span> <span class="o">=</span> <span class="n">sd_upper</span> <span class="o">+</span> <span class="n">sd_lower_rev</span>
+
+    <span class="c1"># get data for observed arms and error bars</span>
+    <span class="n">arm_x</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">arm_y</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">arm_sem</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">fit_data</span><span class="p">:</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="n">arm_name_to_parameters</span><span class="p">[</span><span class="n">row</span><span class="p">[</span><span class="s2">"arm_name"</span><span class="p">]]</span>
+        <span class="n">plot</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">setx</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">p</span> <span class="o">!=</span> <span class="n">param</span> <span class="ow">and</span> <span class="n">parameters</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">!=</span> <span class="n">setx</span><span class="p">[</span><span class="n">p</span><span class="p">]:</span>
+                <span class="n">plot</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+            <span class="n">arm_x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="n">param</span><span class="p">])</span>
+            <span class="n">arm_y</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">])</span>
+            <span class="n">arm_sem</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"sem"</span><span class="p">])</span>
+
+    <span class="n">arm_res</span> <span class="o">=</span> <span class="n">relativize_data</span><span class="p">(</span><span class="n">arm_y</span><span class="p">,</span> <span class="n">arm_sem</span><span class="p">,</span> <span class="n">rel</span><span class="p">,</span> <span class="n">arm_data</span><span class="p">,</span> <span class="n">metric</span><span class="p">)</span>
+    <span class="n">arm_y_final</span> <span class="o">=</span> <span class="n">arm_res</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">arm_sem_final</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="o">*</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">arm_res</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+
+    <span class="c1"># create traces</span>
+    <span class="n">f_trace</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"x"</span><span class="p">:</span> <span class="n">grid</span><span class="p">,</span>
+        <span class="s2">"y"</span><span class="p">:</span> <span class="n">f_final</span><span class="p">,</span>
+        <span class="s2">"showlegend"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">"hoverinfo"</span><span class="p">:</span> <span class="s2">"x+y"</span><span class="p">,</span>
+        <span class="s2">"line"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"color"</span><span class="p">:</span> <span class="s2">"rgba(128, 177, 211, 1)"</span><span class="p">},</span>
+        <span class="s2">"visible"</span><span class="p">:</span> <span class="n">visible</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">arms_trace</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"x"</span><span class="p">:</span> <span class="n">arm_x</span><span class="p">,</span>
+        <span class="s2">"y"</span><span class="p">:</span> <span class="n">arm_y_final</span><span class="p">,</span>
+        <span class="s2">"mode"</span><span class="p">:</span> <span class="s2">"markers"</span><span class="p">,</span>
+        <span class="s2">"error_y"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"data"</span><span class="p">,</span>
+            <span class="s2">"array"</span><span class="p">:</span> <span class="n">arm_sem_final</span><span class="p">,</span>
+            <span class="s2">"visible"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">"color"</span><span class="p">:</span> <span class="s2">"black"</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">"line"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"color"</span><span class="p">:</span> <span class="s2">"black"</span><span class="p">},</span>
+        <span class="s2">"showlegend"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">"hoverinfo"</span><span class="p">:</span> <span class="s2">"x+y"</span><span class="p">,</span>
+        <span class="s2">"visible"</span><span class="p">:</span> <span class="n">visible</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">sd_trace</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"x"</span><span class="p">:</span> <span class="n">sd_x</span><span class="p">,</span>
+        <span class="s2">"y"</span><span class="p">:</span> <span class="n">sd_y</span><span class="p">,</span>
+        <span class="s2">"fill"</span><span class="p">:</span> <span class="s2">"toself"</span><span class="p">,</span>
+        <span class="s2">"fillcolor"</span><span class="p">:</span> <span class="s2">"rgba(128, 177, 211, 0.2)"</span><span class="p">,</span>
+        <span class="s2">"line"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"color"</span><span class="p">:</span> <span class="s2">"rgba(128, 177, 211, 0.0)"</span><span class="p">},</span>
+        <span class="s2">"showlegend"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">"hoverinfo"</span><span class="p">:</span> <span class="s2">"none"</span><span class="p">,</span>
+        <span class="s2">"visible"</span><span class="p">:</span> <span class="n">visible</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">traces</span> <span class="o">=</span> <span class="p">[</span><span class="n">sd_trace</span><span class="p">,</span> <span class="n">f_trace</span><span class="p">,</span> <span class="n">arms_trace</span><span class="p">]</span>
+
+    <span class="c1"># iterate over out-of-sample arms</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">generator_run_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arm_data</span><span class="p">[</span><span class="s2">"out_of_sample"</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">ay</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">asem</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">atext</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">arm_name</span> <span class="ow">in</span> <span class="n">arm_data</span><span class="p">[</span><span class="s2">"out_of_sample"</span><span class="p">][</span><span class="n">generator_run_name</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">parameters</span> <span class="o">=</span> <span class="n">arm_data</span><span class="p">[</span><span class="s2">"out_of_sample"</span><span class="p">][</span><span class="n">generator_run_name</span><span class="p">][</span><span class="n">arm_name</span><span class="p">][</span>
+                <span class="s2">"parameters"</span>
+            <span class="p">]</span>
+            <span class="n">plot</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">setx</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">p</span> <span class="o">!=</span> <span class="n">param</span> <span class="ow">and</span> <span class="n">parameters</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">!=</span> <span class="n">setx</span><span class="p">[</span><span class="n">p</span><span class="p">]:</span>
+                    <span class="n">plot</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="n">param</span><span class="p">])</span>
+                <span class="n">ay</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">arm_data</span><span class="p">[</span><span class="s2">"out_of_sample"</span><span class="p">][</span><span class="n">generator_run_name</span><span class="p">][</span><span class="n">arm_name</span><span class="p">][</span><span class="s2">"y_hat"</span><span class="p">][</span>
+                        <span class="n">metric</span>
+                    <span class="p">]</span>
+                <span class="p">)</span>
+                <span class="n">asem</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">arm_data</span><span class="p">[</span><span class="s2">"out_of_sample"</span><span class="p">][</span><span class="n">generator_run_name</span><span class="p">][</span><span class="n">arm_name</span><span class="p">][</span><span class="s2">"se_hat"</span><span class="p">][</span>
+                        <span class="n">metric</span>
+                    <span class="p">]</span>
+                <span class="p">)</span>
+                <span class="n">atext</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"&lt;em&gt;Candidate "</span> <span class="o">+</span> <span class="n">arm_name</span> <span class="o">+</span> <span class="s2">"&lt;/em&gt;"</span><span class="p">)</span>
+
+        <span class="n">out_of_sample_arm_res</span> <span class="o">=</span> <span class="n">relativize_data</span><span class="p">(</span><span class="n">ay</span><span class="p">,</span> <span class="n">asem</span><span class="p">,</span> <span class="n">rel</span><span class="p">,</span> <span class="n">arm_data</span><span class="p">,</span> <span class="n">metric</span><span class="p">)</span>
+        <span class="n">ay_final</span> <span class="o">=</span> <span class="n">out_of_sample_arm_res</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">asem_final</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="o">*</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">out_of_sample_arm_res</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+
+        <span class="n">traces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">"hoverinfo"</span><span class="p">:</span> <span class="s2">"text"</span><span class="p">,</span>
+                <span class="s2">"legendgroup"</span><span class="p">:</span> <span class="n">generator_run_name</span><span class="p">,</span>
+                <span class="s2">"marker"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"color"</span><span class="p">:</span> <span class="s2">"black"</span><span class="p">,</span> <span class="s2">"symbol"</span><span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"opacity"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">},</span>
+                <span class="s2">"mode"</span><span class="p">:</span> <span class="s2">"markers"</span><span class="p">,</span>
+                <span class="s2">"error_y"</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"data"</span><span class="p">,</span>
+                    <span class="s2">"array"</span><span class="p">:</span> <span class="n">asem_final</span><span class="p">,</span>
+                    <span class="s2">"visible"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                    <span class="s2">"color"</span><span class="p">:</span> <span class="s2">"black"</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s2">"name"</span><span class="p">:</span> <span class="n">generator_run_name</span><span class="p">,</span>
+                <span class="s2">"text"</span><span class="p">:</span> <span class="n">atext</span><span class="p">,</span>
+                <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"scatter"</span><span class="p">,</span>
+                <span class="s2">"xaxis"</span><span class="p">:</span> <span class="s2">"x"</span><span class="p">,</span>
+                <span class="s2">"x"</span><span class="p">:</span> <span class="n">ax</span><span class="p">,</span>
+                <span class="s2">"yaxis"</span><span class="p">:</span> <span class="s2">"y"</span><span class="p">,</span>
+                <span class="s2">"y"</span><span class="p">:</span> <span class="n">ay_final</span><span class="p">,</span>
+                <span class="s2">"visible"</span><span class="p">:</span> <span class="n">visible</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">traces</span></div>
+
+
+<div class="viewcode-block" id="build_filter_trial"><a class="viewcode-back" href="../../../plot.html#ax.plot.helper.build_filter_trial">[docs]</a><span class="k">def</span> <span class="nf">build_filter_trial</span><span class="p">(</span><span class="n">keep_trial_indices</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Observation</span><span class="p">],</span> <span class="nb">bool</span><span class="p">]:</span>
+    <span class="sd">"""Creates a callable that filters observations based on trial_index"""</span>
+
+    <span class="k">def</span> <span class="nf">trial_filter</span><span class="p">(</span><span class="n">obs</span><span class="p">:</span> <span class="n">Observation</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">obs</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">trial_index</span> <span class="ow">in</span> <span class="n">keep_trial_indices</span>
+
+    <span class="k">return</span> <span class="n">trial_filter</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/v0.1.20/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2021 Facebook Inc.</section></footer></div></body></html>

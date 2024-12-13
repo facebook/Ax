@@ -1,0 +1,217 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.6/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.6/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.6/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.6/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.6/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.6/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.6/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.6/css/main.css"/><script src="/versions/0.2.6/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.6/"><img class="logo" src="/versions/0.2.6/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.6/versions.html"><h3>0.2.6</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.6/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.6/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.6/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.modelbridge.transforms.int_to_float</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">TYPE_CHECKING</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.observation</span> <span class="kn">import</span> <span class="n">ObservationData</span><span class="p">,</span> <span class="n">ObservationFeatures</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter</span> <span class="kn">import</span> <span class="n">Parameter</span><span class="p">,</span> <span class="n">ParameterType</span><span class="p">,</span> <span class="n">RangeParameter</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.base</span> <span class="kn">import</span> <span class="n">Transform</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.rounding</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">contains_constrained_integer</span><span class="p">,</span>
+    <span class="n">randomized_round_parameters</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.utils</span> <span class="kn">import</span> <span class="n">construct_new_search_space</span>
+<span class="kn">from</span> <span class="nn">ax.models.types</span> <span class="kn">import</span> <span class="n">TConfig</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="c1"># import as module to make sphinx-autodoc-typehints happy</span>
+    <span class="kn">from</span> <span class="nn">ax</span> <span class="kn">import</span> <span class="n">modelbridge</span> <span class="k">as</span> <span class="n">modelbridge_module</span>  <span class="c1"># noqa F401  # pragma: no cover</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="n">DEFAULT_MAX_ROUND_ATTEMPTS</span> <span class="o">=</span> <span class="mi">10000</span>
+
+
+<div class="viewcode-block" id="IntToFloat"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.transforms.int_to_float.IntToFloat">[docs]</a><span class="k">class</span> <span class="nc">IntToFloat</span><span class="p">(</span><span class="n">Transform</span><span class="p">):</span>
+    <span class="sd">"""Convert a RangeParameter of type int to type float.</span>
+
+<span class="sd">    Uses either randomized_rounding or default python rounding,</span>
+<span class="sd">    depending on 'rounding' flag.</span>
+
+<span class="sd">    Transform is done in-place.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">,</span>
+        <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">],</span>
+        <span class="n">observation_data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationData</span><span class="p">],</span>
+        <span class="n">modelbridge</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">"modelbridge_module.base.ModelBridge"</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">search_space</span> <span class="o">=</span> <span class="n">search_space</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rounding</span> <span class="o">=</span> <span class="s2">"strict"</span>
+        <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rounding</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"rounding"</span><span class="p">,</span> <span class="s2">"strict"</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">max_round_attempts</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="s2">"max_round_attempts"</span><span class="p">,</span> <span class="n">DEFAULT_MAX_ROUND_ATTEMPTS</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">max_round_attempts</span> <span class="o">=</span> <span class="n">DEFAULT_MAX_ROUND_ATTEMPTS</span>
+
+        <span class="c1"># Identify parameters that should be transformed</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transform_parameters</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">p_name</span>
+            <span class="k">for</span> <span class="n">p_name</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">RangeParameter</span><span class="p">)</span> <span class="ow">and</span> <span class="n">p</span><span class="o">.</span><span class="n">parameter_type</span> <span class="o">==</span> <span class="n">ParameterType</span><span class="o">.</span><span class="n">INT</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">contains_constrained_integer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform_parameters</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rounding</span> <span class="o">=</span> <span class="s2">"randomized"</span>
+
+<div class="viewcode-block" id="IntToFloat.transform_observation_features"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.transforms.int_to_float.IntToFloat.transform_observation_features">[docs]</a>    <span class="k">def</span> <span class="nf">transform_observation_features</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">obsf</span> <span class="ow">in</span> <span class="n">observation_features</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">p_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform_parameters</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">p_name</span> <span class="ow">in</span> <span class="n">obsf</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>
+                    <span class="c1"># pyre: param is declared to have type `int` but is used</span>
+                    <span class="c1"># pyre-fixme[9]: as type `Optional[typing.Union[bool, float, str]]`.</span>
+                    <span class="n">param</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">obsf</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p_name</span><span class="p">]</span>
+                    <span class="n">obsf</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p_name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">param</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">observation_features</span></div>
+
+    <span class="k">def</span> <span class="nf">_transform_search_space</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SearchSpace</span><span class="p">:</span>
+        <span class="n">transformed_parameters</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">p_name</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">p_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform_parameters</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">RangeParameter</span><span class="p">):</span>
+                <span class="n">transformed_parameters</span><span class="p">[</span><span class="n">p_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">RangeParameter</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">p_name</span><span class="p">,</span>
+                    <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">,</span>
+                    <span class="c1"># +/- 0.5 ensures that sampling</span>
+                    <span class="c1"># 1) floating point numbers from (quasi-)Uniform(0,1)</span>
+                    <span class="c1"># 2) unnormalizing to the raw search space</span>
+                    <span class="c1"># 3) rounding</span>
+                    <span class="c1"># results in uniform (quasi-)random integers</span>
+                    <span class="n">lower</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">lower</span> <span class="o">-</span> <span class="mf">0.49999</span><span class="p">,</span>
+                    <span class="n">upper</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">upper</span> <span class="o">+</span> <span class="mf">0.49999</span><span class="p">,</span>
+                    <span class="n">log_scale</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">log_scale</span><span class="p">,</span>
+                    <span class="n">digits</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">digits</span><span class="p">,</span>
+                    <span class="n">is_fidelity</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">is_fidelity</span><span class="p">,</span>
+                    <span class="n">target_value</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">target_value</span><span class="p">,</span>  <span class="c1"># casting happens in constructor</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">transformed_parameters</span><span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span>
+        <span class="k">return</span> <span class="n">construct_new_search_space</span><span class="p">(</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">transformed_parameters</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span>
+            <span class="n">parameter_constraints</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">pc</span><span class="o">.</span><span class="n">clone_with_transformed_parameters</span><span class="p">(</span>
+                    <span class="n">transformed_parameters</span><span class="o">=</span><span class="n">transformed_parameters</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">pc</span> <span class="ow">in</span> <span class="n">search_space</span><span class="o">.</span><span class="n">parameter_constraints</span>
+            <span class="p">],</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="IntToFloat.untransform_observation_features"><a class="viewcode-back" href="../../../../modelbridge.html#ax.modelbridge.transforms.int_to_float.IntToFloat.untransform_observation_features">[docs]</a>    <span class="k">def</span> <span class="nf">untransform_observation_features</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">observation_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">obsf</span> <span class="ow">in</span> <span class="n">observation_features</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rounding</span> <span class="o">==</span> <span class="s2">"strict"</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">p_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform_parameters</span><span class="p">:</span>
+                    <span class="c1"># pyre: param is declared to have type `float` but is used as</span>
+                    <span class="c1"># pyre-fixme[9]: type `Optional[typing.Union[bool, float, str]]`.</span>
+                    <span class="n">param</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">obsf</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">p_name</span><span class="p">)</span>
+                    <span class="n">obsf</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p_name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">param</span><span class="p">))</span>  <span class="c1"># TODO: T41938776</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">round_attempts</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="n">rounded_parameters</span> <span class="o">=</span> <span class="n">randomized_round_parameters</span><span class="p">(</span>
+                    <span class="n">obsf</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform_parameters</span>
+                <span class="p">)</span>
+                <span class="c1"># Try to round up to max_round_attempt times)</span>
+                <span class="k">while</span> <span class="p">(</span>
+                    <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_space</span><span class="o">.</span><span class="n">check_membership</span><span class="p">(</span><span class="n">rounded_parameters</span><span class="p">)</span>
+                    <span class="ow">and</span> <span class="n">round_attempts</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_round_attempts</span>
+                <span class="p">):</span>
+                    <span class="n">rounded_parameters</span> <span class="o">=</span> <span class="n">randomized_round_parameters</span><span class="p">(</span>
+                        <span class="n">obsf</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform_parameters</span>
+                    <span class="p">)</span>
+                    <span class="n">round_attempts</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="c1"># Update observation with successful rounding or log warning.</span>
+                <span class="k">for</span> <span class="n">p_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform_parameters</span><span class="p">:</span>
+                    <span class="n">obsf</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">rounded_parameters</span><span class="p">[</span><span class="n">p_name</span><span class="p">]</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_space</span><span class="o">.</span><span class="n">check_membership</span><span class="p">(</span><span class="n">rounded_parameters</span><span class="p">):</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Unable to round </span><span class="si">{</span><span class="n">obsf</span><span class="o">.</span><span class="n">parameters</span><span class="si">}</span><span class="s2">"</span>
+                        <span class="sa">f</span><span class="s2">"to meet constraints of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">search_space</span><span class="si">}</span><span class="s2">"</span>
+                    <span class="p">)</span>
+        <span class="k">return</span> <span class="n">observation_features</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.6/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

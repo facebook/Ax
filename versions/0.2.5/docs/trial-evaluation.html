@@ -1,0 +1,183 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Trial Evaluation · Ax</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="There are 3 paradigms for evaluating [trials](/versions/0.2.5/docs/glossary.html#trial) in Ax."/><meta name="docsearch:version" content="0.2.5"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Trial Evaluation · Ax"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.5/index.html"/><meta property="og:description" content="There are 3 paradigms for evaluating [trials](/versions/0.2.5/docs/glossary.html#trial) in Ax."/><meta property="og:image" content="https://ax.dev//versions/0.2.5/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.5/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.5/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.5/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.5/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.5/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.5/css/main.css"/><script src="/versions/0.2.5/js/codetabs.js"></script></head><body class="sideNavVisible separateOnPageNav"><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.5/"><img class="logo" src="/versions/0.2.5/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.5/versions.html"><h3>0.2.5</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class="siteNavGroupActive"><a href="/versions/0.2.5/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.5/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.5/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><div class="hamburger-menu"><div class="line1"></div><div class="line2"></div><div class="line3"></div></div></div><h2><i>›</i><span>Components</span></h2><div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div></div><div class="navGroups"><div class="navGroup"><h3 class="navGroupCategoryTitle">Introduction</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/why-ax.html">Why Ax?</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Getting Started</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/installation.html">Installation</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/api.html">APIs</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/glossary.html">Glossary</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Algorithms</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/bayesopt.html">Bayesian Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/banditopt.html">Bandit Optimization</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Components</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/core.html">Core</a></li><li class="navListItem navListItemActive"><a class="navItem" href="/versions/0.2.5/docs/trial-evaluation.html">Trial Evaluation</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/data.html">Data</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/models.html">Models</a></li><li class="navListItem"><a class="navItem" href="/versions/0.2.5/docs/storage.html">Storage</a></li></ul></div></div></section></div><script>
+            var coll = document.getElementsByClassName('collapsible');
+            var checkActiveCategory = true;
+            for (var i = 0; i < coll.length; i++) {
+              var links = coll[i].nextElementSibling.getElementsByTagName('*');
+              if (checkActiveCategory){
+                for (var j = 0; j < links.length; j++) {
+                  if (links[j].classList.contains('navListItemActive')){
+                    coll[i].nextElementSibling.classList.toggle('hide');
+                    coll[i].childNodes[1].classList.toggle('rotate');
+                    checkActiveCategory = false;
+                    break;
+                  }
+                }
+              }
+
+              coll[i].addEventListener('click', function() {
+                var arrow = this.childNodes[1];
+                arrow.classList.toggle('rotate');
+                var content = this.nextElementSibling;
+                content.classList.toggle('hide');
+              });
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+              createToggler('#navToggler', '#docsNav', 'docsSliderActive');
+              createToggler('#tocToggler', 'body', 'tocActive');
+
+              var headings = document.querySelector('.toc-headings');
+              headings && headings.addEventListener('click', function(event) {
+                var el = event.target;
+                while(el !== headings){
+                  if (el.tagName === 'A') {
+                    document.body.classList.remove('tocActive');
+                    break;
+                  } else{
+                    el = el.parentNode;
+                  }
+                }
+              }, false);
+
+              function createToggler(togglerSelector, targetSelector, className) {
+                var toggler = document.querySelector(togglerSelector);
+                var target = document.querySelector(targetSelector);
+
+                if (!toggler) {
+                  return;
+                }
+
+                toggler.onclick = function(event) {
+                  event.preventDefault();
+
+                  target.classList.toggle(className);
+                };
+              }
+            });
+        </script></nav></div><div class="container mainContainer docsContainer"><div class="wrapper"><div class="post"><header class="postHeader"><h1 id="__docusaurus" class="postHeaderTitle">Trial Evaluation</h1></header><article><div><span><p>There are 3 paradigms for evaluating <a href="/versions/0.2.5/docs/glossary.html#trial">trials</a> in Ax.
+Note: ensure that you are using the <a href="/versions/0.2.5/docs/core.html#trial-vs-batched-trial">appropriate type of trials</a> for your experiment, before proceeding to trial evaluation.</p>
+<h2><a class="anchor" aria-hidden="true" id="service-api"></a><a href="#service-api" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Service API</h2>
+<p>The <a href="/api/service.html#module-ax.service.ax_client"><code>AxClient</code></a> exposes <a href="/api/service.html#ax.service.ax_client.AxClient.get_next_trial"><code>get_next_trial</code></a>, as well as <a href="/api/service.html#ax.service.ax_client.AxClient.complete_trial"><code>complete_trial</code></a>.  The user is responsible for evaluating the trial parameters and passing the results to <a href="/api/service.html#ax.service.ax_client.AxClient.complete_trial"><code>complete_trial</code></a>.</p>
+<pre><code class="hljs css language-python">...
+<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> range(<span class="hljs-number">25</span>):
+    parameters, trial_index = ax_client.get_next_trial()
+    raw_data = evaluate_trial(parameters)
+    ax_client.complete_trial(trial_index=trial_index, raw_data=raw_data)
+</code></pre>
+<h3><a class="anchor" aria-hidden="true" id="evaluating-trial-parameters"></a><a href="#evaluating-trial-parameters" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Evaluating Trial Parameters</h3>
+<p>In the Service API, the <a href="/api/service.html#ax.service.ax_client.AxClient.complete_trial"><code>complete_trial</code></a> requires <code>raw_data</code> evaluated from the parameters suggested by <a href="/api/service.html#ax.service.ax_client.AxClient.get_next_trial"><code>get_next_trial</code></a>.</p>
+<p>The data can be in the form of:</p>
+<ul>
+<li>A dictionary of metric names to tuples of (mean and <a href="/versions/0.2.5/docs/glossary.html#sem">SEM</a>)</li>
+<li>A single (mean, SEM) tuple</li>
+<li>A single mean</li>
+</ul>
+<p>In the second case, Ax will assume that the mean and the SEM are for the experiment objective (if the evaluations are noiseless, simply provide an SEM of 0.0). In the third case, Ax will assume that observations are corrupted by Gaussian noise with zero mean and unknown SEM, and infer the SEM from the data (this is equivalent to specifying an SEM of None). Note that if the observation noise is non-zero (either provided or inferred), the &quot;best arm&quot; suggested by Ax may not always be the one whose evaluation returned the best observed value (as the &quot;best arm&quot; is selected based on the model-predicted mean).</p>
+<p>For example, this evaluation function computes mean and SEM for <a href="https://www.sfu.ca/~ssurjano/hart6.html">Hartmann6</a> function and for the L2-norm. We return <code>0.0</code> for SEM since the observations are noiseless:</p>
+<pre><code class="hljs css language-python"><span class="hljs-keyword">from</span> ax.utils.measurement.synthetic_functions <span class="hljs-keyword">import</span> hartmann6
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">hartmann_evaluation_function</span><span class="hljs-params">(parameterization)</span>:</span>
+    x = np.array([parameterization.get(<span class="hljs-string">f"x<span class="hljs-subst">{i+<span class="hljs-number">1</span>}</span>"</span>) <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> range(<span class="hljs-number">6</span>)])
+    <span class="hljs-comment"># Standard error is 0, since we are computing a synthetic function.</span>
+    <span class="hljs-keyword">return</span> {<span class="hljs-string">"hartmann6"</span>: (hartmann6(x), <span class="hljs-number">0.0</span>), <span class="hljs-string">"l2norm"</span>: (np.sqrt((x ** <span class="hljs-number">2</span>).sum()), <span class="hljs-number">0.0</span>)}
+</code></pre>
+<p>This function computes just the objective mean and SEM, assuming the <a href="https://www.sfu.ca/~ssurjano/branin.html">Branin</a> function is the objective on the experiment:</p>
+<pre><code class="hljs css language-python"><span class="hljs-keyword">from</span> ax.utils.measurement.synthetic_functions <span class="hljs-keyword">import</span> branin
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">branin_evaluation_function</span><span class="hljs-params">(parameterization)</span>:</span>
+    <span class="hljs-comment"># Standard error is 0, since we are computing a synthetic function.</span>
+    <span class="hljs-keyword">return</span> (branin(parameterization.get(<span class="hljs-string">"x1"</span>), parameterization.get(<span class="hljs-string">"x2"</span>)), <span class="hljs-number">0.0</span>)
+</code></pre>
+<p>Alternatively, if the SEM is unknown, we could use the following form:</p>
+<pre><code class="hljs css language-python"><span class="hljs-keyword">lambda</span> parameterization: branin(parameterization.get(<span class="hljs-string">"x1"</span>), parameterization.get(<span class="hljs-string">"x2"</span>))
+</code></pre>
+<p>This is equivalent to returning <code>None</code> for the SEM:</p>
+<pre><code class="hljs css language-python"><span class="hljs-keyword">from</span> ax.utils.measurement.synthetic_functions <span class="hljs-keyword">import</span> branin
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">branin_evaluation_function_unknown_sem</span><span class="hljs-params">(parameterization)</span>:</span>
+    <span class="hljs-keyword">return</span> (branin(parameterization.get(<span class="hljs-string">"x1"</span>), parameterization.get(<span class="hljs-string">"x2"</span>)), <span class="hljs-literal">None</span>)
+</code></pre>
+<h2><a class="anchor" aria-hidden="true" id="loop-api"></a><a href="#loop-api" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Loop API</h2>
+<p>The <a href="/api/service.html#ax.service.managed_loop.optimize"><code>optimize</code></a> function requires an <code>evaluation_function</code>, which accepts parameters and returns raw data in the format described above.
+It can also accept a <code>weight</code> parameter, a nullable <code>float</code> representing the fraction of available data on which the parameterization should be evaluated. For example, this could be a downsampling rate in case of hyperparameter optimization (what portion of data the ML model should be trained on for evaluation) or the percentage of users exposed to a given configuration in A/B testing. This weight is not used in unweighted experiments and defaults to <code>None</code>.</p>
+<h2><a class="anchor" aria-hidden="true" id="developer-api"></a><a href="#developer-api" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Developer API</h2>
+<p>The Developer API is supported by the <a href="/api/core.html#module-ax.core.experiment"><code>Experiment</code></a> class. In this paradigm, the user specifies:</p>
+<ul>
+<li><a href="../api/core.html#ax.core.runner.Runner"><code>Runner</code></a>: Defines how to deploy the experiment.</li>
+<li>List of <a href="../api/core.html#ax.core.metric.Metric"><code>Metrics</code></a>: Each defining how to compute/fetch data for a given objective or outcome.</li>
+</ul>
+<p>The experiment requires a <code>generator_run</code> to create a new trial or batch trial.  A generator run can be generated by a model.  The trial then has its own <code>run</code> and <code>mark_complete</code> methods.</p>
+<pre><code class="hljs css language-python">...
+sobol = Models.SOBOL(exp.search_space)
+<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> range(<span class="hljs-number">5</span>):
+    trial = exp.new_trial(generator_run=sobol.gen(<span class="hljs-number">1</span>))
+    trial.run()
+    trial.mark_completed()
+
+<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> range(<span class="hljs-number">15</span>):
+    gpei = Models.GPEI(experiment=exp, data=exp.fetch_data())
+    generator_run = gpei.gen(<span class="hljs-number">1</span>)
+    trial = exp.new_trial(generator_run=generator_run)
+    trial.run()
+    trial.mark_completed()
+</code></pre>
+<h3><a class="anchor" aria-hidden="true" id="custom-metrics"></a><a href="#custom-metrics" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Custom Metrics</h3>
+<p>Similar to trial evaluation in the Service API, a custom metric computes a mean and SEM for each arm of a trial.  However, the metric's <code>fetch_trial_data</code> method will be called automatically by the experiment's <a href="/api/core.html#ax.core.base_trial.BaseTrial.fetch_data"><code>fetch_data</code></a> method.  If there are multiple objetives or outcomes that need to be optimized for, each needs its own metric.</p>
+<pre><code class="hljs css language-python"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MyMetric</span><span class="hljs-params">(Metric)</span>:</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">fetch_trial_data</span><span class="hljs-params">(self, trial)</span>:</span>
+        records = []
+        <span class="hljs-keyword">for</span> arm_name, arm <span class="hljs-keyword">in</span> trial.arms_by_name.items():
+            params = arm.parameters
+            records.append({
+                <span class="hljs-string">"arm_name"</span>: arm_name,
+                <span class="hljs-string">"metric_name"</span>: self.name,
+                <span class="hljs-string">"mean"</span>: self.foo(params[<span class="hljs-string">"x1"</span>], params[<span class="hljs-string">"x2"</span>]),
+                <span class="hljs-string">"sem"</span>: <span class="hljs-number">0.0</span>,
+                <span class="hljs-string">"trial_index"</span>: trial.index,
+            })
+        <span class="hljs-keyword">return</span> Data(df=pd.DataFrame.from_records(records))
+</code></pre>
+<h3><a class="anchor" aria-hidden="true" id="adding-your-own-runner"></a><a href="#adding-your-own-runner" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Adding Your Own Runner</h3>
+<p>In order to control how the experiment is deployed, you can add your own runner. To do so, subclass <a href="../api/core.html#ax.core.runner.Runner"><code>Runner</code></a> and implement the <a href="../api/core.html#ax.core.runner.Runner.run"><code>run</code></a> method and <a href="../api/core.html#ax.core.runner.Runner.staging_required"><code>staging_required</code></a> property.</p>
+<p>The <a href="../api/core.html#ax.core.runner.Runner.run"><code>run</code></a> method accepts a <a href="../api/core.html#ax.core.trial.Trial"><code>Trial</code></a> and returns a JSON-serializable dictionary of any necessary tracking info to fetch data later from this external system. A unique identifier or name for this trial in the external system should be stored in this dictionary with the key <code>&quot;name&quot;</code>, and this can later be accessed via <code>trial.deployed_name</code>.</p>
+<p>The <a href="../api/core.html#ax.core.runner.Runner.staging_required"><code>staging_required</code></a> indicates whether the trial requires an intermediate staging period before evaluation begins. This property returns False by default.</p>
+<p>An example implementation is given below:</p>
+<pre><code class="hljs css language-python"><span class="hljs-keyword">from</span> foo_system <span class="hljs-keyword">import</span> deploy_to_foo
+<span class="hljs-keyword">from</span> ax <span class="hljs-keyword">import</span> Runner
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FooRunner</span><span class="hljs-params">(Runner)</span>:</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span><span class="hljs-params">(self, foo_param)</span>:</span>
+        self.foo_param = foo_param
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">run</span><span class="hljs-params">(self, trial)</span>:</span>
+        name_to_params = {
+            arm.name: arm.params <span class="hljs-keyword">for</span> arm <span class="hljs-keyword">in</span> trial.arms
+        }
+        run_metadata = deploy_to_foo(self.foo_param, name_to_params)
+        <span class="hljs-keyword">return</span> run_metadata
+
+<span class="hljs-meta">    @property</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">staging_required</span><span class="hljs-params">(self)</span>:</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">False</span>
+</code></pre>
+<p>This is then invoked by calling:</p>
+<pre><code class="hljs css language-python">exp = Experiment(...)
+exp.runner = FooRunner(foo_param=<span class="hljs-string">"foo"</span>)
+trial = exp.new_batch_trial()
+
+<span class="hljs-comment"># This calls runner's run method and stores metadata output</span>
+<span class="hljs-comment"># in the trial.run_metadata field</span>
+trial.run()
+</code></pre>
+</span></div></article></div><div class="docs-prevnext"><a class="docs-prev button" href="/versions/0.2.5/docs/core.html"><span class="arrow-prev">← </span><span>Core</span></a><a class="docs-next button" href="/versions/0.2.5/docs/data.html"><span>Data</span><span class="arrow-next"> →</span></a></div></div></div><nav class="onPageNav"><ul class="toc-headings"><li><a href="#service-api">Service API</a><ul class="toc-headings"><li><a href="#evaluating-trial-parameters">Evaluating Trial Parameters</a></li></ul></li><li><a href="#loop-api">Loop API</a></li><li><a href="#developer-api">Developer API</a><ul class="toc-headings"><li><a href="#custom-metrics">Custom Metrics</a></li><li><a href="#adding-your-own-runner">Adding Your Own Runner</a></li></ul></li></ul></nav></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.5/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

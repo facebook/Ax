@@ -1,0 +1,692 @@
+<!DOCTYPE html><html lang=""><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.3.5/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.3.5/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.3.5/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.3.5/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.3.5/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.3.5/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.3.5/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.3.5/css/main.css"/><script src="/versions/0.3.5/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.3.5/"><img class="logo" src="/versions/0.3.5/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.3.5/versions.html"><h3>0.3.5</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.3.5/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.3.5/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.3.5/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="container docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><div class="hamburger-menu"><div class="line1"></div><div class="line2"></div><div class="line3"></div></div></div><h2><i>›</i><span></span></h2><div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div></div><div class="navGroups"><div class="navGroup"><h3 class="navGroupCategoryTitle">Tutorials</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/">Overview</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">API Comparison</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/gpei_hartmann_loop.html">Loop API</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/gpei_hartmann_service.html">Service API</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/gpei_hartmann_developer.html">Developer API</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Deep Dives</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/visualizations.html">Visualizations</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/generation_strategy.html">Generation Strategy</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/scheduler.html">Scheduler</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/modular_botax.html">Modular `BoTorchModel`</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Bayesian Optimization</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/tune_cnn_service.html">Hyperparameter Optimization for PyTorch</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/raytune_pytorch_cnn.html">Hyperparameter Optimization via Raytune</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/multi_task.html">Multi-Task Modeling</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/multiobjective_optimization.html">Multi-Objective Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/saasbo.html">High-Dimensional Bayesian Optimization with Sparse Axis-Aligned Subspaces (SAASBO)</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/saasbo_nehvi.html">Fully Bayesian, High-Dimensional, Multi-Objective Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/sebo.html">Sparsity Exploration Bayesian Optimization (SEBO)</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/early_stopping/early_stopping.html">Trial-Level Early Stopping</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/gss.html">Global Stopping (Experiment-Level Early Stopping)</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Field Experiments</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/factorial.html">Bandit Optimization</a></li><li class="navListItem navListItemActive"><a class="navItem" href="/versions/0.3.5/tutorials/human_in_the_loop/human_in_the_loop.html">Human-in-the-Loop Optimization</a></li></ul></div></div></section></div><script>
+            var coll = document.getElementsByClassName('collapsible');
+            var checkActiveCategory = true;
+            for (var i = 0; i < coll.length; i++) {
+              var links = coll[i].nextElementSibling.getElementsByTagName('*');
+              if (checkActiveCategory){
+                for (var j = 0; j < links.length; j++) {
+                  if (links[j].classList.contains('navListItemActive')){
+                    coll[i].nextElementSibling.classList.toggle('hide');
+                    coll[i].childNodes[1].classList.toggle('rotate');
+                    checkActiveCategory = false;
+                    break;
+                  }
+                }
+              }
+
+              coll[i].addEventListener('click', function() {
+                var arrow = this.childNodes[1];
+                arrow.classList.toggle('rotate');
+                var content = this.nextElementSibling;
+                content.classList.toggle('hide');
+              });
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+              createToggler('#navToggler', '#docsNav', 'docsSliderActive');
+              createToggler('#tocToggler', 'body', 'tocActive');
+
+              var headings = document.querySelector('.toc-headings');
+              headings && headings.addEventListener('click', function(event) {
+                var el = event.target;
+                while(el !== headings){
+                  if (el.tagName === 'A') {
+                    document.body.classList.remove('tocActive');
+                    break;
+                  } else{
+                    el = el.parentNode;
+                  }
+                }
+              }, false);
+
+              function createToggler(togglerSelector, targetSelector, className) {
+                var toggler = document.querySelector(togglerSelector);
+                var target = document.querySelector(targetSelector);
+
+                if (!toggler) {
+                  return;
+                }
+
+                toggler.onclick = function(event) {
+                  event.preventDefault();
+
+                  target.classList.toggle(className);
+                };
+              }
+            });
+        </script></nav></div><div class="container mainContainer"><div class="wrapper"><div class="tutorialBody">
+<script>
+const requirejs = Object();
+requirejs.config = function() { };
+
+const dependencyMap = {
+    'plotly': Plotly,
+}
+
+function require(deps, fxn) {
+    return fxn(...deps.map(dep => dependencyMap[dep]));
+};
+</script>
+<div class="notebook">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Using-Ax-for-Human-in-the-loop-Experimentation%C2%B6">Using Ax for Human-in-the-loop Experimentation¶<a class="anchor-link" href="#Using-Ax-for-Human-in-the-loop-Experimentation%C2%B6">¶</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>While Ax can be used in as a fully automated service, generating and deploying candidates Ax can be also used in a trial-by-trial fashion, allowing for human oversight.</p>
+<p>Typically, human intervention in Ax is necessary when there are clear tradeoffs between multiple metrics of interest. Condensing multiple outcomes of interest into a single scalar quantity can be really challenging. Instead, it can be useful to specify an objective and constraints, and tweak these based on the information from the experiment.</p>
+<p>To facilitate this, Ax provides the following key features:</p>
+<ol>
+<li>Constrained optimization</li>
+<li>Interfaces for easily modifying optimization goals</li>
+<li>Utilities for visualizing and deploying new trials composed of multiple optimizations.</li>
+</ol>
+<p>In this tutorial, we'll demonstrate how Ax enables users to explore these tradeoffs. With an understanding of the tradeoffs present in our data, we'll then make use of the constrained optimization utilities to generate candidates from multiple different optimization objectives, and create a conglomerate batch, with all of these candidates in together in one trial.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Experiment-Setup">Experiment Setup<a class="anchor-link" href="#Experiment-Setup">¶</a></h2><p>For this tutorial, we will assume our experiment has already been created.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">from</span> <span class="nn">ax</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Data</span><span class="p">,</span>
+    <span class="n">Metric</span><span class="p">,</span>
+    <span class="n">OptimizationConfig</span><span class="p">,</span>
+    <span class="n">Objective</span><span class="p">,</span>
+    <span class="n">OutcomeConstraint</span><span class="p">,</span>
+    <span class="n">ComparisonOp</span><span class="p">,</span>
+    <span class="n">json_load</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.cross_validation</span> <span class="kn">import</span> <span class="n">cross_validate</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.factory</span> <span class="kn">import</span> <span class="n">get_GPEI</span>
+<span class="kn">from</span> <span class="nn">ax.plot.diagnostic</span> <span class="kn">import</span> <span class="n">tile_cross_validation</span>
+<span class="kn">from</span> <span class="nn">ax.plot.scatter</span> <span class="kn">import</span> <span class="n">plot_multiple_metrics</span><span class="p">,</span> <span class="n">tile_fitted</span>
+<span class="kn">from</span> <span class="nn">ax.utils.notebook.plotting</span> <span class="kn">import</span> <span class="n">render</span><span class="p">,</span> <span class="n">init_notebook_plotting</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="n">init_notebook_plotting</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>NOTE: The path below assumes the tutorial is being run from the root directory of the Ax package. This is needed since the jupyter notebooks may change active directory during runtime, making it tricky to find the file in a consistent way.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">curr_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="s2">"tutorials"</span><span class="p">,</span> <span class="s2">"human_in_the_loop"</span><span class="p">)</span>
+<span class="n">experiment</span> <span class="o">=</span> <span class="n">json_load</span><span class="o">.</span><span class="n">load_experiment</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">curr_dir</span><span class="p">,</span> <span class="s2">"hitl_exp.json"</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Initial-Sobol-Trial">Initial Sobol Trial<a class="anchor-link" href="#Initial-Sobol-Trial">¶</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Bayesian Optimization experiments almost always begin with a set of random points. In this experiment, these points were chosen via a Sobol sequence, accessible via the <code>ModelBridge</code> factory.</p>
+<p>A collection of points run and analyzed together form a <code>BatchTrial</code>. A <code>Trial</code> object provides metadata pertaining to the deployment of these points, including details such as when they were deployed, and the current status of their experiment.</p>
+<p>Here, we see an initial experiment has finished running (COMPLETED status).</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">time_created</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Number of arms in first experiment, including status_quo</span>
+<span class="nb">len</span><span class="p">(</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">arms</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Sample arm configuration</span>
+<span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">arms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Experiment-Analysis">Experiment Analysis<a class="anchor-link" href="#Experiment-Analysis">¶</a></h2><p><strong>Optimization Config</strong></p>
+<p>An important construct for analyzing an experiment is an OptimizationConfig. An OptimizationConfig contains an objective, and outcome constraints. Experiment's can have a default OptimizationConfig, but models can also take an OptimizationConfig as input independent of the default.</p>
+<p><strong>Objective:</strong> A metric to optimize, along with a direction to optimize (default: maximize)</p>
+<p><strong>Outcome Constraint:</strong> A metric to constrain, along with a constraint direction (&lt;= or &gt;=), as well as a bound.</p>
+<p>Let's start with a simple OptimizationConfig. By default, our objective metric will be maximized, but can be minimized by setting the <code>minimize</code> flag. Our outcome constraint will, by default, be evaluated as a relative percentage change. This percentage change is computed relative to the experiment's status quo arm.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">experiment</span><span class="o">.</span><span class="n">status_quo</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">objective_metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"metric_1"</span><span class="p">)</span>
+<span class="n">constraint_metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"metric_2"</span><span class="p">)</span>
+
+<span class="n">experiment</span><span class="o">.</span><span class="n">optimization_config</span> <span class="o">=</span> <span class="n">OptimizationConfig</span><span class="p">(</span>
+    <span class="n">objective</span><span class="o">=</span><span class="n">Objective</span><span class="p">(</span><span class="n">objective_metric</span><span class="p">),</span>
+    <span class="n">outcome_constraints</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">OutcomeConstraint</span><span class="p">(</span><span class="n">metric</span><span class="o">=</span><span class="n">constraint_metric</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">ComparisonOp</span><span class="o">.</span><span class="n">LEQ</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="mi">5</span><span class="p">),</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>Data</strong></p>
+<p>Another critical piece of analysis is data itself! Ax data follows a standard format, shown below. This format is imposed upon the underlying data structure, which is a Pandas DataFrame.</p>
+<p>A key set of fields are required for all data, for use with Ax models.</p>
+<p>It's a good idea to double check our data before fitting models -- let's make sure all of our expected metrics and arms are present.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">data</span> <span class="o">=</span> <span class="n">Data</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">read_json</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">curr_dir</span><span class="p">,</span> <span class="s2">"hitl_data.json"</span><span class="p">)))</span>
+<span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">"arm_name"</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">"metric_name"</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>Search Space</strong></p>
+<p>The final component necessary for human-in-the-loop optimization is a SearchSpace. A SearchSpace defines the feasible region for our parameters, as well as their types.</p>
+<p>Here, we have both parameters and a set of constraints on those parameters.</p>
+<p>Without a SearchSpace, our models are unable to generate new candidates. By default, the models will read the search space off of the experiment, when they are told to generate candidates. SearchSpaces can also be specified by the user at this time. Sometimes, the first round of an experiment is too restrictive--perhaps the experimenter was too cautious when defining their initial ranges for exploration! In this case, it can be useful to generate candidates from new, expanded search spaces, beyond that specified in the experiment.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">experiment</span><span class="o">.</span><span class="n">search_space</span><span class="o">.</span><span class="n">parameters</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">experiment</span><span class="o">.</span><span class="n">search_space</span><span class="o">.</span><span class="n">parameter_constraints</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Model-Fit">Model Fit<a class="anchor-link" href="#Model-Fit">¶</a></h3><p>Fitting BoTorch's GPEI will allow us to predict new candidates based on our first Sobol batch.
+Here, we make use of the default settings for GP-EI defined in the ModelBridge factory.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">gp</span> <span class="o">=</span> <span class="n">get_GPEI</span><span class="p">(</span>
+    <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+    <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We can validate the model fits using cross validation, shown below for each metric of interest. Here, our model fits leave something to be desired--the tail ends of each metric are hard to model. In this situation, there are three potential actions to take:</p>
+<ol>
+<li>Increase the amount of traffic in this experiment, to reduce the measurement noise.</li>
+<li>Increase the number of points run in the random batch, to assist the GP in covering the space.</li>
+<li>Reduce the number of parameters tuned at one time.</li>
+</ol>
+<p>However, away from the tail effects, the fits do show a strong correlations, so we will proceed with candidate generation.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">cv_result</span> <span class="o">=</span> <span class="n">cross_validate</span><span class="p">(</span><span class="n">gp</span><span class="p">)</span>
+<span class="n">render</span><span class="p">(</span><span class="n">tile_cross_validation</span><span class="p">(</span><span class="n">cv_result</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The parameters from the initial batch have a wide range of effects on the metrics of interest, as shown from the outcomes from our fitted GP model.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">render</span><span class="p">(</span><span class="n">tile_fitted</span><span class="p">(</span><span class="n">gp</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">METRIC_X_AXIS</span> <span class="o">=</span> <span class="s2">"metric_1"</span>
+<span class="n">METRIC_Y_AXIS</span> <span class="o">=</span> <span class="s2">"metric_2"</span>
+
+<span class="n">render</span><span class="p">(</span>
+    <span class="n">plot_multiple_metrics</span><span class="p">(</span>
+        <span class="n">gp</span><span class="p">,</span>
+        <span class="n">metric_x</span><span class="o">=</span><span class="n">METRIC_X_AXIS</span><span class="p">,</span>
+        <span class="n">metric_y</span><span class="o">=</span><span class="n">METRIC_Y_AXIS</span><span class="p">,</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Candidate-Generation">Candidate Generation<a class="anchor-link" href="#Candidate-Generation">¶</a></h3><p>With our fitted GPEI model, we can optimize EI (Expected Improvement) based on any optimization config.
+We can start with our initial optimization config, and aim to simply maximize the playback smoothness, without worrying about the constraint on quality.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">unconstrained</span> <span class="o">=</span> <span class="n">gp</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span>
+    <span class="n">n</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">optimization_config</span><span class="o">=</span><span class="n">OptimizationConfig</span><span class="p">(</span>
+        <span class="n">objective</span><span class="o">=</span><span class="n">Objective</span><span class="p">(</span><span class="n">objective_metric</span><span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Let's plot the tradeoffs again, but with our new arms.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">render</span><span class="p">(</span>
+    <span class="n">plot_multiple_metrics</span><span class="p">(</span>
+        <span class="n">gp</span><span class="p">,</span>
+        <span class="n">metric_x</span><span class="o">=</span><span class="n">METRIC_X_AXIS</span><span class="p">,</span>
+        <span class="n">metric_y</span><span class="o">=</span><span class="n">METRIC_Y_AXIS</span><span class="p">,</span>
+        <span class="n">generator_runs_dict</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">"unconstrained"</span><span class="p">:</span> <span class="n">unconstrained</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Change-Objectives">Change Objectives<a class="anchor-link" href="#Change-Objectives">¶</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>With our unconstrained optimization, we generate some candidates which are pretty promising with respect to our objective! However, there is a clear regression in our constraint metric, above our initial 5% desired constraint. Let's add that constraint back in.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">constraint_5</span> <span class="o">=</span> <span class="n">OutcomeConstraint</span><span class="p">(</span><span class="n">metric</span><span class="o">=</span><span class="n">constraint_metric</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">ComparisonOp</span><span class="o">.</span><span class="n">LEQ</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">constraint_5_results</span> <span class="o">=</span> <span class="n">gp</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span>
+    <span class="n">n</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">optimization_config</span><span class="o">=</span><span class="n">OptimizationConfig</span><span class="p">(</span>
+        <span class="n">objective</span><span class="o">=</span><span class="n">Objective</span><span class="p">(</span><span class="n">objective_metric</span><span class="p">),</span> <span class="n">outcome_constraints</span><span class="o">=</span><span class="p">[</span><span class="n">constraint_5</span><span class="p">]</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>This yields a <em>GeneratorRun</em>, which contains points according to our specified optimization config, along with metadata about how the points were generated. Let's plot the tradeoffs in these new points.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax.plot.scatter</span> <span class="kn">import</span> <span class="n">plot_multiple_metrics</span>
+
+<span class="n">render</span><span class="p">(</span>
+    <span class="n">plot_multiple_metrics</span><span class="p">(</span>
+        <span class="n">gp</span><span class="p">,</span>
+        <span class="n">metric_x</span><span class="o">=</span><span class="n">METRIC_X_AXIS</span><span class="p">,</span>
+        <span class="n">metric_y</span><span class="o">=</span><span class="n">METRIC_Y_AXIS</span><span class="p">,</span>
+        <span class="n">generator_runs_dict</span><span class="o">=</span><span class="p">{</span><span class="s2">"constraint_5"</span><span class="p">:</span> <span class="n">constraint_5_results</span><span class="p">},</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>It is important to note that the treatment of constraints in GP EI is probabilistic. The acquisition function weights our objective by the probability that each constraint is feasible. Thus, we may allow points with a very small probability of violating the constraint to be generated, as long as the chance of the points increasing our objective is high enough.</p>
+<p>You can see above that the point estimate for each point is significantly below a 5% increase in the constraint metric, but that there is uncertainty in our prediction, and the tail probabilities do include probabilities of small regressions beyond 5%.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">constraint_1</span> <span class="o">=</span> <span class="n">OutcomeConstraint</span><span class="p">(</span><span class="n">metric</span><span class="o">=</span><span class="n">constraint_metric</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">ComparisonOp</span><span class="o">.</span><span class="n">LEQ</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">constraint_1_results</span> <span class="o">=</span> <span class="n">gp</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span>
+    <span class="n">n</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">optimization_config</span><span class="o">=</span><span class="n">OptimizationConfig</span><span class="p">(</span>
+        <span class="n">objective</span><span class="o">=</span><span class="n">Objective</span><span class="p">(</span><span class="n">objective_metric</span><span class="p">),</span>
+        <span class="n">outcome_constraints</span><span class="o">=</span><span class="p">[</span><span class="n">constraint_1</span><span class="p">],</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">render</span><span class="p">(</span>
+    <span class="n">plot_multiple_metrics</span><span class="p">(</span>
+        <span class="n">gp</span><span class="p">,</span>
+        <span class="n">metric_x</span><span class="o">=</span><span class="n">METRIC_X_AXIS</span><span class="p">,</span>
+        <span class="n">metric_y</span><span class="o">=</span><span class="n">METRIC_Y_AXIS</span><span class="p">,</span>
+        <span class="n">generator_runs_dict</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">"constraint_1"</span><span class="p">:</span> <span class="n">constraint_1_results</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Finally, let's view all three sets of candidates together.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">render</span><span class="p">(</span>
+    <span class="n">plot_multiple_metrics</span><span class="p">(</span>
+        <span class="n">gp</span><span class="p">,</span>
+        <span class="n">metric_x</span><span class="o">=</span><span class="n">METRIC_X_AXIS</span><span class="p">,</span>
+        <span class="n">metric_y</span><span class="o">=</span><span class="n">METRIC_Y_AXIS</span><span class="p">,</span>
+        <span class="n">generator_runs_dict</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">"unconstrained"</span><span class="p">:</span> <span class="n">unconstrained</span><span class="p">,</span>
+            <span class="s2">"loose_constraint"</span><span class="p">:</span> <span class="n">constraint_5_results</span><span class="p">,</span>
+            <span class="s2">"tight_constraint"</span><span class="p">:</span> <span class="n">constraint_1_results</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Creating-a-New-Trial">Creating a New Trial<a class="anchor-link" href="#Creating-a-New-Trial">¶</a></h2><p>Having done the analysis and candidate generation for three different optimization configs, we can easily create a new <code>BatchTrial</code> which combines the candidates from these three different optimizations. Each set of candidates looks promising -- the point estimates are higher along both metric values than in the previous batch. However, there is still a good bit of uncertainty in our predictions. It is hard to choose between the different constraint settings without reducing this noise, so we choose to run a new trial with all three constraint settings. However, we're generally convinced that the tight constraint is too conservative. We'd still like to reduce our uncertainty in that region, but we'll only take one arm from that set.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># We can add entire generator runs, when constructing a new trial.</span>
+<span class="n">trial</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">experiment</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">()</span>
+    <span class="o">.</span><span class="n">add_generator_run</span><span class="p">(</span><span class="n">unconstrained</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">add_generator_run</span><span class="p">(</span><span class="n">constraint_5_results</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="c1"># Or, we can hand-pick arms.</span>
+<span class="n">trial</span><span class="o">.</span><span class="n">add_arm</span><span class="p">(</span><span class="n">constraint_1_results</span><span class="o">.</span><span class="n">arms</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The arms are combined into a single trial, along with the <code>status_quo</code> arm. Their generator can be accessed from the trial as well.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">arms</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The original <code>GeneratorRuns</code> can be accessed from within the trial as well. This is useful for later analyses, allowing introspection of the <code>OptimizationConfig</code> used for generation (as well as other information, e.g. <code>SearchSpace</code> used for generation).</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">_generator_run_structs</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Here, we can see the unconstrained set-up used for our first set of candidates.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">_generator_run_structs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">generator_run</span><span class="o">.</span><span class="n">optimization_config</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/0.3.5/files/human_in_the_loop/human_in_the_loop.tar.gz" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Archive (.tar.gz): Notebook, Source and Data</a></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/0.3.5/files/human_in_the_loop/human_in_the_loop.ipynb" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Jupyter Notebook</a></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/0.3.5/files/human_in_the_loop/human_in_the_loop.py" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Source Code</a></div><div class="tutorialRuntime"><p>Total runtime of script: 1 minutes, 49.13 seconds.</p></div></div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.3.5/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2023 Meta Platforms, Inc.</section></footer></div></body></html>

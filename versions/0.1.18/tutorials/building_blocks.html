@@ -1,0 +1,1115 @@
+<!DOCTYPE html><html lang=""><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.18/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.18/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.18/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.18/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.18/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.18/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.18/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.18/css/main.css"/><script src="/versions/0.1.18/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.18/"><img class="logo" src="/versions/0.1.18/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.18/versions.html"><h3>0.1.18</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.18/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.18/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.18/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="container docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><div class="hamburger-menu"><div class="line1"></div><div class="line2"></div><div class="line3"></div></div></div><h2><i>›</i><span></span></h2><div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div></div><div class="navGroups"><div class="navGroup"><h3 class="navGroupCategoryTitle">Tutorials</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.1.18/tutorials/">Overview</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">API Comparison</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.1.18/tutorials/gpei_hartmann_loop.html">Loop API</a></li><li class="navListItem"><a class="navItem" href="/versions/0.1.18/tutorials/gpei_hartmann_service.html">Service API</a></li><li class="navListItem"><a class="navItem" href="/versions/0.1.18/tutorials/gpei_hartmann_developer.html">Developer API</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Bayesian Optimization</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.1.18/tutorials/tune_cnn.html">Hyperparameter Optimization for PyTorch</a></li><li class="navListItem"><a class="navItem" href="/versions/0.1.18/tutorials/raytune_pytorch_cnn.html">Hyperparameter Optimization via Raytune</a></li><li class="navListItem"><a class="navItem" href="/versions/0.1.18/tutorials/multi_task.html">Multi-Task Modeling</a></li><li class="navListItem"><a class="navItem" href="/versions/0.1.18/tutorials/multiobjective_optimization.html">Multi-Objective Optimization</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Field Experiments</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.1.18/tutorials/factorial.html">Bandit Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/0.1.18/tutorials/human_in_the_loop/human_in_the_loop.html">Human-in-the-Loop Optimization</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Deep Dives</h3><ul class=""><li class="navListItem navListItemActive"><a class="navItem" href="/versions/0.1.18/tutorials/building_blocks.html">Building Blocks of Ax</a></li><li class="navListItem"><a class="navItem" href="/versions/0.1.18/tutorials/visualizations.html">Visualizations</a></li></ul></div></div></section></div><script>
+            var coll = document.getElementsByClassName('collapsible');
+            var checkActiveCategory = true;
+            for (var i = 0; i < coll.length; i++) {
+              var links = coll[i].nextElementSibling.getElementsByTagName('*');
+              if (checkActiveCategory){
+                for (var j = 0; j < links.length; j++) {
+                  if (links[j].classList.contains('navListItemActive')){
+                    coll[i].nextElementSibling.classList.toggle('hide');
+                    coll[i].childNodes[1].classList.toggle('rotate');
+                    checkActiveCategory = false;
+                    break;
+                  }
+                }
+              }
+
+              coll[i].addEventListener('click', function() {
+                var arrow = this.childNodes[1];
+                arrow.classList.toggle('rotate');
+                var content = this.nextElementSibling;
+                content.classList.toggle('hide');
+              });
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+              createToggler('#navToggler', '#docsNav', 'docsSliderActive');
+              createToggler('#tocToggler', 'body', 'tocActive');
+
+              var headings = document.querySelector('.toc-headings');
+              headings && headings.addEventListener('click', function(event) {
+                var el = event.target;
+                while(el !== headings){
+                  if (el.tagName === 'A') {
+                    document.body.classList.remove('tocActive');
+                    break;
+                  } else{
+                    el = el.parentNode;
+                  }
+                }
+              }, false);
+
+              function createToggler(togglerSelector, targetSelector, className) {
+                var toggler = document.querySelector(togglerSelector);
+                var target = document.querySelector(targetSelector);
+
+                if (!toggler) {
+                  return;
+                }
+
+                toggler.onclick = function(event) {
+                  event.preventDefault();
+
+                  target.classList.toggle(className);
+                };
+              }
+            });
+        </script></nav></div><div class="container mainContainer"><div class="wrapper"><div class="tutorialBody">
+<script>
+const requirejs = Object();
+requirejs.config = function() { };
+
+const dependencyMap = {
+    'plotly': Plotly,
+}
+
+function require(deps, fxn) {
+    return fxn(...deps.map(dep => dependencyMap[dep]));
+};
+</script>
+<div class="notebook">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Building-Blocks-of-Ax">Building Blocks of Ax<a class="anchor-link" href="#Building-Blocks-of-Ax">¶</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>This tutorial illustrates the core Ax classes and their usage by constructing, running, and saving an experiment through the Developer API.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [1]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">ax</span> <span class="kn">import</span> <span class="o">*</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="1.-Define-the-search-space">1. Define the search space<a class="anchor-link" href="#1.-Define-the-search-space">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The core <code>Experiment</code> class only has one required parameter, <code>search_space</code>. A SearchSpace is composed of a set of parameters to be tuned in the experiment, and optionally a set of parameter constraints that define restrictions across these parameters.</p>
+<p>Here we range over two parameters, each of which can take on values between 0 and 10.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [2]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">range_param1</span> <span class="o">=</span> <span class="n">RangeParameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"x1"</span><span class="p">,</span> <span class="n">lower</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">)</span>
+<span class="n">range_param2</span> <span class="o">=</span> <span class="n">RangeParameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"x2"</span><span class="p">,</span> <span class="n">lower</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">)</span>
+
+<span class="n">search_space</span> <span class="o">=</span> <span class="n">SearchSpace</span><span class="p">(</span>
+    <span class="n">parameters</span><span class="o">=</span><span class="p">[</span><span class="n">range_param1</span><span class="p">,</span> <span class="n">range_param2</span><span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Note that there are two other types of parameters, FixedParameter and ChoiceParameter. Although we won't use these in this example, you can create them as follows.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [3]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">choice_param</span> <span class="o">=</span> <span class="n">ChoiceParameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"choice"</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="p">[</span><span class="s2">"foo"</span><span class="p">,</span> <span class="s2">"bar"</span><span class="p">],</span> <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">STRING</span><span class="p">)</span>
+<span class="n">fixed_param</span> <span class="o">=</span> <span class="n">FixedParameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"fixed"</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="p">[</span><span class="kc">True</span><span class="p">],</span> <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">BOOL</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Sum constraints enforce that the sum of a set of parameters is greater or less than some bound, and order constraints enforce that one parameter is smaller than the other. We won't use these either, but see two examples below.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [4]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">sum_constraint</span> <span class="o">=</span> <span class="n">SumConstraint</span><span class="p">(</span>
+    <span class="n">parameters</span><span class="o">=</span><span class="p">[</span><span class="n">range_param1</span><span class="p">,</span> <span class="n">range_param2</span><span class="p">],</span> 
+    <span class="n">is_upper_bound</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> 
+    <span class="n">bound</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">order_constraint</span> <span class="o">=</span> <span class="n">OrderConstraint</span><span class="p">(</span>
+    <span class="n">lower_parameter</span> <span class="o">=</span> <span class="n">range_param1</span><span class="p">,</span>
+    <span class="n">upper_parameter</span> <span class="o">=</span> <span class="n">range_param2</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="2.-Define-the-experiment">2. Define the experiment<a class="anchor-link" href="#2.-Define-the-experiment">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Once we have a search space, we can create an experiment.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [5]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">experiment</span> <span class="o">=</span> <span class="n">Experiment</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"experiment_building_blocks"</span><span class="p">,</span>
+    <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We can also define control values for each parameter by adding a status quo arm to the experiment.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [6]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">experiment</span><span class="o">.</span><span class="n">status_quo</span> <span class="o">=</span> <span class="n">Arm</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"control"</span><span class="p">,</span> 
+    <span class="n">parameters</span><span class="o">=</span><span class="p">{</span><span class="s2">"x1"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">"x2"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="3.-Generate-arms">3. Generate arms<a class="anchor-link" href="#3.-Generate-arms">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We can now generate arms, i.e. assignments of parameters to values, that lie within the search space. Below we use a Sobol generator to generate ten quasi-random arms. The <code>Models</code> registry provides a set of standard models Ax contains.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [7]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">sobol</span> <span class="o">=</span> <span class="n">Models</span><span class="o">.</span><span class="n">SOBOL</span><span class="p">(</span><span class="n">search_space</span><span class="o">=</span><span class="n">experiment</span><span class="o">.</span><span class="n">search_space</span><span class="p">)</span>
+<span class="n">generator_run</span> <span class="o">=</span> <span class="n">sobol</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">generator_run</span><span class="o">.</span><span class="n">arms</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">arm</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Arm(parameters={'x1': 4.135521380230784, 'x2': 8.327297773212194})
+Arm(parameters={'x1': 0.44201753102242947, 'x2': 0.20572946406900883})
+Arm(parameters={'x1': 5.49844142049551, 'x2': 5.671116150915623})
+Arm(parameters={'x1': 6.35067742317915, 'x2': 1.6385249514132738})
+Arm(parameters={'x1': 1.445555156096816, 'x2': 7.40604542195797})
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>To inspect available model settings, we can call <code>view_kwargs</code> or <code>view_defaults</code> on a specific model:</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [8]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">Models</span><span class="o">.</span><span class="n">SOBOL</span><span class="o">.</span><span class="n">view_kwargs</span><span class="p">()</span>  <span class="c1"># Shows keyword argument names and typing.</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[8]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>({'seed': typing.Union[int, NoneType],
+  'deduplicate': bool,
+  'init_position': int,
+  'scramble': bool,
+  'generated_points': typing.Union[numpy.ndarray, NoneType]},
+ {'search_space': ax.core.search_space.SearchSpace,
+  'model': typing.Any,
+  'transforms': typing.Union[typing.List[typing.Type[ax.modelbridge.transforms.base.Transform]], NoneType],
+  'experiment': typing.Union[ax.core.experiment.Experiment, NoneType],
+  'data': typing.Union[ax.core.data.Data, NoneType],
+  'transform_configs': typing.Union[typing.Dict[str, typing.Dict[str, typing.Union[int, float, str, botorch.acquisition.acquisition.AcquisitionFunction, typing.Dict[str, typing.Any]]]], NoneType],
+  'status_quo_name': typing.Union[str, NoneType],
+  'status_quo_features': typing.Union[ax.core.observation.ObservationFeatures, NoneType],
+  'optimization_config': typing.Union[ax.core.optimization_config.OptimizationConfig, NoneType],
+  'fit_out_of_design': bool})</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Any of the default arguments can be overriden by simply passing that keyword argument to the model constructor (e.g. <code>Models.SOBOL</code>).</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="4.-Define-an-optimization-config-with-custom-metrics">4. Define an optimization config with custom metrics<a class="anchor-link" href="#4.-Define-an-optimization-config-with-custom-metrics">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>In order to perform an optimization, we also need to define an optimization config for the experiment. An optimization config is composed of an objective metric to be minimized or maximized in the experiment, and optionally a set of outcome constraints that place restrictions on how other metrics can be moved by the experiment.</p>
+<p>In order to define an objective or outcome constraint, we first need to subclass <code>Metric</code>. Metrics are used to evaluate trials, which are individual steps of the experiment sequence. Each trial contains one or more arms for which we will collect data at the same time.</p>
+<p>Our custom metric(s) will determine how, given a trial, to compute the mean and sem of each of the trial's arms.</p>
+<p>The only method that needs to be defined for most metric subclasses is <code>fetch_trial_data</code>, which defines how a single trial is evaluated, and returns a pandas dataframe.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [9]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">class</span> <span class="nc">BoothMetric</span><span class="p">(</span><span class="n">Metric</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">fetch_trial_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial</span><span class="p">):</span>  
+        <span class="n">records</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">arm_name</span><span class="p">,</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">trial</span><span class="o">.</span><span class="n">arms_by_name</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">params</span> <span class="o">=</span> <span class="n">arm</span><span class="o">.</span><span class="n">parameters</span>
+            <span class="n">records</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s2">"arm_name"</span><span class="p">:</span> <span class="n">arm_name</span><span class="p">,</span>
+                <span class="s2">"metric_name"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="s2">"mean"</span><span class="p">:</span> <span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s2">"x1"</span><span class="p">]</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">params</span><span class="p">[</span><span class="s2">"x2"</span><span class="p">]</span> <span class="o">-</span> <span class="mi">7</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">params</span><span class="p">[</span><span class="s2">"x1"</span><span class="p">]</span> <span class="o">+</span> <span class="n">params</span><span class="p">[</span><span class="s2">"x2"</span><span class="p">]</span> <span class="o">-</span> <span class="mi">5</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span>
+                <span class="s2">"sem"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+                <span class="s2">"trial_index"</span><span class="p">:</span> <span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+            <span class="p">})</span>
+        <span class="k">return</span> <span class="n">Data</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_records</span><span class="p">(</span><span class="n">records</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Once we have our metric subclasses, we can define on optimization config.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [10]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">optimization_config</span> <span class="o">=</span> <span class="n">OptimizationConfig</span><span class="p">(</span>
+    <span class="n">objective</span> <span class="o">=</span> <span class="n">Objective</span><span class="p">(</span>
+        <span class="n">metric</span><span class="o">=</span><span class="n">BoothMetric</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"booth"</span><span class="p">),</span> 
+        <span class="n">minimize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+
+<span class="n">experiment</span><span class="o">.</span><span class="n">optimization_config</span> <span class="o">=</span> <span class="n">optimization_config</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Outcome constraints can also be defined as follows and passed into the optimization config.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [11]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">outcome_constraint</span> <span class="o">=</span> <span class="n">OutcomeConstraint</span><span class="p">(</span>
+    <span class="n">metric</span><span class="o">=</span><span class="n">Metric</span><span class="p">(</span><span class="s2">"constraint"</span><span class="p">),</span> 
+    <span class="n">op</span><span class="o">=</span><span class="n">ComparisonOp</span><span class="o">.</span><span class="n">LEQ</span><span class="p">,</span> 
+    <span class="n">bound</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="5.-Define-a-runner">5. Define a runner<a class="anchor-link" href="#5.-Define-a-runner">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Before an experiment can collect data, it must have a <code>Runner</code> attached. A runner handles the deployment of trials. A trial must be "run" before it can be evaluated.</p>
+<p>Here, we have a dummy runner that does nothing. In practice, a runner might be in charge of pushing an experiment to production.</p>
+<p>The only method that needs to be defined for runner subclasses is <code>run</code>, which performs any necessary deployment logic, and returns a dictionary of resulting metadata.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [12]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">class</span> <span class="nc">MyRunner</span><span class="p">(</span><span class="n">Runner</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">)}</span>
+    
+<span class="n">experiment</span><span class="o">.</span><span class="n">runner</span> <span class="o">=</span> <span class="n">MyRunner</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="6.-Create-a-trial">6. Create a trial<a class="anchor-link" href="#6.-Create-a-trial">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Now we can collect data for arms within our search space and begin the optimization. We do this by:</p>
+<ol>
+<li>Generating arms for an initial exploratory batch (already done above, using Sobol)</li>
+<li>Adding these arms to a trial</li>
+<li>Running the trial</li>
+<li>Evaluating the trial</li>
+<li>Generating new arms based on the results, and repeating</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [13]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">experiment</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">(</span><span class="n">generator_run</span><span class="o">=</span><span class="n">generator_run</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[13]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>BatchTrial(experiment_name='experiment_building_blocks', index=0, status=TrialStatus.CANDIDATE)</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Note that the arms attached to the trial are the same as those in the generator run above, except for the status quo, which is automatically added to each trial.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [14]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">arms</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">arm</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Arm(name='0_0', parameters={'x1': 4.135521380230784, 'x2': 8.327297773212194})
+Arm(name='0_1', parameters={'x1': 0.44201753102242947, 'x2': 0.20572946406900883})
+Arm(name='0_2', parameters={'x1': 5.49844142049551, 'x2': 5.671116150915623})
+Arm(name='0_3', parameters={'x1': 6.35067742317915, 'x2': 1.6385249514132738})
+Arm(name='0_4', parameters={'x1': 1.445555156096816, 'x2': 7.40604542195797})
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>If our trial should contain contain only one arm, we can use <code>experiment.new_trial</code> instead.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [15]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">experiment</span><span class="o">.</span><span class="n">new_trial</span><span class="p">()</span><span class="o">.</span><span class="n">add_arm</span><span class="p">(</span><span class="n">Arm</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">'single_arm'</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="p">{</span><span class="s1">'x1'</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">'x2'</span><span class="p">:</span> <span class="mi">1</span><span class="p">}))</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[15]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>Trial(experiment_name='experiment_building_blocks', index=1, status=TrialStatus.CANDIDATE, arm=Arm(name='single_arm', parameters={'x1': 1, 'x2': 1}))</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [16]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">arm</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Arm(name='single_arm', parameters={'x1': 1, 'x2': 1})
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="7.-Fetch-data">7. Fetch data<a class="anchor-link" href="#7.-Fetch-data">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>To fetch trial data, we need to run it and mark it completed. For most metrics in Ax, data is only available once the <a href="https://ax.dev/api/core.html#ax.core.base_trial.TrialStatus">status of the trial</a> is <code>COMPLETED</code>, since in real-worlds scenarios, metrics can typically only be fetched after the trial finished running.</p>
+<p>NOTE: Some metrics implement is_available_while_running class method and return True from it, in which case data for such metrics is available when the trials are <code>RUNNING</code> or <code>COMPLETED</code>. This case is mostly for online metrics for A/B tests (to report intermediate results on trial's performance) or synthetic metrics that are just computed based on the values of parameters in trials' arms (since no evaluation is really needed for those). See the API documentation for <a href="https://ax.dev/api/core.html#ax.core.metric.Metric.is_available_while_running">Metrics.is_available_while_running</a> for more info.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [17]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">run</span><span class="p">()</span><span class="o">.</span><span class="n">mark_completed</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[17]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>BatchTrial(experiment_name='experiment_building_blocks', index=0, status=TrialStatus.COMPLETED)</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [18]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">data</span> <span class="o">=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We can inspect the data that was fetched for each (arm, metric) pair.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [19]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">data</span><span class="o">.</span><span class="n">df</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[19]:</div>
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+<thead>
+<tr style="text-align: right;">
+<th></th>
+<th>arm_name</th>
+<th>metric_name</th>
+<th>mean</th>
+<th>sem</th>
+<th>trial_index</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th>0</th>
+<td>0_0</td>
+<td>booth</td>
+<td>324.688828</td>
+<td>0.0</td>
+<td>0</td>
+</tr>
+<tr>
+<th>1</th>
+<td>0_1</td>
+<td>booth</td>
+<td>53.069693</td>
+<td>0.0</td>
+<td>0</td>
+</tr>
+<tr>
+<th>2</th>
+<td>0_2</td>
+<td>booth</td>
+<td>232.981060</td>
+<td>0.0</td>
+<td>0</td>
+</tr>
+<tr>
+<th>3</th>
+<td>0_3</td>
+<td>booth</td>
+<td>94.138306</td>
+<td>0.0</td>
+<td>0</td>
+</tr>
+<tr>
+<th>4</th>
+<td>0_4</td>
+<td>booth</td>
+<td>113.763868</td>
+<td>0.0</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="8.-Iterate-using-GP+EI">8. Iterate using GP+EI<a class="anchor-link" href="#8.-Iterate-using-GP+EI">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Now we can model the data collected for the initial set of arms via Bayesian optimization (using the Botorch model default of Gaussian Process with Expected Improvement acquisition function) to determine the new arms for which to fetch data next.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [20]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">gpei</span> <span class="o">=</span> <span class="n">Models</span><span class="o">.</span><span class="n">BOTORCH</span><span class="p">(</span><span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+<span class="n">generator_run</span> <span class="o">=</span> <span class="n">gpei</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">experiment</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">(</span><span class="n">generator_run</span><span class="o">=</span><span class="n">generator_run</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[WARNING 11-04 19:20:24] ax.modelbridge.base: Status quo control not present in data
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="prompt output_prompt">Out[20]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>BatchTrial(experiment_name='experiment_building_blocks', index=2, status=TrialStatus.CANDIDATE)</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [21]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">arms</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">arm</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Arm(name='2_0', parameters={'x1': 2.0146842751205007e-14, 'x2': 3.924849431332845})
+Arm(name='2_1', parameters={'x1': 2.884144504795676, 'x2': 0.0})
+Arm(name='2_2', parameters={'x1': 9.844973953093312, 'x2': 3.885848053645325e-16})
+Arm(name='2_3', parameters={'x1': 1.4137137461268048e-14, 'x2': 9.999999999999998})
+Arm(name='2_4', parameters={'x1': 9.999999999987866, 'x2': 9.999999999997549})
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [22]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">()</span>
+<span class="n">data</span><span class="o">.</span><span class="n">df</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[22]:</div>
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+<thead>
+<tr style="text-align: right;">
+<th></th>
+<th>arm_name</th>
+<th>metric_name</th>
+<th>mean</th>
+<th>sem</th>
+<th>trial_index</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th>0</th>
+<td>0_0</td>
+<td>booth</td>
+<td>324.688828</td>
+<td>0.0</td>
+<td>0</td>
+</tr>
+<tr>
+<th>1</th>
+<td>0_1</td>
+<td>booth</td>
+<td>53.069693</td>
+<td>0.0</td>
+<td>0</td>
+</tr>
+<tr>
+<th>2</th>
+<td>0_2</td>
+<td>booth</td>
+<td>232.981060</td>
+<td>0.0</td>
+<td>0</td>
+</tr>
+<tr>
+<th>3</th>
+<td>0_3</td>
+<td>booth</td>
+<td>94.138306</td>
+<td>0.0</td>
+<td>0</td>
+</tr>
+<tr>
+<th>4</th>
+<td>0_4</td>
+<td>booth</td>
+<td>113.763868</td>
+<td>0.0</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="9.-Save-to-JSON-or-SQL">9. Save to JSON or SQL<a class="anchor-link" href="#9.-Save-to-JSON-or-SQL">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>At any point, we can also save our experiment to a JSON file. To ensure that our custom metrics and runner are saved properly, we first need to register them.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [23]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax.storage.metric_registry</span> <span class="kn">import</span> <span class="n">register_metric</span>
+<span class="kn">from</span> <span class="nn">ax.storage.runner_registry</span> <span class="kn">import</span> <span class="n">register_runner</span>
+
+<span class="n">register_metric</span><span class="p">(</span><span class="n">BoothMetric</span><span class="p">)</span>
+<span class="n">register_runner</span><span class="p">(</span><span class="n">MyRunner</span><span class="p">)</span>
+
+<span class="n">save</span><span class="p">(</span><span class="n">experiment</span><span class="p">,</span> <span class="s2">"experiment.json"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [24]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">loaded_experiment</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">"experiment.json"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>To save our experiment to SQL, we must first specify a connection to a database and create all necessary tables.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [25]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ax.storage.sqa_store.db</span> <span class="kn">import</span> <span class="n">init_engine_and_session_factory</span><span class="p">,</span><span class="n">get_engine</span><span class="p">,</span> <span class="n">create_all_tables</span>
+<span class="kn">from</span> <span class="nn">ax.storage.sqa_store.load</span> <span class="kn">import</span> <span class="n">load_experiment</span>
+<span class="kn">from</span> <span class="nn">ax.storage.sqa_store.save</span> <span class="kn">import</span> <span class="n">save_experiment</span>
+
+<span class="n">init_engine_and_session_factory</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s1">'sqlite:///foo2.db'</span><span class="p">)</span>
+
+<span class="n">engine</span> <span class="o">=</span> <span class="n">get_engine</span><span class="p">()</span>
+<span class="n">create_all_tables</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [26]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">save_experiment</span><span class="p">(</span><span class="n">experiment</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [27]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">load_experiment</span><span class="p">(</span><span class="n">experiment</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[27]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>Experiment(experiment_building_blocks)</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="10.-SimpleExperiment">10. SimpleExperiment<a class="anchor-link" href="#10.-SimpleExperiment">¶</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><code>SimpleExperiment</code> is a subclass of <code>Experiment</code> that assumes synchronous evaluation of trials and is therefore able to abstract away certain details and enable faster instantiation.</p>
+<p>Rather than defining custom metrics and an optimization config, we define an evaluation function that determines the mean and sem for a given parameterization.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [28]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">evaluation_function</span><span class="p">(</span><span class="n">params</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s2">"x1"</span><span class="p">]</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">params</span><span class="p">[</span><span class="s2">"x2"</span><span class="p">]</span> <span class="o">-</span> <span class="mi">7</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">params</span><span class="p">[</span><span class="s2">"x1"</span><span class="p">]</span> <span class="o">+</span> <span class="n">params</span><span class="p">[</span><span class="s2">"x2"</span><span class="p">]</span> <span class="o">-</span> <span class="mi">5</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [29]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">simple_experiment</span> <span class="o">=</span> <span class="n">SimpleExperiment</span><span class="p">(</span>
+    <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+    <span class="n">evaluation_function</span><span class="o">=</span><span class="n">evaluation_function</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We add trials and evaluate them as before.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [30]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">simple_experiment</span><span class="o">.</span><span class="n">new_trial</span><span class="p">()</span><span class="o">.</span><span class="n">add_arm</span><span class="p">(</span><span class="n">Arm</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">'single_arm'</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="p">{</span><span class="s1">'x1'</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">'x2'</span><span class="p">:</span> <span class="mi">1</span><span class="p">}))</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[30]:</div>
+<div class="output_text output_subarea output_execute_result">
+<pre>Trial(experiment_name='None', index=0, status=TrialStatus.CANDIDATE, arm=Arm(name='single_arm', parameters={'x1': 1, 'x2': 1}))</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [31]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">data</span> <span class="o">=</span> <span class="n">simple_experiment</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [32]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">data</span><span class="o">.</span><span class="n">df</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="prompt output_prompt">Out[32]:</div>
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+<thead>
+<tr style="text-align: right;">
+<th></th>
+<th>arm_name</th>
+<th>metric_name</th>
+<th>mean</th>
+<th>sem</th>
+<th>trial_index</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th>0</th>
+<td>single_arm</td>
+<td>objective</td>
+<td>20.0</td>
+<td>0.0</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/0.1.18/files/building_blocks.ipynb" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Jupyter Notebook</a></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/0.1.18/files//building_blocks.py" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Source Code</a></div><div class="tutorialRuntime"><p>Total runtime of script: 5.38 seconds.</p></div></div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.18/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2020 Facebook Inc.</section></footer></div></body></html>

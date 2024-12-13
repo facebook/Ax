@@ -1,0 +1,345 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.0/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.0/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.0/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.0/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.0/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.0/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.0/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.0/css/main.css"/><script src="/versions/0.2.0/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.0/"><img class="logo" src="/versions/0.2.0/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.0/versions.html"><h3>0.2.0</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.0/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.0/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.0/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.storage.sqa_store.db</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">contextlib</span> <span class="kn">import</span> <span class="n">contextmanager</span><span class="p">,</span> <span class="n">nullcontext</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">ContextManager</span><span class="p">,</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">TypeVar</span>
+
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="n">create_engine</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.engine.base</span> <span class="kn">import</span> <span class="n">Engine</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.declarative</span> <span class="kn">import</span> <span class="n">declarative_base</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">Session</span><span class="p">,</span> <span class="n">scoped_session</span><span class="p">,</span> <span class="n">sessionmaker</span>
+
+
+<span class="c1"># some constants for database fields</span>
+<span class="n">HASH_FIELD_LENGTH</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">32</span>
+<span class="n">NAME_OR_TYPE_FIELD_LENGTH</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="n">LONG_STRING_FIELD_LENGTH</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">255</span>
+<span class="n">JSON_FIELD_LENGTH</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4096</span>
+
+<span class="c1"># by default, Text gets mapped to a TEXT field in MySQL is 2^16 - 1</span>
+<span class="c1"># we use have MEDIUMTEXT and LONGTEXT in the MySQL db; in this case, use</span>
+<span class="c1"># Text(MEDIUMTEXT_BYTES) or Text(LONGTEXT_BYTES). This is preferable to</span>
+<span class="c1"># using MEDIUMTEXT and LONGTEXT directly because those are incompatible with</span>
+<span class="c1"># SQLite that is used in unit tests.</span>
+<span class="n">MEDIUMTEXT_BYTES</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">**</span> <span class="mi">24</span> <span class="o">-</span> <span class="mi">1</span>
+<span class="n">LONGTEXT_BYTES</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">**</span> <span class="mi">32</span> <span class="o">-</span> <span class="mi">1</span>
+
+<span class="c1"># global database variables</span>
+<span class="n">SESSION_FACTORY</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Session</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="c1"># set this to false to prevent SQLAlchemy for automatically expiring objects</span>
+<span class="c1"># on commit, which essentially makes them unusable outside of a session</span>
+<span class="c1"># see e.g. https://stackoverflow.com/a/50272761</span>
+<span class="n">EXPIRE_ON_COMMIT</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">"T"</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="SQABase"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.db.SQABase">[docs]</a><span class="k">class</span> <span class="nc">SQABase</span><span class="p">:</span>
+    <span class="sd">"""Metaclass for SQLAlchemy classes corresponding to core Ax classes."""</span>
+
+    <span class="k">pass</span></div>
+
+
+<span class="n">Base</span> <span class="o">=</span> <span class="n">declarative_base</span><span class="p">(</span><span class="bp">cls</span><span class="o">=</span><span class="n">SQABase</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="create_mysql_engine_from_creator"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.db.create_mysql_engine_from_creator">[docs]</a><span class="k">def</span> <span class="nf">create_mysql_engine_from_creator</span><span class="p">(</span>
+    <span class="n">creator</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">echo</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">pool_recycle</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Engine</span><span class="p">:</span>
+    <span class="sd">"""Create a SQLAlchemy engine with the MySQL dialect given a creator function.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        creator:  a callable which returns a DBAPI connection.</span>
+<span class="sd">        echo: if True, set engine to be verbose.</span>
+<span class="sd">        pool_recycle: number of seconds after which to recycle</span>
+<span class="sd">            connections. -1 means no timeout. Default is 10 seconds.</span>
+<span class="sd">        **kwargs: keyword args passed to `create_engine`</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Engine: SQLAlchemy engine with connection to MySQL DB.</span>
+
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">create_engine</span><span class="p">(</span>
+        <span class="s2">"mysql://"</span><span class="p">,</span> <span class="n">creator</span><span class="o">=</span><span class="n">creator</span><span class="p">,</span> <span class="n">pool_recycle</span><span class="o">=</span><span class="n">pool_recycle</span><span class="p">,</span> <span class="n">echo</span><span class="o">=</span><span class="n">echo</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="create_mysql_engine_from_url"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.db.create_mysql_engine_from_url">[docs]</a><span class="k">def</span> <span class="nf">create_mysql_engine_from_url</span><span class="p">(</span>
+    <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">echo</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">pool_recycle</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Engine</span><span class="p">:</span>
+    <span class="sd">"""Create a SQLAlchemy engine with the MySQL dialect given a database url.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        url: a database url that can include username, password, hostname, database name</span>
+<span class="sd">            as well as optional keyword arguments for additional configuration.</span>
+<span class="sd">            e.g. `dialect+driver://username:password@host:port/database`.</span>
+<span class="sd">        echo: if True, set engine to be verbose.</span>
+<span class="sd">        pool_recycle: number of seconds after which to recycle</span>
+<span class="sd">            connections. -1 means no timeout. Default is 10 seconds.</span>
+<span class="sd">        **kwargs: keyword args passed to `create_engine`</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Engine: SQLAlchemy engine with connection to MySQL DB.</span>
+
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">create_engine</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">pool_recycle</span><span class="o">=</span><span class="n">pool_recycle</span><span class="p">,</span> <span class="n">echo</span><span class="o">=</span><span class="n">echo</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="create_test_engine"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.db.create_test_engine">[docs]</a><span class="k">def</span> <span class="nf">create_test_engine</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">echo</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Engine</span><span class="p">:</span>
+    <span class="sd">"""Creates a SQLAlchemy engine object for use in unit tests.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        path: if None, use in-memory SQLite; else</span>
+<span class="sd">            attempt to create a SQLite DB in the path provided.</span>
+<span class="sd">        echo: if True, set engine to be verbose.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Engine: an instance of SQLAlchemy engine.</span>
+
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">db_path</span> <span class="o">=</span> <span class="s2">"sqlite://"</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">db_path</span> <span class="o">=</span> <span class="s2">"sqlite:///</span><span class="si">{path}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">create_engine</span><span class="p">(</span><span class="n">db_path</span><span class="p">,</span> <span class="n">echo</span><span class="o">=</span><span class="n">echo</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="init_engine_and_session_factory"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.db.init_engine_and_session_factory">[docs]</a><span class="k">def</span> <span class="nf">init_engine_and_session_factory</span><span class="p">(</span>
+    <span class="n">url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">creator</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">echo</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">force_init</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">"""Initialize the global engine and SESSION_FACTORY for SQLAlchemy.</span>
+
+<span class="sd">    The initialization needs to only happen once. Note that it is possible to</span>
+<span class="sd">    re-initialize the engine by setting the `force_init` flag to True, but this</span>
+<span class="sd">    should only be used if you are absolutely certain that you know what you</span>
+<span class="sd">    are doing.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        url: a database url that can include username, password, hostname, database name</span>
+<span class="sd">            as well as optional keyword arguments for additional configuration.</span>
+<span class="sd">            e.g. `dialect+driver://username:password@host:port/database`.</span>
+<span class="sd">            Either this argument or `creator` argument must be specified.</span>
+<span class="sd">        creator: a callable which returns a DBAPI connection.</span>
+<span class="sd">            Either this argument or `url` argument must be specified.</span>
+<span class="sd">        echo: if True, logging for engine is enabled.</span>
+<span class="sd">        force_init: if True, allows re-initializing engine</span>
+<span class="sd">            and session factory.</span>
+<span class="sd">        **kwargs: keyword arguments passed to `create_mysql_engine_from_creator`</span>
+
+<span class="sd">    """</span>
+    <span class="k">global</span> <span class="n">SESSION_FACTORY</span>
+
+    <span class="k">if</span> <span class="n">SESSION_FACTORY</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">force_init</span><span class="p">:</span>
+            <span class="c1"># pyre-fixme[16]: `Optional` has no attribute `bind`.</span>
+            <span class="n">SESSION_FACTORY</span><span class="o">.</span><span class="n">bind</span><span class="o">.</span><span class="n">dispose</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span>  <span class="c1"># pragma: no cover</span>
+    <span class="k">if</span> <span class="n">url</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">create_mysql_engine_from_url</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">echo</span><span class="o">=</span><span class="n">echo</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">creator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">create_mysql_engine_from_creator</span><span class="p">(</span><span class="n">creator</span><span class="o">=</span><span class="n">creator</span><span class="p">,</span> <span class="n">echo</span><span class="o">=</span><span class="n">echo</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Must specify either `url` or `creator`."</span><span class="p">)</span>  <span class="c1"># pragma: no cover</span>
+    <span class="n">SESSION_FACTORY</span> <span class="o">=</span> <span class="n">scoped_session</span><span class="p">(</span>
+        <span class="n">sessionmaker</span><span class="p">(</span><span class="n">bind</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span> <span class="n">expire_on_commit</span><span class="o">=</span><span class="n">EXPIRE_ON_COMMIT</span><span class="p">)</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="init_test_engine_and_session_factory"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.db.init_test_engine_and_session_factory">[docs]</a><span class="k">def</span> <span class="nf">init_test_engine_and_session_factory</span><span class="p">(</span>
+    <span class="n">tier_or_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">echo</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">force_init</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">"""Initialize the global engine and SESSION_FACTORY for SQLAlchemy,</span>
+<span class="sd">    using an in-memory SQLite database.</span>
+
+<span class="sd">    The initialization needs to only happen once. Note that it is possible to</span>
+<span class="sd">    re-initialize the engine by setting the `force_init` flag to True, but this</span>
+<span class="sd">    should only be used if you are absolutely certain that you know what you</span>
+<span class="sd">    are doing.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        tier_or_path: the name of the DB tier.</span>
+<span class="sd">        echo: if True, logging for engine is enabled.</span>
+<span class="sd">        force_init: if True, allows re-initializing engine</span>
+<span class="sd">            and session factory.</span>
+<span class="sd">        **kwargs: keyword arguments passed to `create_mysql_engine_from_creator`</span>
+
+<span class="sd">    """</span>
+    <span class="k">global</span> <span class="n">SESSION_FACTORY</span>
+
+    <span class="k">if</span> <span class="n">SESSION_FACTORY</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">force_init</span><span class="p">:</span>
+            <span class="c1"># pyre-fixme[16]: `Optional` has no attribute `bind`.</span>
+            <span class="n">SESSION_FACTORY</span><span class="o">.</span><span class="n">bind</span><span class="o">.</span><span class="n">dispose</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span>
+    <span class="n">engine</span> <span class="o">=</span> <span class="n">create_test_engine</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="n">tier_or_path</span><span class="p">,</span> <span class="n">echo</span><span class="o">=</span><span class="n">echo</span><span class="p">)</span>
+    <span class="n">create_all_tables</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
+
+    <span class="n">SESSION_FACTORY</span> <span class="o">=</span> <span class="n">scoped_session</span><span class="p">(</span>
+        <span class="n">sessionmaker</span><span class="p">(</span><span class="n">bind</span><span class="o">=</span><span class="n">engine</span><span class="p">,</span> <span class="n">expire_on_commit</span><span class="o">=</span><span class="n">EXPIRE_ON_COMMIT</span><span class="p">)</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="create_all_tables"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.db.create_all_tables">[docs]</a><span class="k">def</span> <span class="nf">create_all_tables</span><span class="p">(</span><span class="n">engine</span><span class="p">:</span> <span class="n">Engine</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">"""Create all tables that inherit from Base.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        engine: a SQLAlchemy engine with a connection to a MySQL</span>
+<span class="sd">            or SQLite DB.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        In order for all tables to be correctly created, all modules that</span>
+<span class="sd">        define a mapped class that inherits from `Base` must be imported.</span>
+
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="n">engine</span><span class="o">.</span><span class="n">dialect</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">"mysql"</span>
+        <span class="ow">and</span> <span class="n">engine</span><span class="o">.</span><span class="n">dialect</span><span class="o">.</span><span class="n">default_schema_name</span> <span class="o">==</span> <span class="s2">"adaptive_experiment"</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">"Cannot mutate tables in XDB. Use AOSC."</span><span class="p">)</span>  <span class="c1"># pragma: no cover</span>
+    <span class="n">Base</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">create_all</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_session"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.db.get_session">[docs]</a><span class="k">def</span> <span class="nf">get_session</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Session</span><span class="p">:</span>
+    <span class="sd">"""Fetch a SQLAlchemy session with a connection to a DB.</span>
+
+<span class="sd">    Unless `init_engine_and_session_factory` is called first with custom</span>
+<span class="sd">    args, this will automatically initialize a connection to</span>
+<span class="sd">    `xdb.adaptive_experiment`.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Session: an instance of a SQLAlchemy session.</span>
+
+<span class="sd">    """</span>
+    <span class="k">global</span> <span class="n">SESSION_FACTORY</span>
+    <span class="k">if</span> <span class="n">SESSION_FACTORY</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">init_engine_and_session_factory</span><span class="p">()</span>  <span class="c1"># pragma: no cover</span>
+    <span class="k">assert</span> <span class="n">SESSION_FACTORY</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="c1"># pyre-fixme[29]: `Session` is not a function.</span>
+    <span class="k">return</span> <span class="n">SESSION_FACTORY</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="get_engine"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.db.get_engine">[docs]</a><span class="k">def</span> <span class="nf">get_engine</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Engine</span><span class="p">:</span>
+    <span class="sd">"""Fetch a SQLAlchemy engine, if already initialized.</span>
+
+<span class="sd">    If not initialized, need to either call `init_engine_and_session_factory` or</span>
+<span class="sd">    `get_session` explicitly.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Engine: an instance of a SQLAlchemy engine with a connection to a DB.</span>
+
+<span class="sd">    """</span>
+    <span class="k">global</span> <span class="n">SESSION_FACTORY</span>
+    <span class="k">if</span> <span class="n">SESSION_FACTORY</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Engine must be initialized first."</span><span class="p">)</span>  <span class="c1"># pragma: no cover</span>
+    <span class="c1"># pyre-fixme[16]: `Optional` has no attribute `bind`.</span>
+    <span class="k">return</span> <span class="n">SESSION_FACTORY</span><span class="o">.</span><span class="n">bind</span></div>
+
+
+<div class="viewcode-block" id="session_scope"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.db.session_scope">[docs]</a><span class="nd">@contextmanager</span>
+<span class="k">def</span> <span class="nf">session_scope</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">Session</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+    <span class="sd">"""Provide a transactional scope around a series of operations."""</span>
+    <span class="n">session</span> <span class="o">=</span> <span class="n">get_session</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">session</span>
+        <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="n">session</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">raise</span>  <span class="c1"># pragma: no cover</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">session</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="optional_session_scope"><a class="viewcode-back" href="../../../../storage.html#ax.storage.sqa_store.db.optional_session_scope">[docs]</a><span class="k">def</span> <span class="nf">optional_session_scope</span><span class="p">(</span>
+    <span class="n">session</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Session</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContextManager</span><span class="p">[</span><span class="n">Session</span><span class="p">]:</span>
+    <span class="k">if</span> <span class="n">session</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">nullcontext</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">session_scope</span><span class="p">()</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.0/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2021 Facebook Inc.</section></footer></div></body></html>

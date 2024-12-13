@@ -1,0 +1,1474 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.1/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.1/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.1/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.1/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.1/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.1/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.1/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.1/css/main.css"/><script src="/versions/0.2.1/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.1/"><img class="logo" src="/versions/0.2.1/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.1/versions.html"><h3>0.2.1</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.1/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.1/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.1/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.service.scheduler</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Facebook, Inc. and its affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="nn">logging</span> <span class="kn">import</span> <span class="n">INFO</span><span class="p">,</span> <span class="n">LoggerAdapter</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">sleep</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Dict</span><span class="p">,</span>
+    <span class="n">Generator</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">NamedTuple</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Set</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.base_trial</span> <span class="kn">import</span> <span class="n">BaseTrial</span><span class="p">,</span> <span class="n">TrialStatus</span>
+<span class="kn">from</span> <span class="nn">ax.core.batch_trial</span> <span class="kn">import</span> <span class="n">BatchTrial</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
+<span class="kn">from</span> <span class="nn">ax.core.trial</span> <span class="kn">import</span> <span class="n">Trial</span>
+<span class="kn">from</span> <span class="nn">ax.early_stopping.strategies</span> <span class="kn">import</span> <span class="n">BaseEarlyStoppingStrategy</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.core</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AxError</span><span class="p">,</span>
+    <span class="n">DataRequiredError</span><span class="p">,</span>
+    <span class="n">OptimizationComplete</span><span class="p">,</span>
+    <span class="n">UnsupportedError</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.generation_strategy</span> <span class="kn">import</span> <span class="n">MaxParallelismReachedException</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.generation_strategy</span> <span class="kn">import</span> <span class="n">GenerationStrategy</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.modelbridge_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">get_pending_observation_features_based_on_trial_status</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.service.utils.with_db_settings_base</span> <span class="kn">import</span> <span class="n">DBSettings</span><span class="p">,</span> <span class="n">WithDBSettingsBase</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.constants</span> <span class="kn">import</span> <span class="n">Keys</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.executils</span> <span class="kn">import</span> <span class="n">retry_on_exception</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">build_file_handler</span><span class="p">,</span> <span class="n">get_logger</span><span class="p">,</span> <span class="n">set_stderr_log_level</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.timeutils</span> <span class="kn">import</span> <span class="n">current_timestamp_in_millis</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">not_none</span>
+
+
+<span class="n">NOT_IMPLEMENTED_IN_BASE_CLASS_MSG</span> <span class="o">=</span> <span class="s2">"""</span>
+<span class="s2">This method is not implemented in the base `Scheduler` class.</span>
+<span class="s2">If this functionality is desired, specify the method in the</span>
+<span class="s2">scheduler subclass.</span>
+<span class="s2">"""</span>
+<span class="n">GS_TYPE_MSG</span> <span class="o">=</span> <span class="s2">"This optimization run uses a '</span><span class="si">{gs_name}</span><span class="s2">' generation strategy."</span>
+<span class="n">OPTIMIZATION_COMPLETION_MSG</span> <span class="o">=</span> <span class="s2">"""Optimization completed with total of </span><span class="si">{num_trials}</span><span class="s2"></span>
+<span class="s2">trials attached to the underlying Ax experiment '</span><span class="si">{experiment_name}</span><span class="s2">'.</span>
+<span class="s2">"""</span>
+
+
+<span class="c1"># Wait time b/w polls will not exceed 5 mins.</span>
+<span class="n">MAX_SECONDS_BETWEEN_POLLS</span> <span class="o">=</span> <span class="mi">300</span>
+
+
+<div class="viewcode-block" id="OptimizationResult"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.OptimizationResult">[docs]</a><span class="k">class</span> <span class="nc">OptimizationResult</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>  <span class="c1"># TODO[T61776778]</span>
+    <span class="k">pass</span>  <span class="c1"># TBD</span></div>
+
+
+<div class="viewcode-block" id="SchedulerInternalError"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.SchedulerInternalError">[docs]</a><span class="k">class</span> <span class="nc">SchedulerInternalError</span><span class="p">(</span><span class="n">AxError</span><span class="p">):</span>
+    <span class="sd">"""Error that indicates an error within the `Scheduler` logic."""</span>
+
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="FailureRateExceededError"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.FailureRateExceededError">[docs]</a><span class="k">class</span> <span class="nc">FailureRateExceededError</span><span class="p">(</span><span class="n">AxError</span><span class="p">):</span>
+    <span class="sd">"""Error that indicates the sweep was aborted due to excessive failure rate."""</span>
+
+    <span class="k">pass</span></div>
+
+
+<span class="n">NO_RETRY_EXCEPTIONS</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="ne">Exception</span><span class="p">],</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">cast</span><span class="p">(</span><span class="n">Type</span><span class="p">[</span><span class="ne">Exception</span><span class="p">],</span> <span class="n">SchedulerInternalError</span><span class="p">),</span>
+    <span class="n">cast</span><span class="p">(</span><span class="n">Type</span><span class="p">[</span><span class="ne">Exception</span><span class="p">],</span> <span class="ne">NotImplementedError</span><span class="p">),</span>
+    <span class="n">cast</span><span class="p">(</span><span class="n">Type</span><span class="p">[</span><span class="ne">Exception</span><span class="p">],</span> <span class="n">UnsupportedError</span><span class="p">),</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="ExperimentStatusProperties"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.ExperimentStatusProperties">[docs]</a><span class="k">class</span> <span class="nc">ExperimentStatusProperties</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
+    <span class="sd">"""Enum for keys in experiment properties that represent status of</span>
+<span class="sd">    optimization run through scheduler."""</span>
+
+    <span class="c1"># Number of trials run in each call to `Scheduler.run_trials_and_</span>
+    <span class="c1"># yield_results`.</span>
+    <span class="n">NUM_TRIALS_RUN_PER_CALL</span> <span class="o">=</span> <span class="s2">"num_trials_run_per_call"</span>
+    <span class="c1"># Status of each run of `Scheduler.run_trials_and_</span>
+    <span class="c1"># yield_results`. Recorded twice in a successful/aborted run; first</span>
+    <span class="c1"># "started" is recorded, then "success" or "aborted". If no second</span>
+    <span class="c1"># status is recorded, run must have encountered an exception.</span>
+    <span class="n">RUN_TRIALS_STATUS</span> <span class="o">=</span> <span class="s2">"run_trials_success"</span>
+    <span class="c1"># Timestamps of when the experiment was resumed from storage.</span>
+    <span class="n">RESUMED_FROM_STORAGE_TIMESTAMPS</span> <span class="o">=</span> <span class="s2">"resumed_from_storage_timestamps"</span></div>
+
+
+<div class="viewcode-block" id="RunTrialsStatus"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.RunTrialsStatus">[docs]</a><span class="k">class</span> <span class="nc">RunTrialsStatus</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
+    <span class="sd">"""Possible statuses for each call to ``Scheduler.run_trials_and_</span>
+<span class="sd">    yield_results``, used in recording experiment status.</span>
+<span class="sd">    """</span>
+
+    <span class="n">STARTED</span> <span class="o">=</span> <span class="s2">"started"</span>
+    <span class="n">SUCCESS</span> <span class="o">=</span> <span class="s2">"success"</span>
+    <span class="n">ABORTED</span> <span class="o">=</span> <span class="s2">"aborted"</span></div>
+
+
+<div class="viewcode-block" id="SchedulerOptions"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.SchedulerOptions">[docs]</a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">SchedulerOptions</span><span class="p">:</span>
+    <span class="sd">"""Settings for a scheduler instance.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        trial_type: Type of trials (1-arm ``Trial`` or multi-arm ``Batch</span>
+<span class="sd">            Trial``) that will be deployed using the scheduler. Defaults</span>
+<span class="sd">            to 1-arm `Trial`. NOTE: use ``BatchTrial`` only if need to</span>
+<span class="sd">            evaluate multiple arms *together*, e.g. in an A/B-test</span>
+<span class="sd">            influenced by data nonstationarity. For cases where just</span>
+<span class="sd">            deploying multiple arms at once is beneficial but the trials</span>
+<span class="sd">            are evaluated *independently*, implement ``run_trials`` method</span>
+<span class="sd">            in scheduler subclass, to deploy multiple 1-arm trials at</span>
+<span class="sd">            the same time.</span>
+<span class="sd">        total_trials: Limit on number of trials a given ``Scheduler``</span>
+<span class="sd">            should run. If no stopping criteria are implemented on</span>
+<span class="sd">            a given scheduler, exhaustion of this number of trials</span>
+<span class="sd">            will be used as default stopping criterion in</span>
+<span class="sd">            ``Scheduler.run_all_trials``. Required to be non-null if</span>
+<span class="sd">            using ``Scheduler.run_all_trials`` (not required for</span>
+<span class="sd">            ``Scheduler.run_n_trials``).</span>
+<span class="sd">        tolerated_trial_failure_rate: Fraction of trials in this</span>
+<span class="sd">            optimization that are allowed to fail without the whole</span>
+<span class="sd">            optimization ending. Expects value between 0 and 1.</span>
+<span class="sd">            NOTE: Failure rate checks begin once</span>
+<span class="sd">            min_failed_trials_for_failure_rate_check trials have</span>
+<span class="sd">            failed; after that point if the ratio of failed trials</span>
+<span class="sd">            to total trials ran so far exceeds the failure rate,</span>
+<span class="sd">            the optimization will halt.</span>
+<span class="sd">        min_failed_trials_for_failure_rate_check: The minimum number</span>
+<span class="sd">            of trials that must fail in `Scheduler` in order to start</span>
+<span class="sd">            checking failure rate.</span>
+<span class="sd">        log_filepath: File, to which to write optimization logs.</span>
+<span class="sd">        logging_level: Minimum level of logging statements to log,</span>
+<span class="sd">            defaults to ``logging.INFO``.</span>
+<span class="sd">        ttl_seconds_for_trials: Optional TTL for all trials created</span>
+<span class="sd">            within this ``Scheduler``, in seconds. Trials that remain</span>
+<span class="sd">            ``RUNNING`` for more than their TTL seconds will be marked</span>
+<span class="sd">            ``FAILED`` once the TTL elapses and may be re-suggested by</span>
+<span class="sd">            the Ax optimization models.</span>
+<span class="sd">        init_seconds_between_polls: Initial wait between rounds of</span>
+<span class="sd">            polling, in seconds. Relevant if using the default wait-</span>
+<span class="sd">            for-completed-runs functionality of the base ``Scheduler``</span>
+<span class="sd">            (if ``wait_for_completed_trials_and_report_results`` is not</span>
+<span class="sd">            overridden). With the default waiting, every time a poll</span>
+<span class="sd">            returns that no trial evaluations completed, wait</span>
+<span class="sd">            time will increase; once some completed trial evaluations</span>
+<span class="sd">            are found, it will reset back to this value. Specify 0</span>
+<span class="sd">            to not introduce any wait between polls.</span>
+<span class="sd">        min_seconds_before_poll: Minimum number of seconds between</span>
+<span class="sd">            beginning to run a trial and the first poll to check</span>
+<span class="sd">            trial status.</span>
+<span class="sd">        seconds_between_polls_backoff_factor: The rate at which the poll</span>
+<span class="sd">            interval increases.</span>
+<span class="sd">        run_trials_in_batches: If True and ``poll_available_capacity`` is</span>
+<span class="sd">            implemented to return non-null results, trials will be dispatched</span>
+<span class="sd">            in groups via `run_trials` instead of one-by-one via ``run_trial``.</span>
+<span class="sd">            This allows to save time, IO calls or computation in cases where</span>
+<span class="sd">            dispatching trials in groups is more efficient then sequential</span>
+<span class="sd">            deployment. The size of the groups will be determined as</span>
+<span class="sd">            the minimum of ``self.poll_available_capacity()`` and the number</span>
+<span class="sd">            of generator runs that the generation strategy is able to produce</span>
+<span class="sd">            without more data or reaching its allowed max paralellism limit.</span>
+<span class="sd">        debug_log_run_metadata: Whether to log run_metadata for debugging purposes.</span>
+<span class="sd">        early_stopping_strategy: A ``BaseEarlyStoppingStrategy`` that determines</span>
+<span class="sd">            whether a trial should be stopped given the current state of</span>
+<span class="sd">            the experiment. Used in ``should_stop_trials_early``.</span>
+<span class="sd">        suppress_storage_errors_after_retries: Whether to fully suppress SQL</span>
+<span class="sd">            storage-related errors if encounted, after retrying the call</span>
+<span class="sd">            multiple times. Only use if SQL storage is not important for the given</span>
+<span class="sd">            use case, since this will only log, but not raise, an exception if</span>
+<span class="sd">            it's encountered while saving to DB or loading from it.</span>
+<span class="sd">    """</span>
+
+    <span class="n">trial_type</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BaseTrial</span><span class="p">]</span> <span class="o">=</span> <span class="n">Trial</span>
+    <span class="n">total_trials</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">tolerated_trial_failure_rate</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span>
+    <span class="n">min_failed_trials_for_failure_rate_check</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span>
+    <span class="n">log_filepath</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">logging_level</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">INFO</span>
+    <span class="n">ttl_seconds_for_trials</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">init_seconds_between_polls</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">min_seconds_before_poll</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="n">seconds_between_polls_backoff_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.5</span>
+    <span class="n">run_trials_in_batches</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">debug_log_run_metadata</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">early_stopping_strategy</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BaseEarlyStoppingStrategy</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">suppress_storage_errors_after_retries</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="Scheduler"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler">[docs]</a><span class="k">class</span> <span class="nc">Scheduler</span><span class="p">(</span><span class="n">WithDBSettingsBase</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
+    <span class="sd">"""Closed-loop manager class for Ax optimization.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        experiment: Experiment, in which results of the optimization</span>
+<span class="sd">            will be recorded.</span>
+<span class="sd">        generation_strategy: Generation strategy for the optimization,</span>
+<span class="sd">            describes models that will be used in optimization.</span>
+<span class="sd">        options: `SchedulerOptions` for this scheduler instance.</span>
+<span class="sd">        db_settings: Settings for saving and reloading the underlying experiment</span>
+<span class="sd">            to a database. Expected to be of type</span>
+<span class="sd">            ax.storage.sqa_store.structs.DBSettings and require SQLAlchemy.</span>
+<span class="sd">        _skip_experiment_save: If True, scheduler will not re-save the</span>
+<span class="sd">            experiment passed to it. **Use only if the experiment had just</span>
+<span class="sd">            been saved, as otherwise experiment state could get corrupted.**</span>
+<span class="sd">    """</span>
+
+    <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span>
+    <span class="n">generation_strategy</span><span class="p">:</span> <span class="n">GenerationStrategy</span>
+    <span class="n">options</span><span class="p">:</span> <span class="n">SchedulerOptions</span>
+    <span class="n">logger</span><span class="p">:</span> <span class="n">LoggerAdapter</span>
+    <span class="c1"># Mapping of form {short string identifier -&gt; message to show in reported</span>
+    <span class="c1"># results}. This is a mapping and not a list to allow for changing of</span>
+    <span class="c1"># some sweep messages throughout the course of the optimization (e.g. progress</span>
+    <span class="c1"># report of the optimization).</span>
+    <span class="n">markdown_messages</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span>
+
+    <span class="c1"># Number of trials that existed on the scheduler's experiment before</span>
+    <span class="c1"># the scheduler instantiation with that experiment.</span>
+    <span class="n">_num_preexisting_trials</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="c1"># Timestamp of last optimization start time (milliseconds since Unix epoch);</span>
+    <span class="c1"># recorded in each `run_n_trials`.</span>
+    <span class="n">_latest_optimization_start_timestamp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># Timeout setting for current optimization.</span>
+    <span class="n">_timeout_hours</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># Timestamp of when the last deployed trial started running.</span>
+    <span class="n">_latest_trial_start_timestamp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># Will be set to `True` if generation strategy signals that the optimization</span>
+    <span class="c1"># is complete, in which case the optimization should gracefully exit early.</span>
+    <span class="n">_optimization_complete</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span>
+        <span class="n">generation_strategy</span><span class="p">:</span> <span class="n">GenerationStrategy</span><span class="p">,</span>
+        <span class="n">options</span><span class="p">:</span> <span class="n">SchedulerOptions</span><span class="p">,</span>
+        <span class="n">db_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DBSettings</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">_skip_experiment_save</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Initialize options used in `__repr__` upfront, before any errors</span>
+        <span class="c1"># might be enncountered, reporting of which would call `__repr__`.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span> <span class="o">=</span> <span class="n">options</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span> <span class="o">=</span> <span class="n">experiment</span>
+        <span class="c1"># NOTE: Parallelism schedule is embedded in the generation</span>
+        <span class="c1"># strategy, as `GenerationStep.max_parallelism`.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">generation_strategy</span> <span class="o">=</span> <span class="n">generation_strategy</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">experiment</span><span class="p">,</span> <span class="n">Experiment</span><span class="p">):</span>  <span class="c1"># pragma: no cover</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"</span><span class="si">{experiment}</span><span class="s2"> is not an Ax experiment."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">generation_strategy</span><span class="p">,</span> <span class="n">GenerationStrategy</span><span class="p">):</span>  <span class="c1"># pragma: no cover</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"</span><span class="si">{generation_strategy}</span><span class="s2"> is not a generation strategy."</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_options</span><span class="p">(</span><span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
+
+        <span class="c1"># Initialize storage layer for the scheduler.</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">db_settings</span><span class="o">=</span><span class="n">db_settings</span><span class="p">,</span>
+            <span class="n">logging_level</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">logging_level</span><span class="p">,</span>
+            <span class="n">suppress_all_errors</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">suppress_storage_errors_after_retries</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Set up logger with an optional filepath handler</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_logger</span><span class="p">()</span>
+
+        <span class="c1"># Validate experiment and GS; ensure that experiment has immutable</span>
+        <span class="c1"># search space and opt. config to avoid storing their  copies on each</span>
+        <span class="c1"># generator run.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_remaining_trials</span><span class="p">(</span><span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_implemented_metrics</span><span class="p">(</span><span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_enforce_immutable_search_space_and_opt_config</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_experiment_status_properties</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">db_settings_set</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_skip_experiment_save</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_save_experiment_and_generation_strategy</span><span class="p">(</span>
+                <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> <span class="n">generation_strategy</span><span class="o">=</span><span class="n">generation_strategy</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Number of trials that existed on experiment before this scheduler.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_num_preexisting_trials</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">)</span>
+        <span class="c1"># Whether to log the reason why no trials were generated next time</span>
+        <span class="c1"># we prepare new trials for deployment. Used to avoid spamming logs</span>
+        <span class="c1"># when trials are not generated for the same reason multiple times in</span>
+        <span class="c1"># a row.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_log_next_no_trials_reason</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">markdown_messages</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"generation_strategy"</span><span class="p">:</span> <span class="n">GS_TYPE_MSG</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gs_name</span><span class="o">=</span><span class="n">generation_strategy</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="p">}</span>
+
+<div class="viewcode-block" id="Scheduler.get_default_db_settings"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.get_default_db_settings">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">get_default_db_settings</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DBSettings</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+            <span class="s2">"Base `Scheduler` does not specify default `DBSettings`. "</span>
+            <span class="s2">"DBSettings are required to leverage SQL storage functionality "</span>
+            <span class="s2">"and can be specified as argument to `Scheduler` constructor or "</span>
+            <span class="s2">"via `get_default_db_settings` implementation on given scheduler."</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Scheduler.from_stored_experiment"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.from_stored_experiment">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_stored_experiment</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">experiment_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">options</span><span class="p">:</span> <span class="n">SchedulerOptions</span><span class="p">,</span>
+        <span class="n">db_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DBSettings</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">generation_strategy</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">GenerationStrategy</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Scheduler</span><span class="p">:</span>
+        <span class="sd">"""Create a ``Scheduler`` with a previously stored experiment, which</span>
+<span class="sd">        the scheduler should resume.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            experiment_name: Experiment to load and resume.</span>
+<span class="sd">            options: ``SchedulerOptions``, with which to set up the new scheduler.</span>
+<span class="sd">            db_settings: Optional ``DBSettings``, which to use for reloading the</span>
+<span class="sd">                experiment; also passed as ``db_settings`` argument to the</span>
+<span class="sd">                scheduler constructor.</span>
+<span class="sd">            generation_strategy: Generation strategy to use to provide candidates</span>
+<span class="sd">                for the resumed optimization. Provide this argument only if</span>
+<span class="sd">                the experiment does not already have a generation strategy</span>
+<span class="sd">                associated with it.</span>
+<span class="sd">            kwargs: Kwargs to pass through to the ``Scheduler`` constructor.</span>
+<span class="sd">        """</span>
+        <span class="n">dbs</span> <span class="o">=</span> <span class="n">WithDBSettingsBase</span><span class="p">(</span>
+            <span class="n">db_settings</span><span class="o">=</span><span class="n">db_settings</span> <span class="ow">or</span> <span class="bp">cls</span><span class="o">.</span><span class="n">get_default_db_settings</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="n">exp</span><span class="p">,</span> <span class="n">gs</span> <span class="o">=</span> <span class="n">dbs</span><span class="o">.</span><span class="n">_load_experiment_and_generation_strategy</span><span class="p">(</span>
+            <span class="n">experiment_name</span><span class="o">=</span><span class="n">experiment_name</span><span class="p">,</span> <span class="n">reduced_state</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">db_settings</span><span class="p">:</span>
+            <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">kwargs</span><span class="p">,</span> <span class="s2">"db_settings"</span><span class="p">:</span> <span class="n">db_settings</span><span class="p">}</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">exp</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Experiment </span><span class="si">{</span><span class="n">experiment_name</span><span class="si">}</span><span class="s2"> not found."</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">gs</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">generation_strategy</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Experiment </span><span class="si">{</span><span class="n">experiment_name</span><span class="si">}</span><span class="s2"> did not have a generation "</span>
+                <span class="s2">"strategy associated with in in database, so a new "</span>
+                <span class="s2">"generation strategy must be provided as argument to "</span>
+                <span class="s2">"`Scheduler.from_stored_experiment`."</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">gs</span> <span class="ow">and</span> <span class="n">generation_strategy</span> <span class="ow">and</span> <span class="n">gs</span> <span class="o">!=</span> <span class="n">generation_strategy</span><span class="p">:</span>
+            <span class="c1"># NOTE: In the future we may want to allow overriding of GS,</span>
+            <span class="c1"># in which case we can add a flag to this function and allow</span>
+            <span class="c1"># the override with warning.</span>
+            <span class="k">raise</span> <span class="n">UnsupportedError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="s2">"Experiment was associated with generation strategy "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">gs</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> in DB, but a new generation strategy "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">generation_strategy</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> was provided. To use "</span>
+                <span class="s2">"the generation strategy currently in DB, do not "</span>
+                <span class="s2">"specify the `geneneration_strategy` kwarg."</span>
+            <span class="p">)</span>
+
+        <span class="c1"># pyre-ignore[45]: Let Python error if instantiation of abstract</span>
+        <span class="c1"># base `Scheduler` is attempted, as error will be informative.</span>
+        <span class="n">scheduler</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="n">exp</span><span class="p">,</span>
+            <span class="n">generation_strategy</span><span class="o">=</span><span class="n">not_none</span><span class="p">(</span><span class="n">generation_strategy</span> <span class="ow">or</span> <span class="n">gs</span><span class="p">),</span>
+            <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">,</span>
+            <span class="c1"># No need to resave the experiment we just reloaded.</span>
+            <span class="n">_skip_experiment_save</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="c1"># NOTE: `kwargs` can include `db_settings` if those were</span>
+            <span class="c1"># provided to this function.</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(),</span> <span class="s2">"%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S.</span><span class="si">%f</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">scheduler</span><span class="o">.</span><span class="n">_append_to_experiment_properties</span><span class="p">(</span>
+            <span class="n">to_append</span><span class="o">=</span><span class="p">{</span>
+                <span class="n">ExperimentStatusProperties</span><span class="o">.</span><span class="n">RESUMED_FROM_STORAGE_TIMESTAMPS</span><span class="p">:</span> <span class="n">ts</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">scheduler</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">running_trials</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">BaseTrial</span><span class="p">]:</span>
+        <span class="sd">"""Currently running trials.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of trials that are currently running.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials_by_status</span><span class="p">[</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">candidate_trials</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">BaseTrial</span><span class="p">]:</span>
+        <span class="sd">"""Candidate trials on the experiment this scheduler is running.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of trials that are currently candidates.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials_by_status</span><span class="p">[</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">CANDIDATE</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">has_trials_in_flight</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Whether the experiment on this scheduler currently has running or staged</span>
+<span class="sd">        trials.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">running_trials</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trial_indices_by_status</span><span class="p">[</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">STAGED</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">"""Short user-friendly string representation."""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"experiment"</span><span class="p">):</span>  <span class="c1"># pragma: no cover</span>
+            <span class="c1"># Experiment, generation strategy, etc. attributes have not</span>
+            <span class="c1"># yet been set.</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">(experiment=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="si">}</span><span class="s2">, "</span>
+            <span class="sa">f</span><span class="s2">"generation_strategy=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">generation_strategy</span><span class="si">}</span><span class="s2">, options="</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="si">}</span><span class="s2">)"</span>
+        <span class="p">)</span>
+
+    <span class="c1"># ----------------- User-defined, required. -----------------</span>
+
+<div class="viewcode-block" id="Scheduler.poll_trial_status"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.poll_trial_status">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">poll_trial_status</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="n">TrialStatus</span><span class="p">,</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]]:</span>
+        <span class="sd">"""Required polling function, checks the status of any non-terminal trials</span>
+<span class="sd">        and returns their indices as a mapping from TrialStatus to a list of indices.</span>
+
+<span class="sd">        NOTE: Does not need to handle waiting between polling while trials</span>
+<span class="sd">        are running; that logic is handled in `Scheduler.poll`, which calls</span>
+<span class="sd">        this function.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A dictionary mapping TrialStatus to a list of trial indices that have</span>
+<span class="sd">            the respective status at the time of the polling. This does not need to</span>
+<span class="sd">            include trials that at the time of polling already have a terminal</span>
+<span class="sd">            (ABANDONED, FAILED, COMPLETED) status (but it may).</span>
+<span class="sd">        """</span>
+        <span class="o">...</span>  <span class="c1"># pragma: no cover</span></div>
+
+    <span class="c1"># ----------------- User-defined, optional. -----------------</span>
+
+<div class="viewcode-block" id="Scheduler.has_capacity"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.has_capacity">[docs]</a>    <span class="k">def</span> <span class="nf">has_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Optional method to checks if there is available capacity to</span>
+<span class="sd">        schedule `n` trials.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            n: Number of trials, the capacity to run which is being checked.</span>
+<span class="sd">                Defaults to 1.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A boolean, representing whether `n` trials can be ran.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="Scheduler.poll_available_capacity"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.poll_available_capacity">[docs]</a>    <span class="k">def</span> <span class="nf">poll_available_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">"""Optional method to checks how much available capacity there is</span>
+<span class="sd">        to schedule trial evaluations.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            An optional integer, representing how many trials there is</span>
+<span class="sd">            available capacity for, if available. If not available,</span>
+<span class="sd">            returns `None`.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="Scheduler.completion_criterion"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.completion_criterion">[docs]</a>    <span class="k">def</span> <span class="nf">completion_criterion</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Optional stopping criterion for optimization, defaults to a check</span>
+<span class="sd">        of whether `total_trials` trials have been run.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Boolean representing whether the optimization should be stopped.</span>
+<span class="sd">        """</span>
+        <span class="c1"># TODO[Max, T61776778]: Default model-informed stopping criterion.</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">total_trials</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># We validate that `total_trials` is set in `run_all_trials`,</span>
+            <span class="c1"># so it will not run infinitely.</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="n">expecting_data</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>  <span class="c1"># Number of `RUNNING` + `COMPLETED` trials</span>
+            <span class="mi">1</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">expecting_data</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">expecting_data</span> <span class="o">&gt;=</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">total_trials</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Scheduler.report_results"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.report_results">[docs]</a>    <span class="k">def</span> <span class="nf">report_results</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">"""Optional user-defined function for reporting intermediate</span>
+<span class="sd">        and final optimization results (e.g. make some API call, write to some</span>
+<span class="sd">        other db). This function is called whenever new results are available during</span>
+<span class="sd">        the optimization.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            An optional dictionary with any relevant data about optimization.</span>
+<span class="sd">        """</span>
+        <span class="c1"># TODO[T61776778]: add utility to get best trial from arbitrary exp.</span>
+        <span class="k">return</span> <span class="p">{}</span></div>
+
+<div class="viewcode-block" id="Scheduler.run_trial"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.run_trial">[docs]</a>    <span class="nd">@retry_on_exception</span><span class="p">(</span><span class="n">retries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">no_retry_on_exception_types</span><span class="o">=</span><span class="n">NO_RETRY_EXCEPTIONS</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">run_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial</span><span class="p">:</span> <span class="n">BaseTrial</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">"""Optional deployment function, runs a single evaluation of the</span>
+<span class="sd">        given trial. Can be used instead of `runner.run(trial)` if no</span>
+<span class="sd">        runner is defined on the experiment; will be required in that case.</span>
+
+<span class="sd">        NOTE: the `retry_on_exception` decorator applied to this function should also</span>
+<span class="sd">        be applied to its subclassing override if one is provided and retry behavior</span>
+<span class="sd">        is desired.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial: Trial to be deployed, contains arms with</span>
+<span class="sd">                parameterizations to be evaluated. Can be a `Trial`</span>
+<span class="sd">                if contains only one arm or a `BatchTrial` if contains</span>
+<span class="sd">                multiple arms.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Dict of run metadata from the deployment process.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">runner</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">"A runner is required on experiment to use its `run` method to "</span>
+                <span class="s2">"run a trial evaluation. Alternatively, `run_trial` can be defined "</span>
+                <span class="s2">"on a subclass of `Scheduler` as a substitute of a runner."</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">runner</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">trial</span><span class="o">=</span><span class="n">trial</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Scheduler.stop_trial_runs"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.stop_trial_runs">[docs]</a>    <span class="k">def</span> <span class="nf">stop_trial_runs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">trials</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">BaseTrial</span><span class="p">],</span> <span class="n">reasons</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Stops the jobs that execute given trials.</span>
+
+<span class="sd">        Used if, for example, TTL for a trial was specified and expired, or poor</span>
+<span class="sd">        early results suggest the trial is not worth running to completion.</span>
+
+<span class="sd">        Requires a runner to be defined on the experiment in this base class</span>
+<span class="sd">        implementation, but can be overridden in subclasses to not require a runner.</span>
+
+<span class="sd">        Overwrite default implementation if its desirable to stop trials in bulk.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trials: Trials to be stopped.</span>
+<span class="sd">            reasons: A list of strings describing the reasons for why the</span>
+<span class="sd">                trials are to be stopped (in the same order).</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">trials</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">runner</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="s2">"A runner is required on experiment to use its `stop` method to "</span>
+                <span class="s2">"stop a trial evaluation. Alternatively, `stop_trial` can be defined "</span>
+                <span class="s2">"on a subclass of `Scheduler` as a substitute of a runner."</span>
+            <span class="p">)</span>
+
+        <span class="n">runner</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">runner</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">reasons</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">reasons</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">trials</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">trial</span><span class="p">,</span> <span class="n">reason</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">trials</span><span class="p">,</span> <span class="n">reasons</span><span class="p">):</span>
+            <span class="n">runner</span><span class="o">.</span><span class="n">stop</span><span class="p">(</span><span class="n">trial</span><span class="o">=</span><span class="n">trial</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Scheduler.stop_trial_run"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.stop_trial_run">[docs]</a>    <span class="k">def</span> <span class="nf">stop_trial_run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trial</span><span class="p">:</span> <span class="n">BaseTrial</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Stops the job that executes a given trial.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial: Trial to be stopped.</span>
+<span class="sd">            reason: The reason the trial is to be stopped.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop_trial_runs</span><span class="p">(</span><span class="n">trials</span><span class="o">=</span><span class="p">[</span><span class="n">trial</span><span class="p">],</span> <span class="n">reasons</span><span class="o">=</span><span class="p">[</span><span class="n">reason</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="Scheduler.run_trials"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.run_trials">[docs]</a>    <span class="nd">@retry_on_exception</span><span class="p">(</span><span class="n">retries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">no_retry_on_exception_types</span><span class="o">=</span><span class="n">NO_RETRY_EXCEPTIONS</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">run_trials</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trials</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">BaseTrial</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="sd">"""Optional deployment function, runs a single evaluation for each of the</span>
+<span class="sd">        given trials. By default simply loops over `run_trial`. Should be overwritten</span>
+<span class="sd">        if deploying multiple trials in batch is preferable.</span>
+
+<span class="sd">        NOTE: the `retry_on_exception` decorator applied to this function should also</span>
+<span class="sd">        be applied to its subclassing override if one is provided and retry behavior</span>
+<span class="sd">        is desired.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trials: Iterable of trials to be deployed, each containing arms with</span>
+<span class="sd">                parameterizations to be evaluated. Can be a `Trial`</span>
+<span class="sd">                if contains only one arm or a `BatchTrial` if contains</span>
+<span class="sd">                multiple arms.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Dict of trial index to the run metadata of that trial from the deployment</span>
+<span class="sd">            process.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_trial</span><span class="p">(</span><span class="n">trial</span><span class="o">=</span><span class="n">trial</span><span class="p">)</span> <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="n">trials</span><span class="p">}</span></div>
+
+<div class="viewcode-block" id="Scheduler.wait_for_completed_trials_and_report_results"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.wait_for_completed_trials_and_report_results">[docs]</a>    <span class="k">def</span> <span class="nf">wait_for_completed_trials_and_report_results</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">"""Continuously poll for successful trials, with limited exponential</span>
+<span class="sd">        backoff, and process the results. Stop once at least one successful</span>
+<span class="sd">        trial has been found. This function can be overridden to a different</span>
+<span class="sd">        waiting function as needed; it must call `poll_and_process_results`</span>
+<span class="sd">        to ensure that trials that completed their evaluation are appropriately</span>
+<span class="sd">        marked as 'COMPLETED' in Ax.</span>
+
+<span class="sd">        Returns: Results of the optimization so far, represented as a</span>
+<span class="sd">        dict. The contents of the dict depend on the implementation of</span>
+<span class="sd">        `report_results` in the given `Scheduler` subclass.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">init_seconds_between_polls</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="s2">"Default `wait_for_completed_trials_and_report_results` in base "</span>
+                <span class="s2">"`Scheduler` relies on non-null `init_seconds_between_polls` scheduler "</span>
+                <span class="s2">"option."</span>
+            <span class="p">)</span>
+        <span class="n">seconds_between_polls</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">init_seconds_between_polls</span><span class="p">)</span>
+        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_trials_in_flight</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">poll_and_process_results</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">seconds_between_polls</span> <span class="o">&gt;</span> <span class="n">MAX_SECONDS_BETWEEN_POLLS</span><span class="p">:</span>
+                <span class="k">break</span>  <span class="c1"># If maximum wait time reached, check the stopping</span>
+                <span class="c1"># criterion again and and re-attempt scheduling more trials.</span>
+            <span class="n">log_seconds</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="nb">int</span><span class="p">(</span><span class="n">seconds_between_polls</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">seconds_between_polls</span> <span class="o">&gt;</span> <span class="mi">2</span>
+                <span class="k">else</span> <span class="n">seconds_between_polls</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Waiting for completed trials (for </span><span class="si">{</span><span class="n">log_seconds</span><span class="si">}</span><span class="s2"> sec, "</span>
+                <span class="sa">f</span><span class="s2">"currently running trials: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">running_trials</span><span class="p">)</span><span class="si">}</span><span class="s2">)."</span>
+            <span class="p">)</span>
+            <span class="n">sleep</span><span class="p">(</span><span class="n">seconds_between_polls</span><span class="p">)</span>
+            <span class="n">seconds_between_polls</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">seconds_between_polls_backoff_factor</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">report_results</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Scheduler.should_consider_optimization_complete"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.should_consider_optimization_complete">[docs]</a>    <span class="k">def</span> <span class="nf">should_consider_optimization_complete</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Whether this scheduler should consider this optimization complete and not</span>
+<span class="sd">        run more trials (and conclude the optimization via ``_complete_optimization``).</span>
+<span class="sd">        An optimization is considered complete when a generation strategy signalled</span>
+<span class="sd">        completion or when the custom ``completion_criterion`` on this scheduler</span>
+<span class="sd">        evaluates to ``True``.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_complete</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">completion_criterion</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Scheduler.should_abort_optimization"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.should_abort_optimization">[docs]</a>    <span class="k">def</span> <span class="nf">should_abort_optimization</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Checks whether this scheduler has reached some intertuption / abort</span>
+<span class="sd">        criterion, such as an overall optimization timeout, tolerated failure rate, etc.</span>
+<span class="sd">        """</span>
+        <span class="c1"># if failure rate is exceeded, raise an exception.</span>
+        <span class="c1"># this check should precede others to ensure it is not skipped.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">error_if_failure_rate_exceeded</span><span class="p">()</span>
+
+        <span class="c1"># if sweep is timed out, return True, else return False</span>
+        <span class="n">timed_out</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_timeout_hours</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_latest_optimization_start_timestamp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">current_timestamp_in_millis</span><span class="p">()</span>
+            <span class="o">-</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_latest_optimization_start_timestamp</span><span class="p">)</span>
+            <span class="o">&gt;=</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_timeout_hours</span><span class="p">)</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">1000</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">timed_out</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">"Optimization timed out (timeout hours: "</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_timeout_hours</span><span class="si">}</span><span class="s2">)!"</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">timed_out</span></div>
+
+<div class="viewcode-block" id="Scheduler.error_if_failure_rate_exceeded"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.error_if_failure_rate_exceeded">[docs]</a>    <span class="k">def</span> <span class="nf">error_if_failure_rate_exceeded</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">force_check</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Checks if the failure rate (set in scheduler options) has been exceeded.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            force_check: Indicates whether to force a failure-rate check</span>
+<span class="sd">                regardless of the number of trials that have been executed. If False</span>
+<span class="sd">                (default), the check will be skipped if the sweep has fewer than five</span>
+<span class="sd">                failed iterations. If True, the check will be performed unless there</span>
+<span class="sd">                are 0 failures.</span>
+<span class="sd">        """</span>
+        <span class="n">failed_idcs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trial_indices_by_status</span><span class="p">[</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">FAILED</span><span class="p">]</span>
+        <span class="c1"># We only count failed trials with indices that came after the preexisting</span>
+        <span class="c1"># trials on experiment before scheduler use.</span>
+        <span class="n">num_failed_in_scheduler</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
+            <span class="mi">1</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">failed_idcs</span> <span class="k">if</span> <span class="n">f</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_preexisting_trials</span>
+        <span class="p">)</span>
+
+        <span class="c1"># skip check if 0 failures</span>
+        <span class="k">if</span> <span class="n">num_failed_in_scheduler</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># skip check if fewer than min_failed_trials_for_failure_rate_check failures</span>
+        <span class="c1"># unless force_check is True</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">num_failed_in_scheduler</span>
+            <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">min_failed_trials_for_failure_rate_check</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="n">force_check</span>
+        <span class="p">):</span>
+            <span class="k">return</span>
+
+        <span class="n">num_ran_in_scheduler</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_preexisting_trials</span>
+        <span class="p">)</span>
+
+        <span class="n">failure_rate_exceeded</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">num_failed_in_scheduler</span> <span class="o">/</span> <span class="n">num_ran_in_scheduler</span>
+        <span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">tolerated_trial_failure_rate</span>
+
+        <span class="k">if</span> <span class="n">failure_rate_exceeded</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">FailureRateExceededError</span><span class="p">(</span>
+                <span class="s2">"Tolerated trial failure rate exceeded (at least "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">num_failed_in_scheduler</span><span class="si">}</span><span class="s2"> out of first </span><span class="si">{</span><span class="n">num_ran_in_scheduler</span><span class="si">}</span><span class="s2"> trials "</span>
+                <span class="s2">" failed)."</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Scheduler.summarize_final_result"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.summarize_final_result">[docs]</a>    <span class="k">def</span> <span class="nf">summarize_final_result</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationResult</span><span class="p">:</span>
+        <span class="sd">"""Get some summary of result: which trial did best, what</span>
+<span class="sd">        were the metric values, what were encountered failures, etc.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">OptimizationResult</span><span class="p">()</span>  <span class="c1"># pragma: no cover, TODO[T61776778]</span></div>
+
+    <span class="c1"># ---------- Methods below should generally not be modified in subclasses. ---------</span>
+
+<div class="viewcode-block" id="Scheduler.run_trials_and_yield_results"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.run_trials_and_yield_results">[docs]</a>    <span class="k">def</span> <span class="nf">run_trials_and_yield_results</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">max_trials</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">timeout_hours</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+        <span class="sd">"""Make continuous calls to `run` and `process_results` to run up to</span>
+<span class="sd">        ``max_trials`` trials, until completion criterion is reached. This is the 'main'</span>
+<span class="sd">        method of a ``Scheduler``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            max_trials: Maximum number of trials to run in this generator. The</span>
+<span class="sd">                generator will run trials</span>
+<span class="sd">            timeout_hours: Maximum number of hours, for which</span>
+<span class="sd">                to run the optimization. This function will abort after running</span>
+<span class="sd">                for `timeout_hours` even if stopping criterion has not been reached.</span>
+<span class="sd">                If set to `None`, no optimization timeout will be applied.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_latest_optimization_start_timestamp</span> <span class="o">=</span> <span class="n">current_timestamp_in_millis</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">timeout_hours</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">timeout_hours</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Expected `timeout_hours` &gt;= 0, got </span><span class="si">{</span><span class="n">timeout_hours</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_timeout_hours</span> <span class="o">=</span> <span class="n">timeout_hours</span>
+
+        <span class="k">if</span> <span class="n">max_trials</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Expected `max_trials` &gt;= 0, got </span><span class="si">{</span><span class="n">max_trials</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+        <span class="n">trials</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span>
+        <span class="n">n_existing</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_record_run_trials_status</span><span class="p">(</span>
+            <span class="n">num_preexisting_trials</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="n">RunTrialsStatus</span><span class="o">.</span><span class="n">STARTED</span>
+        <span class="p">)</span>
+
+        <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidate_trials</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">max_new_trials</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="c1"># only wait for trials to complete if max_pending_trials are already running</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_capacity</span><span class="p">():</span>
+                <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">wait_for_completed_trials_and_report_results</span><span class="p">()</span>
+
+        <span class="c1"># Until completion criterion is reached or `max_trials` is scheduled,</span>
+        <span class="c1"># schedule new trials and poll existing ones in a loop.</span>
+        <span class="k">while</span> <span class="p">(</span>
+            <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_consider_optimization_complete</span><span class="p">()</span>
+            <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">trials</span><span class="p">)</span> <span class="o">-</span> <span class="n">n_existing</span> <span class="o">&lt;</span> <span class="n">max_trials</span>
+        <span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_abort_optimization</span><span class="p">():</span>
+                <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">_abort_optimization</span><span class="p">(</span><span class="n">num_preexisting_trials</span><span class="o">=</span><span class="n">n_existing</span><span class="p">)</span>
+                <span class="k">return</span>
+
+            <span class="c1"># Run new trial evaluations until `run` returns `False`, which</span>
+            <span class="c1"># means that there was a reason not to run more evaluations yet.</span>
+            <span class="c1"># Also check that `max_trials` is not reached to not exceed it.</span>
+            <span class="n">remaining_to_run</span> <span class="o">=</span> <span class="n">max_trials</span> <span class="o">+</span> <span class="n">n_existing</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">)</span>
+            <span class="k">while</span> <span class="n">remaining_to_run</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">max_new_trials</span><span class="o">=</span><span class="n">remaining_to_run</span><span class="p">):</span>
+                <span class="c1"># Not checking `should_abort_optimization` on every iteration for perf.</span>
+                <span class="c1"># reasons.</span>
+                <span class="n">remaining_to_run</span> <span class="o">=</span> <span class="n">max_trials</span> <span class="o">+</span> <span class="n">n_existing</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">)</span>
+
+            <span class="c1"># Wait for trial evaluations to complete and process results.</span>
+            <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">wait_for_completed_trials_and_report_results</span><span class="p">()</span>
+
+        <span class="c1"># When done scheduling, wait for the remaining trials to finish running</span>
+        <span class="c1"># (unless optimization is aborting, in which case stop right away).</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">running_trials</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">"Done submitting trials, waiting for remaining "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">running_trials</span><span class="p">)</span><span class="si">}</span><span class="s2"> running trials..."</span>
+            <span class="p">)</span>
+
+        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">running_trials</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_abort_optimization</span><span class="p">():</span>
+                <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">_abort_optimization</span><span class="p">(</span><span class="n">num_preexisting_trials</span><span class="o">=</span><span class="n">n_existing</span><span class="p">)</span>
+                <span class="k">return</span>
+
+            <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">wait_for_completed_trials_and_report_results</span><span class="p">()</span>
+
+        <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">_complete_optimization</span><span class="p">(</span><span class="n">num_preexisting_trials</span><span class="o">=</span><span class="n">n_existing</span><span class="p">)</span>
+        <span class="k">return</span></div>
+
+<div class="viewcode-block" id="Scheduler.run_n_trials"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.run_n_trials">[docs]</a>    <span class="k">def</span> <span class="nf">run_n_trials</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">max_trials</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">timeout_hours</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationResult</span><span class="p">:</span>
+        <span class="sd">"""Run up to ``max_trials`` trials; will run all ``max_trials`` unless</span>
+<span class="sd">        completion criterion is reached. For base ``Scheduler``, completion criterion</span>
+<span class="sd">        is reaching total number of trials set in ``SchedulerOptions``, so if that</span>
+<span class="sd">        option is not specified, this function will run exactly ``max_trials`` trials</span>
+<span class="sd">        always.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            max_trials: Maximum number of trials to run.</span>
+<span class="sd">            timeout_hours: Limit on length of ths optimization; if reached, the</span>
+<span class="sd">                optimization will abort even if completon criterion is not yet reached.</span>
+<span class="sd">        """</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_trials_and_yield_results</span><span class="p">(</span>
+            <span class="n">max_trials</span><span class="o">=</span><span class="n">max_trials</span><span class="p">,</span> <span class="n">timeout_hours</span><span class="o">=</span><span class="n">timeout_hours</span>
+        <span class="p">):</span>
+            <span class="k">pass</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">summarize_final_result</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Scheduler.run_all_trials"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.run_all_trials">[docs]</a>    <span class="k">def</span> <span class="nf">run_all_trials</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout_hours</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationResult</span><span class="p">:</span>
+        <span class="sd">"""Run all trials until ``completion_criterion`` is reached (by default, completion</span>
+<span class="sd">        criterion is reaching the ``num_trials`` setting, passed to scheduler on</span>
+<span class="sd">        instantiation as part of ``SchedulerOptions``).</span>
+
+<span class="sd">        NOTE: This function is available only when ``SchedulerOptions.num_trials`` is</span>
+<span class="sd">        specified.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            timeout_hours: Limit on length of ths optimization; if reached, the</span>
+<span class="sd">                optimization will abort even if completon criterion is not yet reached.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">total_trials</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># NOTE: Capping on number of trials will likely be needed as fallback</span>
+            <span class="c1"># for most stopping criteria, so we ensure `num_trials` is specified.</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="s2">"Please either specify `num_trials` in `SchedulerOptions` input "</span>
+                <span class="s2">"to the `Scheduler` or use `run_n_trials` instead of `run_all_trials`."</span>
+            <span class="p">)</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_trials_and_yield_results</span><span class="p">(</span>
+            <span class="n">max_trials</span><span class="o">=</span><span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">total_trials</span><span class="p">),</span> <span class="n">timeout_hours</span><span class="o">=</span><span class="n">timeout_hours</span>
+        <span class="p">):</span>
+            <span class="k">pass</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">summarize_final_result</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Scheduler.run"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_new_trials</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Schedules trial evaluation(s) if stopping criterion is not triggered,</span>
+<span class="sd">        maximum parallelism is not currently reached, and capacity allows.</span>
+<span class="sd">        Logs any failures / issues.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            max_new_trials: Maximum number of new trials this function should generate</span>
+<span class="sd">                and run (useful when generating and running trials in batches). Note</span>
+<span class="sd">                that this function might also re-deploy existing ``CANDIDATE`` trials</span>
+<span class="sd">                that failed to deploy before, which will not count against this number.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Boolean representing success status.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_consider_optimization_complete</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">"`completion_criterion` is `True`, not running more trials."</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_abort_optimization</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">"`should_abort_optimization` is `True`, not running more trials."</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># Check if capacity allows for running new evaluations and generate as many</span>
+        <span class="c1"># trials as possible, limited by capacity and model requirements.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sleep_if_too_early_to_poll</span><span class="p">()</span>
+        <span class="n">existing_trials</span><span class="p">,</span> <span class="n">new_trials</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_trials</span><span class="p">(</span>
+            <span class="n">max_new_trials</span><span class="o">=</span><span class="n">max_new_trials</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">existing_trials</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">new_trials</span><span class="p">:</span>
+            <span class="c1"># Unable to gen. new run due to max parallelism limit or need for data</span>
+            <span class="c1"># or unable to run trials due to lack of capacity.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_complete</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_trials_in_flight</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SchedulerInternalError</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="s2">"No trials are running but model requires more data. This is an "</span>
+                    <span class="s2">"invalid state of the scheduler, as no more trials can be produced "</span>
+                    <span class="s2">"but also no more data is expected as there are no running trials."</span>
+                    <span class="s2">"This should be investigated."</span>
+                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_log_next_no_trials_reason</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">return</span> <span class="kc">False</span>  <span class="c1"># Nothing to run.</span>
+
+        <span class="k">if</span> <span class="n">existing_trials</span><span class="p">:</span>
+            <span class="n">idcs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">index</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">existing_trials</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Will run pre-existing candidate trials: </span><span class="si">{</span><span class="n">idcs</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+
+        <span class="n">all_trials</span> <span class="o">=</span> <span class="p">[</span><span class="o">*</span><span class="n">existing_trials</span><span class="p">,</span> <span class="o">*</span><span class="n">new_trials</span><span class="p">]</span>
+        <span class="n">idcs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">index</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">all_trials</span><span class="p">)</span>
+        <span class="n">contiguous</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">idcs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="p">(</span><span class="n">idcs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">idcs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">idcs</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">idcs_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">idcs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> - </span><span class="si">{</span><span class="n">idcs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span> <span class="k">if</span> <span class="n">contiguous</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">idcs</span><span class="si">}</span><span class="s2">"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Running trials </span><span class="si">{</span><span class="n">idcs_str</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+        <span class="c1"># TODO: Add optional timeout between retries of `run_trial(s)`.</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_trials</span><span class="p">(</span><span class="n">trials</span><span class="o">=</span><span class="n">all_trials</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Ran trials </span><span class="si">{</span><span class="n">idcs_str</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">debug_log_run_metadata</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Run metadata: </span><span class="si">{</span><span class="n">metadata</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_latest_trial_start_timestamp</span> <span class="o">=</span> <span class="n">current_timestamp_in_millis</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_and_save_trials</span><span class="p">(</span>
+            <span class="n">existing_trials</span><span class="o">=</span><span class="n">existing_trials</span><span class="p">,</span> <span class="n">new_trials</span><span class="o">=</span><span class="n">new_trials</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_log_next_no_trials_reason</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+    <span class="k">def</span> <span class="nf">_update_status_dict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">status_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">TrialStatus</span><span class="p">,</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span>
+        <span class="n">updating_status_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">TrialStatus</span><span class="p">,</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="n">TrialStatus</span><span class="p">,</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]]:</span>
+        <span class="sd">"""Helper method to elements of a dict of sets.</span>
+
+<span class="sd">        Avoids leaving trial_index in sets corresponding to two different</span>
+<span class="sd">        statuses."""</span>
+        <span class="c1"># Convert Dict[TrialStatus, Set[int]] to Dict[int, TrialStatus]</span>
+        <span class="n">trial_index_to_status</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">trial_index</span><span class="p">:</span> <span class="n">status</span>
+            <span class="k">for</span> <span class="n">status</span><span class="p">,</span> <span class="n">trial_indices</span> <span class="ow">in</span> <span class="n">status_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">trial_index</span> <span class="ow">in</span> <span class="n">trial_indices</span>
+        <span class="p">}</span>
+        <span class="c1"># Convert Dict[TrialStatus, Set[int]] to Dict[int, TrialStatus]</span>
+        <span class="n">trial_index_to_updating_status</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">trial_index</span><span class="p">:</span> <span class="n">status</span>
+            <span class="k">for</span> <span class="n">status</span><span class="p">,</span> <span class="n">trial_indices</span> <span class="ow">in</span> <span class="n">updating_status_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">trial_index</span> <span class="ow">in</span> <span class="n">trial_indices</span>
+        <span class="p">}</span>
+        <span class="c1"># Safely update new statuses, then convert back to Dict[TrialStatus, Set[int]]</span>
+        <span class="n">trial_index_to_status</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">trial_index_to_updating_status</span><span class="p">)</span>
+        <span class="n">updated_status_dict</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">trial_index</span><span class="p">,</span> <span class="n">status</span> <span class="ow">in</span> <span class="n">trial_index_to_status</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">updated_status_dict</span><span class="p">[</span><span class="n">status</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">trial_index</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">updated_status_dict</span>
+
+<div class="viewcode-block" id="Scheduler.poll_and_process_results"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.poll_and_process_results">[docs]</a>    <span class="k">def</span> <span class="nf">poll_and_process_results</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Takes the following actions:</span>
+<span class="sd">            1. Poll trial runs for their statuses</span>
+<span class="sd">            2. If any experiment metrics are available while running,</span>
+<span class="sd">               fetch data for running trials</span>
+<span class="sd">            3. Determine which trials should be early stopped</span>
+<span class="sd">            4. Early-stop those trials</span>
+<span class="sd">            5. Update the experiment with the new trial statuses</span>
+<span class="sd">            6. Fetch the data for newly completed trials</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A boolean representing whether any trial evaluations completed</span>
+<span class="sd">            of have been marked as failed or abandoned, changing the number of</span>
+<span class="sd">            currently running trials.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sleep_if_too_early_to_poll</span><span class="p">()</span>
+
+        <span class="n">updated_any_trial</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># Whether any trial updates were performed.</span>
+        <span class="n">prev_completed_trial_idcs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trial_indices_by_status</span><span class="p">[</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">COMPLETED</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="c1"># 1. Poll trial statuses</span>
+        <span class="n">new_status_to_trial_idcs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">poll_trial_status</span><span class="p">()</span>
+
+        <span class="c1"># Note: We could use `new_status_to_trial_idcs[TrialStatus.Running]`</span>
+        <span class="c1"># for the running_trial_indices, but we don't enforce</span>
+        <span class="c1"># that users return the status of trials that are not being updated.</span>
+        <span class="c1"># Thus, if a trial was running in the last poll and is still running</span>
+        <span class="c1"># in this poll, it might not appear in new_status_to_trial_idcs.</span>
+        <span class="c1"># Instead, to get the list of all currently running trials at this</span>
+        <span class="c1"># point in time, we look at self.running_trials, which contains trials</span>
+        <span class="c1"># that were running in the last poll, and we exclude trials that were</span>
+        <span class="c1"># newly terminated in this poll.</span>
+        <span class="n">terminated_trial_idcs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">index</span>
+            <span class="k">for</span> <span class="n">status</span><span class="p">,</span> <span class="n">indices</span> <span class="ow">in</span> <span class="n">new_status_to_trial_idcs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">status</span><span class="o">.</span><span class="n">is_terminal</span>
+            <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">indices</span>
+        <span class="p">}</span>
+        <span class="n">running_trial_indices</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">trial</span><span class="o">.</span><span class="n">index</span>
+            <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">running_trials</span>
+            <span class="k">if</span> <span class="n">trial</span><span class="o">.</span><span class="n">index</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">terminated_trial_idcs</span>
+        <span class="p">}</span>
+
+        <span class="c1"># 2. If any experiment metrics are available while running,</span>
+        <span class="c1">#    fetch data for running trials</span>
+        <span class="n">already_fetched_trial_idcs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">is_available_while_running</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+            <span class="c1"># Note: Metrics that are *not* available_while_running will be skipped</span>
+            <span class="c1"># in fetch_trials_data</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">fetch_trials_data</span><span class="p">(</span><span class="n">trial_indices</span><span class="o">=</span><span class="n">running_trial_indices</span><span class="p">)</span>
+            <span class="n">already_fetched_trial_idcs</span> <span class="o">=</span> <span class="n">running_trial_indices</span>
+
+        <span class="c1"># 3. Determine which trials to stop early</span>
+        <span class="n">stop_trial_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">should_stop_trials_early</span><span class="p">(</span>
+            <span class="n">trial_indices</span><span class="o">=</span><span class="n">running_trial_indices</span>
+        <span class="p">)</span>
+
+        <span class="c1"># 4. Stop trials early</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop_trial_runs</span><span class="p">(</span>
+            <span class="n">trials</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="n">trial_idx</span><span class="p">]</span> <span class="k">for</span> <span class="n">trial_idx</span> <span class="ow">in</span> <span class="n">stop_trial_info</span><span class="p">],</span>
+            <span class="n">reasons</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">stop_trial_info</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span>
+        <span class="p">)</span>
+
+        <span class="c1"># 5. Update trial statuses on the experiment</span>
+        <span class="n">new_status_to_trial_idcs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_update_status_dict</span><span class="p">(</span>
+            <span class="n">status_dict</span><span class="o">=</span><span class="n">new_status_to_trial_idcs</span><span class="p">,</span>
+            <span class="n">updating_status_dict</span><span class="o">=</span><span class="p">{</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">EARLY_STOPPED</span><span class="p">:</span> <span class="nb">set</span><span class="p">(</span><span class="n">stop_trial_info</span><span class="p">)},</span>
+        <span class="p">)</span>
+        <span class="n">updated_trials</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">status</span><span class="p">,</span> <span class="n">trial_idcs</span> <span class="ow">in</span> <span class="n">new_status_to_trial_idcs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">status</span><span class="o">.</span><span class="n">is_candidate</span> <span class="ow">or</span> <span class="n">status</span><span class="o">.</span><span class="n">is_deployed</span><span class="p">:</span>
+                <span class="c1"># No need to consider candidate, staged or running trials here (none of</span>
+                <span class="c1"># these trials should actually be candidates, but we can filter on that)</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">trial_idcs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Retrieved </span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> trials: </span><span class="si">{</span><span class="n">trial_idcs</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+                <span class="n">updated_any_trial</span> <span class="o">=</span> <span class="kc">True</span>
+
+            <span class="c1"># Update trial statuses and record which trials were updated.</span>
+            <span class="n">trials</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">get_trials_by_indices</span><span class="p">(</span><span class="n">trial_idcs</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="n">trials</span><span class="p">:</span>
+                <span class="n">trial</span><span class="o">.</span><span class="n">mark_as</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">)</span>
+
+            <span class="c1"># 6. Fetch data for newly completed trials</span>
+            <span class="k">if</span> <span class="n">status</span><span class="o">.</span><span class="n">is_completed</span><span class="p">:</span>
+                <span class="n">newly_completed</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">trial_idcs</span> <span class="o">-</span> <span class="n">prev_completed_trial_idcs</span> <span class="o">-</span> <span class="n">already_fetched_trial_idcs</span>
+                <span class="p">)</span>
+                <span class="c1"># Fetch the data for newly completed trials; this will cache the data</span>
+                <span class="c1"># for all metrics. By pre-caching the data now, we remove the need to</span>
+                <span class="c1"># fetch it during candidate generation.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">fetch_trials_data</span><span class="p">(</span><span class="n">trial_indices</span><span class="o">=</span><span class="n">newly_completed</span><span class="p">)</span>
+
+            <span class="n">updated_trials</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">trials</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">updated_any_trial</span><span class="p">:</span>  <span class="c1"># Did not update anything, nothing to save.</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Updating </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">updated_trials</span><span class="p">)</span><span class="si">}</span><span class="s2"> trials in DB."</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_or_update_trials_in_db_if_possible</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="p">,</span>
+            <span class="n">trials</span><span class="o">=</span><span class="n">updated_trials</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">updated_any_trial</span></div>
+
+<div class="viewcode-block" id="Scheduler.should_stop_trials_early"><a class="viewcode-back" href="../../../service.html#ax.service.scheduler.Scheduler.should_stop_trials_early">[docs]</a>    <span class="k">def</span> <span class="nf">should_stop_trials_early</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">trial_indices</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+        <span class="sd">"""Evaluate whether to early-stop running trials.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trial_indices: Indices of trials to consider for early stopping.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A set of indices of trials to early-stop (will be a subset of</span>
+<span class="sd">            initially-passed trials).</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">early_stopping_strategy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{}</span>
+
+        <span class="n">early_stopping_strategy</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">early_stopping_strategy</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">early_stopping_strategy</span><span class="o">.</span><span class="n">should_stop_trials_early</span><span class="p">(</span>
+            <span class="n">trial_indices</span><span class="o">=</span><span class="n">trial_indices</span><span class="p">,</span> <span class="n">experiment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_abort_optimization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_preexisting_trials</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">"""Conclude optimization without waiting for anymore running trials and</span>
+<span class="sd">        return results so far via `report_results`.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_record_optimization_complete_message</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_record_run_trials_status</span><span class="p">(</span>
+            <span class="n">num_preexisting_trials</span><span class="o">=</span><span class="n">num_preexisting_trials</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="n">RunTrialsStatus</span><span class="o">.</span><span class="n">ABORTED</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">report_results</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_complete_optimization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_preexisting_trials</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="sd">"""Conclude optimization with waiting for anymore running trials and</span>
+<span class="sd">        return final results via `wait_for_completed_trials_and_report_results`.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_record_optimization_complete_message</span><span class="p">()</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wait_for_completed_trials_and_report_results</span><span class="p">()</span>
+        <span class="c1"># raise an error if the failure rate exceeds tolerance at the end of the sweep</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">error_if_failure_rate_exceeded</span><span class="p">(</span><span class="n">force_check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_record_run_trials_status</span><span class="p">(</span>
+            <span class="n">num_preexisting_trials</span><span class="o">=</span><span class="n">num_preexisting_trials</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="n">RunTrialsStatus</span><span class="o">.</span><span class="n">SUCCESS</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">res</span>
+
+    <span class="k">def</span> <span class="nf">_validate_options</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="n">SchedulerOptions</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Validates `SchedulerOptions` for compatibility with given</span>
+<span class="sd">        `Scheduler` class.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">trial_type</span> <span class="ow">is</span> <span class="n">BatchTrial</span><span class="p">:</span>  <span class="c1"># TODO[T61776778]: support batches</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"Support for batched trials coming soon."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;=</span> <span class="n">options</span><span class="o">.</span><span class="n">tolerated_trial_failure_rate</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"`tolerated_trial_failure_rate` must be in [0, 1)."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">early_stopping_strategy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="n">m</span><span class="o">.</span><span class="n">is_available_while_running</span><span class="p">()</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Can only specify an early stopping strategy if at least one metric "</span>
+                <span class="s2">"is marked as `is_available_while_running`. Otherwise, we will be "</span>
+                <span class="s2">"unable to fetch intermediate results with which to evaluate "</span>
+                <span class="s2">"early stopping criteria."</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_prepare_trials</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">max_new_trials</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">BaseTrial</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">BaseTrial</span><span class="p">]]:</span>
+        <span class="sd">"""Prepares one trial or multiple trials for deployment, based on</span>
+<span class="sd">        whether `run_trials_in_batches` is set to `True` in this scheduler's</span>
+<span class="sd">        options.</span>
+
+<span class="sd">        NOTE: If running trials in batches, exact number of trials run at once</span>
+<span class="sd">        is determined by available capacity and generation strategy's</span>
+<span class="sd">        requirement for more data and parallelism limitation.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            max_new_trials: Maximum number of new trials to generate.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Two lists of trials:</span>
+<span class="sd">            - list of existing candidate trials whose deployment was attempted</span>
+<span class="sd">              but failed before (empty if there were no such trials),</span>
+<span class="sd">            - list of new candidate trials that were created in the course of</span>
+<span class="sd">              this function (empty if no new trials were generated).</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">run_trials_in_batches</span><span class="p">:</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">poll_available_capacity</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">n</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">UnsupportedError</span><span class="p">(</span>
+                    <span class="s2">"Running trials in batches is supported only if "</span>
+                    <span class="s2">"`poll_available_capacity` returns a non-null value."</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">total_trials</span><span class="p">:</span>
+                <span class="n">n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span>
+                    <span class="n">n</span><span class="p">,</span>
+                    <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">total_trials</span><span class="p">)</span>
+                    <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials_expecting_data</span><span class="p">),</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># Running 1 trial at a time, sequentially.</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_capacity</span><span class="p">()</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"There is no capacity to run any trials."</span><span class="p">)</span>
+        <span class="n">existing</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">candidate_trials</span><span class="p">[:</span><span class="n">n</span><span class="p">]</span>
+        <span class="n">n_new</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">existing</span><span class="p">),</span> <span class="n">max_new_trials</span><span class="p">)</span>
+        <span class="n">new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_next_trials</span><span class="p">(</span><span class="n">num_trials</span><span class="o">=</span><span class="n">n_new</span><span class="p">)</span> <span class="k">if</span> <span class="n">n_new</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">[]</span>
+        <span class="k">return</span> <span class="n">existing</span><span class="p">,</span> <span class="n">new</span>
+
+    <span class="k">def</span> <span class="nf">_get_next_trials</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_trials</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">BaseTrial</span><span class="p">]:</span>
+        <span class="sd">"""Produce up to `num_trials` new generator runs from the underlying</span>
+<span class="sd">        generation strategy and create new trials with them. Logs errors</span>
+<span class="sd">        encountered during generation.</span>
+
+<span class="sd">        NOTE: Fewer than `num_trials` trials may be produced if generation</span>
+<span class="sd">        strategy runs into its parallelism limit or needs more data to proceed.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of trials, empty if generation is not possible.</span>
+<span class="sd">        """</span>
+        <span class="n">pending</span> <span class="o">=</span> <span class="n">get_pending_observation_features_based_on_trial_status</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span>
+        <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">generator_runs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generation_strategy</span><span class="o">.</span><span class="n">_gen_multiple</span><span class="p">(</span>
+                <span class="n">experiment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="p">,</span>
+                <span class="n">num_generator_runs</span><span class="o">=</span><span class="n">num_trials</span><span class="p">,</span>
+                <span class="n">pending_observations</span><span class="o">=</span><span class="n">pending</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="n">OptimizationComplete</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Optimization complete: </span><span class="si">{</span><span class="n">err</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_complete</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">return</span> <span class="p">[]</span>
+        <span class="k">except</span> <span class="n">DataRequiredError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="c1"># TODO[T62606107]: consider adding a `more_data_required` property to</span>
+            <span class="c1"># check to generation strategy to avoid running into this exception.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log_next_no_trials_reason</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">"Generated all trials that can be generated currently. "</span>
+                    <span class="s2">"Model requires more data to generate more trials."</span>
+                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Message from generation strategy: </span><span class="si">{</span><span class="n">err</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">[]</span>
+        <span class="k">except</span> <span class="n">MaxParallelismReachedException</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="c1"># TODO[T62606107]: consider adding a `step_max_parallelism_reached`</span>
+            <span class="c1"># check to generation strategy to avoid running into this exception.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log_next_no_trials_reason</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">"Generated all trials that can be generated currently. "</span>
+                    <span class="s2">"Max parallelism currently reached."</span>
+                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Message from generation strategy: </span><span class="si">{</span><span class="n">err</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">trial_type</span> <span class="ow">is</span> <span class="n">Trial</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">generator_runs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">arms</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SchedulerInternalError</span><span class="p">(</span>
+                <span class="s2">"Generation strategy produced multiple arms when only one was expected."</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">(</span>
+                <span class="n">generator_run</span><span class="o">=</span><span class="n">generator_run</span><span class="p">,</span>
+                <span class="n">ttl_seconds</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">ttl_seconds_for_trials</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">trial_type</span> <span class="ow">is</span> <span class="n">BatchTrial</span>
+            <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">new_trial</span><span class="p">(</span>
+                <span class="n">generator_run</span><span class="o">=</span><span class="n">generator_run</span><span class="p">,</span>
+                <span class="n">ttl_seconds</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">ttl_seconds_for_trials</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">generator_run</span> <span class="ow">in</span> <span class="n">generator_runs</span>
+        <span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">_update_and_save_trials</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">existing_trials</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">BaseTrial</span><span class="p">],</span>
+        <span class="n">new_trials</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">BaseTrial</span><span class="p">],</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Updates trials with new run metadata and status; saves updates to DB.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            exiting_trials: Trials that existed on this experiment during the</span>
+<span class="sd">                previous call to this function (these are trials, deployment of</span>
+<span class="sd">                which has already been attempted but failed, so we are</span>
+<span class="sd">                re-attempting it; these trials are already saved in DB if using</span>
+<span class="sd">                storage functionality).</span>
+<span class="sd">            new_trials: Trials that were newly created (these trials are not</span>
+<span class="sd">                yet saved in the DB if using storage functionality).</span>
+<span class="sd">            metadata: Run metadata for the trials, from `scheduler.run_trials`.</span>
+<span class="sd">                Format is {trial index -&gt; trial run metadata}. Trials present in</span>
+<span class="sd">                the metadata dict will be considered `RUNNING`, and the rest of</span>
+<span class="sd">                trials in `existing_trials` or `new_trials` (that are not present</span>
+<span class="sd">                in `metadata`) will be left as `CANDIDATE`.</span>
+<span class="sd">        """</span>
+
+        <span class="k">def</span> <span class="nf">_process_trial</span><span class="p">(</span><span class="n">trial</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">trial</span><span class="o">.</span><span class="n">index</span> <span class="ow">in</span> <span class="n">metadata</span><span class="p">:</span>
+                <span class="n">trial</span><span class="o">.</span><span class="n">update_run_metadata</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">[</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">])</span>
+                <span class="n">trial</span><span class="o">.</span><span class="n">mark_running</span><span class="p">(</span><span class="n">no_runner_required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Trial </span><span class="si">{</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="si">}</span><span class="s2"> did not deploy, status: </span><span class="si">{</span><span class="n">trial</span><span class="o">.</span><span class="n">status</span><span class="si">}</span><span class="s2">."</span>
+                <span class="p">)</span>
+
+        <span class="n">new_generator_runs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="n">existing_trials</span><span class="p">:</span>
+            <span class="n">_process_trial</span><span class="p">(</span><span class="n">trial</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="n">new_trials</span><span class="p">:</span>
+            <span class="n">new_generator_runs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">generator_runs</span><span class="p">)</span>
+            <span class="n">_process_trial</span><span class="p">(</span><span class="n">trial</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_or_update_trials_and_generation_strategy_if_possible</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="p">,</span>
+            <span class="n">trials</span><span class="o">=</span><span class="p">[</span><span class="o">*</span><span class="n">existing_trials</span><span class="p">,</span> <span class="o">*</span><span class="n">new_trials</span><span class="p">],</span>
+            <span class="n">generation_strategy</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">generation_strategy</span><span class="p">,</span>
+            <span class="n">new_generator_runs</span><span class="o">=</span><span class="n">new_generator_runs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_sleep_if_too_early_to_poll</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Wait to query for capacity unless there has been enough time since last</span>
+<span class="sd">        scheduling.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_latest_trial_start_timestamp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">seconds_since_run_trial</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">current_timestamp_in_millis</span><span class="p">()</span>
+                <span class="o">-</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_latest_trial_start_timestamp</span><span class="p">)</span>
+            <span class="p">)</span> <span class="o">*</span> <span class="mi">1000</span>
+            <span class="k">if</span> <span class="n">seconds_since_run_trial</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">min_seconds_before_poll</span><span class="p">:</span>
+                <span class="n">sleep</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">min_seconds_before_poll</span> <span class="o">-</span> <span class="n">seconds_since_run_trial</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_set_logger</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Set up the logger with appropriate logging levels."""</span>
+        <span class="n">cls_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">cls_name</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="nb">hex</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">set_stderr_log_level</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">logging_level</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">log_filepath</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">handler</span> <span class="o">=</span> <span class="n">build_file_handler</span><span class="p">(</span>
+                <span class="n">filepath</span><span class="o">=</span><span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">log_filepath</span><span class="p">),</span>
+                <span class="n">level</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">logging_level</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">LoggerAdapter</span><span class="p">(</span><span class="n">logger</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="p">{</span><span class="s2">"output_name"</span><span class="p">:</span> <span class="n">cls_name</span><span class="p">})</span>
+
+    <span class="k">def</span> <span class="nf">_validate_remaining_trials</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Check how many trials are remaining in `total_trials` given the trials</span>
+<span class="sd">        already on experiment and make sure that there will be trials for the</span>
+<span class="sd">        scheduler to run.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">experiment</span><span class="o">.</span><span class="n">trials</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">total_trials</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">total_trials</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">total_trials</span><span class="p">)</span>
+        <span class="n">preexisting</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">)</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">experiment</span><span class="si">}</span><span class="s2"> already has </span><span class="si">{</span><span class="n">preexisting</span><span class="si">}</span><span class="s2"> trials associated with it. "</span>
+            <span class="sa">f</span><span class="s2">"Total trials setting for this scheduler is </span><span class="si">{</span><span class="n">total_trials</span><span class="si">}</span><span class="s2">, so "</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">preexisting</span> <span class="o">&gt;=</span> <span class="n">total_trials</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="n">msg</span> <span class="o">+</span> <span class="s2">"no more trials would be run in this scheduler if "</span>
+                <span class="s2">"`Scheduler.run_all_trials` is called (but you can still use "</span>
+                <span class="s2">"`Scheduler.run_n_trials` to run a fixed number of trials)."</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="n">msg</span> <span class="o">+</span> <span class="s2">"number of trials ran by `Scheduler.run_all_trials` would be "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">total_trials</span> <span class="o">-</span> <span class="n">preexisting</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_validate_implemented_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Ensure that the experiment specifies metrics and that they are not base</span>
+<span class="sd">        `Metric`-s, which do not implement fetching logic.</span>
+<span class="sd">        """</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">"`Scheduler` requires that experiment specifies metrics "</span>
+            <span class="s2">"with implemented fetching logic."</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">experiment</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UnsupportedError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">base_metrics</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">m_name</span> <span class="k">for</span> <span class="n">m_name</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">experiment</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="o">==</span> <span class="n">Metric</span>
+            <span class="p">}</span>
+            <span class="k">if</span> <span class="n">base_metrics</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">" Metrics </span><span class="si">{</span><span class="n">base_metrics</span><span class="si">}</span><span class="s2"> do not implement fetching logic."</span>
+                <span class="k">raise</span> <span class="n">UnsupportedError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_enforce_immutable_search_space_and_opt_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Experiments with immutable search space and optimization config don't</span>
+<span class="sd">        need to keep copies of those objects on each generator run in the experiment,</span>
+<span class="sd">        resulting in large performance gain in storage layer. In `Scheduler`, we</span>
+<span class="sd">        force-set this immutability on `Experiment`, since scheduler experiments</span>
+<span class="sd">        are typically not human-in-the-loop.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">immutable_search_space_and_opt_config</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"`Scheduler` requires experiment to have immutable search "</span>
+            <span class="s2">"space and optimization config. Setting property "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">Keys</span><span class="o">.</span><span class="n">IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2"> "</span>
+            <span class="s2">"to `True` on experiment."</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">_properties</span><span class="p">[</span>
+            <span class="n">Keys</span><span class="o">.</span><span class="n">IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF</span><span class="o">.</span><span class="n">value</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="nf">_initialize_experiment_status_properties</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Initializes status-tracking properties of the experiment, which will</span>
+<span class="sd">        be appended to in ``run_trials_and_yield_results``."""</span>
+        <span class="k">for</span> <span class="n">status_prop_enum_member</span> <span class="ow">in</span> <span class="n">ExperimentStatusProperties</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">status_prop_enum_member</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">_properties</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">_properties</span><span class="p">[</span><span class="n">status_prop_enum_member</span><span class="o">.</span><span class="n">value</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">_record_run_trials_status</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">num_preexisting_trials</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">status</span><span class="p">:</span> <span class="n">RunTrialsStatus</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Records status of each call to ``Scheduler.run_trials_and_yield_results``</span>
+<span class="sd">        in properties of this experiment for monitoring of experiment success.</span>
+<span class="sd">        """</span>
+        <span class="n">to_append</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">ExperimentStatusProperties</span><span class="o">.</span><span class="n">RUN_TRIALS_STATUS</span><span class="o">.</span><span class="n">value</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">value</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">num_preexisting_trials</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">new_trials</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">)</span> <span class="o">-</span> <span class="n">num_preexisting_trials</span>
+            <span class="n">to_append</span><span class="p">[</span>
+                <span class="n">ExperimentStatusProperties</span><span class="o">.</span><span class="n">NUM_TRIALS_RUN_PER_CALL</span><span class="o">.</span><span class="n">value</span>
+            <span class="p">]</span> <span class="o">=</span> <span class="n">new_trials</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_append_to_experiment_properties</span><span class="p">(</span><span class="n">to_append</span><span class="o">=</span><span class="n">to_append</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_record_optimization_complete_message</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Adds a simple optimization completion message to this scheduler's markdown</span>
+<span class="sd">        messages.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">markdown_messages</span><span class="p">[</span>
+            <span class="s2">"optimization_completion"</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="n">OPTIMIZATION_COMPLETION_MSG</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">num_trials</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">),</span>
+            <span class="n">experiment_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">name</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="s2">"unnamed"</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_append_to_experiment_properties</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">to_append</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Appends to list fields in experiment properties based on ``to_append``</span>
+<span class="sd">        input dict of form {property_name: value_to_append}.</span>
+<span class="sd">        """</span>
+        <span class="k">for</span> <span class="n">prop</span><span class="p">,</span> <span class="n">val_to_append</span> <span class="ow">in</span> <span class="n">to_append</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">prop</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">_properties</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">_properties</span><span class="p">[</span><span class="n">prop</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">val_to_append</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">_properties</span><span class="p">[</span><span class="n">prop</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">val_to_append</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_experiment_properties_in_db</span><span class="p">(</span>
+            <span class="n">experiment_with_updated_properties</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span>
+        <span class="p">)</span></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.1/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2021 Facebook Inc.</section></footer></div></body></html>

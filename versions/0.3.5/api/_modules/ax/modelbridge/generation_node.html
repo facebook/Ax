@@ -1,0 +1,977 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.3.5/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.3.5/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.3.5/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.3.5/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.3.5/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.3.5/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.3.5/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.3.5/css/main.css"/><script src="/versions/0.3.5/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.3.5/"><img class="logo" src="/versions/0.3.5/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.3.5/versions.html"><h3>0.3.5</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.3.5/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.3.5/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.3.5/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.modelbridge.generation_node</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span> <span class="nn">logging</span> <span class="kn">import</span> <span class="n">Logger</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="c1"># Module-level import to avoid circular dependency b/w this file and</span>
+<span class="c1"># generation_strategy.py</span>
+<span class="kn">from</span> <span class="nn">ax</span> <span class="kn">import</span> <span class="n">modelbridge</span>
+<span class="kn">from</span> <span class="nn">ax.core.arm</span> <span class="kn">import</span> <span class="n">Arm</span>
+<span class="kn">from</span> <span class="nn">ax.core.base_trial</span> <span class="kn">import</span> <span class="n">TrialStatus</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.generator_run</span> <span class="kn">import</span> <span class="n">GeneratorRun</span>
+<span class="kn">from</span> <span class="nn">ax.core.observation</span> <span class="kn">import</span> <span class="n">ObservationFeatures</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.core</span> <span class="kn">import</span> <span class="n">DataRequiredError</span><span class="p">,</span> <span class="n">UserInputError</span>
+
+<span class="kn">from</span> <span class="nn">ax.exceptions.generation_strategy</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">GenerationStrategyRepeatedPoints</span><span class="p">,</span>
+    <span class="n">MaxParallelismReachedException</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.base</span> <span class="kn">import</span> <span class="n">ModelBridge</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.cross_validation</span> <span class="kn">import</span> <span class="n">BestModelSelector</span><span class="p">,</span> <span class="n">CVDiagnostics</span><span class="p">,</span> <span class="n">CVResult</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.model_spec</span> <span class="kn">import</span> <span class="n">FactoryFunctionModelSpec</span><span class="p">,</span> <span class="n">ModelSpec</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.registry</span> <span class="kn">import</span> <span class="n">ModelRegistryBase</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transition_criterion</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MaxGenerationParallelism</span><span class="p">,</span>
+    <span class="n">MaxTrials</span><span class="p">,</span>
+    <span class="n">MinTrials</span><span class="p">,</span>
+    <span class="n">TransitionCriterion</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.base</span> <span class="kn">import</span> <span class="n">Base</span><span class="p">,</span> <span class="n">SortableBase</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">not_none</span>
+
+
+<span class="n">logger</span><span class="p">:</span> <span class="n">Logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">TModelFactory</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">ModelBridge</span><span class="p">]</span>
+<span class="n">CANNOT_SELECT_ONE_MODEL_MSG</span> <span class="o">=</span> <span class="s2">"""</span>
+<span class="s2">Base `GenerationNode` does not implement selection among fitted</span>
+<span class="s2">models, so exactly one `ModelSpec` must be specified when using</span>
+<span class="s2">`GenerationNode._pick_fitted_model_to_gen_from` (usually called</span>
+<span class="s2">by `GenerationNode.gen`.</span>
+<span class="s2">"""</span>
+<span class="n">MAX_GEN_DRAWS</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="n">MAX_GEN_DRAWS_EXCEEDED_MESSAGE</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="sa">f</span><span class="s2">"GenerationStrategy exceeded `MAX_GEN_DRAWS` of </span><span class="si">{</span><span class="n">MAX_GEN_DRAWS</span><span class="si">}</span><span class="s2"> while trying to "</span>
+    <span class="s2">"generate a unique parameterization. This indicates that the search space has "</span>
+    <span class="s2">"likely been fully explored, or that the sweep has converged."</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="GenerationNode"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.generation_node.GenerationNode">[docs]</a><span class="k">class</span> <span class="nc">GenerationNode</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Base class for GenerationNode, capable of fitting one or more model specs under</span>
+<span class="sd">    the hood and generating candidates from them.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model_specs: A list of ModelSpecs to be selected from for generation in this</span>
+<span class="sd">            GenerationNode</span>
+<span class="sd">        should_deduplicate: Whether to deduplicate the parameters of proposed arms</span>
+<span class="sd">            against those of previous arms via rejection sampling. If this is True,</span>
+<span class="sd">            the GenerationStrategy will discard generator runs produced from the</span>
+<span class="sd">            GenerationNode that has `should_deduplicate=True` if they contain arms</span>
+<span class="sd">            already present on the experiment and replace them with new generator runs.</span>
+<span class="sd">            If no generator run with entirely unique arms could be produced in 5</span>
+<span class="sd">            attempts, a `GenerationStrategyRepeatedPoints` error will be raised, as we</span>
+<span class="sd">            assume that the optimization converged when the model can no longer suggest</span>
+<span class="sd">            unique arms.</span>
+<span class="sd">        node_name: A unique name for the GenerationNode. Used for storage purposes.</span>
+<span class="sd">        transition_criteria: List of TransitionCriterion, each of which describes a</span>
+<span class="sd">            condition that must be met before completing a GenerationNode. All `is_met`</span>
+<span class="sd">            must evaluateTrue for the GenerationStrategy to move on to the next</span>
+<span class="sd">            GenerationNode.</span>
+<span class="sd">        gen_unlimited_trials: If True the number of trials that can be generated from</span>
+<span class="sd">            this GenerationNode is unlimited.</span>
+
+<span class="sd">    Note for developers: by "model" here we really mean an Ax ModelBridge object, which</span>
+<span class="sd">    contains an Ax Model under the hood. We call it "model" here to simplify and focus</span>
+<span class="sd">    on explaining the logic of GenerationStep and GenerationStrategy.</span>
+<span class="sd">    """</span>
+
+    <span class="c1"># Required options:</span>
+    <span class="n">model_specs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ModelSpec</span><span class="p">]</span>
+    <span class="c1"># TODO: Move `should_deduplicate` to `ModelSpec` if possible, and make optional</span>
+    <span class="n">should_deduplicate</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">_node_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">_gen_unlimited_trials</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="c1"># Optional specifications</span>
+    <span class="n">_model_spec_to_gen_from</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ModelSpec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_transition_criteria</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">TransitionCriterion</span><span class="p">]]</span>
+
+    <span class="c1"># [TODO] Handle experiment passing more eloquently by enforcing experiment</span>
+    <span class="c1"># attribute is set in generation strategies class</span>
+    <span class="n">_generation_strategy</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">modelbridge</span><span class="o">.</span><span class="n">generation_strategy</span><span class="o">.</span><span class="n">GenerationStrategy</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">node_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">model_specs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ModelSpec</span><span class="p">],</span>
+        <span class="n">best_model_selector</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BestModelSelector</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">should_deduplicate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">transition_criteria</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">TransitionCriterion</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">gen_unlimited_trials</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_node_name</span> <span class="o">=</span> <span class="n">node_name</span>
+        <span class="c1"># While `GenerationNode` only handles a single `ModelSpec` in the `gen`</span>
+        <span class="c1"># and `_pick_fitted_model_to_gen_from` methods, we validate the</span>
+        <span class="c1"># length of `model_specs` in `_pick_fitted_model_to_gen_from` in order</span>
+        <span class="c1"># to not require all `GenerationNode` subclasses to override an `__init__`</span>
+        <span class="c1"># method to bypass that validation.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_specs</span> <span class="o">=</span> <span class="n">model_specs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">best_model_selector</span> <span class="o">=</span> <span class="n">best_model_selector</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">should_deduplicate</span> <span class="o">=</span> <span class="n">should_deduplicate</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_transition_criteria</span> <span class="o">=</span> <span class="n">transition_criteria</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_unlimited_trials</span> <span class="o">=</span> <span class="n">gen_unlimited_trials</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">node_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Returns the unique name of this GenerationNode"""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_node_name</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model_spec_to_gen_from</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelSpec</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Returns the cached `_model_spec_to_gen_from` or gets it from</span>
+<span class="sd">        `_pick_fitted_model_to_gen_from` and then caches and returns it</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model_spec_to_gen_from</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model_spec_to_gen_from</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_model_spec_to_gen_from</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pick_fitted_model_to_gen_from</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model_spec_to_gen_from</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model_enum</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelRegistryBase</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""model_enum from self.model_spec_to_gen_from for convenience"""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_spec_to_gen_from</span><span class="o">.</span><span class="n">model_enum</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model_kwargs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""model_kwargs from self.model_spec_to_gen_from for convenience"""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_spec_to_gen_from</span><span class="o">.</span><span class="n">model_kwargs</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model_gen_kwargs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""model_gen_kwargs from self.model_spec_to_gen_from for convenience"""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_spec_to_gen_from</span><span class="o">.</span><span class="n">model_gen_kwargs</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model_cv_kwargs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""model_cv_kwargs from self.model_spec_to_gen_from for convenience"""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_spec_to_gen_from</span><span class="o">.</span><span class="n">model_cv_kwargs</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">fitted_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelBridge</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""fitted_model from self.model_spec_to_gen_from for convenience"""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_spec_to_gen_from</span><span class="o">.</span><span class="n">fitted_model</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">fixed_features</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""fixed_features from self.model_spec_to_gen_from for convenience"""</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">({</span><span class="n">model_spec</span><span class="o">.</span><span class="n">fixed_features</span> <span class="k">for</span> <span class="n">model_spec</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_specs</span><span class="p">})</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_specs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">fixed_features</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_spec_to_gen_from</span><span class="o">.</span><span class="n">fixed_features</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">cv_results</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">CVResult</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""cv_results from self.model_spec_to_gen_from for convenience"""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_spec_to_gen_from</span><span class="o">.</span><span class="n">cv_results</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">diagnostics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CVDiagnostics</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""diagnostics from self.model_spec_to_gen_from for convenience"""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_spec_to_gen_from</span><span class="o">.</span><span class="n">diagnostics</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model_to_gen_from_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Returns the name of the model that will be used for gen, if there is one.</span>
+<span class="sd">        Otherwise, returns None.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_spec_to_gen_from</span><span class="o">.</span><span class="n">model_key</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">generation_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">modelbridge</span><span class="o">.</span><span class="n">generation_strategy</span><span class="o">.</span><span class="n">GenerationStrategy</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Returns a backpointer to the GenerationStrategy, useful for obtaining the</span>
+<span class="sd">        experiment associated with this GenerationStrategy"""</span>
+        <span class="c1"># TODO: @mgarrard remove this property once we make experiment a required</span>
+        <span class="c1"># arguement on GenerationStrategy</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generation_strategy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Generation strategy has not been initialized on this node."</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_generation_strategy</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">transition_criteria</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">TransitionCriterion</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Returns the sequence of TransitionCriteria that will be used to determine</span>
+<span class="sd">        if this GenerationNode is complete and should transition to the next node.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="p">[]</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transition_criteria</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transition_criteria</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">experiment</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Experiment</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Returns the experiment associated with this GenerationStrategy"""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">generation_strategy</span><span class="o">.</span><span class="n">experiment</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">gen_unlimited_trials</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""If True, this GenerationNode can generate unlimited trials."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_unlimited_trials</span>
+
+<div class="viewcode-block" id="GenerationNode.fit"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.generation_node.GenerationNode.fit">[docs]</a>    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SearchSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OptimizationConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Fits the specified models to the given experiment + data using</span>
+<span class="sd">        the model kwargs set on each corresponding model spec and the kwargs</span>
+<span class="sd">        passed to this method.</span>
+
+<span class="sd">        NOTE: Local kwargs take precedence over the ones stored in</span>
+<span class="sd">        ``ModelSpec.model_kwargs``.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_model_spec_to_gen_from</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">model_spec</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_specs</span><span class="p">:</span>
+            <span class="n">model_spec</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>  <span class="c1"># Stores the fitted model as `model_spec._fitted_model`</span>
+                <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+                <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+                <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+                <span class="n">optimization_config</span><span class="o">=</span><span class="n">optimization_config</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="GenerationNode.gen"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.generation_node.GenerationNode.gen">[docs]</a>    <span class="k">def</span> <span class="nf">gen</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">n</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">pending_observations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">max_gen_draws_for_deduplication</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">MAX_GEN_DRAWS</span><span class="p">,</span>
+        <span class="n">arms_by_signature_for_deduplication</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Arm</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">model_gen_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GeneratorRun</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Picks a fitted model, from which to generate candidates (via</span>
+<span class="sd">        ``self._pick_fitted_model_to_gen_from``) and generates candidates</span>
+<span class="sd">        from it. Uses the ``model_gen_kwargs`` set on the selected ``ModelSpec``</span>
+<span class="sd">        alongside any kwargs passed in to this function (with local kwargs)</span>
+<span class="sd">        taking precedent.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            n: Optional nteger representing how many arms should be in the generator</span>
+<span class="sd">                run produced by this method. When this is ``None``, ``n`` will be</span>
+<span class="sd">                determined by the ``ModelSpec`` that we are generating from.</span>
+<span class="sd">            pending_observations: A map from metric name to pending</span>
+<span class="sd">                observations for that metric, used by some models to avoid</span>
+<span class="sd">                resuggesting points that are currently being evaluated.</span>
+<span class="sd">            max_gen_draws_for_deduplication: TODO</span>
+<span class="sd">            model_gen_kwargs: Keyword arguments, passed through to ``ModelSpec.gen``;</span>
+<span class="sd">                these override any pre-specified in ``ModelSpec.model_gen_kwargs``.</span>
+
+<span class="sd">        NOTE: Models must have been fit prior to calling ``gen``.</span>
+<span class="sd">        NOTE: Some underlying models may ignore the ``n`` argument and produce a</span>
+<span class="sd">            model-determined number of arms. In that case this method will also output</span>
+<span class="sd">            a generator run with number of arms (that can differ from ``n``).</span>
+<span class="sd">        """</span>
+        <span class="n">model_spec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_spec_to_gen_from</span>
+        <span class="n">should_generate_run</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">generator_run</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">n_gen_draws</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="c1"># Keep generating until each of `generator_run.arms` is not a duplicate</span>
+        <span class="c1"># of a previous arm, if `should_deduplicate is True`</span>
+        <span class="k">while</span> <span class="n">should_generate_run</span><span class="p">:</span>
+            <span class="n">generator_run</span> <span class="o">=</span> <span class="n">model_spec</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span>
+                <span class="c1"># If `n` is not specified, ensure that the `None` value does not</span>
+                <span class="c1"># override the one set in `model_spec.model_gen_kwargs`.</span>
+                <span class="n">n</span><span class="o">=</span><span class="n">model_spec</span><span class="o">.</span><span class="n">model_gen_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"n"</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">n</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">model_spec</span><span class="o">.</span><span class="n">model_gen_kwargs</span>
+                <span class="k">else</span> <span class="n">n</span><span class="p">,</span>
+                <span class="c1"># For `pending_observations`, prefer the input to this function, as</span>
+                <span class="c1"># `pending_observations` are dynamic throughout the experiment and thus</span>
+                <span class="c1"># unlikely to be specified in `model_spec.model_gen_kwargs`.</span>
+                <span class="n">pending_observations</span><span class="o">=</span><span class="n">pending_observations</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">model_gen_kwargs</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="n">should_generate_run</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">should_deduplicate</span>
+                <span class="ow">and</span> <span class="n">arms_by_signature_for_deduplication</span>
+                <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span>
+                    <span class="n">arm</span><span class="o">.</span><span class="n">signature</span> <span class="ow">in</span> <span class="n">arms_by_signature_for_deduplication</span>
+                    <span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">generator_run</span><span class="o">.</span><span class="n">arms</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">n_gen_draws</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">should_generate_run</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">n_gen_draws</span> <span class="o">&gt;</span> <span class="n">max_gen_draws_for_deduplication</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">GenerationStrategyRepeatedPoints</span><span class="p">(</span>
+                        <span class="n">MAX_GEN_DRAWS_EXCEEDED_MESSAGE</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                        <span class="s2">"The generator run produced duplicate arms. Re-running the "</span>
+                        <span class="s2">"generation step in an attempt to deduplicate. Candidates "</span>
+                        <span class="sa">f</span><span class="s2">"produced in the last generator run: </span><span class="si">{</span><span class="n">generator_run</span><span class="o">.</span><span class="n">arms</span><span class="si">}</span><span class="s2">."</span>
+                    <span class="p">)</span>
+        <span class="k">assert</span> <span class="n">generator_run</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="p">(</span>
+            <span class="s2">"The GeneratorRun is None which is an unexpected state of this"</span>
+            <span class="s2">" GenerationStrategy. This occured on GenerationNode: </span><span class="si">{self.node_name}</span><span class="s2">."</span>
+        <span class="p">)</span>
+        <span class="n">generator_run</span><span class="o">.</span><span class="n">_generation_node_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">node_name</span>
+        <span class="k">return</span> <span class="n">generator_run</span></div>
+
+    <span class="c1"># ------------------------- Model selection logic helpers. -------------------------</span>
+
+    <span class="k">def</span> <span class="nf">_pick_fitted_model_to_gen_from</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelSpec</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Select one model to generate from among the fitted models on this</span>
+<span class="sd">        generation node.</span>
+
+<span class="sd">        NOTE: In base ``GenerationNode`` class, this method does the following:</span>
+<span class="sd">          1. if this ``GenerationNode`` has an associated ``BestModelSelector``,</span>
+<span class="sd">             use it to select one model to generate from among the fitted models</span>
+<span class="sd">             on this generation node.</span>
+<span class="sd">          2. otherwise, ensure that this ``GenerationNode`` only contains one</span>
+<span class="sd">             `ModelSpec` and select it.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_model_selector</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_specs</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="n">CANNOT_SELECT_ONE_MODEL_MSG</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_specs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">model_spec</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_specs</span><span class="p">:</span>
+            <span class="n">model_spec</span><span class="o">.</span><span class="n">cross_validate</span><span class="p">()</span>
+
+        <span class="n">best_model_index</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_model_selector</span><span class="p">)</span><span class="o">.</span><span class="n">best_diagnostic</span><span class="p">(</span>
+            <span class="n">diagnostics</span><span class="o">=</span><span class="p">[</span><span class="n">not_none</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_specs</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_specs</span><span class="p">[</span><span class="n">best_model_index</span><span class="p">]</span>
+
+    <span class="c1"># ------------------------- Trial logic helpers. -------------------------</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">trials_from_node</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Returns a dictionary mapping a GenerationNode to the trials it generated.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Set[int]: A set containing all the trials indices generated by this node.</span>
+<span class="sd">        """</span>
+        <span class="c1"># TODO: @mgarrard simplify this method after generation_node_name added to</span>
+        <span class="c1"># BaseTrial</span>
+        <span class="n">trials_from_node</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">_idx</span><span class="p">,</span> <span class="n">trial</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">generator_runs_from_trial</span> <span class="o">=</span> <span class="n">trial</span><span class="o">.</span><span class="n">generator_runs</span>
+            <span class="k">for</span> <span class="n">gr</span> <span class="ow">in</span> <span class="n">generator_runs_from_trial</span><span class="p">:</span>
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="n">gr</span><span class="o">.</span><span class="n">_generation_node_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                    <span class="ow">and</span> <span class="n">gr</span><span class="o">.</span><span class="n">_generation_node_name</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">node_name</span>
+                <span class="p">):</span>
+                    <span class="n">trials_from_node</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">trial</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">trials_from_node</span>
+
+<div class="viewcode-block" id="GenerationNode.should_transition_to_next_node"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.generation_node.GenerationNode.should_transition_to_next_node">[docs]</a>    <span class="k">def</span> <span class="nf">should_transition_to_next_node</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">raise_data_required_error</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""Checks whether we should transition to the next node based on this node's</span>
+<span class="sd">        TransitionCriterion</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            raise_data_required_error: Whether to raise ``DataRequiredError`` in the</span>
+<span class="sd">                case detailed above. Not raising the error is useful if just looking to</span>
+<span class="sd">                check how many generator runs (to be made into trials) can be produced,</span>
+<span class="sd">                but not actually producing them yet.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: Whether we should transition to the next node.</span>
+<span class="sd">        """</span>
+        <span class="c1"># TODO: @mgarrard remove check when legacy usecase is updated</span>
+        <span class="n">criterion_names</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">criterion</span><span class="p">)</span> <span class="k">for</span> <span class="n">criterion</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transition_criteria</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s2">"AEPsych"</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="s2">"MinimumPreferenceOccurances"</span> <span class="ow">in</span> <span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">criterion_names</span>
+        <span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="nb">all</span><span class="p">(</span>
+                    <span class="n">criterion</span><span class="o">.</span><span class="n">is_met</span><span class="p">(</span><span class="n">experiment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">criterion</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transition_criteria</span>
+                <span class="p">),</span>
+                <span class="kc">None</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">gen_unlimited_trials</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transition_criteria</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">None</span>
+
+        <span class="n">transition_blocking_criterion</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">criterion</span>
+            <span class="k">for</span> <span class="n">criterion</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transition_criteria</span>
+            <span class="k">if</span> <span class="n">criterion</span><span class="o">.</span><span class="n">block_transition_if_unmet</span>
+        <span class="p">]</span>
+        <span class="n">all_transition_blocking_criteria_are_met</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span>
+            <span class="n">transition_criterion</span><span class="o">.</span><span class="n">is_met</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="p">,</span>
+                <span class="n">trials_from_node</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">trials_from_node</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">transition_criterion</span> <span class="ow">in</span> <span class="n">transition_blocking_criterion</span>
+        <span class="p">)</span>
+        <span class="c1"># Raise any necessary generation errors: for any met criterion,</span>
+        <span class="c1"># call its `block_continued_generation_error` method if not all</span>
+        <span class="c1"># transition-blocking criteria are met. The method might not raise an</span>
+        <span class="c1"># error, depending on its implementation on given criterion, so the error</span>
+        <span class="c1"># from the first met one that does block continued generation, will be raised.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">all_transition_blocking_criteria_are_met</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">criterion</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transition_criteria</span><span class="p">:</span>
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="n">criterion</span><span class="o">.</span><span class="n">is_met</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="p">,</span> <span class="n">trials_from_node</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">trials_from_node</span>
+                    <span class="p">)</span>
+                    <span class="ow">and</span> <span class="n">raise_data_required_error</span>
+                <span class="p">):</span>
+                    <span class="n">criterion</span><span class="o">.</span><span class="n">block_continued_generation_error</span><span class="p">(</span>
+                        <span class="n">node_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">node_name</span><span class="p">,</span>
+                        <span class="n">model_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_to_gen_from_name</span><span class="p">,</span>
+                        <span class="n">experiment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="p">,</span>
+                        <span class="n">trials_from_node</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">trials_from_node</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+        <span class="c1"># Determine transition state</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="nb">len</span><span class="p">(</span><span class="n">transition_blocking_criterion</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="ow">and</span> <span class="n">all_transition_blocking_criteria_are_met</span>
+        <span class="p">):</span>
+            <span class="n">transition_nodes</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">criterion</span><span class="o">.</span><span class="n">transition_to</span>
+                <span class="k">for</span> <span class="n">criterion</span> <span class="ow">in</span> <span class="n">transition_blocking_criterion</span>
+                <span class="k">if</span> <span class="n">criterion</span><span class="o">.</span><span class="n">_transition_to</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">transition_nodes</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># TODO: support intelligent selection between multiple transition nodes</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                    <span class="s2">"Cannot currently select between multiple transition nodes."</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">transition_nodes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">None</span></div>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="s2">"String representation of this GenerationNode"</span>
+        <span class="c1"># add model specs</span>
+        <span class="nb">repr</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">(model_specs="</span>
+        <span class="n">model_spec_str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_specs</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span> <span class="s2">" "</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"</span><span class="se">\t</span><span class="s2">"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+        <span class="nb">repr</span> <span class="o">+=</span> <span class="n">model_spec_str</span>
+
+        <span class="c1"># add node name</span>
+        <span class="nb">repr</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">", node_name=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">node_name</span><span class="si">}</span><span class="s2">"</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">repr</span><span class="si">}</span><span class="s2">)"</span></div>
+
+
+<div class="viewcode-block" id="GenerationStep"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.generation_node.GenerationStep">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">GenerationStep</span><span class="p">(</span><span class="n">GenerationNode</span><span class="p">,</span> <span class="n">SortableBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""One step in the generation strategy, corresponds to a single model.</span>
+<span class="sd">    Describes the model, how many trials will be generated with this model, what</span>
+<span class="sd">    minimum number of observations is required to proceed to the next model, etc.</span>
+
+<span class="sd">    NOTE: Model can be specified either from the model registry</span>
+<span class="sd">    (`ax.modelbridge.registry.Models` or using a callable model constructor. Only</span>
+<span class="sd">    models from the registry can be saved, and thus optimization can only be</span>
+<span class="sd">    resumed if interrupted when using models from the registry.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model: A member of `Models` enum or a callable returning an instance of</span>
+<span class="sd">            `ModelBridge` with an instantiated underlying `Model`. Refer to</span>
+<span class="sd">            `ax/modelbridge/factory.py` for examples of such callables.</span>
+<span class="sd">        num_trials: How many trials to generate with the model from this step.</span>
+<span class="sd">            If set to -1, trials will continue to be generated from this model</span>
+<span class="sd">            as long as `generation_strategy.gen` is called (available only for</span>
+<span class="sd">            the last of the generation steps).</span>
+<span class="sd">        min_trials_observed: How many trials must be completed before the</span>
+<span class="sd">            generation strategy can proceed to the next step. Defaults to 0.</span>
+<span class="sd">            If `num_trials` of a given step have been generated but `min_trials_</span>
+<span class="sd">            observed` have not been completed, a call to `generation_strategy.gen`</span>
+<span class="sd">            will fail with a `DataRequiredError`.</span>
+<span class="sd">        max_parallelism: How many trials generated in the course of this step are</span>
+<span class="sd">            allowed to be run (i.e. have `trial.status` of `RUNNING`) simultaneously.</span>
+<span class="sd">            If `max_parallelism` trials from this step are already running, a call</span>
+<span class="sd">            to `generation_strategy.gen` will fail with a `MaxParallelismReached</span>
+<span class="sd">            Exception`, indicating that more trials need to be completed before</span>
+<span class="sd">            generating and running next trials.</span>
+<span class="sd">        use_update: DEPRECATED.</span>
+<span class="sd">        enforce_num_trials: Whether to enforce that only `num_trials` are generated</span>
+<span class="sd">            from the given step. If False and `num_trials` have been generated, but</span>
+<span class="sd">            `min_trials_observed` have not been completed, `generation_strategy.gen`</span>
+<span class="sd">            will continue generating trials from the current step, exceeding `num_</span>
+<span class="sd">            trials` for it. Allows to avoid `DataRequiredError`, but delays</span>
+<span class="sd">            proceeding to next generation step.</span>
+<span class="sd">        model_kwargs: Dictionary of kwargs to pass into the model constructor on</span>
+<span class="sd">            instantiation. E.g. if `model` is `Models.SOBOL`, kwargs will be applied</span>
+<span class="sd">            as `Models.SOBOL(**model_kwargs)`; if `model` is `get_sobol`, `get_sobol(</span>
+<span class="sd">            **model_kwargs)`. NOTE: if generation strategy is interrupted and</span>
+<span class="sd">            resumed from a stored snapshot and its last used model has state saved on</span>
+<span class="sd">            its generator runs, `model_kwargs` is updated with the state dict of the</span>
+<span class="sd">            model, retrieved from the last generator run of this generation strategy.</span>
+<span class="sd">        model_gen_kwargs: Each call to `generation_strategy.gen` performs a call to the</span>
+<span class="sd">            step's model's `gen` under the hood; `model_gen_kwargs` will be passed to</span>
+<span class="sd">            the model's `gen` like so: `model.gen(**model_gen_kwargs)`.</span>
+<span class="sd">        completion_criteria: List of TransitionCriterion. All `is_met` must evaluate</span>
+<span class="sd">            True for the GenerationStrategy to move on to the next Step</span>
+<span class="sd">        index: Index of this generation step, for use internally in `Generation</span>
+<span class="sd">            Strategy`. Do not assign as it will be reassigned when instantiating</span>
+<span class="sd">            `GenerationStrategy` with a list of its steps.</span>
+<span class="sd">        should_deduplicate: Whether to deduplicate the parameters of proposed arms</span>
+<span class="sd">            against those of previous arms via rejection sampling. If this is True,</span>
+<span class="sd">            the generation strategy will discard generator runs produced from the</span>
+<span class="sd">            generation step that has `should_deduplicate=True` if they contain arms</span>
+<span class="sd">            already present on the experiment and replace them with new generator runs.</span>
+<span class="sd">            If no generator run with entirely unique arms could be produced in 5</span>
+<span class="sd">            attempts, a `GenerationStrategyRepeatedPoints` error will be raised, as we</span>
+<span class="sd">            assume that the optimization converged when the model can no longer suggest</span>
+<span class="sd">            unique arms.</span>
+
+<span class="sd">    Note for developers: by "model" here we really mean an Ax ModelBridge object, which</span>
+<span class="sd">    contains an Ax Model under the hood. We call it "model" here to simplify and focus</span>
+<span class="sd">    on explaining the logic of GenerationStep and GenerationStrategy.</span>
+<span class="sd">    """</span>
+
+    <span class="c1"># Required options:</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ModelRegistryBase</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">ModelBridge</span><span class="p">]]</span>
+    <span class="n">num_trials</span><span class="p">:</span> <span class="nb">int</span>
+
+    <span class="c1"># Optional model specifications:</span>
+    <span class="c1"># Kwargs to pass into the Models constructor (or factory function).</span>
+    <span class="n">model_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># Kwargs to pass into the Model's `.gen` function.</span>
+    <span class="n">model_gen_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Optional specifications for use in generation strategy:</span>
+    <span class="n">completion_criteria</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">TransitionCriterion</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">min_trials_observed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">max_parallelism</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">use_update</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">enforce_num_trials</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="c1"># Whether the generation strategy should deduplicate the suggested arms against</span>
+    <span class="c1"># the arms already present on the experiment. If this is `True`</span>
+    <span class="c1"># on a given generation step, during that step the generation</span>
+    <span class="c1"># strategy will discard a generator run that contains an arm</span>
+    <span class="c1"># already present on the experiment and produce a new generator</span>
+    <span class="c1"># run instead before returning it from `gen` or `_gen_multiple`.</span>
+    <span class="n">should_deduplicate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>  <span class="c1"># Index of this step, set internally.</span>
+
+    <span class="c1"># Optional model name. Defaults to `model_spec.model_key`.</span>
+    <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_update</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">DeprecationWarning</span><span class="p">(</span><span class="s2">"`GenerationStep.use_update` is deprecated."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">enforce_num_trials</span>
+            <span class="ow">and</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_trials</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">min_trials_observed</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_trials</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                <span class="s2">"`GenerationStep` received `min_trials_observed &gt; num_trials` "</span>
+                <span class="sa">f</span><span class="s2">"(`min_trials_observed = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">min_trials_observed</span><span class="si">}</span><span class="s2">`, `num_trials = "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_trials</span><span class="si">}</span><span class="s2">`), making completion of this step impossible. "</span>
+                <span class="s2">"Please alter inputs so that `min_trials_observed &lt;= num_trials`."</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">ModelRegistryBase</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                    <span class="s2">"`model` in generation step must be either a `ModelRegistryBase` "</span>
+                    <span class="s2">"enum subclass entry or a callable factory function returning a "</span>
+                    <span class="s2">"model bridge instance."</span>
+                <span class="p">)</span>
+            <span class="n">model_spec</span> <span class="o">=</span> <span class="n">FactoryFunctionModelSpec</span><span class="p">(</span>
+                <span class="n">factory_function</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
+                <span class="n">model_kwargs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_kwargs</span><span class="p">,</span>
+                <span class="n">model_gen_kwargs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_gen_kwargs</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">model_spec</span> <span class="o">=</span> <span class="n">ModelSpec</span><span class="p">(</span>
+                <span class="n">model_enum</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
+                <span class="n">model_kwargs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_kwargs</span><span class="p">,</span>
+                <span class="n">model_gen_kwargs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_gen_kwargs</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span> <span class="o">==</span> <span class="s2">""</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span> <span class="o">=</span> <span class="n">model_spec</span><span class="o">.</span><span class="n">model_key</span>
+            <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+                <span class="c1"># Factory functions may not always have a model key defined.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"Unknown </span><span class="si">{</span><span class="n">model_spec</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span>
+
+        <span class="c1"># Create transition criteria for this step. MaximumTrialsInStatus can be used</span>
+        <span class="c1"># to ensure that requirements related to num_trials and unlimited trials</span>
+        <span class="c1"># are met. MinimumTrialsInStatus can be used enforce the min_trials_observed</span>
+        <span class="c1"># requirement, and override MaxTrials if enforce flag is set to true. We set</span>
+        <span class="c1"># `transition_to` is set in `GenerationStrategy` constructor,</span>
+        <span class="c1"># because only then is the order of the generation steps actually known.</span>
+        <span class="n">transition_criteria</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_trials</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="n">gen_unlimited_trials</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">transition_criteria</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">MaxTrials</span><span class="p">(</span>
+                    <span class="n">threshold</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_trials</span><span class="p">,</span>
+                    <span class="n">not_in_statuses</span><span class="o">=</span><span class="p">[</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">FAILED</span><span class="p">,</span> <span class="n">TrialStatus</span><span class="o">.</span><span class="n">ABANDONED</span><span class="p">],</span>
+                    <span class="n">block_gen_if_met</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">enforce_num_trials</span><span class="p">,</span>
+                    <span class="n">block_transition_if_unmet</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_trials_observed</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">transition_criteria</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">MinTrials</span><span class="p">(</span>
+                        <span class="n">only_in_statuses</span><span class="o">=</span><span class="p">[</span>
+                            <span class="n">TrialStatus</span><span class="o">.</span><span class="n">COMPLETED</span><span class="p">,</span>
+                            <span class="n">TrialStatus</span><span class="o">.</span><span class="n">EARLY_STOPPED</span><span class="p">,</span>
+                        <span class="p">],</span>
+                        <span class="n">threshold</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">min_trials_observed</span><span class="p">,</span>
+                        <span class="n">block_gen_if_met</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="n">block_transition_if_unmet</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">gen_unlimited_trials</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_parallelism</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">transition_criteria</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">MaxGenerationParallelism</span><span class="p">(</span>
+                    <span class="n">threshold</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">max_parallelism</span><span class="p">,</span>
+                    <span class="n">only_in_statuses</span><span class="o">=</span><span class="p">[</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">],</span>
+                    <span class="n">block_gen_if_met</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">block_transition_if_unmet</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                    <span class="n">transition_to</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">completion_criteria</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">transition_criteria</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">completion_criteria</span>
+            <span class="n">gen_unlimited_trials</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">node_name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"GenerationStep_</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="n">model_specs</span><span class="o">=</span><span class="p">[</span><span class="n">model_spec</span><span class="p">],</span>
+            <span class="n">should_deduplicate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">should_deduplicate</span><span class="p">,</span>
+            <span class="n">transition_criteria</span><span class="o">=</span><span class="n">transition_criteria</span><span class="p">,</span>
+            <span class="n">gen_unlimited_trials</span><span class="o">=</span><span class="n">gen_unlimited_trials</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model_spec</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelSpec</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Returns the first model_spec from the model_specs attribute."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_specs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_unique_id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Returns the unique ID of this generation step, which is the index."""</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+
+<div class="viewcode-block" id="GenerationStep.gen"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.generation_node.GenerationStep.gen">[docs]</a>    <span class="k">def</span> <span class="nf">gen</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">n</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">pending_observations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">max_gen_draws_for_deduplication</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">MAX_GEN_DRAWS</span><span class="p">,</span>
+        <span class="n">arms_by_signature_for_deduplication</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Arm</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">model_gen_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GeneratorRun</span><span class="p">:</span>
+        <span class="n">gr</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span>
+            <span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span>
+            <span class="n">pending_observations</span><span class="o">=</span><span class="n">pending_observations</span><span class="p">,</span>
+            <span class="n">max_gen_draws_for_deduplication</span><span class="o">=</span><span class="n">max_gen_draws_for_deduplication</span><span class="p">,</span>
+            <span class="n">arms_by_signature_for_deduplication</span><span class="o">=</span><span class="n">arms_by_signature_for_deduplication</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">model_gen_kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">gr</span><span class="o">.</span><span class="n">_generation_step_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">index</span>
+        <span class="k">return</span> <span class="n">gr</span></div>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Base</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="c1"># We need to override `__eq__` to make sure we inherit the one from</span>
+        <span class="c1"># the base class and not the one from dataclasses library, since we</span>
+        <span class="c1"># want to be comparing equality of generation steps in the same way</span>
+        <span class="c1"># as we compare equality of other Ax objects (and we want all the</span>
+        <span class="c1"># same special-casing to apply).</span>
+        <span class="k">return</span> <span class="n">SortableBase</span><span class="o">.</span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="o">=</span><span class="n">other</span><span class="p">)</span>
+
+    <span class="c1"># ------------------------- Trial logic helpers. -------------------------</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">trial_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Set</span><span class="p">[</span><span class="nb">int</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""A mapping from generation step index to the trials of the experiment</span>
+<span class="sd">        associated with that GenerationStep. NOTE: This maps all generation steps</span>
+<span class="sd">        up to and including the current generation step.</span>
+<span class="sd">        """</span>
+        <span class="n">trial_indices_by_step</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">trial_index</span><span class="p">,</span> <span class="n">trial</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">trial</span><span class="o">.</span><span class="n">_generation_step_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="ow">and</span> <span class="n">trial</span><span class="o">.</span><span class="n">_generation_step_index</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">index</span>
+            <span class="p">):</span>
+                <span class="n">trial_indices_by_step</span><span class="p">[</span><span class="n">trial</span><span class="o">.</span><span class="n">_generation_step_index</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">trial_index</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">trial_indices_by_step</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_can_complete</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Number of trials in generation strategy that can</span>
+<span class="sd">        be completed (so are not in status `FAILED` or `ABANDONED`). Used to keep</span>
+<span class="sd">        track of how many generator runs (that become trials) can be produced</span>
+<span class="sd">        from this generation step.</span>
+
+<span class="sd">        NOTE: This includes `COMPLETED` trials.</span>
+<span class="sd">        """</span>
+        <span class="n">step_trials</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trial_indices</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+        <span class="n">by_status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trial_indices_by_status</span>
+
+        <span class="c1"># Number of trials that will not be `COMPLETED`, used to avoid counting</span>
+        <span class="c1"># unsuccessfully terminated trials against the number of generated trials</span>
+        <span class="c1"># during determination of whether enough trials have been generated and</span>
+        <span class="c1"># completed to proceed to the next generation step.</span>
+        <span class="n">num_will_not_complete</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span>
+            <span class="n">step_trials</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span>
+                <span class="n">by_status</span><span class="p">[</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">FAILED</span><span class="p">]</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">by_status</span><span class="p">[</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">ABANDONED</span><span class="p">])</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">step_trials</span><span class="p">)</span> <span class="o">-</span> <span class="n">num_will_not_complete</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_num_completed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Number of trials in status `COMPLETED` or `EARLY_STOPPED` for</span>
+<span class="sd">        this generation step of this strategy. We include early</span>
+<span class="sd">        stopped trials because their data will be used in the model,</span>
+<span class="sd">        so they are completed from the model's point of view and should</span>
+<span class="sd">        count towards that total.</span>
+<span class="sd">        """</span>
+        <span class="n">step_trials</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trial_indices</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+        <span class="n">by_status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trial_indices_by_status</span>
+
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span>
+            <span class="n">step_trials</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span>
+                <span class="n">by_status</span><span class="p">[</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">COMPLETED</span><span class="p">]</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
+                    <span class="n">by_status</span><span class="p">[</span><span class="n">TrialStatus</span><span class="o">.</span><span class="n">EARLY_STOPPED</span><span class="p">]</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="GenerationStep.num_trials_to_gen_and_complete"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.generation_node.GenerationStep.num_trials_to_gen_and_complete">[docs]</a>    <span class="k">def</span> <span class="nf">num_trials_to_gen_and_complete</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Returns how many generator runs (to be made into a trial each) are left to</span>
+<span class="sd">        generate in this step and how many are left to be completed in it before</span>
+<span class="sd">        the generation strategy can move to the next step.</span>
+
+<span class="sd">        NOTE: returns (-1, -1) if the number of trials to be generated from the given</span>
+<span class="sd">        step is unlimited (and therefore it must be the last generation step).</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_trials</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span>
+
+        <span class="c1"># More than `num_trials` can be generated (if not `enforce_num_trials=False`)</span>
+        <span class="c1"># and more than `min_trials_observed` can be completed (if `min_trials_observed</span>
+        <span class="c1"># &lt; `num_trials`), so `left_to_gen` and `left_to_complete` should be clamped</span>
+        <span class="c1"># to lower bound of 0.</span>
+        <span class="n">left_to_gen</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_trials</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_can_complete</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">left_to_complete</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">min_trials_observed</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_completed</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">left_to_gen</span><span class="p">,</span> <span class="n">left_to_complete</span></div>
+
+<div class="viewcode-block" id="GenerationStep.num_remaining_trials_until_max_parallelism"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.generation_node.GenerationStep.num_remaining_trials_until_max_parallelism">[docs]</a>    <span class="k">def</span> <span class="nf">num_remaining_trials_until_max_parallelism</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">raise_max_parallelism_reached_exception</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Returns how many generator runs (to be made into a trial each) are left to</span>
+<span class="sd">        generate before the `max_parallelism` limit is reached for this generation step.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            raise_max_parallelism_reached_exception: Whether to raise</span>
+<span class="sd">                ``MaxParallelismReachedException`` if number of trials running in</span>
+<span class="sd">                this generation step exceeds maximum parallelism for it.</span>
+<span class="sd">        """</span>
+        <span class="n">max_parallelism</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_parallelism</span>
+        <span class="n">num_running</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_running_trials</span>
+
+        <span class="k">if</span> <span class="n">max_parallelism</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>  <span class="c1"># There was no `max_parallelism` limit.</span>
+
+        <span class="k">if</span> <span class="n">raise_max_parallelism_reached_exception</span> <span class="ow">and</span> <span class="n">num_running</span> <span class="o">&gt;=</span> <span class="n">max_parallelism</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MaxParallelismReachedException</span><span class="p">(</span>
+                <span class="n">step_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+                <span class="n">model_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+                <span class="n">num_running</span><span class="o">=</span><span class="n">num_running</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">max_parallelism</span> <span class="o">-</span> <span class="n">num_running</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_running_trials</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Number of trials in status `RUNNING` for this generation step of this</span>
+<span class="sd">        strategy.</span>
+<span class="sd">        """</span>
+        <span class="n">num_running</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">trial</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">trial</span><span class="o">.</span><span class="n">_generation_step_index</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">index</span> <span class="ow">and</span> <span class="n">trial</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">is_running</span><span class="p">:</span>
+                <span class="n">num_running</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">num_running</span>
+
+<div class="viewcode-block" id="GenerationStep.is_step_completed"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.generation_node.GenerationStep.is_step_completed">[docs]</a>    <span class="k">def</span> <span class="nf">is_step_completed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">raise_data_required_error</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Determines if a generation step is completed if the conditions are met.</span>
+
+<span class="sd">        Conditions for marking the step completed:</span>
+<span class="sd">        1. ``num_trials`` in this generation step have been generated (generation</span>
+<span class="sd">            strategy produced that many generator runs, which were then attached to</span>
+<span class="sd">            trials),</span>
+<span class="sd">        2. ``min_trials_observed`` in this generation step have been completed,</span>
+
+<span class="sd">        NOTE: this method raises ``DataRequiredError`` if all conditions below are true:</span>
+<span class="sd">        1. ``raise_data_required_error`` argument is ``True``,</span>
+<span class="sd">        2. ``num_trials`` in current generation step have been generated,</span>
+<span class="sd">        3. ``min_trials_observed`` in current generation step have not been completed,</span>
+<span class="sd">        4. ``enforce_num_trials`` in current generation step is ``True``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            raise_data_required_error: Whether to raise ``DataRequiredError`` in the</span>
+<span class="sd">                case detailed above. Not raising the error is useful if just looking to</span>
+<span class="sd">                check how many generator runs (to be made into trials) can be produced,</span>
+<span class="sd">                but not actually producing them yet.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Whether this generation step is completed.</span>
+<span class="sd">        """</span>
+        <span class="n">to_gen</span><span class="p">,</span> <span class="n">to_complete</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_trials_to_gen_and_complete</span><span class="p">()</span>
+        <span class="c1"># Unlimited trials, check completion_criteria, if no completion_criteria</span>
+        <span class="c1"># always return false to allow for unlimited trials</span>
+        <span class="k">if</span> <span class="n">to_gen</span> <span class="o">==</span> <span class="n">to_complete</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">completion_criteria</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># TODO: @mgarrard remove check when legacy usecase is updated</span>
+                <span class="n">criterion_names</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="nb">str</span><span class="p">(</span><span class="n">criterion</span><span class="p">)</span> <span class="k">for</span> <span class="n">criterion</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">completion_criteria</span>
+                <span class="p">]</span>
+                <span class="k">if</span> <span class="s2">"AEPsych"</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span>
+                    <span class="s2">"MinimumPreferenceOccurances"</span> <span class="ow">in</span> <span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">criterion_names</span>
+                <span class="p">):</span>
+                    <span class="k">return</span> <span class="nb">all</span><span class="p">(</span>
+                        <span class="n">criterion</span><span class="o">.</span><span class="n">is_met</span><span class="p">(</span><span class="n">experiment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experiment</span><span class="p">)</span>
+                        <span class="k">for</span> <span class="n">criterion</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">completion_criteria</span>
+                    <span class="p">)</span>
+                <span class="c1"># TODO: @mgarrard to enable use of completion criteria for</span>
+                <span class="c1"># checking if this step is completed</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="n">enforcing_num_trials</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">enforce_num_trials</span>
+        <span class="n">trials_left_to_gen</span> <span class="o">=</span> <span class="n">to_gen</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="n">trials_left_to_complete</span> <span class="o">=</span> <span class="n">to_complete</span> <span class="o">&gt;</span> <span class="mi">0</span>
+
+        <span class="c1"># If there is something left to gen or complete, we don't move to next step.</span>
+        <span class="k">if</span> <span class="n">trials_left_to_gen</span> <span class="ow">or</span> <span class="n">trials_left_to_complete</span><span class="p">:</span>
+            <span class="c1"># Check that minimum observed_trials is satisfied if it's enforced.</span>
+            <span class="n">raise_error</span> <span class="o">=</span> <span class="n">raise_data_required_error</span>
+            <span class="k">if</span> <span class="n">raise_error</span> <span class="ow">and</span> <span class="n">enforcing_num_trials</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">trials_left_to_gen</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">DataRequiredError</span><span class="p">(</span>
+                    <span class="s2">"All trials for current model have been generated, but not enough "</span>
+                    <span class="s2">"data has been observed to fit next model. Try again when more data"</span>
+                    <span class="s2">" are available."</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+    <span class="c1"># ------------------------- Generation run logic helpers. -------------------------</span>
+
+<div class="viewcode-block" id="GenerationStep.get_generator_run_limit"><a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.generation_node.GenerationStep.get_generator_run_limit">[docs]</a>    <span class="k">def</span> <span class="nf">get_generator_run_limit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""How many generator runs can this generation strategy generate right now,</span>
+<span class="sd">        assuming each one of them becomes its own trial, and whether optimization</span>
+<span class="sd">        is completed.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">              - the number of generator runs that can currently be produced, with -1</span>
+<span class="sd">                meaning unlimited generator runs,</span>
+<span class="sd">        """</span>
+        <span class="n">to_gen</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_trials_to_gen_and_complete</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="n">to_gen</span> <span class="o">&gt;=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span>
+            <span class="s2">"Number of trials left to generate in current generation step is "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">to_gen</span><span class="si">}</span><span class="s2">. This is an unexpected state of the generation strategy."</span>
+        <span class="p">)</span>
+        <span class="n">until_max_parallelism</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_remaining_trials_until_max_parallelism</span><span class="p">(</span>
+            <span class="n">raise_max_parallelism_reached_exception</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)</span>
+
+        <span class="c1"># If there is no limitation on the number of trials in the step and</span>
+        <span class="c1"># there is a parallelism limit, return number of trials until that limit.</span>
+        <span class="k">if</span> <span class="n">until_max_parallelism</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">to_gen</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">until_max_parallelism</span>
+
+        <span class="c1"># If there is a limitation on the number of trials in the step and also on</span>
+        <span class="c1"># parallelism, return the number of trials until either one of the limits.</span>
+        <span class="k">if</span> <span class="n">until_max_parallelism</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># NOTE: to_gen must be &gt;= 0 here</span>
+            <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">to_gen</span><span class="p">,</span> <span class="n">until_max_parallelism</span><span class="p">)</span>
+
+        <span class="c1"># If there is no limit on parallelism, return how many trials are left to</span>
+        <span class="c1"># gen in this step (might be -1 indicating unlimited).</span>
+        <span class="k">return</span> <span class="n">to_gen</span></div></div>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../telemetry.html">ax.telemetry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.3.5/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2023 Meta Platforms, Inc.</section></footer></div></body></html>

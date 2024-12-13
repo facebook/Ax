@@ -1,0 +1,561 @@
+<!DOCTYPE html><html lang=""><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.3.5/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.3.5/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.3.5/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.3.5/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.3.5/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.3.5/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.3.5/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.3.5/css/main.css"/><script src="/versions/0.3.5/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.3.5/"><img class="logo" src="/versions/0.3.5/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.3.5/versions.html"><h3>0.3.5</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.3.5/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.3.5/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.3.5/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="container docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><div class="hamburger-menu"><div class="line1"></div><div class="line2"></div><div class="line3"></div></div></div><h2><i>›</i><span></span></h2><div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div></div><div class="navGroups"><div class="navGroup"><h3 class="navGroupCategoryTitle">Tutorials</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/">Overview</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">API Comparison</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/gpei_hartmann_loop.html">Loop API</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/gpei_hartmann_service.html">Service API</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/gpei_hartmann_developer.html">Developer API</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Deep Dives</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/visualizations.html">Visualizations</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/generation_strategy.html">Generation Strategy</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/scheduler.html">Scheduler</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/modular_botax.html">Modular `BoTorchModel`</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Bayesian Optimization</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/tune_cnn_service.html">Hyperparameter Optimization for PyTorch</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/raytune_pytorch_cnn.html">Hyperparameter Optimization via Raytune</a></li><li class="navListItem navListItemActive"><a class="navItem" href="/versions/0.3.5/tutorials/multi_task.html">Multi-Task Modeling</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/multiobjective_optimization.html">Multi-Objective Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/saasbo.html">High-Dimensional Bayesian Optimization with Sparse Axis-Aligned Subspaces (SAASBO)</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/saasbo_nehvi.html">Fully Bayesian, High-Dimensional, Multi-Objective Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/sebo.html">Sparsity Exploration Bayesian Optimization (SEBO)</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/early_stopping/early_stopping.html">Trial-Level Early Stopping</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/gss.html">Global Stopping (Experiment-Level Early Stopping)</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Field Experiments</h3><ul class=""><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/factorial.html">Bandit Optimization</a></li><li class="navListItem"><a class="navItem" href="/versions/0.3.5/tutorials/human_in_the_loop/human_in_the_loop.html">Human-in-the-Loop Optimization</a></li></ul></div></div></section></div><script>
+            var coll = document.getElementsByClassName('collapsible');
+            var checkActiveCategory = true;
+            for (var i = 0; i < coll.length; i++) {
+              var links = coll[i].nextElementSibling.getElementsByTagName('*');
+              if (checkActiveCategory){
+                for (var j = 0; j < links.length; j++) {
+                  if (links[j].classList.contains('navListItemActive')){
+                    coll[i].nextElementSibling.classList.toggle('hide');
+                    coll[i].childNodes[1].classList.toggle('rotate');
+                    checkActiveCategory = false;
+                    break;
+                  }
+                }
+              }
+
+              coll[i].addEventListener('click', function() {
+                var arrow = this.childNodes[1];
+                arrow.classList.toggle('rotate');
+                var content = this.nextElementSibling;
+                content.classList.toggle('hide');
+              });
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+              createToggler('#navToggler', '#docsNav', 'docsSliderActive');
+              createToggler('#tocToggler', 'body', 'tocActive');
+
+              var headings = document.querySelector('.toc-headings');
+              headings && headings.addEventListener('click', function(event) {
+                var el = event.target;
+                while(el !== headings){
+                  if (el.tagName === 'A') {
+                    document.body.classList.remove('tocActive');
+                    break;
+                  } else{
+                    el = el.parentNode;
+                  }
+                }
+              }, false);
+
+              function createToggler(togglerSelector, targetSelector, className) {
+                var toggler = document.querySelector(togglerSelector);
+                var target = document.querySelector(targetSelector);
+
+                if (!toggler) {
+                  return;
+                }
+
+                toggler.onclick = function(event) {
+                  event.preventDefault();
+
+                  target.classList.toggle(className);
+                };
+              }
+            });
+        </script></nav></div><div class="container mainContainer"><div class="wrapper"><div class="tutorialBody">
+<script>
+const requirejs = Object();
+requirejs.config = function() { };
+
+const dependencyMap = {
+    'plotly': Plotly,
+}
+
+function require(deps, fxn) {
+    return fxn(...deps.map(dep => dependencyMap[dep]));
+};
+</script>
+<div class="notebook">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Multi-task-Bayesian-Optimization">Multi-task Bayesian Optimization<a class="anchor-link" href="#Multi-task-Bayesian-Optimization">¶</a></h1><p>This tutorial uses synthetic functions to illustrate Bayesian optimization using a multi-task Gaussian Process in Ax. A typical use case is optimizing an expensive-to-evaluate (online) system with supporting (offline) simulations of that system.</p>
+<p>Bayesian optimization with a multi-task kernel (Multi-task Bayesian optimization) is described by Swersky et al.  (2013). Letham and Bakshy (2019) describe using multi-task Bayesian optimization to tune a ranking system with a mix of online and offline (simulator) experiments.</p>
+<p>This tutorial produces the results of Online Appendix 2 from <a href="https://arxiv.org/pdf/1904.01049.pdf">that paper</a>.</p>
+<p>The synthetic problem used here is to maximize the Hartmann 6 function, a classic optimization test problem in 6 dimensions. The objective is treated as unknown and are modeled with separate GPs. The objective is noisy.</p>
+<p>Throughout the optimization we can make nosiy observations directly of the objective (an online observation), and we can make noisy observations of a biased version of the objective (offline observations). Bias is simulated by passing the function values through a piecewise linear function. Offline observations are much less time-consuming than online observations, so we wish to use them to improve our ability to optimize the online objective.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.generator_run</span> <span class="kn">import</span> <span class="n">GeneratorRun</span>
+<span class="kn">from</span> <span class="nn">ax.core.multi_type_experiment</span> <span class="kn">import</span> <span class="n">MultiTypeExperiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.objective</span> <span class="kn">import</span> <span class="n">Objective</span>
+<span class="kn">from</span> <span class="nn">ax.core.observation</span> <span class="kn">import</span> <span class="n">ObservationFeatures</span><span class="p">,</span> <span class="n">observations_from_data</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter</span> <span class="kn">import</span> <span class="n">ParameterType</span><span class="p">,</span> <span class="n">RangeParameter</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.metrics.hartmann6</span> <span class="kn">import</span> <span class="n">Hartmann6Metric</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.factory</span> <span class="kn">import</span> <span class="n">get_sobol</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.registry</span> <span class="kn">import</span> <span class="n">Models</span><span class="p">,</span> <span class="n">MT_MTGP_trans</span><span class="p">,</span> <span class="n">ST_MTGP_trans</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.torch</span> <span class="kn">import</span> <span class="n">TorchModelBridge</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.convert_metric_names</span> <span class="kn">import</span> <span class="n">tconfig_from_mt_experiment</span>
+<span class="kn">from</span> <span class="nn">ax.plot.diagnostic</span> <span class="kn">import</span> <span class="n">interact_batch_comparison</span>
+<span class="kn">from</span> <span class="nn">ax.runners.synthetic</span> <span class="kn">import</span> <span class="n">SyntheticRunner</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">checked_cast</span>
+<span class="kn">from</span> <span class="nn">ax.utils.notebook.plotting</span> <span class="kn">import</span> <span class="n">init_notebook_plotting</span><span class="p">,</span> <span class="n">render</span>
+
+<span class="n">init_notebook_plotting</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">SMOKE_TEST</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"SMOKE_TEST"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="1.-Define-Metric-classes">1. Define Metric classes<a class="anchor-link" href="#1.-Define-Metric-classes">¶</a></h2><p>For this example, the online system is optimizing a Hartmann6 function. The Metric objects for these are directly imported above. We create analagous offline versions of this metrics which are identical but have a transform applied (a piecewise linear function). We construct Metric objects for each of them.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Create metric with artificial offline bias, for the objective</span>
+<span class="c1"># by passing the true values through a piecewise linear function.</span>
+
+
+<span class="k">class</span> <span class="nc">OfflineHartmann6Metric</span><span class="p">(</span><span class="n">Hartmann6Metric</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="n">raw_res</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.35</span>
+        <span class="k">if</span> <span class="n">raw_res</span> <span class="o">&lt;</span> <span class="n">m</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="mf">1.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">raw_res</span> <span class="o">-</span> <span class="n">m</span><span class="p">))</span> <span class="o">+</span> <span class="n">m</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="mf">6.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">raw_res</span> <span class="o">-</span> <span class="n">m</span><span class="p">))</span> <span class="o">+</span> <span class="n">m</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="2.-Create-experiment">2. Create experiment<a class="anchor-link" href="#2.-Create-experiment">¶</a></h2><p>A MultiTypeExperiment is used for managing online and offline trials together. It is constructed in several steps:</p>
+<ol>
+<li><b> Create the search space</b> - This is done in the usual way.</li>
+<li><b>Specify optimization config</b> - Also done in the usual way.</li>
+<li><b>Initialize Experiment</b> - In addition to the search_space and optimization_config, specify that "online" is the default trial_type. This is the main trial type for which we're optimizing. Optimization metrics are defined to be for this type and new trials assume this trial type by default.</li>
+<li><b>Establish offline trial_type</b> - Register the "offline" trial type and specify how to deploy trials of this type.</li>
+<li><b>Add offline metrics</b> - Create the offline metrics and add them to the experiment. When adding the metrics, we need to specify the trial type ("offline") and online metric name it is associated with so the model can link them.</li>
+</ol>
+<p>Finally, because this is a synthetic benchmark problem where the true function values are known, we will also register metrics with the true (noiseless) function values for plotting below.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">get_experiment</span><span class="p">(</span><span class="n">include_true_metric</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="n">noise_sd</span> <span class="o">=</span> <span class="mf">0.1</span>  <span class="c1"># Observations will have this much Normal noise added to them</span>
+
+    <span class="c1"># 1. Create simple search space for [0,1]^d, d=6</span>
+    <span class="n">param_names</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"x</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">)]</span>
+    <span class="n">parameters</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">RangeParameter</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">param_names</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+            <span class="n">parameter_type</span><span class="o">=</span><span class="n">ParameterType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">,</span>
+            <span class="n">lower</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+            <span class="n">upper</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span>
+    <span class="p">]</span>
+    <span class="n">search_space</span> <span class="o">=</span> <span class="n">SearchSpace</span><span class="p">(</span><span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span><span class="p">)</span>
+
+    <span class="c1"># 2. Specify optimization config</span>
+    <span class="n">online_objective</span> <span class="o">=</span> <span class="n">Hartmann6Metric</span><span class="p">(</span>
+        <span class="s2">"objective"</span><span class="p">,</span> <span class="n">param_names</span><span class="o">=</span><span class="n">param_names</span><span class="p">,</span> <span class="n">noise_sd</span><span class="o">=</span><span class="n">noise_sd</span>
+    <span class="p">)</span>
+    <span class="n">opt_config</span> <span class="o">=</span> <span class="n">OptimizationConfig</span><span class="p">(</span>
+        <span class="n">objective</span><span class="o">=</span><span class="n">Objective</span><span class="p">(</span><span class="n">online_objective</span><span class="p">,</span> <span class="n">minimize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="c1"># 3. Init experiment</span>
+    <span class="n">exp</span> <span class="o">=</span> <span class="n">MultiTypeExperiment</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">"mt_exp"</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span><span class="p">,</span>
+        <span class="n">default_trial_type</span><span class="o">=</span><span class="s2">"online"</span><span class="p">,</span>
+        <span class="n">default_runner</span><span class="o">=</span><span class="n">SyntheticRunner</span><span class="p">(),</span>
+        <span class="n">optimization_config</span><span class="o">=</span><span class="n">opt_config</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># 4. Establish offline trial_type, and how those trials are deployed</span>
+    <span class="n">exp</span><span class="o">.</span><span class="n">add_trial_type</span><span class="p">(</span><span class="s2">"offline"</span><span class="p">,</span> <span class="n">SyntheticRunner</span><span class="p">())</span>
+
+    <span class="c1"># 5. Add offline metrics that provide biased estimates of the online metrics</span>
+    <span class="n">offline_objective</span> <span class="o">=</span> <span class="n">OfflineHartmann6Metric</span><span class="p">(</span>
+        <span class="s2">"offline_objective"</span><span class="p">,</span> <span class="n">param_names</span><span class="o">=</span><span class="n">param_names</span><span class="p">,</span> <span class="n">noise_sd</span><span class="o">=</span><span class="n">noise_sd</span>
+    <span class="p">)</span>
+    <span class="c1"># Associate each offline metric with corresponding online metric</span>
+    <span class="n">exp</span><span class="o">.</span><span class="n">add_tracking_metric</span><span class="p">(</span>
+        <span class="n">metric</span><span class="o">=</span><span class="n">offline_objective</span><span class="p">,</span> <span class="n">trial_type</span><span class="o">=</span><span class="s2">"offline"</span><span class="p">,</span> <span class="n">canonical_name</span><span class="o">=</span><span class="s2">"objective"</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">exp</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="3.-Vizualize-the-simulator-bias">3. Vizualize the simulator bias<a class="anchor-link" href="#3.-Vizualize-the-simulator-bias">¶</a></h2><p>These figures compare the online measurements to the offline measurements on a random set of points, for the objective metric. You can see the offline measurements are biased but highly correlated. This produces Fig. S3 from the paper.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Generate 50 points from a Sobol sequence</span>
+<span class="n">exp</span> <span class="o">=</span> <span class="n">get_experiment</span><span class="p">(</span><span class="n">include_true_metric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">s</span> <span class="o">=</span> <span class="n">get_sobol</span><span class="p">(</span><span class="n">exp</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span> <span class="n">scramble</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">gr</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<span class="c1"># Deploy them both online and offline</span>
+<span class="n">exp</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">(</span><span class="n">trial_type</span><span class="o">=</span><span class="s2">"online"</span><span class="p">,</span> <span class="n">generator_run</span><span class="o">=</span><span class="n">gr</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+<span class="n">exp</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">(</span><span class="n">trial_type</span><span class="o">=</span><span class="s2">"offline"</span><span class="p">,</span> <span class="n">generator_run</span><span class="o">=</span><span class="n">gr</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+<span class="c1"># Fetch data</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">exp</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">()</span>
+<span class="n">observations</span> <span class="o">=</span> <span class="n">observations_from_data</span><span class="p">(</span><span class="n">exp</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+<span class="c1"># Plot the arms in batch 0 (online) vs. batch 1 (offline)</span>
+<span class="n">render</span><span class="p">(</span><span class="n">interact_batch_comparison</span><span class="p">(</span><span class="n">observations</span><span class="p">,</span> <span class="n">exp</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="4.-The-Bayesian-optimization-loop">4. The Bayesian optimization loop<a class="anchor-link" href="#4.-The-Bayesian-optimization-loop">¶</a></h2><p>Here we construct a Bayesian optimization loop that interleaves online and offline batches. The loop defined here is described in Algorithm 1 of the paper. We compare multi-task Bayesian optimization to regular Bayesian optimization using only online observations.</p>
+<p>Here we measure performance over 3 repetitions of the loop. Each one takes 1-2 hours so the whole benchmark run will take several hours to complete.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Settings for the optimization benchmark.</span>
+
+<span class="c1"># Number of repeated experiments, each with independent observation noise.</span>
+<span class="c1"># This should be changed to 50 to reproduce the results from the paper.</span>
+<span class="k">if</span> <span class="n">SMOKE_TEST</span><span class="p">:</span>
+    <span class="n">n_batches</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">n_init_online</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">n_init_offline</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">n_opt_online</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">n_opt_offline</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">n_batches</span> <span class="o">=</span> <span class="mi">3</span>  <span class="c1"># Number of optimized BO batches</span>
+    <span class="n">n_init_online</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c1"># Size of the quasirandom initialization run online</span>
+    <span class="n">n_init_offline</span> <span class="o">=</span> <span class="mi">20</span>  <span class="c1"># Size of the quasirandom initialization run offline</span>
+    <span class="n">n_opt_online</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c1"># Batch size for BO selected points to be run online</span>
+    <span class="n">n_opt_offline</span> <span class="o">=</span> <span class="mi">20</span>  <span class="c1"># Batch size for BO selected to be run offline</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="4a.-Optimization-with-online-observations-only">4a. Optimization with online observations only<a class="anchor-link" href="#4a.-Optimization-with-online-observations-only">¶</a></h4><p>For the online-only case, we run <code>n_init_online</code> sobol points followed by <code>n_batches</code> batches of <code>n_opt_online</code> points selected by the GP. This is a normal Bayesian optimization loop.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># This function runs a Bayesian optimization loop, making online observations only.</span>
+<span class="k">def</span> <span class="nf">run_online_only_bo</span><span class="p">():</span>
+    <span class="n">t1</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="c1">### Do BO with online only</span>
+    <span class="c1">## Quasi-random initialization</span>
+    <span class="n">exp_online</span> <span class="o">=</span> <span class="n">get_experiment</span><span class="p">()</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">get_sobol</span><span class="p">(</span><span class="n">exp_online</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span> <span class="n">scramble</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">gr</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="n">n_init_online</span><span class="p">)</span>
+    <span class="n">exp_online</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">(</span><span class="n">trial_type</span><span class="o">=</span><span class="s2">"online"</span><span class="p">,</span> <span class="n">generator_run</span><span class="o">=</span><span class="n">gr</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+    <span class="c1">## Do BO</span>
+    <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_batches</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"Online-only batch"</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t1</span><span class="p">)</span>
+        <span class="c1"># Fit the GP</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">Models</span><span class="o">.</span><span class="n">BOTORCH_MODULAR</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="n">exp_online</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">exp_online</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">(),</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">exp_online</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># Generate the new batch</span>
+        <span class="n">gr</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span>
+            <span class="n">n</span><span class="o">=</span><span class="n">n_opt_online</span><span class="p">,</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">exp_online</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span>
+            <span class="n">optimization_config</span><span class="o">=</span><span class="n">exp_online</span><span class="o">.</span><span class="n">optimization_config</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">exp_online</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">(</span><span class="n">trial_type</span><span class="o">=</span><span class="s2">"online"</span><span class="p">,</span> <span class="n">generator_run</span><span class="o">=</span><span class="n">gr</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="4b.-Multi-task-Bayesian-optimization">4b. Multi-task Bayesian optimization<a class="anchor-link" href="#4b.-Multi-task-Bayesian-optimization">¶</a></h4><p>Here we incorporate offline observations to accelerate the optimization, while using the same total number of online observations as in the loop above. The strategy here is that outlined in Algorithm 1 of the paper.</p>
+<ol>
+<li><b> Initialization</b> - Run <code>n_init_online</code> Sobol points online, and <code>n_init_offline</code> Sobol points offline.</li>
+<li><b> Fit model </b> - Fit an MTGP to both online and offline observations.</li>
+<li><b> Generate candidates </b> - Generate <code>n_opt_offline</code> candidates using NEI.</li>
+<li><b> Launch offline batch </b> - Run the <code>n_opt_offline</code> candidates offline and observe their offline metrics.</li>
+<li><b> Update model </b> - Update the MTGP with the new offline observations.</li>
+<li><b> Select points for online batch </b> - Select the best (maximum utility) <code>n_opt_online</code> of the NEI candidates, after incorporating their offline observations, and run them online.</li>
+<li><b> Update model and repeat </b> - Update the model with the online observations, and repeat from step 3 for the next batch.</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">get_MTGP</span><span class="p">(</span>
+    <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">,</span>
+    <span class="n">search_space</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SearchSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">trial_index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">"cpu"</span><span class="p">),</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">double</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TorchModelBridge</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Instantiates a Multi-task Gaussian Process (MTGP) model that generates</span>
+<span class="sd">    points with EI.</span>
+
+<span class="sd">    If the input experiment is a MultiTypeExperiment then a</span>
+<span class="sd">    Multi-type Multi-task GP model will be instantiated.</span>
+<span class="sd">    Otherwise, the model will be a Single-type Multi-task GP.</span>
+<span class="sd">    """</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">experiment</span><span class="p">,</span> <span class="n">MultiTypeExperiment</span><span class="p">):</span>
+        <span class="n">trial_index_to_type</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">t</span><span class="o">.</span><span class="n">index</span><span class="p">:</span> <span class="n">t</span><span class="o">.</span><span class="n">trial_type</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+        <span class="p">}</span>
+        <span class="n">transforms</span> <span class="o">=</span> <span class="n">MT_MTGP_trans</span>
+        <span class="n">transform_configs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"TrialAsTask"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"trial_level_map"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"trial_type"</span><span class="p">:</span> <span class="n">trial_index_to_type</span><span class="p">}},</span>
+            <span class="s2">"ConvertMetricNames"</span><span class="p">:</span> <span class="n">tconfig_from_mt_experiment</span><span class="p">(</span><span class="n">experiment</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Set transforms for a Single-type MTGP model.</span>
+        <span class="n">transforms</span> <span class="o">=</span> <span class="n">ST_MTGP_trans</span>
+        <span class="n">transform_configs</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Choose the status quo features for the experiment from the selected trial.</span>
+    <span class="c1"># If trial_index is None, we will look for a status quo from the last</span>
+    <span class="c1"># experiment trial to use as a status quo for the experiment.</span>
+    <span class="k">if</span> <span class="n">trial_index</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">trial_index</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="k">elif</span> <span class="n">trial_index</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"trial_index is bigger than the number of experiment trials"</span><span class="p">)</span>
+
+    <span class="n">status_quo</span> <span class="o">=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="n">trial_index</span><span class="p">]</span><span class="o">.</span><span class="n">status_quo</span>
+    <span class="k">if</span> <span class="n">status_quo</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">status_quo_features</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">status_quo_features</span> <span class="o">=</span> <span class="n">ObservationFeatures</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="n">status_quo</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span>
+            <span class="n">trial_index</span><span class="o">=</span><span class="n">trial_index</span><span class="p">,</span>  <span class="c1"># pyre-ignore[6]</span>
+        <span class="p">)</span>
+
+    
+    <span class="k">return</span> <span class="n">checked_cast</span><span class="p">(</span>
+        <span class="n">TorchModelBridge</span><span class="p">,</span>
+        <span class="n">Models</span><span class="o">.</span><span class="n">ST_MTGP</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">search_space</span> <span class="ow">or</span> <span class="n">experiment</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+            <span class="n">transforms</span><span class="o">=</span><span class="n">transforms</span><span class="p">,</span>
+            <span class="n">transform_configs</span><span class="o">=</span><span class="n">transform_configs</span><span class="p">,</span>
+            <span class="n">torch_dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+            <span class="n">torch_device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+            <span class="n">status_quo_features</span><span class="o">=</span><span class="n">status_quo_features</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Online batches are constructed by selecting the maximum utility points from the offline</span>
+<span class="c1"># batch, after updating the model with the offline results. This function selects the max utility points according</span>
+<span class="c1"># to the MTGP predictions.</span>
+<span class="k">def</span> <span class="nf">max_utility_from_GP</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">experiment</span><span class="p">,</span> <span class="n">search_space</span><span class="p">,</span> <span class="n">gr</span><span class="p">):</span>
+    <span class="n">obsf</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">gr</span><span class="o">.</span><span class="n">arms</span><span class="p">:</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">arm</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span>
+        <span class="n">params</span><span class="p">[</span><span class="s2">"trial_type"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"online"</span>
+        <span class="n">obsf</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ObservationFeatures</span><span class="p">(</span><span class="n">parameters</span><span class="o">=</span><span class="n">params</span><span class="p">))</span>
+    <span class="c1"># Make predictions</span>
+    <span class="n">f</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">obsf</span><span class="p">)</span>
+    <span class="c1"># Compute expected utility</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="s2">"objective"</span><span class="p">])</span>
+    <span class="n">best_arm_indx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">u</span><span class="p">))[:</span><span class="n">n</span><span class="p">]</span>
+    <span class="n">gr_new</span> <span class="o">=</span> <span class="n">GeneratorRun</span><span class="p">(</span>
+        <span class="n">arms</span><span class="o">=</span><span class="p">[</span><span class="n">gr</span><span class="o">.</span><span class="n">arms</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">best_arm_indx</span><span class="p">],</span>
+        <span class="n">weights</span><span class="o">=</span><span class="p">[</span><span class="mf">1.0</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">gr_new</span>
+
+
+<span class="c1"># This function runs a multi-task Bayesian optimization loop, as outlined in Algorithm 1 and above.</span>
+<span class="k">def</span> <span class="nf">run_mtbo</span><span class="p">():</span>
+    <span class="n">t1</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="n">online_trials</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1">## 1. Quasi-random initialization, online and offline</span>
+    <span class="n">exp_multitask</span> <span class="o">=</span> <span class="n">get_experiment</span><span class="p">()</span>
+    <span class="c1"># Online points</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">get_sobol</span><span class="p">(</span><span class="n">exp_multitask</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span> <span class="n">scramble</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">gr</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span>
+        <span class="n">n</span><span class="o">=</span><span class="n">n_init_online</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">tr</span> <span class="o">=</span> <span class="n">exp_multitask</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">(</span><span class="n">trial_type</span><span class="o">=</span><span class="s2">"online"</span><span class="p">,</span> <span class="n">generator_run</span><span class="o">=</span><span class="n">gr</span><span class="p">)</span>
+    <span class="n">tr</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+    <span class="n">online_trials</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tr</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="c1"># Offline points</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">get_sobol</span><span class="p">(</span><span class="n">exp_multitask</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span> <span class="n">scramble</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">gr</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span>
+        <span class="n">n</span><span class="o">=</span><span class="n">n_init_offline</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">exp_multitask</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">(</span><span class="n">trial_type</span><span class="o">=</span><span class="s2">"offline"</span><span class="p">,</span> <span class="n">generator_run</span><span class="o">=</span><span class="n">gr</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+    <span class="c1">## Do BO</span>
+    <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_batches</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"Multi-task batch"</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t1</span><span class="p">)</span>
+        <span class="c1"># (2 / 7). Fit the MTGP</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">get_MTGP</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="n">exp_multitask</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">exp_multitask</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">(),</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">exp_multitask</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># 3. Finding the best points for the online task</span>
+        <span class="n">gr</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span>
+            <span class="n">n</span><span class="o">=</span><span class="n">n_opt_offline</span><span class="p">,</span>
+            <span class="n">optimization_config</span><span class="o">=</span><span class="n">exp_multitask</span><span class="o">.</span><span class="n">optimization_config</span><span class="p">,</span>
+            <span class="n">fixed_features</span><span class="o">=</span><span class="n">ObservationFeatures</span><span class="p">(</span>
+                <span class="n">parameters</span><span class="o">=</span><span class="p">{},</span> <span class="n">trial_index</span><span class="o">=</span><span class="n">online_trials</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="c1"># 4. But launch them offline</span>
+        <span class="n">exp_multitask</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">(</span><span class="n">trial_type</span><span class="o">=</span><span class="s2">"offline"</span><span class="p">,</span> <span class="n">generator_run</span><span class="o">=</span><span class="n">gr</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+
+        <span class="c1"># 5. Update the model</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">get_MTGP</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="n">exp_multitask</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">exp_multitask</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">(),</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">exp_multitask</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># 6. Select max-utility points from the offline batch to generate an online batch</span>
+        <span class="n">gr</span> <span class="o">=</span> <span class="n">max_utility_from_GP</span><span class="p">(</span>
+            <span class="n">n</span><span class="o">=</span><span class="n">n_opt_online</span><span class="p">,</span>
+            <span class="n">m</span><span class="o">=</span><span class="n">m</span><span class="p">,</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="n">exp_multitask</span><span class="p">,</span>
+            <span class="n">search_space</span><span class="o">=</span><span class="n">exp_multitask</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span>
+            <span class="n">gr</span><span class="o">=</span><span class="n">gr</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">tr</span> <span class="o">=</span> <span class="n">exp_multitask</span><span class="o">.</span><span class="n">new_batch_trial</span><span class="p">(</span><span class="n">trial_type</span><span class="o">=</span><span class="s2">"online"</span><span class="p">,</span> <span class="n">generator_run</span><span class="o">=</span><span class="n">gr</span><span class="p">)</span>
+        <span class="n">tr</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+        <span class="n">online_trials</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tr</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="4c.-Run-both-loops">4c. Run both loops<a class="anchor-link" href="#4c.-Run-both-loops">¶</a></h4><p>Run both Bayesian optimization loops and aggregate results.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">runners</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"GP, online only"</span><span class="p">:</span> <span class="n">run_online_only_bo</span><span class="p">,</span>
+    <span class="s2">"MTGP"</span><span class="p">:</span> <span class="n">run_mtbo</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">runners</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="n">r</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="References">References<a class="anchor-link" href="#References">¶</a></h4><p>Benjamin Letham and Eytan Bakshy. Bayesian optimization for policy search via online-offline experimentation. <em>arXiv preprint arXiv:1603.09326</em>, 2019.</p>
+<p>Kevin Swersky, Jasper Snoek, and Ryan P Adams.  Multi-task Bayesian optimization.  In <em>Advances in Neural Information Processing Systems</em> 26, NIPS, pages 2004–2012, 2013.</p>
+</div>
+</div>
+</div>
+</div></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/0.3.5/files/multi_task.ipynb" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Jupyter Notebook</a></div><div class="tutorialButtonWrapper buttonWrapper"><a class="tutorialButton button" download="" href="/versions/0.3.5/files//multi_task.py" target="_blank"><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="file-download" class="svg-inline--fa fa-file-download fa-w-12" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm76.45 211.36l-96.42 95.7c-6.65 6.61-17.39 6.61-24.04 0l-96.42-95.7C73.42 337.29 80.54 320 94.82 320H160v-80c0-8.84 7.16-16 16-16h32c8.84 0 16 7.16 16 16v80h65.18c14.28 0 21.4 17.29 11.27 27.36zM377 105L279.1 7c-4.5-4.5-10.6-7-17-7H256v128h128v-6.1c0-6.3-2.5-12.4-7-16.9z"></path></svg>Download Tutorial Source Code</a></div><div class="tutorialRuntime"><p>Total runtime of script: 6 minutes, 27.66 seconds.</p></div></div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.3.5/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2023 Meta Platforms, Inc.</section></footer></div></body></html>
