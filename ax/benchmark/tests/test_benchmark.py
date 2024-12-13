@@ -956,7 +956,6 @@ class TestBenchmark(TestCase):
                 n_repeats=1,
             )
             self.assertEqual(result, 0)
-        return
 
         with self.subTest("SOO, MapData"):
             map_test_function = IdentityTestFunction(n_steps=2)

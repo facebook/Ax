@@ -16,6 +16,11 @@ from ax.benchmark.problems.hpo.torchvision import (
     get_pytorch_cnn_torchvision_benchmark_problem,
 )
 from ax.benchmark.problems.runtime_funcs import int_from_params
+from ax.benchmark.problems.synthetic.discretized.mixed_integer import (
+    get_discrete_ackley,
+    get_discrete_hartmann,
+    get_discrete_rosenbrock,
+)
 from ax.benchmark.problems.synthetic.hss.jenatton import get_jenatton_benchmark_problem
 from botorch.test_functions import synthetic
 from botorch.test_functions.multi_objective import BraninCurrin
@@ -245,6 +250,16 @@ BENCHMARK_PROBLEM_REGISTRY = {
             "num_trials": 50,
             "observe_noise_sd": True,
         },
+    ),
+    "Discrete Hartmann": BenchmarkProblemRegistryEntry(
+        factory_fn=get_discrete_hartmann,
+        factory_kwargs={},
+    ),
+    "Discrete Ackley": BenchmarkProblemRegistryEntry(
+        factory_fn=get_discrete_ackley, factory_kwargs={}
+    ),
+    "Discrete Rosenbrock": BenchmarkProblemRegistryEntry(
+        factory_fn=get_discrete_rosenbrock, factory_kwargs={}
     ),
 }
 
