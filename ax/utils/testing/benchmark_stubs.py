@@ -309,11 +309,13 @@ class IdentityTestFunction(BenchmarkTestFunction):
         )
 
 
-def get_discrete_search_space() -> SearchSpace:
+def get_discrete_search_space(n_values: int = 20) -> SearchSpace:
     return SearchSpace(
         parameters=[
             ChoiceParameter(
-                name="x0", parameter_type=ParameterType.INT, values=list(range(20))
+                name="x0",
+                parameter_type=ParameterType.INT,
+                values=list(range(n_values)),
             )
         ]
     )

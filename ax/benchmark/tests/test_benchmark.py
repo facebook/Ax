@@ -17,13 +17,18 @@ from ax.benchmark.benchmark import (
     benchmark_multiple_problems_methods,
     benchmark_one_method_problem,
     benchmark_replication,
+    compute_baseline_value_from_sobol,
     compute_score_trace,
     get_benchmark_scheduler_options,
     get_oracle_experiment_from_experiment,
     get_oracle_experiment_from_params,
 )
 from ax.benchmark.benchmark_method import BenchmarkMethod
-from ax.benchmark.benchmark_problem import create_problem_from_botorch
+from ax.benchmark.benchmark_problem import (
+    create_problem_from_botorch,
+    get_moo_opt_config,
+    get_soo_opt_config,
+)
 from ax.benchmark.benchmark_result import BenchmarkResult
 from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.methods.modular_botorch import (
@@ -51,10 +56,12 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import (
     get_async_benchmark_method,
     get_async_benchmark_problem,
+    get_discrete_search_space,
     get_moo_surrogate,
     get_multi_objective_benchmark_problem,
     get_single_objective_benchmark_problem,
     get_soo_surrogate,
+    IdentityTestFunction,
     TestDataset,
 )
 
@@ -931,3 +938,61 @@ class TestBenchmark(TestCase):
                 1,
                 msg=f"Trial index: {t.index}",
             )
+
+    def test_compute_baseline_value_from_sobol(self) -> None:
+        """
+        In this setting, every point from 0-4 will be evaluated,
+        and it will produce outcomes 0-4.
+        """
+        search_space = get_discrete_search_space(n_values=5)
+        test_function = IdentityTestFunction()
+
+        with self.subTest("SOO, lower is better"):
+            opt_config = get_soo_opt_config(outcome_names=test_function.outcome_names)
+            result = compute_baseline_value_from_sobol(
+                optimization_config=opt_config,
+                search_space=search_space,
+                test_function=test_function,
+                n_repeats=1,
+            )
+            self.assertEqual(result, 0)
+        return
+
+        with self.subTest("SOO, MapData"):
+            map_test_function = IdentityTestFunction(n_steps=2)
+            map_opt_config = get_soo_opt_config(
+                outcome_names=test_function.outcome_names, use_map_metric=True
+            )
+            result = compute_baseline_value_from_sobol(
+                optimization_config=map_opt_config,
+                search_space=search_space,
+                test_function=map_test_function,
+                n_repeats=1,
+            )
+            self.assertEqual(result, 0)
+
+        with self.subTest("SOO, higher is better"):
+            opt_config = get_soo_opt_config(
+                outcome_names=test_function.outcome_names, lower_is_better=False
+            )
+            result = compute_baseline_value_from_sobol(
+                optimization_config=opt_config,
+                search_space=search_space,
+                test_function=test_function,
+                n_repeats=1,
+            )
+            self.assertEqual(result, 4)
+
+        moo_test_function = IdentityTestFunction(outcome_names=["foo", "bar"])
+        with self.subTest("MOO"):
+            moo_opt_config = get_moo_opt_config(
+                outcome_names=moo_test_function.outcome_names, ref_point=[5, 5]
+            )
+            result = compute_baseline_value_from_sobol(
+                optimization_config=moo_opt_config,
+                search_space=search_space,
+                test_function=moo_test_function,
+                n_repeats=1,
+            )
+            # (5-0) * (5-0)
+            self.assertEqual(result, 25)
