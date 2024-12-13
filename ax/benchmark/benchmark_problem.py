@@ -64,10 +64,18 @@ class BenchmarkProblem(Base):
             be `BenchmarkMetric`s.
         num_trials: Number of optimization iterations to run. BatchTrials count
             as one trial.
-        optimal_value: The best ground-truth objective value. Hypervolume for
-            multi-objective problems. If the best value is not known, it is
-            conventional to set it to a value that is almost certainly better
-            than the best value, so that a benchmark's score will not exceed 100%.
+        optimal_value: The best ground-truth objective value, used for scoring
+            optimization results on a scale from 0 to 100, where achieving the
+            `optimal_value` receives a score of 100. The `optimal_value` should
+            be a hypervolume for multi-objective problems. If the best value is
+            not known, it is conventional to set it to a value that is almost
+            certainly better than the best value, so that a benchmark's score
+            will not exceed 100%.
+        baseline_value: Similar to `optimal_value`, but a not-so-good value
+            which benchmarks are expected to do better than. A baseline value
+            can be derived using the function
+            `compute_baseline_value_from_sobol`, which takes the best of five
+            quasi-random Sobol trials.
         search_space: The search space.
         test_function: A `BenchmarkTestFunction`, which will generate noiseless
             data. This will be used by a `BenchmarkRunner`.
@@ -97,7 +105,7 @@ class BenchmarkProblem(Base):
     test_function: BenchmarkTestFunction
     noise_std: float | Sequence[float] | Mapping[str, float] = 0.0
     optimal_value: float
-
+    baseline_value: float
     search_space: SearchSpace = field(repr=False)
     report_inference_value_as_trace: bool = False
     n_best_points: int = 1
@@ -113,6 +121,27 @@ class BenchmarkProblem(Base):
             raise NotImplementedError(
                 "Inference trace is not supported for MOO. Please set "
                 "`report_inference_value_as_trace` to False."
+            )
+
+        # Validate that the optimal value is actually better than the baseline
+        # value
+        # If MOO, values represent hypervolumes
+        if isinstance(self.optimization_config, MultiObjectiveOptimizationConfig):
+            if self.baseline_value >= self.optimal_value:
+                raise ValueError(
+                    "The baseline value must be strictly less than the optimal "
+                    "value for MOO problems. (These represent hypervolumes.)"
+                )
+        elif self.optimization_config.objective.minimize:
+            if self.baseline_value <= self.optimal_value:
+                raise ValueError(
+                    "The baseline value must be strictly greater than the optimal "
+                    "value for minimization problems."
+                )
+        elif self.baseline_value >= self.optimal_value:
+            raise ValueError(
+                "The baseline value must be strictly less than the optimal "
+                "value for maximization problems."
             )
 
         # Validate that names on optimization config are contained in names on
@@ -323,12 +352,34 @@ def get_continuous_search_space(bounds: list[tuple[float, float]]) -> SearchSpac
     )
 
 
+# A mapping from (BoTorch problem class name, dim | None) to baseline value
+# Obtained using `get_baseline_value_from_sobol`
+BOTORCH_BASELINE_VALUES: Mapping[tuple[str, int | None], float] = {
+    ("Ackley", 4): 19.837273921447853,
+    ("Branin", None): 10.930455126654936,
+    ("BraninCurrin", None): 0.9820209831769217,
+    ("BraninCurrin", 30): 3.0187520516793587,
+    ("ConstrainedGramacy", None): 1.0643958597443999,
+    ("ConstrainedBraninCurrin", None): 0.9820209831769217,
+    ("Griewank", 4): 60.037068040081095,
+    ("Hartmann", 3): -2.3423173903286716,
+    ("Hartmann", 6): -0.796988050854654,
+    ("Hartmann", 30): -0.8359462084890045,
+    ("Levy", 4): 14.198811442165178,
+    ("Powell", 4): 932.3102865964689,
+    ("Rosenbrock", 4): 30143.767857949348,
+    ("SixHumpCamel", None): 0.45755007063109004,
+    ("ThreeHumpCamel", None): 3.7321680621434155,
+}
+
+
 def create_problem_from_botorch(
     *,
     test_problem_class: type[BaseTestProblem],
     test_problem_kwargs: dict[str, Any],
     noise_std: float | list[float] = 0.0,
     num_trials: int,
+    baseline_value: float | None = None,
     name: str | None = None,
     lower_is_better: bool = True,
     observe_noise_sd: bool = False,
@@ -358,9 +409,10 @@ def create_problem_from_botorch(
         lower_is_better: Whether this is a minimization problem. For MOO, this
             applies to all objectives.
         num_trials: Simply the `num_trials` of the `BenchmarkProblem` created.
-        name: This and the following arguments are all passed to
-            ``BenchmarkProblem`` if specified and populated with reasonable
-            defaults otherwise.
+        baseline_value: If not provided, will be looked up from
+            `BOTORCH_BASELINE_VALUES`.
+        name: Will be passed to ``BenchmarkProblem`` if specified and populated
+            with reasonable defaults otherwise.
         observe_noise_sd: Whether the standard deviation of the observation noise is
             observed or not (in which case it must be inferred by the model).
             This is separate from whether synthetic noise is added to the
@@ -450,6 +502,11 @@ def create_problem_from_botorch(
         if isinstance(test_problem, MultiObjectiveTestProblem)
         else test_problem.optimal_value
     )
+    baseline_value = (
+        BOTORCH_BASELINE_VALUES[(test_problem_class.__name__, dim)]
+        if baseline_value is None
+        else baseline_value
+    )
 
     return BenchmarkProblem(
         name=name,
@@ -461,6 +518,7 @@ def create_problem_from_botorch(
         # pyre-fixme[6]: For 7th argument expected `float` but got `Union[float,
         #  Tensor, Module]`.
         optimal_value=optimal_value,
+        baseline_value=baseline_value,
         report_inference_value_as_trace=report_inference_value_as_trace,
         step_runtime_function=step_runtime_function,
         status_quo_params=status_quo_params,

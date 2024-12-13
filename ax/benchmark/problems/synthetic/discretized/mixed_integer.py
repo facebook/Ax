@@ -36,6 +36,7 @@ def _get_problem_from_common_inputs(
     benchmark_name: str,
     num_trials: int,
     optimal_value: float,
+    baseline_value: float,
     test_problem_bounds: list[tuple[float, float]] | None = None,
 ) -> BenchmarkProblem:
     """This is a helper that deduplicates common bits of the below problems.
@@ -62,6 +63,7 @@ def _get_problem_from_common_inputs(
             attaining scores of over 100%. One strategy for choosing this value
             is to choose the overall optimum of the problem without regard to
             the integer restrictions.
+        baseline_value: Will be passed to the `BenchmarkProblem`.
         test_problem_bounds: Optional bounds to evaluate the base test problem on.
             These are passed in as `bounds` while initializing the test problem.
 
@@ -104,6 +106,7 @@ def _get_problem_from_common_inputs(
         test_function=test_function,
         num_trials=num_trials,
         optimal_value=optimal_value,
+        baseline_value=baseline_value,
     )
 
 
@@ -136,6 +139,8 @@ def get_discrete_hartmann(
         # optimum without regards to the integer constraints is -3.3224, but
         # that won't be attainable here.
         optimal_value=-3.0,
+        # Baseline values were obtained with `compute_baseline_value_from_sobol`
+        baseline_value=-0.6755184773211834,
     )
 
 
@@ -169,6 +174,7 @@ def get_discrete_ackley(
         # Ackley's lowest value is at (0, 0, ..., 0), which is in the search
         # space, so the restriction to integers doesn't change the optimum
         optimal_value=0.0,
+        baseline_value=3.1869268815137968,
     )
 
 
@@ -196,4 +202,5 @@ def get_discrete_rosenbrock(
         # Rosenbrock's lowest value is at (1, 1, ..., 1), which is in the search
         # space, so the restriction to integers doesn't change the optimum
         optimal_value=0.0,
+        baseline_value=705714.2851460224,
     )

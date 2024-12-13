@@ -697,6 +697,7 @@ class TestBenchmark(TestCase):
             test_problem_class=Branin,
             test_problem_kwargs={},
             num_trials=1000,  # Unachievable num_trials
+            baseline_value=100,
         )
 
         generation_strategy = get_sobol_botorch_modular_acquisition(
@@ -853,11 +854,9 @@ class TestBenchmark(TestCase):
         problem = create_problem_from_botorch(
             test_problem_class=AugmentedBranin,
             test_problem_kwargs={},
-            # pyre-fixme: Incompatible parameter type [6]: In call
-            # `SearchSpace.__init__`, for 1st positional argument, expected
-            # `List[Parameter]` but got `List[RangeParameter]`.
             search_space=SearchSpace(parameters),
             num_trials=3,
+            baseline_value=3.0,
         )
         params = {"x0": 1.0, "x1": 0.0, "x2": 0.0}
         at_target = assert_is_instance(
