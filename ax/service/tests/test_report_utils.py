@@ -6,12 +6,11 @@
 
 # pyre-strict
 
-import copy
 import itertools
 from collections import namedtuple
 from logging import INFO, WARN
 from unittest import mock
-from unittest.mock import patch
+from unittest.mock import patch, PropertyMock
 
 import pandas as pd
 from ax.core.arm import Arm
@@ -44,7 +43,6 @@ from ax.service.utils.report_utils import (
     FEASIBLE_COL_NAME,
     get_standard_plots,
     plot_feature_importance_by_feature_plotly,
-    select_baseline_arm,
     warn_if_unpredictable_metrics,
 )
 from ax.service.utils.scheduler_options import SchedulerOptions
@@ -612,9 +610,21 @@ class ReportUtilsTest(TestCase):
         ]
         arms_df = pd.DataFrame(data)
 
+        arms_by_name_mock = {
+            BASELINE_ARM_NAME: Arm(name=BASELINE_ARM_NAME, parameters={}),
+            "dummy": Arm(name="dummy", parameters={}),
+            "optimal": Arm(name="optimal", parameters={}),
+            "bad_optimal": Arm(name="bad_optimal", parameters={}),
+        }
+
         with patch(
             "ax.service.utils.report_utils.exp_to_df",
             return_value=arms_df,
+        ), patch.object(
+            Experiment,
+            "arms_by_name",
+            new_callable=PropertyMock,
+            return_value=arms_by_name_mock,
         ):
             true_obj_metric = Metric(name=OBJECTIVE_METRIC, lower_is_better=False)
             experiment = Experiment(
@@ -677,9 +687,21 @@ class ReportUtilsTest(TestCase):
         ]
         arms_df = pd.DataFrame(data)
 
+        arms_by_name_mock = {
+            BASELINE_ARM_NAME: Arm(name=BASELINE_ARM_NAME, parameters={}),
+            "dummy": Arm(name="dummy", parameters={}),
+            "optimal": Arm(name="optimal", parameters={}),
+            "bad_optimal": Arm(name="bad_optimal", parameters={}),
+        }
+
         with patch(
             "ax.service.utils.report_utils.exp_to_df",
             return_value=arms_df,
+        ), patch.object(
+            Experiment,
+            "arms_by_name",
+            new_callable=PropertyMock,
+            return_value=arms_by_name_mock,
         ):
             true_obj_metric = Metric(name=OBJECTIVE_METRIC, lower_is_better=False)
             experiment = Experiment(
@@ -740,9 +762,21 @@ class ReportUtilsTest(TestCase):
         ]
         arms_df = pd.DataFrame(data)
 
+        arms_by_name_mock = {
+            custom_baseline_arm_name: Arm(name=custom_baseline_arm_name, parameters={}),
+            "dummy": Arm(name="dummy", parameters={}),
+            "optimal": Arm(name="optimal", parameters={}),
+            "bad_optimal": Arm(name="bad_optimal", parameters={}),
+        }
+
         with patch(
             "ax.service.utils.report_utils.exp_to_df",
             return_value=arms_df,
+        ), patch.object(
+            Experiment,
+            "arms_by_name",
+            new_callable=PropertyMock,
+            return_value=arms_by_name_mock,
         ):
             true_obj_metric = Metric(name=OBJECTIVE_METRIC, lower_is_better=True)
             experiment = Experiment(
@@ -816,10 +850,21 @@ class ReportUtilsTest(TestCase):
             {"trial_index": 1, "arm_name": "optimal", OBJECTIVE_METRIC: 1.0},
         ]
         arms_df = pd.DataFrame(data)
+        arms_by_name_mock = {
+            BASELINE_ARM_NAME: Arm(name=BASELINE_ARM_NAME, parameters={}),
+            "dummy": Arm(name="dummy", parameters={}),
+            "optimal": Arm(name="optimal", parameters={}),
+            "bad_optimal": Arm(name="bad_optimal", parameters={}),
+        }
 
         with patch(
             "ax.service.utils.report_utils.exp_to_df",
             return_value=arms_df,
+        ), patch.object(
+            Experiment,
+            "arms_by_name",
+            new_callable=PropertyMock,
+            return_value=arms_by_name_mock,
         ):
             with self.assertLogs("ax", level=INFO) as log:
                 self.assertEqual(
@@ -998,11 +1043,7 @@ class ReportUtilsTest(TestCase):
                 )
                 self.assertTrue(
                     any(
-                        (
-                            f"compare_to_baseline: baseline row: {baseline_arm_name=}"
-                            " not found in arms"
-                        )
-                        in log_str
+                        (f"Arm by name {baseline_arm_name=} not found.") in log_str
                         for log_str in log.output
                     ),
                     log.output,
@@ -1051,9 +1092,21 @@ class ReportUtilsTest(TestCase):
         ]
         arms_df = pd.DataFrame(data)
 
+        arms_by_name_mock = {
+            BASELINE_ARM_NAME: Arm(name=BASELINE_ARM_NAME, parameters={}),
+            "dummy": Arm(name="dummy", parameters={}),
+            "optimal": Arm(name="optimal", parameters={}),
+            "bad_optimal": Arm(name="bad_optimal", parameters={}),
+        }
+
         with patch(
             "ax.service.utils.report_utils.exp_to_df",
             return_value=arms_df,
+        ), patch.object(
+            Experiment,
+            "arms_by_name",
+            new_callable=PropertyMock,
+            return_value=arms_by_name_mock,
         ):
             m0 = Metric(name="m0", lower_is_better=False)
             m1 = Metric(name="m1", lower_is_better=True)
@@ -1175,100 +1228,6 @@ class ReportUtilsTest(TestCase):
             )
 
             self.assertIsNone(result)
-
-    def test_compare_to_baseline_select_baseline_arm(self) -> None:
-        OBJECTIVE_METRIC = "objective"
-        true_obj_metric = Metric(name=OBJECTIVE_METRIC, lower_is_better=True)
-        experiment = Experiment(
-            search_space=get_branin_search_space(),
-            tracking_metrics=[true_obj_metric],
-        )
-
-        # specified baseline
-        data = [
-            {
-                "trial_index": 0,
-                "arm_name": "m_0",
-                OBJECTIVE_METRIC: 0.2,
-            },
-            {
-                "trial_index": 1,
-                "arm_name": BASELINE_ARM_NAME,
-                OBJECTIVE_METRIC: 0.2,
-            },
-            {
-                "trial_index": 2,
-                "arm_name": "status_quo",
-                OBJECTIVE_METRIC: 0.2,
-            },
-        ]
-        arms_df = pd.DataFrame(data)
-        self.assertEqual(
-            select_baseline_arm(
-                experiment=experiment,
-                arms_df=arms_df,
-                baseline_arm_name=BASELINE_ARM_NAME,
-            ),
-            (BASELINE_ARM_NAME, False),
-        )
-
-        # specified baseline arm not in trial
-        wrong_baseline_name = "wrong_baseline_name"
-        with self.assertRaisesRegex(
-            ValueError,
-            "compare_to_baseline: baseline row: .*" + " not found in arms",
-        ):
-            select_baseline_arm(
-                experiment=experiment,
-                arms_df=arms_df,
-                baseline_arm_name=wrong_baseline_name,
-            )
-
-        # status quo baseline arm
-        experiment_with_status_quo = copy.deepcopy(experiment)
-        experiment_with_status_quo.status_quo = Arm(
-            name="status_quo",
-            parameters={"x1": 0, "x2": 0},
-        )
-        self.assertEqual(
-            select_baseline_arm(
-                experiment=experiment_with_status_quo,
-                arms_df=arms_df,
-                baseline_arm_name=None,
-            ),
-            ("status_quo", False),
-        )
-        # first arm from trials
-        custom_arm = Arm(name="m_0", parameters={"x1": 0.1, "x2": 0.2})
-        experiment.new_trial().add_arm(custom_arm)
-        self.assertEqual(
-            select_baseline_arm(
-                experiment=experiment,
-                arms_df=arms_df,
-                baseline_arm_name=None,
-            ),
-            ("m_0", True),
-        )
-
-        # none selected
-        experiment_with_no_valid_baseline = Experiment(
-            search_space=get_branin_search_space(),
-            tracking_metrics=[true_obj_metric],
-        )
-        experiment_with_no_valid_baseline.status_quo = Arm(
-            name="not found",
-            parameters={"x1": 0, "x2": 0},
-        )
-        custom_arm = Arm(name="also not found", parameters={"x1": 0.1, "x2": 0.2})
-        experiment_with_no_valid_baseline.new_trial().add_arm(custom_arm)
-        with self.assertRaisesRegex(
-            ValueError, "compare_to_baseline: could not find valid baseline arm"
-        ):
-            select_baseline_arm(
-                experiment=experiment_with_no_valid_baseline,
-                arms_df=arms_df,
-                baseline_arm_name=None,
-            )
 
     def test_warn_if_unpredictable_metrics(self) -> None:
         expected_msg = (
