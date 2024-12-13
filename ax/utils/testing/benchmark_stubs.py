@@ -94,16 +94,13 @@ def get_soo_surrogate_test_function(lazy: bool = True) -> SurrogateTestFunction:
     )
     if lazy:
         test_function = SurrogateTestFunction(
-            outcome_names=["branin"],
-            name="test",
-            get_surrogate_and_datasets=lambda: (surrogate, []),
+            outcome_names=["branin"], name="test", get_surrogate=lambda: surrogate
         )
     else:
         test_function = SurrogateTestFunction(
             outcome_names=["branin"],
             name="test",
             _surrogate=surrogate,
-            _datasets=[],
         )
     return test_function
 
@@ -139,9 +136,7 @@ def get_moo_surrogate() -> BenchmarkProblem:
 
     outcome_names = ["branin_a", "branin_b"]
     test_function = SurrogateTestFunction(
-        name="test",
-        outcome_names=outcome_names,
-        get_surrogate_and_datasets=lambda: (surrogate, []),
+        name="test", outcome_names=outcome_names, get_surrogate=lambda: surrogate
     )
     optimization_config = get_moo_opt_config(
         outcome_names=outcome_names,
