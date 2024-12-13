@@ -447,6 +447,7 @@ def compute_baseline_value_from_sobol(
         num_trials=5,
         test_function=test_function,
         optimal_value=dummy_optimal_value,
+        baseline_value=-dummy_optimal_value,
         target_fidelity_and_task=target_fidelity_and_task,
     )
 
