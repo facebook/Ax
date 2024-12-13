@@ -37,7 +37,7 @@ from botorch.optim import (
     optimize_acqf_homotopy,
 )
 from botorch.utils.datasets import SupervisedDataset
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 CLAMP_TOL = 1e-2
@@ -296,14 +296,14 @@ class SEBOAcquisition(Acquisition):
             ],
         )
 
-        if "batch_initial_conditions" not in optimizer_options:
-            optimizer_options["batch_initial_conditions"] = (
+        if "batch_initial_conditions" not in optimizer_options_with_defaults:
+            optimizer_options_with_defaults["batch_initial_conditions"] = (
                 get_batch_initial_conditions(
                     acq_function=self.acqf,
                     raw_samples=optimizer_options_with_defaults["raw_samples"],
                     inequality_constraints=inequality_constraints,
                     fixed_features=fixed_features,
-                    X_pareto=self.acqf.X_baseline,
+                    X_pareto=assert_is_instance(self.acqf.X_baseline, Tensor),
                     target_point=self.target_point,
                     bounds=bounds,
                     num_restarts=optimizer_options_with_defaults["num_restarts"],

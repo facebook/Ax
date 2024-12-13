@@ -380,3 +380,43 @@ class TestSebo(TestCase):
         self.assertEqual(batch_initial_conditions.shape, torch.Size([3, 1, 3]))
         self.assertTrue(torch.all(batch_initial_conditions[:1] != 0.5))
         self.assertTrue(torch.all(batch_initial_conditions[1:, :, 1] == 0.5))
+
+    @mock.patch(f"{SEBOACQUISITION_PATH}.optimize_acqf_homotopy")
+    @mock.patch(
+        f"{SEBOACQUISITION_PATH}.get_batch_initial_conditions",
+        wraps=get_batch_initial_conditions,
+    )
+    def test_optimize_with_provided_batch_initial_conditions(
+        self, mock_get_batch_initial_conditions: Mock, mock_optimize_acqf_homotopy: Mock
+    ) -> None:
+        mock_optimize_acqf_homotopy.return_value = (
+            torch.tensor([[0.1, 0.1, 0.1]], dtype=torch.double),
+            torch.tensor([1.0], dtype=torch.double),
+        )
+
+        # Create batch initial conditions
+        batch_ics = torch.rand(3, 1, 3, dtype=torch.double)
+
+        acquisition = self.get_acquisition_function(
+            options={
+                "target_point": self.target_point,
+                "penalty": "L0_norm",
+            },
+        )
+
+        acquisition.optimize(
+            n=1,
+            search_space_digest=self.search_space_digest,
+            optimizer_options={
+                "batch_initial_conditions": batch_ics,
+                Keys.NUM_RESTARTS: 3,
+                Keys.RAW_SAMPLES: 32,
+            },
+        )
+
+        # Verify get_batch_initial_conditions was not called
+        mock_get_batch_initial_conditions.assert_not_called()
+
+        # Verify the batch_initial_conditions were passed to optimize_acqf_homotopy
+        call_kwargs = mock_optimize_acqf_homotopy.call_args[1]
+        self.assertTrue(torch.equal(call_kwargs["batch_initial_conditions"], batch_ics))
