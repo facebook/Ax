@@ -232,28 +232,6 @@ class SEBOAcquisition(Acquisition):
             candidates, a tensor with the associated acquisition values, and a tensor
             with the weight for each candidate.
         """
-        # Prepare arguments for optimizer
-        optimizer_options_with_defaults = optimizer_argparse(
-            self.acqf,
-            optimizer_options=optimizer_options,
-            optimizer="optimize_acqf_homotopy",
-        )
-
-        _tensorize = partial(torch.tensor, dtype=self.dtype, device=self.device)
-        ssd = search_space_digest
-        bounds = _tensorize(ssd.bounds).t()
-
-        optimizer_options["batch_initial_conditions"] = get_batch_initial_conditions(
-            acq_function=self.acqf,
-            raw_samples=optimizer_options_with_defaults["raw_samples"],
-            inequality_constraints=inequality_constraints,
-            fixed_features=fixed_features,
-            X_pareto=self.acqf.X_baseline,
-            target_point=self.target_point,
-            bounds=bounds,
-            num_restarts=optimizer_options_with_defaults["num_restarts"],
-        )
-
         if self.penalty_name == "L0_norm":
             candidates, expected_acquisition_value, weights = (
                 self._optimize_with_homotopy(
@@ -295,8 +273,7 @@ class SEBOAcquisition(Acquisition):
         optimizer_options = optimizer_options or {}
         # extend to fixed a no homotopy_schedule schedule
         _tensorize = partial(torch.tensor, dtype=self.dtype, device=self.device)
-        ssd = search_space_digest
-        bounds = _tensorize(ssd.bounds).t()
+        bounds = _tensorize(search_space_digest.bounds).t()
         homotopy_schedule = LogLinearHomotopySchedule(
             start=0.2,
             end=1e-3,
@@ -318,6 +295,20 @@ class SEBOAcquisition(Acquisition):
                 )
             ],
         )
+
+        if "batch_initial_conditions" not in optimizer_options:
+            optimizer_options["batch_initial_conditions"] = (
+                get_batch_initial_conditions(
+                    acq_function=self.acqf,
+                    raw_samples=optimizer_options_with_defaults["raw_samples"],
+                    inequality_constraints=inequality_constraints,
+                    fixed_features=fixed_features,
+                    X_pareto=self.acqf.X_baseline,
+                    target_point=self.target_point,
+                    bounds=bounds,
+                    num_restarts=optimizer_options_with_defaults["num_restarts"],
+                )
+            )
 
         candidates, expected_acquisition_value = optimize_acqf_homotopy(
             q=n,
