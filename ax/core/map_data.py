@@ -250,8 +250,9 @@ class MapData(Data):
             + " MapData via `__init__` or `from_multiple_data`."
         )
 
-    @staticmethod
+    @classmethod
     def from_multiple_data(
+        cls,
         data: Iterable[Data],
         subset_metrics: Iterable[str] | None = None,
     ) -> MapData:
@@ -261,16 +262,14 @@ class MapData(Data):
         """
         map_datas = [
             (
-                MapData(df=datum.df, map_key_infos=[])
+                cls(df=datum.df, map_key_infos=[])
                 if not isinstance(datum, MapData)
                 else datum
             )
             for datum in data
         ]
 
-        return MapData.from_multiple_map_data(
-            data=map_datas, subset_metrics=subset_metrics
-        )
+        return cls.from_multiple_map_data(data=map_datas, subset_metrics=subset_metrics)
 
     @property
     def df(self) -> pd.DataFrame:
