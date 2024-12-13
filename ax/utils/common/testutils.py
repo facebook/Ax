@@ -500,7 +500,7 @@ class TestCase(fake_filesystem_unittest.TestCase):
             superdict: A larger dictionary which should contain all keys of subdict
                 and the same values as subdict for the corresponding keys.
         """
-        intersection_dict = {k: superdict[k] for k in subdict}
+        intersection_dict = {k: superdict[k] for k in subdict if k in superdict}
         if consider_nans_equal and not almost_equal:
             raise ValueError(
                 "`consider_nans_equal` can only be used with `almost_equal`"
