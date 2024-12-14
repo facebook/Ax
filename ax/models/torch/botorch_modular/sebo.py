@@ -30,16 +30,15 @@ from botorch.acquisition.penalized import L0Approximation
 from botorch.models.deterministic import GenericDeterministicModel
 from botorch.models.model import ModelList
 from botorch.optim import (
+    gen_batch_initial_conditions,
     Homotopy,
     HomotopyParameter,
     LogLinearHomotopySchedule,
     optimize_acqf_homotopy,
 )
 from botorch.utils.datasets import SupervisedDataset
-from botorch.utils.transforms import unnormalize
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
-from torch.quasirandom import SobolEngine
 
 CLAMP_TOL = 1e-2
 logger: Logger = get_logger(__name__)
@@ -234,15 +233,11 @@ class SEBOAcquisition(Acquisition):
             with the weight for each candidate.
         """
         if self.penalty_name == "L0_norm":
-            if inequality_constraints is not None:
-                raise NotImplementedError(
-                    "Homotopy does not support optimization with inequality "
-                    + "constraints. Use L1 penalty norm instead."
-                )
             candidates, expected_acquisition_value, weights = (
                 self._optimize_with_homotopy(
                     n=n,
                     search_space_digest=search_space_digest,
+                    inequality_constraints=inequality_constraints,
                     fixed_features=fixed_features,
                     rounding_func=rounding_func,
                     optimizer_options=optimizer_options,
@@ -269,6 +264,7 @@ class SEBOAcquisition(Acquisition):
         self,
         n: int,
         search_space_digest: SearchSpaceDigest,
+        inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
         fixed_features: dict[int, float] | None = None,
         rounding_func: Callable[[Tensor], Tensor] | None = None,
         optimizer_options: dict[str, Any] | None = None,
@@ -277,8 +273,7 @@ class SEBOAcquisition(Acquisition):
         optimizer_options = optimizer_options or {}
         # extend to fixed a no homotopy_schedule schedule
         _tensorize = partial(torch.tensor, dtype=self.dtype, device=self.device)
-        ssd = search_space_digest
-        bounds = _tensorize(ssd.bounds).t()
+        bounds = _tensorize(search_space_digest.bounds).t()
         homotopy_schedule = LogLinearHomotopySchedule(
             start=0.2,
             end=1e-3,
@@ -300,16 +295,21 @@ class SEBOAcquisition(Acquisition):
                 )
             ],
         )
-        batch_initial_conditions = get_batch_initial_conditions(
-            acq_function=self.acqf,
-            raw_samples=optimizer_options_with_defaults["raw_samples"],
-            # pyre-fixme[6]: For 3rd argument expected `Tensor` but got
-            #  `Union[Tensor, Module]`.
-            X_pareto=self.acqf.X_baseline,
-            target_point=self.target_point,
-            bounds=bounds,
-            num_restarts=optimizer_options_with_defaults["num_restarts"],
-        )
+
+        if "batch_initial_conditions" not in optimizer_options_with_defaults:
+            optimizer_options_with_defaults["batch_initial_conditions"] = (
+                get_batch_initial_conditions(
+                    acq_function=self.acqf,
+                    raw_samples=optimizer_options_with_defaults["raw_samples"],
+                    inequality_constraints=inequality_constraints,
+                    fixed_features=fixed_features,
+                    X_pareto=assert_is_instance(self.acqf.X_baseline, Tensor),
+                    target_point=self.target_point,
+                    bounds=bounds,
+                    num_restarts=optimizer_options_with_defaults["num_restarts"],
+                )
+            )
+
         candidates, expected_acquisition_value = optimize_acqf_homotopy(
             q=n,
             acq_function=self.acqf,
@@ -317,9 +317,12 @@ class SEBOAcquisition(Acquisition):
             homotopy=homotopy,
             num_restarts=optimizer_options_with_defaults["num_restarts"],
             raw_samples=optimizer_options_with_defaults["raw_samples"],
+            inequality_constraints=inequality_constraints,
             post_processing_func=rounding_func,
             fixed_features=fixed_features,
-            batch_initial_conditions=batch_initial_conditions,
+            batch_initial_conditions=optimizer_options_with_defaults[
+                "batch_initial_conditions"
+            ],
         )
         return (
             candidates,
@@ -357,23 +360,29 @@ def get_batch_initial_conditions(
     target_point: Tensor,
     bounds: Tensor,
     num_restarts: int = 20,
+    inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
+    fixed_features: dict[int, float] | None = None,
 ) -> Tensor:
     """Generate starting points for the SEBO acquisition function optimization."""
     tkwargs: dict[str, Any] = {"device": X_pareto.device, "dtype": X_pareto.dtype}
-    dim = X_pareto.shape[-1]  # dimension
-    num_sobol, num_local = num_restarts // 2, num_restarts - num_restarts // 2
-    # (1) Global sparse Sobol points
-    X_cand_sobol = (
-        SobolEngine(dimension=dim, scramble=True)
-        .draw(raw_samples, dtype=tkwargs["dtype"])
-        .to(**tkwargs)
-    )
-    X_cand_sobol = unnormalize(X_cand_sobol, bounds=bounds)
-    acq_vals = acq_function(X_cand_sobol.unsqueeze(1))
-    if len(X_pareto) == 0:
-        return X_cand_sobol[acq_vals.topk(num_restarts).indices]
+    num_rand = num_restarts if len(X_pareto) == 0 else num_restarts // 2
+    num_local = num_restarts - num_rand
 
-    X_cand_sobol = X_cand_sobol[acq_vals.topk(num_sobol).indices]
+    # (1) Random points (Sobol if no constraints, otherwise uses hit-and-run)
+    X_cand_rand = gen_batch_initial_conditions(
+        acq_function=acq_function,
+        bounds=bounds,
+        q=1,
+        raw_samples=raw_samples,
+        num_restarts=num_rand,
+        options={"topn": True},
+        fixed_features=fixed_features,
+        inequality_constraints=inequality_constraints,
+    ).to(**tkwargs)
+
+    if num_local == 0:
+        return X_cand_rand
+
     # (2) Perturbations of points on the Pareto frontier (done by TuRBO/Spearmint)
     X_cand_local = X_pareto.clone()[
         torch.randint(high=len(X_pareto), size=(raw_samples,))
@@ -382,8 +391,6 @@ def get_batch_initial_conditions(
     X_cand_local[mask] += (
         0.2 * ((bounds[1] - bounds[0]) * torch.randn_like(X_cand_local))[mask]
     )
-    X_cand_local = torch.clamp(X_cand_local, min=bounds[0], max=bounds[1])
-    X_cand_local = X_cand_local[
-        acq_function(X_cand_local.unsqueeze(1)).topk(num_local).indices
-    ]
-    return torch.cat((X_cand_sobol, X_cand_local), dim=0).unsqueeze(1)
+    X_cand_local = torch.clamp(X_cand_local.unsqueeze(1), min=bounds[0], max=bounds[1])
+    X_cand_local = X_cand_local[acq_function(X_cand_local).topk(num_local).indices]
+    return torch.cat((X_cand_rand, X_cand_local), dim=0)
