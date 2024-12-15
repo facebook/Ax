@@ -37,11 +37,19 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
     is below the threshold for at least one arm.
     """
 
+    def __init__(self, prob_threshold: float = 0.95) -> None:
+        r"""
+        Args:
+            prob_theshold: The threshold for the probability of constraint violation.
+
+        Returns None
+        """
+        self.prob_threshold = prob_threshold
+
     def compute(
         self,
         experiment: Experiment | None = None,
         generation_strategy: GenerationStrategyInterface | None = None,
-        prob_threshold: float = 0.90,
     ) -> HealthcheckAnalysisCard:
         r"""
         Compute the feasibility of the constraints for the experiment.
@@ -118,7 +126,7 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
         constraints_feasible, df = constraints_feasibility(
             optimization_config=optimization_config,
             model=model,
-            prob_threshold=prob_threshold,
+            prob_threshold=self.prob_threshold,
         )
         df["status"] = status
 
@@ -126,12 +134,12 @@ class ConstraintsFeasibilityAnalysis(HealthcheckAnalysis):
             status = HealthcheckStatus.WARNING
             subtitle = (
                 "Constraints are infeasible for all test groups (arms) with respect "
-                f"to the probability threshold {prob_threshold}. "
+                f"to the probability threshold {self.prob_threshold}. "
                 "We suggest relaxing the constraint bounds for the constraints."
             )
             title_status = "Warning"
             df.loc[
-                df["overall_probability_constraints_violated"] > prob_threshold,
+                df["overall_probability_constraints_violated"] > self.prob_threshold,
                 "status",
             ] = status
 
