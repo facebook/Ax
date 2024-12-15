@@ -193,7 +193,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         self.assertEqual(card.level, AnalysisCardLevel.LOW)
         subtitle = (
             "Constraints are infeasible for all test groups (arms) with respect "
-            "to the probability threshold 0.9. "
+            "to the probability threshold 0.95. "
             "We suggest relaxing the constraint bounds for the constraints."
         )
         self.assertEqual(card.subtitle, subtitle)
