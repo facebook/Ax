@@ -22,8 +22,7 @@ from ax.modelbridge.transforms.base import Transform
 from ax.models.types import TConfig
 from ax.utils.common.logger import get_logger
 from ax.utils.common.timeutils import unixtime_to_pandas_ts
-from ax.utils.common.typeutils import checked_cast
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -139,12 +138,14 @@ class TimeAsFeature(Transform):
         self, observation_features: list[ObservationFeatures]
     ) -> list[ObservationFeatures]:
         for obsf in observation_features:
-            start_time = checked_cast(float, obsf.parameters.pop("start_time"))
-            obsf.start_time = unixtime_to_pandas_ts(start_time)
-            obsf.end_time = unixtime_to_pandas_ts(
-                checked_cast(float, obsf.parameters.pop("duration"))
-                * self.duration_range
-                + self.min_duration
-                + start_time
-            )
+            start_time = obsf.parameters.pop("start_time", None)
+            duration = obsf.parameters.pop("duration", None)
+            if start_time is not None:
+                start_time = assert_is_instance(start_time, float)
+                obsf.start_time = unixtime_to_pandas_ts(start_time)
+                if duration is not None:
+                    duration = assert_is_instance(duration, float)
+                    obsf.end_time = unixtime_to_pandas_ts(
+                        duration * self.duration_range + self.min_duration + start_time
+                    )
         return observation_features
