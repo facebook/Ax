@@ -64,6 +64,19 @@ class TransformToNewSQ(BaseRelativize):
             if target_trial_index is not None:
                 self.default_trial_idx: int = checked_cast(int, target_trial_index)
 
+            trial_indices = {}
+            if observations is not None:
+                trial_indices = {
+                    obs.features.trial_index
+                    for obs in observations
+                    if obs.features.trial_index is not None
+                }
+            # in case no target trial index is provided or the provided target
+            # trial index is not a part of any trial from the observations,
+            # use the smallest trial index from the observations
+            if len(trial_indices) > 0 and (target_trial_index not in trial_indices):
+                self.default_trial_idx = min(trial_indices)
+
     @property
     def control_as_constant(self) -> bool:
         """Whether or not the control is treated as a constant in the model."""
@@ -187,7 +200,7 @@ class TransformToNewSQ(BaseRelativize):
             sems_t=sems_t,
             mean_c=mean_c,
             sem_c=sem_c,
-            as_percent=True,
+            as_percent=False,
             control_as_constant=self.control_as_constant,
         )
         if rel_op == relativize:
