@@ -17,6 +17,8 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
     HealthcheckAnalysisCard,
     HealthcheckStatus,
 )
+
+from ax.analysis.healthcheck.search_space_analysis import SearchSpaceAnalysis
 from ax.analysis.healthcheck.should_generate_candidates import ShouldGenerateCandidates
 
 __all__ = [
@@ -26,4 +28,5 @@ __all__ = [
     "HealthcheckAnalysisCard",
     "HealthcheckStatus",
     "ShouldGenerateCandidates",
+    "SearchSpaceAnalysis",
 ]
