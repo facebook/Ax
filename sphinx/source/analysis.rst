@@ -71,6 +71,15 @@ Constraints Feasibility Analysis
     :undoc-members:
     :show-inheritance:
 
+Search Space Analysis
+~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.analysis.healthcheck.search_space_analysis
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 InSample Effects Analysis
 ~~~~~~~~~~~~~~~
 
