@@ -253,6 +253,7 @@ def get_branin_experiment(
     num_batch_trial: int = 1,
     with_completed_batch: bool = False,
     with_completed_trial: bool = False,
+    num_arms_per_trial: int = 15,
 ) -> Experiment:
     search_space = search_space or get_branin_search_space(
         with_fidelity_parameter=with_fidelity_parameter,
@@ -276,7 +277,7 @@ def get_branin_experiment(
     if with_batch or with_completed_batch:
         for _ in range(num_batch_trial):
             sobol_generator = get_sobol(search_space=exp.search_space)
-            sobol_run = sobol_generator.gen(n=15)
+            sobol_run = sobol_generator.gen(n=num_arms_per_trial)
             trial = exp.new_batch_trial(optimize_for_power=with_status_quo)
             trial.add_generator_run(sobol_run)
             if with_completed_batch:

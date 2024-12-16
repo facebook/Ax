@@ -318,6 +318,8 @@ def unrelativize(
             m_t = mean_c
             s_t = sem_c
     else:
+        m_t = np.array(m_t)
+        s_t = np.array(s_t)
         m_t[means_t == 0.0] = mean_c
         s_t[means_t == 0.0] = sem_c
 

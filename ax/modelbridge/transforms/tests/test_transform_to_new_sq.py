@@ -9,6 +9,7 @@
 import numpy as np
 import numpy.typing as npt
 from ax.core.batch_trial import BatchTrial
+from ax.core.observation import observations_from_data
 from ax.modelbridge import ModelBridge
 from ax.modelbridge.transforms.base import Transform
 from ax.modelbridge.transforms.tests.test_relativize_transform import RelativizeDataTest
@@ -20,6 +21,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_data_batch,
     get_branin_experiment,
     get_branin_optimization_config,
+    get_sobol,
 )
 
 
@@ -34,8 +36,8 @@ class TransformToNewSQTest(RelativizeDataTest):
             TransformToNewSQ,
             [
                 (
-                    np.array([-38.0, 505.0]),
-                    np.array([[1600.0, 0.0], [0.0, 2892.56198347]]),
+                    np.array([1.6, 10.0]),
+                    np.array([[0.16, 0.0], [0.0, 0.2892562]]),
                 ),
                 (np.array([2.0, 5.0]), np.array([[0.1, 0.0], [0.0, 0.2]])),
                 (np.array([1.0, 10.0]), np.array([[0.3, 0.0], [0.0, 0.4]])),
@@ -134,3 +136,29 @@ class TransformToNewSQSpecificTest(TestCase):
         )
         obs2 = tf.transform_observations(obs)
         self.assertEqual(obs, obs2)
+
+    def test_taget_trial_index(self) -> None:
+        sobol = get_sobol(search_space=self.exp.search_space)
+        self.exp.new_batch_trial(generator_run=sobol.gen(2))
+        t = self.exp.trials[1]
+        t = checked_cast(BatchTrial, t)
+        t.mark_running(no_runner_required=True)
+        self.exp.attach_data(get_branin_data_batch(batch=checked_cast(BatchTrial, t)))
+
+        observations = observations_from_data(
+            experiment=self.exp,
+            data=self.exp.lookup_data(),
+        )
+        trial_indices = {
+            obs.features.trial_index
+            for obs in observations
+            if obs.features.trial_index is not None
+        }
+
+        t = TransformToNewSQ(
+            search_space=self.exp.search_space,
+            observations=observations,
+            modelbridge=self.modelbridge,
+        )
+
+        self.assertEqual(t.default_trial_idx, min(trial_indices))
