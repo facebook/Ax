@@ -105,6 +105,12 @@ class TimeAsFeatureTransformTest(TestCase):
             obsf_trans[0],
             ObservationFeatures({"x": 2.5, "duration": 0.5, "start_time": 5.0}),
         )
+        # test untransforming observation features that do not have
+        # start/end time (important for fixed features in MOO when un-
+        # transforming objective thresholds)
+        obsf_trans = [ObservationFeatures({"x": 2.5})]
+        obsf_untrans = self.t.untransform_observation_features(obsf_trans)
+        self.assertEqual(obsf_untrans, obsf_trans)
 
     def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
