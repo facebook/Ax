@@ -310,6 +310,24 @@ Transforms
     :undoc-members:
     :show-inheritance:
 
+
+`ax.modelbridge.transforms.metadata\_to\_float`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.metadata_to_float
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+`ax.modelbridge.transforms.map\_key\_to\_float`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: ax.modelbridge.transforms.map_key_to_float
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 `ax.modelbridge.transforms.rounding`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
