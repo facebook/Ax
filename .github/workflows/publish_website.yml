@@ -21,6 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        ref: 'docusaurus-versions' # release branch
+    - name: Sync release branch with main
+      run: |
+        git fetch && git merge main
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -45,7 +50,7 @@ jobs:
 
         git add --all
         git commit -m "Create version ${{ inputs.new_version }} of site in Docusaurus"
-        git push --force origin HEAD:main
+        git push --force origin HEAD:docusaurus-versions
     - name: Build website
       run: |
         bash scripts/make_docs.sh -b
