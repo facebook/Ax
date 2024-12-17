@@ -295,6 +295,7 @@ class ModelBridge(ABC):  # noqa: B024 -- ModelBridge doesn't have any abstract m
         return observations_from_data(
             experiment=experiment,
             data=data,
+            latest_rows_per_group=1,
             statuses_to_include=self.statuses_to_fit,
             statuses_to_include_map_metric=self.statuses_to_fit_map_metric,
             map_keys_as_parameters=False,
