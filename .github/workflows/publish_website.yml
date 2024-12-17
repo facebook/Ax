@@ -25,7 +25,7 @@ jobs:
         ref: 'docusaurus-versions' # release branch
     - name: Sync release branch with main
       run: |
-        git fetch && git merge main
+        git fetch && git merge origin/main
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
