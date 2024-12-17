@@ -5,12 +5,13 @@
 
 # pyre-strict
 
-from typing import Any
+from typing import Any, Sequence
 
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.modelbridge.generation_node import GenerationStep
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.registry import Models
+from ax.modelbridge.transforms.base import Transform
 from ax.models.torch.botorch_modular.surrogate import SurrogateSpec
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import LogExpectedImprovement
@@ -39,6 +40,7 @@ acqf_name_abbreviations: dict[str, str] = {
 def get_sobol_mbm_generation_strategy(
     model_cls: type[Model],
     acquisition_cls: type[AcquisitionFunction],
+    transforms: Sequence[type[Transform]] | None,
     name: str | None = None,
     num_sobol_trials: int = 5,
     model_gen_kwargs: dict[str, Any] | None = None,
@@ -75,6 +77,8 @@ def get_sobol_mbm_generation_strategy(
         "botorch_acqf_class": acquisition_cls,
         "surrogate_spec": SurrogateSpec(botorch_model_class=model_cls),
     }
+    if transforms is not None:
+        model_kwargs["transforms"] = transforms
 
     model_name = model_names_abbrevations.get(model_cls.__name__, model_cls.__name__)
     acqf_name = acqf_name_abbreviations.get(
@@ -109,6 +113,7 @@ def get_sobol_botorch_modular_acquisition(
     model_cls: type[Model],
     acquisition_cls: type[AcquisitionFunction],
     distribute_replications: bool,
+    transforms: Sequence[type[Transform]] | None,
     name: str | None = None,
     num_sobol_trials: int = 5,
     model_gen_kwargs: dict[str, Any] | None = None,
@@ -162,6 +167,7 @@ def get_sobol_botorch_modular_acquisition(
     generation_strategy = get_sobol_mbm_generation_strategy(
         model_cls=model_cls,
         acquisition_cls=acquisition_cls,
+        transforms=transforms,
         name=name,
         num_sobol_trials=num_sobol_trials,
         model_gen_kwargs=model_gen_kwargs,
