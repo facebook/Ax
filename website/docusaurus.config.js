@@ -23,6 +23,9 @@ module.exports={
   },
   "onBrokenLinks": "log",
   "onBrokenMarkdownLinks": "log",
+  "future": {
+    "experimental_faster": true,
+  },
   "presets": [
     [
       "@docusaurus/preset-classic",
