@@ -7,7 +7,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Mapping, Sequence
+from typing import Any, Callable, List, Mapping, Sequence
 
 from ax.preview.api.types import TParameterValue
 from ax.storage.registry_bundle import RegistryBundle
@@ -161,5 +161,6 @@ class OrchestrationConfig:
 
 @dataclass
 class StorageConfig:
+    creator: Callable[..., Any] | None = None  # pyre-fixme[4]
     url: str | None = None
     registry_bundle: RegistryBundle | None = None

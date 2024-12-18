@@ -29,7 +29,7 @@ from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
 )
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import ObjectNotFoundError, UnsupportedError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.preview.api.configs import (
     ExperimentConfig,
@@ -44,9 +44,11 @@ from ax.preview.api.utils.instantiation.from_config import experiment_from_confi
 from ax.preview.api.utils.instantiation.from_string import (
     optimization_config_from_string,
 )
+from ax.preview.api.utils.storage import db_settings_from_storage_config
 from ax.preview.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.service.scheduler import Scheduler, SchedulerOptions
 from ax.service.utils.best_point_mixin import BestPointMixin
+from ax.service.utils.with_db_settings_base import WithDBSettingsBase
 from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     object_from_json,
@@ -66,7 +68,7 @@ from typing_extensions import Self
 logger: Logger = get_logger(__name__)
 
 
-class Client:
+class Client(WithDBSettingsBase):
     _maybe_experiment: Experiment | None = None
     _maybe_generation_strategy: GenerationStrategy | None = None
     _maybe_early_stopping_strategy: BaseEarlyStoppingStrategy | None = None
@@ -86,6 +88,13 @@ class Client:
                 of the experiment's results. If not provided, the random seed will not
                 be set, leading to potentially different results on different runs.
         """
+
+        super().__init__(  # Initialize WithDBSettingsBase
+            db_settings=db_settings_from_storage_config(storage_config=storage_config)
+            if storage_config is not None
+            else None,
+        )
+
         self._storage_config = storage_config
         self._random_seed = random_seed
 
@@ -109,9 +118,7 @@ class Client:
 
         self._maybe_experiment = experiment_from_config(config=experiment_config)
 
-        if self._storage_config is not None:
-            # TODO[mpolson64] Save to database
-            ...
+        self._save_experiment_to_db_if_possible(experiment=self._experiment)
 
     def configure_optimization(
         self,
@@ -154,9 +161,7 @@ class Client:
             outcome_constraint_strs=outcome_constraints,
         )
 
-        if self._storage_config is not None:
-            # TODO[mpolson64] Save to database
-            ...
+        self._save_experiment_to_db_if_possible(experiment=self._experiment)
 
     def configure_generation_strategy(
         self, generation_strategy_config: GenerationStrategyConfig
@@ -177,9 +182,9 @@ class Client:
 
         self._maybe_generation_strategy = generation_strategy
 
-        if self._storage_config is not None:
-            # TODO[mpolson64] Save to database
-            ...
+        self._save_generation_strategy_to_db_if_possible(
+            generation_strategy=self._generation_strategy
+        )
 
     # -------------------- Section 1.1: Configure Automation ------------------------
     def configure_runner(self, runner: IRunner) -> None:
@@ -212,9 +217,7 @@ class Client:
         """
         self._maybe_experiment = experiment
 
-        if self._storage_config is not None:
-            # TODO[mpolson64] Save to database
-            ...
+        self._save_experiment_to_db_if_possible(experiment=self._experiment)
 
     def set_optimization_config(self, optimization_config: OptimizationConfig) -> None:
         """
@@ -228,9 +231,7 @@ class Client:
         """
         self._experiment.optimization_config = optimization_config
 
-        if self._storage_config is not None:
-            # TODO[mpolson64] Save to database
-            ...
+        self._save_experiment_to_db_if_possible(experiment=self._experiment)
 
     def set_generation_strategy(self, generation_strategy: GenerationStrategy) -> None:
         """
@@ -244,11 +245,11 @@ class Client:
         """
         self._maybe_generation_strategy = generation_strategy
 
-        none_throws(self._maybe_generation_strategy)._experiment = self._experiment
+        self._generation_strategy._experiment = self._experiment
 
-        if self._storage_config is not None:
-            # TODO[mpolson64] Save to database
-            ...
+        self._save_generation_strategy_to_db_if_possible(
+            generation_strategy=self._generation_strategy
+        )
 
     def set_early_stopping_strategy(
         self, early_stopping_strategy: BaseEarlyStoppingStrategy
@@ -265,10 +266,6 @@ class Client:
         """
         self._maybe_early_stopping_strategy = early_stopping_strategy
 
-        if self._storage_config is not None:
-            # TODO[mpolson64] Save to database
-            ...
-
     def _set_runner(self, runner: Runner) -> None:
         """
         This method is not part of the API and is provided (without guarantees of
@@ -281,9 +278,9 @@ class Client:
         """
         self._experiment.runner = runner
 
-        if self._storage_config is not None:
-            # TODO[mpolson64] Save to database
-            ...
+        self._update_runner_on_experiment_in_db_if_possible(
+            experiment=self._experiment, runner=runner
+        )
 
     def _set_metrics(self, metrics: Sequence[Metric]) -> None:
         """
@@ -303,9 +300,7 @@ class Client:
             # Check the optimization config first
             self._overwrite_metric(metric=metric)
 
-        if self._storage_config is not None:
-            # TODO[mpolson64] Save to database
-            ...
+        self._save_experiment_to_db_if_possible(experiment=self._experiment)
 
     # -------------------- Section 2. Conduct Experiment ----------------------------
     def get_next_trials(
@@ -366,9 +361,10 @@ class Client:
 
             trials.append(trial)
 
-        if self._storage_config is not None:
-            # TODO[mpolson64] Save trial and update generation strategy
-            ...
+        # Bulk save all trials to the database if possible
+        self._save_or_update_trials_in_db_if_possible(
+            experiment=self._experiment, trials=trials
+        )
 
         # pyre-fixme[7]: Core Ax allows users to specify TParameterization values as
         # None, but we do not allow this in the API.
@@ -417,9 +413,9 @@ class Client:
                 )
                 self.mark_trial_failed(trial_index=trial_index)
 
-        if self._storage_config is not None:
-            # TODO[mpolson64] Save trial
-            ...
+        self._save_or_update_trial_in_db_if_possible(
+            experiment=self._experiment, trial=self._experiment.trials[trial_index]
+        )
 
         return self._experiment.trials[trial_index].status
 
@@ -452,9 +448,9 @@ class Client:
             combine_with_last_data=True,
         )
 
-        if self._storage_config is not None:
-            # TODO[mpolson64] Save trial
-            ...
+        self._save_or_update_trial_in_db_if_possible(
+            experiment=self._experiment, trial=trial
+        )
 
     # -------------------- Section 2.1 Custom trials --------------------------------
     def attach_trial(
@@ -477,9 +473,9 @@ class Client:
             arm_names=[arm_name] if arm_name else None,
         )
 
-        if self._storage_config is not None:
-            # TODO[mpolson64] Save trial
-            ...
+        self._save_or_update_trial_in_db_if_possible(
+            experiment=self._experiment, trial=self._experiment.trials[trial_index]
+        )
 
         return trial_index
 
@@ -506,8 +502,7 @@ class Client:
             self._experiment.trials[trial_index], Trial
         ).arm
 
-        if self._storage_config is not None:
-            ...
+        self._save_experiment_to_db_if_possible(experiment=self._experiment)
 
         return trial_index
 
@@ -542,9 +537,9 @@ class Client:
         """
         self._experiment.trials[trial_index].mark_failed()
 
-        if self._storage_config is not None:
-            # TODO[mpolson64] Save to database
-            ...
+        self._save_or_update_trial_in_db_if_possible(
+            experiment=self._experiment, trial=self._experiment.trials[trial_index]
+        )
 
     def mark_trial_abandoned(self, trial_index: int) -> None:
         """
@@ -556,9 +551,9 @@ class Client:
         """
         self._experiment.trials[trial_index].mark_abandoned()
 
-        if self._storage_config is not None:
-            # TODO[mpolson64] Save to database
-            ...
+        self._save_or_update_trial_in_db_if_possible(
+            experiment=self._experiment, trial=self._experiment.trials[trial_index]
+        )
 
     def mark_trial_early_stopped(
         self, trial_index: int, raw_data: TOutcome, progression: int | None = None
@@ -579,9 +574,9 @@ class Client:
 
         self._experiment.trials[trial_index].mark_early_stopped()
 
-        if self._storage_config is not None:
-            # TODO[mpolson64] Save to database
-            ...
+        self._save_or_update_trial_in_db_if_possible(
+            experiment=self._experiment, trial=self._experiment.trials[trial_index]
+        )
 
     def run_trials(self, maximum_trials: int, options: OrchestrationConfig) -> None:
         """
@@ -600,7 +595,9 @@ class Client:
                 tolerated_trial_failure_rate=options.tolerated_trial_failure_rate,
                 init_seconds_between_polls=options.initial_seconds_between_polls,
             ),
-            # TODO[mpolson64] Add db_settings=self._storage_config when adding storage
+            db_settings=db_settings_from_storage_config(self._storage_config)
+            if self._storage_config is not None
+            else None,
         )
 
         # Note: This scheduler call will handle storage internally
@@ -649,9 +646,9 @@ class Client:
             for result in results
         ]
 
-        if self._storage_config is not None:
-            # TODO[mpolson64] Save cards to database
-            ...
+        self._save_analysis_cards_to_db_if_possible(
+            experiment=self._experiment, analysis_cards=cards
+        )
 
         return cards
 
@@ -816,20 +813,22 @@ class Client:
         storage_config: StorageConfig | None = None,
     ) -> Self:
         """
-        Restore an `AxClient` and its state from a JSON-serialized snapshot,
+        Restore a `Client` and its state from a JSON-serialized snapshot,
         residing in a .json file by the given path.
 
         Returns:
-            The restored `AxClient`.
+            The restored `Client`.
         """
         with open(filepath) as file:
             return cls._from_json_snapshot(
                 snapshot=json.loads(file.read()), storage_config=storage_config
             )
 
+    @classmethod
     def load_from_database(
-        self,
+        cls,
         experiment_name: str,
+        storage_config: StorageConfig | None = None,
     ) -> Self:
         """
         Restore an `AxClient` and its state from database by the given name.
@@ -837,7 +836,32 @@ class Client:
         Returns:
             The restored `AxClient`.
         """
-        ...
+        db_settings_base = WithDBSettingsBase(
+            db_settings=db_settings_from_storage_config(storage_config=storage_config)
+            if storage_config is not None
+            else None
+        )
+
+        maybe_experiment, maybe_generation_strategy = (
+            db_settings_base._load_experiment_and_generation_strategy(
+                experiment_name=experiment_name
+            )
+        )
+        if (experiment := maybe_experiment) is None:
+            raise ObjectNotFoundError(
+                f"Experiment {experiment_name} not found in database. Please check "
+                "its name is correct, check your StorageConfig is correct, or create "
+                "a new experiment."
+            )
+
+        client = cls(storage_config=storage_config)
+        client.set_experiment(experiment=experiment)
+        if maybe_generation_strategy is not None:
+            client.set_generation_strategy(
+                generation_strategy=maybe_generation_strategy
+            )
+
+        return client
 
     # -------------------- Section 5: Private Methods -------------------------------
     # -------------------- Section 5.1: Getters and defaults ------------------------
