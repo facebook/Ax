@@ -19,11 +19,8 @@ class LogicalEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self,
         left: BaseEarlyStoppingStrategy,
         right: BaseEarlyStoppingStrategy,
-        seconds_between_polls: int = 300,
     ) -> None:
-        super().__init__(
-            seconds_between_polls=seconds_between_polls,
-        )
+        super().__init__()
 
         self.left = left
         self.right = right
