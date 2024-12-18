@@ -45,14 +45,14 @@ class TestInsampleEffectsPlot(TestCase):
         experiment = get_branin_experiment(with_status_quo=True)
         generation_strategy = self.generation_strategy
         experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             )
         ).set_status_quo_with_weight(
             status_quo=experiment.status_quo, weight=1.0
         ).mark_completed(unsafe=True)
         experiment.fetch_data()
-        generation_strategy.gen_with_multiple_nodes(experiment=experiment, n=10)
+        generation_strategy._gen_with_multiple_nodes(experiment=experiment, n=10)
         # Ensure the current model is Botorch
         self.assertEqual(none_throws(generation_strategy.model)._model_key, "BoTorch")
         # WHEN we compute the analysis
@@ -91,7 +91,7 @@ class TestInsampleEffectsPlot(TestCase):
         generation_strategy = self.generation_strategy
         generation_strategy.experiment = experiment
         experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             )
         ).mark_completed(unsafe=True)
@@ -141,7 +141,7 @@ class TestInsampleEffectsPlot(TestCase):
         generation_strategy = self.generation_strategy
         generation_strategy.experiment = experiment
         experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             )
         ).mark_completed(unsafe=True)
@@ -187,7 +187,7 @@ class TestInsampleEffectsPlot(TestCase):
         generation_strategy = self.generation_strategy
         generation_strategy.experiment = experiment
         experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             )
         ).mark_completed(unsafe=True)
@@ -246,7 +246,7 @@ class TestInsampleEffectsPlot(TestCase):
         generation_strategy = self.generation_strategy
         generation_strategy.experiment = experiment
         experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             )
         ).mark_completed(unsafe=True)
@@ -273,7 +273,7 @@ class TestInsampleEffectsPlot(TestCase):
         generation_strategy = self.generation_strategy
         generation_strategy.experiment = experiment
         experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             )
         ).set_status_quo_with_weight(
@@ -282,7 +282,7 @@ class TestInsampleEffectsPlot(TestCase):
         experiment.fetch_data()
         # AND GIVEN the experiment has a trial with no data
         empty_trial = experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             ),
         )
@@ -320,7 +320,7 @@ class TestInsampleEffectsPlot(TestCase):
         generation_strategy = self.generation_strategy
         generation_strategy.experiment = experiment
         trial = experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             ),
         )
@@ -328,7 +328,7 @@ class TestInsampleEffectsPlot(TestCase):
         trial.mark_completed(unsafe=True)
         experiment.fetch_data()
         trial = experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             ),
         )
@@ -400,7 +400,7 @@ class TestInsampleEffectsPlot(TestCase):
         generation_strategy = self.generation_strategy
         generation_strategy.experiment = experiment
         trial = experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             ),
         ).set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1.0)

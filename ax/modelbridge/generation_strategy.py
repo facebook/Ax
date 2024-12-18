@@ -341,9 +341,9 @@ class GenerationStrategy(GenerationStrategyInterface):
         self,
         experiment: Experiment,
         data: Data | None = None,
-        n: int = 1,
         pending_observations: dict[str, list[ObservationFeatures]] | None = None,
-        **kwargs: Any,
+        n: int = 1,
+        fixed_features: ObservationFeatures | None = None,
     ) -> GeneratorRun:
         """Produce the next points in the experiment. Additional kwargs passed to
         this method are propagated directly to the underlying model's `gen`, along
@@ -372,16 +372,23 @@ class GenerationStrategy(GenerationStrategyInterface):
                 observations for that metric, used by some models to avoid
                 resuggesting points that are currently being evaluated.
         """
-        return self._gen_multiple(
+        gr = self._gen_with_multiple_nodes(
             experiment=experiment,
-            num_generator_runs=1,
             data=data,
             n=n,
             pending_observations=pending_observations,
-            **kwargs,
-        )[0]
+            fixed_features=fixed_features,
+        )
+        if len(gr) > 1:
+            raise UnsupportedError(
+                "By calling into GenerationStrategy.gen(), you are should be "
+                "expecting a single `Trial` with only one `GeneratorRun`. However, "
+                "the underlying GenerationStrategy produced multiple `GeneratorRuns` "
+                f"and returned the following list of `GeneratorRun`s: {gr}"
+            )
+        return gr[0]
 
-    def gen_with_multiple_nodes(
+    def _gen_with_multiple_nodes(
         self,
         experiment: Experiment,
         data: Data | None = None,
@@ -392,9 +399,8 @@ class GenerationStrategy(GenerationStrategyInterface):
     ) -> list[GeneratorRun]:
         """Produces a List of GeneratorRuns for a single trial, either ``Trial`` or
         ``BatchTrial``, and if producing a ``BatchTrial`` allows for multiple
-        models to be used to generate GeneratorRuns for that trial.
+        models to be used to generate ``GeneratorRun``s for that trial.
 
-        NOTE: This method is in development.  Please do not use it yet.
 
         Args:
             experiment: Experiment, for which the generation strategy is producing
@@ -433,6 +439,11 @@ class GenerationStrategy(GenerationStrategyInterface):
         pending_observations = deepcopy(pending_observations) or {}
         self.experiment = experiment
         self._validate_arms_per_node(arms_per_node=arms_per_node)
+        if self.optimization_complete:
+            raise GenerationStrategyCompleted(
+                f"Generation strategy {self} generated all the trials as "
+                "specified in its nodes."
+            )
         # TODO: @mgarrard update this when gen methods are merged
         gen_kwargs: dict[str, Any] = {}
         gen_kwargs = {
@@ -562,7 +573,7 @@ class GenerationStrategy(GenerationStrategyInterface):
             num_trials = max(min(num_trials, gr_limit), 1)
         for _i in range(num_trials):
             trial_grs.append(
-                self.gen_with_multiple_nodes(
+                self._gen_with_multiple_nodes(
                     experiment=experiment,
                     data=data,
                     n=n,
@@ -671,7 +682,7 @@ class GenerationStrategy(GenerationStrategyInterface):
 
             # Set transition_to field for all but the last step, which remains
             # null.
-            if idx != len(self._steps):
+            if idx < len(self._steps):
                 for transition_criteria in step.transition_criteria:
                     if (
                         transition_criteria.criterion_class
@@ -929,7 +940,7 @@ class GenerationStrategy(GenerationStrategyInterface):
         """Determine if we should continue generating for the current trial, or end
         generation for the current trial. Note that generating more would involve
         transitioning to a next node, because each node generates once per call to
-        ``GenerationStrategy.gen_with_multiple_nodes``.
+        ``GenerationStrategy._gen_with_multiple_nodes``.
 
         Returns:
             A boolean which represents if generation for a trial is complete

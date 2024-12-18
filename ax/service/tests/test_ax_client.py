@@ -2999,10 +2999,12 @@ class TestAxClient(TestCase):
             name="fixed_features",
         )
         with mock.patch.object(
-            GenerationStrategy, "gen", wraps=ax_client.generation_strategy.gen
+            GenerationStrategy,
+            "gen",
+            wraps=ax_client.generation_strategy.gen,
         ) as mock_gen:
             with self.subTest("fixed_features is None"):
-                params, idx = ax_client.get_next_trial()
+                ax_client.get_next_trial()
                 call_kwargs = mock_gen.call_args_list[0][1]
                 ff = call_kwargs["fixed_features"]
                 self.assertIsNone(ff)
@@ -3010,7 +3012,7 @@ class TestAxClient(TestCase):
                 fixed_features = FixedFeatures(
                     parameters={"x": 0.0, "y": 5.0}, trial_index=0
                 )
-                params, idx = ax_client.get_next_trial(fixed_features=fixed_features)
+                ax_client.get_next_trial(fixed_features=fixed_features)
                 call_kwargs = mock_gen.call_args_list[1][1]
                 ff = call_kwargs["fixed_features"]
                 self.assertEqual(ff.parameters, fixed_features.parameters)

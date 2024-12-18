@@ -157,7 +157,7 @@ class TestTransitionCriterion(TestCase):
         self.assertEqual(gs.current_node_name, "sobol_1")
 
         # Do not transition because no aux experiment
-        grs = gs.gen_with_multiple_nodes(experiment=experiment, n=5)
+        grs = gs._gen_with_multiple_nodes(experiment=experiment, n=5)
         self.assertEqual(gs.current_node_name, "sobol_1")
         self.assertEqual(len(grs), 1)
         self.assertEqual(len(grs[0].arms), 5)
@@ -166,19 +166,19 @@ class TestTransitionCriterion(TestCase):
         experiment.auxiliary_experiments_by_purpose = {
             TestAuxiliaryExperimentPurpose.TestAuxExpPurpose: [aux_exp],
         }
-        grs = gs.gen_with_multiple_nodes(experiment=experiment, n=5)
+        grs = gs._gen_with_multiple_nodes(experiment=experiment, n=5)
         self.assertEqual(gs.current_node_name, "sobol_2")
         self.assertEqual(len(grs), 1)
         self.assertEqual(len(grs[0].arms), 5)
         # Do not move even when the aux exp is still there
-        grs = gs.gen_with_multiple_nodes(experiment=experiment, n=5)
+        grs = gs._gen_with_multiple_nodes(experiment=experiment, n=5)
         self.assertEqual(gs.current_node_name, "sobol_2")
         self.assertEqual(len(grs), 1)
         self.assertEqual(len(grs[0].arms), 5)
 
         # Remove the aux experiment and move back to sobol_1
         experiment.auxiliary_experiments_by_purpose = {}
-        grs = gs.gen_with_multiple_nodes(experiment=experiment, n=5)
+        grs = gs._gen_with_multiple_nodes(experiment=experiment, n=5)
         self.assertEqual(gs.current_node_name, "sobol_1")
         self.assertEqual(len(grs), 1)
         self.assertEqual(len(grs[0].arms), 5)
@@ -279,8 +279,6 @@ class TestTransitionCriterion(TestCase):
         # Need to add trials to test the transition criteria `is_met` method
         for _i in range(4):
             experiment.new_trial(gs.gen(experiment=experiment))
-
-        # TODO: @mgarrard More comprehensive test of trials_from_node
         node_0_trials = gs._steps[0].trials_from_node
         node_1_trials = gs._steps[1].trials_from_node
 
@@ -341,8 +339,8 @@ class TestTransitionCriterion(TestCase):
         )
         gs.experiment = experiment
         self.assertEqual(gs.current_node_name, "sobol_1")
-        gs.gen(experiment=experiment)
-        gs.gen(experiment=experiment)
+        gs._gen_with_multiple_nodes(experiment=experiment)
+        gs._gen_with_multiple_nodes(experiment=experiment)
         self.assertEqual(gs.current_node_name, "sobol_2")
 
     def test_auto_with_should_skip_node(self) -> None:
@@ -457,7 +455,6 @@ class TestTransitionCriterion(TestCase):
                 curr_node=gs._steps[0],
             )
         )
-
         # After adding trials, should pass
         for _i in range(4):
             experiment.new_trial(gs.gen(experiment=experiment))
@@ -469,7 +466,6 @@ class TestTransitionCriterion(TestCase):
                 curr_node=gs._steps[0],
             )
         )
-
         # Check not in statuses and only in statuses
         max_criterion_not_in_statuses = MaxTrials(
             threshold=2,
@@ -492,7 +488,6 @@ class TestTransitionCriterion(TestCase):
                 experiment=experiment, curr_node=gs._steps[0]
             )
         )
-
         # set 3 of the 4 trials to status == completed
         for _idx, trial in experiment.trials.items():
             trial._status = TrialStatus.COMPLETED
@@ -510,7 +505,7 @@ class TestTransitionCriterion(TestCase):
         )
 
     def test_trials_from_node_empty(self) -> None:
-        """Tests MinTrials and MaxTrials default to experiment
+        """Tests MinTrials defaults to experiment
         level trials when trials_from_node is None.
         """
         experiment = get_experiment()
