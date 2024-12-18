@@ -1,8 +1,8 @@
 {
   "scripts": {
     "examples": "docusaurus-examples",
-    "start": "docusaurus start",
-    "build": "docusaurus build",
+    "start": "DOCUSAURUS_IGNORE_SSG_WARNINGS=true docusaurus start",
+    "build": "DOCUSAURUS_IGNORE_SSG_WARNINGS=true docusaurus build",
     "publish-gh-pages": "docusaurus-publish",
     "write-translations": "docusaurus-write-translations",
     "version": "docusaurus-version",
