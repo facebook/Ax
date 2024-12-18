@@ -63,6 +63,7 @@ from ax.utils.stats.model_fit_stats import (
     RANK_CORRELATION,
 )
 from botorch.exceptions.errors import ModelFittingError
+from botorch.exceptions.warnings import InputDataWarning
 from botorch.models.model import Model
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
@@ -1133,14 +1134,24 @@ class Surrogate(Base):
             test_X = X[i : i + 1]
             # fit model to all but one data point
             # TODO: consider batchifying
-            loo_model = self._construct_model(
-                dataset=train_dataset,
-                search_space_digest=search_space_digest,
-                model_config=model_config,
-                default_botorch_model_class=none_throws(default_botorch_model_class),
-                state_dict=state_dict,
-                refit=self.refit_on_cv,
-            )
+            with warnings.catch_warnings():
+                # Suppress BoTorch input standardization warnings here, since they're
+                # expected to be triggered due to subsetting of the data.
+                warnings.filterwarnings(
+                    "ignore",
+                    message=r"Data \(outcome observations\) is not standardized",
+                    category=InputDataWarning,
+                )
+                loo_model = self._construct_model(
+                    dataset=train_dataset,
+                    search_space_digest=search_space_digest,
+                    model_config=model_config,
+                    default_botorch_model_class=none_throws(
+                        default_botorch_model_class
+                    ),
+                    state_dict=state_dict,
+                    refit=self.refit_on_cv,
+                )
             # evaluate model
             with torch.no_grad():
                 posterior = loo_model.posterior(
