@@ -158,7 +158,7 @@ class TestClient(TestCase):
         )
 
         self.assertEqual(
-            none_throws(client._experiment).optimization_config,
+            client._experiment.optimization_config,
             OptimizationConfig(
                 objective=Objective(metric=Metric(name="ne"), minimize=True),
                 outcome_constraints=[
@@ -190,7 +190,7 @@ class TestClient(TestCase):
         client.set_experiment(experiment=get_branin_experiment())
         client.configure_runner(runner=runner)
 
-        self.assertEqual(none_throws(client._experiment).runner, runner)
+        self.assertEqual(client._experiment.runner, runner)
 
     def test_configure_metric(self) -> None:
         client = Client()
@@ -216,9 +216,7 @@ class TestClient(TestCase):
 
         self.assertEqual(
             custom_metric,
-            none_throws(
-                none_throws(client._experiment).optimization_config
-            ).objective.metric,
+            none_throws(client._experiment.optimization_config).objective.metric,
         )
 
         # Test replacing a multi-objective
@@ -228,9 +226,7 @@ class TestClient(TestCase):
         self.assertIn(
             custom_metric,
             assert_is_instance(
-                none_throws(
-                    none_throws(client._experiment).optimization_config
-                ).objective,
+                none_throws(client._experiment.optimization_config).objective,
                 MultiObjective,
             ).metrics,
         )
@@ -241,9 +237,7 @@ class TestClient(TestCase):
         self.assertIn(
             custom_metric,
             assert_is_instance(
-                none_throws(
-                    none_throws(client._experiment).optimization_config
-                ).objective,
+                none_throws(client._experiment.optimization_config).objective,
                 ScalarizedObjective,
             ).metrics,
         )
@@ -256,7 +250,7 @@ class TestClient(TestCase):
 
         self.assertEqual(
             custom_metric,
-            none_throws(none_throws(client._experiment).optimization_config)
+            none_throws(client._experiment.optimization_config)
             .outcome_constraints[0]
             .metric,
         )
@@ -265,12 +259,12 @@ class TestClient(TestCase):
         client.configure_optimization(
             objective="foo",
         )
-        none_throws(client._experiment).add_tracking_metric(metric=Metric("custom"))
+        client._experiment.add_tracking_metric(metric=Metric("custom"))
         client.configure_metrics(metrics=[custom_metric])
 
         self.assertEqual(
             custom_metric,
-            none_throws(client._experiment).tracking_metrics[0],
+            client._experiment.tracking_metrics[0],
         )
 
         # Test adding a tracking metric
@@ -289,7 +283,7 @@ class TestClient(TestCase):
 
         self.assertEqual(
             custom_metric,
-            none_throws(client._experiment).tracking_metrics[0],
+            client._experiment.tracking_metrics[0],
         )
 
     def test_set_experiment(self) -> None:
@@ -312,9 +306,7 @@ class TestClient(TestCase):
             optimization_config=optimization_config,
         )
 
-        self.assertEqual(
-            none_throws(client._experiment).optimization_config, optimization_config
-        )
+        self.assertEqual(client._experiment.optimization_config, optimization_config)
 
     def test_set_generation_strategy(self) -> None:
         client = Client()
@@ -406,14 +398,12 @@ class TestClient(TestCase):
         client.attach_data(trial_index=trial_index, raw_data={"foo": 1.0})
 
         self.assertEqual(
-            none_throws(client._experiment).trials[trial_index].status,
+            client._experiment.trials[trial_index].status,
             TrialStatus.RUNNING,
         )
         self.assertTrue(
             assert_is_instance(
-                none_throws(client._experiment).lookup_data(
-                    trial_indices=[trial_index]
-                ),
+                client._experiment.lookup_data(trial_indices=[trial_index]),
                 MapData,
             ).map_df.equals(
                 pd.DataFrame(
@@ -433,14 +423,12 @@ class TestClient(TestCase):
         client.attach_data(trial_index=0, raw_data={"foo": 2.0}, progression=10)
 
         self.assertEqual(
-            none_throws(client._experiment).trials[trial_index].status,
+            client._experiment.trials[trial_index].status,
             TrialStatus.RUNNING,
         )
         self.assertTrue(
             assert_is_instance(
-                none_throws(client._experiment).lookup_data(
-                    trial_indices=[trial_index]
-                ),
+                client._experiment.lookup_data(trial_indices=[trial_index]),
                 MapData,
             ).map_df.equals(
                 pd.DataFrame(
@@ -462,14 +450,12 @@ class TestClient(TestCase):
             raw_data={"foo": 1.0, "bar": 2.0},
         )
         self.assertEqual(
-            none_throws(client._experiment).trials[trial_index].status,
+            client._experiment.trials[trial_index].status,
             TrialStatus.RUNNING,
         )
         self.assertTrue(
             assert_is_instance(
-                none_throws(client._experiment).lookup_data(
-                    trial_indices=[trial_index]
-                ),
+                client._experiment.lookup_data(trial_indices=[trial_index]),
                 MapData,
             ).map_df.equals(
                 pd.DataFrame(
@@ -510,14 +496,12 @@ class TestClient(TestCase):
         )
 
         self.assertEqual(
-            none_throws(client._experiment).trials[trial_index].status,
+            client._experiment.trials[trial_index].status,
             TrialStatus.COMPLETED,
         )
         self.assertTrue(
             assert_is_instance(
-                none_throws(client._experiment).lookup_data(
-                    trial_indices=[trial_index]
-                ),
+                client._experiment.lookup_data(trial_indices=[trial_index]),
                 MapData,
             ).map_df.equals(
                 pd.DataFrame(
@@ -540,15 +524,13 @@ class TestClient(TestCase):
         )
 
         self.assertEqual(
-            none_throws(client._experiment).trials[trial_index].status,
+            client._experiment.trials[trial_index].status,
             TrialStatus.COMPLETED,
         )
 
         self.assertTrue(
             assert_is_instance(
-                none_throws(client._experiment).lookup_data(
-                    trial_indices=[trial_index]
-                ),
+                client._experiment.lookup_data(trial_indices=[trial_index]),
                 MapData,
             ).map_df.equals(
                 pd.DataFrame(
@@ -569,14 +551,12 @@ class TestClient(TestCase):
         client.complete_trial(trial_index=trial_index, raw_data={"foo": 1.0})
 
         self.assertEqual(
-            none_throws(client._experiment).trials[trial_index].status,
+            client._experiment.trials[trial_index].status,
             TrialStatus.FAILED,
         )
         self.assertTrue(
             assert_is_instance(
-                none_throws(client._experiment).lookup_data(
-                    trial_indices=[trial_index]
-                ),
+                client._experiment.lookup_data(trial_indices=[trial_index]),
                 MapData,
             ).map_df.equals(
                 pd.DataFrame(
@@ -611,9 +591,7 @@ class TestClient(TestCase):
         client.configure_optimization(objective="foo")
 
         trial_index = client.attach_trial(parameters={"x1": 0.5}, arm_name="bar")
-        trial = assert_is_instance(
-            none_throws(client._experiment).trials[trial_index], Trial
-        )
+        trial = assert_is_instance(client._experiment.trials[trial_index], Trial)
         self.assertEqual(none_throws(trial.arm).parameters, {"x1": 0.5})
         self.assertEqual(none_throws(trial.arm).name, "bar")
         self.assertEqual(trial.status, TrialStatus.RUNNING)
@@ -637,14 +615,12 @@ class TestClient(TestCase):
         client.configure_optimization(objective="foo")
 
         trial_index = client.attach_baseline(parameters={"x1": 0.5})
-        trial = assert_is_instance(
-            none_throws(client._experiment).trials[trial_index], Trial
-        )
+        trial = assert_is_instance(client._experiment.trials[trial_index], Trial)
         self.assertEqual(none_throws(trial.arm).parameters, {"x1": 0.5})
         self.assertEqual(none_throws(trial.arm).name, "baseline")
         self.assertEqual(trial.status, TrialStatus.RUNNING)
 
-        self.assertEqual(client._none_throws_experiment().status_quo, trial.arm)
+        self.assertEqual(client._experiment.status_quo, trial.arm)
 
     def test_mark_trial_failed(self) -> None:
         client = Client()
@@ -664,7 +640,7 @@ class TestClient(TestCase):
         trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
         client.mark_trial_failed(trial_index=trial_index)
         self.assertEqual(
-            none_throws(client._experiment).trials[trial_index].status,
+            client._experiment.trials[trial_index].status,
             TrialStatus.FAILED,
         )
 
@@ -686,7 +662,7 @@ class TestClient(TestCase):
         trial_index = [*client.get_next_trials(maximum_trials=1).keys()][0]
         client.mark_trial_abandoned(trial_index=trial_index)
         self.assertEqual(
-            none_throws(client._experiment).trials[trial_index].status,
+            client._experiment.trials[trial_index].status,
             TrialStatus.ABANDONED,
         )
 
@@ -710,14 +686,12 @@ class TestClient(TestCase):
             trial_index=trial_index, raw_data={"foo": 0.0}, progression=1
         )
         self.assertEqual(
-            none_throws(client._experiment).trials[trial_index].status,
+            client._experiment.trials[trial_index].status,
             TrialStatus.EARLY_STOPPED,
         )
         self.assertTrue(
             assert_is_instance(
-                none_throws(client._experiment).lookup_data(
-                    trial_indices=[trial_index]
-                ),
+                client._experiment.lookup_data(trial_indices=[trial_index]),
                 MapData,
             ).map_df.equals(
                 pd.DataFrame(
@@ -748,11 +722,6 @@ class TestClient(TestCase):
         )
         client.configure_optimization(objective="foo")
 
-        with self.assertRaisesRegex(
-            UnsupportedError, "Early stopping strategy not set"
-        ):
-            client.should_stop_trial_early(trial_index=0)
-
         client.set_early_stopping_strategy(
             early_stopping_strategy=PercentileEarlyStoppingStrategy(
                 metric_names=["foo"]
@@ -781,20 +750,18 @@ class TestClient(TestCase):
 
         client.run_trials(maximum_trials=4, options=OrchestrationConfig())
 
-        self.assertEqual(len(client._none_throws_experiment().trials), 4)
+        self.assertEqual(len(client._experiment.trials), 4)
         self.assertEqual(
             [
                 trial.index
-                for trial in client._none_throws_experiment().trials_by_status[
-                    TrialStatus.COMPLETED
-                ]
+                for trial in client._experiment.trials_by_status[TrialStatus.COMPLETED]
             ],
             [0, 1, 2, 3],
         )
 
         self.assertTrue(
             assert_is_instance(
-                client._none_throws_experiment().lookup_data(),
+                client._experiment.lookup_data(),
                 MapData,
             ).map_df.equals(
                 pd.DataFrame(
@@ -836,13 +803,11 @@ class TestClient(TestCase):
         _ = client.get_next_trials(maximum_trials=1)
 
         self.assertEqual(
-            len(
-                client._none_throws_experiment().trials_by_status[TrialStatus.COMPLETED]
-            ),
+            len(client._experiment.trials_by_status[TrialStatus.COMPLETED]),
             2,
         )
         self.assertEqual(
-            len(client._none_throws_experiment().trials_by_status[TrialStatus.RUNNING]),
+            len(client._experiment.trials_by_status[TrialStatus.RUNNING]),
             1,
         )
 
@@ -853,9 +818,7 @@ class TestClient(TestCase):
 
         # All trials should be COMPLETED
         self.assertEqual(
-            len(
-                client._none_throws_experiment().trials_by_status[TrialStatus.COMPLETED]
-            ),
+            len(client._experiment.trials_by_status[TrialStatus.COMPLETED]),
             5,
         )
 
@@ -873,6 +836,9 @@ class TestClient(TestCase):
             )
         )
         client.configure_optimization(objective="foo")
+        client.configure_generation_strategy(
+            generation_strategy_config=GenerationStrategyConfig()
+        )
 
         with self.assertLogs(logger="ax.analysis", level="ERROR") as lg:
             cards = client.compute_analyses(analyses=[ParallelCoordinatesPlot()])
@@ -942,11 +908,11 @@ class TestClient(TestCase):
             name,
             [
                 none_throws(assert_is_instance(trial, Trial).arm).name
-                for trial in client._none_throws_experiment().trials.values()
+                for trial in client._experiment.trials.values()
             ],
         )
         self.assertTrue(
-            client._none_throws_experiment().search_space.check_membership(
+            client._experiment.search_space.check_membership(
                 parameterization=parameters  # pyre-ignore[6]
             )
         )
@@ -965,11 +931,11 @@ class TestClient(TestCase):
             name,
             [
                 none_throws(assert_is_instance(trial, Trial).arm).name
-                for trial in client._none_throws_experiment().trials.values()
+                for trial in client._experiment.trials.values()
             ],
         )
         self.assertTrue(
-            client._none_throws_experiment().search_space.check_membership(
+            client._experiment.search_space.check_membership(
                 parameterization=parameters  # pyre-fixme[6]
             )
         )
@@ -1013,9 +979,7 @@ class TestClient(TestCase):
         for parameters, prediction, index, name in frontier:
             self.assertEqual(
                 none_throws(
-                    assert_is_instance(
-                        client._none_throws_experiment().trials[index], Trial
-                    ).arm
+                    assert_is_instance(client._experiment.trials[index], Trial).arm
                 ).name,
                 name,
             )
@@ -1023,11 +987,11 @@ class TestClient(TestCase):
                 name,
                 [
                     none_throws(assert_is_instance(trial, Trial).arm).name
-                    for trial in client._none_throws_experiment().trials.values()
+                    for trial in client._experiment.trials.values()
                 ],
             )
             self.assertTrue(
-                client._none_throws_experiment().search_space.check_membership(
+                client._experiment.search_space.check_membership(
                     parameterization=parameters  # pyre-ignore[6]
                 )
             )
@@ -1046,9 +1010,7 @@ class TestClient(TestCase):
         for parameters, prediction, index, name in frontier:
             self.assertEqual(
                 none_throws(
-                    assert_is_instance(
-                        client._none_throws_experiment().trials[index], Trial
-                    ).arm
+                    assert_is_instance(client._experiment.trials[index], Trial).arm
                 ).name,
                 name,
             )
@@ -1056,11 +1018,11 @@ class TestClient(TestCase):
                 name,
                 [
                     none_throws(assert_is_instance(trial, Trial).arm).name
-                    for trial in client._none_throws_experiment().trials.values()
+                    for trial in client._experiment.trials.values()
                 ],
             )
             self.assertTrue(
-                client._none_throws_experiment().search_space.check_membership(
+                client._experiment.search_space.check_membership(
                     parameterization=parameters  # pyre-fixme[6]
                 )
             )
