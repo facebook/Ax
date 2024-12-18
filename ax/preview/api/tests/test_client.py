@@ -905,6 +905,168 @@ class TestClient(TestCase):
         self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
 
     @mock_botorch_optimize
+    def test_get_best_parameterization(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            experiment_config=ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo")
+        # Set initialization_budget=3 so we can reach a predictive GenerationNode
+        # quickly
+        client.configure_generation_strategy(
+            generation_strategy_config=GenerationStrategyConfig(initialization_budget=3)
+        )
+
+        with self.assertRaisesRegex(UnsupportedError, "No trials have been run yet"):
+            client.get_best_parameterization()
+
+        for _ in range(3):
+            for index, parameters in client.get_next_trials(maximum_trials=1).items():
+                client.complete_trial(
+                    trial_index=index,
+                    raw_data={
+                        "foo": assert_is_instance(parameters["x1"], float) ** 2,
+                    },
+                )
+
+        parameters, prediction, index, name = client.get_best_parameterization()
+        self.assertIn(
+            name,
+            [
+                none_throws(assert_is_instance(trial, Trial).arm).name
+                for trial in client._none_throws_experiment().trials.values()
+            ],
+        )
+        self.assertTrue(
+            client._none_throws_experiment().search_space.check_membership(
+                parameterization=parameters  # pyre-ignore[6]
+            )
+        )
+        self.assertEqual({*prediction.keys()}, {"foo"})
+
+        # Run a non-Sobol trial
+        for index, parameters in client.get_next_trials(maximum_trials=1).items():
+            client.complete_trial(
+                trial_index=index,
+                raw_data={
+                    "foo": assert_is_instance(parameters["x1"], float) ** 2,
+                },
+            )
+        parameters, prediction, index, name = client.get_best_parameterization()
+        self.assertIn(
+            name,
+            [
+                none_throws(assert_is_instance(trial, Trial).arm).name
+                for trial in client._none_throws_experiment().trials.values()
+            ],
+        )
+        self.assertTrue(
+            client._none_throws_experiment().search_space.check_membership(
+                parameterization=parameters  # pyre-fixme[6]
+            )
+        )
+        self.assertEqual({*prediction.keys()}, {"foo"})
+
+    @mock_botorch_optimize
+    def test_get_pareto_frontier(self) -> None:
+        client = Client()
+
+        client.configure_experiment(
+            experiment_config=ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                ],
+                name="foo",
+            )
+        )
+        client.configure_optimization(objective="foo, bar")
+        # Set initialization_budget=3 so we can reach a predictive GenerationNode
+        # quickly
+        client.configure_generation_strategy(
+            generation_strategy_config=GenerationStrategyConfig(initialization_budget=3)
+        )
+
+        with self.assertRaisesRegex(UnsupportedError, "No trials have been run yet"):
+            client.get_pareto_frontier()
+
+        for _ in range(3):
+            for index, parameters in client.get_next_trials(maximum_trials=1).items():
+                client.complete_trial(
+                    trial_index=index,
+                    raw_data={
+                        "foo": assert_is_instance(parameters["x1"], float) ** 2,
+                        "bar": 0.0,
+                    },
+                )
+
+        frontier = client.get_pareto_frontier(False)
+        for parameters, prediction, index, name in frontier:
+            self.assertEqual(
+                none_throws(
+                    assert_is_instance(
+                        client._none_throws_experiment().trials[index], Trial
+                    ).arm
+                ).name,
+                name,
+            )
+            self.assertIn(
+                name,
+                [
+                    none_throws(assert_is_instance(trial, Trial).arm).name
+                    for trial in client._none_throws_experiment().trials.values()
+                ],
+            )
+            self.assertTrue(
+                client._none_throws_experiment().search_space.check_membership(
+                    parameterization=parameters  # pyre-ignore[6]
+                )
+            )
+            self.assertEqual({*prediction.keys()}, {"foo", "bar"})
+
+        # Run a non-Sobol trial
+        for index, parameters in client.get_next_trials(maximum_trials=1).items():
+            client.complete_trial(
+                trial_index=index,
+                raw_data={
+                    "foo": assert_is_instance(parameters["x1"], float) ** 2,
+                    "bar": 0.0,
+                },
+            )
+        frontier = client.get_pareto_frontier()
+        for parameters, prediction, index, name in frontier:
+            self.assertEqual(
+                none_throws(
+                    assert_is_instance(
+                        client._none_throws_experiment().trials[index], Trial
+                    ).arm
+                ).name,
+                name,
+            )
+            self.assertIn(
+                name,
+                [
+                    none_throws(assert_is_instance(trial, Trial).arm).name
+                    for trial in client._none_throws_experiment().trials.values()
+                ],
+            )
+            self.assertTrue(
+                client._none_throws_experiment().search_space.check_membership(
+                    parameterization=parameters  # pyre-fixme[6]
+                )
+            )
+            self.assertEqual({*prediction.keys()}, {"foo", "bar"})
+
+    @mock_botorch_optimize
     def test_predict(self) -> None:
         client = Client()
 
@@ -919,7 +1081,7 @@ class TestClient(TestCase):
             )
         )
         client.configure_optimization(objective="foo", outcome_constraints=["bar >= 0"])
-        # Set num_initialization_trials=3 so we can reach a predictive GenerationNode
+        # Set initialization_budget=3 so we can reach a predictive GenerationNode
         # quickly
         client.configure_generation_strategy(
             generation_strategy_config=GenerationStrategyConfig(initialization_budget=3)

@@ -25,7 +25,7 @@ from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.utils import get_pending_observation_features_based_on_trial_status
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.preview.api.configs import (
     DatabaseConfig,
@@ -42,6 +42,7 @@ from ax.preview.api.utils.instantiation.from_string import (
 )
 from ax.preview.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.service.scheduler import Scheduler, SchedulerOptions
+from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import with_rng_seed
 from pyre_extensions import assert_is_instance, none_throws
@@ -657,29 +658,103 @@ class Client:
 
         return cards
 
-    def get_best_trial(
+    def get_best_parameterization(
         self, use_model_predictions: bool = True
-    ) -> tuple[int, TParameterization, TOutcome]:
+    ) -> tuple[TParameterization, TOutcome, int, str]:
         """
-        Calculates the best in-sample trial.
+        Identifies the best parameterization tried in the experiment so far, also
+        called the best in-sample arm.
+
+        If `use_model_predictions` is True, first attempts to do so with the model used
+        in optimization and its corresponding predictions if available. If
+        `use_model_predictions` is False or attempts to use the model fails, falls back
+        to the best raw objective based on the data fetched from the experiment.
+
+        Parameterizations which were observed to violate outcome constraints are not
+        eligible to be the best parameterization.
 
         Returns:
-            - The index of the best trial
-            - The parameters of the best trial
-            - The metric values associated withthe best trial
+            - The parameters predicted to have the best optimization value without
+                violating any outcome constraints.
+            - The metric values for the best parameterization. Uses model prediction if
+                use_model_predictions=True, otherwise returns observed data.
+            - The trial which most recently ran the best parameterization
+            - The name of the best arm (each trial has a unique name associated with
+                each parameterization)
         """
-        ...
+
+        if len(self._none_throws_experiment().trials) < 1:
+            raise UnsupportedError(
+                "No trials have been run yet. Please run at least one trial before "
+                "calling get_best_parameterization."
+            )
+
+        # Note: Using BestPointMixin directly instead of inheriting to avoid exposing
+        # unwanted public methods
+        trial_index, parameterization, model_prediction = none_throws(
+            BestPointMixin._get_best_trial(
+                experiment=self._none_throws_experiment(),
+                generation_strategy=self._generation_strategy_or_choose(),
+                use_model_predictions=use_model_predictions,
+            )
+        )
+
+        # pyre-fixme[7]: Core Ax allows users to specify TParameterization values as
+        # None but we do not allow this in the API.
+        return BestPointMixin._to_best_point_tuple(
+            experiment=self._none_throws_experiment(),
+            trial_index=trial_index,
+            parameterization=parameterization,
+            model_prediction=model_prediction,
+        )
 
     def get_pareto_frontier(
         self, use_model_predictions: bool = True
-    ) -> dict[int, tuple[TParameterization, TOutcome]]:
+    ) -> list[tuple[TParameterization, TOutcome, int, str]]:
         """
-        Calculates the in-sample Pareto frontier.
+        Identifies the parameterizations which are predicted to efficiently trade-off
+        between all objectives in a multi-objective optimization, also called the
+        in-sample Pareto frontier.
 
         Returns:
-            A mapping of trial index to its parameterization and metric values.
+            A list of tuples containing:
+                - The parameters predicted to have the best optimization value without
+                violating any outcome constraints.
+                - The metric values for the best parameterization. Uses model
+                    prediction if use_model_predictions=True, otherwise returns
+                    observed data.
+                - The trial which most recently ran the best parameterization
+                - The name of the best arm (each trial has a unique name associated
+                    with each parameterization).
         """
-        ...
+
+        if len(self._none_throws_experiment().trials) < 1:
+            raise UnsupportedError(
+                "No trials have been run yet. Please run at least one trial before "
+                "calling get_pareto_frontier."
+            )
+
+        frontier = BestPointMixin._get_pareto_optimal_parameters(
+            experiment=self._none_throws_experiment(),
+            # Requiring true GenerationStrategy here, ideally we will loosen this
+            # in the future
+            generation_strategy=assert_is_instance(
+                self._generation_strategy_or_choose(), GenerationStrategy
+            ),
+            use_model_predictions=use_model_predictions,
+        )
+
+        # pyre-fixme[7]: Core Ax allows users to specify TParameterization values as
+        # None but we do not allow this in the API.
+        return [
+            BestPointMixin._to_best_point_tuple(
+                experiment=self._none_throws_experiment(),
+                trial_index=trial_index,
+                parameterization=parameterization,
+                model_prediction=model_prediction,
+            )
+            for trial_index, (parameterization, model_prediction) in frontier.items()
+        ]
 
     def predict(
         self,
@@ -713,7 +788,7 @@ class Client:
                     for parameters in points
                 ]
             )
-        except (UserInputError, AssertionError) as e:
+        except (NotImplementedError, AssertionError) as e:
             raise UnsupportedError(
                 "Predicting with the GenerationStrategy's modelbridge failed. This "
                 "could be because the current GenerationNode is not predictive -- try "
