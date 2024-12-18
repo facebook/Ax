@@ -105,8 +105,7 @@ module.exports={
                 value: '<small>Archived versions<small>',
               },
               {
-                // TODO: Change this to archived link when available
-                href: 'https://ax.dev',
+                href: 'https://archive.ax.dev/versions.html',
                 label: '0.x.x',
               },
             ],
