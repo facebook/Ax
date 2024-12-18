@@ -38,10 +38,12 @@ from ax.preview.api.configs import (
     OrchestrationConfig,
     ParameterType,
     RangeParameterConfig,
+    StorageConfig,
 )
 from ax.preview.api.protocols.metric import IMetric
 from ax.preview.api.protocols.runner import IRunner
 from ax.preview.api.types import TParameterization
+from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -1120,6 +1122,62 @@ class TestClient(TestCase):
 
         snapshot = client._to_json_snapshot()
         other_client = Client._from_json_snapshot(snapshot=snapshot)
+
+        self.assertEqual(client._experiment, other_client._experiment)
+        # Don't check for deep equality of GenerationStrategy since the other gs will
+        # not have all its attributes initialized, but ensure they have the same repr
+        self.assertEqual(
+            str(client._generation_strategy), str(other_client._generation_strategy)
+        )
+
+    def test_sql_storage(self) -> None:
+        init_test_engine_and_session_factory(force_init=True)
+        client = Client(storage_config=StorageConfig())
+
+        # Experiment with relatively complicated search space
+        client.configure_experiment(
+            experiment_config=ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                    RangeParameterConfig(
+                        name="x2", parameter_type=ParameterType.INT, bounds=(-1, 1)
+                    ),
+                    ChoiceParameterConfig(
+                        name="x3",
+                        parameter_type=ParameterType.STRING,
+                        values=["a", "b"],
+                    ),
+                    ChoiceParameterConfig(
+                        name="x4",
+                        parameter_type=ParameterType.INT,
+                        values=[1, 2, 3],
+                        is_ordered=True,
+                    ),
+                    ChoiceParameterConfig(
+                        name="x5", parameter_type=ParameterType.INT, values=[1]
+                    ),
+                ],
+                name="unique_test_experiment",
+            )
+        )
+
+        # Relatively complicated optimization config
+        client.configure_optimization(
+            objective="foo + 2 * bar", outcome_constraints=["baz >= 0"]
+        )
+
+        # Specified generation strategy
+        client.configure_generation_strategy(
+            generation_strategy_config=GenerationStrategyConfig(
+                initialization_budget=3,
+            )
+        )
+
+        other_client = Client.load_from_database(
+            experiment_name="unique_test_experiment", storage_config=StorageConfig()
+        )
 
         self.assertEqual(client._experiment, other_client._experiment)
         # Don't check for deep equality of GenerationStrategy since the other gs will
