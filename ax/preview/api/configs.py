@@ -10,6 +10,7 @@ from enum import Enum
 from typing import List, Mapping, Sequence
 
 from ax.preview.api.types import TParameterValue
+from ax.storage.registry_bundle import RegistryBundle
 
 
 class ParameterType(Enum):
@@ -159,5 +160,6 @@ class OrchestrationConfig:
 
 
 @dataclass
-class DatabaseConfig:
-    url: str
+class StorageConfig:
+    url: str | None = None
+    registry_bundle: RegistryBundle | None = None
