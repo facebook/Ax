@@ -84,7 +84,7 @@ class TestPredictedEffectsPlot(TestCase):
         experiment.add_tracking_metric(get_branin_metric(name="tracking_branin"))
         generation_strategy = self.generation_strategy
         experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             )
         ).set_status_quo_with_weight(
@@ -92,7 +92,7 @@ class TestPredictedEffectsPlot(TestCase):
         ).mark_completed(unsafe=True)
         experiment.fetch_data()
         experiment.new_batch_trial(
-            generator_runs=generation_strategy.gen_with_multiple_nodes(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment, n=10
             )
         ).set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1.0)
@@ -153,27 +153,31 @@ class TestPredictedEffectsPlot(TestCase):
         experiment = get_branin_experiment(with_status_quo=True)
         generation_strategy = self.generation_strategy
         experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(experiment=experiment, n=10)
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            )
         ).set_status_quo_with_weight(
             status_quo=experiment.status_quo, weight=1
         ).mark_completed(unsafe=True)
         experiment.fetch_data()
         experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(experiment=experiment, n=10)
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            )
         ).set_status_quo_with_weight(
             status_quo=experiment.status_quo, weight=1
         ).mark_completed(unsafe=True)
         experiment.fetch_data()
         # leave as a candidate
         experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment,
                 n=10,
                 fixed_features=ObservationFeatures(parameters={}, trial_index=1),
             )
         ).set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1)
         experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
                 experiment=experiment,
                 n=10,
                 fixed_features=ObservationFeatures(parameters={}, trial_index=1),
@@ -224,15 +228,21 @@ class TestPredictedEffectsPlot(TestCase):
         experiment = get_branin_experiment()
         generation_strategy = self.generation_strategy
         experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(experiment=experiment, n=10)
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            )
         ).mark_completed(unsafe=True)
         experiment.fetch_data()
         # candidate trial
         experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(experiment=experiment, n=10)
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            )
         )
         experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(experiment=experiment, n=10)
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            )
         ).mark_abandoned()
         arms_with_data = set(experiment.lookup_data().df["arm_name"].unique())
         # WHEN we compute the analysis
@@ -268,9 +278,10 @@ class TestPredictedEffectsPlot(TestCase):
         last_model_key = sobol_key
         while last_model_key == sobol_key:
             trial = experiment.new_trial(
-                generator_run=generation_strategy.gen(
-                    experiment=experiment, n=1, pending_observation=True
-                )
+                generator_run=generation_strategy._gen_with_multiple_nodes(
+                    experiment=experiment,
+                    n=1,
+                )[0]
             )
             last_model_key = none_throws(trial.generator_run)._model_key
             if last_model_key == sobol_key:
@@ -301,13 +312,17 @@ class TestPredictedEffectsPlot(TestCase):
         ]
         generation_strategy = self.generation_strategy
         trial = experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(experiment=experiment, n=10),
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            ),
         )
         trial.set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1.0)
         trial.mark_completed(unsafe=True)
         experiment.fetch_data()
         trial = experiment.new_batch_trial(
-            generator_run=generation_strategy.gen(experiment=experiment, n=10),
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment, n=10
+            ),
         )
         trial.set_status_quo_with_weight(status_quo=experiment.status_quo, weight=1.0)
         # WHEN we compute the analysis and constraints are violated

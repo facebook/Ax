@@ -595,8 +595,8 @@ class SQAStoreTest(TestCase):
         gs = get_generation_strategy(
             with_experiment=True, with_callable_model_kwarg=False
         )
-        gs.gen(gs.experiment)
-        gs.gen(gs.experiment)
+        gs.gen(experiment=gs.experiment)
+        gs.gen(experiment=gs.experiment)
 
         save_experiment(gs.experiment)
         save_generation_strategy(gs)
@@ -810,7 +810,7 @@ class SQAStoreTest(TestCase):
     def test_EncodeGeneratorRunReducedState(self) -> None:
         exp = get_branin_experiment()
         gs = get_generation_strategy(with_callable_model_kwarg=False)
-        gr = gs.gen(exp)
+        gr = gs.gen(experiment=exp)
 
         for key in [attr.key for attr in GR_LARGE_MODEL_ATTRS]:
             self.assertIsNotNone(getattr(gr, f"_{key}"))
@@ -833,7 +833,7 @@ class SQAStoreTest(TestCase):
     def test_load_and_save_generator_run_reduced_state(self) -> None:
         exp = get_branin_experiment()
         gs = get_generation_strategy(with_callable_model_kwarg=False)
-        gr = gs.gen(exp)
+        gr = gs.gen(experiment=exp)
         original_gen_metadata = {"foo": "bar"}
         gr._gen_metadata = original_gen_metadata
         exp.new_trial(generator_run=gr)
@@ -1612,8 +1612,12 @@ class SQAStoreTest(TestCase):
         generation_strategy = sobol_gpei_generation_node_gs(
             with_input_constructors_all_n=True
         )
-        experiment.new_trial(generation_strategy.gen(experiment=experiment))
-        generation_strategy.gen(experiment, data=get_branin_data())
+        experiment.new_batch_trial(
+            generator_runs=generation_strategy._gen_with_multiple_nodes(
+                experiment=experiment
+            )
+        )
+        generation_strategy._gen_with_multiple_nodes(experiment, data=get_branin_data())
         save_experiment(experiment)
         save_generation_strategy(generation_strategy=generation_strategy)
 
@@ -2150,7 +2154,7 @@ class SQAStoreTest(TestCase):
         # experiment loading.
         exp = get_branin_experiment()
         gs = get_generation_strategy(with_callable_model_kwarg=False)
-        trial = exp.new_trial(gs.gen(exp))
+        trial = exp.new_trial(gs.gen(experiment=exp))
         for instrumented_attr in GR_LARGE_MODEL_ATTRS:
             self.assertIsNotNone(
                 getattr(trial.generator_run, f"_{instrumented_attr.key}")
