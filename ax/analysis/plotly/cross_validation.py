@@ -174,8 +174,8 @@ def _prepare_data(
                 "observed": observed.data.means[i],
                 "predicted": predicted.means[i],
                 # Take the square root of the the SEM to get the standard deviation
-                "observed_sem": observed.data.covariance[i][i],
-                "predicted_sem": predicted.covariance[i][i],
+                "observed_sem": observed.data.covariance[i][i] ** 0.5,
+                "predicted_sem": predicted.covariance[i][i] ** 0.5,
             }
             records.append(record)
             break
