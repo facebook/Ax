@@ -8,6 +8,7 @@
 
 import dataclasses
 import math
+import warnings
 from collections import OrderedDict
 from copy import copy
 from itertools import product
@@ -55,6 +56,7 @@ from botorch.models.transforms.input import (
 )
 from botorch.models.transforms.outcome import OutcomeTransform, Standardize
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
+from botorch.utils.transforms import standardize
 from botorch.utils.types import DEFAULT
 from gpytorch.constraints import GreaterThan, Interval
 from gpytorch.kernels import Kernel, LinearKernel, MaternKernel, RBFKernel, ScaleKernel
@@ -297,6 +299,15 @@ class SurrogateTest(TestCase):
                 X=self.Xs[0],
                 # Note: using 1d Y does not match the 2d TorchOptConfig
                 Y=self.Ys[0],
+                feature_names=self.feature_names,
+                outcome_names=self.metric_names,
+            )
+        ]
+        self.Ys_standardized = [standardize(Y) for Y in self.Ys]
+        self.training_data_standardized = [
+            SupervisedDataset(
+                X=self.Xs[0],
+                Y=self.Ys_standardized[0],
                 feature_names=self.feature_names,
                 outcome_names=self.metric_names,
             )
@@ -830,7 +841,7 @@ class SurrogateTest(TestCase):
                 )
                 if multitask:
                     dataset = MultiTaskDataset(
-                        datasets=[self.training_data[0], self.ds2],
+                        datasets=[self.training_data_standardized[0], self.ds2],
                         target_outcome_name="metric",
                     )
                     search_space_digest = dataclasses.replace(
@@ -839,7 +850,7 @@ class SurrogateTest(TestCase):
                         task_features=[-1],
                     )
                 else:
-                    dataset = self.training_data[0]
+                    dataset = self.training_data_standardized[0]
                     search_space_digest = self.search_space_digest
                 with patch.object(
                     surrogate, "model_selection", wraps=surrogate.model_selection
@@ -847,93 +858,99 @@ class SurrogateTest(TestCase):
                     surrogate, "cross_validate", wraps=surrogate.cross_validate
                 ) as mock_cross_validate, patch.object(
                     surrogate, "_construct_model", wraps=surrogate._construct_model
-                ) as mock_construct_model:
+                ) as mock_construct_model, warnings.catch_warnings(record=True) as ws:
+                    # Disable default warning filtering in tests.
+                    warnings.filterwarnings("always")
                     surrogate.fit(
                         [dataset],
                         search_space_digest=search_space_digest,
                     )
 
-                    mock_model_selection.assert_called_once_with(
-                        dataset=dataset,
-                        model_configs=base_model_configs,
-                        default_botorch_model_class=MultiTaskGP
-                        if multitask
-                        else SingleTaskGP,
-                        search_space_digest=search_space_digest,
-                        candidate_metadata=None,
-                    )
-                    self.assertEqual(mock_cross_validate.call_count, 2)
-                    expected_call_kwargs: dict[
-                        str,
-                        SupervisedDataset
-                        | type[Model]
-                        | SearchSpaceDigest
-                        | bool
-                        | ModelConfig,
-                    ] = {
-                        "dataset": dataset,
-                        "default_botorch_model_class": MultiTaskGP
-                        if multitask
-                        else SingleTaskGP,
-                        "search_space_digest": search_space_digest,
-                    }
-                    # check that each call to cross_validate uses the correct
-                    # model config.
-                    for i in (0, 1):
-                        expected_call_kwargs["model_config"] = base_model_configs[i]
-                        call_kwargs = mock_cross_validate.mock_calls[i].kwargs
-                        for k, v in expected_call_kwargs.items():
-                            self.assertEqual(call_kwargs[k], v)
-                        self.assertIsNotNone(call_kwargs["state_dict"])
-                    # each of two model configs should be fit once to all data, then
-                    # construct data should be called twice for each in cross_validate
-                    self.assertEqual(mock_construct_model.call_count, 6)
-                    if multitask:
-                        target_dataset = self.training_data[0]
-                        calls = mock_construct_model.mock_calls
-                        expected_X = torch.cat(
-                            [
-                                torch.cat(
-                                    [
-                                        target_dataset.X,
-                                        torch.zeros(2, 1, **self.tkwargs),
-                                    ],
-                                    dim=-1,
-                                ),
-                                torch.cat(
-                                    [self.ds2.X, torch.ones(2, 1, **self.tkwargs)],
-                                    dim=-1,
-                                ),
-                            ],
-                            dim=0,
-                        )
-                        # check that only target data is used for evaluation
-                        mask = torch.ones(4, dtype=torch.bool, device=self.device)
-                        loo_idx = 0
-                        for i in range(6):
-                            # If i in (0,3) then all data is used.
-                            # If i in (1,4) then the first data point from the
-                            # target data is excluded.
-                            # Otherwise the second data point from the target
-                            # data is excluded.
-                            if i not in (0, 3):
-                                loo_idx = (i - (4 if i > 3 else 1)) % 2
-                                mask[loo_idx] = 0
-                            self.assertTrue(
-                                torch.equal(
-                                    calls[i].kwargs["dataset"].X,
-                                    expected_X[mask],
-                                )
-                            )
-                            if i not in (0, 3):
-                                mask[loo_idx] = 1
+                # Make sure that no input data standardization warnings are raised.
+                self.assertFalse(any("standardized" in str(w) for w in ws))
 
-                self.assertEqual(mock_diag_fn.call_count, 2)
-                model = none_throws(surrogate._model)
-                self.assertIsInstance(
-                    model.covar_module,
-                    LinearKernel if eval_criterion == "MSE" else RBFKernel,
+                # Check that the methods were called with the correct args.
+                mock_model_selection.assert_called_once_with(
+                    dataset=dataset,
+                    model_configs=base_model_configs,
+                    default_botorch_model_class=MultiTaskGP
+                    if multitask
+                    else SingleTaskGP,
+                    search_space_digest=search_space_digest,
+                    candidate_metadata=None,
                 )
+                self.assertEqual(mock_cross_validate.call_count, 2)
+                expected_call_kwargs: dict[
+                    str,
+                    SupervisedDataset
+                    | type[Model]
+                    | SearchSpaceDigest
+                    | bool
+                    | ModelConfig,
+                ] = {
+                    "dataset": dataset,
+                    "default_botorch_model_class": MultiTaskGP
+                    if multitask
+                    else SingleTaskGP,
+                    "search_space_digest": search_space_digest,
+                }
+                # check that each call to cross_validate uses the correct
+                # model config.
+                for i in (0, 1):
+                    expected_call_kwargs["model_config"] = base_model_configs[i]
+                    call_kwargs = mock_cross_validate.mock_calls[i].kwargs
+                    for k, v in expected_call_kwargs.items():
+                        self.assertEqual(call_kwargs[k], v)
+                    self.assertIsNotNone(call_kwargs["state_dict"])
+                # each of two model configs should be fit once to all data, then
+                # construct data should be called twice for each in cross_validate
+                self.assertEqual(mock_construct_model.call_count, 6)
+                if multitask:
+                    target_dataset = self.training_data[0]
+                    calls = mock_construct_model.mock_calls
+                    expected_X = torch.cat(
+                        [
+                            torch.cat(
+                                [
+                                    target_dataset.X,
+                                    torch.zeros(2, 1, **self.tkwargs),
+                                ],
+                                dim=-1,
+                            ),
+                            torch.cat(
+                                [self.ds2.X, torch.ones(2, 1, **self.tkwargs)],
+                                dim=-1,
+                            ),
+                        ],
+                        dim=0,
+                    )
+                    # check that only target data is used for evaluation
+                    mask = torch.ones(4, dtype=torch.bool, device=self.device)
+                    loo_idx = 0
+                    for i in range(6):
+                        # If i in (0,3) then all data is used.
+                        # If i in (1,4) then the first data point from the
+                        # target data is excluded.
+                        # Otherwise the second data point from the target
+                        # data is excluded.
+                        if i not in (0, 3):
+                            loo_idx = (i - (4 if i > 3 else 1)) % 2
+                            mask[loo_idx] = 0
+                        self.assertTrue(
+                            torch.equal(
+                                calls[i].kwargs["dataset"].X,
+                                expected_X[mask],
+                            )
+                        )
+                        if i not in (0, 3):
+                            mask[loo_idx] = 1
+
+                    self.assertEqual(mock_diag_fn.call_count, 2)
+                    model = none_throws(surrogate._model)
+                    self.assertIsInstance(
+                        model.covar_module,
+                        LinearKernel if eval_criterion == "MSE" else RBFKernel,
+                    )
 
     def test_fit_multiple_model_configs_cuda(self) -> None:
         if torch.cuda.is_available():
