@@ -116,7 +116,7 @@ class TestBenchmarkMetric(TestCase):
                 "benchmark_metadata"
             ]
             with self.assertRaisesRegex(
-                ValueError, "Trial 0 has data from multiple time steps"
+                ValueError, "Trial has data from multiple time steps"
             ):
                 self.metric1.fetch_trial_data(trial=trial)
 
