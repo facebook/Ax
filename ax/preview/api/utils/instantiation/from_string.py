@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+import re
 from typing import Sequence
 
 from ax.core.metric import Metric
@@ -27,6 +28,8 @@ from sympy.core.mul import Mul
 from sympy.core.relational import GreaterThan, LessThan
 from sympy.core.symbol import Symbol
 from sympy.core.sympify import sympify
+
+DOT_PLACEHOLDER = "__dot__"
 
 
 def optimization_config_from_string(
@@ -108,7 +111,7 @@ def parse_parameter_constraint(constraint_str: str) -> ParameterConstraint:
     bound = 0
     for term, coefficient in coefficient_dict.items():
         if term.is_symbol:
-            constraint_dict[term.name] = coefficient
+            constraint_dict[_unsanitize_dot(term.name)] = coefficient
         elif term.is_number:
             # Invert because we are "moving" the bound to the right hand side
             bound = -1 * coefficient
@@ -129,7 +132,7 @@ def parse_objective(objective_str: str) -> Objective:
     linear objectives.
     """
     # Parse the objective string into a SymPy expression
-    expression = sympify(objective_str)
+    expression = sympify(_sanitize_dot(objective_str))
 
     if isinstance(expression, tuple):  # Multi-objective
         return MultiObjective(
@@ -181,7 +184,7 @@ def parse_outcome_constraint(constraint_str: str) -> OutcomeConstraint:
         term, coefficient = next(iter(constraint_dict.items()))
 
         return OutcomeConstraint(
-            metric=Metric(name=term),
+            metric=Metric(name=_unsanitize_dot(term)),
             op=ComparisonOp.LEQ if coefficient > 0 else ComparisonOp.GEQ,
             bound=bound / coefficient,
             relative=is_relative,
@@ -189,7 +192,7 @@ def parse_outcome_constraint(constraint_str: str) -> OutcomeConstraint:
 
     names, coefficients = zip(*constraint_dict.items())
     return ScalarizedOutcomeConstraint(
-        metrics=[Metric(name=name) for name in names],
+        metrics=[Metric(name=_unsanitize_dot(name)) for name in names],
         op=ComparisonOp.LEQ,
         weights=[*coefficients],
         bound=bound,
@@ -206,7 +209,9 @@ def _create_single_objective(expression: Expr) -> Objective:
 
     # If the expression is a just a Symbol it represents a single metric objective
     if isinstance(expression, Symbol):
-        return Objective(metric=Metric(name=str(expression.name)), minimize=False)
+        return Objective(
+            metric=Metric(name=_unsanitize_dot(str(expression.name))), minimize=False
+        )
 
     # If the expression is a Mul it likely represents a single metric objective but
     # some additional validation is required
@@ -221,13 +226,15 @@ def _create_single_objective(expression: Expr) -> Objective:
         # the sign from the coefficient rather than its value
         minimize = bool(expression.as_coefficient(symbol) < 0)
 
-        return Objective(metric=Metric(name=str(symbol)), minimize=minimize)
+        return Objective(
+            metric=Metric(name=_unsanitize_dot(str(symbol))), minimize=minimize
+        )
 
     # If the expression is an Add it represents a scalarized objective
     elif isinstance(expression, Add):
         names, coefficients = zip(*expression.as_coefficients_dict().items())
         return ScalarizedObjective(
-            metrics=[Metric(name=str(name)) for name in names],
+            metrics=[Metric(name=_unsanitize_dot(str(name))) for name in names],
             weights=[float(coefficient) for coefficient in coefficients],
             minimize=False,
         )
@@ -245,7 +252,7 @@ def _extract_coefficient_dict_from_inequality(
     constraints.
     """
     # Parse the constraint string into a SymPy inequality
-    inequality = sympify(inequality_str)
+    inequality = sympify(_sanitize_dot(inequality_str))
 
     # Check the SymPy object is a valid inequality
     if not isinstance(inequality, GreaterThan | LessThan):
@@ -261,3 +268,21 @@ def _extract_coefficient_dict_from_inequality(
     return {
         key: float(value) for key, value in expression.as_coefficients_dict().items()
     }
+
+
+def _sanitize_dot(s: str) -> str:
+    """
+    Converts a string with normal dots to a string with sanitized dots. This is
+    temporarily necessary because SymPy symbol names must be valid Python identifiers,
+    but some legacy Ax users may include dots in their parameter names.
+    """
+    return re.sub(r"([a-zA-Z])\.([a-zA-Z])", r"\1__dot__\2", s)
+
+
+def _unsanitize_dot(s: str) -> str:
+    """
+    Converts a string with sanitized dots back to a string with normal dots. This is
+    temporarily necessary because SymPy symbol names must be valid Python identifiers,
+    but some legacy Ax users may include dots in their parameter names.
+    """
+    return re.sub(r"__dot__", ".", s)
