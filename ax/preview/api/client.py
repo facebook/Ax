@@ -5,8 +5,9 @@
 
 # pyre-strict
 
+import json
 from logging import Logger
-from typing import Sequence
+from typing import Any, Sequence
 
 import numpy as np
 
@@ -31,10 +32,10 @@ from ax.early_stopping.strategies import (
 from ax.exceptions.core import UnsupportedError
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.preview.api.configs import (
-    DatabaseConfig,
     ExperimentConfig,
     GenerationStrategyConfig,
     OrchestrationConfig,
+    StorageConfig,
 )
 from ax.preview.api.protocols.metric import IMetric
 from ax.preview.api.protocols.runner import IRunner
@@ -46,6 +47,17 @@ from ax.preview.api.utils.instantiation.from_string import (
 from ax.preview.modelbridge.dispatch_utils import choose_generation_strategy
 from ax.service.scheduler import Scheduler, SchedulerOptions
 from ax.service.utils.best_point_mixin import BestPointMixin
+from ax.storage.json_store.decoder import (
+    generation_strategy_from_json,
+    object_from_json,
+)
+from ax.storage.json_store.encoder import object_to_json
+from ax.storage.json_store.registry import (
+    CORE_CLASS_DECODER_REGISTRY,
+    CORE_CLASS_ENCODER_REGISTRY,
+    CORE_DECODER_REGISTRY,
+    CORE_ENCODER_REGISTRY,
+)
 from ax.utils.common.logger import get_logger
 from ax.utils.common.random import with_rng_seed
 from pyre_extensions import assert_is_instance, none_throws
@@ -61,20 +73,20 @@ class Client:
 
     def __init__(
         self,
-        db_config: DatabaseConfig | None = None,
+        storage_config: StorageConfig | None = None,
         random_seed: int | None = None,
     ) -> None:
         """
         Initialize a Client, which manages state across the lifecycle of an experiment.
 
         Args:
-            db_config: Configuration for saving to and loading from a database. If
+            storage_config: Configuration for saving to and loading from a database. If
                 elided the experiment will not automatically be saved to a database.
             random_seed: An optional integer to set the random seed for reproducibility
                 of the experiment's results. If not provided, the random seed will not
                 be set, leading to potentially different results on different runs.
         """
-        self._db_config = db_config
+        self._storage_config = storage_config
         self._random_seed = random_seed
 
     # -------------------- Section 1: Configure --------------------------------------
@@ -87,7 +99,7 @@ class Client:
         This method only constitutes defining the search space and misc. metadata
         like name, description, and owners.
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
         """
         if self._maybe_experiment is not None:
             raise UnsupportedError(
@@ -97,7 +109,7 @@ class Client:
 
         self._maybe_experiment = experiment_from_config(config=experiment_config)
 
-        if self._db_config is not None:
+        if self._storage_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -134,7 +146,7 @@ class Client:
                 Note that scalarized outcome constraints cannot be relative.
 
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
         """
 
         self._experiment.optimization_config = optimization_config_from_string(
@@ -142,7 +154,7 @@ class Client:
             outcome_constraint_strs=outcome_constraints,
         )
 
-        if self._db_config is not None:
+        if self._storage_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -153,7 +165,7 @@ class Client:
         Overwrite the existing GenerationStrategy by calling choose_gs using the
         arguments of the GenerationStrategyConfig as parameters.
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
         """
 
         generation_strategy = choose_generation_strategy(
@@ -165,7 +177,7 @@ class Client:
 
         self._maybe_generation_strategy = generation_strategy
 
-        if self._db_config is not None:
+        if self._storage_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -174,7 +186,7 @@ class Client:
         """
         Attaches a Runner to the Experiment.
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
         """
         self._set_runner(runner=runner)
 
@@ -196,11 +208,11 @@ class Client:
 
         Overwrite the existing Experiment with the provided Experiment.
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
         """
         self._maybe_experiment = experiment
 
-        if self._db_config is not None:
+        if self._storage_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -212,11 +224,11 @@ class Client:
 
         Overwrite the existing OptimizationConfig with the provided OptimizationConfig.
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
         """
         self._experiment.optimization_config = optimization_config
 
-        if self._db_config is not None:
+        if self._storage_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -228,13 +240,13 @@ class Client:
 
         Overwrite the existing GenerationStrategy with the provided GenerationStrategy.
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
         """
         self._maybe_generation_strategy = generation_strategy
 
         none_throws(self._maybe_generation_strategy)._experiment = self._experiment
 
-        if self._db_config is not None:
+        if self._storage_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -249,11 +261,11 @@ class Client:
         Overwrite the existing EarlyStoppingStrategy with the provided
         EarlyStoppingStrategy.
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
         """
         self._maybe_early_stopping_strategy = early_stopping_strategy
 
-        if self._db_config is not None:
+        if self._storage_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -265,11 +277,11 @@ class Client:
 
         Attaches a Runner to the Experiment.
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
         """
         self._experiment.runner = runner
 
-        if self._db_config is not None:
+        if self._storage_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -291,7 +303,7 @@ class Client:
             # Check the optimization config first
             self._overwrite_metric(metric=metric)
 
-        if self._db_config is not None:
+        if self._storage_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -308,7 +320,7 @@ class Client:
         This will need to be rethought somewhat when we add support for BatchTrials,
         but will be okay for current supported functionality.
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
 
         Returns:
             A mapping of trial index to parameterization.
@@ -354,7 +366,7 @@ class Client:
 
             trials.append(trial)
 
-        if self._db_config is not None:
+        if self._storage_config is not None:
             # TODO[mpolson64] Save trial and update generation strategy
             ...
 
@@ -377,7 +389,7 @@ class Client:
             - If any metrics on the OptimizationConfig are missing the trial will be
                 marked as FAILED
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
         """
         if raw_data is not None:
             self.attach_data(
@@ -405,7 +417,7 @@ class Client:
                 )
                 self.mark_trial_failed(trial_index=trial_index)
 
-        if self._db_config is not None:
+        if self._storage_config is not None:
             # TODO[mpolson64] Save trial
             ...
 
@@ -423,7 +435,7 @@ class Client:
         tracking metrics. If progression is provided the Experiment will be updated to
         use MapData and the data will be attached to the appropriate step.
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
         """
 
         # If no progression is provided assume the data is not timeseries-like and
@@ -440,7 +452,7 @@ class Client:
             combine_with_last_data=True,
         )
 
-        if self._db_config is not None:
+        if self._storage_config is not None:
             # TODO[mpolson64] Save trial
             ...
 
@@ -453,7 +465,7 @@ class Client:
         The trial will be marked as RUNNING and must be completed manually by the
         user.
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
 
         Returns:
             The index of the attached trial.
@@ -465,7 +477,7 @@ class Client:
             arm_names=[arm_name] if arm_name else None,
         )
 
-        if self._db_config is not None:
+        if self._storage_config is not None:
             # TODO[mpolson64] Save trial
             ...
 
@@ -483,7 +495,7 @@ class Client:
         Returns:
             The index of the attached trial.
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
         """
         trial_index = self.attach_trial(
             parameters=parameters,
@@ -494,7 +506,7 @@ class Client:
             self._experiment.trials[trial_index], Trial
         ).arm
 
-        if self._db_config is not None:
+        if self._storage_config is not None:
             ...
 
         return trial_index
@@ -526,11 +538,11 @@ class Client:
         Manually mark a trial as FAILED. FAILED trials typically may be re-suggested by
         get_next_trials, though this is controlled by the GenerationStrategy.
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
         """
         self._experiment.trials[trial_index].mark_failed()
 
-        if self._db_config is not None:
+        if self._storage_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -540,11 +552,11 @@ class Client:
         be re-suggested by get_next_trials, though this is controlled by the
         GenerationStrategy.
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
         """
         self._experiment.trials[trial_index].mark_abandoned()
 
-        if self._db_config is not None:
+        if self._storage_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -557,7 +569,7 @@ class Client:
         stop the trial early. EARLY_STOPPED trials will not be re-suggested by
         get_next_trials.
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
         """
 
         # First attach the new data
@@ -567,7 +579,7 @@ class Client:
 
         self._experiment.trials[trial_index].mark_early_stopped()
 
-        if self._db_config is not None:
+        if self._storage_config is not None:
             # TODO[mpolson64] Save to database
             ...
 
@@ -577,7 +589,7 @@ class Client:
         the hood using the Experiment, GenerationStrategy, Metrics, and Runner attached
         to this AxClient along with the provided OrchestrationConfig.
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
         """
 
         scheduler = Scheduler(
@@ -588,7 +600,7 @@ class Client:
                 tolerated_trial_failure_rate=options.tolerated_trial_failure_rate,
                 init_seconds_between_polls=options.initial_seconds_between_polls,
             ),
-            # TODO[mpolson64] Add db_settings=self._db_config when adding storage
+            # TODO[mpolson64] Add db_settings=self._storage_config when adding storage
         )
 
         # Note: This scheduler call will handle storage internally
@@ -609,7 +621,7 @@ class Client:
         to change incompatibly between minor versions. Users are encouraged to use the
         provided analyses or leave this argument as None to use the default analyses.
 
-        Saves to database on completion if db_config is present.
+        Saves to database on completion if storage_config is present.
 
         Returns:
             A list of AnalysisCards.
@@ -637,7 +649,7 @@ class Client:
             for result in results
         ]
 
-        if self._db_config is not None:
+        if self._storage_config is not None:
             # TODO[mpolson64] Save cards to database
             ...
 
@@ -793,12 +805,15 @@ class Client:
         Save a JSON-serialized snapshot of this `AxClient`'s settings and state
         to a .json file by the given path.
         """
-        ...
+        with open(filepath, "w+") as file:
+            file.write(json.dumps(self._to_json_snapshot()))
+            logger.info(f"Saved JSON-serialized state of optimization to `{filepath}`.")
 
     @classmethod
     def load_from_json_file(
         cls,
         filepath: str = "ax_client_snapshot.json",
+        storage_config: StorageConfig | None = None,
     ) -> Self:
         """
         Restore an `AxClient` and its state from a JSON-serialized snapshot,
@@ -807,7 +822,10 @@ class Client:
         Returns:
             The restored `AxClient`.
         """
-        ...
+        with open(filepath) as file:
+            return cls._from_json_snapshot(
+                snapshot=json.loads(file.read()), storage_config=storage_config
+            )
 
     def load_from_database(
         self,
@@ -890,6 +908,7 @@ class Client:
 
             return self._early_stopping_strategy
 
+    # -------------------- Section 5.2: Metric configuration --------------------------
     def _overwrite_metric(self, metric: Metric) -> None:
         """
         Overwrite an existing Metric on the Experiment with the provided Metric if they
@@ -948,3 +967,86 @@ class Client:
             f"Metric {metric} not found in optimization config, added as tracking "
             "metric."
         )
+
+    # -------------------- Section 5.3: Storage utilies -------------------------------
+    def _to_json_snapshot(self) -> dict[str, Any]:
+        """Serialize this `AxClient` to JSON to be able to interrupt and restart
+        optimization and save it to file by the provided path.
+
+        Returns:
+            A JSON-safe dict representation of this `AxClient`.
+        """
+
+        # If the user has supplied custom encoder registries, use them. Otherwise use
+        # the core encoder registries.
+        if (
+            self._storage_config is not None
+            and self._storage_config.registry_bundle is not None
+        ):
+            encoder_registry = (
+                self._storage_config.registry_bundle.sqa_config.json_encoder_registry
+            )
+            class_encoder_registry = self._storage_config.registry_bundle.sqa_config.json_class_encoder_registry  # noqa: E501
+        else:
+            encoder_registry = CORE_ENCODER_REGISTRY
+            class_encoder_registry = CORE_CLASS_ENCODER_REGISTRY
+
+        return {
+            "_type": self.__class__.__name__,
+            "experiment": object_to_json(
+                self._experiment,
+                encoder_registry=encoder_registry,
+                class_encoder_registry=class_encoder_registry,
+            ),
+            "generation_strategy": object_to_json(
+                self._generation_strategy,
+                encoder_registry=encoder_registry,
+                class_encoder_registry=class_encoder_registry,
+            )
+            if self._maybe_generation_strategy is not None
+            else None,
+        }
+
+    @classmethod
+    def _from_json_snapshot(
+        cls,
+        snapshot: dict[str, Any],
+        storage_config: StorageConfig | None = None,
+    ) -> Self:
+        # If the user has supplied custom encoder registries, use them. Otherwise use
+        # the core encoder registries.
+        if storage_config is not None and storage_config.registry_bundle is not None:
+            decoder_registry = (
+                storage_config.registry_bundle.sqa_config.json_decoder_registry
+            )
+            class_decoder_registry = (
+                storage_config.registry_bundle.sqa_config.json_class_decoder_registry
+            )
+        else:
+            decoder_registry = CORE_DECODER_REGISTRY
+            class_decoder_registry = CORE_CLASS_DECODER_REGISTRY
+
+        # Decode the experiment, and generation strategy if present
+        experiment = object_from_json(
+            object_json=snapshot["experiment"],
+            decoder_registry=decoder_registry,
+            class_decoder_registry=class_decoder_registry,
+        )
+
+        generation_strategy = (
+            generation_strategy_from_json(
+                generation_strategy_json=snapshot["generation_strategy"],
+                experiment=experiment,
+                decoder_registry=decoder_registry,
+                class_decoder_registry=class_decoder_registry,
+            )
+            if "generation_strategy" in snapshot
+            else None
+        )
+
+        client = cls(storage_config=storage_config)
+        client.set_experiment(experiment=experiment)
+        if generation_strategy is not None:
+            client.set_generation_strategy(generation_strategy=generation_strategy)
+
+        return client

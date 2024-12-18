@@ -1071,6 +1071,63 @@ class TestClient(TestCase):
         point = client.predict(points=[{"x1": 0.5}])
         self.assertEqual({*point[0].keys()}, {"foo", "bar"})
 
+    def test_json_storage(self) -> None:
+        client = Client()
+
+        # Experiment with relatively complicated search space
+        client.configure_experiment(
+            experiment_config=ExperimentConfig(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1", parameter_type=ParameterType.FLOAT, bounds=(-1, 1)
+                    ),
+                    RangeParameterConfig(
+                        name="x2", parameter_type=ParameterType.INT, bounds=(-1, 1)
+                    ),
+                    ChoiceParameterConfig(
+                        name="x3",
+                        parameter_type=ParameterType.STRING,
+                        values=["a", "b"],
+                    ),
+                    ChoiceParameterConfig(
+                        name="x4",
+                        parameter_type=ParameterType.INT,
+                        values=[1, 2, 3],
+                        is_ordered=True,
+                    ),
+                    ChoiceParameterConfig(
+                        name="x5", parameter_type=ParameterType.INT, values=[1]
+                    ),
+                ],
+                name="foo",
+            )
+        )
+
+        # Relatively complicated optimization config
+        client.configure_optimization(
+            objective="foo + 2 * bar", outcome_constraints=["baz >= 0"]
+        )
+
+        # Specified generation strategy
+        client.configure_generation_strategy(
+            generation_strategy_config=GenerationStrategyConfig(
+                initialization_budget=2,
+            )
+        )
+
+        # Use the Client a bit
+        _ = client.get_next_trials(maximum_trials=2)
+
+        snapshot = client._to_json_snapshot()
+        other_client = Client._from_json_snapshot(snapshot=snapshot)
+
+        self.assertEqual(client._experiment, other_client._experiment)
+        # Don't check for deep equality of GenerationStrategy since the other gs will
+        # not have all its attributes initialized, but ensure they have the same repr
+        self.assertEqual(
+            str(client._generation_strategy), str(other_client._generation_strategy)
+        )
+
 
 class DummyRunner(IRunner):
     @override
