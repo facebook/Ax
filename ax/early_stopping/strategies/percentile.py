@@ -28,7 +28,6 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     def __init__(
         self,
         metric_names: Iterable[str] | None = None,
-        seconds_between_polls: int = 300,
         percentile_threshold: float = 50.0,
         min_progression: float | None = 10,
         max_progression: float | None = None,
@@ -42,8 +41,6 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             metric_names: A (length-one) list of name of the metric to observe. If
                 None will default to the objective metric on the Experiment's
                 OptimizationConfig.
-            seconds_between_polls: How often to poll the early stopping metric to
-                evaluate whether or not the trial should be early stopped.
             percentile_threshold: Falling below this threshold compared to other trials
                 at the same step will stop the run. Must be between 0.0 and 100.0.
                 e.g. if percentile_threshold=25.0, the bottom 25% of trials are stopped.
@@ -71,7 +68,6 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         """
         super().__init__(
             metric_names=metric_names,
-            seconds_between_polls=seconds_between_polls,
             trial_indices_to_ignore=trial_indices_to_ignore,
             min_progression=min_progression,
             max_progression=max_progression,

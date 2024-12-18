@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-import warnings
 from dataclasses import dataclass
 
 from ax.core.experiment import Experiment
@@ -64,18 +63,6 @@ class BenchmarkMethod(Base):
     def __post_init__(self) -> None:
         if self.name == "DEFAULT":
             self.name = self.generation_strategy.name
-        early_stopping_strategy = self.early_stopping_strategy
-        if early_stopping_strategy is not None:
-            seconds_between_polls = early_stopping_strategy.seconds_between_polls
-            if seconds_between_polls > 0:
-                warnings.warn(
-                    "`early_stopping_strategy.seconds_between_polls` is "
-                    f"{seconds_between_polls}, but benchmarking uses 0 seconds "
-                    "between polls. Setting "
-                    "`early_stopping_strategy.seconds_between_polls` to 0.",
-                    stacklevel=1,
-                )
-                early_stopping_strategy.seconds_between_polls = 0
 
     def get_best_parameters(
         self,
