@@ -20,6 +20,7 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
+from ax.core.trial import Trial
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.exceptions.core import UserInputError
 from ax.modelbridge.generation_strategy import GenerationStrategy
@@ -48,7 +49,7 @@ from ax.service.utils.best_point_utils import select_baseline_name_default_first
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 logger: Logger = get_logger(__name__)
@@ -709,3 +710,49 @@ class BestPointMixin(metaclass=ABCMeta):
             y=best_obj_value,
             minimize=optimization_config.objective.minimize,
         )
+
+    @staticmethod
+    def _to_best_point_tuple(
+        experiment: Experiment,
+        trial_index: int,
+        parameterization: TParameterization,
+        model_prediction: TModelPredictArm | None,
+    ) -> tuple[TParameterization, dict[str, float | tuple[float, float]], int, str]:
+        """
+        Return the tuple expected by the return signature of get_best_parameterization
+        and get_pareto_frontier in the Ax API.
+
+        TODO: Remove this helper when we clean up BestPointMixin.
+
+        Returns:
+            - The parameters predicted to have the best optimization value without
+                violating any outcome constraints.
+            - The metric values for the best parameterization. Uses model prediction if
+                use_model_predictions=True, otherwise returns observed data.
+            - The trial which most recently ran the best parameterization
+            - The name of the best arm (each trial has a unique name associated with
+                each parameterization)
+        """
+
+        if model_prediction is not None:
+            mean, covariance = model_prediction
+
+            prediction: dict[str, float | tuple[float, float]] = {
+                metric_name: (
+                    mean[metric_name],
+                    none_throws(covariance)[metric_name][metric_name],
+                )
+                for metric_name in mean.keys()
+            }
+        else:
+            data_dict = experiment.lookup_data(trial_indices=[trial_index]).df.to_dict()
+
+            prediction: dict[str, float | tuple[float, float]] = {
+                data_dict["metric_name"][i]: (data_dict["mean"][i], data_dict["sem"][i])
+                for i in range(len(data_dict["metric_name"]))
+            }
+
+        trial = assert_is_instance(experiment.trials[trial_index], Trial)
+        arm = none_throws(trial.arm)
+
+        return parameterization, prediction, trial_index, arm.name
