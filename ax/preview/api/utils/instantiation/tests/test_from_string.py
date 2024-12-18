@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from ax.core.metric import Metric
+from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -34,7 +34,7 @@ class TestFromString(TestCase):
         self.assertEqual(
             only_objective,
             OptimizationConfig(
-                objective=Objective(metric=Metric(name="ne"), minimize=False),
+                objective=Objective(metric=MapMetric(name="ne"), minimize=False),
             ),
         )
 
@@ -44,10 +44,10 @@ class TestFromString(TestCase):
         self.assertEqual(
             with_constraints,
             OptimizationConfig(
-                objective=Objective(metric=Metric(name="ne"), minimize=False),
+                objective=Objective(metric=MapMetric(name="ne"), minimize=False),
                 outcome_constraints=[
                     OutcomeConstraint(
-                        metric=Metric(name="qps"),
+                        metric=MapMetric(name="qps"),
                         op=ComparisonOp.GEQ,
                         bound=0.0,
                         relative=False,
@@ -65,13 +65,13 @@ class TestFromString(TestCase):
             MultiObjectiveOptimizationConfig(
                 objective=MultiObjective(
                     objectives=[
-                        Objective(metric=Metric(name="ne"), minimize=True),
-                        Objective(metric=Metric(name="qps"), minimize=False),
+                        Objective(metric=MapMetric(name="ne"), minimize=True),
+                        Objective(metric=MapMetric(name="qps"), minimize=False),
                     ]
                 ),
                 outcome_constraints=[
                     OutcomeConstraint(
-                        metric=Metric(name="flops"),
+                        metric=MapMetric(name="flops"),
                         op=ComparisonOp.LEQ,
                         bound=1000000.0,
                         relative=False,
@@ -79,7 +79,7 @@ class TestFromString(TestCase):
                 ],
                 objective_thresholds=[
                     ObjectiveThreshold(
-                        metric=Metric(name="qps"),
+                        metric=MapMetric(name="qps"),
                         op=ComparisonOp.GEQ,
                         bound=1000.0,
                         relative=False,
@@ -123,13 +123,13 @@ class TestFromString(TestCase):
     def test_parse_objective(self) -> None:
         single_objective = parse_objective(objective_str="ne")
         self.assertEqual(
-            single_objective, Objective(metric=Metric(name="ne"), minimize=False)
+            single_objective, Objective(metric=MapMetric(name="ne"), minimize=False)
         )
 
         maximize_single_objective = parse_objective(objective_str="-qps")
         self.assertEqual(
             maximize_single_objective,
-            Objective(metric=Metric(name="qps"), minimize=True),
+            Objective(metric=MapMetric(name="qps"), minimize=True),
         )
 
         scalarized_objective = parse_objective(
@@ -138,7 +138,11 @@ class TestFromString(TestCase):
         self.assertEqual(
             scalarized_objective,
             ScalarizedObjective(
-                metrics=[Metric(name="ne1"), Metric(name="ne2"), Metric(name="ne3")],
+                metrics=[
+                    MapMetric(name="ne1"),
+                    MapMetric(name="ne2"),
+                    MapMetric(name="ne3"),
+                ],
                 weights=[0.5, 0.3, 0.2],
                 minimize=False,
             ),
@@ -149,8 +153,8 @@ class TestFromString(TestCase):
             multiobjective,
             MultiObjective(
                 objectives=[
-                    Objective(metric=Metric(name="ne"), minimize=False),
-                    Objective(metric=Metric(name="qps"), minimize=True),
+                    Objective(metric=MapMetric(name="ne"), minimize=False),
+                    Objective(metric=MapMetric(name="qps"), minimize=True),
                 ]
             ),
         )
@@ -163,7 +167,7 @@ class TestFromString(TestCase):
         self.assertEqual(
             constraint,
             OutcomeConstraint(
-                metric=Metric(name="flops"),
+                metric=MapMetric(name="flops"),
                 op=ComparisonOp.LEQ,
                 bound=1000000.0,
                 relative=False,
@@ -174,7 +178,7 @@ class TestFromString(TestCase):
         self.assertEqual(
             flipped_sign,
             OutcomeConstraint(
-                metric=Metric(name="flops"),
+                metric=MapMetric(name="flops"),
                 op=ComparisonOp.GEQ,
                 bound=1000000.0,
                 relative=False,
@@ -185,7 +189,7 @@ class TestFromString(TestCase):
         self.assertEqual(
             relative,
             OutcomeConstraint(
-                metric=Metric(name="flops"),
+                metric=MapMetric(name="flops"),
                 op=ComparisonOp.LEQ,
                 bound=105.0,
                 relative=True,
@@ -198,7 +202,7 @@ class TestFromString(TestCase):
         self.assertEqual(
             scalarized,
             ScalarizedOutcomeConstraint(
-                metrics=[Metric(name="flops1"), Metric(name="flops2")],
+                metrics=[MapMetric(name="flops1"), MapMetric(name="flops2")],
                 weights=[0.5, 0.3],
                 op=ComparisonOp.LEQ,
                 bound=1000000.0,
