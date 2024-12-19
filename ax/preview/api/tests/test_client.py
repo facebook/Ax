@@ -16,7 +16,7 @@ from ax.core.base_trial import TrialStatus
 from ax.core.experiment import Experiment
 from ax.core.formatting_utils import DataType
 from ax.core.map_data import MapData
-from ax.core.metric import Metric
+from ax.core.map_metric import MapMetric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
@@ -162,10 +162,10 @@ class TestClient(TestCase):
         self.assertEqual(
             client._experiment.optimization_config,
             OptimizationConfig(
-                objective=Objective(metric=Metric(name="ne"), minimize=True),
+                objective=Objective(metric=MapMetric(name="ne"), minimize=True),
                 outcome_constraints=[
                     OutcomeConstraint(
-                        metric=Metric(name="qps"),
+                        metric=MapMetric(name="qps"),
                         op=ComparisonOp.GEQ,
                         bound=0.0,
                         relative=False,
@@ -261,7 +261,7 @@ class TestClient(TestCase):
         client.configure_optimization(
             objective="foo",
         )
-        client._experiment.add_tracking_metric(metric=Metric("custom"))
+        client._experiment.add_tracking_metric(metric=MapMetric("custom"))
         client.configure_metrics(metrics=[custom_metric])
 
         self.assertEqual(

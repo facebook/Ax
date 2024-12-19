@@ -184,7 +184,10 @@ class MapData(Data):
         unique_map_key_infos = []
         for mki in (mki for datum in data for mki in datum.map_key_infos):
             if any(
-                mki.key == unique.key and mki.default_value != unique.default_value
+                mki.key == unique.key
+                and not np.isclose(
+                    mki.default_value, unique.default_value, equal_nan=True
+                )
                 for unique in unique_map_key_infos
             ):
                 logger.warning(f"MapKeyInfo conflict for {mki.key}, eliding {mki}.")
