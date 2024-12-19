@@ -11,13 +11,11 @@ Metric classes for Ax benchmarking.
 Metrics vary on two dimensions: Whether they are `MapMetric`s or not, and
 whether they are available while running or not.
 
-There are two Metric classes:
-- `BenchmarkMetric`: For when outputs should be `Data` (not `MapData`) and data
+There are four Metric classes:
+- `BenchmarkMetric`: A non-Map metric
     is not available while running.
 - `BenchmarkMapMetric`: For when outputs should be `MapData` (not `Data`) and
     data is available while running.
-
-There are further benchmark classes that are not yet implemented:
 - `BenchmarkTimeVaryingMetric`: For when outputs should be `Data` and the metric
   is available while running.
 - `BenchmarkMapUnavailableWhileRunningMetric`: For when outputs should be
@@ -214,8 +212,10 @@ class BenchmarkMetricBase(Metric):
 
 class BenchmarkMetric(BenchmarkMetricBase):
     """
-    Metric for benchmarking that produces `Data` and is not available while
-    running.
+    Non-map Metric for benchmarking that is not available while running.
+
+    It cannot process data with multiple time steps, as it would only return one
+    value -- the value it has at completion time -- regardless.
     """
 
     def _class_specific_metdata_validation(
@@ -234,11 +234,26 @@ class BenchmarkMetric(BenchmarkMetricBase):
         return Ok(value=Data(df=df.drop(columns=["step"])))
 
 
+class BenchmarkTimeVaryingMetric(BenchmarkMetricBase):
+    """
+    Non-Map Metric for benchmarking that is available while running.
+
+    It can produce different values at different times depending on when it is
+    called, using the `time` on a `BackendSimulator`.
+    """
+
+    @classmethod
+    def is_available_while_running(cls) -> bool:
+        return True
+
+    def _df_to_result(self, df: DataFrame) -> MetricFetchResult:
+        return Ok(
+            value=Data(df=df[df["step"] == df["step"].max()].drop(columns=["step"]))
+        )
+
+
 class BenchmarkMapMetric(MapMetric, BenchmarkMetricBase):
-    """
-    Metric for benchmarking that produces `Data` and is available while
-    running.
-    """
+    """MapMetric for benchmarking. It is available while running."""
 
     # pyre-fixme: Inconsistent override [15]: `map_key_info` overrides attribute
     # defined in `MapMetric` inconsistently. Type `MapKeyInfo[int]` is not a
@@ -248,6 +263,18 @@ class BenchmarkMapMetric(MapMetric, BenchmarkMetricBase):
     @classmethod
     def is_available_while_running(cls) -> bool:
         return True
+
+    def _df_to_result(self, df: DataFrame) -> MetricFetchResult:
+        # Just in case the key was renamed by a subclass
+        df = df.rename(columns={"step": self.map_key_info.key})
+        return Ok(value=MapData(df=df, map_key_infos=[self.map_key_info]))
+
+
+class BenchmarkMapUnavailableWhileRunningMetric(MapMetric, BenchmarkMetricBase):
+    # pyre-fixme: Inconsistent override [15]: `map_key_info` overrides attribute
+    # defined in `MapMetric` inconsistently. Type `MapKeyInfo[int]` is not a
+    # subtype of the overridden attribute `MapKeyInfo[float]`
+    map_key_info: MapKeyInfo[int] = MapKeyInfo(key="step", default_value=0)
 
     def _df_to_result(self, df: DataFrame) -> MetricFetchResult:
         # Just in case the key was renamed by a subclass
