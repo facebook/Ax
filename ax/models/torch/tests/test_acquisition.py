@@ -383,8 +383,8 @@ class AcquisitionTest(TestCase):
         n = 2
 
         # Also check that it runs when optimizer options are provided, whether
-        # `raw_samples` are present or not.
-        for optimizer_options in [None, {"raw_samples": 8}, {}]:
+        # `raw_samples` or `num_restarts` is present or not.
+        for optimizer_options in [None, {"raw_samples": 8}, {"num_restarts": 8}]:
             with self.subTest(optimizer_options=optimizer_options):
                 acquisition.optimize(
                     n=n,
