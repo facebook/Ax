@@ -19,7 +19,7 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.parameter_constraint import validate_constraint_parameters
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import HierarchicalSearchSpace, SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.preview.api.configs import (
     ChoiceParameterConfig,
@@ -121,7 +121,14 @@ def experiment_from_config(config: ExperimentConfig) -> Experiment:
             ]
         )
 
-    search_space = SearchSpace(parameters=parameters, parameter_constraints=constraints)
+    if any(p.is_hierarchical for p in parameters):
+        search_space = HierarchicalSearchSpace(
+            parameters=parameters, parameter_constraints=constraints
+        )
+    else:
+        search_space = SearchSpace(
+            parameters=parameters, parameter_constraints=constraints
+        )
 
     return Experiment(
         search_space=search_space,
