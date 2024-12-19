@@ -1414,6 +1414,8 @@ def get_choice_parameter() -> ChoiceParameter:
         # parameter `values` to call
         # `ax.core.parameter.ChoiceParameter.__init__` but got `List[str]`.
         values=["foo", "bar", "baz"],
+        sort_values=False,
+        is_ordered=False,
     )
 
 
