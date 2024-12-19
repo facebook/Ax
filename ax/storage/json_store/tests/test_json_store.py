@@ -51,8 +51,10 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.benchmark_stubs import (
     get_aggregated_benchmark_result,
     get_benchmark_map_metric,
+    get_benchmark_map_unavailable_while_running_metric,
     get_benchmark_metric,
     get_benchmark_result,
+    get_benchmark_time_varying_metric,
 )
 from ax.utils.testing.core_stubs import (
     get_abandoned_arm,
@@ -154,6 +156,11 @@ TEST_CASES = [
     ),
     ("BenchmarkMetric", get_benchmark_metric),
     ("BenchmarkMapMetric", get_benchmark_map_metric),
+    ("BenchmarkTimeVaryingMetric", get_benchmark_time_varying_metric),
+    (
+        "BenchmarkMapUnavailableWhileRunningMetric",
+        get_benchmark_map_unavailable_while_running_metric,
+    ),
     ("BenchmarkResult", get_benchmark_result),
     ("BoTorchModel", get_botorch_model),
     ("BoTorchModel", get_botorch_model_with_default_acquisition_class),
