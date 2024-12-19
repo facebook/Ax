@@ -12,7 +12,10 @@ import pandas as pd
 from ax.benchmark.benchmark_metric import (
     _get_no_metadata_msg,
     BenchmarkMapMetric,
+    BenchmarkMapUnavailableWhileRunningMetric,
     BenchmarkMetric,
+    BenchmarkMetricBase,
+    BenchmarkTimeVaryingMetric,
 )
 from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
 from ax.core.arm import Arm
@@ -113,8 +116,18 @@ class TestBenchmarkMetric(TestCase):
             name: BenchmarkMetric(name=name, lower_is_better=True)
             for name in self.outcome_names
         }
+        self.tv_metrics = {
+            name: BenchmarkTimeVaryingMetric(name=name, lower_is_better=True)
+            for name in self.outcome_names
+        }
         self.map_metrics = {
             name: BenchmarkMapMetric(name=name, lower_is_better=True)
+            for name in self.outcome_names
+        }
+        self.map_unavailable_while_running_metrics = {
+            name: BenchmarkMapUnavailableWhileRunningMetric(
+                name=name, lower_is_better=True
+            )
             for name in self.outcome_names
         }
 
@@ -125,10 +138,24 @@ class TestBenchmarkMetric(TestCase):
         self.assertTrue(self.map_metrics["test_metric1"].is_available_while_running())
         self.assertTrue(BenchmarkMapMetric.is_available_while_running())
 
+        self.assertTrue(self.tv_metrics["test_metric1"].is_available_while_running())
+        self.assertTrue(BenchmarkTimeVaryingMetric.is_available_while_running())
+
+        self.assertFalse(
+            self.map_unavailable_while_running_metrics[
+                "test_metric1"
+            ].is_available_while_running()
+        )
+        self.assertFalse(
+            BenchmarkMapUnavailableWhileRunningMetric.is_available_while_running()
+        )
+
     def test_exceptions(self) -> None:
         for metric in [
             self.metrics["test_metric1"],
             self.map_metrics["test_metric1"],
+            self.tv_metrics["test_metric1"],
+            self.map_unavailable_while_running_metrics["test_metric1"],
         ]:
             with self.subTest(
                 f"No-metadata error, metric class={metric.__class__.__name__}"
@@ -164,7 +191,7 @@ class TestBenchmarkMetric(TestCase):
                 self.metrics["test_metric1"].fetch_trial_data(trial=trial)
 
     def _test_fetch_trial_data_one_time_step(
-        self, batch: bool, metric: BenchmarkMetric | BenchmarkMapMetric
+        self, batch: bool, metric: BenchmarkMetricBase
     ) -> None:
         trial = get_test_trial(batch=batch, has_simulator=True)
         df1 = assert_is_instance(metric.fetch_trial_data(trial=trial).value, Data).df
@@ -179,7 +206,12 @@ class TestBenchmarkMetric(TestCase):
     def test_fetch_trial_data_one_time_step(self) -> None:
         for batch, metrics in product(
             [False, True],
-            [self.metrics, self.map_metrics],
+            [
+                self.metrics,
+                self.map_metrics,
+                self.tv_metrics,
+                self.map_unavailable_while_running_metrics,
+            ],
         ):
             metric = metrics["test_metric1"]
             with self.subTest(
@@ -195,22 +227,35 @@ class TestBenchmarkMetric(TestCase):
         - Has simulator, metric is 'BenchmarkMapMetric' -> df grows with each step
         - No simulator, metric is 'BenchmarkMapMetric' -> all data present while
           running (but realistically it would never be RUNNING)
+        - Has simulator, metric is 'BenchmarkTimeVaryingMetric' -> one step at
+          a time, evolving as we take steps
+        - No simulator, metric is 'BenchmarkTimeVaryingMetric' -> completes
+            immediately and returns last step
+
         See table in benchmark_metric.py for more details.
         """
         metric_name = "test_metric1"
 
-        # Iterating over list of length 1 here because there will be more
-        # metrics in the next diff
-        for metric in [self.map_metrics[metric_name]]:
-            trial_with_simulator = get_test_trial(
+        for metric, has_simulator in product(
+            [
+                self.map_metrics[metric_name],
+                self.tv_metrics[metric_name],
+                self.map_unavailable_while_running_metrics[metric_name],
+            ],
+            [False, True],
+        ):
+            trial = get_test_trial(
                 has_metadata=True,
                 batch=batch,
                 multiple_time_steps=True,
-                has_simulator=True,
+                has_simulator=has_simulator,
             )
-            data = metric.fetch_trial_data(trial=trial_with_simulator).value
+            data = metric.fetch_trial_data(trial=trial).value
             df_or_map_df = data.map_df if isinstance(metric, MapMetric) else data.df
-            self.assertEqual(len(df_or_map_df), len(trial_with_simulator.arms))
+            returns_full_data = (not has_simulator) and isinstance(metric, MapMetric)
+            self.assertEqual(
+                len(df_or_map_df), len(trial.arms) * (3 if returns_full_data else 1)
+            )
             drop_cols = ["virtual runtime"]
             if not isinstance(metric, MapMetric):
                 drop_cols += ["step"]
@@ -218,14 +263,23 @@ class TestBenchmarkMetric(TestCase):
             expected_df = _get_one_step_df(
                 batch=batch, metric_name=metric_name, step=0
             ).drop(columns=drop_cols)
-            self.assertEqual(df_or_map_df.to_dict(), expected_df.to_dict())
+            if returns_full_data:
+                self.assertEqual(
+                    df_or_map_df[df_or_map_df["step"] == 0].to_dict(),
+                    expected_df.to_dict(),
+                )
+            else:
+                self.assertEqual(df_or_map_df.to_dict(), expected_df.to_dict())
 
-            backend_simulator = trial_with_simulator.run_metadata[
+            backend_simulator = trial.run_metadata[
                 "benchmark_metadata"
             ].backend_simulator
+            self.assertEqual(backend_simulator is None, not has_simulator)
+            if backend_simulator is None:
+                continue
             self.assertEqual(backend_simulator.time, 0)
             sim_trial = none_throws(
-                backend_simulator.get_sim_trial_by_index(trial_with_simulator.index)
+                backend_simulator.get_sim_trial_by_index(trial.index)
             )
             self.assertIn(sim_trial, backend_simulator._running)
             backend_simulator.update()
@@ -234,13 +288,13 @@ class TestBenchmarkMetric(TestCase):
             backend_simulator.update()
             self.assertIn(sim_trial, backend_simulator._completed)
             self.assertEqual(backend_simulator.time, 2)
-            data = metric.fetch_trial_data(trial=trial_with_simulator).value
+            data = metric.fetch_trial_data(trial=trial).value
             if isinstance(metric, MapMetric):
                 map_df = data.map_df
-                self.assertEqual(len(map_df), 2 * len(trial_with_simulator.arms))
+                self.assertEqual(len(map_df), 2 * len(trial.arms))
                 self.assertEqual(set(map_df["step"].tolist()), {0, 1})
             df = data.df
-            self.assertEqual(len(df), len(trial_with_simulator.arms))
+            self.assertEqual(len(df), len(trial.arms))
             expected_df = _get_one_step_df(
                 batch=batch, metric_name=metric_name, step=1
             ).drop(columns=drop_cols)
