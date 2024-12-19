@@ -1,0 +1,301 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/latest/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/latest/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/latest/img/ax.svg"/><link rel="shortcut icon" href="/versions/latest/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/latest/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/latest/js/mathjax.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS_SVG"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/latest/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/latest/css/main.css"/><script src="/versions/latest/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/latest/"><img class="logo" src="/versions/latest/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/latest/versions.html"><h3>latest</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/latest/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/latest/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/latest/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.modelbridge.external_generation_node</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="c1"># pyre-strict</span>
+
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Sequence</span>
+<span class="kn">from</span> <span class="nn">logging</span> <span class="kn">import</span> <span class="n">Logger</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span> <span class="nn">ax.core.arm</span> <span class="kn">import</span> <span class="n">Arm</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.generator_run</span> <span class="kn">import</span> <span class="n">GeneratorRun</span>
+<span class="kn">from</span> <span class="nn">ax.core.observation</span> <span class="kn">import</span> <span class="n">ObservationFeatures</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="n">OptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.core.search_space</span> <span class="kn">import</span> <span class="n">SearchSpace</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">TParameterization</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.core</span> <span class="kn">import</span> <span class="n">UnsupportedError</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.generation_node</span> <span class="kn">import</span> <span class="n">GenerationNode</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transition_criterion</span> <span class="kn">import</span> <span class="n">TransitionCriterion</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+
+<span class="n">logger</span><span class="p">:</span> <span class="n">Logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="c1"># TODO[drfreund]: Introduce a `GenerationNodeInterface` to</span>
+<span class="c1"># make inheritance/overriding of `GenNode` methods cleaner.</span>
+<div class="viewcode-block" id="ExternalGenerationNode">
+<a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.external_generation_node.ExternalGenerationNode">[docs]</a>
+<span class="k">class</span> <span class="nc">ExternalGenerationNode</span><span class="p">(</span><span class="n">GenerationNode</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""A generation node intended to be used with non-Ax methods for</span>
+<span class="sd">    candidate generation.</span>
+
+<span class="sd">    To leverage external methods for candidate generation, the user must</span>
+<span class="sd">    create a subclass that implements ``update_generator_state`` and</span>
+<span class="sd">    ``get_next_candidate`` methods. This can then be provided</span>
+<span class="sd">    as a node into a ``GenerationStrategy``, either as standalone or as</span>
+<span class="sd">    part of a larger generation strategy with other generation nodes,</span>
+<span class="sd">    e.g., with a Sobol node for initialization.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">    &gt;&gt;&gt; class MyExternalGenerationNode(ExternalGenerationNode):</span>
+<span class="sd">    &gt;&gt;&gt;     ...</span>
+<span class="sd">    &gt;&gt;&gt; generation_strategy = GenerationStrategy(</span>
+<span class="sd">    &gt;&gt;&gt;     nodes = [MyExternalGenerationNode(...)]</span>
+<span class="sd">    &gt;&gt;&gt; )</span>
+<span class="sd">    &gt;&gt;&gt; ax_client = AxClient(generation_strategy=generation_strategy)</span>
+<span class="sd">    &gt;&gt;&gt; ax_client.create_experiment(...)</span>
+<span class="sd">    &gt;&gt;&gt; ax_client.get_next_trial()  # Generates trials using the new generation node.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">node_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">should_deduplicate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">transition_criteria</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">TransitionCriterion</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize an external generation node.</span>
+
+<span class="sd">        NOTE: The runtime accounting in this method should be replicated by the</span>
+<span class="sd">        subclasses. This will ensure accurate comparison of runtimes between</span>
+<span class="sd">        methods, in case a non-significant compute is spent in the constructor.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            node_name: Name of the generation node.</span>
+<span class="sd">            should_deduplicate: Whether to deduplicate the generated points against</span>
+<span class="sd">                the existing trials on the experiment. If True, the duplicate points</span>
+<span class="sd">                will be discarded and re-generated up to 5 times, after which a</span>
+<span class="sd">                `GenerationStrategyRepeatedPoints` exception will be raised.</span>
+<span class="sd">                NOTE: For this to work, the generator must be able to produce a</span>
+<span class="sd">                different parameterization when called again with the same state.</span>
+<span class="sd">            transition_criteria: Criteria for determining whether to move to the next</span>
+<span class="sd">                node in the generation strategy. This is an advanced option that is</span>
+<span class="sd">                only relevant if the generation strategy consists of multiple nodes.</span>
+<span class="sd">        """</span>
+        <span class="n">t_init_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">node_name</span><span class="o">=</span><span class="n">node_name</span><span class="p">,</span>
+            <span class="n">model_specs</span><span class="o">=</span><span class="p">[],</span>
+            <span class="n">best_model_selector</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">should_deduplicate</span><span class="o">=</span><span class="n">should_deduplicate</span><span class="p">,</span>
+            <span class="n">transition_criteria</span><span class="o">=</span><span class="n">transition_criteria</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fit_time_since_gen</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_init_start</span>
+
+<div class="viewcode-block" id="ExternalGenerationNode.update_generator_state">
+<a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.external_generation_node.ExternalGenerationNode.update_generator_state">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">update_generator_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""A method used to update the state of the generator. This includes any</span>
+<span class="sd">        models, predictors or any other custom state used by the generation node.</span>
+<span class="sd">        This method will be called with the up-to-date experiment and data before</span>
+<span class="sd">        ``get_next_candidate`` is called to generate the next trial(s). Note</span>
+<span class="sd">        that ``get_next_candidate`` may be called multiple times (to generate</span>
+<span class="sd">        multiple candidates) after a call to  ``update_generator_state``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            experiment: The ``Experiment`` object representing the current state of the</span>
+<span class="sd">                experiment. The key properties includes ``trials``, ``search_space``,</span>
+<span class="sd">                and ``optimization_config``. The data is provided as a separate arg.</span>
+<span class="sd">            data: The data / metrics collected on the experiment so far.</span>
+<span class="sd">        """</span></div>
+
+
+<div class="viewcode-block" id="ExternalGenerationNode.get_next_candidate">
+<a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.external_generation_node.ExternalGenerationNode.get_next_candidate">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">get_next_candidate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">pending_parameters</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">TParameterization</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TParameterization</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the parameters for the next candidate configuration to evaluate.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            pending_parameters: A list of parameters of the candidates pending</span>
+<span class="sd">                evaluation. This is often used to avoid generating duplicate candidates.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A dictionary mapping parameter names to parameter values for the next</span>
+<span class="sd">            candidate suggested by the method.</span>
+<span class="sd">        """</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_fitted_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model_spec_to_gen_from</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="ExternalGenerationNode.fit">
+<a class="viewcode-back" href="../../../modelbridge.html#ax.modelbridge.external_generation_node.ExternalGenerationNode.fit">[docs]</a>
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="p">:</span> <span class="n">SearchSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="p">:</span> <span class="n">OptimizationConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""A method used to initialize or update the experiment state / data</span>
+<span class="sd">        on any surrogate models or predictors used during candidate generation.</span>
+
+<span class="sd">        This method records the time spent during the update and defers to</span>
+<span class="sd">        `update_generator_state` for the actual work.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            experiment: The experiment to fit the surrogate model / predictor to.</span>
+<span class="sd">            data: The experiment data used to fit the model.</span>
+<span class="sd">            search_space: UNSUPPORTED. An optional override for the experiment</span>
+<span class="sd">                search space.</span>
+<span class="sd">            optimization_config: UNSUPPORTED. An optional override for the experiment</span>
+<span class="sd">                optimization config.</span>
+<span class="sd">            kwargs: UNSUPPORTED. Additional keyword arguments for model fitting.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">search_space</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">optimization_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UnsupportedError</span><span class="p">(</span>
+                <span class="s2">"Unexpected arguments encountered. `ExternalGenerationNode.fit` only "</span>
+                <span class="s2">"supports `experiment` and `data` arguments. "</span>
+                <span class="s2">"Each of the following arguments should be None / empty. "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">search_space</span><span class="si">=}</span><span class="s2">, </span><span class="si">{</span><span class="n">optimization_config</span><span class="si">=}</span><span class="s2">, </span><span class="si">{</span><span class="n">kwargs</span><span class="si">=}</span><span class="s2">."</span>
+            <span class="p">)</span>
+        <span class="n">t_fit_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_generator_state</span><span class="p">(</span>
+            <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fit_time_since_gen</span> <span class="o">+=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_fit_start</span></div>
+
+
+    <span class="k">def</span> <span class="nf">_gen</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">pending_observations</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">model_gen_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GeneratorRun</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Generate new candidates for evaluation.</span>
+
+<span class="sd">        This method calls `get_next_trial_parameterizations` to get the parameters</span>
+<span class="sd">        for the next trial(s), and packages it as needed for higher level Ax APIs.</span>
+<span class="sd">        If `should_deduplicate=True`, this also checks for duplicates and re-generates</span>
+<span class="sd">        the parameters as needed.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            n: Optional integer representing how many arms should be in the generator</span>
+<span class="sd">                run produced by this method. Defaults to 1.</span>
+<span class="sd">            pending_observations: A map from metric name to pending</span>
+<span class="sd">                observations for that metric, used by some methods to avoid</span>
+<span class="sd">                re-suggesting candidates that are currently being evaluated.</span>
+<span class="sd">            model_gen_kwargs: Keyword arguments, passed through to ``ModelSpec.gen``;</span>
+<span class="sd">                these override any pre-specified in ``ModelSpec.model_gen_kwargs``.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A ``GeneratorRun`` containing the newly generated candidates.</span>
+<span class="sd">        """</span>
+        <span class="n">t_gen_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">n</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">n</span>
+        <span class="n">pending_parameters</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">TParameterization</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">pending_observations</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">obs</span> <span class="ow">in</span> <span class="n">pending_observations</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">obs</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">o</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">pending_parameters</span><span class="p">:</span>
+                        <span class="n">pending_parameters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span>
+        <span class="n">generated_params</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">TParameterization</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="n">params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_next_candidate</span><span class="p">(</span><span class="n">pending_parameters</span><span class="o">=</span><span class="n">pending_parameters</span><span class="p">)</span>
+            <span class="n">generated_params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+            <span class="n">pending_parameters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+        <span class="c1"># Return the parameterizations as a generator run.</span>
+        <span class="n">generator_run</span> <span class="o">=</span> <span class="n">GeneratorRun</span><span class="p">(</span>
+            <span class="n">arms</span><span class="o">=</span><span class="p">[</span><span class="n">Arm</span><span class="p">(</span><span class="n">parameters</span><span class="o">=</span><span class="n">params</span><span class="p">)</span> <span class="k">for</span> <span class="n">params</span> <span class="ow">in</span> <span class="n">generated_params</span><span class="p">],</span>
+            <span class="n">fit_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fit_time_since_gen</span><span class="p">,</span>
+            <span class="n">gen_time</span><span class="o">=</span><span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_gen_start</span><span class="p">,</span>
+            <span class="n">model_key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">node_name</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># TODO: This shares the same bug as ModelBridge.gen. In both cases, after</span>
+        <span class="c1"># deduplication, the generator run will record fit_time as 0.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fit_time_since_gen</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">return</span> <span class="n">generator_run</span></div>
+
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="Main" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<search id="searchbox" role="search" style="display: none">
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" placeholder="Search" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../analysis.html">ax.analysis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../early_stopping.html">ax.early_stopping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../global_stopping.html">ax.global_stopping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../health_check.html">ax.health_check</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../preview.html">ax.preview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/latest/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2024 Meta Platforms, Inc.</section></footer></div></body></html>

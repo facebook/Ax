@@ -1,0 +1,1901 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.1.19/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.1.19/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.1.19/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.1.19/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.1.19/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.1.19/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.1.19/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.1.19/css/main.css"/><script src="/versions/0.1.19/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.1.19/"><img class="logo" src="/versions/0.1.19/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.1.19/versions.html"><h3>0.1.19</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.1.19/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.1.19/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.1.19/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<div class="section" id="module-ax">
+<span id="ax"></span><h1>ax<a class="headerlink" href="#module-ax" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="ax.Arm">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">Arm</code><span class="sig-paren">(</span><em class="sig-param">parameters: Dict[str, Union[str, bool, float, int, None]], name: Optional[str] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/arm.html#Arm"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Arm" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for defining arms.</p>
+<p>Randomization in experiments assigns units to a given arm. Thus, the arm
+encapsulates the parametrization needed by the unit.</p>
+<dl class="method">
+<dt id="ax.Arm.clone">
+<code class="sig-name descname">clone</code><span class="sig-paren">(</span><em class="sig-param">clear_name: bool = False</em><span class="sig-paren">)</span> → ax.core.arm.Arm<a class="reference internal" href="_modules/ax/core/arm.html#Arm.clone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Arm.clone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a copy of this arm.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>clear_name</strong> – whether this cloned copy should set its
+name to None instead of the name of the arm being cloned.
+Defaults to False.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Arm.has_name">
+<em class="property">property </em><code class="sig-name descname">has_name</code><a class="headerlink" href="#ax.Arm.has_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return true if arm’s name is not None.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Arm.md5hash">
+<em class="property">static </em><code class="sig-name descname">md5hash</code><span class="sig-paren">(</span><em class="sig-param">parameters: Dict[str, Union[str, bool, float, int, None]]</em><span class="sig-paren">)</span> → str<a class="reference internal" href="_modules/ax/core/arm.html#Arm.md5hash"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Arm.md5hash" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return unique identifier for arm’s parameters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>parameters</strong> – Parameterization; mapping of param name
+to value.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Hash of arm’s parameters.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Arm.name">
+<em class="property">property </em><code class="sig-name descname">name</code><a class="headerlink" href="#ax.Arm.name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get arm name. Throws if name is None.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Arm.name_or_short_signature">
+<em class="property">property </em><code class="sig-name descname">name_or_short_signature</code><a class="headerlink" href="#ax.Arm.name_or_short_signature" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns arm name if exists; else last 4 characters of the hash.</p>
+<p>Used for presentation of candidates (e.g. plotting and tables),
+where the candidates do not yet have names (since names are
+automatically set upon addition to a trial).</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Arm.parameters">
+<em class="property">property </em><code class="sig-name descname">parameters</code><a class="headerlink" href="#ax.Arm.parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get mapping from parameter names to values.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Arm.signature">
+<em class="property">property </em><code class="sig-name descname">signature</code><a class="headerlink" href="#ax.Arm.signature" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get unique representation of a arm.</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.BatchTrial">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">BatchTrial</code><span class="sig-paren">(</span><em class="sig-param">experiment: core.experiment.Experiment</em>, <em class="sig-param">generator_run: Optional[GeneratorRun] = None</em>, <em class="sig-param">trial_type: Optional[str] = None</em>, <em class="sig-param">optimize_for_power: Optional[bool] = False</em>, <em class="sig-param">ttl_seconds: Optional[int] = None</em>, <em class="sig-param">index: Optional[int] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/batch_trial.html#BatchTrial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.BatchTrial" title="Permalink to this definition">¶</a></dt>
+<dd><p>Batched trial that has multiple attached arms, meant to be
+<em>deployed and evaluated together</em>, and possibly arm weights, which are
+a measure of how much of the total resources allocated to evaluating
+a batch should go towards evaluating the specific arm. For instance,
+for field experiments the weights could describe the fraction of the
+total experiment population assigned to the different treatment arms.
+Interpretation of the weights is defined in Runner.</p>
+<p>NOTE: A <cite>BatchTrial</cite> is not just a trial with many arms; it is a trial,
+for which it is important that the arms are evaluated simultaneously, e.g.
+in an A/B test where the evaluation results are subject to nonstationarity.
+For cases where multiple arms are evaluated separately and independently of
+each other, use multiple <cite>Trial</cite> objects with a single arm each.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>experiment</strong> – Experiment, to which this trial is attached</p></li>
+<li><p><strong>generator_run</strong> – GeneratorRun, associated with this trial. This can a
+also be set later through <cite>add_arm</cite> or <cite>add_generator_run</cite>, but a
+trial’s associated generator run is immutable once set.</p></li>
+<li><p><strong>trial_type</strong> – Type of this trial, if used in MultiTypeExperiment.</p></li>
+<li><p><strong>optimize_for_power</strong> – Whether to optimize the weights of arms in this
+trial such that the experiment’s power to detect effects of
+certain size is as high as possible. Refer to documentation of
+<cite>BatchTrial.set_status_quo_and_optimize_power</cite> for more detail.</p></li>
+<li><p><strong>ttl_seconds</strong> – If specified, trials will be considered failed after
+this many seconds since the time the trial was ran, unless the
+trial is completed before then. Meant to be used to detect
+‘dead’ trials, for which the evaluation process might have
+crashed etc., and which should be considered failed after
+their ‘time to live’ has passed.</p></li>
+<li><p><strong>index</strong> – If specified, the trial’s index will be set accordingly.
+This should generally not be specified, as in the index will be
+automatically determined based on the number of existing trials.
+This is only used for the purpose of loading from storage.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="method">
+<dt id="ax.BatchTrial.abandoned_arms">
+<em class="property">property </em><code class="sig-name descname">abandoned_arms</code><a class="headerlink" href="#ax.BatchTrial.abandoned_arms" title="Permalink to this definition">¶</a></dt>
+<dd><p>List of arms that have been abandoned within this trial</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.BatchTrial.arm_weights">
+<em class="property">property </em><code class="sig-name descname">arm_weights</code><a class="headerlink" href="#ax.BatchTrial.arm_weights" title="Permalink to this definition">¶</a></dt>
+<dd><p>The set of arms and associated weights for the trial.</p>
+<p>These are constructed by merging the arms and weights from
+each generator run that is attached to the trial.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.BatchTrial.arms">
+<em class="property">property </em><code class="sig-name descname">arms</code><a class="headerlink" href="#ax.BatchTrial.arms" title="Permalink to this definition">¶</a></dt>
+<dd><p>All arms contained in the trial.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.BatchTrial.arms_by_name">
+<em class="property">property </em><code class="sig-name descname">arms_by_name</code><a class="headerlink" href="#ax.BatchTrial.arms_by_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Map from arm name to object for all arms in trial.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.BatchTrial.clone">
+<code class="sig-name descname">clone</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.batch_trial.BatchTrial<a class="reference internal" href="_modules/ax/core/batch_trial.html#BatchTrial.clone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.BatchTrial.clone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clone the trial.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>A new instance of the trial.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.BatchTrial.experiment">
+<em class="property">property </em><code class="sig-name descname">experiment</code><a class="headerlink" href="#ax.BatchTrial.experiment" title="Permalink to this definition">¶</a></dt>
+<dd><p>The experiment this batch belongs to.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.BatchTrial.generator_run_structs">
+<em class="property">property </em><code class="sig-name descname">generator_run_structs</code><a class="headerlink" href="#ax.BatchTrial.generator_run_structs" title="Permalink to this definition">¶</a></dt>
+<dd><p>List of generator run structs attached to this trial.</p>
+<p>Struct holds generator_run object and the weight with which it was added.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.BatchTrial.generator_runs">
+<em class="property">property </em><code class="sig-name descname">generator_runs</code><a class="headerlink" href="#ax.BatchTrial.generator_runs" title="Permalink to this definition">¶</a></dt>
+<dd><p>All generator runs associated with this trial.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.BatchTrial.index">
+<em class="property">property </em><code class="sig-name descname">index</code><a class="headerlink" href="#ax.BatchTrial.index" title="Permalink to this definition">¶</a></dt>
+<dd><p>The index of this batch within the experiment’s batch list.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.BatchTrial.is_factorial">
+<em class="property">property </em><code class="sig-name descname">is_factorial</code><a class="headerlink" href="#ax.BatchTrial.is_factorial" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return true if the trial’s arms are a factorial design with
+no linked factors.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.BatchTrial.mark_arm_abandoned">
+<code class="sig-name descname">mark_arm_abandoned</code><span class="sig-paren">(</span><em class="sig-param">arm_name: str</em>, <em class="sig-param">reason: Optional[str] = None</em><span class="sig-paren">)</span> → ax.core.batch_trial.BatchTrial<a class="reference internal" href="_modules/ax/core/batch_trial.html#BatchTrial.mark_arm_abandoned"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.BatchTrial.mark_arm_abandoned" title="Permalink to this definition">¶</a></dt>
+<dd><p>Mark a arm abandoned.</p>
+<p>Usually done after deployment when one arm causes issues but
+user wants to continue running other arms in the batch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>arm_name</strong> – The name of the arm to abandon.</p></li>
+<li><p><strong>reason</strong> – The reason for abandoning the arm.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The batch instance.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.BatchTrial.normalized_arm_weights">
+<code class="sig-name descname">normalized_arm_weights</code><span class="sig-paren">(</span><em class="sig-param">total: float = 1</em>, <em class="sig-param">trunc_digits: Optional[int] = None</em><span class="sig-paren">)</span> → MutableMapping[ax.core.arm.Arm, float]<a class="reference internal" href="_modules/ax/core/batch_trial.html#BatchTrial.normalized_arm_weights"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.BatchTrial.normalized_arm_weights" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns arms with a new set of weights normalized
+to the given total.</p>
+<p>This method is useful for many runners where we need to normalize weights
+to a certain total without mutating the weights attached to a trial.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>total</strong> – The total weight to which to normalize.
+Default is 1, in which case arm weights
+can be interpreted as probabilities.</p></li>
+<li><p><strong>trunc_digits</strong> – The number of digits to keep. If the
+resulting total weight is not equal to <cite>total</cite>, re-allocate
+weight in such a way to maintain relative weights as best as
+possible.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Mapping from arms to the new set of weights.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.BatchTrial.run">
+<code class="sig-name descname">run</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.batch_trial.BatchTrial<a class="reference internal" href="_modules/ax/core/batch_trial.html#BatchTrial.run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.BatchTrial.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deploys the trial according to the behavior on the runner.</p>
+<p>The runner returns a <cite>run_metadata</cite> dict containining metadata
+of the deployment process. It also returns a <cite>deployed_name</cite> of the trial
+within the system to which it was deployed. Both these fields are set on
+the trial.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>The trial instance.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.BatchTrial.status_quo">
+<em class="property">property </em><code class="sig-name descname">status_quo</code><a class="headerlink" href="#ax.BatchTrial.status_quo" title="Permalink to this definition">¶</a></dt>
+<dd><p>The control arm for this batch.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.BatchTrial.unset_status_quo">
+<code class="sig-name descname">unset_status_quo</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → None<a class="reference internal" href="_modules/ax/core/batch_trial.html#BatchTrial.unset_status_quo"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.BatchTrial.unset_status_quo" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the status quo to None.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.BatchTrial.weights">
+<em class="property">property </em><code class="sig-name descname">weights</code><a class="headerlink" href="#ax.BatchTrial.weights" title="Permalink to this definition">¶</a></dt>
+<dd><p>Weights corresponding to arms contained in the trial.</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.ChoiceParameter">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">ChoiceParameter</code><span class="sig-paren">(</span><em class="sig-param">name: str, parameter_type: ax.core.parameter.ParameterType, values: List[Union[str, bool, float, int, None]], is_ordered: bool = False, is_task: bool = False, is_fidelity: bool = False, target_value: Union[str, bool, float, int, None] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/parameter.html#ChoiceParameter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.ChoiceParameter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parameter object that specifies a discrete set of values.</p>
+<dl class="method">
+<dt id="ax.ChoiceParameter.add_values">
+<code class="sig-name descname">add_values</code><span class="sig-paren">(</span><em class="sig-param">values: List[Union[str, bool, float, int, None]]</em><span class="sig-paren">)</span> → ax.core.parameter.ChoiceParameter<a class="reference internal" href="_modules/ax/core/parameter.html#ChoiceParameter.add_values"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.ChoiceParameter.add_values" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add input list to the set of allowed values for parameter.</p>
+<p>Cast all input values to the parameter type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>values</strong> – Values being added to the allowed list.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.ChoiceParameter.set_values">
+<code class="sig-name descname">set_values</code><span class="sig-paren">(</span><em class="sig-param">values: List[Union[str, bool, float, int, None]]</em><span class="sig-paren">)</span> → ax.core.parameter.ChoiceParameter<a class="reference internal" href="_modules/ax/core/parameter.html#ChoiceParameter.set_values"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.ChoiceParameter.set_values" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the list of allowed values for parameter.</p>
+<p>Cast all input values to the parameter type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>values</strong> – New list of allowed values.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.ChoiceParameter.validate">
+<code class="sig-name descname">validate</code><span class="sig-paren">(</span><em class="sig-param">value: Union[str, bool, float, int, None]</em><span class="sig-paren">)</span> → bool<a class="reference internal" href="_modules/ax/core/parameter.html#ChoiceParameter.validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.ChoiceParameter.validate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks that the input is in the list of allowed values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>value</strong> – Value being checked.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if valid, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.ComparisonOp">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">ComparisonOp</code><a class="reference internal" href="_modules/ax/core/types.html#ComparisonOp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.ComparisonOp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class for enumerating comparison operations.</p>
+</dd></dl>
+<dl class="class">
+<dt id="ax.Data">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">Data</code><span class="sig-paren">(</span><em class="sig-param">df: Optional[pandas.DataFrame] = None</em>, <em class="sig-param">description: Optional[str] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/data.html#Data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class storing data for an experiment.</p>
+<p>The dataframe is retrieved via the <cite>df</cite> property. The data can be stored
+to an external store for future use by attaching it to an experiment using
+<cite>experiment.attach_data()</cite> (this requires a description to be set.)</p>
+<dl class="attribute">
+<dt id="ax.Data.df">
+<code class="sig-name descname">df</code><a class="headerlink" href="#ax.Data.df" title="Permalink to this definition">¶</a></dt>
+<dd><p>DataFrame with underlying data, and required columns.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.Data.description">
+<code class="sig-name descname">description</code><a class="headerlink" href="#ax.Data.description" title="Permalink to this definition">¶</a></dt>
+<dd><p>Human-readable description of data.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Data.column_data_types">
+<em class="property">static </em><code class="sig-name descname">column_data_types</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → Dict[str, Type]<a class="reference internal" href="_modules/ax/core/data.html#Data.column_data_types"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Data.column_data_types" title="Permalink to this definition">¶</a></dt>
+<dd><p>Type specification for all supported columns.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Data.df_hash">
+<em class="property">property </em><code class="sig-name descname">df_hash</code><a class="headerlink" href="#ax.Data.df_hash" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute hash of pandas DataFrame.</p>
+<p>This first serializes the DataFrame and computes the md5 hash on the
+resulting string. Note that this may cause performance issue for very large
+DataFrames.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>df</strong> – The DataFrame for which to compute the hash.</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Returns</dt><dd><p>str: The hash of the DataFrame.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Data.from_evaluations">
+<em class="property">static </em><code class="sig-name descname">from_evaluations</code><span class="sig-paren">(</span><em class="sig-param">evaluations: Dict[str, Dict[str, Tuple[float, Optional[float]]]], trial_index: int, sample_sizes: Optional[Dict[str, int]] = None, start_time: Optional[int] = None, end_time: Optional[int] = None</em><span class="sig-paren">)</span> → ax.core.data.Data<a class="reference internal" href="_modules/ax/core/data.html#Data.from_evaluations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Data.from_evaluations" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert dict of evaluations to Ax data object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>evaluations</strong> – Map from arm name to metric outcomes (itself a mapping
+of metric names to tuples of mean and optionally a SEM).</p></li>
+<li><p><strong>trial_index</strong> – Trial index to which this data belongs.</p></li>
+<li><p><strong>sample_sizes</strong> – Number of samples collected for each arm.</p></li>
+<li><p><strong>start_time</strong> – Optional start time of run of the trial that produced this
+data, in milliseconds.</p></li>
+<li><p><strong>end_time</strong> – Optional end time of run of the trial that produced this
+data, in milliseconds.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Ax Data object.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Data.from_fidelity_evaluations">
+<em class="property">static </em><code class="sig-name descname">from_fidelity_evaluations</code><span class="sig-paren">(</span><em class="sig-param">evaluations: Dict[str, List[Tuple[Dict[str, Union[str, bool, float, int, None]], Dict[str, Tuple[float, Optional[float]]]]]], trial_index: int, sample_sizes: Optional[Dict[str, int]] = None, start_time: Optional[int] = None, end_time: Optional[int] = None</em><span class="sig-paren">)</span> → ax.core.data.Data<a class="reference internal" href="_modules/ax/core/data.html#Data.from_fidelity_evaluations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Data.from_fidelity_evaluations" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert dict of fidelity evaluations to Ax data object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>evaluations</strong> – Map from arm name to list of (fidelity, metric outcomes)
+(where metric outcomes is itself a mapping of metric names to
+tuples of mean and SEM).</p></li>
+<li><p><strong>trial_index</strong> – Trial index to which this data belongs.</p></li>
+<li><p><strong>sample_sizes</strong> – Number of samples collected for each arm.</p></li>
+<li><p><strong>start_time</strong> – Optional start time of run of the trial that produced this
+data, in milliseconds.</p></li>
+<li><p><strong>end_time</strong> – Optional end time of run of the trial that produced this
+data, in milliseconds.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Ax Data object.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Data.from_multiple_data">
+<em class="property">static </em><code class="sig-name descname">from_multiple_data</code><span class="sig-paren">(</span><em class="sig-param">data: Iterable[ax.core.data.Data], subset_metrics: Optional[Iterable[str]] = None</em><span class="sig-paren">)</span> → ax.core.data.Data<a class="reference internal" href="_modules/ax/core/data.html#Data.from_multiple_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Data.from_multiple_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Combines multiple data objects into one (with the concatenated
+underlying dataframe).</p>
+<p>NOTE: if one or more data objects in the iterable is of a custom
+subclass of <cite>Data</cite>, object of that class will be returned. If
+the iterable contains multiple types of <cite>Data</cite>, an error will be
+raised.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> – Iterable of Ax <cite>Data</cite> objects to combine.</p></li>
+<li><p><strong>subset_metrics</strong> – If specified, combined <cite>Data</cite> will only contain
+metrics, names of which appear in this iterable,
+in the underlying dataframe.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Data.metric_names">
+<em class="property">property </em><code class="sig-name descname">metric_names</code><a class="headerlink" href="#ax.Data.metric_names" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set of metric names that appear in the underlying dataframe of
+this <cite>Data</cite> object.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Data.required_columns">
+<em class="property">static </em><code class="sig-name descname">required_columns</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → Set[str]<a class="reference internal" href="_modules/ax/core/data.html#Data.required_columns"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Data.required_columns" title="Permalink to this definition">¶</a></dt>
+<dd><p>Names of required columns.</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.Experiment">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">Experiment</code><span class="sig-paren">(</span><em class="sig-param">search_space: ax.core.search_space.SearchSpace</em>, <em class="sig-param">name: Optional[str] = None</em>, <em class="sig-param">optimization_config: Optional[ax.core.optimization_config.OptimizationConfig] = None</em>, <em class="sig-param">tracking_metrics: Optional[List[ax.core.metric.Metric]] = None</em>, <em class="sig-param">runner: Optional[ax.core.runner.Runner] = None</em>, <em class="sig-param">status_quo: Optional[ax.core.arm.Arm] = None</em>, <em class="sig-param">description: Optional[str] = None</em>, <em class="sig-param">is_test: bool = False</em>, <em class="sig-param">experiment_type: Optional[str] = None</em>, <em class="sig-param">properties: Optional[Dict[str</em>, <em class="sig-param">Any]] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/experiment.html#Experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Experiment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for defining an experiment.</p>
+<dl class="method">
+<dt id="ax.Experiment.add_tracking_metric">
+<code class="sig-name descname">add_tracking_metric</code><span class="sig-paren">(</span><em class="sig-param">metric: ax.core.metric.Metric</em><span class="sig-paren">)</span> → ax.core.experiment.Experiment<a class="reference internal" href="_modules/ax/core/experiment.html#Experiment.add_tracking_metric"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Experiment.add_tracking_metric" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a new metric to the experiment.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>metric</strong> – Metric to be added.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.add_tracking_metrics">
+<code class="sig-name descname">add_tracking_metrics</code><span class="sig-paren">(</span><em class="sig-param">metrics: List[ax.core.metric.Metric]</em><span class="sig-paren">)</span> → ax.core.experiment.Experiment<a class="reference internal" href="_modules/ax/core/experiment.html#Experiment.add_tracking_metrics"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Experiment.add_tracking_metrics" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a list of new metrics to the experiment.</p>
+<p>If any of the metrics are already defined on the experiment,
+we raise an error and don’t add any of them to the experiment</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>metrics</strong> – Metrics to be added.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.arms_by_name">
+<em class="property">property </em><code class="sig-name descname">arms_by_name</code><a class="headerlink" href="#ax.Experiment.arms_by_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>The arms belonging to this experiment, by their name.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.arms_by_signature">
+<em class="property">property </em><code class="sig-name descname">arms_by_signature</code><a class="headerlink" href="#ax.Experiment.arms_by_signature" title="Permalink to this definition">¶</a></dt>
+<dd><p>The arms belonging to this experiment, by their signature.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.attach_data">
+<code class="sig-name descname">attach_data</code><span class="sig-paren">(</span><em class="sig-param">data: ax.core.data.Data</em>, <em class="sig-param">combine_with_last_data: bool = False</em><span class="sig-paren">)</span> → int<a class="reference internal" href="_modules/ax/core/experiment.html#Experiment.attach_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Experiment.attach_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Attach data to experiment. Stores data in <cite>experiment._data_by_trial</cite>,
+to be looked up via <cite>experiment.lookup_data_for_trial</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> – Data object to store.</p></li>
+<li><p><strong>combine_with_last_data</strong> – By default, when attaching data, it’s identified
+by its timestamp, and <cite>experiment.lookup_data_for_trial</cite> returns
+data by most recent timestamp. In some cases, however, the goal
+is to combine all data attached for a trial into a single <cite>Data</cite>
+object. To achieve that goal, every call to <cite>attach_data</cite> after
+the initial data is attached to trials, should be set to <cite>True</cite>.
+Then, the newly attached data will be appended to existing data,
+rather than stored as a separate object, and <cite>lookup_data_for_trial</cite>
+will return the combined data object, rather than just the most
+recently added data. This will validate that the newly added data
+does not contain observations for the metrics that already have
+observations in the most recent data stored.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Timestamp of storage in millis.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.data_by_trial">
+<em class="property">property </em><code class="sig-name descname">data_by_trial</code><a class="headerlink" href="#ax.Experiment.data_by_trial" title="Permalink to this definition">¶</a></dt>
+<dd><p>Data stored on the experiment, indexed by trial index and storage time.</p>
+<p>First key is trial index and second key is storage time in milliseconds.
+For a given trial, data is ordered by storage time, so first added data
+will appear first in the list.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.default_trial_type">
+<em class="property">property </em><code class="sig-name descname">default_trial_type</code><a class="headerlink" href="#ax.Experiment.default_trial_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Default trial type assigned to trials in this experiment.</p>
+<p>In the base experiment class this is always None. For experiments
+with multiple trial types, use the MultiTypeExperiment class.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.experiment_type">
+<em class="property">property </em><code class="sig-name descname">experiment_type</code><a class="headerlink" href="#ax.Experiment.experiment_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>The type of the experiment.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.fetch_data">
+<code class="sig-name descname">fetch_data</code><span class="sig-paren">(</span><em class="sig-param">metrics: Optional[List[ax.core.metric.Metric]] = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> → ax.core.data.Data<a class="reference internal" href="_modules/ax/core/experiment.html#Experiment.fetch_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Experiment.fetch_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetches data for all trials on this experiment and for either the
+specified metrics or all metrics currently on the experiment, if <cite>metrics</cite>
+argument is not specified.</p>
+<p>NOTE: For metrics that are not available while trial is running, the data
+may be retrieved from cache on the experiment. Data is cached on the experiment
+via calls to <cite>experiment.attach_data</cite> and whetner a given metric class is
+available while trial is running is determined by the boolean returned from its
+<cite>is_available_while_running</cite> class method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>metrics</strong> – If provided, fetch data for these metrics instead of the ones
+defined on the experiment.</p></li>
+<li><p><strong>kwargs</strong> – keyword args to pass to underlying metrics’ fetch data functions.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Data for the experiment.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.fetch_trials_data">
+<code class="sig-name descname">fetch_trials_data</code><span class="sig-paren">(</span><em class="sig-param">trial_indices: Iterable[int], metrics: Optional[List[ax.core.metric.Metric]] = None, **kwargs: Any</em><span class="sig-paren">)</span> → ax.core.data.Data<a class="reference internal" href="_modules/ax/core/experiment.html#Experiment.fetch_trials_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Experiment.fetch_trials_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetches data for specific trials on the experiment.</p>
+<p>NOTE: For metrics that are not available while trial is running, the data
+may be retrieved from cache on the experiment. Data is cached on the experiment
+via calls to <cite>experiment.attach_data</cite> and whetner a given metric class is
+available while trial is running is determined by the boolean returned from its
+<cite>is_available_while_running</cite> class method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>trial_indices</strong> – Indices of trials, for which to fetch data.</p></li>
+<li><p><strong>metrics</strong> – If provided, fetch data for these metrics instead of the ones
+defined on the experiment.</p></li>
+<li><p><strong>kwargs</strong> – Keyword args to pass to underlying metrics’ fetch data functions.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Data for the specific trials on the experiment.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.get_trials_by_indices">
+<code class="sig-name descname">get_trials_by_indices</code><span class="sig-paren">(</span><em class="sig-param">trial_indices: Iterable[int]</em><span class="sig-paren">)</span> → List[ax.core.base_trial.BaseTrial]<a class="reference internal" href="_modules/ax/core/experiment.html#Experiment.get_trials_by_indices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Experiment.get_trials_by_indices" title="Permalink to this definition">¶</a></dt>
+<dd><p>Grabs trials on this experiment by their indices.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.has_name">
+<em class="property">property </em><code class="sig-name descname">has_name</code><a class="headerlink" href="#ax.Experiment.has_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return true if experiment’s name is not None.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.immutable_search_space_and_opt_config">
+<em class="property">property </em><code class="sig-name descname">immutable_search_space_and_opt_config</code><a class="headerlink" href="#ax.Experiment.immutable_search_space_and_opt_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Boolean representing whether search space and metrics on this experiment
+are mutable (by default they are).</p>
+<p>NOTE: For experiments with immutable search spaces and metrics, generator
+runs will not store copies of search space and metrics, which improves
+storage layer performance. Not keeping copies of those on generator runs
+also disables keeping track of changes to search space and metrics,
+thereby necessitating that those attributes be immutable on experiment.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.is_simple_experiment">
+<em class="property">property </em><code class="sig-name descname">is_simple_experiment</code><a class="headerlink" href="#ax.Experiment.is_simple_experiment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether this experiment is a regular Experiment or the subclassing
+<cite>SimpleExperiment</cite>.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.lookup_data_for_trial">
+<code class="sig-name descname">lookup_data_for_trial</code><span class="sig-paren">(</span><em class="sig-param">trial_index: int</em><span class="sig-paren">)</span> → Tuple[ax.core.data.Data, int]<a class="reference internal" href="_modules/ax/core/experiment.html#Experiment.lookup_data_for_trial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Experiment.lookup_data_for_trial" title="Permalink to this definition">¶</a></dt>
+<dd><p>Lookup stored data for a specific trial.</p>
+<p>Returns latest data object, and its storage timestamp, present for this trial.
+Returns empty data and -1 if no data present.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>trial_index</strong> – The index of the trial to lookup data for.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The requested data object, and its storage timestamp in milliseconds.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.lookup_data_for_ts">
+<code class="sig-name descname">lookup_data_for_ts</code><span class="sig-paren">(</span><em class="sig-param">timestamp: int</em><span class="sig-paren">)</span> → ax.core.data.Data<a class="reference internal" href="_modules/ax/core/experiment.html#Experiment.lookup_data_for_ts"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Experiment.lookup_data_for_ts" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect data for all trials stored at this timestamp.</p>
+<p>Useful when many trials’ data was fetched and stored simultaneously
+and user wants to retrieve same collection of data later.</p>
+<p>Can also be used to lookup specific data for a single trial
+when storage time is known.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>timestamp</strong> – Timestamp in millis at which data was stored.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Data object with all data stored at the timestamp.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.metrics">
+<em class="property">property </em><code class="sig-name descname">metrics</code><a class="headerlink" href="#ax.Experiment.metrics" title="Permalink to this definition">¶</a></dt>
+<dd><p>The metrics attached to the experiment.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.name">
+<em class="property">property </em><code class="sig-name descname">name</code><a class="headerlink" href="#ax.Experiment.name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get experiment name. Throws if name is None.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.new_batch_trial">
+<code class="sig-name descname">new_batch_trial</code><span class="sig-paren">(</span><em class="sig-param">generator_run: Optional[ax.core.generator_run.GeneratorRun] = None</em>, <em class="sig-param">trial_type: Optional[str] = None</em>, <em class="sig-param">optimize_for_power: Optional[bool] = False</em>, <em class="sig-param">ttl_seconds: Optional[int] = None</em><span class="sig-paren">)</span> → ax.core.batch_trial.BatchTrial<a class="reference internal" href="_modules/ax/core/experiment.html#Experiment.new_batch_trial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Experiment.new_batch_trial" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a new batch trial associated with this experiment.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>generator_run</strong> – GeneratorRun, associated with this trial. This can a
+also be set later through <cite>add_arm</cite> or <cite>add_generator_run</cite>, but a
+trial’s associated generator run is immutable once set.</p></li>
+<li><p><strong>trial_type</strong> – Type of this trial, if used in MultiTypeExperiment.</p></li>
+<li><p><strong>optimize_for_power</strong> – Whether to optimize the weights of arms in this
+trial such that the experiment’s power to detect effects of
+certain size is as high as possible. Refer to documentation of
+<cite>BatchTrial.set_status_quo_and_optimize_power</cite> for more detail.</p></li>
+<li><p><strong>ttl_seconds</strong> – If specified, trials will be considered failed after
+this many seconds since the time the trial was ran, unless the
+trial is completed before then. Meant to be used to detect
+‘dead’ trials, for which the evaluation process might have
+crashed etc., and which should be considered failed after
+their ‘time to live’ has passed.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.new_trial">
+<code class="sig-name descname">new_trial</code><span class="sig-paren">(</span><em class="sig-param">generator_run: Optional[ax.core.generator_run.GeneratorRun] = None</em>, <em class="sig-param">trial_type: Optional[str] = None</em>, <em class="sig-param">ttl_seconds: Optional[int] = None</em><span class="sig-paren">)</span> → ax.core.trial.Trial<a class="reference internal" href="_modules/ax/core/experiment.html#Experiment.new_trial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Experiment.new_trial" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a new trial associated with this experiment.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>generator_run</strong> – GeneratorRun, associated with this trial.
+Trial has only one arm attached to it and this generator_run
+must therefore contain one arm. This arm can also be set later
+through <cite>add_arm</cite> or <cite>add_generator_run</cite>, but a trial’s
+associated generator run is immutable once set.</p></li>
+<li><p><strong>trial_type</strong> – Type of this trial, if used in MultiTypeExperiment.</p></li>
+<li><p><strong>ttl_seconds</strong> – If specified, trials will be considered failed after
+this many seconds since the time the trial was ran, unless the
+trial is completed before then. Meant to be used to detect
+‘dead’ trials, for which the evaluation process might have
+crashed etc., and which should be considered failed after
+their ‘time to live’ has passed.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.num_abandoned_arms">
+<em class="property">property </em><code class="sig-name descname">num_abandoned_arms</code><a class="headerlink" href="#ax.Experiment.num_abandoned_arms" title="Permalink to this definition">¶</a></dt>
+<dd><p>How many arms attached to this experiment are abandoned.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.num_trials">
+<em class="property">property </em><code class="sig-name descname">num_trials</code><a class="headerlink" href="#ax.Experiment.num_trials" title="Permalink to this definition">¶</a></dt>
+<dd><p>How many trials are associated with this experiment.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.optimization_config">
+<em class="property">property </em><code class="sig-name descname">optimization_config</code><a class="headerlink" href="#ax.Experiment.optimization_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>The experiment’s optimization config.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.parameters">
+<em class="property">property </em><code class="sig-name descname">parameters</code><a class="headerlink" href="#ax.Experiment.parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>The parameters in the experiment’s search space.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.remove_tracking_metric">
+<code class="sig-name descname">remove_tracking_metric</code><span class="sig-paren">(</span><em class="sig-param">metric_name: str</em><span class="sig-paren">)</span> → ax.core.experiment.Experiment<a class="reference internal" href="_modules/ax/core/experiment.html#Experiment.remove_tracking_metric"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Experiment.remove_tracking_metric" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove a metric that already exists on the experiment.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>metric_name</strong> – Unique name of metric to remove.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.reset_runners">
+<code class="sig-name descname">reset_runners</code><span class="sig-paren">(</span><em class="sig-param">runner: ax.core.runner.Runner</em><span class="sig-paren">)</span> → None<a class="reference internal" href="_modules/ax/core/experiment.html#Experiment.reset_runners"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Experiment.reset_runners" title="Permalink to this definition">¶</a></dt>
+<dd><p>Replace all candidate trials runners.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>runner</strong> – New runner to replace with.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.runner_for_trial">
+<code class="sig-name descname">runner_for_trial</code><span class="sig-paren">(</span><em class="sig-param">trial: ax.core.base_trial.BaseTrial</em><span class="sig-paren">)</span> → Optional[ax.core.runner.Runner]<a class="reference internal" href="_modules/ax/core/experiment.html#Experiment.runner_for_trial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Experiment.runner_for_trial" title="Permalink to this definition">¶</a></dt>
+<dd><p>The default runner to use for a given trial.</p>
+<p>In the base experiment class, this is always the default experiment runner.
+For experiments with multiple trial types, use the MultiTypeExperiment class.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.search_space">
+<em class="property">property </em><code class="sig-name descname">search_space</code><a class="headerlink" href="#ax.Experiment.search_space" title="Permalink to this definition">¶</a></dt>
+<dd><p>The search space for this experiment.</p>
+<p>When setting a new search space, all parameter names and types
+must be preserved. However, if no trials have been created, all
+modifications are allowed.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.status_quo">
+<em class="property">property </em><code class="sig-name descname">status_quo</code><a class="headerlink" href="#ax.Experiment.status_quo" title="Permalink to this definition">¶</a></dt>
+<dd><p>The existing arm that new arms will be compared against.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.sum_trial_sizes">
+<em class="property">property </em><code class="sig-name descname">sum_trial_sizes</code><a class="headerlink" href="#ax.Experiment.sum_trial_sizes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sum of numbers of arms attached to each trial in this experiment.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.supports_trial_type">
+<code class="sig-name descname">supports_trial_type</code><span class="sig-paren">(</span><em class="sig-param">trial_type: Optional[str]</em><span class="sig-paren">)</span> → bool<a class="reference internal" href="_modules/ax/core/experiment.html#Experiment.supports_trial_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Experiment.supports_trial_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether this experiment allows trials of the given type.</p>
+<p>The base experiment class only supports None. For experiments
+with multiple trial types, use the MultiTypeExperiment class.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.time_created">
+<em class="property">property </em><code class="sig-name descname">time_created</code><a class="headerlink" href="#ax.Experiment.time_created" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creation time of the experiment.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.trial_indices_by_status">
+<em class="property">property </em><code class="sig-name descname">trial_indices_by_status</code><a class="headerlink" href="#ax.Experiment.trial_indices_by_status" title="Permalink to this definition">¶</a></dt>
+<dd><p>Indices of trials associated with the experiment, grouped by trial
+status.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.trials">
+<em class="property">property </em><code class="sig-name descname">trials</code><a class="headerlink" href="#ax.Experiment.trials" title="Permalink to this definition">¶</a></dt>
+<dd><p>The trials associated with the experiment.</p>
+<p>NOTE: If some trials on this experiment specify their TTL, <cite>RUNNING</cite> trials
+will be checked for whether their TTL elapsed during this call. Found past-
+TTL trials will be marked as <cite>FAILED</cite>.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.trials_by_status">
+<em class="property">property </em><code class="sig-name descname">trials_by_status</code><a class="headerlink" href="#ax.Experiment.trials_by_status" title="Permalink to this definition">¶</a></dt>
+<dd><p>Trials associated with the experiment, grouped by trial status.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.trials_expecting_data">
+<em class="property">property </em><code class="sig-name descname">trials_expecting_data</code><a class="headerlink" href="#ax.Experiment.trials_expecting_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>the list of all trials for which data has arrived
+or is expected to arrive.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>List[<a class="reference internal" href="core.html#ax.core.base_trial.BaseTrial" title="ax.core.base_trial.BaseTrial">BaseTrial</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Experiment.update_tracking_metric">
+<code class="sig-name descname">update_tracking_metric</code><span class="sig-paren">(</span><em class="sig-param">metric: ax.core.metric.Metric</em><span class="sig-paren">)</span> → ax.core.experiment.Experiment<a class="reference internal" href="_modules/ax/core/experiment.html#Experiment.update_tracking_metric"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Experiment.update_tracking_metric" title="Permalink to this definition">¶</a></dt>
+<dd><p>Redefine a metric that already exists on the experiment.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>metric</strong> – New metric definition.</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.FixedParameter">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">FixedParameter</code><span class="sig-paren">(</span><em class="sig-param">name: str, parameter_type: ax.core.parameter.ParameterType, value: Union[str, bool, float, int, None], is_fidelity: bool = False, target_value: Union[str, bool, float, int, None] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/parameter.html#FixedParameter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.FixedParameter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parameter object that specifies a single fixed value.</p>
+<dl class="method">
+<dt id="ax.FixedParameter.validate">
+<code class="sig-name descname">validate</code><span class="sig-paren">(</span><em class="sig-param">value: Union[str, bool, float, int, None]</em><span class="sig-paren">)</span> → bool<a class="reference internal" href="_modules/ax/core/parameter.html#FixedParameter.validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.FixedParameter.validate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks that the input is equal to the fixed value.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>value</strong> – Value being checked.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if valid, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.GeneratorRun">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">GeneratorRun</code><span class="sig-paren">(</span><em class="sig-param">arms: List[ax.core.arm.Arm], weights: Optional[List[float]] = None, optimization_config: Optional[ax.core.optimization_config.OptimizationConfig] = None, search_space: Optional[ax.core.search_space.SearchSpace] = None, model_predictions: Optional[Tuple[Dict[str, List[float]], Dict[str, Dict[str, List[float]]]]] = None, best_arm_predictions: Optional[Tuple[ax.core.arm.Arm, Optional[Tuple[Dict[str, float], Optional[Dict[str, Dict[str, float]]]]]]] = None, type: Optional[str] = None, fit_time: Optional[float] = None, gen_time: Optional[float] = None, model_key: Optional[str] = None, model_kwargs: Optional[Dict[str, Any]] = None, bridge_kwargs: Optional[Dict[str, Any]] = None, gen_metadata: Optional[Dict[str, Any]] = None, model_state_after_gen: Optional[Dict[str, Any]] = None, generation_step_index: Optional[int] = None, candidate_metadata_by_arm_signature: Optional[Dict[str, Optional[Dict[str, Any]]]] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/generator_run.html#GeneratorRun"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.GeneratorRun" title="Permalink to this definition">¶</a></dt>
+<dd><p>An object that represents a single run of a generator.</p>
+<p>This object is created each time the <code class="docutils literal notranslate"><span class="pre">gen</span></code> method of a generator is
+called. It stores the arms and (optionally) weights that were
+generated by the run. When we add a generator run to a trial, its
+arms and weights will be merged with those from previous generator
+runs that were already attached to the trial.</p>
+<dl class="method">
+<dt id="ax.GeneratorRun.arm_signatures">
+<em class="property">property </em><code class="sig-name descname">arm_signatures</code><a class="headerlink" href="#ax.GeneratorRun.arm_signatures" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns signatures of arms generated by this run.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.GeneratorRun.arm_weights">
+<em class="property">property </em><code class="sig-name descname">arm_weights</code><a class="headerlink" href="#ax.GeneratorRun.arm_weights" title="Permalink to this definition">¶</a></dt>
+<dd><p>Mapping from arms to weights (order matches order in
+<cite>arms</cite> property).</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.GeneratorRun.arms">
+<em class="property">property </em><code class="sig-name descname">arms</code><a class="headerlink" href="#ax.GeneratorRun.arms" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns arms generated by this run.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.GeneratorRun.candidate_metadata_by_arm_signature">
+<em class="property">property </em><code class="sig-name descname">candidate_metadata_by_arm_signature</code><a class="headerlink" href="#ax.GeneratorRun.candidate_metadata_by_arm_signature" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieves model-produced candidate metadata as a mapping from arm name (for
+the arm the candidate became when added to experiment) to the metadata dict.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.GeneratorRun.clone">
+<code class="sig-name descname">clone</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.generator_run.GeneratorRun<a class="reference internal" href="_modules/ax/core/generator_run.html#GeneratorRun.clone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.GeneratorRun.clone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a deep copy of a GeneratorRun.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.GeneratorRun.gen_metadata">
+<em class="property">property </em><code class="sig-name descname">gen_metadata</code><a class="headerlink" href="#ax.GeneratorRun.gen_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns metadata generated by this run.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.GeneratorRun.generator_run_type">
+<em class="property">property </em><code class="sig-name descname">generator_run_type</code><a class="headerlink" href="#ax.GeneratorRun.generator_run_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>The type of the generator run.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.GeneratorRun.index">
+<em class="property">property </em><code class="sig-name descname">index</code><a class="headerlink" href="#ax.GeneratorRun.index" title="Permalink to this definition">¶</a></dt>
+<dd><p>The index of this generator run within a trial’s list of generator run structs.
+This field is set when the generator run is added to a trial.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.GeneratorRun.optimization_config">
+<em class="property">property </em><code class="sig-name descname">optimization_config</code><a class="headerlink" href="#ax.GeneratorRun.optimization_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>The optimization config used during generation of this run.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.GeneratorRun.param_df">
+<em class="property">property </em><code class="sig-name descname">param_df</code><a class="headerlink" href="#ax.GeneratorRun.param_df" title="Permalink to this definition">¶</a></dt>
+<dd><p>Constructs a Pandas dataframe with the parameter values for each arm.</p>
+<p>Useful for inspecting the contents of a generator run.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>a dataframe with the generator run’s arms.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>pd.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.GeneratorRun.search_space">
+<em class="property">property </em><code class="sig-name descname">search_space</code><a class="headerlink" href="#ax.GeneratorRun.search_space" title="Permalink to this definition">¶</a></dt>
+<dd><p>The search used during generation of this run.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.GeneratorRun.time_created">
+<em class="property">property </em><code class="sig-name descname">time_created</code><a class="headerlink" href="#ax.GeneratorRun.time_created" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creation time of the batch.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.GeneratorRun.weights">
+<em class="property">property </em><code class="sig-name descname">weights</code><a class="headerlink" href="#ax.GeneratorRun.weights" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns weights associated with arms generated by this run.</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.Metric">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">Metric</code><span class="sig-paren">(</span><em class="sig-param">name: str</em>, <em class="sig-param">lower_is_better: Optional[bool] = None</em>, <em class="sig-param">properties: Optional[Dict[str</em>, <em class="sig-param">Any]] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/metric.html#Metric"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Metric" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for representing metrics.</p>
+<p>The <cite>fetch_trial_data</cite> method is the essential method to override when
+subclassing, which specifies how to retrieve a Metric, for a given trial.</p>
+<dl class="simple">
+<dt>A Metric must return a Data object, which requires (at minimum) the following:</dt><dd><p><a class="reference external" href="https://ax.dev/api/_modules/ax/core/data.html#Data.required_columns">https://ax.dev/api/_modules/ax/core/data.html#Data.required_columns</a></p>
+</dd>
+</dl>
+<dl class="attribute">
+<dt id="ax.Metric.lower_is_better">
+<code class="sig-name descname">lower_is_better</code><a class="headerlink" href="#ax.Metric.lower_is_better" title="Permalink to this definition">¶</a></dt>
+<dd><p>Flag for metrics which should be minimized.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.Metric.properties">
+<code class="sig-name descname">properties</code><a class="headerlink" href="#ax.Metric.properties" title="Permalink to this definition">¶</a></dt>
+<dd><p>Properties specific to a particular metric.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Metric.clone">
+<code class="sig-name descname">clone</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → Metric<a class="reference internal" href="_modules/ax/core/metric.html#Metric.clone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Metric.clone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a copy of this Metric.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Metric.deserialize_init_args">
+<em class="property">classmethod </em><code class="sig-name descname">deserialize_init_args</code><span class="sig-paren">(</span><em class="sig-param">args: Dict[str, Any]</em><span class="sig-paren">)</span> → Dict[str, Any]<a class="reference internal" href="_modules/ax/core/metric.html#Metric.deserialize_init_args"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Metric.deserialize_init_args" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given a dictionary, extract the properties needed to initialize the metric.
+Used for storage.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Metric.fetch_experiment_data">
+<code class="sig-name descname">fetch_experiment_data</code><span class="sig-paren">(</span><em class="sig-param">experiment: core.experiment.Experiment</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> → Data<a class="reference internal" href="_modules/ax/core/metric.html#Metric.fetch_experiment_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Metric.fetch_experiment_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetch this metric’s data for an experiment.</p>
+<p>Default behavior is to fetch data from all trials expecting data
+and concatenate the results.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Metric.fetch_experiment_data_multi">
+<em class="property">classmethod </em><code class="sig-name descname">fetch_experiment_data_multi</code><span class="sig-paren">(</span><em class="sig-param">experiment: core.experiment.Experiment, metrics: Iterable[Metric], trials: Optional[Iterable[core.base_trial.BaseTrial]] = None, **kwargs: Any</em><span class="sig-paren">)</span> → Data<a class="reference internal" href="_modules/ax/core/metric.html#Metric.fetch_experiment_data_multi"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Metric.fetch_experiment_data_multi" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetch multiple metrics data for an experiment.</p>
+<p>Default behavior calls <cite>fetch_trial_data_multi</cite> for each trial.
+Subclasses should override to batch data computation across trials + metrics.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Metric.fetch_multi_group_by_metric">
+<em class="property">property </em><code class="sig-name descname">fetch_multi_group_by_metric</code><a class="headerlink" href="#ax.Metric.fetch_multi_group_by_metric" title="Permalink to this definition">¶</a></dt>
+<dd><p>Metric class, with which to group this metric in <cite>Experiment._metrics_by_class</cite>,
+which is used to combine metrics on experiment into groups and then fetch their
+data via <cite>Metric.fetch_trial_data_multi</cite> for each group.</p>
+<p>NOTE: By default, this property will just return the class on which it is
+defined; however, in some cases it is useful to group metrics by their
+superclass, in which case this property should return that superclass.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Metric.fetch_trial_data">
+<code class="sig-name descname">fetch_trial_data</code><span class="sig-paren">(</span><em class="sig-param">trial: core.base_trial.BaseTrial</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> → Data<a class="reference internal" href="_modules/ax/core/metric.html#Metric.fetch_trial_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Metric.fetch_trial_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetch data for one trial.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Metric.fetch_trial_data_multi">
+<em class="property">classmethod </em><code class="sig-name descname">fetch_trial_data_multi</code><span class="sig-paren">(</span><em class="sig-param">trial: core.base_trial.BaseTrial, metrics: Iterable[Metric], **kwargs: Any</em><span class="sig-paren">)</span> → Data<a class="reference internal" href="_modules/ax/core/metric.html#Metric.fetch_trial_data_multi"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Metric.fetch_trial_data_multi" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetch multiple metrics data for one trial.</p>
+<p>Default behavior calls <cite>fetch_trial_data</cite> for each metric.
+Subclasses should override this to trial data computation for multiple metrics.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Metric.is_available_while_running">
+<em class="property">classmethod </em><code class="sig-name descname">is_available_while_running</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → bool<a class="reference internal" href="_modules/ax/core/metric.html#Metric.is_available_while_running"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Metric.is_available_while_running" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether metrics of this class are available while the trial is running.
+Metrics that are not available while the trial is running are assumed to be
+available only upon trial completion. For such metrics, data is assumed to
+never change once the trial is completed.</p>
+<p>NOTE: If this method returns <cite>False</cite>, data-fetching via <cite>experiment.fetch_data</cite>
+will return the data cached on the experiment (for the metrics of the given
+class) whenever its available. Data is cached on experiment when attached
+via <cite>experiment.attach_data</cite>.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Metric.lookup_or_fetch_experiment_data_multi">
+<em class="property">classmethod </em><code class="sig-name descname">lookup_or_fetch_experiment_data_multi</code><span class="sig-paren">(</span><em class="sig-param">experiment: core.experiment.Experiment, metrics: Iterable[Metric], trials: Optional[Iterable[core.base_trial.BaseTrial]] = None, **kwargs: Any</em><span class="sig-paren">)</span> → Data<a class="reference internal" href="_modules/ax/core/metric.html#Metric.lookup_or_fetch_experiment_data_multi"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Metric.lookup_or_fetch_experiment_data_multi" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetch or lookup (with fallback to fetching) data for given metrics,
+depending on whether they are available while running.</p>
+<p>If metric is available while running, its data can change (and therefore
+we should always re-fetch it). If metric is available only upon trial
+completion, its data does not change, so we can look up that data on
+the experiment and only fetch the data that is not already attached to
+the experiment.</p>
+<p>NOTE: If fetching data for a metrics class that is only available upon
+trial completion, data fetched in this function (data that was not yet
+available on experiment) will be attached to experiment.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Metric.name">
+<em class="property">property </em><code class="sig-name descname">name</code><a class="headerlink" href="#ax.Metric.name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get name of metric.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Metric.serialize_init_args">
+<em class="property">classmethod </em><code class="sig-name descname">serialize_init_args</code><span class="sig-paren">(</span><em class="sig-param">metric: ax.core.metric.Metric</em><span class="sig-paren">)</span> → Dict[str, Any]<a class="reference internal" href="_modules/ax/core/metric.html#Metric.serialize_init_args"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Metric.serialize_init_args" title="Permalink to this definition">¶</a></dt>
+<dd><p>Serialize the properties needed to initialize the metric.
+Used for storage.</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.Models">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">Models</code><a class="reference internal" href="_modules/ax/modelbridge/registry.html#Models"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Models" title="Permalink to this definition">¶</a></dt>
+<dd><p>Registry of available models.</p>
+<p>Uses MODEL_KEY_TO_MODEL_SETUP to retrieve settings for model and model bridge,
+by the key stored in the enum value.</p>
+<p>To instantiate a model in this enum, simply call an enum member like so:
+<cite>Models.SOBOL(search_space=search_space)</cite> or
+<cite>Models.GPEI(experiment=experiment, data=data)</cite>. Keyword arguments
+specified to the call will be passed into the model or the model bridge
+constructors according to their keyword.</p>
+<p>For instance, <cite>Models.SOBOL(search_space=search_space, scramble=False)</cite>
+will instantiate a <cite>RandomModelBridge(search_space=search_space)</cite>
+with a <cite>SobolGenerator(scramble=False)</cite> underlying model.</p>
+<dl class="method">
+<dt id="ax.Models.model_bridge_class">
+<em class="property">property </em><code class="sig-name descname">model_bridge_class</code><a class="headerlink" href="#ax.Models.model_bridge_class" title="Permalink to this definition">¶</a></dt>
+<dd><p>Type of <cite>ModelBridge</cite> used for the given model+bridge setup.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Models.model_class">
+<em class="property">property </em><code class="sig-name descname">model_class</code><a class="headerlink" href="#ax.Models.model_class" title="Permalink to this definition">¶</a></dt>
+<dd><p>Type of <cite>Model</cite> used for the given model+bridge setup.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Models.view_defaults">
+<code class="sig-name descname">view_defaults</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → Tuple[Dict[str, Any], Dict[str, Any]]<a class="reference internal" href="_modules/ax/modelbridge/registry.html#Models.view_defaults"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Models.view_defaults" title="Permalink to this definition">¶</a></dt>
+<dd><p>Obtains the default keyword arguments for the model and the modelbridge
+specified through the Models enum, for ease of use in notebook environment,
+since models and bridges cannot be inspected directly through the enum.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>A tuple of default keyword arguments for the model and the model bridge.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Models.view_kwargs">
+<code class="sig-name descname">view_kwargs</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → Tuple[Dict[str, Any], Dict[str, Any]]<a class="reference internal" href="_modules/ax/modelbridge/registry.html#Models.view_kwargs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Models.view_kwargs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Obtains annotated keyword arguments that the model and the modelbridge
+(corresponding to a given member of the Models enum) constructors expect.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>A tuple of annotated keyword arguments for the model and the model bridge.</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.MultiObjective">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">MultiObjective</code><span class="sig-paren">(</span><em class="sig-param">metrics: List[ax.core.metric.Metric], minimize: bool = False, **extra_kwargs: Any</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/objective.html#MultiObjective"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.MultiObjective" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class for an objective composed of a multiple component objectives.</p>
+<p>The Acquisition function determines how the objectives are weighted.</p>
+<dl class="attribute">
+<dt id="ax.MultiObjective.metrics">
+<code class="sig-name descname">metrics</code><a class="headerlink" href="#ax.MultiObjective.metrics" title="Permalink to this definition">¶</a></dt>
+<dd><p>List of metrics.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.MultiObjective.clone">
+<code class="sig-name descname">clone</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.objective.Objective<a class="reference internal" href="_modules/ax/core/objective.html#MultiObjective.clone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.MultiObjective.clone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a copy of the objective.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.MultiObjective.get_unconstrainable_metrics">
+<code class="sig-name descname">get_unconstrainable_metrics</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → List[ax.core.metric.Metric]<a class="reference internal" href="_modules/ax/core/objective.html#MultiObjective.get_unconstrainable_metrics"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.MultiObjective.get_unconstrainable_metrics" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a list of metrics that are incompatible with OutcomeConstraints.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.MultiObjective.metric">
+<em class="property">property </em><code class="sig-name descname">metric</code><a class="headerlink" href="#ax.MultiObjective.metric" title="Permalink to this definition">¶</a></dt>
+<dd><p>Override base method to error.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.MultiObjective.metric_weights">
+<em class="property">property </em><code class="sig-name descname">metric_weights</code><a class="headerlink" href="#ax.MultiObjective.metric_weights" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the objective metrics and weights.</p>
+</dd></dl>
+<dl class="method">
+<dt>
+<em class="property">property </em><code class="sig-name descname">metrics</code></dt>
+<dd><p>Get the objective metrics.</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.MultiObjectiveOptimizationConfig">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">MultiObjectiveOptimizationConfig</code><span class="sig-paren">(</span><em class="sig-param">objective: ax.core.objective.Objective</em>, <em class="sig-param">outcome_constraints: Optional[List[ax.core.outcome_constraint.OutcomeConstraint]] = None</em>, <em class="sig-param">objective_thresholds: Optional[List[ax.core.outcome_constraint.ObjectiveThreshold]] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/optimization_config.html#MultiObjectiveOptimizationConfig"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.MultiObjectiveOptimizationConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>An optimization configuration for multi-objective optimization,
+which comprises multiple objective, outcome constraints, and objective
+thresholds.</p>
+<p>There is no minimum or maximum number of outcome constraints, but an
+individual metric can have at most two constraints–which is how we
+represent metrics with both upper and lower bounds.</p>
+<p>ObjectiveThresholds should be present for every objective. A good
+rule of thumb is to set them 10% below the minimum acceptable value
+for each metric.</p>
+<dl class="method">
+<dt id="ax.MultiObjectiveOptimizationConfig.all_constraints">
+<em class="property">property </em><code class="sig-name descname">all_constraints</code><a class="headerlink" href="#ax.MultiObjectiveOptimizationConfig.all_constraints" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get all constraints and thresholds.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.MultiObjectiveOptimizationConfig.clone_with_args">
+<code class="sig-name descname">clone_with_args</code><span class="sig-paren">(</span><em class="sig-param">objective: Optional[ax.core.objective.Objective] = None</em>, <em class="sig-param">outcome_constraints: Optional[List[ax.core.outcome_constraint.OutcomeConstraint]] = None</em>, <em class="sig-param">objective_thresholds: Optional[List[ax.core.outcome_constraint.ObjectiveThreshold]] = None</em><span class="sig-paren">)</span> → ax.core.optimization_config.MultiObjectiveOptimizationConfig<a class="reference internal" href="_modules/ax/core/optimization_config.html#MultiObjectiveOptimizationConfig.clone_with_args"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.MultiObjectiveOptimizationConfig.clone_with_args" title="Permalink to this definition">¶</a></dt>
+<dd><p>Make a copy of this optimization config.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.MultiObjectiveOptimizationConfig.objective">
+<em class="property">property </em><code class="sig-name descname">objective</code><a class="headerlink" href="#ax.MultiObjectiveOptimizationConfig.objective" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get objective.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.MultiObjectiveOptimizationConfig.objective_thresholds">
+<em class="property">property </em><code class="sig-name descname">objective_thresholds</code><a class="headerlink" href="#ax.MultiObjectiveOptimizationConfig.objective_thresholds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get objective thresholds.</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.Objective">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">Objective</code><span class="sig-paren">(</span><em class="sig-param">metric: ax.core.metric.Metric</em>, <em class="sig-param">minimize: Optional[bool] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/objective.html#Objective"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Objective" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for representing an objective.</p>
+<dl class="attribute">
+<dt id="ax.Objective.minimize">
+<code class="sig-name descname">minimize</code><a class="headerlink" href="#ax.Objective.minimize" title="Permalink to this definition">¶</a></dt>
+<dd><p>If True, minimize metric.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Objective.clone">
+<code class="sig-name descname">clone</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.objective.Objective<a class="reference internal" href="_modules/ax/core/objective.html#Objective.clone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Objective.clone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a copy of the objective.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Objective.get_unconstrainable_metrics">
+<code class="sig-name descname">get_unconstrainable_metrics</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → List[ax.core.metric.Metric]<a class="reference internal" href="_modules/ax/core/objective.html#Objective.get_unconstrainable_metrics"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Objective.get_unconstrainable_metrics" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a list of metrics that are incompatible with OutcomeConstraints.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Objective.metric">
+<em class="property">property </em><code class="sig-name descname">metric</code><a class="headerlink" href="#ax.Objective.metric" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the objective metric.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Objective.metrics">
+<em class="property">property </em><code class="sig-name descname">metrics</code><a class="headerlink" href="#ax.Objective.metrics" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a list of objective metrics.</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.ObjectiveThreshold">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">ObjectiveThreshold</code><span class="sig-paren">(</span><em class="sig-param">metric: ax.core.metric.Metric</em>, <em class="sig-param">bound: float</em>, <em class="sig-param">relative: bool = False</em>, <em class="sig-param">op: Optional[ax.core.types.ComparisonOp] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/outcome_constraint.html#ObjectiveThreshold"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.ObjectiveThreshold" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class for representing Objective Thresholds.</p>
+<p>An objective threshold represents the threshold for an objective metric
+to contribute to hypervolume calculations. A list containing the objective
+threshold for each metric collectively form a reference point.</p>
+<p>Objective thresholds may bound the metric from above or from below.
+The bound can be expressed as an absolute measurement or relative
+to the status quo (if applicable).</p>
+<p>The direction of the bound is inferred from the Metric’s lower_is_better attribute.</p>
+<dl class="attribute">
+<dt id="ax.ObjectiveThreshold.metric">
+<code class="sig-name descname">metric</code><a class="headerlink" href="#ax.ObjectiveThreshold.metric" title="Permalink to this definition">¶</a></dt>
+<dd><p>Metric to constrain.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.ObjectiveThreshold.bound">
+<code class="sig-name descname">bound</code><a class="headerlink" href="#ax.ObjectiveThreshold.bound" title="Permalink to this definition">¶</a></dt>
+<dd><p>The bound in the constraint.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.ObjectiveThreshold.relative">
+<code class="sig-name descname">relative</code><a class="headerlink" href="#ax.ObjectiveThreshold.relative" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether you want to bound on an absolute or relative
+scale. If relative, bound is the acceptable percent change.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.ObjectiveThreshold.op">
+<code class="sig-name descname">op</code><a class="headerlink" href="#ax.ObjectiveThreshold.op" title="Permalink to this definition">¶</a></dt>
+<dd><p>automatically inferred, but manually overwritable.
+specifies whether metric should be greater or equal to, or less
+than or equal to, some bound.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.ObjectiveThreshold.clone">
+<code class="sig-name descname">clone</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.outcome_constraint.ObjectiveThreshold<a class="reference internal" href="_modules/ax/core/outcome_constraint.html#ObjectiveThreshold.clone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.ObjectiveThreshold.clone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a copy of this ObjectiveThreshold.</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.OptimizationConfig">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">OptimizationConfig</code><span class="sig-paren">(</span><em class="sig-param">objective: ax.core.objective.Objective</em>, <em class="sig-param">outcome_constraints: Optional[List[ax.core.outcome_constraint.OutcomeConstraint]] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/optimization_config.html#OptimizationConfig"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.OptimizationConfig" title="Permalink to this definition">¶</a></dt>
+<dd><p>An optimization configuration, which comprises an objective
+and outcome constraints.</p>
+<p>There is no minimum or maximum number of outcome constraints, but an
+individual metric can have at most two constraints–which is how we
+represent metrics with both upper and lower bounds.</p>
+<dl class="method">
+<dt id="ax.OptimizationConfig.all_constraints">
+<em class="property">property </em><code class="sig-name descname">all_constraints</code><a class="headerlink" href="#ax.OptimizationConfig.all_constraints" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get outcome constraints.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.OptimizationConfig.clone">
+<code class="sig-name descname">clone</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.optimization_config.OptimizationConfig<a class="reference internal" href="_modules/ax/core/optimization_config.html#OptimizationConfig.clone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.OptimizationConfig.clone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Make a copy of this optimization config.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.OptimizationConfig.clone_with_args">
+<code class="sig-name descname">clone_with_args</code><span class="sig-paren">(</span><em class="sig-param">objective: Optional[ax.core.objective.Objective] = None</em>, <em class="sig-param">outcome_constraints: Optional[List[ax.core.outcome_constraint.OutcomeConstraint]] = None</em><span class="sig-paren">)</span> → ax.core.optimization_config.OptimizationConfig<a class="reference internal" href="_modules/ax/core/optimization_config.html#OptimizationConfig.clone_with_args"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.OptimizationConfig.clone_with_args" title="Permalink to this definition">¶</a></dt>
+<dd><p>Make a copy of this optimization config.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.OptimizationConfig.objective">
+<em class="property">property </em><code class="sig-name descname">objective</code><a class="headerlink" href="#ax.OptimizationConfig.objective" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get objective.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.OptimizationConfig.outcome_constraints">
+<em class="property">property </em><code class="sig-name descname">outcome_constraints</code><a class="headerlink" href="#ax.OptimizationConfig.outcome_constraints" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get outcome constraints.</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.OptimizationLoop">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">OptimizationLoop</code><span class="sig-paren">(</span><em class="sig-param">experiment: ax.core.experiment.Experiment</em>, <em class="sig-param">total_trials: int = 20</em>, <em class="sig-param">arms_per_trial: int = 1</em>, <em class="sig-param">random_seed: Optional[int] = None</em>, <em class="sig-param">wait_time: int = 0</em>, <em class="sig-param">run_async: bool = False</em>, <em class="sig-param">generation_strategy: Optional[ax.modelbridge.generation_strategy.GenerationStrategy] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/service/managed_loop.html#OptimizationLoop"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.OptimizationLoop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Managed optimization loop, in which Ax oversees deployment of trials and
+gathering data.</p>
+<dl class="method">
+<dt id="ax.OptimizationLoop.full_run">
+<code class="sig-name descname">full_run</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.service.managed_loop.OptimizationLoop<a class="reference internal" href="_modules/ax/service/managed_loop.html#OptimizationLoop.full_run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.OptimizationLoop.full_run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Runs full optimization loop as defined in the provided optimization
+plan.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.OptimizationLoop.get_best_point">
+<code class="sig-name descname">get_best_point</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → Tuple[Dict[str, Union[str, bool, float, int, None]], Optional[Tuple[Dict[str, float], Optional[Dict[str, Dict[str, float]]]]]]<a class="reference internal" href="_modules/ax/service/managed_loop.html#OptimizationLoop.get_best_point"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.OptimizationLoop.get_best_point" title="Permalink to this definition">¶</a></dt>
+<dd><p>Obtains the best point encountered in the course
+of this optimization.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.OptimizationLoop.get_current_model">
+<code class="sig-name descname">get_current_model</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → Optional[ax.modelbridge.base.ModelBridge]<a class="reference internal" href="_modules/ax/service/managed_loop.html#OptimizationLoop.get_current_model"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.OptimizationLoop.get_current_model" title="Permalink to this definition">¶</a></dt>
+<dd><p>Obtain the most recently used model in optimization.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.OptimizationLoop.run_trial">
+<code class="sig-name descname">run_trial</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → None<a class="reference internal" href="_modules/ax/service/managed_loop.html#OptimizationLoop.run_trial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.OptimizationLoop.run_trial" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run a single step of the optimization plan.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.OptimizationLoop.with_evaluation_function">
+<em class="property">static </em><code class="sig-name descname">with_evaluation_function</code><span class="sig-paren">(</span><em class="sig-param">parameters: List[Dict[str, Union[str, bool, float, int, None, List[Union[str, bool, float, int, None]]]]], evaluation_function: Callable[[Dict[str, Union[str, bool, float, int, None]], Optional[float]], Union[Dict[str, Tuple[float, Optional[float]]], Tuple[float, Optional[float]], float, List[Tuple[Dict[str, Union[str, bool, float, int, None]], Dict[str, Tuple[float, Optional[float]]]]]]], experiment_name: Optional[str] = None, objective_name: Optional[str] = None, minimize: bool = False, parameter_constraints: Optional[List[str]] = None, outcome_constraints: Optional[List[str]] = None, total_trials: int = 20, arms_per_trial: int = 1, wait_time: int = 0, random_seed: Optional[int] = None, generation_strategy: Optional[ax.modelbridge.generation_strategy.GenerationStrategy] = None</em><span class="sig-paren">)</span> → OptimizationLoop<a class="reference internal" href="_modules/ax/service/managed_loop.html#OptimizationLoop.with_evaluation_function"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.OptimizationLoop.with_evaluation_function" title="Permalink to this definition">¶</a></dt>
+<dd><p>Constructs a synchronous <cite>OptimizationLoop</cite> using an evaluation
+function.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.OptimizationLoop.with_runners_and_metrics">
+<em class="property">classmethod </em><code class="sig-name descname">with_runners_and_metrics</code><span class="sig-paren">(</span><em class="sig-param">parameters: List[Dict[str, Union[str, bool, float, int, None, List[Union[str, bool, float, int, None]]]]], path_to_runner: str, paths_to_metrics: List[str], experiment_name: Optional[str] = None, objective_name: Optional[str] = None, minimize: bool = False, parameter_constraints: Optional[List[str]] = None, outcome_constraints: Optional[List[str]] = None, total_trials: int = 20, arms_per_trial: int = 1, wait_time: int = 0, random_seed: Optional[int] = None</em><span class="sig-paren">)</span> → OptimizationLoop<a class="reference internal" href="_modules/ax/service/managed_loop.html#OptimizationLoop.with_runners_and_metrics"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.OptimizationLoop.with_runners_and_metrics" title="Permalink to this definition">¶</a></dt>
+<dd><p>Constructs an asynchronous <cite>OptimizationLoop</cite> using Ax runners and
+metrics.</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.OrderConstraint">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">OrderConstraint</code><span class="sig-paren">(</span><em class="sig-param">lower_parameter: ax.core.parameter.Parameter</em>, <em class="sig-param">upper_parameter: ax.core.parameter.Parameter</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/parameter_constraint.html#OrderConstraint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.OrderConstraint" title="Permalink to this definition">¶</a></dt>
+<dd><p>Constraint object for specifying one parameter to be smaller than another.</p>
+<dl class="method">
+<dt id="ax.OrderConstraint.clone">
+<code class="sig-name descname">clone</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.parameter_constraint.OrderConstraint<a class="reference internal" href="_modules/ax/core/parameter_constraint.html#OrderConstraint.clone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.OrderConstraint.clone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clone.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.OrderConstraint.clone_with_transformed_parameters">
+<code class="sig-name descname">clone_with_transformed_parameters</code><span class="sig-paren">(</span><em class="sig-param">transformed_parameters: Dict[str, ax.core.parameter.Parameter]</em><span class="sig-paren">)</span> → ax.core.parameter_constraint.OrderConstraint<a class="reference internal" href="_modules/ax/core/parameter_constraint.html#OrderConstraint.clone_with_transformed_parameters"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.OrderConstraint.clone_with_transformed_parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clone, but replace parameters with transformed versions.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.OrderConstraint.constraint_dict">
+<em class="property">property </em><code class="sig-name descname">constraint_dict</code><a class="headerlink" href="#ax.OrderConstraint.constraint_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Weights on parameters for linear constraint representation.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.OrderConstraint.lower_parameter">
+<em class="property">property </em><code class="sig-name descname">lower_parameter</code><a class="headerlink" href="#ax.OrderConstraint.lower_parameter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parameter with lower value.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.OrderConstraint.parameters">
+<em class="property">property </em><code class="sig-name descname">parameters</code><a class="headerlink" href="#ax.OrderConstraint.parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parameters.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.OrderConstraint.upper_parameter">
+<em class="property">property </em><code class="sig-name descname">upper_parameter</code><a class="headerlink" href="#ax.OrderConstraint.upper_parameter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parameter with higher value.</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.OutcomeConstraint">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">OutcomeConstraint</code><span class="sig-paren">(</span><em class="sig-param">metric: ax.core.metric.Metric</em>, <em class="sig-param">op: ax.core.types.ComparisonOp</em>, <em class="sig-param">bound: float</em>, <em class="sig-param">relative: bool = True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/outcome_constraint.html#OutcomeConstraint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.OutcomeConstraint" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for representing outcome constraints.</p>
+<p>Outcome constraints may of the form metric &gt;= bound or metric &lt;= bound,
+where the bound can be expressed as an absolute measurement or relative
+to the status quo (if applicable).</p>
+<dl class="attribute">
+<dt id="ax.OutcomeConstraint.metric">
+<code class="sig-name descname">metric</code><a class="headerlink" href="#ax.OutcomeConstraint.metric" title="Permalink to this definition">¶</a></dt>
+<dd><p>Metric to constrain.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.OutcomeConstraint.op">
+<code class="sig-name descname">op</code><a class="headerlink" href="#ax.OutcomeConstraint.op" title="Permalink to this definition">¶</a></dt>
+<dd><p>Specifies whether metric should be greater or equal
+to, or less than or equal to, some bound.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.OutcomeConstraint.bound">
+<code class="sig-name descname">bound</code><a class="headerlink" href="#ax.OutcomeConstraint.bound" title="Permalink to this definition">¶</a></dt>
+<dd><p>The bound in the constraint.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="ax.OutcomeConstraint.relative">
+<code class="sig-name descname">relative</code><a class="headerlink" href="#ax.OutcomeConstraint.relative" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether you want to bound on an absolute or relative
+scale. If relative, bound is the acceptable percent change.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.OutcomeConstraint.clone">
+<code class="sig-name descname">clone</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.outcome_constraint.OutcomeConstraint<a class="reference internal" href="_modules/ax/core/outcome_constraint.html#OutcomeConstraint.clone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.OutcomeConstraint.clone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a copy of this OutcomeConstraint.</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.Parameter">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">Parameter</code><a class="reference internal" href="_modules/ax/core/parameter.html#Parameter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Parameter" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="ax.Parameter.is_valid_type">
+<code class="sig-name descname">is_valid_type</code><span class="sig-paren">(</span><em class="sig-param">value: Union[str, bool, float, int, None]</em><span class="sig-paren">)</span> → bool<a class="reference internal" href="_modules/ax/core/parameter.html#Parameter.is_valid_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Parameter.is_valid_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether a given value’s type is allowed by this parameter.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Parameter.python_type">
+<em class="property">property </em><code class="sig-name descname">python_type</code><a class="headerlink" href="#ax.Parameter.python_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>The python type for the corresponding ParameterType enum.</p>
+<p>Used primarily for casting values of unknown type to conform
+to that of the parameter.</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.ParameterConstraint">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">ParameterConstraint</code><span class="sig-paren">(</span><em class="sig-param">constraint_dict: Dict[str, float], bound: float</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/parameter_constraint.html#ParameterConstraint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.ParameterConstraint" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for linear parameter constraints.</p>
+<p>Constraints are expressed using a map from parameter name to weight
+followed by a bound.</p>
+<dl class="simple">
+<dt>The constraint is satisfied if w * v &lt;= b where:</dt><dd><p>w is the vector of parameter weights.
+v is a vector of parameter values.
+b is the specified bound.
+* is the dot product operator.</p>
+</dd>
+</dl>
+<dl class="method">
+<dt id="ax.ParameterConstraint.bound">
+<em class="property">property </em><code class="sig-name descname">bound</code><a class="headerlink" href="#ax.ParameterConstraint.bound" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get bound of the inequality of the constraint.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.ParameterConstraint.check">
+<code class="sig-name descname">check</code><span class="sig-paren">(</span><em class="sig-param">parameter_dict: Dict[str, Union[int, float]]</em><span class="sig-paren">)</span> → bool<a class="reference internal" href="_modules/ax/core/parameter_constraint.html#ParameterConstraint.check"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.ParameterConstraint.check" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether or not the set of parameter values satisfies the constraint.</p>
+<p>Does a weighted sum of the parameter values based on the constraint_dict
+and checks that the sum is less than the bound.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>parameter_dict</strong> – Map from parameter name to parameter value.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Whether the constraint is satisfied.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.ParameterConstraint.clone">
+<code class="sig-name descname">clone</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.parameter_constraint.ParameterConstraint<a class="reference internal" href="_modules/ax/core/parameter_constraint.html#ParameterConstraint.clone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.ParameterConstraint.clone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clone.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.ParameterConstraint.clone_with_transformed_parameters">
+<code class="sig-name descname">clone_with_transformed_parameters</code><span class="sig-paren">(</span><em class="sig-param">transformed_parameters: Dict[str, ax.core.parameter.Parameter]</em><span class="sig-paren">)</span> → ax.core.parameter_constraint.ParameterConstraint<a class="reference internal" href="_modules/ax/core/parameter_constraint.html#ParameterConstraint.clone_with_transformed_parameters"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.ParameterConstraint.clone_with_transformed_parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clone, but replaced parameters with transformed versions.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.ParameterConstraint.constraint_dict">
+<em class="property">property </em><code class="sig-name descname">constraint_dict</code><a class="headerlink" href="#ax.ParameterConstraint.constraint_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get mapping from parameter names to weights.</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.ParameterType">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">ParameterType</code><a class="reference internal" href="_modules/ax/core/parameter.html#ParameterType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.ParameterType" title="Permalink to this definition">¶</a></dt>
+<dd><p>An enumeration.</p>
+</dd></dl>
+<dl class="class">
+<dt id="ax.RangeParameter">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">RangeParameter</code><span class="sig-paren">(</span><em class="sig-param">name: str</em>, <em class="sig-param">parameter_type: ax.core.parameter.ParameterType</em>, <em class="sig-param">lower: float</em>, <em class="sig-param">upper: float</em>, <em class="sig-param">log_scale: bool = False</em>, <em class="sig-param">digits: Optional[int] = None</em>, <em class="sig-param">is_fidelity: bool = False</em>, <em class="sig-param">target_value: Union[str</em>, <em class="sig-param">bool</em>, <em class="sig-param">float</em>, <em class="sig-param">int</em>, <em class="sig-param">None] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/parameter.html#RangeParameter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.RangeParameter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parameter object that specifies a continuous numerical range of values.</p>
+<dl class="method">
+<dt id="ax.RangeParameter.digits">
+<em class="property">property </em><code class="sig-name descname">digits</code><a class="headerlink" href="#ax.RangeParameter.digits" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of digits to round values to for float type.</p>
+<p>Upper and lower bound are re-cast after this property is changed.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.RangeParameter.is_valid_type">
+<code class="sig-name descname">is_valid_type</code><span class="sig-paren">(</span><em class="sig-param">value: Union[str, bool, float, int, None]</em><span class="sig-paren">)</span> → bool<a class="reference internal" href="_modules/ax/core/parameter.html#RangeParameter.is_valid_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.RangeParameter.is_valid_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Same as default except allows floats whose value is an int
+for Int parameters.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.RangeParameter.log_scale">
+<em class="property">property </em><code class="sig-name descname">log_scale</code><a class="headerlink" href="#ax.RangeParameter.log_scale" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether the parameter’s random values should be sampled from log space.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.RangeParameter.lower">
+<em class="property">property </em><code class="sig-name descname">lower</code><a class="headerlink" href="#ax.RangeParameter.lower" title="Permalink to this definition">¶</a></dt>
+<dd><p>Lower bound of the parameter range.</p>
+<p>Value is cast to parameter type upon set and also validated
+to ensure the bound is strictly less than upper bound.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.RangeParameter.update_range">
+<code class="sig-name descname">update_range</code><span class="sig-paren">(</span><em class="sig-param">lower: Optional[float] = None</em>, <em class="sig-param">upper: Optional[float] = None</em><span class="sig-paren">)</span> → ax.core.parameter.RangeParameter<a class="reference internal" href="_modules/ax/core/parameter.html#RangeParameter.update_range"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.RangeParameter.update_range" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the range to the given values.</p>
+<p>If lower or upper is not provided, it will be left at its current value.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>lower</strong> – New value for the lower bound.</p></li>
+<li><p><strong>upper</strong> – New value for the upper bound.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.RangeParameter.upper">
+<em class="property">property </em><code class="sig-name descname">upper</code><a class="headerlink" href="#ax.RangeParameter.upper" title="Permalink to this definition">¶</a></dt>
+<dd><p>Upper bound of the parameter range.</p>
+<p>Value is cast to parameter type upon set and also validated
+to ensure the bound is strictly greater than lower bound.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.RangeParameter.validate">
+<code class="sig-name descname">validate</code><span class="sig-paren">(</span><em class="sig-param">value: Union[str, bool, float, int, None]</em><span class="sig-paren">)</span> → bool<a class="reference internal" href="_modules/ax/core/parameter.html#RangeParameter.validate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.RangeParameter.validate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns True if input is a valid value for the parameter.</p>
+<p>Checks that value is of the right type and within
+the valid range for the parameter. Returns False if value is None.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>value</strong> – Value being checked.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if valid, False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.Runner">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">Runner</code><a class="reference internal" href="_modules/ax/core/runner.html#Runner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Runner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Abstract base class for custom runner classes</p>
+<dl class="method">
+<dt id="ax.Runner.deserialize_init_args">
+<em class="property">classmethod </em><code class="sig-name descname">deserialize_init_args</code><span class="sig-paren">(</span><em class="sig-param">args: Dict[str, Any]</em><span class="sig-paren">)</span> → Dict[str, Any]<a class="reference internal" href="_modules/ax/core/runner.html#Runner.deserialize_init_args"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Runner.deserialize_init_args" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given a dictionary, deserialize the properties needed to initialize the runner.
+Used for storage.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Runner.run">
+<em class="property">abstract </em><code class="sig-name descname">run</code><span class="sig-paren">(</span><em class="sig-param">trial: core.base_trial.BaseTrial</em><span class="sig-paren">)</span> → Dict[str, Any]<a class="reference internal" href="_modules/ax/core/runner.html#Runner.run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Runner.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deploys a trial based on custom runner subclass implementation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>trial</strong> – The trial to deploy.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Dict of run metadata from the deployment process.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Runner.serialize_init_args">
+<em class="property">classmethod </em><code class="sig-name descname">serialize_init_args</code><span class="sig-paren">(</span><em class="sig-param">runner: ax.core.runner.Runner</em><span class="sig-paren">)</span> → Dict[str, Any]<a class="reference internal" href="_modules/ax/core/runner.html#Runner.serialize_init_args"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Runner.serialize_init_args" title="Permalink to this definition">¶</a></dt>
+<dd><p>Serialize the properties needed to initialize the runner.
+Used for storage.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Runner.staging_required">
+<em class="property">property </em><code class="sig-name descname">staging_required</code><a class="headerlink" href="#ax.Runner.staging_required" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether the trial goes to staged or running state once deployed.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Runner.stop">
+<code class="sig-name descname">stop</code><span class="sig-paren">(</span><em class="sig-param">trial: core.base_trial.BaseTrial</em><span class="sig-paren">)</span> → None<a class="reference internal" href="_modules/ax/core/runner.html#Runner.stop"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Runner.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop a trial based on custom runner subclass implementation.</p>
+<p>Optional to implement</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>trial</strong> – The trial to deploy.</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.SearchSpace">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">SearchSpace</code><span class="sig-paren">(</span><em class="sig-param">parameters: List[ax.core.parameter.Parameter], parameter_constraints: Optional[List[ax.core.parameter_constraint.ParameterConstraint]] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/search_space.html#SearchSpace"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.SearchSpace" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base object for SearchSpace object.</p>
+<p>Contains a set of Parameter objects, each of which have a
+name, type, and set of valid values. The search space also contains
+a set of ParameterConstraint objects, which can be used to define
+restrictions across parameters (e.g. p_a &lt; p_b).</p>
+<dl class="method">
+<dt id="ax.SearchSpace.cast_arm">
+<code class="sig-name descname">cast_arm</code><span class="sig-paren">(</span><em class="sig-param">arm: ax.core.arm.Arm</em><span class="sig-paren">)</span> → ax.core.arm.Arm<a class="reference internal" href="_modules/ax/core/search_space.html#SearchSpace.cast_arm"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.SearchSpace.cast_arm" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cast parameterization of given arm to the types in this SearchSpace.</p>
+<p>For each parameter in given arm, cast it to the proper type specified
+in this search space. Throws if there is a mismatch in parameter names. This is
+mostly useful for int/float, which user can be sloppy with when hand written.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>arm</strong> – Arm to cast.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>New casted arm.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.SearchSpace.check_membership">
+<code class="sig-name descname">check_membership</code><span class="sig-paren">(</span><em class="sig-param">parameterization: Dict[str, Union[str, bool, float, int, None]], raise_error: bool = False</em><span class="sig-paren">)</span> → bool<a class="reference internal" href="_modules/ax/core/search_space.html#SearchSpace.check_membership"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.SearchSpace.check_membership" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether the given parameterization belongs in the search space.</p>
+<p>Checks that the given parameter values have the same name/type as
+search space parameters, are contained in the search space domain,
+and satisfy the parameter constraints.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parameterization</strong> – Dict from parameter name to value to validate.</p></li>
+<li><p><strong>raise_error</strong> – If true parameterization does not belong, raises an error
+with detailed explanation of why.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Whether the parameterization is contained in the search space.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.SearchSpace.check_types">
+<code class="sig-name descname">check_types</code><span class="sig-paren">(</span><em class="sig-param">parameterization: Dict[str, Union[str, bool, float, int, None]], allow_none: bool = True, raise_error: bool = False</em><span class="sig-paren">)</span> → bool<a class="reference internal" href="_modules/ax/core/search_space.html#SearchSpace.check_types"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.SearchSpace.check_types" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks that the given parameterization’s types match the search space.</p>
+<p>Checks that the names of the parameterization match those specified in
+the search space, and the given values are of the correct type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parameterization</strong> – Dict from parameter name to value to validate.</p></li>
+<li><p><strong>allow_none</strong> – Whether None is a valid parameter value.</p></li>
+<li><p><strong>raise_error</strong> – If true and parameterization does not belong, raises an error
+with detailed explanation of why.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Whether the parameterization has valid types.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.SearchSpace.construct_arm">
+<code class="sig-name descname">construct_arm</code><span class="sig-paren">(</span><em class="sig-param">parameters: Optional[Dict[str</em>, <em class="sig-param">Union[str</em>, <em class="sig-param">bool</em>, <em class="sig-param">float</em>, <em class="sig-param">int</em>, <em class="sig-param">None]]] = None</em>, <em class="sig-param">name: Optional[str] = None</em><span class="sig-paren">)</span> → ax.core.arm.Arm<a class="reference internal" href="_modules/ax/core/search_space.html#SearchSpace.construct_arm"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.SearchSpace.construct_arm" title="Permalink to this definition">¶</a></dt>
+<dd><p>Construct new arm using given parameters and name. Any
+missing parameters fallback to the experiment defaults,
+represented as None</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.SearchSpace.out_of_design_arm">
+<code class="sig-name descname">out_of_design_arm</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.arm.Arm<a class="reference internal" href="_modules/ax/core/search_space.html#SearchSpace.out_of_design_arm"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.SearchSpace.out_of_design_arm" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a default out-of-design arm.</p>
+<p>An out of design arm contains values for some parameters which are
+outside of the search space. In the modeling conversion, these parameters
+are all stripped down to an empty dictionary, since the point is already
+outside of the modeled space.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>New arm w/ null parameter values.</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.SimpleExperiment">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">SimpleExperiment</code><span class="sig-paren">(</span><em class="sig-param">search_space: ax.core.search_space.SearchSpace, name: Optional[str] = None, objective_name: Optional[str] = None, evaluation_function: Callable[[Dict[str, Union[str, bool, float, int, None]], Optional[float]], Union[Dict[str, Tuple[float, Optional[float]]], Tuple[float, Optional[float]], float, List[Tuple[Dict[str, Union[str, bool, float, int, None]], Dict[str, Tuple[float, Optional[float]]]]]]] = &lt;function unimplemented_evaluation_function&gt;, minimize: bool = False, outcome_constraints: Optional[List[ax.core.outcome_constraint.OutcomeConstraint]] = None, status_quo: Optional[ax.core.arm.Arm] = None, properties: Optional[Dict[str, Any]] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/simple_experiment.html#SimpleExperiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.SimpleExperiment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Simplified experiment class with defaults.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>search_space</strong> – Parameter space.</p></li>
+<li><p><strong>name</strong> – Name of this experiment.</p></li>
+<li><p><strong>objective_name</strong> – Which of the metrics computed by the evaluation
+function is the objective.</p></li>
+<li><p><strong>evaluation_function</strong> – Function that evaluates
+mean and standard error for a parameter configuration. This
+function should accept a dictionary of parameter names to parameter
+values (TParametrization) and optionally a weight, and return a
+dictionary of metric names to a tuple of means and standard errors
+(TEvaluationOutcome). The function can also return a single tuple,
+in which case we assume the metric is the objective.</p></li>
+<li><p><strong>minimize</strong> – Whether the objective should be minimized,
+defaults to <cite>False</cite>.</p></li>
+<li><p><strong>outcome_constraints</strong> – constraints on the outcome,
+if any.</p></li>
+<li><p><strong>status_quo</strong> – Arm representing existing “control” arm.</p></li>
+<li><p><strong>properties</strong> – Dictionary of this experiment’s properties.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="method">
+<dt id="ax.SimpleExperiment.add_tracking_metric">
+<code class="sig-name descname">add_tracking_metric</code><span class="sig-paren">(</span><em class="sig-param">metric: ax.core.metric.Metric</em><span class="sig-paren">)</span> → ax.core.simple_experiment.SimpleExperiment<a class="reference internal" href="_modules/ax/core/simple_experiment.html#SimpleExperiment.add_tracking_metric"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.SimpleExperiment.add_tracking_metric" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a new metric to the experiment.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>metric</strong> – Metric to be added.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.SimpleExperiment.eval">
+<code class="sig-name descname">eval</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.data.Data<a class="reference internal" href="_modules/ax/core/simple_experiment.html#SimpleExperiment.eval"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.SimpleExperiment.eval" title="Permalink to this definition">¶</a></dt>
+<dd><p>Evaluate all arms in the experiment with the evaluation
+function passed as argument to this SimpleExperiment.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.SimpleExperiment.eval_trial">
+<code class="sig-name descname">eval_trial</code><span class="sig-paren">(</span><em class="sig-param">trial: ax.core.base_trial.BaseTrial</em><span class="sig-paren">)</span> → ax.core.data.Data<a class="reference internal" href="_modules/ax/core/simple_experiment.html#SimpleExperiment.eval_trial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.SimpleExperiment.eval_trial" title="Permalink to this definition">¶</a></dt>
+<dd><p>Evaluate trial arms with the evaluation function of this
+experiment.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>trial</strong> – trial, whose arms to evaluate.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.SimpleExperiment.evaluation_function">
+<em class="property">property </em><code class="sig-name descname">evaluation_function</code><a class="headerlink" href="#ax.SimpleExperiment.evaluation_function" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the evaluation function.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.SimpleExperiment.fetch_data">
+<code class="sig-name descname">fetch_data</code><span class="sig-paren">(</span><em class="sig-param">metrics: Optional[List[ax.core.metric.Metric]] = None</em>, <em class="sig-param">**kwargs: Any</em><span class="sig-paren">)</span> → ax.core.data.Data<a class="reference internal" href="_modules/ax/core/simple_experiment.html#SimpleExperiment.fetch_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.SimpleExperiment.fetch_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetches data for all trials on this experiment and for either the
+specified metrics or all metrics currently on the experiment, if <cite>metrics</cite>
+argument is not specified.</p>
+<p>NOTE: For metrics that are not available while trial is running, the data
+may be retrieved from cache on the experiment. Data is cached on the experiment
+via calls to <cite>experiment.attach_data</cite> and whetner a given metric class is
+available while trial is running is determined by the boolean returned from its
+<cite>is_available_while_running</cite> class method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>metrics</strong> – If provided, fetch data for these metrics instead of the ones
+defined on the experiment.</p></li>
+<li><p><strong>kwargs</strong> – keyword args to pass to underlying metrics’ fetch data functions.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Data for the experiment.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.SimpleExperiment.has_evaluation_function">
+<em class="property">property </em><code class="sig-name descname">has_evaluation_function</code><a class="headerlink" href="#ax.SimpleExperiment.has_evaluation_function" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether this <cite>SimpleExperiment</cite> has a valid evaluation function
+attached.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.SimpleExperiment.is_simple_experiment">
+<em class="property">property </em><code class="sig-name descname">is_simple_experiment</code><a class="headerlink" href="#ax.SimpleExperiment.is_simple_experiment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether this experiment is a regular Experiment or the subclassing
+<cite>SimpleExperiment</cite>.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.SimpleExperiment.update_tracking_metric">
+<code class="sig-name descname">update_tracking_metric</code><span class="sig-paren">(</span><em class="sig-param">metric: ax.core.metric.Metric</em><span class="sig-paren">)</span> → ax.core.simple_experiment.SimpleExperiment<a class="reference internal" href="_modules/ax/core/simple_experiment.html#SimpleExperiment.update_tracking_metric"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.SimpleExperiment.update_tracking_metric" title="Permalink to this definition">¶</a></dt>
+<dd><p>Redefine a metric that already exists on the experiment.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>metric</strong> – New metric definition.</p>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.SumConstraint">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">SumConstraint</code><span class="sig-paren">(</span><em class="sig-param">parameters: List[ax.core.parameter.Parameter], is_upper_bound: bool, bound: float</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/parameter_constraint.html#SumConstraint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.SumConstraint" title="Permalink to this definition">¶</a></dt>
+<dd><p>Constraint on the sum of parameters being greater or less than a bound.</p>
+<dl class="method">
+<dt id="ax.SumConstraint.clone">
+<code class="sig-name descname">clone</code><span class="sig-paren">(</span><span class="sig-paren">)</span> → ax.core.parameter_constraint.SumConstraint<a class="reference internal" href="_modules/ax/core/parameter_constraint.html#SumConstraint.clone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.SumConstraint.clone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clone.</p>
+<p>To use the same constraint, we need to reconstruct the original bound.
+We do this by re-applying the original bound weighting.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.SumConstraint.clone_with_transformed_parameters">
+<code class="sig-name descname">clone_with_transformed_parameters</code><span class="sig-paren">(</span><em class="sig-param">transformed_parameters: Dict[str, ax.core.parameter.Parameter]</em><span class="sig-paren">)</span> → ax.core.parameter_constraint.SumConstraint<a class="reference internal" href="_modules/ax/core/parameter_constraint.html#SumConstraint.clone_with_transformed_parameters"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.SumConstraint.clone_with_transformed_parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clone, but replace parameters with transformed versions.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.SumConstraint.constraint_dict">
+<em class="property">property </em><code class="sig-name descname">constraint_dict</code><a class="headerlink" href="#ax.SumConstraint.constraint_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Weights on parameters for linear constraint representation.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.SumConstraint.op">
+<em class="property">property </em><code class="sig-name descname">op</code><a class="headerlink" href="#ax.SumConstraint.op" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether the sum is constrained by a &lt;= or &gt;= inequality.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.SumConstraint.parameters">
+<em class="property">property </em><code class="sig-name descname">parameters</code><a class="headerlink" href="#ax.SumConstraint.parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parameters.</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="ax.Trial">
+<em class="property">class </em><code class="sig-prename descclassname">ax.</code><code class="sig-name descname">Trial</code><span class="sig-paren">(</span><em class="sig-param">experiment: core.experiment.Experiment</em>, <em class="sig-param">generator_run: Optional[GeneratorRun] = None</em>, <em class="sig-param">trial_type: Optional[str] = None</em>, <em class="sig-param">ttl_seconds: Optional[int] = None</em>, <em class="sig-param">index: Optional[int] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ax/core/trial.html#Trial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Trial" title="Permalink to this definition">¶</a></dt>
+<dd><p>Trial that only has one attached arm and no arm weights.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>experiment</strong> – Experiment, to which this trial is attached.</p></li>
+<li><p><strong>generator_run</strong> – GeneratorRun, associated with this trial.
+Trial has only one generator run (of just one arm)
+attached to it. This can also be set later through <cite>add_arm</cite>
+or <cite>add_generator_run</cite>, but a trial’s associated genetor run is
+immutable once set.</p></li>
+<li><p><strong>trial_type</strong> – Type of this trial, if used in MultiTypeExperiment.</p></li>
+<li><p><strong>ttl_seconds</strong> – If specified, trials will be considered failed after
+this many seconds since the time the trial was ran, unless the
+trial is completed before then. Meant to be used to detect
+‘dead’ trials, for which the evaluation process might have
+crashed etc., and which should be considered failed after
+their ‘time to live’ has passed.</p></li>
+<li><p><strong>index</strong> – If specified, the trial’s index will be set accordingly.
+This should generally not be specified, as in the index will be
+automatically determined based on the number of existing trials.
+This is only used for the purpose of loading from storage.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="method">
+<dt id="ax.Trial.abandoned_arms">
+<em class="property">property </em><code class="sig-name descname">abandoned_arms</code><a class="headerlink" href="#ax.Trial.abandoned_arms" title="Permalink to this definition">¶</a></dt>
+<dd><p>Abandoned arms attached to this trial.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Trial.arm">
+<em class="property">property </em><code class="sig-name descname">arm</code><a class="headerlink" href="#ax.Trial.arm" title="Permalink to this definition">¶</a></dt>
+<dd><p>The arm associated with this batch.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Trial.arms">
+<em class="property">property </em><code class="sig-name descname">arms</code><a class="headerlink" href="#ax.Trial.arms" title="Permalink to this definition">¶</a></dt>
+<dd><p>All arms attached to this trial.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><dl class="simple">
+<dt>list of a single arm</dt><dd><p>attached to this trial if there is one, else None.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>arms</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Trial.arms_by_name">
+<em class="property">property </em><code class="sig-name descname">arms_by_name</code><a class="headerlink" href="#ax.Trial.arms_by_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Dictionary of all arms attached to this trial with their names
+as keys.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><dl class="simple">
+<dt>dictionary of a single</dt><dd><p>arm name to arm if one is attached to this trial,
+else None.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>arms</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Trial.generator_run">
+<em class="property">property </em><code class="sig-name descname">generator_run</code><a class="headerlink" href="#ax.Trial.generator_run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generator run attached to this trial.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Trial.generator_runs">
+<em class="property">property </em><code class="sig-name descname">generator_runs</code><a class="headerlink" href="#ax.Trial.generator_runs" title="Permalink to this definition">¶</a></dt>
+<dd><p>All generator runs associated with this trial.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Trial.get_metric_mean">
+<code class="sig-name descname">get_metric_mean</code><span class="sig-paren">(</span><em class="sig-param">metric_name: str</em><span class="sig-paren">)</span> → float<a class="reference internal" href="_modules/ax/core/trial.html#Trial.get_metric_mean"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.Trial.get_metric_mean" title="Permalink to this definition">¶</a></dt>
+<dd><p>Metric mean for the arm attached to this trial, retrieved from the
+latest data available for the metric for the trial.</p>
+</dd></dl>
+<dl class="method">
+<dt id="ax.Trial.objective_mean">
+<em class="property">property </em><code class="sig-name descname">objective_mean</code><a class="headerlink" href="#ax.Trial.objective_mean" title="Permalink to this definition">¶</a></dt>
+<dd><p>Objective mean for the arm attached to this trial, retrieved from the
+latest data available for the objective for the trial.</p>
+<p>Note: the retrieved objective is the experiment-level objective at the
+time of the call to <cite>objective_mean</cite>, which is not necessarily the
+objective that was set at the time the trial was created or ran.</p>
+</dd></dl>
+</dd></dl>
+<dl class="function">
+<dt id="ax.optimize">
+<code class="sig-prename descclassname">ax.</code><code class="sig-name descname">optimize</code><span class="sig-paren">(</span><em class="sig-param">parameters: List[Dict[str, Union[str, bool, float, int, None, List[Union[str, bool, float, int, None]]]]], evaluation_function: Callable[[Dict[str, Union[str, bool, float, int, None]], Optional[float]], Union[Dict[str, Tuple[float, Optional[float]]], Tuple[float, Optional[float]], float, List[Tuple[Dict[str, Union[str, bool, float, int, None]], Dict[str, Tuple[float, Optional[float]]]]]]], experiment_name: Optional[str] = None, objective_name: Optional[str] = None, minimize: bool = False, parameter_constraints: Optional[List[str]] = None, outcome_constraints: Optional[List[str]] = None, total_trials: int = 20, arms_per_trial: int = 1, random_seed: Optional[int] = None, generation_strategy: Optional[ax.modelbridge.generation_strategy.GenerationStrategy] = None</em><span class="sig-paren">)</span> → Tuple[Dict[str, Union[str, bool, float, int, None]], Optional[Tuple[Dict[str, float], Optional[Dict[str, Dict[str, float]]]]], ax.core.experiment.Experiment, Optional[ax.modelbridge.base.ModelBridge]]<a class="reference internal" href="_modules/ax/service/managed_loop.html#optimize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ax.optimize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Construct and run a full optimization loop.</p>
+</dd></dl>
+<dl class="function">
+<dt id="ax.save">
+<code class="sig-prename descclassname">ax.</code><code class="sig-name descname">save</code><span class="sig-paren">(</span><em class="sig-param">experiment: ax.core.experiment.Experiment</em>, <em class="sig-param">filepath: str</em><span class="sig-paren">)</span> → None<a class="headerlink" href="#ax.save" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save experiment to file.</p>
+<ol class="arabic simple">
+<li><p>Convert Ax experiment to JSON-serializable dictionary.</p></li>
+<li><p>Write to file.</p></li>
+</ol>
+</dd></dl>
+<dl class="function">
+<dt id="ax.load">
+<code class="sig-prename descclassname">ax.</code><code class="sig-name descname">load</code><span class="sig-paren">(</span><em class="sig-param">filepath: str</em><span class="sig-paren">)</span> → ax.core.experiment.Experiment<a class="headerlink" href="#ax.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load experiment from file.</p>
+<ol class="arabic simple">
+<li><p>Read file.</p></li>
+<li><p>Convert dictionary to Ax experiment instance.</p></li>
+</ol>
+</dd></dl>
+</div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="index.html">Documentation overview</a><ul>
+<li>Previous: <a href="index.html" title="previous chapter">API Reference</a></li>
+<li>Next: <a href="benchmark.html" title="next chapter">ax.benchmark</a></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.1.19/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2020 Facebook Inc.</section></footer></div></body></html>

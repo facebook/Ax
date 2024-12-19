@@ -1,0 +1,557 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.5/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.5/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.5/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.5/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.5/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.5/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.5/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.5/css/main.css"/><script src="/versions/0.2.5/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.5/"><img class="logo" src="/versions/0.2.5/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.5/versions.html"><h3>0.2.5</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.5/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.5/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.5/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.plot.pareto_utils</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">combinations</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">ax.core.batch_trial</span> <span class="kn">import</span> <span class="n">BatchTrial</span>
+<span class="kn">from</span> <span class="nn">ax.core.data</span> <span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span> <span class="nn">ax.core.experiment</span> <span class="kn">import</span> <span class="n">Experiment</span>
+<span class="kn">from</span> <span class="nn">ax.core.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
+<span class="kn">from</span> <span class="nn">ax.core.objective</span> <span class="kn">import</span> <span class="n">ScalarizedObjective</span>
+<span class="kn">from</span> <span class="nn">ax.core.observation</span> <span class="kn">import</span> <span class="n">ObservationFeatures</span>
+<span class="kn">from</span> <span class="nn">ax.core.optimization_config</span> <span class="kn">import</span> <span class="n">MultiObjectiveOptimizationConfig</span>
+<span class="kn">from</span> <span class="nn">ax.core.outcome_constraint</span> <span class="kn">import</span> <span class="n">OutcomeConstraint</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">TParameterization</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.core</span> <span class="kn">import</span> <span class="n">AxError</span><span class="p">,</span> <span class="n">UnsupportedError</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.modelbridge_utils</span> <span class="kn">import</span> <span class="n">observed_pareto_frontier</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.registry</span> <span class="kn">import</span> <span class="n">Models</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.torch</span> <span class="kn">import</span> <span class="n">TorchModelBridge</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.choice_encode</span> <span class="kn">import</span> <span class="n">OrderedChoiceEncode</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.derelativize</span> <span class="kn">import</span> <span class="n">Derelativize</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.int_to_float</span> <span class="kn">import</span> <span class="n">IntToFloat</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.transforms.search_space_to_choice</span> <span class="kn">import</span> <span class="n">SearchSpaceToChoice</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch.posterior_mean</span> <span class="kn">import</span> <span class="n">get_PosteriorMean</span>
+<span class="kn">from</span> <span class="nn">ax.models.torch_base</span> <span class="kn">import</span> <span class="n">TorchModel</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">ax.utils.stats.statstools</span> <span class="kn">import</span> <span class="n">relativize</span>
+<span class="kn">from</span> <span class="nn">botorch.utils.multi_objective</span> <span class="kn">import</span> <span class="n">is_non_dominated</span>
+
+
+<span class="c1"># type aliases</span>
+<span class="n">Mu</span> <span class="o">=</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span>
+<span class="n">Cov</span> <span class="o">=</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_extract_observed_pareto_2d</span><span class="p">(</span>
+    <span class="n">Y</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">reference_point</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+    <span class="n">minimize</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"Currently only the 2-dim case is handled."</span><span class="p">)</span>
+    <span class="c1"># If `minimize` is a bool, apply to both dimensions</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">minimize</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+        <span class="n">minimize</span> <span class="o">=</span> <span class="p">(</span><span class="n">minimize</span><span class="p">,</span> <span class="n">minimize</span><span class="p">)</span>
+    <span class="n">Y_copy</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">Y</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">reference_point</span><span class="p">:</span>
+        <span class="n">ref_point</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">reference_point</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">Y_copy</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+            <span class="c1"># Filter based on reference point</span>
+            <span class="n">Y_copy</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">Y_copy</span><span class="p">[</span><span class="n">Y_copy</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">ref_point</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+                <span class="k">if</span> <span class="n">minimize</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="k">else</span> <span class="n">Y_copy</span><span class="p">[</span><span class="n">Y_copy</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">ref_point</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+            <span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+        <span class="c1"># Flip sign in each dimension based on minimize</span>
+        <span class="n">Y_copy</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">*=</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="n">minimize</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+    <span class="n">Y_pareto</span> <span class="o">=</span> <span class="n">Y_copy</span><span class="p">[</span><span class="n">is_non_dominated</span><span class="p">(</span><span class="n">Y_copy</span><span class="p">)]</span>
+    <span class="n">Y_pareto</span> <span class="o">=</span> <span class="n">Y_pareto</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="n">Y_pareto</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">descending</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+        <span class="c1"># Flip sign back</span>
+        <span class="n">Y_pareto</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">*=</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="n">minimize</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+    <span class="k">assert</span> <span class="n">Y_pareto</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span>  <span class="c1"># Y_pareto should have two outcomes.</span>
+    <span class="k">return</span> <span class="n">Y_pareto</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="ParetoFrontierResults"><a class="viewcode-back" href="../../../plot.html#ax.plot.pareto_utils.ParetoFrontierResults">[docs]</a><span class="k">class</span> <span class="nc">ParetoFrontierResults</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="sd">"""Container for results from Pareto frontier computation.</span>
+
+<span class="sd">    Fields are:</span>
+<span class="sd">    - param_dicts: The parameter dicts of the points generated on the Pareto Frontier.</span>
+<span class="sd">    - means: The posterior mean predictions of the model for each metric (same order as</span>
+<span class="sd">    the param dicts). These must be as a percent change relative to status quo for</span>
+<span class="sd">    any metric not listed in absolute_metrics.</span>
+<span class="sd">    - sems: The posterior sem predictions of the model for each metric (same order as</span>
+<span class="sd">    the param dicts). Also must be relativized wrt status quo for any metric not</span>
+<span class="sd">    listed in absolute_metrics.</span>
+<span class="sd">    - primary_metric: The name of the primary metric.</span>
+<span class="sd">    - secondary_metric: The name of the secondary metric.</span>
+<span class="sd">    - absolute_metrics: List of outcome metrics that are NOT be relativized w.r.t. the</span>
+<span class="sd">    status quo. All other metrics are assumed to be given here as % relative to</span>
+<span class="sd">    status_quo.</span>
+<span class="sd">    - objective_thresholds: Threshold for each objective. Must be on the same scale as</span>
+<span class="sd">    means, so if means is relativized it should be the relative value, otherwise it</span>
+<span class="sd">    should be absolute.</span>
+<span class="sd">    - arm_names: Optional list of arm names for each parameterization.</span>
+<span class="sd">    """</span>
+
+    <span class="n">param_dicts</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TParameterization</span><span class="p">]</span>
+    <span class="n">means</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span>
+    <span class="n">sems</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span>
+    <span class="n">primary_metric</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">secondary_metric</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">absolute_metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="n">objective_thresholds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span>
+    <span class="n">arm_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]</span></div>
+
+
+<div class="viewcode-block" id="get_observed_pareto_frontiers"><a class="viewcode-back" href="../../../plot.html#ax.plot.pareto_utils.get_observed_pareto_frontiers">[docs]</a><span class="k">def</span> <span class="nf">get_observed_pareto_frontiers</span><span class="p">(</span>
+    <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Data</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">rel</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">arm_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ParetoFrontierResults</span><span class="p">]:</span>
+    <span class="sd">"""</span>
+<span class="sd">    Find all Pareto points from an experiment.</span>
+
+<span class="sd">    Uses only values as observed in the data; no modeling is involved. Makes no</span>
+<span class="sd">    assumption about the search space or types of parameters. If "data" is provided will</span>
+<span class="sd">    use that, otherwise will use all data attached to the experiment.</span>
+
+<span class="sd">    Uses all arms present in data; does not filter according to experiment</span>
+<span class="sd">    search space. If arm_names is specified, will filter to just those arm whose names</span>
+<span class="sd">    are given in the list.</span>
+
+<span class="sd">    Assumes experiment has a multiobjective optimization config from which the</span>
+<span class="sd">    objectives and outcome constraints will be extracted.</span>
+
+<span class="sd">    Will generate a ParetoFrontierResults for every pair of metrics in the experiment's</span>
+<span class="sd">    multiobjective optimization config.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        experiment: The experiment.</span>
+<span class="sd">        data: Data to use for computing Pareto frontier. If not provided, will fetch</span>
+<span class="sd">            data from experiment.</span>
+<span class="sd">        rel: Relativize, if status quo on experiment.</span>
+<span class="sd">        arm_names: If provided, computes Pareto frontier only from among the provided</span>
+<span class="sd">            list of arm names.</span>
+
+<span class="sd">    Returns: ParetoFrontierResults that can be used with interact_pareto_frontier.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">experiment</span><span class="o">.</span><span class="n">optimization_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Experiment must have an optimization config"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">arm_names</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">Data</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">"arm_name"</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">arm_names</span><span class="p">)])</span>
+    <span class="n">mb</span> <span class="o">=</span> <span class="n">get_tensor_converter_model</span><span class="p">(</span><span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+    <span class="n">pareto_observations</span> <span class="o">=</span> <span class="n">observed_pareto_frontier</span><span class="p">(</span><span class="n">modelbridge</span><span class="o">=</span><span class="n">mb</span><span class="p">)</span>
+    <span class="c1"># Convert to ParetoFrontierResults</span>
+    <span class="n">objective_metric_names</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">metric</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">experiment</span><span class="o">.</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">objective</span><span class="o">.</span><span class="n">metrics</span>  <span class="c1"># pyre-ignore</span>
+    <span class="p">}</span>
+    <span class="n">obj_metr_list</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">objective_metric_names</span><span class="p">)</span>
+    <span class="n">pfr_means</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="p">[]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">obj_metr_list</span><span class="p">}</span>
+    <span class="n">pfr_sems</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="p">[]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">obj_metr_list</span><span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">obs</span> <span class="ow">in</span> <span class="n">pareto_observations</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">obs</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">metric_names</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">objective_metric_names</span><span class="p">:</span>
+                <span class="n">pfr_means</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">obs</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">means</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="n">pfr_sems</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">obs</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">covariance</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]))</span>
+
+    <span class="c1"># Relativize as needed</span>
+    <span class="k">if</span> <span class="n">rel</span> <span class="ow">and</span> <span class="n">experiment</span><span class="o">.</span><span class="n">status_quo</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Get status quo values</span>
+        <span class="c1"># pyre-fixme[16]: `Optional` has no attribute `name`.</span>
+        <span class="n">sq_df</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">"arm_name"</span><span class="p">]</span> <span class="o">==</span> <span class="n">experiment</span><span class="o">.</span><span class="n">status_quo</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+        <span class="n">sq_df</span> <span class="o">=</span> <span class="n">sq_df</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="n">orient</span><span class="o">=</span><span class="s2">"list"</span><span class="p">)</span>
+        <span class="n">sq_means</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">sq_sems</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="c1"># pyre-fixme[6]: Expected `_SupportsIndex` for 1st param but got `str`.</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">metric</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sq_df</span><span class="p">[</span><span class="s2">"metric_name"</span><span class="p">]):</span>
+            <span class="c1"># pyre-fixme[6]: Expected `_SupportsIndex` for 1st param but got `str`.</span>
+            <span class="n">sq_means</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span> <span class="o">=</span> <span class="n">sq_df</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+            <span class="c1"># pyre-fixme[6]: Expected `_SupportsIndex` for 1st param but got `str`.</span>
+            <span class="n">sq_sems</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span> <span class="o">=</span> <span class="n">sq_df</span><span class="p">[</span><span class="s2">"sem"</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+        <span class="c1"># Relativize</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">pfr_means</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">sq_sems</span><span class="p">[</span><span class="n">name</span><span class="p">])</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">pfr_sems</span><span class="p">[</span><span class="n">name</span><span class="p">])</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                <span class="c1"># Just relativize means</span>
+                <span class="n">pfr_means</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="p">(</span><span class="n">mu</span> <span class="o">/</span> <span class="n">sq_means</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span> <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">pfr_means</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+                <span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Use delta method</span>
+                <span class="n">pfr_means</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="n">pfr_sems</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">relativize</span><span class="p">(</span>
+                    <span class="n">means_t</span><span class="o">=</span><span class="n">pfr_means</span><span class="p">[</span><span class="n">name</span><span class="p">],</span>
+                    <span class="n">sems_t</span><span class="o">=</span><span class="n">pfr_sems</span><span class="p">[</span><span class="n">name</span><span class="p">],</span>
+                    <span class="n">mean_c</span><span class="o">=</span><span class="n">sq_means</span><span class="p">[</span><span class="n">name</span><span class="p">],</span>
+                    <span class="n">sem_c</span><span class="o">=</span><span class="n">sq_sems</span><span class="p">[</span><span class="n">name</span><span class="p">],</span>
+                    <span class="n">as_percent</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)</span>
+        <span class="n">absolute_metrics</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">absolute_metrics</span> <span class="o">=</span> <span class="n">obj_metr_list</span>
+
+    <span class="n">objective_thresholds</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">experiment</span><span class="o">.</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">objective_thresholds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pyre-ignore</span>
+        <span class="k">for</span> <span class="n">objth</span> <span class="ow">in</span> <span class="n">experiment</span><span class="o">.</span><span class="n">optimization_config</span><span class="o">.</span><span class="n">objective_thresholds</span><span class="p">:</span>
+            <span class="n">is_rel</span> <span class="o">=</span> <span class="n">objth</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">absolute_metrics</span>
+            <span class="k">if</span> <span class="n">objth</span><span class="o">.</span><span class="n">relative</span> <span class="o">!=</span> <span class="n">is_rel</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Objective threshold for </span><span class="si">{</span><span class="n">objth</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> has "</span>
+                    <span class="sa">f</span><span class="s2">"rel=</span><span class="si">{</span><span class="n">objth</span><span class="o">.</span><span class="n">relative</span><span class="si">}</span><span class="s2"> but was specified here as rel=</span><span class="si">{</span><span class="n">is_rel</span><span class="si">}</span><span class="s2">"</span>
+                <span class="p">)</span>
+            <span class="n">objective_thresholds</span><span class="p">[</span><span class="n">objth</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">objth</span><span class="o">.</span><span class="n">bound</span>
+
+    <span class="c1"># Construct ParetoFrontResults for each pair</span>
+    <span class="n">pfr_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">param_dicts</span> <span class="o">=</span> <span class="p">[</span><span class="n">obs</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">parameters</span> <span class="k">for</span> <span class="n">obs</span> <span class="ow">in</span> <span class="n">pareto_observations</span><span class="p">]</span>
+    <span class="n">pfr_arm_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">obs</span><span class="o">.</span><span class="n">arm_name</span> <span class="k">for</span> <span class="n">obs</span> <span class="ow">in</span> <span class="n">pareto_observations</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">metric_a</span><span class="p">,</span> <span class="n">metric_b</span> <span class="ow">in</span> <span class="n">combinations</span><span class="p">(</span><span class="n">obj_metr_list</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+        <span class="n">pfr_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">ParetoFrontierResults</span><span class="p">(</span>
+                <span class="n">param_dicts</span><span class="o">=</span><span class="n">param_dicts</span><span class="p">,</span>
+                <span class="n">means</span><span class="o">=</span><span class="n">pfr_means</span><span class="p">,</span>
+                <span class="n">sems</span><span class="o">=</span><span class="n">pfr_sems</span><span class="p">,</span>
+                <span class="n">primary_metric</span><span class="o">=</span><span class="n">metric_a</span><span class="p">,</span>
+                <span class="n">secondary_metric</span><span class="o">=</span><span class="n">metric_b</span><span class="p">,</span>
+                <span class="n">absolute_metrics</span><span class="o">=</span><span class="n">absolute_metrics</span><span class="p">,</span>
+                <span class="n">objective_thresholds</span><span class="o">=</span><span class="n">objective_thresholds</span><span class="p">,</span>
+                <span class="n">arm_names</span><span class="o">=</span><span class="n">pfr_arm_names</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">pfr_list</span></div>
+
+
+<div class="viewcode-block" id="get_tensor_converter_model"><a class="viewcode-back" href="../../../plot.html#ax.plot.pareto_utils.get_tensor_converter_model">[docs]</a><span class="k">def</span> <span class="nf">get_tensor_converter_model</span><span class="p">(</span><span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TorchModelBridge</span><span class="p">:</span>
+    <span class="sd">"""</span>
+<span class="sd">    Constructs a minimal model for converting things to tensors.</span>
+
+<span class="sd">    Model fitting will instantiate all of the transforms but will not do any</span>
+<span class="sd">    expensive (i.e. GP) fitting beyond that. The model will raise an error if</span>
+<span class="sd">    it is used for predicting or generating.</span>
+
+<span class="sd">    Will work for any search space regardless of types of parameters.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        experiment: Experiment.</span>
+<span class="sd">        data: Data for fitting the model.</span>
+
+<span class="sd">    Returns: A torch modelbridge with transforms set.</span>
+<span class="sd">    """</span>
+    <span class="c1"># Transforms is the minimal set that will work for converting any search</span>
+    <span class="c1"># space to tensors.</span>
+    <span class="k">return</span> <span class="n">TorchModelBridge</span><span class="p">(</span>
+        <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+        <span class="n">search_space</span><span class="o">=</span><span class="n">experiment</span><span class="o">.</span><span class="n">search_space</span><span class="p">,</span>
+        <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">TorchModel</span><span class="p">(),</span>
+        <span class="n">transforms</span><span class="o">=</span><span class="p">[</span><span class="n">Derelativize</span><span class="p">,</span> <span class="n">SearchSpaceToChoice</span><span class="p">,</span> <span class="n">OrderedChoiceEncode</span><span class="p">,</span> <span class="n">IntToFloat</span><span class="p">],</span>
+        <span class="n">transform_configs</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">"Derelativize"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"use_raw_status_quo"</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+            <span class="s2">"SearchSpaceToChoice"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"use_ordered"</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+        <span class="p">},</span>
+        <span class="n">fit_out_of_design</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="compute_posterior_pareto_frontier"><a class="viewcode-back" href="../../../plot.html#ax.plot.pareto_utils.compute_posterior_pareto_frontier">[docs]</a><span class="k">def</span> <span class="nf">compute_posterior_pareto_frontier</span><span class="p">(</span>
+    <span class="n">experiment</span><span class="p">:</span> <span class="n">Experiment</span><span class="p">,</span>
+    <span class="n">primary_objective</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
+    <span class="n">secondary_objective</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Data</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">OutcomeConstraint</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">absolute_metrics</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">num_points</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="n">trial_index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">chebyshev</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParetoFrontierResults</span><span class="p">:</span>
+    <span class="sd">"""Compute the Pareto frontier between two objectives. For experiments</span>
+<span class="sd">    with batch trials, a trial index or data object must be provided.</span>
+
+<span class="sd">    This is done by fitting a GP and finding the pareto front according to the</span>
+<span class="sd">    GP posterior mean.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        experiment: The experiment to compute a pareto frontier for.</span>
+<span class="sd">        primary_objective: The primary objective to optimize.</span>
+<span class="sd">        secondary_objective: The secondary objective against which</span>
+<span class="sd">            to trade off the primary objective.</span>
+<span class="sd">        outcome_constraints: Outcome</span>
+<span class="sd">            constraints to be respected by the optimization. Can only contain</span>
+<span class="sd">            constraints on metrics that are not primary or secondary objectives.</span>
+<span class="sd">        absolute_metrics: List of outcome metrics that</span>
+<span class="sd">            should NOT be relativized w.r.t. the status quo (all other outcomes</span>
+<span class="sd">            will be in % relative to status_quo).</span>
+<span class="sd">        num_points: The number of points to compute on the</span>
+<span class="sd">            Pareto frontier.</span>
+<span class="sd">        chebyshev: Whether to use augmented_chebyshev_scalarization</span>
+<span class="sd">            when computing Pareto Frontier points.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        ParetoFrontierResults: A NamedTuple with fields listed in its definition.</span>
+<span class="sd">    """</span>
+    <span class="n">model_gen_options</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"acquisition_function_kwargs"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"chebyshev_scalarization"</span><span class="p">:</span> <span class="n">chebyshev</span><span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="n">trial_index</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="ow">and</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">BatchTrial</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="n">UnsupportedError</span><span class="p">(</span>
+            <span class="s2">"Must specify trial index or data for experiment with batch trials"</span>
+        <span class="p">)</span>
+    <span class="n">absolute_metrics</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">absolute_metrics</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">absolute_metrics</span>
+    <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">absolute_metrics</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">metric</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">experiment</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Model was not fit on metric `</span><span class="si">{</span><span class="n">metric</span><span class="si">}</span><span class="s2">`"</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">outcome_constraints</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">outcome_constraints</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># ensure we don't constrain an objective</span>
+        <span class="n">_validate_outcome_constraints</span><span class="p">(</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+            <span class="n">primary_objective</span><span class="o">=</span><span class="n">primary_objective</span><span class="p">,</span>
+            <span class="n">secondary_objective</span><span class="o">=</span><span class="n">secondary_objective</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="c1"># build posterior mean model</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">experiment</span><span class="o">.</span><span class="n">trials</span><span class="p">[</span><span class="n">trial_index</span><span class="p">]</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">trial_index</span>
+                <span class="k">else</span> <span class="n">experiment</span><span class="o">.</span><span class="n">fetch_data</span><span class="p">()</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not fetch data from experiment or trial: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="n">oc</span> <span class="o">=</span> <span class="n">_build_new_optimization_config</span><span class="p">(</span>
+        <span class="n">weights</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">]),</span>
+        <span class="n">primary_objective</span><span class="o">=</span><span class="n">primary_objective</span><span class="p">,</span>
+        <span class="n">secondary_objective</span><span class="o">=</span><span class="n">secondary_objective</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">Models</span><span class="o">.</span><span class="n">MOO</span><span class="p">(</span>
+        <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">,</span>
+        <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+        <span class="n">acqf_constructor</span><span class="o">=</span><span class="n">get_PosteriorMean</span><span class="p">,</span>
+        <span class="n">optimization_config</span><span class="o">=</span><span class="n">oc</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">status_quo</span> <span class="o">=</span> <span class="n">experiment</span><span class="o">.</span><span class="n">status_quo</span>
+    <span class="k">if</span> <span class="n">status_quo</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">status_quo_prediction</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">ObservationFeatures</span><span class="p">(</span>
+                        <span class="n">parameters</span><span class="o">=</span><span class="n">status_quo</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span>
+                        <span class="c1"># pyre-fixme [6]: Expected `Optional[np.int64]` for trial_index</span>
+                        <span class="n">trial_index</span><span class="o">=</span><span class="n">trial_index</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not predict OOD status_quo outcomes: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">status_quo</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">status_quo_prediction</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">status_quo_prediction</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">param_dicts</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TParameterization</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># Construct weightings with linear angular spacing.</span>
+    <span class="c1"># TODO: Verify whether 0, 1 weights cause problems because of subset_model.</span>
+    <span class="n">alpha</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span> <span class="o">+</span> <span class="mf">0.01</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">-</span> <span class="mf">0.01</span><span class="p">,</span> <span class="n">num_points</span><span class="p">)</span>
+    <span class="n">primary_weight</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span> <span class="k">if</span> <span class="n">primary_objective</span><span class="o">.</span><span class="n">lower_is_better</span> <span class="k">else</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+    <span class="n">secondary_weight</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span> <span class="k">if</span> <span class="n">secondary_objective</span><span class="o">.</span><span class="n">lower_is_better</span> <span class="k">else</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span>
+        <span class="n">alpha</span>
+    <span class="p">)</span>
+    <span class="n">weights_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">primary_weight</span><span class="p">,</span> <span class="n">secondary_weight</span><span class="p">])</span><span class="o">.</span><span class="n">transpose</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">weights</span> <span class="ow">in</span> <span class="n">weights_list</span><span class="p">:</span>
+        <span class="n">outcome_constraints</span> <span class="o">=</span> <span class="n">outcome_constraints</span>
+        <span class="n">oc</span> <span class="o">=</span> <span class="n">_build_new_optimization_config</span><span class="p">(</span>
+            <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span>
+            <span class="n">primary_objective</span><span class="o">=</span><span class="n">primary_objective</span><span class="p">,</span>
+            <span class="n">secondary_objective</span><span class="o">=</span><span class="n">secondary_objective</span><span class="p">,</span>
+            <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># TODO: (jej) T64002590 Let this serve as a starting point for optimization.</span>
+        <span class="c1"># ex. Add global spacing criterion. Implement on BoTorch side.</span>
+        <span class="c1"># pyre-fixme [6]: Expected different type for model_gen_options</span>
+        <span class="n">run</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gen</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">model_gen_options</span><span class="o">=</span><span class="n">model_gen_options</span><span class="p">,</span> <span class="n">optimization_config</span><span class="o">=</span><span class="n">oc</span><span class="p">)</span>
+        <span class="n">param_dicts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">run</span><span class="o">.</span><span class="n">arms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span>
+
+    <span class="c1"># Call predict on points to get their decomposed metrics.</span>
+    <span class="n">means</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">ObservationFeatures</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span> <span class="k">for</span> <span class="n">parameters</span> <span class="ow">in</span> <span class="n">param_dicts</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">_extract_pareto_frontier_results</span><span class="p">(</span>
+        <span class="n">param_dicts</span><span class="o">=</span><span class="n">param_dicts</span><span class="p">,</span>
+        <span class="n">means</span><span class="o">=</span><span class="n">means</span><span class="p">,</span>
+        <span class="n">variances</span><span class="o">=</span><span class="n">cov</span><span class="p">,</span>
+        <span class="n">primary_metric</span><span class="o">=</span><span class="n">primary_objective</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="n">secondary_metric</span><span class="o">=</span><span class="n">secondary_objective</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="n">absolute_metrics</span><span class="o">=</span><span class="n">absolute_metrics</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+        <span class="n">status_quo_prediction</span><span class="o">=</span><span class="n">status_quo_prediction</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_extract_pareto_frontier_results</span><span class="p">(</span>
+    <span class="n">param_dicts</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TParameterization</span><span class="p">],</span>
+    <span class="n">means</span><span class="p">:</span> <span class="n">Mu</span><span class="p">,</span>
+    <span class="n">variances</span><span class="p">:</span> <span class="n">Cov</span><span class="p">,</span>
+    <span class="n">primary_metric</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">secondary_metric</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">absolute_metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">OutcomeConstraint</span><span class="p">]],</span>
+    <span class="n">status_quo_prediction</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Mu</span><span class="p">,</span> <span class="n">Cov</span><span class="p">]],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParetoFrontierResults</span><span class="p">:</span>
+    <span class="sd">"""Extract prediction results into ParetoFrontierResults struture."""</span>
+    <span class="n">metrics</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">means</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="n">means_out</span> <span class="o">=</span> <span class="p">{</span><span class="n">metric</span><span class="p">:</span> <span class="n">m</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">for</span> <span class="n">metric</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">means</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+    <span class="n">sems_out</span> <span class="o">=</span> <span class="p">{</span><span class="n">metric</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="n">metric</span><span class="p">])</span> <span class="k">for</span> <span class="n">metric</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">variances</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+    <span class="c1"># relativize predicted outcomes if requested</span>
+    <span class="n">primary_is_relative</span> <span class="o">=</span> <span class="n">primary_metric</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">absolute_metrics</span>
+    <span class="n">secondary_is_relative</span> <span class="o">=</span> <span class="n">secondary_metric</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">absolute_metrics</span>
+    <span class="c1"># Relativized metrics require a status quo prediction</span>
+    <span class="k">if</span> <span class="n">primary_is_relative</span> <span class="ow">or</span> <span class="n">secondary_is_relative</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">status_quo_prediction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">AxError</span><span class="p">(</span><span class="s2">"Relativized metrics require a valid status quo prediction"</span><span class="p">)</span>
+        <span class="n">sq_mean</span><span class="p">,</span> <span class="n">sq_sem</span> <span class="o">=</span> <span class="n">status_quo_prediction</span>
+
+        <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">metric</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">absolute_metrics</span> <span class="ow">and</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">sq_mean</span><span class="p">:</span>
+                <span class="n">means_out</span><span class="p">[</span><span class="n">metric</span><span class="p">],</span> <span class="n">sems_out</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span> <span class="o">=</span> <span class="n">relativize</span><span class="p">(</span>
+                    <span class="n">means_t</span><span class="o">=</span><span class="n">means_out</span><span class="p">[</span><span class="n">metric</span><span class="p">],</span>
+                    <span class="n">sems_t</span><span class="o">=</span><span class="n">sems_out</span><span class="p">[</span><span class="n">metric</span><span class="p">],</span>
+                    <span class="n">mean_c</span><span class="o">=</span><span class="n">sq_mean</span><span class="p">[</span><span class="n">metric</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="n">sem_c</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">sq_sem</span><span class="p">[</span><span class="n">metric</span><span class="p">][</span><span class="n">metric</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span>
+                    <span class="n">as_percent</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">ParetoFrontierResults</span><span class="p">(</span>
+        <span class="n">param_dicts</span><span class="o">=</span><span class="n">param_dicts</span><span class="p">,</span>
+        <span class="n">means</span><span class="o">=</span><span class="p">{</span><span class="n">metric</span><span class="p">:</span> <span class="n">means</span> <span class="k">for</span> <span class="n">metric</span><span class="p">,</span> <span class="n">means</span> <span class="ow">in</span> <span class="n">means_out</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+        <span class="n">sems</span><span class="o">=</span><span class="p">{</span><span class="n">metric</span><span class="p">:</span> <span class="n">sems</span> <span class="k">for</span> <span class="n">metric</span><span class="p">,</span> <span class="n">sems</span> <span class="ow">in</span> <span class="n">sems_out</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+        <span class="n">primary_metric</span><span class="o">=</span><span class="n">primary_metric</span><span class="p">,</span>
+        <span class="n">secondary_metric</span><span class="o">=</span><span class="n">secondary_metric</span><span class="p">,</span>
+        <span class="n">absolute_metrics</span><span class="o">=</span><span class="n">absolute_metrics</span><span class="p">,</span>
+        <span class="n">objective_thresholds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">arm_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_validate_outcome_constraints</span><span class="p">(</span>
+    <span class="n">outcome_constraints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">OutcomeConstraint</span><span class="p">],</span>
+    <span class="n">primary_objective</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
+    <span class="n">secondary_objective</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">"""Validate that outcome constraints don't involve objectives."""</span>
+    <span class="n">objective_metrics</span> <span class="o">=</span> <span class="p">[</span><span class="n">primary_objective</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">secondary_objective</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">outcome_constraints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">oc</span> <span class="ow">in</span> <span class="n">outcome_constraints</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">oc</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">objective_metrics</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"Metric `</span><span class="si">{metric_name}</span><span class="s2">` occurs in both outcome constraints "</span>
+                    <span class="s2">"and objectives"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">metric_name</span><span class="o">=</span><span class="n">oc</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_build_new_optimization_config</span><span class="p">(</span>
+    <span class="n">weights</span><span class="p">,</span> <span class="n">primary_objective</span><span class="p">,</span> <span class="n">secondary_objective</span><span class="p">,</span> <span class="n">outcome_constraints</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
+    <span class="n">obj</span> <span class="o">=</span> <span class="n">ScalarizedObjective</span><span class="p">(</span>
+        <span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="n">primary_objective</span><span class="p">,</span> <span class="n">secondary_objective</span><span class="p">],</span>
+        <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span>
+        <span class="n">minimize</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">optimization_config</span> <span class="o">=</span> <span class="n">MultiObjectiveOptimizationConfig</span><span class="p">(</span>
+        <span class="n">objective</span><span class="o">=</span><span class="n">obj</span><span class="p">,</span> <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">optimization_config</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" name="q" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.5/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>

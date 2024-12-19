@@ -1,0 +1,385 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/latest/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/latest/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/latest/img/ax.svg"/><link rel="shortcut icon" href="/versions/latest/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/latest/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/latest/js/mathjax.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS_SVG"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/latest/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/latest/css/main.css"/><script src="/versions/latest/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/latest/"><img class="logo" src="/versions/latest/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/latest/versions.html"><h3>latest</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/latest/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/latest/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/latest/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.analysis.plotly.arm_effects.utils</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="c1"># pyre-unsafe</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">ax.analysis.plotly.utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">format_constraint_violated_probabilities</span><span class="p">,</span>
+    <span class="n">get_constraint_violated_probabilities</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.core.generator_run</span> <span class="kn">import</span> <span class="n">GeneratorRun</span>
+<span class="kn">from</span> <span class="nn">ax.core.observation</span> <span class="kn">import</span> <span class="n">ObservationFeatures</span>
+<span class="kn">from</span> <span class="nn">ax.core.outcome_constraint</span> <span class="kn">import</span> <span class="n">OutcomeConstraint</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">TParameterization</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.core</span> <span class="kn">import</span> <span class="n">UserInputError</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.base</span> <span class="kn">import</span> <span class="n">ModelBridge</span>
+<span class="kn">from</span> <span class="nn">ax.modelbridge.prediction_utils</span> <span class="kn">import</span> <span class="n">predict_at_point</span>
+<span class="kn">from</span> <span class="nn">plotly</span> <span class="kn">import</span> <span class="n">express</span> <span class="k">as</span> <span class="n">px</span><span class="p">,</span> <span class="n">graph_objects</span> <span class="k">as</span> <span class="n">go</span>
+<span class="kn">from</span> <span class="nn">pyre_extensions</span> <span class="kn">import</span> <span class="n">none_throws</span>
+
+
+<div class="viewcode-block" id="format_parameters_for_effects_by_arm_plot">
+<a class="viewcode-back" href="../../../../../analysis.html#ax.analysis.plotly.arm_effects.utils.format_parameters_for_effects_by_arm_plot">[docs]</a>
+<span class="k">def</span> <span class="nf">format_parameters_for_effects_by_arm_plot</span><span class="p">(</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">TParameterization</span><span class="p">,</span> <span class="n">max_num_params</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Format the parameters for tooltips in the predicted or insample</span>
+<span class="sd">    effects plot."""</span>
+    <span class="n">parameter_items</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">())[:</span><span class="n">max_num_params</span><span class="p">]</span>
+    <span class="n">string</span> <span class="o">=</span> <span class="s2">"&lt;br /&gt;  "</span> <span class="o">+</span> <span class="s2">"&lt;br /&gt;  "</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">parameter_items</span><span class="p">])</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parameter_items</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">parameters</span><span class="p">):</span>
+        <span class="n">string</span> <span class="o">+=</span> <span class="s2">"&lt;br /&gt;  ..."</span>
+    <span class="k">return</span> <span class="n">string</span></div>
+
+
+
+<div class="viewcode-block" id="prepare_arm_effects_plot">
+<a class="viewcode-back" href="../../../../../analysis.html#ax.analysis.plotly.arm_effects.utils.prepare_arm_effects_plot">[docs]</a>
+<span class="k">def</span> <span class="nf">prepare_arm_effects_plot</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">metric_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">outcome_constraints</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">OutcomeConstraint</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Prepare a plotly figure for the predicted effects based on the data in df.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        metric_name: The name of the metric to plot.</span>
+<span class="sd">        outcome_constraints: The outcome constraints for the experiment used to</span>
+<span class="sd">            determine if the metric is a constraint, and if so, what the bound is</span>
+<span class="sd">            so the bound can be rendered in the plot.</span>
+<span class="sd">        df: A dataframe of data to plot with the following columns:</span>
+<span class="sd">            - source: In-sample or model key that geneerated the candidate</span>
+<span class="sd">            - arm_name: The name of the arm</span>
+<span class="sd">            - mean: The observed or predicted mean of the metric specified</span>
+<span class="sd">            - sem: The observed or predicted sem of the metric specified</span>
+<span class="sd">            - error_margin: The 95% CI of the metric specified for the arm</span>
+<span class="sd">            - size_column: The size of the circle in the plot, which represents</span>
+<span class="sd">                the probability that the arm is feasible (does not violate any</span>
+<span class="sd">                constraints).</span>
+<span class="sd">            - parameters: A string representation of the parameters for the arm</span>
+<span class="sd">                to be viewed in the tooltip.</span>
+<span class="sd">            - constraints_violated: A string representation of the probability</span>
+<span class="sd">                each constraint is violated for the arm, to be viewed in the tooltip.</span>
+<span class="sd">    """</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">px</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+        <span class="n">df</span><span class="p">,</span>
+        <span class="n">x</span><span class="o">=</span><span class="s2">"arm_name"</span><span class="p">,</span>
+        <span class="n">y</span><span class="o">=</span><span class="s2">"mean"</span><span class="p">,</span>
+        <span class="n">error_y</span><span class="o">=</span><span class="s2">"error_margin"</span><span class="p">,</span>
+        <span class="n">color</span><span class="o">=</span><span class="s2">"source"</span><span class="p">,</span>
+        <span class="c1"># TODO: can we format this by callable or string template?</span>
+        <span class="n">hover_data</span><span class="o">=</span><span class="n">_get_parameter_columns</span><span class="p">(</span><span class="n">df</span><span class="p">),</span>
+        <span class="c1"># avoid red because it will match the constraint violation indicator</span>
+        <span class="n">color_discrete_sequence</span><span class="o">=</span><span class="n">px</span><span class="o">.</span><span class="n">colors</span><span class="o">.</span><span class="n">qualitative</span><span class="o">.</span><span class="n">Vivid</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">dot_size</span> <span class="o">=</span> <span class="mi">8</span>
+    <span class="c1"># set all dots to size 8 in plots</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">update_traces</span><span class="p">(</span><span class="n">marker</span><span class="o">=</span><span class="p">{</span><span class="s2">"line"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"width"</span><span class="p">:</span> <span class="mi">2</span><span class="p">},</span> <span class="s2">"size"</span><span class="p">:</span> <span class="n">dot_size</span><span class="p">})</span>
+
+    <span class="c1"># Manually create each constraint violation indicator</span>
+    <span class="c1"># as a red outline around the dot, with alpha based on the</span>
+    <span class="c1"># probability of constraint violation.</span>
+    <span class="k">for</span> <span class="n">trace</span> <span class="ow">in</span> <span class="n">fig</span><span class="o">.</span><span class="n">data</span><span class="p">:</span>
+        <span class="c1"># there is a trace per source, so get the rows of df</span>
+        <span class="c1"># pertaining to this trace</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">"source"</span><span class="p">]</span> <span class="o">==</span> <span class="n">trace</span><span class="o">.</span><span class="n">name</span>
+        <span class="n">trace</span><span class="o">.</span><span class="n">marker</span><span class="o">.</span><span class="n">line</span><span class="o">.</span><span class="n">color</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="c1"># raising the alpha to a power &lt; 1 makes the colors more</span>
+            <span class="c1"># visible when there is a lower chance of constraint violation</span>
+            <span class="sa">f</span><span class="s2">"rgba(255, 0, 0, </span><span class="si">{</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span><span class="w"> </span><span class="o">**</span><span class="w"> </span><span class="mf">.75</span><span class="si">}</span><span class="s2">)"</span>
+            <span class="k">for</span> <span class="n">alpha</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">indices</span><span class="p">,</span> <span class="s2">"overall_probability_constraints_violated"</span><span class="p">]</span>
+        <span class="p">]</span>
+        <span class="c1"># Create a separate trace for the legend, otherwise the legend</span>
+        <span class="c1"># will have the constraint violation indicator of the first arm</span>
+        <span class="c1"># in the source group</span>
+        <span class="n">legend_trace</span> <span class="o">=</span> <span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">(</span>
+            <span class="c1"># (None, None) is a hack to get a legend item without</span>
+            <span class="c1"># appearing on the plot</span>
+            <span class="n">x</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span>
+            <span class="n">y</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span>
+            <span class="n">mode</span><span class="o">=</span><span class="s2">"markers"</span><span class="p">,</span>
+            <span class="n">marker</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">"size"</span><span class="p">:</span> <span class="n">dot_size</span><span class="p">,</span>
+                <span class="s2">"color"</span><span class="p">:</span> <span class="n">trace</span><span class="o">.</span><span class="n">marker</span><span class="o">.</span><span class="n">color</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">trace</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">add_trace</span><span class="p">(</span><span class="n">legend_trace</span><span class="p">)</span>
+        <span class="n">trace</span><span class="o">.</span><span class="n">showlegend</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1"># Add an item to the legend for the constraint violation indicator</span>
+    <span class="n">legend_trace</span> <span class="o">=</span> <span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">(</span>
+        <span class="c1"># (None, None) is a hack to get a legend item without</span>
+        <span class="c1"># appearing on the plot</span>
+        <span class="n">x</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span>
+        <span class="n">y</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span>
+        <span class="n">mode</span><span class="o">=</span><span class="s2">"markers"</span><span class="p">,</span>
+        <span class="n">marker</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">"size"</span><span class="p">:</span> <span class="n">dot_size</span><span class="p">,</span>
+            <span class="s2">"color"</span><span class="p">:</span> <span class="s2">"white"</span><span class="p">,</span>
+            <span class="s2">"line"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"width"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">"color"</span><span class="p">:</span> <span class="s2">"red"</span><span class="p">},</span>
+        <span class="p">},</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">"Constraint Violation"</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">add_trace</span><span class="p">(</span><span class="n">legend_trace</span><span class="p">)</span>
+
+    <span class="n">_add_style_to_effects_by_arm_plot</span><span class="p">(</span>
+        <span class="n">fig</span><span class="o">=</span><span class="n">fig</span><span class="p">,</span> <span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">,</span> <span class="n">metric_name</span><span class="o">=</span><span class="n">metric_name</span><span class="p">,</span> <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">fig</span></div>
+
+
+
+<span class="k">def</span> <span class="nf">_get_parameter_columns</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Get the names of the columns that represent parameters in df."""</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="n">col</span><span class="p">:</span> <span class="p">(</span><span class="n">col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"source"</span><span class="p">,</span> <span class="s2">"error_margin"</span><span class="p">,</span> <span class="s2">"size_column"</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span>
+    <span class="p">}</span>
+
+
+<span class="k">def</span> <span class="nf">_add_style_to_effects_by_arm_plot</span><span class="p">(</span>
+    <span class="n">fig</span><span class="p">:</span> <span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">,</span>
+    <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="n">metric_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">outcome_constraints</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">OutcomeConstraint</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Add style to a plotly figure for predicted or insample effects.</span>
+
+<span class="sd">    - If we have a status quo, we add a solid red line at the status quo mean.</span>
+<span class="sd">    - If the metric is a constraint, we add a dashed red line at the constraint</span>
+<span class="sd">        bound.</span>
+<span class="sd">    - Make the x-axis (arm name) tick angle 45 degrees.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="s2">"status_quo"</span> <span class="ow">in</span> <span class="n">df</span><span class="p">[</span><span class="s2">"arm_name"</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">:</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">add_hline</span><span class="p">(</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"arm_name"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"status_quo"</span><span class="p">][</span><span class="s2">"mean"</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">line_width</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">line_color</span><span class="o">=</span><span class="s2">"red"</span><span class="p">,</span>
+            <span class="n">showlegend</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"Status Quo Mean"</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># Add the status quo mean to the legend</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">add_trace</span><span class="p">(</span>
+            <span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">(</span>
+                <span class="c1"># (None, None) is a hack to get a legend item without</span>
+                <span class="c1"># appearing on the plot</span>
+                <span class="n">x</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span>
+                <span class="n">y</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span>
+                <span class="n">mode</span><span class="o">=</span><span class="s2">"lines"</span><span class="p">,</span>
+                <span class="n">line</span><span class="o">=</span><span class="p">{</span><span class="s2">"color"</span><span class="p">:</span> <span class="s2">"red"</span><span class="p">,</span> <span class="s2">"width"</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">"Status Quo Mean"</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="n">outcome_constraints</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">constraint</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">metric_name</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="ow">not</span> <span class="n">constraint</span><span class="o">.</span><span class="n">relative</span>
+            <span class="n">fig</span><span class="o">.</span><span class="n">add_hline</span><span class="p">(</span>
+                <span class="n">y</span><span class="o">=</span><span class="n">constraint</span><span class="o">.</span><span class="n">bound</span><span class="p">,</span>
+                <span class="n">line_width</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                <span class="n">line_color</span><span class="o">=</span><span class="s2">"red"</span><span class="p">,</span>
+                <span class="n">line_dash</span><span class="o">=</span><span class="s2">"dash"</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="c1"># Add the constraint bound to the legend</span>
+            <span class="n">fig</span><span class="o">.</span><span class="n">add_trace</span><span class="p">(</span>
+                <span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">(</span>
+                    <span class="c1"># (None, None) is a hack to get a legend item without</span>
+                    <span class="c1"># appearing on the plot</span>
+                    <span class="n">x</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span>
+                    <span class="n">y</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="s2">"lines"</span><span class="p">,</span>
+                    <span class="n">line</span><span class="o">=</span><span class="p">{</span><span class="s2">"color"</span><span class="p">:</span> <span class="s2">"red"</span><span class="p">,</span> <span class="s2">"width"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"dash"</span><span class="p">:</span> <span class="s2">"dash"</span><span class="p">},</span>
+                    <span class="n">name</span><span class="o">=</span><span class="s2">"Constraint Bound"</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">update_layout</span><span class="p">(</span>
+        <span class="n">xaxis</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">"tickangle"</span><span class="p">:</span> <span class="mi">45</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="n">legend</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">"title"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_trial_index_for_predictions</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">ModelBridge</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Returns status quo features index if defined on the model.  Otherwise, returns</span>
+<span class="sd">    the max observed trial index to appease multitask models for prediction</span>
+<span class="sd">    by giving fixed features. The max index is not necessarily accurate and should</span>
+<span class="sd">    eventually come from the generation strategy, but at least gives consistent</span>
+<span class="sd">    predictions accross trials.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">status_quo</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">observed_trial_indices</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">obs</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">trial_index</span>
+            <span class="k">for</span> <span class="n">obs</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">get_training_data</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">obs</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">trial_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">observed_trial_indices</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">observed_trial_indices</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">status_quo</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">trial_index</span>
+
+
+<div class="viewcode-block" id="get_predictions_by_arm">
+<a class="viewcode-back" href="../../../../../analysis.html#ax.analysis.plotly.arm_effects.utils.get_predictions_by_arm">[docs]</a>
+<span class="k">def</span> <span class="nf">get_predictions_by_arm</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">ModelBridge</span><span class="p">,</span>
+    <span class="n">metric_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">outcome_constraints</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">OutcomeConstraint</span><span class="p">],</span>
+    <span class="n">gr</span><span class="p">:</span> <span class="n">GeneratorRun</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+    <span class="n">trial_index</span> <span class="o">=</span> <span class="n">_get_trial_index_for_predictions</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">gr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">observations</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_training_data</span><span class="p">()</span>
+        <span class="n">features</span> <span class="o">=</span> <span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">features</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">observations</span><span class="p">]</span>
+        <span class="n">arm_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">arm_name</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">observations</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">features</span><span class="p">:</span>
+            <span class="n">feature</span><span class="o">.</span><span class="n">trial_index</span> <span class="o">=</span> <span class="n">trial_index</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">features</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">ObservationFeatures</span><span class="p">(</span><span class="n">parameters</span><span class="o">=</span><span class="n">arm</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span> <span class="n">trial_index</span><span class="o">=</span><span class="n">trial_index</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">gr</span><span class="o">.</span><span class="n">arms</span>
+        <span class="p">]</span>
+        <span class="n">arm_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">gr</span><span class="o">.</span><span class="n">arms</span><span class="p">]</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">predictions</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">predict_at_point</span><span class="p">(</span>
+                <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+                <span class="n">obsf</span><span class="o">=</span><span class="n">obsf</span><span class="p">,</span>
+                <span class="n">metric_names</span><span class="o">=</span><span class="p">{</span><span class="n">metric_name</span><span class="p">}</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
+                    <span class="p">{</span><span class="n">constraint</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="n">outcome_constraints</span><span class="p">}</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">obsf</span> <span class="ow">in</span> <span class="n">features</span>
+        <span class="p">]</span>
+    <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+            <span class="s2">"This plot requires a GenerationStrategy which is "</span>
+            <span class="s2">"in a state where the current model supports prediction.  The current "</span>
+            <span class="sa">f</span><span class="s2">"model is </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">_model_key</span><span class="si">}</span><span class="s2"> and does not support prediction."</span>
+        <span class="p">)</span>
+    <span class="n">constraints_violated_by_constraint</span> <span class="o">=</span> <span class="n">get_constraint_violated_probabilities</span><span class="p">(</span>
+        <span class="n">predictions</span><span class="o">=</span><span class="n">predictions</span><span class="p">,</span>
+        <span class="n">outcome_constraints</span><span class="o">=</span><span class="n">outcome_constraints</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">probabilities_not_feasible</span> <span class="o">=</span> <span class="n">constraints_violated_by_constraint</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span>
+        <span class="s2">"any_constraint_violated"</span>
+    <span class="p">)</span>
+    <span class="n">constraints_violated</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="n">c</span><span class="p">:</span> <span class="n">constraints_violated_by_constraint</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">constraints_violated_by_constraint</span>
+        <span class="p">}</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">features</span><span class="p">))</span>
+    <span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">features</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">model</span><span class="o">.</span><span class="n">status_quo</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">features</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span>
+            <span class="o">==</span> <span class="n">none_throws</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">status_quo</span><span class="p">)</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">parameters</span>
+        <span class="p">):</span>
+            <span class="n">probabilities_not_feasible</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">constraints_violated</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">return</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">"source"</span><span class="p">:</span> <span class="s2">"In-sample"</span> <span class="k">if</span> <span class="n">gr</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">gr</span><span class="o">.</span><span class="n">_model_key</span><span class="p">,</span>
+            <span class="s2">"arm_name"</span><span class="p">:</span> <span class="n">arm_names</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+            <span class="s2">"mean"</span><span class="p">:</span> <span class="n">predictions</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="n">metric_name</span><span class="p">],</span>
+            <span class="s2">"sem"</span><span class="p">:</span> <span class="n">predictions</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="n">metric_name</span><span class="p">],</span>
+            <span class="s2">"error_margin"</span><span class="p">:</span> <span class="mf">1.96</span> <span class="o">*</span> <span class="n">predictions</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="n">metric_name</span><span class="p">],</span>
+            <span class="s2">"constraints_violated"</span><span class="p">:</span> <span class="n">format_constraint_violated_probabilities</span><span class="p">(</span>
+                <span class="n">constraints_violated</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="p">),</span>
+            <span class="c1"># used for constraint violation indicator</span>
+            <span class="s2">"overall_probability_constraints_violated"</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span>
+                <span class="n">probabilities_not_feasible</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">ndigits</span><span class="o">=</span><span class="mi">2</span>
+            <span class="p">),</span>
+            <span class="s2">"parameters"</span><span class="p">:</span> <span class="n">format_parameters_for_effects_by_arm_plot</span><span class="p">(</span>
+                <span class="n">parameters</span><span class="o">=</span><span class="n">features</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span>
+            <span class="p">),</span>
+        <span class="p">}</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">features</span><span class="p">))</span>
+    <span class="p">]</span></div>
+
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="Main" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../../index.html">Ax</a></h1>
+<search id="searchbox" role="search" style="display: none">
+<div class="searchformwrapper">
+<form action="../../../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" placeholder="Search" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../analysis.html">ax.analysis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../early_stopping.html">ax.early_stopping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../global_stopping.html">ax.global_stopping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../health_check.html">ax.health_check</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../preview.html">ax.preview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../../../index.html">Documentation overview</a><ul>
+<li><a href="../../../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/latest/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2024 Meta Platforms, Inc.</section></footer></div></body></html>

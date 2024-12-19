@@ -1,0 +1,1012 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Ax · Adaptive Experimentation Platform</title><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Adaptive Experimentation Platform"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Ax · Adaptive Experimentation Platform"/><meta property="og:type" content="website"/><meta property="og:url" content="https://ax.dev//versions/0.2.6/index.html"/><meta property="og:description" content="Adaptive Experimentation Platform"/><meta property="og:image" content="https://ax.dev//versions/0.2.6/img/ax.svg"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://ax.dev//versions/0.2.6/img/ax.svg"/><link rel="shortcut icon" href="/versions/0.2.6/img/favicon.png"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css"/><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-139570076-1', 'auto');
+              ga('send', 'pageview');
+            </script><script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script><script type="text/javascript" src="/versions/0.2.6/js/plotUtils.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/versions/0.2.6/js/mathjax.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS_HTML"></script><script src="https://unpkg.com/vanilla-back-to-top@7.1.14/dist/vanilla-back-to-top.min.js"></script><script>
+        document.addEventListener('DOMContentLoaded', function() {
+          addBackToTop(
+            {"zIndex":100}
+          )
+        });
+        </script><script src="/versions/0.2.6/js/scrollSpy.js"></script><link rel="stylesheet" href="/versions/0.2.6/css/main.css"/><script src="/versions/0.2.6/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/versions/0.2.6/"><img class="logo" src="/versions/0.2.6/img/ax_lockup_white.svg" alt="Ax"/><h2 class="headerTitleWithLogo">Ax</h2></a><a href="/versions/0.2.6/versions.html"><h3>0.2.6</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/versions/0.2.6/docs/why-ax.html" target="_self">Docs</a></li><li class=""><a href="/versions/0.2.6/tutorials/" target="_self">Tutorials</a></li><li class=""><a href="/versions/0.2.6/api/" target="_self">API</a></li><li class=""><a href="https://github.com/facebook/Ax" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div>
+<script type="text/javascript" id="documentation_options" data-url_root="./"
+src="/js/documentation_options.js">
+</script>
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/js/underscore.js"></script>
+<script type="text/javascript" src="/js/doctools.js"></script>
+<script type="text/javascript" src="/js/language_data.js"></script>
+<script type="text/javascript" src="/js/searchtools.js"></script>
+<div class="sphinx"><div class="document">
+<div class="documentwrapper">
+<div class="bodywrapper">
+<div class="body" role="main">
+<h1>Source code for ax.core.search_space</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the MIT license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="c1"># pyre-strict</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">reduce</span>
+<span class="kn">from</span> <span class="nn">logging</span> <span class="kn">import</span> <span class="n">Logger</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">ax</span> <span class="kn">import</span> <span class="n">core</span>
+<span class="kn">from</span> <span class="nn">ax.core.arm</span> <span class="kn">import</span> <span class="n">Arm</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter</span> <span class="kn">import</span> <span class="n">FixedParameter</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">,</span> <span class="n">RangeParameter</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter_constraint</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OrderConstraint</span><span class="p">,</span>
+    <span class="n">ParameterConstraint</span><span class="p">,</span>
+    <span class="n">SumConstraint</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ax.core.parameter_distribution</span> <span class="kn">import</span> <span class="n">ParameterDistribution</span>
+<span class="kn">from</span> <span class="nn">ax.core.types</span> <span class="kn">import</span> <span class="n">TParameterization</span>
+<span class="kn">from</span> <span class="nn">ax.exceptions.core</span> <span class="kn">import</span> <span class="n">UnsupportedError</span><span class="p">,</span> <span class="n">UserInputError</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.base</span> <span class="kn">import</span> <span class="n">Base</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.constants</span> <span class="kn">import</span> <span class="n">Keys</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.logger</span> <span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span> <span class="nn">ax.utils.common.typeutils</span> <span class="kn">import</span> <span class="n">not_none</span>
+
+
+<span class="n">logger</span><span class="p">:</span> <span class="n">Logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="SearchSpace"><a class="viewcode-back" href="../../../core.html#ax.SearchSpace">[docs]</a><span class="k">class</span> <span class="nc">SearchSpace</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="sd">"""Base object for SearchSpace object.</span>
+
+<span class="sd">    Contains a set of Parameter objects, each of which have a</span>
+<span class="sd">    name, type, and set of valid values. The search space also contains</span>
+<span class="sd">    a set of ParameterConstraint objects, which can be used to define</span>
+<span class="sd">    restrictions across parameters (e.g. p_a &lt; p_b).</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Parameter</span><span class="p">],</span>
+        <span class="n">parameter_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">ParameterConstraint</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Initialize SearchSpace</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameters: List of parameter objects for the search space.</span>
+<span class="sd">            parameter_constraints: List of parameter constraints.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">({</span><span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">})</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">parameters</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Parameter names must be unique."</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_parameter_constraints</span><span class="p">(</span><span class="n">parameter_constraints</span> <span class="ow">or</span> <span class="p">[])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_hierarchical</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">HierarchicalSearchSpace</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_robust</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">RobustSearchSpace</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parameter_constraints</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ParameterConstraint</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameter_constraints</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">range_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">name</span><span class="p">:</span> <span class="n">parameter</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">RangeParameter</span><span class="p">)</span>
+        <span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">tunable_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">name</span><span class="p">:</span> <span class="n">parameter</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">FixedParameter</span><span class="p">)</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Parameter</span><span class="p">:</span>
+        <span class="sd">"""Retrieves the parameter"""</span>
+        <span class="k">if</span> <span class="n">parameter_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">parameter_name</span><span class="p">]</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Parameter '</span><span class="si">{</span><span class="n">parameter_name</span><span class="si">}</span><span class="s2">' is not part of the search space."</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="SearchSpace.add_parameter_constraints"><a class="viewcode-back" href="../../../core.html#ax.SearchSpace.add_parameter_constraints">[docs]</a>    <span class="k">def</span> <span class="nf">add_parameter_constraints</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">parameter_constraints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ParameterConstraint</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_parameter_constraints</span><span class="p">(</span><span class="n">parameter_constraints</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameter_constraints</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">parameter_constraints</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SearchSpace.set_parameter_constraints"><a class="viewcode-back" href="../../../core.html#ax.SearchSpace.set_parameter_constraints">[docs]</a>    <span class="k">def</span> <span class="nf">set_parameter_constraints</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">parameter_constraints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ParameterConstraint</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Validate that all parameters in constraints are in search</span>
+        <span class="c1"># space already.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_parameter_constraints</span><span class="p">(</span><span class="n">parameter_constraints</span><span class="p">)</span>
+        <span class="c1"># Set the parameter on the constraint to be the parameter by</span>
+        <span class="c1"># the matching name among the search space's parameters, so we</span>
+        <span class="c1"># are not keeping two copies of the same parameter.</span>
+        <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="n">parameter_constraints</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">constraint</span><span class="p">,</span> <span class="n">OrderConstraint</span><span class="p">):</span>
+                <span class="n">constraint</span><span class="o">.</span><span class="n">_lower_parameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span>
+                    <span class="n">constraint</span><span class="o">.</span><span class="n">_lower_parameter</span><span class="o">.</span><span class="n">name</span>
+                <span class="p">]</span>
+                <span class="n">constraint</span><span class="o">.</span><span class="n">_upper_parameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span>
+                    <span class="n">constraint</span><span class="o">.</span><span class="n">_upper_parameter</span><span class="o">.</span><span class="n">name</span>
+                <span class="p">]</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">constraint</span><span class="p">,</span> <span class="n">SumConstraint</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">constraint</span><span class="o">.</span><span class="n">parameters</span><span class="p">):</span>
+                    <span class="n">constraint</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameter_constraints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ParameterConstraint</span><span class="p">]</span> <span class="o">=</span> <span class="n">parameter_constraints</span></div>
+
+<div class="viewcode-block" id="SearchSpace.add_parameter"><a class="viewcode-back" href="../../../core.html#ax.SearchSpace.add_parameter">[docs]</a>    <span class="k">def</span> <span class="nf">add_parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter</span><span class="p">:</span> <span class="n">Parameter</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">parameter</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Parameter `</span><span class="si">{</span><span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">` already exists in search space. "</span>
+                <span class="s2">"Use `update_parameter` to update an existing parameter."</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">parameter</span></div>
+
+<div class="viewcode-block" id="SearchSpace.update_parameter"><a class="viewcode-back" href="../../../core.html#ax.SearchSpace.update_parameter">[docs]</a>    <span class="k">def</span> <span class="nf">update_parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter</span><span class="p">:</span> <span class="n">Parameter</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">parameter</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Parameter `</span><span class="si">{</span><span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">` does not exist in search space. "</span>
+                <span class="s2">"Use `add_parameter` to add a new parameter."</span>
+            <span class="p">)</span>
+
+        <span class="n">prev_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">parameter_type</span>
+        <span class="k">if</span> <span class="n">parameter</span><span class="o">.</span><span class="n">parameter_type</span> <span class="o">!=</span> <span class="n">prev_type</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Parameter `</span><span class="si">{</span><span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">` has type </span><span class="si">{</span><span class="n">prev_type</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">. "</span>
+                <span class="sa">f</span><span class="s2">"Cannot update to type </span><span class="si">{</span><span class="n">parameter</span><span class="o">.</span><span class="n">parameter_type</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">parameter</span></div>
+
+<div class="viewcode-block" id="SearchSpace.check_all_parameters_present"><a class="viewcode-back" href="../../../core.html#ax.SearchSpace.check_all_parameters_present">[docs]</a>    <span class="k">def</span> <span class="nf">check_all_parameters_present</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">parameterization</span><span class="p">:</span> <span class="n">TParameterization</span><span class="p">,</span>
+        <span class="n">raise_error</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Whether a given parameterization contains all the parameters in the</span>
+<span class="sd">        search space.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameterization: Dict from parameter name to value to validate.</span>
+<span class="sd">            raise_error: If true parameterization does not belong, raises an error</span>
+<span class="sd">                with detailed explanation of why.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Whether the parameterization is contained in the search space.</span>
+<span class="sd">        """</span>
+        <span class="n">parameterization_params</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">parameterization</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">ss_params</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">parameterization_params</span> <span class="o">!=</span> <span class="n">ss_params</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">raise_error</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Parameterization has parameters: </span><span class="si">{</span><span class="n">parameterization_params</span><span class="si">}</span><span class="s2">, "</span>
+                    <span class="sa">f</span><span class="s2">"but search space has parameters: </span><span class="si">{</span><span class="n">ss_params</span><span class="si">}</span><span class="s2">."</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="SearchSpace.check_membership"><a class="viewcode-back" href="../../../core.html#ax.SearchSpace.check_membership">[docs]</a>    <span class="k">def</span> <span class="nf">check_membership</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">parameterization</span><span class="p">:</span> <span class="n">TParameterization</span><span class="p">,</span>
+        <span class="n">raise_error</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">check_all_parameters_present</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Whether the given parameterization belongs in the search space.</span>
+
+<span class="sd">        Checks that the given parameter values have the same name/type as</span>
+<span class="sd">        search space parameters, are contained in the search space domain,</span>
+<span class="sd">        and satisfy the parameter constraints.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameterization: Dict from parameter name to value to validate.</span>
+<span class="sd">            raise_error: If true parameterization does not belong, raises an error</span>
+<span class="sd">                with detailed explanation of why.</span>
+<span class="sd">            check_all_parameters_present: Ensure that parameterization specifies</span>
+<span class="sd">                values for all parameters as expected by the search space.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Whether the parameterization is contained in the search space.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">check_all_parameters_present</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_all_parameters_present</span><span class="p">(</span>
+                <span class="n">parameterization</span><span class="o">=</span><span class="n">parameterization</span><span class="p">,</span> <span class="n">raise_error</span><span class="o">=</span><span class="n">raise_error</span>
+            <span class="p">):</span>
+                <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">parameterization</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">raise_error</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2"> is not a valid value for "</span>
+                        <span class="sa">f</span><span class="s2">"parameter </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span>
+                    <span class="p">)</span>
+                <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># parameter constraints only accept numeric parameters</span>
+        <span class="n">numerical_param_dict</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="c1"># pyre-fixme[6]: Expected `typing.Union[...oat]` but got `unknown`.</span>
+            <span class="n">name</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">parameterization</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">is_numeric</span>
+        <span class="p">}</span>
+
+        <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameter_constraints</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">constraint</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">numerical_param_dict</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">raise_error</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Parameter constraint </span><span class="si">{</span><span class="n">constraint</span><span class="si">}</span><span class="s2"> is violated."</span><span class="p">)</span>
+                <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="SearchSpace.check_types"><a class="viewcode-back" href="../../../core.html#ax.SearchSpace.check_types">[docs]</a>    <span class="k">def</span> <span class="nf">check_types</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">parameterization</span><span class="p">:</span> <span class="n">TParameterization</span><span class="p">,</span>
+        <span class="n">allow_none</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">raise_error</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Checks that the given parameterization's types match the search space.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameterization: Dict from parameter name to value to validate.</span>
+<span class="sd">            allow_none: Whether None is a valid parameter value.</span>
+<span class="sd">            raise_error: If true and parameterization does not belong, raises an error</span>
+<span class="sd">                with detailed explanation of why.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Whether the parameterization has valid types.</span>
+<span class="sd">        """</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">parameterization</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">raise_error</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Parameter </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> not defined in search space"</span><span class="p">)</span>
+                <span class="k">return</span> <span class="kc">False</span>
+
+            <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">allow_none</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">is_valid_type</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">raise_error</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2"> is not a valid value for "</span>
+                        <span class="sa">f</span><span class="s2">"parameter </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span>
+                    <span class="p">)</span>
+                <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="SearchSpace.cast_arm"><a class="viewcode-back" href="../../../core.html#ax.SearchSpace.cast_arm">[docs]</a>    <span class="k">def</span> <span class="nf">cast_arm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arm</span><span class="p">:</span> <span class="n">Arm</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Arm</span><span class="p">:</span>
+        <span class="sd">"""Cast parameterization of given arm to the types in this SearchSpace.</span>
+
+<span class="sd">        For each parameter in given arm, cast it to the proper type specified</span>
+<span class="sd">        in this search space. Throws if there is a mismatch in parameter names. This is</span>
+<span class="sd">        mostly useful for int/float, which user can be sloppy with when hand written.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            arm: Arm to cast.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            New casted arm.</span>
+<span class="sd">        """</span>
+        <span class="n">new_parameters</span><span class="p">:</span> <span class="n">TParameterization</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">arm</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="c1"># Allow raw values for out of space parameters.</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>
+                <span class="n">new_parameters</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">new_parameters</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Arm</span><span class="p">(</span><span class="n">new_parameters</span><span class="p">,</span> <span class="n">arm</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="n">arm</span><span class="o">.</span><span class="n">has_name</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SearchSpace.out_of_design_arm"><a class="viewcode-back" href="../../../core.html#ax.SearchSpace.out_of_design_arm">[docs]</a>    <span class="k">def</span> <span class="nf">out_of_design_arm</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Arm</span><span class="p">:</span>
+        <span class="sd">"""Create a default out-of-design arm.</span>
+
+<span class="sd">        An out of design arm contains values for some parameters which are</span>
+<span class="sd">        outside of the search space. In the modeling conversion, these parameters</span>
+<span class="sd">        are all stripped down to an empty dictionary, since the point is already</span>
+<span class="sd">        outside of the modeled space.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            New arm w/ null parameter values.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">construct_arm</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="SearchSpace.construct_arm"><a class="viewcode-back" href="../../../core.html#ax.SearchSpace.construct_arm">[docs]</a>    <span class="k">def</span> <span class="nf">construct_arm</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TParameterization</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Arm</span><span class="p">:</span>
+        <span class="sd">"""Construct new arm using given parameters and name. Any missing parameters</span>
+<span class="sd">        fallback to the experiment defaults, represented as None.</span>
+<span class="sd">        """</span>
+        <span class="n">final_parameters</span><span class="p">:</span> <span class="n">TParameterization</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+        <span class="k">if</span> <span class="n">parameters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Validate the param values</span>
+            <span class="k">for</span> <span class="n">p_name</span><span class="p">,</span> <span class="n">p_value</span> <span class="ow">in</span> <span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">p_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"`</span><span class="si">{</span><span class="n">p_name</span><span class="si">}</span><span class="s2">` does not exist in search space."</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">p_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p_name</span><span class="p">]</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span>
+                    <span class="n">p_value</span>
+                <span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"`</span><span class="si">{</span><span class="n">p_value</span><span class="si">}</span><span class="s2">` is not a valid value for parameter </span><span class="si">{</span><span class="n">p_name</span><span class="si">}</span><span class="s2">."</span>
+                    <span class="p">)</span>
+            <span class="n">final_parameters</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">not_none</span><span class="p">(</span><span class="n">parameters</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">Arm</span><span class="p">(</span><span class="n">parameters</span><span class="o">=</span><span class="n">final_parameters</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SearchSpace.clone"><a class="viewcode-back" href="../../../core.html#ax.SearchSpace.clone">[docs]</a>    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SearchSpace</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="o">.</span><span class="n">values</span><span class="p">()],</span>
+            <span class="n">parameter_constraints</span><span class="o">=</span><span class="p">[</span><span class="n">pc</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span> <span class="k">for</span> <span class="n">pc</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameter_constraints</span><span class="p">],</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_validate_parameter_constraints</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">parameter_constraints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ParameterConstraint</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="n">parameter_constraints</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">constraint</span><span class="p">,</span> <span class="n">OrderConstraint</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span>
+                <span class="n">constraint</span><span class="p">,</span> <span class="n">SumConstraint</span>
+            <span class="p">):</span>
+                <span class="k">for</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="n">constraint</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">parameter</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">"`</span><span class="si">{</span><span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">` does not exist in search space."</span>
+                        <span class="p">)</span>
+                    <span class="k">if</span> <span class="n">parameter</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="p">]:</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">"Parameter constraint's definition of '</span><span class="si">{</span><span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">' "</span>
+                            <span class="s2">"does not match the SearchSpace's definition"</span>
+                        <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">parameter_name</span> <span class="ow">in</span> <span class="n">constraint</span><span class="o">.</span><span class="n">constraint_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="n">parameter_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">"`</span><span class="si">{</span><span class="n">parameter_name</span><span class="si">}</span><span class="s2">` does not exist in search space."</span>
+                        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">("</span>
+            <span class="s2">"parameters="</span> <span class="o">+</span> <span class="nb">repr</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span> <span class="o">+</span> <span class="s2">", "</span>
+            <span class="s2">"parameter_constraints="</span> <span class="o">+</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameter_constraints</span><span class="p">)</span> <span class="o">+</span> <span class="s2">")"</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="HierarchicalSearchSpace"><a class="viewcode-back" href="../../../core.html#ax.HierarchicalSearchSpace">[docs]</a><span class="k">class</span> <span class="nc">HierarchicalSearchSpace</span><span class="p">(</span><span class="n">SearchSpace</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Parameter</span><span class="p">],</span>
+        <span class="n">parameter_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">ParameterConstraint</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span><span class="p">,</span> <span class="n">parameter_constraints</span><span class="o">=</span><span class="n">parameter_constraints</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_all_parameter_names</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_root</span><span class="p">:</span> <span class="n">Parameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_root</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_hierarchical_structure</span><span class="p">()</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Found root: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">root</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Parameter</span><span class="p">:</span>
+        <span class="sd">"""Root of the hierarchical search space tree, as identified during</span>
+<span class="sd">        ``HierarchicalSearchSpace`` construction.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_root</span>
+
+<div class="viewcode-block" id="HierarchicalSearchSpace.flatten"><a class="viewcode-back" href="../../../core.html#ax.HierarchicalSearchSpace.flatten">[docs]</a>    <span class="k">def</span> <span class="nf">flatten</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SearchSpace</span><span class="p">:</span>
+        <span class="sd">"""Returns a flattened ``SearchSpace`` with all the parameters in the</span>
+<span class="sd">        given ``HierarchicalSearchSpace``; ignores their hierarchical structure.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">SearchSpace</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span>
+            <span class="n">parameter_constraints</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_constraints</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="HierarchicalSearchSpace.cast_observation_features"><a class="viewcode-back" href="../../../core.html#ax.HierarchicalSearchSpace.cast_observation_features">[docs]</a>    <span class="k">def</span> <span class="nf">cast_observation_features</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">observation_features</span><span class="p">:</span> <span class="n">core</span><span class="o">.</span><span class="n">observation</span><span class="o">.</span><span class="n">ObservationFeatures</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">core</span><span class="o">.</span><span class="n">observation</span><span class="o">.</span><span class="n">ObservationFeatures</span><span class="p">:</span>
+        <span class="sd">"""Cast parameterization of given observation features to the hierarchical</span>
+<span class="sd">        structure of the given search space; return the newly cast observation features</span>
+<span class="sd">        with the full parameterization stored in ``metadata`` under</span>
+<span class="sd">        ``Keys.FULL_PARAMETERIZATION``.</span>
+
+<span class="sd">        For each parameter in given parameterization, cast it to the proper type</span>
+<span class="sd">        specified in this search space and remove it from the parameterization if that</span>
+<span class="sd">        parameter should not be in the arm within the search space due to its</span>
+<span class="sd">        hierarchical structure.</span>
+<span class="sd">        """</span>
+        <span class="n">full_parameterization_md</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">Keys</span><span class="o">.</span><span class="n">FULL_PARAMETERIZATION</span><span class="p">:</span> <span class="n">observation_features</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="p">}</span>
+        <span class="n">obs_feats</span> <span class="o">=</span> <span class="n">observation_features</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span>
+            <span class="n">replace_parameters</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_cast_parameterization</span><span class="p">(</span>
+                <span class="n">parameters</span><span class="o">=</span><span class="n">observation_features</span><span class="o">.</span><span class="n">parameters</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">obs_feats</span><span class="o">.</span><span class="n">metadata</span><span class="p">:</span>
+            <span class="n">obs_feats</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">full_parameterization_md</span>  <span class="c1"># pyre-ignore[8]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">obs_feats</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">obs_feats</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span> <span class="o">**</span><span class="n">full_parameterization_md</span><span class="p">}</span>
+
+        <span class="k">return</span> <span class="n">obs_feats</span></div>
+
+<div class="viewcode-block" id="HierarchicalSearchSpace.flatten_observation_features"><a class="viewcode-back" href="../../../core.html#ax.HierarchicalSearchSpace.flatten_observation_features">[docs]</a>    <span class="k">def</span> <span class="nf">flatten_observation_features</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">observation_features</span><span class="p">:</span> <span class="n">core</span><span class="o">.</span><span class="n">observation</span><span class="o">.</span><span class="n">ObservationFeatures</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">core</span><span class="o">.</span><span class="n">observation</span><span class="o">.</span><span class="n">ObservationFeatures</span><span class="p">:</span>
+        <span class="sd">"""Flatten observation features that were previously cast to the hierarchical</span>
+<span class="sd">        structure of the given search space; return the newly flattened observation</span>
+<span class="sd">        features. This method re-injects parameter values that were removed from</span>
+<span class="sd">        observation features during casting (as they are saved in observation features</span>
+<span class="sd">        metadata).</span>
+<span class="sd">        """</span>
+        <span class="n">obs_feats</span> <span class="o">=</span> <span class="n">observation_features</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="ow">not</span> <span class="n">obs_feats</span><span class="o">.</span><span class="n">metadata</span>
+            <span class="ow">or</span> <span class="n">Keys</span><span class="o">.</span><span class="n">FULL_PARAMETERIZATION</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">obs_feats</span><span class="o">.</span><span class="n">metadata</span>
+        <span class="p">):</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Cannot flatten observation features </span><span class="si">{</span><span class="n">obs_feats</span><span class="si">}</span><span class="s2"> as full "</span>
+                <span class="s2">"parameterization is not recorded in metadata."</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">obs_feats</span>
+
+        <span class="c1"># NOTE: Instead, could just use the full parameterization as stored;</span>
+        <span class="c1"># opting for a safer option of only injecting parameters that were</span>
+        <span class="c1"># removed, but not altering those that are present if they have different</span>
+        <span class="c1"># values in full parameterization as stored in metadata.</span>
+        <span class="n">full_parameterization</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="n">obs_feats</span><span class="o">.</span><span class="n">metadata</span><span class="p">)[</span><span class="n">Keys</span><span class="o">.</span><span class="n">FULL_PARAMETERIZATION</span><span class="p">]</span>
+        <span class="n">obs_feats</span><span class="o">.</span><span class="n">parameters</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">full_parameterization</span><span class="p">,</span> <span class="o">**</span><span class="n">obs_feats</span><span class="o">.</span><span class="n">parameters</span><span class="p">}</span>
+
+        <span class="k">return</span> <span class="n">obs_feats</span></div>
+
+<div class="viewcode-block" id="HierarchicalSearchSpace.check_membership"><a class="viewcode-back" href="../../../core.html#ax.HierarchicalSearchSpace.check_membership">[docs]</a>    <span class="k">def</span> <span class="nf">check_membership</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">parameterization</span><span class="p">:</span> <span class="n">TParameterization</span><span class="p">,</span>
+        <span class="n">raise_error</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">check_all_parameters_present</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">"""Whether the given parameterization belongs in the search space.</span>
+
+<span class="sd">        Checks that the given parameter values have the same name/type as</span>
+<span class="sd">        search space parameters, are contained in the search space domain,</span>
+<span class="sd">        and satisfy the parameter constraints.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameterization: Dict from parameter name to value to validate.</span>
+<span class="sd">            raise_error: If true parameterization does not belong, raises an error</span>
+<span class="sd">                with detailed explanation of why.</span>
+<span class="sd">            check_all_parameters_present: Ensure that parameterization specifies</span>
+<span class="sd">                values for all parameters as expected by the search space and its</span>
+<span class="sd">                hierarchical structure.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Whether the parameterization is contained in the search space.</span>
+<span class="sd">        """</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">check_membership</span><span class="p">(</span>
+            <span class="n">parameterization</span><span class="o">=</span><span class="n">parameterization</span><span class="p">,</span>
+            <span class="n">raise_error</span><span class="o">=</span><span class="n">raise_error</span><span class="p">,</span>
+            <span class="n">check_all_parameters_present</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Check that each arm "belongs" in the hierarchical</span>
+        <span class="c1"># search space; ensure that it only has the parameters that make sense</span>
+        <span class="c1"># with each other (and does not contain dependent parameters if the</span>
+        <span class="c1"># parameter they depend on does not have the correct value).</span>
+        <span class="n">cast_to_hss_params</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cast_parameterization</span><span class="p">(</span>
+                <span class="n">parameters</span><span class="o">=</span><span class="n">parameterization</span><span class="p">,</span>
+                <span class="n">check_all_parameters_present</span><span class="o">=</span><span class="n">check_all_parameters_present</span><span class="p">,</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="n">parameterization_params</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">parameterization</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">cast_to_hss_params</span> <span class="o">!=</span> <span class="n">parameterization_params</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">raise_error</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"Parameterization violates the hierarchical structure of the search"</span>
+                    <span class="sa">f</span><span class="s2">"space; cast version would have parameters: </span><span class="si">{</span><span class="n">cast_to_hss_params</span><span class="si">}</span><span class="s2">,"</span>
+                    <span class="sa">f</span><span class="s2">" but full version contains parameters: </span><span class="si">{</span><span class="n">parameterization_params</span><span class="si">}</span><span class="s2">."</span>
+                <span class="p">)</span>
+
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="HierarchicalSearchSpace.hierarchical_structure_str"><a class="viewcode-back" href="../../../core.html#ax.HierarchicalSearchSpace.hierarchical_structure_str">[docs]</a>    <span class="k">def</span> <span class="nf">hierarchical_structure_str</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter_names_only</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">"""String representation of the hierarchical structure.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameter_names_only: Whether parameter should show up just as names</span>
+<span class="sd">                (instead of full parameter strings), useful for a more concise</span>
+<span class="sd">                representation.</span>
+<span class="sd">        """</span>
+
+        <span class="k">def</span> <span class="nf">_hrepr</span><span class="p">(</span><span class="n">param</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Parameter</span><span class="p">],</span> <span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">level</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+            <span class="n">is_level_param</span> <span class="o">=</span> <span class="n">param</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">value</span>
+            <span class="k">if</span> <span class="n">is_level_param</span><span class="p">:</span>
+                <span class="n">param</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="n">param</span><span class="p">)</span>
+                <span class="n">node_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="n">parameter_names_only</span> <span class="k">else</span> <span class="n">param</span><span class="si">}</span><span class="s2">"</span>
+                <span class="n">ret</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\t</span><span class="s2">"</span> <span class="o">*</span> <span class="n">level</span> <span class="o">+</span> <span class="n">node_name</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
+                <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">is_hierarchical</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">val</span><span class="p">,</span> <span class="n">deps</span> <span class="ow">in</span> <span class="n">param</span><span class="o">.</span><span class="n">dependents</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                        <span class="n">ret</span> <span class="o">+=</span> <span class="n">_hrepr</span><span class="p">(</span><span class="n">param</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">val</span><span class="p">),</span> <span class="n">level</span><span class="o">=</span><span class="n">level</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                        <span class="k">for</span> <span class="n">param_name</span> <span class="ow">in</span> <span class="n">deps</span><span class="p">:</span>
+                            <span class="n">ret</span> <span class="o">+=</span> <span class="n">_hrepr</span><span class="p">(</span>
+                                <span class="n">param</span><span class="o">=</span><span class="bp">self</span><span class="p">[</span><span class="n">param_name</span><span class="p">],</span>
+                                <span class="n">value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                                <span class="n">level</span><span class="o">=</span><span class="n">level</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span>
+                            <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">not_none</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                <span class="n">node_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"(</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">)"</span>
+                <span class="n">ret</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\t</span><span class="s2">"</span> <span class="o">*</span> <span class="n">level</span> <span class="o">+</span> <span class="n">node_name</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
+
+            <span class="k">return</span> <span class="n">ret</span>
+
+        <span class="k">return</span> <span class="n">_hrepr</span><span class="p">(</span><span class="n">param</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_cast_arm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arm</span><span class="p">:</span> <span class="n">Arm</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Arm</span><span class="p">:</span>
+        <span class="sd">"""Cast parameterization of given arm to the types in this search space and to</span>
+<span class="sd">        its hierarchical structure; return the newly cast arm.</span>
+
+<span class="sd">        For each parameter in given arm, cast it to the proper type specified</span>
+<span class="sd">        in this search space and remove it from the arm if that parameter should not be</span>
+<span class="sd">        in the arm within the search space due to its hierarchical structure.</span>
+<span class="sd">        """</span>
+        <span class="c1"># Validate parameter values in flat search space.</span>
+        <span class="n">arm</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">cast_arm</span><span class="p">(</span><span class="n">arm</span><span class="o">=</span><span class="n">arm</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">Arm</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_cast_parameterization</span><span class="p">(</span><span class="n">parameters</span><span class="o">=</span><span class="n">arm</span><span class="o">.</span><span class="n">parameters</span><span class="p">),</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">arm</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_cast_parameterization</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="n">TParameterization</span><span class="p">,</span>
+        <span class="n">check_all_parameters_present</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TParameterization</span><span class="p">:</span>
+        <span class="sd">"""Cast parameterization (of an arm, observation features, etc.) to the</span>
+<span class="sd">        hierarchical structure of this search space.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameters: Parameterization to cast to hierarchical structure.</span>
+<span class="sd">            check_all_parameters_present: Whether to raise an error if a paramete</span>
+<span class="sd">                 that is expected to be present (according to values of other</span>
+<span class="sd">                 parameters and the hierarchical structure of the search space)</span>
+<span class="sd">                 is not specified.</span>
+<span class="sd">        """</span>
+
+        <span class="k">def</span> <span class="nf">_find_applicable_parameters</span><span class="p">(</span><span class="n">root</span><span class="p">:</span> <span class="n">Parameter</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+            <span class="n">applicable</span> <span class="o">=</span> <span class="p">{</span><span class="n">root</span><span class="o">.</span><span class="n">name</span><span class="p">}</span>
+            <span class="k">if</span> <span class="n">check_all_parameters_present</span> <span class="ow">and</span> <span class="n">root</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Parameter '</span><span class="si">{</span><span class="n">root</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">' not in parameterization to cast."</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">root</span><span class="o">.</span><span class="n">is_hierarchical</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">applicable</span>
+
+            <span class="k">for</span> <span class="n">val</span><span class="p">,</span> <span class="n">deps</span> <span class="ow">in</span> <span class="n">root</span><span class="o">.</span><span class="n">dependents</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">parameters</span><span class="p">[</span><span class="n">root</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">==</span> <span class="n">val</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">dep</span> <span class="ow">in</span> <span class="n">deps</span><span class="p">:</span>
+                        <span class="n">applicable</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_find_applicable_parameters</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="bp">self</span><span class="p">[</span><span class="n">dep</span><span class="p">]))</span>
+
+            <span class="k">return</span> <span class="n">applicable</span>
+
+        <span class="n">applicable_paramers</span> <span class="o">=</span> <span class="n">_find_applicable_parameters</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">k</span> <span class="ow">in</span> <span class="n">parameters</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">applicable_paramers</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Parameters </span><span class="si">{</span><span class="n">applicable_paramers</span><span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2"> "</span>
+                <span class="s2">"missing from the arm."</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">applicable_paramers</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">_find_root</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Parameter</span><span class="p">:</span>
+        <span class="sd">"""Find the root of hierarchical search space: a parameter that does not depend</span>
+<span class="sd">        on other parameters.</span>
+<span class="sd">        """</span>
+        <span class="n">dependent_parameter_names</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">parameter</span><span class="o">.</span><span class="n">is_hierarchical</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">deps</span> <span class="ow">in</span> <span class="n">parameter</span><span class="o">.</span><span class="n">dependents</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                    <span class="n">dependent_parameter_names</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">param_name</span> <span class="k">for</span> <span class="n">param_name</span> <span class="ow">in</span> <span class="n">deps</span><span class="p">)</span>
+
+        <span class="n">root_parameters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_all_parameter_names</span> <span class="o">-</span> <span class="n">dependent_parameter_names</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">root_parameters</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">num_parameters</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span>
+            <span class="c1"># TODO: In the future, do not need to fail here; can add a "unifying" root</span>
+            <span class="c1"># fixed parameter, on which all independent parameters in the HSS can</span>
+            <span class="c1"># depend.</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">"Could not find the root parameter; found dependent parameters "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">dependent_parameter_names</span><span class="si">}</span><span class="s2">, with </span><span class="si">{</span><span class="n">num_parameters</span><span class="si">}</span><span class="s2"> total parameters."</span>
+                <span class="sa">f</span><span class="s2">" Root parameter candidates: </span><span class="si">{</span><span class="n">root_parameters</span><span class="si">}</span><span class="s2">. Having multiple "</span>
+                <span class="s2">"independent parameters is not yet supported."</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">root_parameters</span><span class="o">.</span><span class="n">pop</span><span class="p">()]</span>
+
+    <span class="k">def</span> <span class="nf">_validate_hierarchical_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Validate the structure of this hierarchical search space, ensuring that all</span>
+<span class="sd">        subtrees are independent (not sharing any parameters) and that all parameters</span>
+<span class="sd">        are reachable and part of the tree.</span>
+<span class="sd">        """</span>
+
+        <span class="k">def</span> <span class="nf">_check_subtree</span><span class="p">(</span><span class="n">root</span><span class="p">:</span> <span class="n">Parameter</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Verifying subtree with root </span><span class="si">{</span><span class="n">root</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+            <span class="n">visited</span> <span class="o">=</span> <span class="p">{</span><span class="n">root</span><span class="o">.</span><span class="n">name</span><span class="p">}</span>
+            <span class="c1"># Base case: validate leaf node.</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">root</span><span class="o">.</span><span class="n">is_hierarchical</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">visited</span>  <span class="c1"># TODO: Should there be other validation?</span>
+
+            <span class="c1"># Recursive case: validate each subtree.</span>
+            <span class="n">visited_in_subtrees</span> <span class="o">=</span> <span class="p">(</span>  <span class="c1"># Generator of sets of visited parameter names.</span>
+                <span class="n">_check_subtree</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="bp">self</span><span class="p">[</span><span class="n">param_name</span><span class="p">])</span>
+                <span class="k">for</span> <span class="n">deps</span> <span class="ow">in</span> <span class="n">root</span><span class="o">.</span><span class="n">dependents</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">param_name</span> <span class="ow">in</span> <span class="n">deps</span>
+            <span class="p">)</span>
+            <span class="c1"># Check that subtrees are disjoint and return names of visited params.</span>
+            <span class="n">visited</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                <span class="n">reduce</span><span class="p">(</span>
+                    <span class="k">lambda</span> <span class="n">set1</span><span class="p">,</span> <span class="n">set2</span><span class="p">:</span> <span class="n">_disjoint_union</span><span class="p">(</span><span class="n">set1</span><span class="o">=</span><span class="n">set1</span><span class="p">,</span> <span class="n">set2</span><span class="o">=</span><span class="n">set2</span><span class="p">),</span>
+                    <span class="n">visited_in_subtrees</span><span class="p">,</span>
+                    <span class="nb">next</span><span class="p">(</span><span class="n">visited_in_subtrees</span><span class="p">),</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Visited parameters </span><span class="si">{</span><span class="n">visited</span><span class="si">}</span><span class="s2"> in subtree."</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">visited</span>
+
+        <span class="c1"># Verify that all nodes have been reached.</span>
+        <span class="n">visited</span> <span class="o">=</span> <span class="n">_check_subtree</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_root</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_all_parameter_names</span> <span class="o">-</span> <span class="n">visited</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Parameters </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_all_parameter_names</span> <span class="o">-</span> <span class="n">visited</span><span class="si">}</span><span class="s2"> are not reachable "</span>
+                <span class="s2">"from the root. Please check that the hierachical search space provided"</span>
+                <span class="s2">" is represented as a valid tree with a single root."</span>
+            <span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Visited all parameters in the tree: </span><span class="si">{</span><span class="n">visited</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RobustSearchSpace"><a class="viewcode-back" href="../../../core.html#ax.RobustSearchSpace">[docs]</a><span class="k">class</span> <span class="nc">RobustSearchSpace</span><span class="p">(</span><span class="n">SearchSpace</span><span class="p">):</span>
+    <span class="sd">"""Search space for robust optimization that supports environmental variables</span>
+<span class="sd">    and input noise.</span>
+
+<span class="sd">    In addition to the usual search space properties, this allows specifying</span>
+<span class="sd">    environmental variables (parameters) and input noise distributions.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Parameter</span><span class="p">],</span>
+        <span class="n">parameter_distributions</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ParameterDistribution</span><span class="p">],</span>
+        <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">environmental_variables</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Parameter</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">parameter_constraints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">ParameterConstraint</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">"""Initialize the robust search space.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameters: List of parameter objects for the search space.</span>
+<span class="sd">            parameter_distributions: List of parameter distributions, each representing</span>
+<span class="sd">                the distribution of one or more parameters. These can be used to</span>
+<span class="sd">                specify the distribution of the environmental variables or the input</span>
+<span class="sd">                noise distribution on the parameters.</span>
+<span class="sd">            num_samples: Number of samples to draw from the `parameter_distributions`</span>
+<span class="sd">                for the MC approximation of the posterior risk measure. Must agree with</span>
+<span class="sd">                the `n_w` of the risk measure in `OptimizationConfig`.</span>
+<span class="sd">            environmental_variables: List of parameter objects, each denoting an</span>
+<span class="sd">                environmental variable. These must have associated parameter</span>
+<span class="sd">                distributions.</span>
+<span class="sd">            parameter_constraints: List of parameter constraints.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parameter_distributions</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                <span class="s2">"RobustSearchSpace requires at least one distributional parameter. "</span>
+                <span class="s2">"Use SearchSpace instead."</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">num_samples</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="nb">int</span><span class="p">(</span><span class="n">num_samples</span><span class="p">)</span> <span class="o">!=</span> <span class="n">num_samples</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span><span class="s2">"`num_samples` must be a positive integer!"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_samples</span> <span class="o">=</span> <span class="n">num_samples</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parameter_distributions</span> <span class="o">=</span> <span class="n">parameter_distributions</span>
+        <span class="c1"># Make sure that the env var names are unique.</span>
+        <span class="n">environmental_variables</span> <span class="o">=</span> <span class="n">environmental_variables</span> <span class="ow">or</span> <span class="p">[]</span>
+        <span class="n">all_env_vars</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">environmental_variables</span><span class="p">}</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_env_vars</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">environmental_variables</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span><span class="s2">"Environmental variable names must be unique!"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_environmental_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">environmental_variables</span>
+        <span class="p">}</span>
+        <span class="c1"># Make sure that the environmental variables and parameters are distinct.</span>
+        <span class="n">param_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">p_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_environmental_variables</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">p_name</span> <span class="ow">in</span> <span class="n">param_names</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Environmental variable </span><span class="si">{</span><span class="n">p_name</span><span class="si">}</span><span class="s2"> should not be repeated "</span>
+                    <span class="s2">"in parameters."</span>
+                <span class="p">)</span>
+        <span class="c1"># NOTE: We need `_environmental_variables` set before calling `__init__`.</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span><span class="p">,</span> <span class="n">parameter_constraints</span><span class="o">=</span><span class="n">parameter_constraints</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_distributions</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_validate_distributions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sa">r</span><span class="sd">"""Validate the parameter distributions.</span>
+
+<span class="sd">        * All distributional parameters must be range parameters.</span>
+<span class="sd">        * All environmental variables must have a non-multiplicative distribution.</span>
+<span class="sd">        * Either all or none of the perturbation distributions must be</span>
+<span class="sd">        multiplicative.</span>
+<span class="sd">        * Each parameter can have at most one distribution associated with it.</span>
+<span class="sd">        """</span>
+        <span class="n">distributions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_distributions</span>
+        <span class="c1"># Make sure that there is at most one distribution per parameter.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_distributional_parameters</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">dist</span> <span class="ow">in</span> <span class="n">distributions</span><span class="p">:</span>
+            <span class="n">duplicates</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_distributional_parameters</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">duplicates</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                    <span class="s2">"Received multiple parameter distributions for parameters "</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">duplicates</span><span class="si">}</span><span class="s2">. Make sure that there is at most one distribution "</span>
+                    <span class="s2">"specified for any given parameter / environmental variable."</span>
+                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_distributional_parameters</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span>
+
+        <span class="n">all_env_vars</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_environmental_variables</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">all_env_vars</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_distributional_parameters</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                <span class="s2">"All environmental variables must have a distribution specified."</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_environmental_distributions</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ParameterDistribution</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_perturbation_distributions</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ParameterDistribution</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_env_vars</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">all_env_vars</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_distributional_parameters</span><span class="p">:</span>
+                <span class="c1"># NOTE: We do not support mixing env var and input noise together</span>
+                <span class="c1"># in a single `ParameterDistribuion`.</span>
+                <span class="k">for</span> <span class="n">dist</span> <span class="ow">in</span> <span class="n">distributions</span><span class="p">:</span>
+                    <span class="n">is_env</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="ow">in</span> <span class="n">all_env_vars</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">dist</span><span class="o">.</span><span class="n">parameters</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">is_env</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="n">is_env</span><span class="p">):</span>
+                        <span class="k">raise</span> <span class="n">UnsupportedError</span><span class="p">(</span>
+                            <span class="s2">"A `ParameterDistribution` must represent either the "</span>
+                            <span class="s2">"distribution of a set of environmental variables or "</span>
+                            <span class="s2">"a set of parameter perturbations. Mixing the distribution "</span>
+                            <span class="s2">"of both types in a single `ParameterDistribution` is "</span>
+                            <span class="sa">f</span><span class="s2">"not supported. Offending distribution: </span><span class="si">{</span><span class="n">dist</span><span class="si">}</span><span class="s2">."</span>
+                        <span class="p">)</span>
+                    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">is_env</span><span class="p">):</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_environmental_distributions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dist</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_perturbation_distributions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dist</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_environmental_distributions</span> <span class="o">=</span> <span class="n">distributions</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">multiplicative</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_environmental_distributions</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                    <span class="s2">"Distributions of environmental variables must have "</span>
+                    <span class="s2">"`multiplicative=False`."</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_perturbation_distributions</span> <span class="o">=</span> <span class="n">distributions</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">p</span><span class="p">],</span> <span class="n">RangeParameter</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_distributional_parameters</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                <span class="s2">"All parameters with an associated distribution must be "</span>
+                <span class="s2">"range parameters."</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Make sure that all or none of perturbation distributions are multiplicative.</span>
+        <span class="n">mul_flags</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span><span class="o">.</span><span class="n">multiplicative</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_perturbation_distributions</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">all</span><span class="p">(</span><span class="n">mul_flags</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">mul_flags</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="n">UnsupportedError</span><span class="p">(</span>
+                <span class="s2">"Non-environmental parameter distributions must be either all "</span>
+                <span class="s2">"multiplicative or all additive (not multiplicative)."</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">multiplicative</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">mul_flags</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RobustSearchSpace.is_environmental_variable"><a class="viewcode-back" href="../../../core.html#ax.RobustSearchSpace.is_environmental_variable">[docs]</a>    <span class="k">def</span> <span class="nf">is_environmental_variable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sa">r</span><span class="sd">"""Check if a given parameter is an environmental variable.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameter: A string denoting the name of the parameter.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A boolean denoting whether the given `parameter_name` corresponds</span>
+<span class="sd">            to an environmental variable of this search space.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">parameter_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_environmental_variables</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]:</span>
+        <span class="sd">"""Get all parameters and environmental variables.</span>
+
+<span class="sd">        We include environmental variables here to support `transform_search_space`</span>
+<span class="sd">        and other similar functionality. It also helps avoid having to overwrite a</span>
+<span class="sd">        bunch of parent methods.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="p">{</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_environmental_variables</span><span class="p">}</span>
+
+<div class="viewcode-block" id="RobustSearchSpace.update_parameter"><a class="viewcode-back" href="../../../core.html#ax.RobustSearchSpace.update_parameter">[docs]</a>    <span class="k">def</span> <span class="nf">update_parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter</span><span class="p">:</span> <span class="n">Parameter</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">UnsupportedError</span><span class="p">(</span><span class="s2">"RobustSearchSpace does not support `update_parameter`."</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RobustSearchSpace.clone"><a class="viewcode-back" href="../../../core.html#ax.RobustSearchSpace.clone">[docs]</a>    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RobustSearchSpace</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="o">.</span><span class="n">values</span><span class="p">()],</span>
+            <span class="n">parameter_distributions</span><span class="o">=</span><span class="p">[</span><span class="n">d</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_distributions</span><span class="p">],</span>
+            <span class="n">num_samples</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_samples</span><span class="p">,</span>
+            <span class="n">environmental_variables</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">p</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_environmental_variables</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+            <span class="p">],</span>
+            <span class="n">parameter_constraints</span><span class="o">=</span><span class="p">[</span><span class="n">pc</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span> <span class="k">for</span> <span class="n">pc</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameter_constraints</span><span class="p">],</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">("</span>
+            <span class="s2">"parameters="</span> <span class="o">+</span> <span class="nb">repr</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span> <span class="o">+</span> <span class="s2">", "</span>
+            <span class="s2">"parameter_distributions="</span> <span class="o">+</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_distributions</span><span class="p">)</span> <span class="o">+</span> <span class="s2">", "</span>
+            <span class="s2">"num_samples="</span> <span class="o">+</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_samples</span><span class="p">)</span> <span class="o">+</span> <span class="s2">", "</span>
+            <span class="s2">"environmental_variables="</span>
+            <span class="o">+</span> <span class="nb">repr</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_environmental_variables</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+            <span class="o">+</span> <span class="s2">", "</span>
+            <span class="s2">"parameter_constraints="</span> <span class="o">+</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameter_constraints</span><span class="p">)</span> <span class="o">+</span> <span class="s2">")"</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SearchSpaceDigest"><a class="viewcode-back" href="../../../core.html#ax.SearchSpaceDigest">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">SearchSpaceDigest</span><span class="p">:</span>
+    <span class="sd">"""Container for lightweight representation of search space properties.</span>
+
+<span class="sd">    This is used for communicating between modelbridge and models. This is</span>
+<span class="sd">    an ephemeral object and not meant to be stored / serialized.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        feature_names: A list of parameter names.</span>
+<span class="sd">        bounds: A list [(l_0, u_0), ..., (l_d, u_d)] of tuples representing the</span>
+<span class="sd">            lower and upper bounds on the respective parameter (both inclusive).</span>
+<span class="sd">        ordinal_features: A list of indices corresponding to the parameters</span>
+<span class="sd">            to be considered as ordinal discrete parameters. The corresponding</span>
+<span class="sd">            bounds are assumed to be integers, and parameter `i` is assumed</span>
+<span class="sd">            to take on values `l_i, l_i+1, ..., u_i`.</span>
+<span class="sd">        categorical_features: A list of indices corresponding to the parameters</span>
+<span class="sd">            to be considered as categorical discrete parameters. The corresponding</span>
+<span class="sd">            bounds are assumed to be integers, and parameter `i` is assumed</span>
+<span class="sd">            to take on values `l_i, l_i+1, ..., u_i`.</span>
+<span class="sd">        discrete_choices: A dictionary mapping indices of discrete (ordinal</span>
+<span class="sd">            or categorical) parameters to their respective sets of values</span>
+<span class="sd">            provided as a list.</span>
+<span class="sd">        task_features: A list of parameter indices to be considered as</span>
+<span class="sd">            task parameters.</span>
+<span class="sd">        fidelity_features: A list of parameter indices to be considered as</span>
+<span class="sd">            fidelity parameters.</span>
+<span class="sd">        target_fidelities: A dictionary mapping parameter indices (of fidelity</span>
+<span class="sd">            parameters) to their respective target fidelity value. Only used</span>
+<span class="sd">            when generating candidates.</span>
+<span class="sd">        robust_digest: An optional `RobustSearchSpaceDigest` that carries the</span>
+<span class="sd">            additional attributes if using a `RobustSearchSpace`.</span>
+<span class="sd">    """</span>
+
+    <span class="n">feature_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="n">bounds</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span>
+    <span class="n">ordinal_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">categorical_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">discrete_choices</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">task_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">fidelity_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">target_fidelities</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">robust_digest</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">RobustSearchSpaceDigest</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="RobustSearchSpaceDigest"><a class="viewcode-back" href="../../../core.html#ax.RobustSearchSpaceDigest">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">RobustSearchSpaceDigest</span><span class="p">:</span>
+    <span class="sd">"""Container for lightweight representation of properties that are unique</span>
+<span class="sd">    to the `RobustSearchSpace`. This is used to append the `SearchSpaceDigest`.</span>
+
+<span class="sd">    NOTE: Both `sample_param_perturbations` and `sample_environmental` should</span>
+<span class="sd">    require no inputs and return a `num_samples x d`-dim array of samples from</span>
+<span class="sd">    the corresponding parameter distributions, where `d` is the number of</span>
+<span class="sd">    non-environmental parameters for `distribution_sampler` and the number of</span>
+<span class="sd">    environmental variables for `environmental_sampler`.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        sample_param_perturbations: An optional callable for sampling from the</span>
+<span class="sd">            parameter distributions representing input perturbations.</span>
+<span class="sd">        sample_environmental: An optional callable for sampling from the</span>
+<span class="sd">            distributions of the environmental variables.</span>
+<span class="sd">        environmental_variables: A list of environmental variable names.</span>
+<span class="sd">        multiplicative: Denotes whether the distribution is multiplicative.</span>
+<span class="sd">            Only relevant if paired with a `distribution_sampler`.</span>
+<span class="sd">    """</span>
+
+    <span class="n">sample_param_perturbations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">sample_environmental</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">environmental_variables</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">multiplicative</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sample_param_perturbations</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_environmental</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+                <span class="s2">"`RobustSearchSpaceDigest` must be initialized with at least one of "</span>
+                <span class="s2">"`distribution_sampler` and `environmental_sampler`."</span>
+            <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_disjoint_union</span><span class="p">(</span><span class="n">set1</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">set2</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">set1</span><span class="o">.</span><span class="n">isdisjoint</span><span class="p">(</span><span class="n">set2</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">UserInputError</span><span class="p">(</span>
+            <span class="s2">"Two subtrees in the search space contain the same parameters: "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">set1</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">set2</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+        <span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Subtrees </span><span class="si">{</span><span class="n">set1</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">set2</span><span class="si">}</span><span class="s2"> are disjoint."</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">set1</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">set2</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div aria-label="main navigation" class="sphinxsidebar" role="navigation">
+<div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Ax</a></h1>
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ax.html">ax</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchmark.html">ax.benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">ax.core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../exceptions.html">ax.exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../metrics.html">ax.metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modelbridge.html">ax.modelbridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">ax.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plot.html">ax.plot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../runners.html">ax.runners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../service.html">ax.service</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../storage.html">ax.storage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">ax.utils</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+<li><a href="../../../index.html">Documentation overview</a><ul>
+<li><a href="../../index.html">Module code</a><ul>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="searchbox" role="search" style="display: none">
+<h3 id="searchlabel">Quick search</h3>
+<div class="searchformwrapper">
+<form action="../../../search.html" class="search" method="get">
+<input aria-labelledby="searchlabel" autocapitalize="off" autocomplete="off" autocorrect="off" name="q" spellcheck="false" type="text"/>
+<input type="submit" value="Go"/>
+</form>
+</div>
+</div>
+<script>$('#searchbox').show(0);</script>
+</div>
+</div>
+<div class="clearer"></div>
+</div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footerSection"><h5>Legal</h5><a href="https://opensource.facebook.com/legal/privacy/" target="_blank" rel="noreferrer noopener">Privacy</a><a href="https://opensource.facebook.com/legal/terms/" target="_blank" rel="noreferrer noopener">Terms</a></div></section><a href="https://code.facebook.com/projects/" target="_blank" rel="noreferrer noopener" class="fbOpenSource"><img src="/versions/0.2.6/img/oss_logo.png" alt="Facebook Open Source" width="170" height="45"/></a><section class="copyright">Copyright © 2022 Meta Platforms, Inc.</section></footer></div></body></html>
