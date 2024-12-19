@@ -93,7 +93,7 @@ class MapKeyToFloatTransformTest(TestCase):
                     "parameters": {MapKeyToFloat.DEFAULT_MAP_KEY: {"log_scale": False}}
                 },
             )
-            self.assertDictEqual(t.parameters, {"steps": {"log_scale": False}})
+            self.assertDictEqual(t.parameters, {"step": {"log_scale": False}})
 
             self.assertEqual(len(t._parameter_list), 1)
 
