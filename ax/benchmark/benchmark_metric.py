@@ -198,7 +198,7 @@ class BenchmarkMetricBase(Metric):
             available_data = df[df["virtual runtime"] <= max_t]
 
         if not self.observe_noise_sd:
-            available_data["sem"] = None
+            available_data.loc[:, "sem"] = None
         return self._df_to_result(df=available_data.drop(columns=["virtual runtime"]))
 
     @abstractmethod

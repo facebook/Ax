@@ -20,7 +20,7 @@ class BenchmarkTrialMetadata:
 
     Args:
         df: A dict mapping each metric name to a Pandas DataFrame with columns
-            ["metric_name", "arm_name", "mean", "sem", and "t"]. The "sem" is
+            ["metric_name", "arm_name", "mean", "sem", and "step"]. The "sem" is
             always present in this df even if noise levels are unobserved;
             ``BenchmarkMetric`` and ``BenchmarkMapMetric`` hide that data if it
             should not be observed, and ``BenchmarkMapMetric``s drop data from
