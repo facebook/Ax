@@ -37,6 +37,7 @@ class InputTransformArgparseTest(TestCase):
         super().setUp()
         X = torch.randn((10, 4))
         Y = torch.randn((10, 2))
+
         self.dataset = SupervisedDataset(
             X=X,
             Y=Y,
@@ -111,6 +112,7 @@ class InputTransformArgparseTest(TestCase):
             )
         )
         self.assertEqual(input_transform_kwargs["d"], 4)
+        self.assertEqual(input_transform_kwargs["indices"], [0, 1, 2])
 
         input_transform_kwargs = input_transform_argparse(
             Normalize,
@@ -125,6 +127,7 @@ class InputTransformArgparseTest(TestCase):
         )
 
         self.assertEqual(input_transform_kwargs["d"], 4)
+        self.assertEqual(input_transform_kwargs["indices"], [0, 1, 2])
 
         self.assertTrue(
             torch.all(
@@ -159,6 +162,19 @@ class InputTransformArgparseTest(TestCase):
         )
         self.assertEqual(input_transform_kwargs["d"], 4)
         self.assertEqual(input_transform_kwargs["indices"], [0, 1, 2])
+
+        input_transform_kwargs = input_transform_argparse(
+            Normalize,
+            dataset=self.dataset,
+            search_space_digest=self.search_space_digest,
+            input_transform_options={
+                "bounds": None,
+            },
+        )
+
+        self.assertEqual(input_transform_kwargs["d"], 4)
+        self.assertEqual(input_transform_kwargs["indices"], [0, 1, 2])
+        self.assertTrue(input_transform_kwargs["bounds"] is None)
 
     def test_argparse_warp(self) -> None:
         self.search_space_digest.task_features = [0, 3]
